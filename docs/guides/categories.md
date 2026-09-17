@@ -46,13 +46,15 @@ You can also remove multiple series from a category by selecting them when you s
 
 ## Categories that span manga and novels
 
-**Reikai** keeps one category list covering both libraries, and every category says which of them it applies to. When you create one from <nav to="categories">, you choose between:
+**Reikai** keeps one category list covering both libraries, and every category says which of them it applies to, on a line under its name. When you create one from <nav to="categories">, **Show in** offers:
 
 | Option | Where it appears |
 |---|---|
-| **Manga and novels** | Both libraries. A shared "Reading" holds manga and novels together. *(Default.)* |
+| **Manga and novels** | Both libraries. A shared "Reading" holds manga and novels together. |
 | **Manga only** | The manga library only. |
 | **Novels only** | The novels library only. |
+
+The **All** / **Manga** / **Novels** chips at the top narrow the list to the categories one library shows, so **Manga** lists the manga and shared categories. **Show in** starts on the chip you are viewing: **Manga and novels** under **All**.
 
 The choice is made when the category is created and cannot be changed afterwards; renaming a category leaves its type alone. To move entries to a differently-typed category, create the new one and reassign them.
 
@@ -62,13 +64,17 @@ A category that spans both libraries is a single category, not a copy in each, s
 
 Open the display settings sheet in <nav to="main_library"> with the <icon name="filter"> icon, go to the **Display** tab, and set **Category sort order** under **Categories**.
 
-By default, categories appear in the order you arranged them, which you set by dragging them in the category manager. This setting lets you override that with a static sort:
+By default, categories appear in the order you arranged them in the category manager. This setting lets you override that with a static sort:
 
 | Option | Behavior |
 |---|---|
 | **Off** | Manual order, dragged in the category manager. *(Default.)* |
 | **A to Z** | Ascending alphabetical. |
 | **Z to A** | Descending alphabetical. |
+
+::: tip Arranging the manual order
+Drag a category by its handle, or open its <nav to="overflow"> menu and pick **Move to top** or **Move to bottom**, which is quicker on a long list. Dragging only works under the **All** chip, while the menu works under any of them. With a sort set, or while selecting, neither is offered.
+:::
 
 Switching to A to Z or Z to A doesn't destroy your manual order; flipping back to **Off** restores it. The sort applies everywhere categories are listed: the library tab strip, the **Set categories** sheet, and the categories screen.
 
@@ -77,8 +83,9 @@ Switching to A to Z or Z to A doesn't destroy your manual order; flipping back t
 Long-press any category in <nav to="categories"> to enter multi-select mode. Once in multi-select:
 
 - Tap any other category to add it to the selection, or remove it.
-- The toolbar shows how many categories you have selected.
+- Long-press another category to select every category between it and the last one you touched. Long-pressing a selected category removes it instead.
+- The toolbar shows how many categories you have selected, with **Select all** and **Select inverse** beside it.
 - Tap the delete (trash) icon to delete all of them at once, after one confirmation.
 - An undo snackbar appears at the bottom afterwards: tap **Undo** to restore the deleted categories, with the entry assignments they had.
 
-This avoids deleting one at a time when cleaning up a long list. Since the category manager is one list, a selection can mix manga, novel and shared categories.
+This avoids deleting one at a time when cleaning up a long list. **Select all** and **Select inverse** act on the categories the current chip shows, and under **All** a selection can mix manga, novel and shared categories.

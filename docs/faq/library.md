@@ -27,7 +27,8 @@ If an entry has infrequent updates or no updates:
 :::
 
 Light novels are skipped on the first three criteria too, but never the fourth: novel sources
-publish no release schedule, so there is nothing to predict from.
+publish no release schedule, so there is nothing to predict from. A novel with no chapter read
+counts as not started even before it has any chapters.
 
 For more information, check out the [Smart Updates](/docs/faq/updates/smart) and [Upcoming Calendar](/docs/faq/updates/upcoming) pages.
 

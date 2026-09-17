@@ -21,7 +21,7 @@ If the first scan finds nothing, the app drops an empty **`.noxml`** marker in t
 :::
 
 ::: warning A `.json` details file is the old format
-It still works, but only once. The app reads it, converts it to `ComicInfo.xml`, and **deletes the JSON**, so do not be surprised when your file disappears. Write `ComicInfo.xml` directly for anything new.
+It still works, but only once. Any file ending in `.json` in the series folder is read as one, so do not keep other JSON files there. The app reads it, converts it to `ComicInfo.xml`, and **deletes the JSON**, so do not be surprised when your file disappears. Write `ComicInfo.xml` directly for anything new.
 :::
 
 The old format, for reference:

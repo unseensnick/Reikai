@@ -8,12 +8,14 @@ description: Frequently Asked Question about Downloads.
 Frequently Asked Question about Downloads.
 
 ## How do I download multiple chapters or series at the same time?
-Two settings in <nav to="downloads"> control this, and both start conservative on purpose: hammering a source is how you get your IP banned from it.
+Two settings in <nav to="downloads"> control this for manga, and both start conservative on purpose: hammering a source is how you get your IP banned from it.
 
 * **Concurrent source downloads** is how many sources are worked at once, five by default.
 * **Concurrent page downloads** is how many pages are pulled at once from each of them.
 
 Raise the second one only for a source you know tolerates it. A source that starts returning errors or blank pages under load is telling you to put it back.
+
+Light novels ignore both settings: their queue downloads one chapter at a time.
 
 ## Why did my downloads stop midway?
 Downloads stopping midway may be related to network connection issues or source problems.
@@ -25,7 +27,7 @@ Downloads might not be detected due to multiple factors:
 * Inaccessibility of the download location.
   > Ensure the SD card is properly detected if in use.
 * Source name changes.
-  > Rename the source's folder to match the new name.
+  > Rename the source's folder to match the new name. Light novel folders use the plugin id, so a renamed novel source needs nothing.
 * Series title modified by the source.
   > Adjust the folder title to the updated name.
 
@@ -49,9 +51,9 @@ A quick solution is to create the `.nomedia` file yourself, name it as such, and
 
 ## How are downloads organized on the filesystem?
 They are stored as `downloads/Source Name/Manga Name/Chapter Name_abcdef.cbz`, where the six characters after the underscore are a hash of the chapter's address.
-Light novels use a folder of their own, `novel_downloads/Source Name/Novel Name/`, with each chapter saved as an `.html` file. Everything below applies to both.
+Light novels use a folder of their own, `novel_downloads/Plugin id/Novel Name/`, with each chapter saved as `Chapter Name_abcdef.html`. The folder is named after the novel plugin's id, not its display name.
 The `abcdef` string is the first 6 hexadecimal digits of the MD5 hash of the URL of the chapter, so that if two chapters have the same name, they won't try to write to the same filename.
-In the case of a scanlator, it is `Scanlator Name_Chapter Name` instead of just `Chapter Name`.
+For a manga chapter with a scanlator, it is `Scanlator Name_Chapter Name` instead of just `Chapter Name`. Novel chapters never carry a scanlator prefix.
 
 Because of the prevalence of operating systems like Windows which have arbitrary limitations on special characters in filenames, by default Reikai will avoid using certain characters in filenames, specifically: `"*:<>?\|`.
 Of course, `/` is also banned.

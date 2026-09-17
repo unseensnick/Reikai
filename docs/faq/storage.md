@@ -28,7 +28,7 @@ The following illustrates the folder structure:
       <ul>
         <li>
           <img src="/docs/img/reikai-64px.png" alt="File" class="tree-icon icon-reikai">
-          <span class="file jpg">eu.kanade.tachiyomi.y2k_yyyy-mm-dd_hh-mm<span class="file-extension">.tachibk</span></span>
+          <span class="file jpg">app.reikai_yyyy-mm-dd_hh-mm<span class="file-extension">.tachibk</span></span>
         </li>
         <li>
           <img src="/docs/img/reikai-64px.png" alt="File" class="tree-icon icon-reikai">
@@ -106,7 +106,7 @@ The following illustrates the folder structure:
 </div>
 :::
 
-A fourth folder, **`novel_downloads`**, is created beside these along with the others. It follows the same shape, `novel_downloads/Source name/Novel title/`, with each chapter saved as an `.html` file rather than an archive of images.
+A fourth folder, **`novel_downloads`**, is created beside these along with the others. It follows a similar shape, `novel_downloads/Plugin id/Novel title/`, with each chapter saved as an `.html` file rather than an archive of images. The source folder is named after the plugin's id rather than its display name.
 
 Backup file name prefixes are unique for the app to avoid potential collisions between forks.
 

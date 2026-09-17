@@ -48,7 +48,7 @@ Either way, you have two fixes:
   menu, Edit info, and add "Webtoon" or "Long strip". Those two outrank a "Comic" tag, so
   they are the safe pair to add; a "Manga" tag has to be removed either way, since nothing
   outranks it. Reikai reads your edited tags, so it picks up webtoon mode the next time you
-  open the series. The edit never touches the source, so Reset undoes it cleanly.
+  open the series. The edit never touches the source, so **Reset tags** undoes it cleanly.
 - **Or skip tags entirely** and set the mode once from the reader's reading-mode button.
   It sticks, and it beats everything above. The button is an icon rather than a label, and
-  the panel it opens lists the real modes only, with **Revert to default** below them.
+  the panel it opens lists the real modes only. Once a series has a mode of its own, **Revert to default** appears below them.

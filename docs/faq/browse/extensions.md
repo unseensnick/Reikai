@@ -45,4 +45,4 @@ Uninstall extensions like regular apps: through device settings or in **Reikai**
 In **Reikai**, uninstall an extension via <nav to="extensions">, then tap **Uninstall** on the chosen extension.
 :::
 
-Two things behave differently. Light novel plugins only exist inside the app, so <nav to="extensions"> is the only place to remove one. And if you set the installer to **Private** (see the [settings FAQ](/docs/faq/settings#what-are-the-different-installers)), manga extensions live inside the app too, so they will not appear in your device's app list either.
+Two things behave differently. Light novel plugins only exist inside the app, so <nav to="extensions"> is the only place to remove one. And on a build that offers the **Private** installer, if you set it (see the [settings FAQ](/docs/faq/settings#what-are-the-different-installers)), manga extensions live inside the app too, so they will not appear in your device's app list either.

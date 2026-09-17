@@ -169,7 +169,7 @@ Skips over chapters detected as duplicates, which a merged novel produces when t
 ### Mark chapter read when skipping ahead <Badge type="info" text="Off" />
 When you jump to the next chapter, marks the one you skipped as read.
 
-### Auto-scroll
+### Auto-scroll <Badge type="info" text="Off" />
 Scrolls the text on its own at a speed you set, so you can read without touching the screen.
 
 ### Bottom bar buttons
@@ -262,7 +262,7 @@ Rotates those pages the other way round. Only useful once **Rotate wide pages to
 ### Zoom start position <Badge type="info" text="Automatic" />
 
 ::: tabs
-== Auto
+== Automatic
 <img src="/docs/guides/reader-settings/zoom-start-position_center.webp" alt="Center (TBA Default Image)" width="512" height="788" loading="lazy" decoding="async" />
 == Left
 <img src="/docs/guides/reader-settings/zoom-start-position_left.webp" alt="Left" width="512" height="788" loading="lazy" decoding="async" />
@@ -318,7 +318,7 @@ Inverts what the volume keys do.
 How much of the screen one press moves. On manga this applies to the long strip modes only, since a paged reader turns a whole page either way.
 
 ### Use vertical chapter navigator in <Badge type="info" text="None" />
-Shows a vertical progress slider instead of the horizontal one, in the reading modes you pick. Nothing is picked on a fresh install, so the two settings below it stay unavailable until you choose a mode here. Upgrading from an older version starts you on the long strip modes instead.
+Shows a vertical progress slider instead of the horizontal one, in the reading modes you pick. Nothing is picked on a fresh install, so the two settings below it stay hidden until you choose a mode here. Upgrading from an older version starts you on the long strip modes instead.
 
 ### Place vertical navigator on the left side <Badge type="info" text="Off" />
 Moves that slider to the left edge, for left-handed reading.

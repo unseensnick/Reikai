@@ -32,7 +32,7 @@ External repositories add additional sources to **Reikai**:
 
 Light novel repos are added on the same screen, in their own section further down. **Reikai** reads
 [LNReader](https://github.com/LNReader/lnreader)-style plugins rather than manga extensions, so novel
-sources come from their own repos, and the store list shows both counts. A novel repo URL points at a
+sources come from their own repos, and the **Extension stores** entry shows both counts. A novel repo URL points at a
 `plugins.min.json` registry instead, and nothing checks it as you type, so a wrong address is accepted
 and simply lists no plugins.
 

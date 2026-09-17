@@ -18,6 +18,7 @@ After that many days, the app will allow that series to check for updates.
 
 ::: info Light novels get the first three conditions, not the fourth
 Novel sources publish no release schedule, so there is nothing to predict from and nothing to
-count down. A novel is skipped for progress, status and unread chapters exactly as a manga is,
-then checked every time.
+count down. A novel is skipped for status and unread chapters as a manga is. For progress, a
+novel with no chapter read counts as not started even when it has no chapters yet, so it is
+skipped until you read one. Otherwise it is checked every time.
 :::

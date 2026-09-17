@@ -50,18 +50,19 @@ One backup covers both libraries: everything below applies to manga and light no
 - **History** - Read history for saved entries
 - **Categories**
 - **Custom entry info** - The title, author, cover and tags you edited yourself, kept apart from the source's own values
-- **All read entries** - Keeps unsaved entry data (not included in automatic backups)
+- **All read entries** - Keeps data for entries you read but did not save
 
 The sources you grouped together under one entry are saved as source-and-address references, so they rebuild correctly even onto a fresh install. They ride along with **Library entries** and have no checkbox of their own.
 
 #### Settings data
 - **App settings**
-- **Extension stores**
+- **Extension stores** - Your extension repos, plus the list of installed manga extensions
 - **Source settings**
+- **Feed and saved searches** - The searches you saved on a source, and the Browse feed built on them
 - **Include sensitive settings** - Tracker login tokens (not included by default)
 
 ### What is not included in a backup?
-- **Extensions**
+- **Extension files**. Only the list of installed manga extensions is saved
 - **Downloaded chapter files** including [local source](/docs/guides/local-source/) chapters
 - **Custom covers** applied to entries
 - **Cached cover images**, which are re-downloaded on demand
@@ -78,15 +79,16 @@ Restore a compatible backup file in <nav to="data-and-storage">.
 To ensure a smooth restoration process, remember to:
 
 1. Log into the [Tracking services](/docs/guides/tracking) you previously used.
-1. Download any extensions you've used in your backup.
+1. Install any extensions the restore could not reinstall. Manga extensions come back on their own when their repo is in the backup or already added; the others are named in the restore log.
 
-The app will list any missing trackers and/or extensions in the Restore screen.
+The Restore screen lists any missing sources and any trackers you are not logged into.
 :::
 
-Manga extensions are recorded rather than bundled, so until you install a matching one the entry
-reappears in your library but cannot fetch chapters. **Novel plugins come back on their own**, but not
-during the restore: their addresses ride along in **App settings**, and the app re-downloads them the
-next time you open a novel screen. Leave **App settings** included, or they will not return.
+A manga extension whose repo cannot be found is not reinstalled, so its entries reappear in your
+library but cannot fetch chapters until you install it. Novel plugins are not reinstalled during the
+restore: their addresses and your novel repos ride along in **App settings**, and the next time you
+open a novel screen the app re-downloads each plugin that one of your added repos still lists. Leave
+**App settings** included, or they will not return.
 
 ### Transferring downloads to a new installation
 During the setup or after restoring a backup to **Reikai**:

@@ -16,8 +16,8 @@ WebView stays the primary solver: most challenges never reach the proxy.
 
 ::: tip Try the in-app solver first
 A challenge that shows a **Verify you are human** box can often be cleared without a proxy at all.
-Turn on **Settings -> Advanced -> Solve interactive Cloudflare challenges**, which ticks the box for
-you while the app is open. It is experimental and off by default.
+Turn on **Solve interactive Cloudflare challenges** in <nav to="advanced">, which ticks the box for you. It is off by default.
+With it on, **Solve with the app closed** lets library updates get past a challenge too.
 :::
 
 ::: info Light novels too
@@ -119,7 +119,6 @@ The fast rows need sessions, so they apply to Solverr and FlareSolverr.
 **A connection error, or `FlareSolverr returned HTTP 5xx`.**
 The proxy is unreachable or has crashed.
 Check it is running, the URL is right, and your device can reach it.
-The app then falls back to the same "failed to bypass Cloudflare" error you would have seen without it.
 
 **`FlareSolverr error: Captcha detected.`**
 The proxy hit a CAPTCHA it cannot solve.
