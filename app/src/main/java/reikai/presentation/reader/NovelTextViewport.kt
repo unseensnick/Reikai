@@ -157,8 +157,7 @@ class NovelTextViewport(
 
         /**
          * The line holding counted character [line] of the chapter (`shownCharCount`), put at the top: what a
-         * rebuilt renderer is handed, where the chunking and the width may both have changed. Waits for the
-         * chapter's images like a share, since they move the line.
+         * rebuilt renderer is handed, where the chunking and the width may both have changed.
          */
         data class Text(val line: Int) : Landing
     }
@@ -690,33 +689,35 @@ class NovelTextViewport(
      *  layout has not caught up with, since a position then still names the item it used to. */
     private fun canMeasureForCorrection() = !correctionPending && !recycler.hasPendingAdapterUpdates()
 
-    /**
-     * Scrolls by what [shift] measures once the change has laid out, before that layout is drawn, as the
-     * page's `place` corrects from a resize observer. Posted, it ran after the frame, which drew the reader
-     * moved for as long as that frame took. A detached list draws nothing to correct before, and would
-     * never reach a draw to run in.
-     */
+    /** Scrolls by what [shift] measures once the change has laid out, before that layout is drawn. */
     private fun postCorrection(shift: () -> Int) {
         correctionPending = true
-        val correct = {
+        beforeNextDraw {
             correctionPending = false
             val by = shift()
             if (by != 0) recycler.scrollBy(0, by)
         }
+    }
+
+    /**
+     * Runs [action] after the next layout and before it is drawn, as the page's `place` corrects from a resize
+     * observer. Posted, a move ran after the frame, which drew the reader somewhere else for as long as that
+     * frame took. A detached list draws nothing to move before, and would never reach a draw to run in.
+     */
+    private fun beforeNextDraw(action: () -> Unit) {
         if (!recycler.isAttachedToWindow) {
-            recycler.post(correct)
+            recycler.post(action)
             return
         }
         recycler.viewTreeObserver.addOnPreDrawListener(
             object : ViewTreeObserver.OnPreDrawListener {
                 override fun onPreDraw(): Boolean {
                     recycler.viewTreeObserver.removeOnPreDrawListener(this)
-                    correct()
+                    action()
                     return true
                 }
             },
         )
-        // A change that moves text without invalidating anything would otherwise wait for an unrelated frame.
         recycler.invalidate()
     }
 
@@ -1143,9 +1144,10 @@ class NovelTextViewport(
         // move them. Every chapter is landed, not only this one: a line near a chapter's end waits for
         // the chapter below it to join.
         if (slots.none { it.landing != null }) return
-        // Posted so the freshly set text has been measured; before that the chapter has no height. Read
-        // then rather than now, so a seek that lands in between is the one applied.
-        recycler.post { joined().forEach(::land) }
+        // Once the freshly set text is measured, since before that the chapter has no height, and before that
+        // layout is drawn, which showed the chapter's start for a frame. Read then rather than now, so a seek
+        // that lands in between is the one applied.
+        beforeNextDraw { joined().forEach(::land) }
     }
 
     /**
@@ -1173,8 +1175,9 @@ class NovelTextViewport(
                 if (scrolled == before) report(onProgressChanged)
             }
             is Landing.Text -> {
-                // Held for the images and a layout, as a share is.
-                if (slot.block.imagesLoading || boundsOf(slot) == null) return
+                // Held for a layout but not for the images: once landed, one arriving above the line is
+                // growth the line is held across, where waiting left the chapter's start on screen meanwhile.
+                if (boundsOf(slot) == null) return
                 slot.landing = null
                 val before = scrolled
                 val top = textLineOf(slot, landing.line)?.let { (view, offset) -> lineTopOf(view, offset) }

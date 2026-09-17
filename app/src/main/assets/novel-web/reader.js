@@ -1424,7 +1424,12 @@
     var initial = __INITIAL_FRACTION__;
     // The line the reader had at the top, which a rebuilt page lands on in place of the fraction.
     var initialLine = __INITIAL_LINE__;
-    if ((initial > 0 || initialLine >= 0) && boundaries.length > 0 && !readerMoved) {
+    // A line needs no pictures: place holds it as they land above it. Only a fraction waits for them.
+    if (initialLine >= 0 && boundaries.length > 0 && !readerMoved && topLine.seek(boundaries[0].el, initialLine)) {
+      reportReady();
+      return;
+    }
+    if (initial > 0 && boundaries.length > 0 && !readerMoved) {
       // The saved fraction is of the chapter's height with its images in it, and reader.css gives
       // every image `height: auto`, so before they land the chapter measures short by the whole
       // image block and the seek drops the reader past unread text. Anchoring then holds them
@@ -1434,9 +1439,7 @@
         if (!seekWaiting) return;
         seekWaiting = false;
         rebuildBoundaries();
-        if (initialLine < 0 || !topLine.seek(boundaries[0].el, initialLine)) {
-          window.rkReader.seekWithin(boundaries[0].id, initial);
-        }
+        window.rkReader.seekWithin(boundaries[0].id, initial);
         reportReady();
       });
       return;

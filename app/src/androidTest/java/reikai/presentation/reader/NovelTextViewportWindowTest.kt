@@ -26,6 +26,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.text.NovelChapterSeamView
+import reikai.presentation.reader.text.PngServer
+import reikai.presentation.reader.text.pngOf
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -40,6 +42,10 @@ class NovelTextViewportWindowTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>
     private lateinit var viewport: NovelTextViewport
+
+    /** The line at the top of the screen, as the viewport last reported it. */
+    @Volatile
+    private var topLine: Int? = null
 
     /** The last fit answer per chapter, which is also the sign that a chapter has rendered. */
     private val fits = ConcurrentHashMap<Long, Boolean>()
@@ -59,6 +65,13 @@ class NovelTextViewportWindowTest {
 
         /** Long enough for a settings redraw to rebuild a window of long chapters on an emulator. */
         const val REDRAW_WAIT_S = 4L
+
+        /** A picture tall enough to move the text below it, and how long it is held back. */
+        const val SLOW_PICTURE_PX = 400
+        const val SLOW_PICTURE_MS = 3_000L
+
+        /** Long enough after the slow picture for it to decode and lay out on an emulator. */
+        const val PICTURE_SETTLE_MS = 2_000L
     }
 
     @Before
@@ -72,7 +85,7 @@ class NovelTextViewportWindowTest {
                 volumeKeysActive = { false },
                 onProgressChanged = { _, _ -> },
                 onProgressSettled = { _, _ -> },
-                onTopLine = { _, _ -> },
+                onTopLine = { _, line -> topLine = line },
                 onToggleMenu = {},
                 onStepChapter = {},
                 onVisibleChapter = {},
@@ -184,6 +197,39 @@ class NovelTextViewportWindowTest {
         scrollToTop("current 60.")
         val drawn = drawnTopsOf("current 60.") { prepend(PREVIOUS, long("previous")) }
         assertEquals(listOf(0), drawn.filterNotNull().distinct())
+    }
+
+    /** A rebuilt renderer lands on the reader's line, and no frame may show the chapter where it lay before. */
+    @Test
+    fun noFrameShowsAChapterRebuiltAtALineBeforeItLands() {
+        open(LONG, long("current"))
+        scrollToTop("current 60.")
+        val line = checkNotNull(topLine)
+        val drawn = drawnTopsOf("current 60.") {
+            runBlocking(Dispatchers.Main) {
+                viewport.load(chapter(LONG, long("current")).copy(topLine = line), readerTestSettings)
+            }
+            awaitRendered(LONG)
+        }
+        assertEquals(listOf(0), drawn.filterNotNull().distinct())
+    }
+
+    /** A line landing does not wait for a slow picture above the line, and holds the line once it arrives. */
+    @Test
+    fun noFrameShowsAChapterRebuiltAtALineWhileAPictureAboveItLoads() {
+        open(LONG, long("current"))
+        scrollToTop("current 60.")
+        val line = checkNotNull(topLine)
+        PngServer(pngOf(SLOW_PICTURE_PX, SLOW_PICTURE_PX)).use { server ->
+            val html = "<p><img src=\"${server.url("slow", delayMs = SLOW_PICTURE_MS)}\"></p>" + long("current")
+            val drawn = drawnTopsOf("current 60.") {
+                runBlocking(Dispatchers.Main) {
+                    viewport.load(chapter(LONG, html).copy(topLine = line), readerTestSettings)
+                }
+                Thread.sleep(SLOW_PICTURE_MS + PICTURE_SETTLE_MS)
+            }
+            assertEquals(listOf(0), drawn.filterNotNull().distinct())
+        }
     }
 
     /** A restyle re-measures the text above the reader in place, the other growth the line is put back after. */

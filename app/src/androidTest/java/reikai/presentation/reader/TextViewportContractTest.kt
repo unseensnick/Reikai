@@ -853,6 +853,30 @@ class TextViewportContractTest(private val renderer: Renderer) {
     }
 
     /**
+     * A line is held across pictures landing above it, so a rebuilt renderer lands on it at once rather than
+     * leaving the chapter's start on screen until they arrive, and the line stays once they do.
+     */
+    @Test
+    fun aChapterRebuiltAtALineLandsBeforeAPictureAboveItArrives() {
+        open(chapter(FIRST, long("first")))
+        scrollBy(REBUILT_SCROLL_DP)
+        Thread.sleep(QUIET_MS)
+        val line = checkNotNull(topLines.lastOrNull { it.first == FIRST }?.second)
+        val picture = PngServer(pngOf(SLOW_PICTURE_PX, SLOW_PICTURE_PX)).also { server = it }
+        val html = "<p><img src=\"${picture.url("slow", delayMs = SLOW_PICTURE_MS)}\"></p>" + long("first")
+        topLines.clear()
+        runBlocking(Dispatchers.Main) { viewport.load(chapter(FIRST, html).copy(topLine = line), readerTestSettings) }
+        Thread.sleep(BEFORE_PICTURE_MS)
+        val beforePicture = topLines.lastOrNull { it.first == FIRST }?.second
+        Thread.sleep(SLOW_PICTURE_MS)
+        val afterPicture = topLines.lastOrNull { it.first == FIRST }?.second
+        assertTrue(
+            "handed $line, reported $beforePicture before the picture and $afterPicture after",
+            listOf(beforePicture, afterPicture).all { it != null && line - it in 0..LINE_CHARS },
+        )
+    }
+
+    /**
      * A rotation lands the page before the cutout inset reaches it. The line is measured at the screen's top
      * rather than below the inset, or the report after the inset arrived named the line under the landed
      * one, and every rotation moved the reader a line further on.
@@ -2704,6 +2728,13 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
         /** How far down a chapter the rebuilt-line case reads from, in dp: well past its first screen. */
         const val REBUILT_SCROLL_DP = 2_000
+
+        /** A picture tall enough to move the text below it, served slower than the page waits for pictures. */
+        const val SLOW_PICTURE_PX = 400
+        const val SLOW_PICTURE_MS = 6_000L
+
+        /** Long enough for a chapter to render and land, well short of the slow picture. */
+        const val BEFORE_PICTURE_MS = 2_500L
 
         /** More characters than one line of the test text holds. */
         const val LINE_CHARS = 120
