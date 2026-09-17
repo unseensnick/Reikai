@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -101,135 +103,206 @@ fun ReaderActionRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         chapterStep?.let { ChapterStepButton(it, leading = true) }
-        // Exhaustive, so a button added to the enum cannot be left undrawn here.
-        enabledButtons.forEach { button ->
-            when (button) {
-                ReaderBottomButton.ViewChapters -> IconButton(onClick = onClickChapterList) {
-                    Icon(
-                        imageVector = MaterialSymbols.Rounded.FormatListNumbered,
-                        contentDescription = stringResource(MR.strings.chapters),
-                    )
-                }
-
-                ReaderBottomButton.WebView -> if (onClickWebView != null) {
-                    IconButton(onClick = onClickWebView) {
-                        Icon(
-                            imageVector = MaterialSymbols.Rounded.Public,
-                            contentDescription = stringResource(MR.strings.action_open_in_web_view),
-                        )
-                    }
-                }
-
-                ReaderBottomButton.Browser -> if (onClickBrowser != null) {
-                    IconButton(onClick = onClickBrowser) {
-                        Icon(
-                            imageVector = MaterialSymbols.Rounded.Explore,
-                            contentDescription = stringResource(MR.strings.action_open_in_browser),
-                        )
-                    }
-                }
-
-                ReaderBottomButton.Share -> if (onClickShare != null) {
-                    IconButton(onClick = onClickShare) {
-                        Icon(
-                            imageVector = MaterialSymbols.Rounded.Share,
-                            contentDescription = stringResource(MR.strings.action_share),
-                        )
-                    }
-                }
-
-                ReaderBottomButton.ReadingMode -> IconButton(onClick = onClickReadingMode) {
-                    Icon(
-                        painter = painterResource(readingMode.iconRes),
-                        contentDescription = stringResource(MR.strings.viewer),
-                    )
-                }
-
-                ReaderBottomButton.Rotation -> IconButton(onClick = onClickOrientation) {
-                    Icon(
-                        imageVector = orientation.icon,
-                        contentDescription = stringResource(MR.strings.rotation_type),
-                    )
-                }
-
-                ReaderBottomButton.CropBorders -> IconButton(onClick = onClickCropBorder) {
-                    Icon(
-                        painter = painterResource(
-                            if (cropEnabled) R.drawable.ic_crop_24dp else R.drawable.ic_crop_off_24dp,
-                        ),
-                        contentDescription = stringResource(MR.strings.pref_crop_borders),
-                    )
-                }
-
-                ReaderBottomButton.Autoscroll -> if (onClickAutoScroll != null) {
-                    ToggleActionButton(
-                        onClick = onClickAutoScroll,
-                        icon = ReikaiIcons.SwipeVertical,
-                        description = stringResource(MR.strings.pref_auto_scroll),
-                        active = autoScrollActive,
-                    )
-                }
-
-                ReaderBottomButton.KeepScreenOn -> ToggleActionButton(
-                    onClick = onClickKeepScreenOn,
-                    icon = ReikaiIcons.Lightbulb,
-                    description = stringResource(MR.strings.pref_keep_screen_on),
-                    active = keepScreenOn,
+        // The chapter buttons are pinned to the ends, so the rest share what is left between them. Their
+        // touch targets narrow while they are there, or a full bar pushed the last button off the screen.
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CompositionLocalProvider(
+                LocalMinimumInteractiveComponentSize provides if (chapterStep != null) CROWDED_TARGET else 48.dp,
+            ) {
+                ActionButtons(
+                    enabledButtons = enabledButtons,
+                    onClickChapterList = onClickChapterList,
+                    onClickWebView = onClickWebView,
+                    onClickBrowser = onClickBrowser,
+                    onClickShare = onClickShare,
+                    orientation = orientation,
+                    onClickOrientation = onClickOrientation,
+                    onClickSettings = onClickSettings,
+                    readingMode = readingMode,
+                    onClickReadingMode = onClickReadingMode,
+                    cropEnabled = cropEnabled,
+                    onClickCropBorder = onClickCropBorder,
+                    keepScreenOn = keepScreenOn,
+                    onClickKeepScreenOn = onClickKeepScreenOn,
+                    onClickScrollToTop = onClickScrollToTop,
+                    autoScrollActive = autoScrollActive,
+                    onClickAutoScroll = onClickAutoScroll,
+                    bionicActive = bionicActive,
+                    onClickBionic = onClickBionic,
+                    onClickTheme = onClickTheme,
+                    onClickTextSize = onClickTextSize,
+                    readAloudControlsVisible = readAloudControlsVisible,
+                    onClickReadAloud = onClickReadAloud,
+                    onLongClickReadAloud = onLongClickReadAloud,
                 )
-
-                ReaderBottomButton.BionicReading -> if (onClickBionic != null) {
-                    ToggleActionButton(
-                        onClick = onClickBionic,
-                        icon = MaterialSymbols.Rounded.FormatBold,
-                        description = stringResource(MR.strings.pref_bionic_reading),
-                        active = bionicActive,
-                    )
-                }
-
-                ReaderBottomButton.Theme -> if (onClickTheme != null) {
-                    IconButton(onClick = onClickTheme) {
-                        Icon(
-                            imageVector = MaterialSymbols.Rounded.Palette,
-                            contentDescription = stringResource(MR.strings.pref_category_theme),
-                        )
-                    }
-                }
-
-                ReaderBottomButton.TextSize -> if (onClickTextSize != null) {
-                    IconButton(onClick = onClickTextSize) {
-                        Icon(
-                            imageVector = ReikaiIcons.FormatSize,
-                            contentDescription = stringResource(MR.strings.pref_reader_text_size),
-                        )
-                    }
-                }
-
-                ReaderBottomButton.ScrollToTop -> IconButton(onClick = onClickScrollToTop) {
-                    Icon(
-                        imageVector = ReikaiIcons.VerticalAlignTop,
-                        contentDescription = stringResource(MR.strings.action_scroll_to_top),
-                    )
-                }
-
-                ReaderBottomButton.ReadAloud -> if (onClickReadAloud != null) {
-                    ReadAloudActionButton(
-                        controlsVisible = readAloudControlsVisible,
-                        onClick = onClickReadAloud,
-                        onLongClick = onLongClickReadAloud,
-                    )
-                }
-
-                ReaderBottomButton.Settings -> IconButton(onClick = onClickSettings) {
-                    Icon(
-                        imageVector = MaterialSymbols.Rounded.Settings,
-                        contentDescription = stringResource(MR.strings.action_settings),
-                    )
-                }
             }
         }
         chapterStep?.let { ChapterStepButton(it, leading = false) }
     }
 }
+
+/** The ordered buttons themselves, drawn into whichever row holds them. */
+@Composable
+private fun ActionButtons(
+    enabledButtons: List<ReaderBottomButton>,
+    onClickChapterList: () -> Unit,
+    onClickWebView: (() -> Unit)?,
+    onClickBrowser: (() -> Unit)?,
+    onClickShare: (() -> Unit)?,
+    orientation: ReaderOrientation,
+    onClickOrientation: () -> Unit,
+    onClickSettings: () -> Unit,
+    readingMode: ReadingMode,
+    onClickReadingMode: () -> Unit,
+    cropEnabled: Boolean,
+    onClickCropBorder: () -> Unit,
+    keepScreenOn: Boolean,
+    onClickKeepScreenOn: () -> Unit,
+    onClickScrollToTop: () -> Unit,
+    autoScrollActive: Boolean,
+    onClickAutoScroll: (() -> Unit)?,
+    bionicActive: Boolean,
+    onClickBionic: (() -> Unit)?,
+    onClickTheme: (() -> Unit)?,
+    onClickTextSize: (() -> Unit)?,
+    readAloudControlsVisible: Boolean,
+    onClickReadAloud: (() -> Unit)?,
+    onLongClickReadAloud: () -> Unit,
+) {
+    // Exhaustive, so a button added to the enum cannot be left undrawn here.
+    enabledButtons.forEach { button ->
+        when (button) {
+            ReaderBottomButton.ViewChapters -> IconButton(onClick = onClickChapterList) {
+                Icon(
+                    imageVector = MaterialSymbols.Rounded.FormatListNumbered,
+                    contentDescription = stringResource(MR.strings.chapters),
+                )
+            }
+
+            ReaderBottomButton.WebView -> if (onClickWebView != null) {
+                IconButton(onClick = onClickWebView) {
+                    Icon(
+                        imageVector = MaterialSymbols.Rounded.Public,
+                        contentDescription = stringResource(MR.strings.action_open_in_web_view),
+                    )
+                }
+            }
+
+            ReaderBottomButton.Browser -> if (onClickBrowser != null) {
+                IconButton(onClick = onClickBrowser) {
+                    Icon(
+                        imageVector = MaterialSymbols.Rounded.Explore,
+                        contentDescription = stringResource(MR.strings.action_open_in_browser),
+                    )
+                }
+            }
+
+            ReaderBottomButton.Share -> if (onClickShare != null) {
+                IconButton(onClick = onClickShare) {
+                    Icon(
+                        imageVector = MaterialSymbols.Rounded.Share,
+                        contentDescription = stringResource(MR.strings.action_share),
+                    )
+                }
+            }
+
+            ReaderBottomButton.ReadingMode -> IconButton(onClick = onClickReadingMode) {
+                Icon(
+                    painter = painterResource(readingMode.iconRes),
+                    contentDescription = stringResource(MR.strings.viewer),
+                )
+            }
+
+            ReaderBottomButton.Rotation -> IconButton(onClick = onClickOrientation) {
+                Icon(
+                    imageVector = orientation.icon,
+                    contentDescription = stringResource(MR.strings.rotation_type),
+                )
+            }
+
+            ReaderBottomButton.CropBorders -> IconButton(onClick = onClickCropBorder) {
+                Icon(
+                    painter = painterResource(
+                        if (cropEnabled) R.drawable.ic_crop_24dp else R.drawable.ic_crop_off_24dp,
+                    ),
+                    contentDescription = stringResource(MR.strings.pref_crop_borders),
+                )
+            }
+
+            ReaderBottomButton.Autoscroll -> if (onClickAutoScroll != null) {
+                ToggleActionButton(
+                    onClick = onClickAutoScroll,
+                    icon = ReikaiIcons.SwipeVertical,
+                    description = stringResource(MR.strings.pref_auto_scroll),
+                    active = autoScrollActive,
+                )
+            }
+
+            ReaderBottomButton.KeepScreenOn -> ToggleActionButton(
+                onClick = onClickKeepScreenOn,
+                icon = ReikaiIcons.Lightbulb,
+                description = stringResource(MR.strings.pref_keep_screen_on),
+                active = keepScreenOn,
+            )
+
+            ReaderBottomButton.BionicReading -> if (onClickBionic != null) {
+                ToggleActionButton(
+                    onClick = onClickBionic,
+                    icon = MaterialSymbols.Rounded.FormatBold,
+                    description = stringResource(MR.strings.pref_bionic_reading),
+                    active = bionicActive,
+                )
+            }
+
+            ReaderBottomButton.Theme -> if (onClickTheme != null) {
+                IconButton(onClick = onClickTheme) {
+                    Icon(
+                        imageVector = MaterialSymbols.Rounded.Palette,
+                        contentDescription = stringResource(MR.strings.pref_category_theme),
+                    )
+                }
+            }
+
+            ReaderBottomButton.TextSize -> if (onClickTextSize != null) {
+                IconButton(onClick = onClickTextSize) {
+                    Icon(
+                        imageVector = ReikaiIcons.FormatSize,
+                        contentDescription = stringResource(MR.strings.pref_reader_text_size),
+                    )
+                }
+            }
+
+            ReaderBottomButton.ScrollToTop -> IconButton(onClick = onClickScrollToTop) {
+                Icon(
+                    imageVector = ReikaiIcons.VerticalAlignTop,
+                    contentDescription = stringResource(MR.strings.action_scroll_to_top),
+                )
+            }
+
+            ReaderBottomButton.ReadAloud -> if (onClickReadAloud != null) {
+                ReadAloudActionButton(
+                    controlsVisible = readAloudControlsVisible,
+                    onClick = onClickReadAloud,
+                    onLongClick = onLongClickReadAloud,
+                )
+            }
+
+            ReaderBottomButton.Settings -> IconButton(onClick = onClickSettings) {
+                Icon(
+                    imageVector = MaterialSymbols.Rounded.Settings,
+                    contentDescription = stringResource(MR.strings.action_settings),
+                )
+            }
+        }
+    }
+}
+
+/** A touch target that still clears the 40dp icon button, for a bar holding the two chapter buttons as well. */
+private val CROWDED_TARGET = 40.dp
 
 /** The navigator's previous or next chapter button, swapped for a right-to-left reader as the navigator does. */
 @Composable

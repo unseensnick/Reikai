@@ -427,6 +427,17 @@ class ReaderActivity : BaseActivity() {
                     ReaderViewModel.Event.ReloadViewerChapters -> {
                         viewModel.state.value.viewerChapters?.let(::setChapters)
                     }
+                    // RK --> a reload replaced the open chapter's pages, which only a first layout lands
+                    // on by itself, so the viewer is put back on the page the reader was at
+                    ReaderViewModel.Event.ReloadedChapter -> {
+                        viewModel.state.value.viewerChapters?.let { chapters ->
+                            setChapters(chapters)
+                            val pages = chapters.currChapter.pages ?: return@let
+                            val page = pages[chapters.currChapter.requestedPage.coerceIn(0, pages.lastIndex)]
+                            (engine.viewport.value as? MangaViewport)?.viewer?.moveToPage(page)
+                        }
+                    }
+                    // RK <--
                     ReaderViewModel.Event.PageChanged -> {
                         displayRefreshHost.flash()
                     }

@@ -121,6 +121,17 @@ class ReaderEngineTest {
     }
 
     @Test
+    fun `a load started from the settings sheet leaves the sheet open`() {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        engine.openDialog(ReaderDialog.Settings)
+
+        provider.loadState.value = ReaderLoadState.Loading
+
+        engine.dialog.value shouldBe ReaderDialog.Settings
+    }
+
+    @Test
     fun `the chapter arriving clears the loading dialog`() {
         val provider = FakeReaderProvider()
         val engine = engine(provider)

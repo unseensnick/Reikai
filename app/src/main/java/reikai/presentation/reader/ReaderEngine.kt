@@ -221,7 +221,11 @@ class ReaderEngine(
         viewModelScope.launch {
             loadState.collect { state ->
                 when (state) {
-                    ReaderLoadState.Loading -> openDialog(ReaderDialog.Loading)
+                    // Not over the settings sheet: a setting changed there reloads the chapter in place, and
+                    // replacing the sheet would close it under the reader mid-change.
+                    ReaderLoadState.Loading -> if (mutableDialog.value != ReaderDialog.Settings) {
+                        openDialog(ReaderDialog.Loading)
+                    }
                     is ReaderLoadState.Failed ->
                         openDialog(ReaderDialog.LoadFailed(state.message, state.canKeepReading))
                     // Only what this raised: a chapter arriving must not close the sheet the reader

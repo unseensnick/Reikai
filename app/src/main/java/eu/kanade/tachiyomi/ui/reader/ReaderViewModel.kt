@@ -1156,7 +1156,7 @@ class ReaderViewModel(
                 loader.loadChapter(chapter, fromSource)
                 val lastPage = chapter.pages?.lastIndex ?: 0
                 chapter.requestedPage = chapterPageIndex.coerceIn(0, maxOf(0, lastPage))
-                eventChannel.send(Event.ReloadViewerChapters)
+                eventChannel.send(Event.ReloadedChapter)
             } catch (e: Throwable) {
                 if (e is CancellationException) throw e
                 logcat(LogPriority.ERROR, e) { "Failed to reload chapter" }
@@ -1484,6 +1484,9 @@ class ReaderViewModel(
 
     sealed interface Event {
         data object ReloadViewerChapters : Event
+
+        // RK: the open chapter's pages were replaced; the viewer lands a first layout only, so it is moved
+        data object ReloadedChapter : Event
         data object PageChanged : Event
         data class SetOrientation(val orientation: Int) : Event
         data class SetCoverResult(val result: SetAsCoverResult) : Event
