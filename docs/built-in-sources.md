@@ -13,7 +13,8 @@ A few come from Reikai, and those are the ones whose bugs belong in this reposit
 
 - **Built-in** means Reikai ships it. There is no extension to install, and a bug in it is Reikai's.
 - **Enhanced** means you install a third-party extension and Reikai wraps it to add metadata, login or other features. How the wrapper behaves is Reikai's; the extension itself belongs to whoever publishes it.
-- **Built-in** adult sources only appear once [adult sources](adult-sources.md) are switched on. **Enhanced** sources are wrapped whenever their extension is installed, switch or no switch.
+
+The adult switch treats the two differently. A built-in adult source only appears once [adult sources](adult-sources.md) are switched on, while an enhanced one is wrapped whenever its extension is installed, switch or no switch.
 
 ## Reporting a bug in one
 
