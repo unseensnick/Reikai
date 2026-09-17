@@ -18,6 +18,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import androidx.work.Configuration
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.memory.MemoryCache
@@ -71,6 +72,7 @@ import org.conscrypt.Conscrypt
 import reikai.data.coil.NovelCoverFetcher
 import reikai.data.coil.NovelCoverKeyer
 import reikai.data.legacy.LegacyYokaiDbImporter
+import reikai.data.work.WorkerStartFailures
 import reikai.presentation.widget.UnifiedUpdatesWidgetManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
@@ -81,7 +83,12 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.InjektScope
 import java.security.Security
 
-class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory, GraphProvider<AppGraph> {
+class App :
+    Application(),
+    DefaultLifecycleObserver,
+    SingletonImageLoader.Factory,
+    GraphProvider<AppGraph>,
+    Configuration.Provider {
 
     override val graph: AppGraph by lazy {
         createGraphFactory<AppGraph.Factory>().create(context = this, isDebugBuild = isDebugBuildType)
@@ -107,6 +114,22 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
     /** False only in `:error_handler`, the process CrashActivity runs in. Unknown counts as main, so a
      *  process the platform will not name still starts normally. */
     private val isMainProcess: Boolean by lazy { currentProcessName()?.equals(packageName) ?: true }
+
+    // RK --> WorkManager starts on demand from this, since its default start has no handler for a job
+    // that throws while it is built (reikai.data.work.WorkerStartFailures). The manifest removes the default.
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerInitializationExceptionHandler(
+                WorkerStartFailures { workerName ->
+                    notify(Notifications.ID_WORKER_START_FAILURE, Notifications.CHANNEL_COMMON) {
+                        setSmallIcon(R.drawable.ic_warning_white_24dp)
+                        setContentTitle(stringResource(MR.strings.worker_start_failed))
+                        setContentText(workerName)
+                    }
+                },
+            )
+            .build()
+    // RK <--
 
     @SuppressLint("LaunchActivityFromNotification")
     override fun onCreate() {

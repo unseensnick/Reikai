@@ -523,6 +523,7 @@ every release now also ships a foss build with neither in it.
 
 #### Added
 
+- **A background job that fails to start now shows a notification naming it.** It used to fail silently, and a scheduled one kept failing the same way every time it ran.
 - **The What's new screen now draws GitHub's Note, Tip, Important, Warning and Caution callouts.** They were dropped entirely before, so a warning written into a release note never reached you.
 - **Reikai can now send crash reports so bugs get found and fixed faster, and both they and anonymous usage data are opt-out under Settings -> Security and privacy.** Onboarding offers the same choice on a fresh install.
 - **Every release now also has a `-foss` APK with no crash reporting or analytics in it at all.** It installs as a separate app, so it can sit alongside your normal one.

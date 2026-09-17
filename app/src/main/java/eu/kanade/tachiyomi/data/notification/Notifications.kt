@@ -20,6 +20,7 @@ object Notifications {
      */
     const val CHANNEL_COMMON = "common_channel"
     const val ID_DOWNLOAD_IMAGE = 2
+    const val ID_WORKER_START_FAILURE = 3 // RK: a background job that could not be built
 
     /**
      * Notification channel and ids used by the library updater.
