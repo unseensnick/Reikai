@@ -27,6 +27,8 @@ object NovelWebDocument {
         documentToken: String,
         chapterHtml: String,
         initialFraction: Float,
+        /** The line to land on in its place, as `LoadedChapter.topLine`. */
+        initialLine: Int? = null,
         settings: NovelReaderSettings,
         statusBarHeightPx: Int,
         /** The chosen face as a `data:` URI from [NovelWebFonts], or null for a generic family. */
@@ -44,6 +46,7 @@ object NovelWebDocument {
                 "__BIONIC__" to settings.bionicReading.toString(),
                 "__READ_ALOUD__" to readAloudJson(settings).toString(),
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
+                "__INITIAL_LINE__" to (initialLine?.coerceAtLeast(0) ?: -1).toString(),
                 "__DOCUMENT_TOKEN__" to jsString(documentToken),
                 // The seam names both chapters under these, the way TransitionText does. Resolved
                 // here because the page has no resources of its own.

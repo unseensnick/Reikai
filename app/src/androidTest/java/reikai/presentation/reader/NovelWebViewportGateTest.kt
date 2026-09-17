@@ -70,6 +70,7 @@ class NovelWebViewportGateTest {
                 sourceCssPriority = false,
                 onProgressChanged = { _, _ -> },
                 onProgressSettled = { _, _ -> },
+                onTopLine = { _, _ -> },
                 onToggleMenu = {},
                 onStepChapter = { steps += it },
                 onVisibleChapter = { visibleReports += it },

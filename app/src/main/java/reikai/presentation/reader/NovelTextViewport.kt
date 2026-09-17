@@ -50,6 +50,8 @@ import reikai.presentation.reader.text.ReadAloudBoxDecoration
 import reikai.presentation.reader.text.ReadAloudMark
 import reikai.presentation.reader.text.chunkRange
 import reikai.presentation.reader.text.readAloudParagraphs
+import reikai.presentation.reader.text.shownCharCount
+import reikai.presentation.reader.text.shownCharOffset
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -74,6 +76,9 @@ class NovelTextViewport(
      *  on whichever the model happens to hold. */
     private val onProgressChanged: (chapterId: Long, percent: Int) -> Unit,
     private val onProgressSettled: (chapterId: Long, percent: Int) -> Unit,
+    /** The line at the top of the screen as characters into its chapter (`shownCharCount`), null while the
+     *  chapter's text starts on screen. Sent when it changes. */
+    private val onTopLine: (chapterId: Long, line: Int?) -> Unit,
     private val onToggleMenu: () -> Unit,
     /** Swipe-between-chapters, forward or back, the same contract [NovelWebViewport] takes. */
     private val onStepChapter: (forward: Boolean) -> Unit,
@@ -124,6 +129,11 @@ class NovelTextViewport(
 
         /** Read once the text is set, which nothing changes afterwards: a restyle keeps the characters. */
         val paragraphs: List<ChunkParagraph> by lazy { readAloudParagraphs(block.chunkViews.map { it.text }) }
+
+        /** Each chunk's [shownCharCount], read once for the same reason. */
+        val shownCounts: IntArray by lazy {
+            block.chunkViews.map { shownCharCount(it.text, it.text.length) }.toIntArray()
+        }
     }
 
     /** The paragraph being read aloud, kept while highlighting is off so it is still followed. */
@@ -143,6 +153,13 @@ class NovelTextViewport(
          * of the screen as all of it. A redraw keeps the chunking, which depends on the text alone.
          */
         data class Line(val chunk: Int, val offset: Int, val y: Int) : Landing
+
+        /**
+         * The line holding counted character [line] of the chapter (`shownCharCount`), put at the top: what a
+         * rebuilt renderer is handed, where the chunking and the width may both have changed. Waits for the
+         * chapter's images like a share, since they move the line.
+         */
+        data class Text(val line: Int) : Landing
     }
 
     /**
@@ -307,7 +324,9 @@ class NovelTextViewport(
         // A new window reports afresh, as the web page does, since the model may have dropped the last.
         reportedFits.clear()
         reportedEnds.clear()
-        add(chapter, atEnd = true, landing = Landing.Share(chapter.progressPercent / 100f))
+        reportedTopLine = null
+        val landing = chapter.topLine?.let(Landing::Text) ?: Landing.Share(chapter.progressPercent / 100f)
+        add(chapter, atEnd = true, landing = landing)
     }
 
     override val window: ChapterWindow get() = this
@@ -812,7 +831,7 @@ class NovelTextViewport(
             recycler.post {
                 // A share landing waits for the chapter's images and for a layout to measure it in, and
                 // each arrives as a layout of the column, so this is where a held one is applied.
-                if (slot.landing is Landing.Share) land(slot)
+                if (slot.landing is Landing.Share || slot.landing is Landing.Text) land(slot)
                 // The chapter's text was just set, which a redraw does afresh without the mark, or an image
                 // re-set it from a copy that can carry a mark the reader has since moved past.
                 drawSpokenParagraph()
@@ -962,8 +981,37 @@ class NovelTextViewport(
      */
     private fun report(sink: (Long, Int) -> Unit) {
         val slot = visibleSlot() ?: return
-        if (slot.landing == null) sink(slot.chapter.chapterId, percentOf(slot))
+        if (slot.landing == null) {
+            sink(slot.chapter.chapterId, percentOf(slot))
+            reportTopLine(slot)
+        }
         reportFits(slot)
+    }
+
+    /** The last top line announced, as its chapter, chunk and offset, so a scroll inside one line says nothing. */
+    private var reportedTopLine: Triple<Long, Int, Int>? = null
+
+    private fun reportTopLine(slot: ChapterSlot) {
+        val anchor = lineAtTop()
+        val chunk = anchor?.let { slot.block.chunkViews.indexOf(it.view) } ?: -1
+        val key = Triple(slot.chapter.chapterId, chunk, anchor?.offset ?: -1)
+        if (key == reportedTopLine) return
+        reportedTopLine = key
+        val line = anchor?.takeIf { chunk >= 0 }?.let {
+            slot.shownCounts.take(chunk).sum() + shownCharCount(it.view.text, it.offset)
+        }
+        onTopLine(slot.chapter.chapterId, line)
+    }
+
+    /** The chunk view and offset of counted character [line] of [slot]'s chapter, or null past its text. */
+    private fun textLineOf(slot: ChapterSlot, line: Int): Pair<TextView, Int>? {
+        var left = line
+        slot.block.chunkViews.forEachIndexed { index, view ->
+            val count = slot.shownCounts.getOrElse(index) { 0 }
+            if (left < count) return shownCharOffset(view.text, left)?.let { view to it }
+            left -= count
+        }
+        return null
     }
 
     /**
@@ -1064,6 +1112,12 @@ class NovelTextViewport(
         settings?.let { restyle(slot, it) }
         slot.rendered = true
         adapter.show(joined())
+        // A chapter joining above one headed for a landing that the list has never laid out would take the
+        // screen: with no child of it to anchor on, the list lays out from the top, and the landing waits
+        // for a layout of a chapter that is now off screen. So the list starts on the headed chapter.
+        slots.firstOrNull { it.landing != null && it.rendered && boundsOf(it) == null }?.let { headed ->
+            (recycler.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(adapter.positionOf(headed), 0)
+        }
         // With no chapter headed anywhere this is the window growing around the reader, which must not
         // move them. Every chapter is landed, not only this one: a line near a chapter's end waits for
         // the chapter below it to join.
@@ -1095,6 +1149,16 @@ class NovelTextViewport(
                 scrollWithin(slot, landing.fraction)
                 // A chapter with no room to move sends no scroll, and a scroll is all that reports, so the
                 // held position is said here: without it the model kept the saved one, as the page did.
+                if (scrolled == before) report(onProgressChanged)
+            }
+            is Landing.Text -> {
+                // Held for the images and a layout, as a share is.
+                if (slot.block.imagesLoading || boundsOf(slot) == null) return
+                slot.landing = null
+                val before = scrolled
+                val top = textLineOf(slot, landing.line)?.let { (view, offset) -> lineTopOf(view, offset) }
+                // A line the chapter no longer reaches is past its end, where a share of all of it lands.
+                if (top == null) scrollWithin(slot, 1f) else recycler.scrollBy(0, top)
                 if (scrolled == before) report(onProgressChanged)
             }
             is Landing.Line -> {

@@ -359,6 +359,94 @@
     };
   })();
 
+  /*
+   * The line at the top of the screen, as the characters of its chapter before it that read-aloud keeps,
+   * less spaces: the native renderer's shownCharCount, so a rebuilt page lands on the line the reader had
+   * whichever renderer rebuilds it. Sent when it changes, -1 while no chapter text is at the top.
+   */
+  var topLine = (function () {
+    var UNCOUNTED = /[\s\uFFFC]/g;
+    // Per chapter id, a Map of each counted text node to the characters before it, dropped on any DOM change.
+    var cache = {};
+    var sent = null;
+
+    function count(text) {
+      return text.replace(UNCOUNTED, '').length;
+    }
+
+    function countsOf(chapter) {
+      var id = chapter.getAttribute(CHAPTER_ID_ATTR);
+      if (!cache[id]) {
+        var before = new Map();
+        var total = 0;
+        var walker = document.createTreeWalker(chapter, NodeFilter.SHOW_TEXT, {
+          acceptNode: function (node) {
+            var parent = node.parentElement;
+            return parent && parent.closest('rt, rp, script, style') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+          },
+        });
+        while (walker.nextNode()) {
+          before.set(walker.currentNode, total);
+          total += count(walker.currentNode.nodeValue);
+        }
+        cache[id] = before;
+      }
+      return cache[id];
+    }
+
+    function measure(id) {
+      // The screen's own top rather than below the inset, as the native renderer measures: the inset reaches a
+      // rebuilt page after it lands, and measured below it the next report named the line under the landed one.
+      var caret = document.caretRangeFromPoint(0, Math.min(1, viewportHeight() - 1));
+      var node = caret && caret.startContainer;
+      if (!node || node.nodeType !== Node.TEXT_NODE) return -1;
+      var chapter = node.parentElement && node.parentElement.closest(CHAPTER_SELECTOR);
+      if (!chapter || chapter.getAttribute(CHAPTER_ID_ATTR) !== id) return -1;
+      var before = countsOf(chapter).get(node);
+      return before === undefined ? -1 : before + count(node.nodeValue.slice(0, caret.startOffset));
+    }
+
+    return {
+      report: function (id) {
+        if (!ready) return;
+        var line = measure(id);
+        var key = id + ':' + line;
+        if (key === sent) return;
+        sent = key;
+        bridge().onTopLine(DOCUMENT_TOKEN, id, line);
+      },
+      /* Scrolls counted character line of chapter to the top, saying whether the chapter holds it. */
+      seek: function (chapter, line) {
+        var found = null;
+        countsOf(chapter).forEach(function (before, node) {
+          if (found || line >= before + count(node.nodeValue)) return;
+          var left = line - before;
+          for (var i = 0; i < node.nodeValue.length; i++) {
+            if (count(node.nodeValue[i]) === 0) continue;
+            if (left === 0) {
+              found = { node: node, offset: i };
+              return;
+            }
+            left--;
+          }
+        });
+        if (!found) return false;
+        var range = document.createRange();
+        range.setStart(found.node, found.offset);
+        range.setEnd(found.node, found.offset + 1);
+        var rect = range.getClientRects()[0];
+        if (!rect) return false;
+        window.scrollTo({ top: Math.round(scrollTop() + rect.top), behavior: 'instant' });
+        place.sync();
+        lastChapterSeen = chapter.getAttribute(CHAPTER_ID_ATTR);
+        return true;
+      },
+      invalidate: function () {
+        cache = {};
+      },
+    };
+  })();
+
   // endregion
 
   // region reporting
@@ -377,6 +465,7 @@
     }
 
     reportProgress(s);
+    topLine.report(s.id);
     // Here as well as on a rebuild, since an image landing without moving the layout reaches only
     // this frame, and it is what releases a chapter either report is holding.
     reportFits();
@@ -1298,7 +1387,10 @@
         rebuildBoundaries();
       }).observe(document.body);
     }
-    new MutationObserver(readAloud.invalidate)
+    new MutationObserver(function () {
+      readAloud.invalidate();
+      topLine.invalidate();
+    })
       .observe(document.getElementById('rk-chapters'), { childList: true, subtree: true, characterData: true });
     if (settings.bionic) {
       document.querySelectorAll(CHAPTER_SELECTOR).forEach(applyBionic);
@@ -1330,7 +1422,9 @@
     // Where the chapter was left. Applied here rather than by the host, because a scroll issued
     // against a document that has not laid out yet lands at zero and looks like a lost position.
     var initial = __INITIAL_FRACTION__;
-    if (initial > 0 && boundaries.length > 0 && !readerMoved) {
+    // The line the reader had at the top, which a rebuilt page lands on in place of the fraction.
+    var initialLine = __INITIAL_LINE__;
+    if ((initial > 0 || initialLine >= 0) && boundaries.length > 0 && !readerMoved) {
       // The saved fraction is of the chapter's height with its images in it, and reader.css gives
       // every image `height: auto`, so before they land the chapter measures short by the whole
       // image block and the seek drops the reader past unread text. Anchoring then holds them
@@ -1340,7 +1434,9 @@
         if (!seekWaiting) return;
         seekWaiting = false;
         rebuildBoundaries();
-        window.rkReader.seekWithin(boundaries[0].id, initial);
+        if (initialLine < 0 || !topLine.seek(boundaries[0].el, initialLine)) {
+          window.rkReader.seekWithin(boundaries[0].id, initial);
+        }
         reportReady();
       });
       return;

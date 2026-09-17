@@ -69,7 +69,40 @@ private fun shownText(chunk: CharSequence, lineStart: Int, lineEnd: Int): Pair<S
     return text.toString() to sources.toIntArray()
 }
 
-private const val OBJECT_REPLACEMENT = '\uFFFC'
+/**
+ * How many characters of [chunk] before [end] a reading line is counted in: every one read-aloud keeps
+ * except its spaces. The page counts its text the same way (`reader.js`), so a line named by a count of
+ * these is the same line in either renderer.
+ */
+internal fun shownCharCount(chunk: CharSequence, end: Int): Int {
+    val readings = rubyReadings(chunk)
+    return (0 until end).count { chunk.isCounted(it, readings) }
+}
+
+/** The offset in [chunk] of its counted character [index] (see [shownCharCount]), or null past its last. */
+internal fun shownCharOffset(chunk: CharSequence, index: Int): Int? {
+    if (index < 0) return null
+    val readings = rubyReadings(chunk)
+    var left = index
+    for (i in chunk.indices) {
+        if (!chunk.isCounted(i, readings)) continue
+        if (left == 0) return i
+        left--
+    }
+    return null
+}
+
+private fun rubyReadings(chunk: CharSequence): List<IntRange> =
+    (chunk as? Spanned)?.getSpans(0, chunk.length, RubyReadingSpan::class.java)
+        ?.map { chunk.getSpanStart(it) until chunk.getSpanEnd(it) }
+        .orEmpty()
+
+private fun CharSequence.isCounted(i: Int, readings: List<IntRange>): Boolean {
+    val c = this[i]
+    return c != OBJECT_REPLACEMENT && !c.isReadAloudSpace() && readings.none { i in it }
+}
+
+private const val OBJECT_REPLACEMENT = '￼'
 
 /** JavaScript's `\s`, so a paragraph collapses the same spaces here as `reader.js` does in the page. */
 private fun Char.isReadAloudSpace() =

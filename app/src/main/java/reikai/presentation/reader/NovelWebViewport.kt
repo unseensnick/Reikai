@@ -70,6 +70,8 @@ class NovelWebViewport(
      *  chapter a percentage belongs to. */
     private val onProgressChanged: (chapterId: Long, percent: Int) -> Unit,
     private val onProgressSettled: (chapterId: Long, percent: Int) -> Unit,
+    /** The line at the top of the screen, the report the native viewport makes. */
+    private val onTopLine: (chapterId: Long, line: Int?) -> Unit,
     private val onToggleMenu: () -> Unit,
     /** Swipe-between-chapters, forward or back. */
     private val onStepChapter: (forward: Boolean) -> Unit,
@@ -189,6 +191,7 @@ class NovelWebViewport(
                 },
                 onProgress = { id, f -> onProgressChanged(id, f.toPercent()) },
                 onProgressSettled = { id, f -> onProgressSettled(id, f.toPercent()) },
+                onTopLine = onTopLine,
                 onRetryBoundary = onRetryBoundary,
                 onTap = ::onPageTap,
                 onStepChapter = onStepChapter,
@@ -295,6 +298,7 @@ class NovelWebViewport(
                 // Carried into the document rather than scrolled to afterwards, because the page has
                 // to exist before it has anywhere to scroll and the load is asynchronous.
                 initialFraction = chapter.progressPercent / 100f,
+                initialLine = chapter.topLine,
                 settings = settings,
                 statusBarHeightPx = inset,
                 fontSource = fontSource,

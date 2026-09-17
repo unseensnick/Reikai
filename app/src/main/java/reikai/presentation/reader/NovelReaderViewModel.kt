@@ -400,6 +400,9 @@ class NovelReaderViewModel(
         val html: String,
         val baseUrl: String?,
         val progressPercent: Int,
+        /** The line the reader had at the top, as characters into the chapter (`shownCharCount`), which a
+         *  renderer lands on in place of [progressPercent]; null where there is no line to hold. */
+        val topLine: Int? = null,
         /** What the marker between two chapters reads (`NovelSeam`): the number its missing-chapters
          *  count is taken from, and whether this chapter's own copy is on disk. */
         val chapterNumber: Double,
@@ -482,6 +485,15 @@ class NovelReaderViewModel(
      */
     val progressPercent: StateFlow<Int> = liveProgress
 
+    /** The line at the top of the screen, with the chapter it is in, as the renderer last reported it. */
+    @Volatile
+    private var latestTopLine: Pair<Long, Int?>? = null
+
+    /** Reported on every move, null while the chapter's text starts on screen. Only [landingOf] reads it. */
+    fun reportTopLine(id: Long, line: Int?) {
+        if (reportsCount()) latestTopLine = id to line
+    }
+
     /**
      * The generation the renderer has started on, which the host reports through [rendererLanded].
      * Until it is [openGeneration], what the renderer reports is about the window an open replaced,
@@ -507,13 +519,15 @@ class NovelReaderViewModel(
     /**
      * The anchor of [window], at where the reader is now. An Activity rebuilt mid-chapter renders the
      * same window again, and the position the chapter had when it was opened put the reader back there
-     * and let the next save overwrite theirs. Within a chapter's last screen every position reads 100,
-     * so a rebuild there lands its last line at the bottom: up to a screen back, never past text the
-     * reader has not seen, which landing on the chapter below would do.
+     * and let the next save overwrite theirs. The line at the top is carried with the percent, since a
+     * percent moves the top line once the width changes, and within a chapter's last screen every
+     * position reads 100.
      */
     fun landingOf(window: Window): LoadedChapter {
         val anchor = window.chapters.first { it.chapterId == window.anchorId }
-        return if (anchor.chapterId == currentChapterId) anchor.copy(progressPercent = liveProgress.value) else anchor
+        if (anchor.chapterId != currentChapterId) return anchor
+        val line = latestTopLine?.takeIf { it.first == anchor.chapterId }?.second
+        return anchor.copy(progressPercent = liveProgress.value, topLine = line)
     }
 
     /** The renderer has started over on [generation]'s anchor, so what it reports is the reader's again. */
@@ -930,7 +944,10 @@ class NovelReaderViewModel(
         currentNovelId = row.novelId
         bookmarkedState.value = bookmarked
         loadedChapter.value = opened
-        if (!reloading) liveProgress.value = opened.progressPercent
+        if (!reloading) {
+            liveProgress.value = opened.progressPercent
+            latestTopLine = null
+        }
         openGeneration = window.generation
         visibleReport = openGeneration to opened.chapterId
         settleNeighbours(around)

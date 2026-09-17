@@ -99,6 +99,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
     /** Every progress report either callback sent, in order, so a case can read what was reported. */
     private val reports = CopyOnWriteArrayList<ProgressReport>()
+
+    /** Every top line reported, in order. */
+    private val topLines = CopyOnWriteArrayList<Pair<Long, Int?>>()
     private var server: PngServer? = null
 
     @Before
@@ -128,6 +131,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 volumeKeysActive = { volumeKeysOn },
                 onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
                 onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
+                onTopLine = { id, line -> topLines += id to line },
                 onToggleMenu = {},
                 onStepChapter = { steps += it },
                 onVisibleChapter = { visibleChapters += it },
@@ -145,6 +149,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 sourceCssPriority = false,
                 onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
                 onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
+                onTopLine = { id, line -> topLines += id to line },
                 onToggleMenu = {},
                 onStepChapter = { steps += it },
                 onVisibleChapter = { visibleChapters += it },
@@ -822,6 +827,52 @@ class TextViewportContractTest(private val renderer: Renderer) {
         settle()
         awaitScrollStill()
         assertEquals(SAVED_PERCENT.toFloat(), landedPercent(), LANDING_SLACK_PERCENT)
+    }
+
+    /**
+     * A rebuilt renderer, as a rotation makes, lands the line the reader had at the top back at the top,
+     * even once the text is laid out differently: a larger text size here, where the same percent is
+     * somewhere else. The line reported after landing starts the line holding the one handed over.
+     */
+    @Test
+    fun aChapterRebuiltAtALineLandsThatLineAtTheTop() {
+        open(chapter(FIRST, long("first")))
+        scrollBy(REBUILT_SCROLL_DP)
+        Thread.sleep(QUIET_MS)
+        val line = checkNotNull(topLines.lastOrNull { it.first == FIRST }?.second)
+        topLines.clear()
+        fits.clear()
+        open(
+            chapter(FIRST, long("first")).copy(topLine = line),
+            readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 6),
+        )
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        val landed = checkNotNull(topLines.lastOrNull { it.first == FIRST }?.second)
+        assertTrue("handed $line, landed $landed", line - landed in 0..LINE_CHARS)
+    }
+
+    /**
+     * A rotation lands the page before the cutout inset reaches it. The line is measured at the screen's top
+     * rather than below the inset, or the report after the inset arrived named the line under the landed
+     * one, and every rotation moved the reader a line further on.
+     */
+    @Test
+    fun aChapterRebuiltAtALineStillReportsThatLineOnceTheInsetArrives() {
+        open(chapter(FIRST, long("first")))
+        scrollBy(REBUILT_SCROLL_DP)
+        Thread.sleep(QUIET_MS)
+        val line = checkNotNull(topLines.lastOrNull { it.first == FIRST }?.second)
+        topLines.clear()
+        fits.clear()
+        open(chapter(FIRST, long("first")).copy(topLine = line))
+        awaitScrollStill()
+        cutout = TALL_CUTOUT_DP
+        deliverInsets()
+        settle()
+        Thread.sleep(QUIET_MS)
+        val landed = checkNotNull(topLines.lastOrNull { it.first == FIRST }?.second)
+        assertTrue("handed $line, reported $landed", line - landed in 0..LINE_CHARS)
     }
 
     /** A report from the chapter's top, sent before the landing, would be saved over the position. */
@@ -2577,6 +2628,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
         /** A cutout inset no margin in the test settings is, so the column's top padding shows it. */
         const val CUTOUT_DP = 24
+
+        /** An inset several lines of the test text tall, so a line measured below it is a different line. */
+        const val TALL_CUTOUT_DP = 120
         const val TIMEOUT_S = 10L
         const val SETTLE_MS = 500L
 
@@ -2647,6 +2701,12 @@ class TextViewportContractTest(private val renderer: Renderer) {
         val PARAGRAPH_MARKER = Regex("""(first|second) \d+\. """)
 
         const val SAVED_PERCENT = 40
+
+        /** How far down a chapter the rebuilt-line case reads from, in dp: well past its first screen. */
+        const val REBUILT_SCROLL_DP = 2_000
+
+        /** More characters than one line of the test text holds. */
+        const val LINE_CHARS = 120
         const val LATE_PERCENT = 80
 
         /**

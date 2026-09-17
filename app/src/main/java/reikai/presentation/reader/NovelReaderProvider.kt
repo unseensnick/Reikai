@@ -246,6 +246,7 @@ class NovelReaderProvider(
                 volumeKeysActive = volumeKeysActive,
                 onProgressChanged = viewModel::reportProgress,
                 onProgressSettled = viewModel::saveProgress,
+                onTopLine = viewModel::reportTopLine,
                 onToggleMenu = host::toggleMenu,
                 onStepChapter = { forward ->
                     if (forward) host.engine.nextChapter() else host.engine.previousChapter()
@@ -269,6 +270,7 @@ class NovelReaderProvider(
             // settles, and the settled one at once. Either one finishing a chapter marks it read.
             onProgressChanged = viewModel::reportProgress,
             onProgressSettled = viewModel::saveProgress,
+            onTopLine = viewModel::reportTopLine,
             // Taken from the host being built against rather than held, so a reader rebuilt after a
             // rotation toggles the live Activity's menu instead of the destroyed one's.
             onToggleMenu = host::toggleMenu,

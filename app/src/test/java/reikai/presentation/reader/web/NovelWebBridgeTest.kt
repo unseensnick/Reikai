@@ -14,6 +14,7 @@ class NovelWebBridgeTest {
         onVisibleChapter = { calls += "visible" },
         onProgress = { _, _ -> calls += "progress" },
         onProgressSettled = { _, _ -> calls += "settled" },
+        onTopLine = { _, _ -> calls += "line" },
         onRetryBoundary = { calls += "retry" },
         onTap = { _, _ -> calls += "tap" },
         onStepChapter = { calls += "step" },

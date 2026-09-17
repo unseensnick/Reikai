@@ -72,6 +72,7 @@ class NovelTextViewportWindowTest {
                 volumeKeysActive = { false },
                 onProgressChanged = { _, _ -> },
                 onProgressSettled = { _, _ -> },
+                onTopLine = { _, _ -> },
                 onToggleMenu = {},
                 onStepChapter = {},
                 onVisibleChapter = {},

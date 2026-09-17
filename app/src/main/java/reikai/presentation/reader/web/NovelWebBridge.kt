@@ -19,6 +19,7 @@ class NovelWebBridge(
     private val onVisibleChapter: (chapterId: Long) -> Unit,
     private val onProgress: (chapterId: Long, fraction: Double) -> Unit,
     private val onProgressSettled: (chapterId: Long, fraction: Double) -> Unit,
+    private val onTopLine: (chapterId: Long, line: Int?) -> Unit,
     private val onRetryBoundary: (forward: Boolean) -> Unit,
     /** A tap on the page, as fractions of its width and height. */
     private val onTap: (x: Float, y: Float) -> Unit,
@@ -42,6 +43,12 @@ class NovelWebBridge(
     @JavascriptInterface
     fun onProgressSettled(documentToken: String, chapterId: String, fraction: Double) {
         chapterId.toLongOrNull()?.let { fromDocument(documentToken) { onProgressSettled(it, fraction) } }
+    }
+
+    /** [line] is -1 while no chapter text is at the top, since a JS null does not cross as an `Int`. */
+    @JavascriptInterface
+    fun onTopLine(documentToken: String, chapterId: String, line: Int) {
+        chapterId.toLongOrNull()?.let { fromDocument(documentToken) { onTopLine(it, line.takeIf { it >= 0 }) } }
     }
 
     @JavascriptInterface

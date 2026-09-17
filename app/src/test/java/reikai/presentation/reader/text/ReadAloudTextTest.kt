@@ -26,6 +26,23 @@ class ReadAloudTextTest {
     }
 
     @Test
+    fun `a line is counted without its spaces or pictures`() {
+        shownCharCount("A b\n\uFFFCcd", "A b\n\uFFFCc".length) shouldBe 3
+    }
+
+    @Test
+    fun `a counted character is found again at its offset`() {
+        val chunk = "A b\n\uFFFCcd"
+
+        shownCharOffset(chunk, shownCharCount(chunk, chunk.indexOf('c'))) shouldBe chunk.indexOf('c')
+    }
+
+    @Test
+    fun `a count past the text names no offset`() {
+        shownCharOffset("ab", 2) shouldBe null
+    }
+
+    @Test
     fun `a range past the paragraph names nothing`() {
         paragraph.chunkRange(chunk, 0 until paragraph.text.length + 1) shouldBe null
     }
