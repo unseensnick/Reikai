@@ -170,6 +170,16 @@ class ChapterCache(
         }
     }
 
+    // RK --> a reload from the source drops what the page loader would otherwise serve again
+    fun removePageList(chapter: Chapter) {
+        runCatching { diskCache.remove(DiskUtil.hashKeyForDisk(getKey(chapter))) }
+    }
+
+    fun removeImage(imageUrl: String) {
+        runCatching { diskCache.remove(DiskUtil.hashKeyForDisk(imageUrl)) }
+    }
+    // RK <--
+
     fun clear(): Int {
         var deletedFiles = 0
         cacheDir.listFiles()?.forEach {

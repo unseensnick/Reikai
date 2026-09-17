@@ -23,6 +23,7 @@ fun ReaderTopBar(
     onShare: (() -> Unit)?,
     // RK -->
     onEditBottomButtons: () -> Unit,
+    onReloadChapter: (fromSource: Boolean) -> Unit,
     // RK <--
     modifier: Modifier = Modifier,
 ) {
@@ -77,6 +78,18 @@ fun ReaderTopBar(
                         )
                     }
                     // RK -->
+                    add(
+                        AppBar.OverflowAction(
+                            title = stringResource(MR.strings.action_reload_chapter),
+                            onClick = { onReloadChapter(false) },
+                        ),
+                    )
+                    add(
+                        AppBar.OverflowAction(
+                            title = stringResource(MR.strings.action_reload_chapter_from_source),
+                            onClick = { onReloadChapter(true) },
+                        ),
+                    )
                     add(
                         AppBar.OverflowAction(
                             title = stringResource(MR.strings.action_edit_bottom_buttons),

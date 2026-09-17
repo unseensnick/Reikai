@@ -117,6 +117,8 @@ class MangaReaderProvider(
         chapterList.open(id)
     }
 
+    override fun reloadChapter(fromSource: Boolean) = viewModel.reloadChapter(fromSource)
+
     override val bookmarked: Flow<Boolean> = viewModel.state.map { it.bookmarked }
 
     override fun toggleBookmark() = viewModel.toggleChapterBookmark()

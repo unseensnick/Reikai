@@ -93,8 +93,8 @@ class NovelChapterTextLoader(
      * What comes back is pipeline output, never raw source markup, so a renderer must not process it
      * again. The target follows the rendering mode, which decides whether embedded CSS and JS survive.
      */
-    suspend fun load(chapter: NovelChapter): Pair<String, String?> {
-        val (raw, baseUrl) = fetch(chapter)
+    suspend fun load(chapter: NovelChapter, fromSource: Boolean = false): Pair<String, String?> {
+        val (raw, baseUrl) = fetch(chapter, fromSource)
         val config = NovelContentConfig.from(
             preferences = preferences,
             target = when (preferences.readerRenderingMode().get()) {
@@ -117,9 +117,10 @@ class NovelChapterTextLoader(
         return html to baseUrl
     }
 
-    private suspend fun fetch(chapter: NovelChapter): Pair<String, String?> {
+    /** The downloaded copy when there is one, unless [fromSource] asks the source regardless. */
+    private suspend fun fetch(chapter: NovelChapter, fromSource: Boolean): Pair<String, String?> {
         val novel = novelRepo.getById(chapter.novelId)
-        if (novel != null) readDownloaded(novel, chapter)?.let { return it to null }
+        if (novel != null && !fromSource) readDownloaded(novel, chapter)?.let { return it to null }
         val src = resolveSource(chapter.novelId)
         return src.parseChapter(chapter.url) to src.site.ifBlank { null }
     }

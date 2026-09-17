@@ -99,6 +99,7 @@ fun ReaderAppBars(
     onClickTheme: (() -> Unit)?,
     onClickScrollToTop: () -> Unit,
     onEditBottomButtons: () -> Unit,
+    onReloadChapter: (fromSource: Boolean) -> Unit,
     autoScrollActive: Boolean,
     onClickAutoScroll: (() -> Unit)?,
     bionicActive: Boolean,
@@ -167,6 +168,7 @@ fun ReaderAppBars(
                 onShare = onShare,
                 // RK
                 onEditBottomButtons = onEditBottomButtons,
+                onReloadChapter = onReloadChapter,
             )
         }
 

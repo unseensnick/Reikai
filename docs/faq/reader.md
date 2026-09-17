@@ -11,6 +11,9 @@ Frequently Asked Questions about the Reader.
 Besides network-related problems, **Reikai** may occasionally fail to recognize certain images.
 To address this, simply exit and re-enter the reader, often resolving the issue.
 
+## A chapter shows broken pages or text. How do I load it again?
+Open the reader's top menu (the three dots) and tap **Reload chapter**, which reads the chapter again where you are, from its downloaded copy if it has one. **Reload chapter from source** skips a downloaded copy and fetches the chapter fresh from the source, including manga pages the app had cached. The downloaded copy itself is left as it is; delete and download the chapter again to replace it.
+
 ## Can I see two pages at once?
 Yes, in the two horizontal paged modes with the high quality renderer on. Open a chapter, tap the middle of the screen, press the gear icon, and set **Dual page view**:
 

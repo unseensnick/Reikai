@@ -187,6 +187,26 @@ class NovelReaderViewModel(
 
     fun retryLoad() = load()
 
+    /** The chapter the next open fetches from its source rather than its downloaded copy, once. */
+    @Volatile
+    private var sourceReloadId: Long? = null
+
+    /**
+     * The chapter on screen opened again where the reader is, as a chapter-text setting reloads it, with
+     * its cached text dropped. [fromSource] skips a downloaded copy. A load already running is left alone.
+     */
+    fun reloadChapter(fromSource: Boolean) {
+        viewModelScope.launchIO {
+            val id = lane.withLock {
+                if (loadState.value == ReaderLoadState.Loading) return@launchIO
+                currentChapterId.also { pendingChapterId = it }
+            }
+            htmlCache.remove(id)
+            sourceReloadId = id.takeIf { fromSource }
+            load()
+        }
+    }
+
     /**
      * The reader asking again for the chapter whose failure is drawn at that edge of the window, which
      * need not be a neighbour: past a chapter that fits on screen, the edge is further on. Immediate:
@@ -862,7 +882,11 @@ class NovelReaderViewModel(
                 // A warm already fetching it is waited on, rather than fetched again beside it, which is
                 // how read aloud reaching a chapter's end mid-warm opens the next chapter.
                 warmsInFlight.awaitIdle(row.id)
-                val (html, baseUrl) = htmlCache[row.id] ?: loadChapterHtml(row).also { htmlCache[row.id] = it }
+                val fromSource = sourceReloadId == row.id
+                val (html, baseUrl) = htmlCache[row.id] ?: loadChapterHtml(row, fromSource).also {
+                    htmlCache[row.id] = it
+                    if (fromSource) sourceReloadId = null
+                }
                 val bookmarked = isBookmarkedInGroup(row.id)
                 lane.withLock {
                     // A later open overtook this one while it loaded, and committing it now would put
@@ -1414,7 +1438,8 @@ class NovelReaderViewModel(
         }
     }
 
-    suspend fun loadChapterHtml(chapter: NovelChapter): Pair<String, String?> = textLoader.load(chapter)
+    suspend fun loadChapterHtml(chapter: NovelChapter, fromSource: Boolean = false): Pair<String, String?> =
+        textLoader.load(chapter, fromSource)
 
     override fun onCleared() {
         readAloud.shutdown()

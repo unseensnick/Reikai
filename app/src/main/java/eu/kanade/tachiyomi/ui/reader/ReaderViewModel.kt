@@ -1139,6 +1139,35 @@ class ReaderViewModel(
         }
     }
 
+    // RK --> the open chapter loaded again at the page on screen. From the source it skips a downloaded
+    // copy and drops the cached page list and images, which the page loader would otherwise serve again.
+    fun reloadChapter(fromSource: Boolean) {
+        val loader = loader ?: return
+        val chapter = state.value.viewerChapters?.currChapter ?: return
+        viewModelScope.launchIO {
+            try {
+                if (fromSource) {
+                    chapter.pages?.forEach { page -> page.imageUrl?.let(chapterCache::removeImage) }
+                    chapter.chapter.toDomainChapter()?.let(chapterCache::removePageList)
+                }
+                chapter.pageLoader?.recycle()
+                chapter.pageLoader = null
+                chapter.state = ReaderChapter.State.Wait
+                loader.loadChapter(chapter, fromSource)
+                val lastPage = chapter.pages?.lastIndex ?: 0
+                chapter.requestedPage = chapterPageIndex.coerceIn(0, maxOf(0, lastPage))
+                eventChannel.send(Event.ReloadViewerChapters)
+            } catch (e: Throwable) {
+                if (e is CancellationException) throw e
+                logcat(LogPriority.ERROR, e) { "Failed to reload chapter" }
+                mutableState.update {
+                    it.copy(adjacentLoadFailure = AdjacentLoadFailure(chapter.chapter.id!!, e.message))
+                }
+            }
+        }
+    }
+    // RK <--
+
     /** Jump to an arbitrary chapter chosen in the chapter dialog (Y10). */
     fun loadNewChapterFromDialog(chapter: Chapter) {
         viewModelScope.launchIO {

@@ -186,6 +186,36 @@ class NovelContentPipelineTest {
         html shouldContain "&lt;script&gt;"
     }
 
+    /** A chapter on disk and a source with different text, so which one a load read shows in its output. */
+    private fun sourceOrDownloadLoader(): NovelChapterTextLoader {
+        val source = mockk<NovelSource> {
+            every { site } returns "https://example.test"
+            coEvery { parseChapter(any()) } returns "<p>from source</p>"
+        }
+        val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get(any()) } returns source }
+        return NovelChapterTextLoader(
+            novelRepo = mockk { coEvery { getById(any()) } returns Novel.create().copy(id = 1L, source = "s") },
+            sourceManager = sourceManager,
+            installer = mockk(relaxed = true),
+            preferences = preferences,
+            readDownloaded = { _, _ -> "<p>downloaded</p>" },
+        )
+    }
+
+    @Test
+    fun `a load reads the downloaded copy when there is one`() = runTest {
+        val (html, _) = sourceOrDownloadLoader().load(chapter(url = "/book/ch1.html"))
+
+        html shouldContain "downloaded"
+    }
+
+    @Test
+    fun `a load from the source skips the downloaded copy`() = runTest {
+        val (html, _) = sourceOrDownloadLoader().load(chapter(url = "/book/ch1.html"), fromSource = true)
+
+        html shouldContain "from source"
+    }
+
     private fun chapter(url: String) = NovelChapter(
         id = 1L,
         novelId = 1L,

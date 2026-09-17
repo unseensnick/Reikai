@@ -88,6 +88,8 @@ class ReaderEngine(
 
     fun toggleBookmark() = provider.toggleBookmark()
 
+    fun reloadChapter(fromSource: Boolean) = provider.reloadChapter(fromSource)
+
     /** The open chapter's page on the source site, null where it has none. */
     val webUrl: StateFlow<String?> =
         provider.webUrl.stateIn(viewModelScope, SharingStarted.Eagerly, null)

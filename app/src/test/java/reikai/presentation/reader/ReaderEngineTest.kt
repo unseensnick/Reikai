@@ -650,6 +650,8 @@ private class FakeReaderProvider(
 
     override val loadState = MutableStateFlow<ReaderLoadState>(ReaderLoadState.Idle)
 
+    override fun reloadChapter(fromSource: Boolean) = Unit
+
     override fun retryLoad() {
         retried++
     }

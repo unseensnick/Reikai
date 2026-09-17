@@ -99,6 +99,8 @@ class NovelReaderProvider(
 
     override fun retryLoad() = viewModel.retryLoad()
 
+    override fun reloadChapter(fromSource: Boolean) = viewModel.reloadChapter(fromSource)
+
     override val bookmarked: Flow<Boolean> = viewModel.bookmarked
 
     override fun toggleBookmark() = viewModel.toggleBookmark()

@@ -1050,6 +1050,7 @@ class ReaderActivity : BaseActivity() {
             onClickTheme = engine.textSettings?.let { { engine.openDialog(ReaderDialog.ThemeSelect(it)) } },
             onClickScrollToTop = engine::seekToStart,
             onEditBottomButtons = { engine.openDialog(ReaderDialog.BottomButtons(engine.provider.bottomButtonScope)) },
+            onReloadChapter = engine::reloadChapter,
             autoScrollActive = autoScrollActive,
             onClickAutoScroll = engine.autoScroll?.let { auto -> { auto.toggle() } },
             bionicActive = bionicActive,

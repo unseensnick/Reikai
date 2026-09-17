@@ -221,6 +221,7 @@ every release now also ships a foss build with neither in it.
 - **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Every font's row previews itself, Serif, Sans serif and Monospace included, and what you add works in both rendering modes.
 - **Bottom bar buttons under Settings -> Manga reader and Settings -> Novel reader now set the order of the reader's buttons, not just which ones show.** Drag a button by its handle, the settings button included, which is always shown.
 - **Settings -> Novel reader -> Resume reading position now reopens read chapters where you left them, as the manga reader's setting does.**
+- **The reader's top menu can reload the open chapter where you are, from its downloaded copy or fresh from the source.**
 - **Settings -> Manga reader and Settings -> Novel reader can now hide the progress slider, which moves the chapter buttons to the ends of the button bar.**
 - **Settings -> Novel reader -> Add the next chapter at sets how far into a chapter the next one appears below it, 95% by default.** It is still fetched as soon as the chapter opens, so Next and read aloud never wait.
 

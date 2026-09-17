@@ -29,8 +29,8 @@ class MergedChapterLoader(
 
     private val loaders = HashMap<Long, ChapterLoader>()
 
-    suspend fun loadChapter(chapter: ReaderChapter) {
-        loaderFor(chapter.chapter.manga_id!!).loadChapter(chapter)
+    suspend fun loadChapter(chapter: ReaderChapter, fromSource: Boolean = false) {
+        loaderFor(chapter.chapter.manga_id!!).loadChapter(chapter, fromSource)
     }
 
     private suspend fun loaderFor(mangaId: Long): ChapterLoader = loaders.getOrPut(mangaId) {

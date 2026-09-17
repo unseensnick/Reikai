@@ -81,6 +81,12 @@ interface ReaderProvider {
     fun retryLoad()
 
     /**
+     * Loads the open chapter again where the reader is: from a downloaded copy when there is one, or from
+     * the source when [fromSource], skipping that copy and whatever the session cached of the chapter.
+     */
+    fun reloadChapter(fromSource: Boolean)
+
+    /**
      * Whether the open chapter is bookmarked, and the verb that flips it. Every content type has
      * chapters and every one can bookmark them, so the bar asks the session rather than reading one
      * engine's model, which is how this control ended up permanently empty for novels.
