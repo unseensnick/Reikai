@@ -1,5 +1,6 @@
 {
   "main_library": { "name": "Library", "icon": "library" },
+  "main_recents": { "name": "Recents", "icon": "updates" },
   "main_updates": { "name": "Updates", "icon": "updates" },
   "main_history": { "name": "History", "icon": "history" },
   "main_browse": { "name": "Browse", "icon": "browse" },
@@ -22,15 +23,16 @@
 
   "appearance": { "name": "Appearance", "icon": "appearance", "under": "settings" },
   "library": { "name": "Library", "icon": "library", "under": "settings" },
-  "reader": { "name": "Reader", "icon": "reader", "under": "settings" },
+  "manga-reader": { "name": "Manga reader", "icon": "reader", "under": "settings" },
+  "novel-reader": { "name": "Novel reader", "icon": "reader", "under": "settings" },
   "downloads": { "name": "Downloads", "icon": "download", "under": "settings" },
   "tracking": { "name": "Tracking", "icon": "tracking", "under": "settings" },
-  "browse": { "name": "Browse", "icon": "browse", "under": "settings" },
+  "browse": { "name": "Browse and sources", "icon": "browse", "under": "settings" },
   "security-and-privacy": { "name": "Security and privacy", "icon": "security", "under": "settings" },
   "advanced": { "name": "Advanced", "icon": "advanced", "under": "settings" },
-  "recommendations": { "name": "Recommendations", "under": "library" },
-  "e-hentai": { "name": "E-Hentai", "under": "settings" },
-  "mangadex": { "name": "MangaDex", "under": "settings" },
+  "recommendations": { "name": "Recommendations", "under": "settings" },
+  "e-hentai": { "name": "E-Hentai", "under": "browse" },
+  "mangadex": { "name": "MangaDex", "under": "browse" },
 
   "overflow": { "name": "Overflow", "icon": "overflow" },
   "webview": { "name": "Open in WebView", "icon": "webview", "under": "overflow" },
