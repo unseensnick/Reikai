@@ -412,6 +412,9 @@ class NovelPreferences(
      *  chapter its own page, which some readers want as the place they stop. */
     fun readerSeamlessChapters() = preferenceStore.getBoolean("ln_reader_seamless_chapters", true)
 
+    /** How far into a chapter, as a whole percent, the next one is added below it. It is fetched on open either way. */
+    fun readerAutoLoadNextAt() = preferenceStore.getInt("ln_reader_auto_load_next_at", 95)
+
     /** The novel reader's own copy of manga's `alwaysShowChapterTransition` setting, because each reader
      *  keeps its own settings. Off draws the marker between two chapters only where chapters are missing;
      *  the marker after the last chapter shows either way. */

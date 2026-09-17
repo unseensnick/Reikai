@@ -73,4 +73,27 @@ class NovelWindowReachTest {
     fun `a chapter before that the window already holds stays`() {
         NovelWindowReach.previousMayJoin(forward = listOf(3L), resolved = { false }, alreadyHeld = true) shouldBe true
     }
+
+    @Test
+    fun `the reach waits below the threshold`() {
+        NovelWindowReach.joinable(listOf(2L, 3L), progress = 94, threshold = 95, fits = false) { false } shouldBe
+            emptyList()
+    }
+
+    @Test
+    fun `the reach joins at the threshold`() {
+        NovelWindowReach.joinable(listOf(2L, 3L), progress = 95, threshold = 95, fits = false) { false } shouldBe
+            listOf(2L, 3L)
+    }
+
+    @Test
+    fun `a chapter that fits on one screen lets the reach join at 0`() {
+        NovelWindowReach.joinable(listOf(2L), progress = 0, threshold = 95, fits = true) { false } shouldBe listOf(2L)
+    }
+
+    @Test
+    fun `below the threshold a chapter already in the window stays`() {
+        NovelWindowReach.joinable(listOf(2L, 3L), progress = 10, threshold = 95, fits = false) { it == 2L } shouldBe
+            listOf(2L)
+    }
 }

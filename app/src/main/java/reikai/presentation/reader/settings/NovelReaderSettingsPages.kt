@@ -326,6 +326,20 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
         )
     }
 
+    val seamless by preferences.readerSeamlessChapters().collectAsState()
+    if (seamless) {
+        val autoLoadPref = preferences.readerAutoLoadNextAt()
+        val autoLoad by autoLoadPref.collectAsState()
+        SliderItem(
+            value = autoLoad,
+            valueRange = 50..100,
+            label = stringResource(MR.strings.pref_novel_auto_load_next_at),
+            valueString = "$autoLoad%",
+            onChange = autoLoadPref::set,
+            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        )
+    }
+
     HeadingItem(MR.strings.pref_category_gestures)
     NovelTapZonesRows(preferences)
     CheckboxItem(

@@ -413,6 +413,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
     private fun getReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
         val renderingMode by novelPreferences.readerRenderingMode().collectAsState()
         val seamless by novelPreferences.readerSeamlessChapters().collectAsState()
+        val autoLoadNextAtPref = novelPreferences.readerAutoLoadNextAt()
+        val autoLoadNextAt by autoLoadNextAtPref.collectAsState()
         val autoScrollSpeedPref = novelPreferences.readerAutoScrollSpeed()
         val autoScrollSpeed by autoScrollSpeedPref.collectAsState()
         val autoScroll by novelPreferences.readerAutoScroll().collectAsState()
@@ -450,6 +452,13 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerAlwaysShowChapterTransition(),
                     title = stringResource(MR.strings.pref_always_show_chapter_transition),
+                ).takeIf { seamless },
+                Preference.PreferenceItem.SliderPreference(
+                    value = autoLoadNextAt,
+                    valueRange = 50..100,
+                    title = stringResource(MR.strings.pref_novel_auto_load_next_at),
+                    valueString = "$autoLoadNextAt%",
+                    onValueChanged = { autoLoadNextAtPref.set(it) },
                 ).takeIf { seamless },
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerChapterTitleFormat(),

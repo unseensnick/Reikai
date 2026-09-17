@@ -28,6 +28,15 @@ object NovelWindowReach {
     }
 
     /**
+     * What of the [reach] may join the window: all of it once the reader is [threshold] percent into the
+     * chapter being read ([progress]), or when that chapter [fits] on one screen and so never reports past
+     * 0. Before that only the start of the reach the window [alreadyHeld], since taking a chapter back out
+     * from below the reader would move the page.
+     */
+    fun joinable(reach: List<Long>, progress: Int, threshold: Int, fits: Boolean, alreadyHeld: (Long) -> Boolean) =
+        if (fits || progress >= threshold) reach else reach.takeWhile(alreadyHeld)
+
+    /**
      * The chapters the window publishes, in order: [previous] and each of the [forward] reach once
      * [isCached], and never one past a reach chapter that is not. The viewports only grow at an end,
      * so a chapter published below a gap left the gap for good, and a crossing then read it unseen.

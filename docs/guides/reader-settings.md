@@ -319,6 +319,9 @@ Scrolls straight on into the next chapter. Off makes each chapter its own page.
 #### Always show chapter transition <Badge type="info" text="On" />
 Shows the marker between two chapters every time, not only where chapters are missing. Only shown while **Continuous chapters** is on.
 
+#### Add the next chapter at <Badge type="info" text="95%" />
+How far into a chapter you have to read before the next one appears below it. A chapter shorter than the screen adds the next one straight away. Only shown while **Continuous chapters** is on.
+
 #### Chapter title <Badge type="info" text="Name" />
 What the reader's bar calls the open chapter: its **Name**, its **Number**, or **Number and name**.
 

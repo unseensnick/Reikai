@@ -744,6 +744,7 @@
     <string name="pref_novel_rendering_mode_native">Native text</string>
     <string name="pref_novel_text_selectable">Select text by long press</string>
     <string name="pref_novel_text_selectable_summary">Links stop responding to taps, the next time the reader opens</string>
+    <string name="pref_novel_auto_load_next_at">Add the next chapter at</string>
     <string name="pref_novel_seamless_chapters">Continuous chapters</string>
     <string name="pref_novel_seamless_chapters_summary">Scroll straight on into the next chapter</string>
     <!-- RK: novel read-aloud settings -->

@@ -539,7 +539,13 @@ class NovelReaderViewModel(
         // The reader moved, so the chapter the renderer named while the landing held it now stands.
         if (wasLanding && landing.settled) requestCrossing()
         latestReport = id to clamped
-        if (id == currentChapterId) liveProgress.value = clamped
+        if (id == currentChapterId) {
+            val before = liveProgress.value
+            liveProgress.value = clamped
+            // Reaching the threshold is what lets the next chapter join below, so the window follows at once.
+            val threshold = novelPreferences.readerAutoLoadNextAt().get()
+            if (before < threshold && clamped >= threshold) viewModelScope.launchIO { rebuildWindow() }
+        }
         // Written here rather than left to the crossing, which happens on its own coroutine: the very
         // next report belongs to the arriving chapter and would otherwise land on the departed one.
         val pending = pendingSave
@@ -1321,8 +1327,14 @@ class NovelReaderViewModel(
      */
     private suspend fun buildWindow(current: LoadedChapter, around: Neighbours, generation: Int): Window {
         if (!windowedReading()) return Window(generation, current.chapterId, listOf(current))
-        val forward = forwardReach(around.next)
         val published = windowState.value.takeIf { it.generation == generation }?.chapters.orEmpty()
+        val forward = NovelWindowReach.joinable(
+            reach = forwardReach(around.next),
+            progress = if (current.chapterId == currentChapterId) liveProgress.value else current.progressPercent,
+            threshold = novelPreferences.readerAutoLoadNextAt().get(),
+            fits = current.chapterId in fitsOnScreen,
+            alreadyHeld = { id -> published.any { it.chapterId == id } },
+        )
         // Separate emissions reach the host as separate diffs, so ordering one diff (NovelWindowDiff)
         // cannot keep a chapter from arriving above before the ones below it do.
         val previous = around.previous?.takeIf { id ->
