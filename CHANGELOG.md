@@ -445,6 +445,7 @@ every release now also ships a foss build with neither in it.
 
 #### Added
 
+- **Binding a tracker to a novel you have already read now fills in when you started reading, as it does for manga.**
 - **Light novels can now be tracked on RanobeDB, NovelList and NovelUpdates, three services built for novels.** Sign in through a browser window on any of them, or paste a personal access token on RanobeDB; what each keeps in sync differs, because not all of them store a score, reading dates or an on-hold state.
 - **Turning on list matching in the tracking settings points NovelUpdates statuses at your own reading lists, not just the five it starts with.** Each status picks the list it moves a novel to.
 - **Filling a novel's details from a tracker now works with RanobeDB, NovelList and NovelUpdates, which know novels better than the manga services do.** It fills the description, author, artist and genres.
@@ -461,6 +462,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **Fill from tracker now says "No entry found" when the tracker has no such entry.** A failure with no reason says "Unknown error" instead of ending in a blank.
 - **Start and finish dates pulled from MangaBaka no longer land a day early in timezones behind UTC (synced from Mihon, mihonapp/mihon#3711).**
 - **AniList tracking now stays under the service's request limit (synced from Mihon, mihonapp/mihon#3942).** The old ceiling sat above what AniList allows, so a burst of updates could come back rejected.
 - **A tracker set on one source of a merged series now shows and updates on all of its sources.** The chip, reading progress, mark-as-read and refresh all follow the whole group instead of the one source the tracker happens to be bound to.

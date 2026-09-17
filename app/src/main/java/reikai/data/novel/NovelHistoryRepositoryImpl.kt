@@ -39,6 +39,9 @@ class NovelHistoryRepositoryImpl(
     override suspend fun getLastNovelHistory(): NovelHistoryWithRelations? =
         database.novelHistoryViewQueries.getLatestNovelHistory(::mapNovelHistoryWithRelations).awaitAsOneOrNull()
 
+    override suspend fun getEarliestReadAt(novelId: Long): Long? =
+        database.novel_historyQueries.getEarliestReadAt(novelId).awaitAsOneOrNull()?.earliest
+
     override suspend fun resetNovelHistory(historyId: Long) {
         try {
             database.novel_historyQueries.resetById(historyId)

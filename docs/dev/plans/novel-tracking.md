@@ -74,7 +74,7 @@ Shipped in commit `7c56e07eb`, on-device verified (Z Fold). Roadmap Active item 
 
 - **Private listing supported (added later).** Mihon's manga tracking can mark an entry "private" on the tracker. The `novel_tracks` table first shipped without that column, so early novel tracks were always public; the `private` column was later added (25.sqm), so the private toggle now appears in the novel sheet and syncs to the service like manga. The vestigial `allowPrivate` gate that once hid it has since been removed.
 
-- **No on-bind start-date backfill.** Binding a novel does not auto-fill a start date the way some flows might. The date fields are still settable manually in the sheet. Keeps bind logic simple and avoids guessing a date the user may not want.
+- **Binding a read novel fills in its start date, as manga's bind does** (2026-09-17, reversing the earlier "no on-bind backfill" cut). When the tracker has no start date, `AddNovelTrack` sends the novel's earliest read (`NovelHistoryRepository.getEarliestReadAt`), converted to UTC the way `AddTracks` converts it. Only that novel's own history is read, matching manga, which reads one manga's history rather than its merge group's.
 
 - **One track row while merged, not copy-to-each-member.** Group-aware tracking keeps a single row for a merged novel and resolves the group at read/display time, which avoids the duplicate-row and gating complexity manga carries. The trade is a lazy copy at unmerge (`PropagateNovelTrackerLinks`) so each source keeps the tracker after a split. Possible only because Reikai owns the novel reading path.
 

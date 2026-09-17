@@ -119,7 +119,16 @@ fun EntryEditInfoDialog(
                         .onSuccess { b.applyMetadata(it, colorScheme) }
                         .onFailure { e ->
                             logcat(LogPriority.ERROR, e) { "Fill from tracker failed (${tracker.name})" }
-                            ctx.toast(ctx.stringResource(MR.strings.track_error, tracker.name, e.message ?: ""))
+                            val message = when (val error = trackerAutofillError(e)) {
+                                TrackerAutofillError.NotFound ->
+                                    ctx.stringResource(MR.strings.track_autofill_not_found, tracker.name)
+                                is TrackerAutofillError.Failed -> ctx.stringResource(
+                                    MR.strings.track_error,
+                                    tracker.name,
+                                    error.message ?: ctx.stringResource(MR.strings.unknown_error),
+                                )
+                            }
+                            ctx.toast(message)
                         }
                 }
             }

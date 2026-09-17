@@ -25,6 +25,9 @@ interface NovelHistoryRepository {
     suspend fun deleteAllNovelHistory(): Boolean
     suspend fun upsertNovelHistory(update: NovelHistoryUpdate)
 
+    /** When [novelId] was first read, in epoch millis, or null when none of its chapters has been. */
+    suspend fun getEarliestReadAt(novelId: Long): Long?
+
     /** Total novel reading time (ms) across all chapters, for the Stats screen. */
     suspend fun getTotalReadDuration(): Long
 }

@@ -28,7 +28,6 @@ Remaining manga/novel parity work, smaller enhancements and polish. The write-on
 Opportunistic polish:
 - Browse: map a tapped genre onto a novel plugin's filters; the shared catalogue passes the genre-search hook on the manga branch only, so a novel source falls back to a plain text query.
 - Global search: opening on Pinned-only with nothing pinned shows a bare empty screen, on both content types since the shared screen took over. Default to All, or say the list is empty because nothing is pinned.
-- Tracking: start-date backfill, friendlier Fill-from-tracker errors (no-entry-found on a 404 + null-message fallback).
 - Details: the scanlator filter on a merged manga lists and excludes only the anchor entry's scanlators, while the unified list shows siblings' chapters, so the dialog and the query disagree about what can be hidden.
 
 ### Reader

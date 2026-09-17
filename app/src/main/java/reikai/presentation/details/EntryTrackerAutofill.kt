@@ -3,6 +3,7 @@ package reikai.presentation.details
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.network.HttpException
 import tachiyomi.domain.track.model.Track
 
 /**
@@ -16,3 +17,17 @@ fun buildTrackerAutofillCandidates(
 ): List<Pair<Track, Tracker>> =
     tracks.mapNotNull { track -> trackerManager.get(track.trackerId)?.let { track to it } }
         .filterNot { (_, tracker) -> tracker is EnhancedTracker }
+
+/** Why "Fill from tracker" found nothing to fill, in the terms the dialog tells the reader. */
+sealed interface TrackerAutofillError {
+    /** The tracker has no entry at the bound id, which it answers with a 404. */
+    data object NotFound : TrackerAutofillError
+
+    /** Any other failure, with its message, or null where it carries none worth showing. */
+    data class Failed(val message: String?) : TrackerAutofillError
+}
+
+fun trackerAutofillError(error: Throwable): TrackerAutofillError = when {
+    error is HttpException && error.code == 404 -> TrackerAutofillError.NotFound
+    else -> TrackerAutofillError.Failed(error.message?.takeIf { it.isNotBlank() })
+}
