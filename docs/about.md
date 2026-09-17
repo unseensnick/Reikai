@@ -51,11 +51,11 @@ GitHub Releases, downloads the newest version, and installs it from the notifica
 
 ## Where should I download Reikai from? Are "patched" builds safe?
 
-Only from the [official Releases page](https://github.com/unseensnick/Reikai/releases)
-(or the in-app updater, which pulls from the same place). Nowhere else. People
+Only from the [download page](/download/), which offers both Stable and Nightly, or the GitHub
+releases it links to (the in-app updater pulls from the same place). Nowhere else. People
 sometimes post links to a "patched" or "fixed" APK in issue comments or elsewhere;
 those are not from me and have turned out to be malware. If a build did not come from
-this repository's Releases, do not install it.
+there, do not install it.
 
 ## Will updating keep my library and data? Should I back up?
 
@@ -85,19 +85,6 @@ The upside: the LNReader plugin format is shared across Reikai, tsundoku, and IR
 so any novel source that exists as an LNReader plugin you can add today, add its repo
 under **Light novel repos** in **Extension stores**, in <nav to="browse">. Supporting the compiled-APK side is a much bigger piece
 of work: on the backlog, but no timeline.
-
-## On a merged series, why can't I change the cover while a source chip is selected?
-
-Tapping the cover shows the cover of whichever source you have selected, so it matches the
-page you are looking at. Edit cover and Delete custom cover are only offered on the group
-itself, which is the All chip.
-
-The reason is that your library shows the group's cover, not each source's. If you could set
-a custom cover while viewing one source, it would land on that source's copy and your library
-would carry on showing the old one, which looks like the change failed. Restricting the edit
-to the group means the cover you are looking at is always the cover a change would replace.
-
-To change it, switch to All and tap the cover there.
 
 ## Where do I report a bug, request a feature, or ask a question?
 

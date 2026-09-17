@@ -63,9 +63,15 @@ It's best to use the standard [Android System WebView](https://play.google.com/s
 **Cloudflare**, an anti-bot mechanism, is used by some sources.
 Some sources intentionally have higher **Cloudflare** protection to deter apps like **Reikai**.
 
+### Routing the source through a bypass proxy
+
+Some sources sit on protection the in-app WebView cannot clear at all, and no amount of retrying or user-agent swapping helps.
+
+For those, **Reikai** can hand the request to a bypass proxy you run yourself, which solves the challenge in a real browser. See [Cloudflare bypass](/docs/flaresolverr).
+
 ### Dealing with Cloudflare looping
-Certain sources may employ more advanced **Cloudflare** protection, leading to **WebView** continuously reloading when bypassing using the above solution.
-If this occurs, try [Accessing the Website via WebView](#accessing-websites-via-webview).
+Certain sources may employ more advanced **Cloudflare** protection, leading to **WebView** continuously reloading when you [access the website via WebView](#accessing-websites-via-webview).
+If the page stops on a **Verify you are human** box, turn on **Solve interactive Cloudflare challenges** in <nav to="advanced">. Otherwise, try changing your user agent below, and if that does not help either, route the source through a bypass proxy as described above.
 
 ### Changing your user agent
 A user agent string shares requester information with websites, potentially affecting **Cloudflare**'s bot detection.
@@ -80,17 +86,30 @@ While some sources have specific user agent strings, most rely on the app's defa
 1. After changing the user agent string, remember to restart the app & check WebView to see if it passes verification.
 :::
 
-### Routing the source through a bypass proxy
-
-Some sources sit on protection the in-app WebView cannot clear at all, and no amount of retrying or user-agent swapping helps.
-
-For those, **Reikai** can hand the request to a bypass proxy you run yourself, which solves the challenge in a real browser. See [Cloudflare bypass](/docs/flaresolverr).
-
 ::: tip Did none of this work?
 Wait for the source to lower its protection, or switch to a different source.
 :::
 
 ## General
+
+### A download keeps failing
+
+Usually not. Reikai's download code is Mihon's, so whether a chapter can actually be
+fetched is almost always on the source or extension side, not the app. Common cases:
+
+- **Blank in the reader too / a Cloudflare error:** the source's own server is
+  unreachable. Nothing to do but wait for it to come back, or route it through a
+  [Cloudflare bypass proxy](/docs/flaresolverr) if that is the block.
+- **Won't download until you open a chapter first:** some sources only build their page
+  list once you have opened the reader (a session or decrypt step). The downloader asks
+  for the list cold and gets nothing until you have viewed a chapter once.
+- **Renders in the reader but saves zero pages:** the page shows, but the extension's
+  parser returns no pages, so there is nothing to save.
+
+Quick test: try the same source and chapter in Mihon. If it fails there too, it is not
+specific to Reikai (more likely the source blocking you, or something on your network:
+ISP, DNS, a VPN or firewall). If it works in Mihon but not Reikai, that one is on me,
+so open an issue with the exact source, chapter, and steps.
 
 ### Obtaining crash/error logs
 For crash investigations, navigate to <nav to="advanced"> and tap **Share crash logs**.

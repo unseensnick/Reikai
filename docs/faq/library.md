@@ -8,14 +8,7 @@ description: Frequently Asked Questions about the Library.
 Frequently Asked Questions about the Library.
 
 ## Why is my Global Update skipping entries?
-The app's default behavior is to skip updates for entries that meet the following criteria:
-
-1. Have unread chapters
-1. Hasn't been started
-1. Marked with a "**Completed**" status
-1. Isn't predicted to receive new chapters yet
-
-Adult gallery sources are always left out of a global update, whichever of those criteria you turn off, because a gallery gains pages in place rather than gaining chapters. They have their own **Gallery update checker** instead, described in [adult sources](/docs/adult-sources).
+By default, a global update skips entries that are unlikely to have anything new: ones with unread chapters, ones you have not started, ones marked **Completed**, and manga not yet predicted to have a new chapter. [Smart updates](/docs/faq/updates/smart) explains each condition, how light novels differ, and where to turn them off.
 
 This strategy helps reduce unnecessary requests which may lead to sources implementing measures against **Reikai** or your extensions.
 * We recommend to prioritize reading your unread chapters, and letting **Reikai** update the library by itself to better adapt & predict chapter releases over time.
@@ -26,11 +19,7 @@ If an entry has infrequent updates or no updates:
 * Move the entry into a separate category, and exclude the category from your Global Updates.
 :::
 
-Light novels are skipped on the first three criteria too, but never the fourth: novel sources
-publish no release schedule, so there is nothing to predict from. A novel with no chapter read
-counts as not started even before it has any chapters.
-
-For more information, check out the [Smart Updates](/docs/faq/updates/smart) and [Upcoming Calendar](/docs/faq/updates/upcoming) pages.
+To see when each entry is next expected to update, check the [Upcoming Calendar](/docs/faq/updates/upcoming).
 
 ## Why am I being warned about bulk updates and downloads?
 **Reikai** provides a reminder when updating multiple titles or bulk downloading chapters, since excessive requests may trigger a source's anti-bot measures.

@@ -46,12 +46,25 @@ Turn those off with **Show source icons on merged covers** in the library displa
 
 ## Switching source
 
-Open a grouped series and a row of source chips sits in the header, under the cover, with the one you are reading highlighted.
+Open a grouped series and a row of chips sits below its details: **All** for the combined list, selected when you open it, then one chip per source.
 
 Tap another chip to read that source's version.
 Chapters, progress and library state stay with the group, so switching source does not restart anything.
 
 The row refreshes on its own whenever you come back to the details screen, so a source you just added through global search appears without backing out to the library first.
+
+### Changing the cover
+
+Tapping the cover shows the cover of whichever source you have selected, so it matches the
+page you are looking at. Edit cover and Delete custom cover are only offered on the group
+itself, which is the **All** chip.
+
+The reason is that your library shows the group's cover, not each source's. If you could set
+a custom cover while viewing one source, it would land on that source's copy and your library
+would carry on showing the old one, which looks like the change failed. Restricting the edit
+to the group means the cover you are looking at is always the cover a change would replace.
+
+To change it, switch to **All** and tap the cover there.
 
 ## Reading a group
 
