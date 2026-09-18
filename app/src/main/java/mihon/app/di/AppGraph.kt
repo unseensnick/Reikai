@@ -230,9 +230,10 @@ interface AppGraph : ViewModelGraph {
     val resetNovelCategoryFlags: ResetNovelCategoryFlags
     val repairNovelDetails: RepairNovelDetails
 
-    // RK: an accessor rather than upstream's injected App field. A field would build every migration
-    // at graph.inject, and one of them takes Database, in the :error_handler process too, which
-    // returns before the migrator runs.
+    // RK: an accessor rather than upstream's injected App field. A field builds the whole set at
+    // graph.inject, in the :error_handler process too, and TrustExtensionRepositoryMigration reaches
+    // NetworkHelper, whose AndroidCookieJar calls CookieManager.getInstance() and so loads WebView.
+    // A broken WebView would then also take down the crash screen.
     val migrations: Set<Migration>
 
     // Read by App's cold-start warm-up.

@@ -30,16 +30,16 @@ BARE_ISSUE_REF='(^|[^A-Za-z0-9])#[0-9]'
 # A comment line: //, a block-comment opener, a KDoc *-line, or a SQL -- line.
 COMMENT_LINE='(//|/\*|^\+?[[:space:]]*\*|^\+?[[:space:]]*--)'
 
-# Plan and roadmap codenames, which rot as the plan moves on. Caught: Phase N, the P<phase> / P5 S5
-# shorthand, Y<n> Yokai-era refs, R<n> roadmap refs, Active #N, and in-words "Roadmap N" /
+# Plan and roadmap codenames, which rot as the plan moves on. Caught: Phase N, Stage N, the P<phase> /
+# P5 S5 shorthand, Y<n> Yokai-era refs, R<n> roadmap refs, Active #N, and in-words "Roadmap N" /
 # "Roadmap:" (the bare document name ROADMAP.md stays allowed). Spared below the line: R8 (the code
 # shrinker, so R uses [0-79]) and M3 (Material 3, M is not matched).
-CODENAME='(Phase[[:space:]]*[0-9]|Active[[:space:]]*#[0-9]|\b[PY][0-9][a-z]?\b|\bR[0-79][a-z]?\b|\b[Ss]tep[[:space:]]*[0-9]|[Rr]oadmap[[:space:]]*(#?[0-9]|:))'
+CODENAME='(Phase[[:space:]]*[0-9]|\b[Ss]tage[[:space:]]*[0-9]|Active[[:space:]]*#[0-9]|\b[PY][0-9][a-z]?\b|\bR[0-79][a-z]?\b|\b[Ss]tep[[:space:]]*[0-9]|[Rr]oadmap[[:space:]]*(#?[0-9]|:))'
 
-# A colon-led algorithm step ("Step 1:") is fine; a plan-style "Step 3" is not. The step match is
+# A colon-led algorithm step ("Step 1:", "Stage 1:") is fine; a plan-style "Step 3" is not. The step match is
 # case-insensitive because a lower-case "step 2" reached main once. Two Kotlin range shapes quoted
 # in comments are spared too: "2..20 step 6" and a fractional "step 0.5".
-CODENAME_SPARED='(\b[Ss]tep[[:space:]]*[0-9]:|[0-9]\.\.[0-9]+[[:space:]]+step[[:space:]]|[Ss]tep[[:space:]]*[0-9]+\.[0-9])'
+CODENAME_SPARED='(\b[Ss]t(ep|age)[[:space:]]*[0-9]:|[0-9]\.\.[0-9]+[[:space:]]+step[[:space:]]|[Ss]tep[[:space:]]*[0-9]+\.[0-9])'
 
 report() {
   if [ -n "${GITHUB_ACTIONS:-}" ]; then
@@ -114,7 +114,7 @@ case "$cmd" in
       hits=$(grep -E "$COMMENT_LINE" | grep -E "$CODENAME" | grep -vE "$CODENAME_SPARED" || true)
     fi
     if [ -n "$hits" ]; then
-      report "a code comment carries a plan/roadmap codename marker (Phase N, P5 S5, Y3, R3, Active #N, Roadmap N, plan Step N); state the durable fact instead. See code-quality.md." "$hits"
+      report "a code comment carries a plan/roadmap codename marker (Phase N, Stage N, P5 S5, Y3, R3, Active #N, Roadmap N, plan Step N); state the durable fact instead. See code-quality.md." "$hits"
       exit 1
     fi
     ;;

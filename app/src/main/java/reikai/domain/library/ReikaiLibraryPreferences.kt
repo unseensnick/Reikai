@@ -13,8 +13,8 @@ import tachiyomi.core.common.preference.getLongArray
  * Reikai's net-new library preferences, the ones Mihon's [tachiyomi.domain.library.service.LibraryPreferences]
  * does not have. Kept in a separate holder so Mihon's class stays untouched and upstream-mergeable.
  *
- * Key strings are preserved verbatim from the Yōkai-era fork so an in-place upgrade keeps the
- * user's library display settings (preferences live in SharedPreferences, independent of the DB).
+ * Key strings are stored on every install and restored verbatim from backups, so renaming one needs
+ * a migration that moves the value.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -173,7 +173,7 @@ class ReikaiLibraryPreferences(
     /** Mirror a tracker added to one source onto every favorited member of its merged group. */
     val syncTrackerLinksGrouped: Preference<Boolean> = preferenceStore.getBoolean("sync_tracker_links_grouped", true)
 
-    // Novel merge. Keys preserved from the Yokai era for upgrade continuity.
+    // Novel merge. Renaming a key needs a migration that moves the value (see the class KDoc).
 
     /** Manual novel merge groups: each entry is a comma-joined, sorted novel-id group (e.g. "1,5,9"). */
     val novelManualMerges: Preference<Set<String>> = preferenceStore.getStringSet(NOVEL_MANUAL_MERGES_KEY, emptySet())

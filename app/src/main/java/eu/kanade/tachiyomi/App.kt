@@ -95,12 +95,9 @@ class App :
 
     @Inject private lateinit var uiPreferences: UiPreferences
 
-    // Both are deferred, unlike upstream, so graph.inject never reaches the database: they pull the
-    // updates and novel repositories, which take Database, and the :error_handler process returns
-    // before it calls either.
-    @Inject private lateinit var widgetManager: () -> WidgetManager
+    @Inject private lateinit var widgetManager: WidgetManager
 
-    @Inject private lateinit var unifiedUpdatesWidgetManager: () -> UnifiedUpdatesWidgetManager
+    @Inject private lateinit var unifiedUpdatesWidgetManager: UnifiedUpdatesWidgetManager // RK
 
     @Inject private lateinit var basePreferences: BasePreferences
 
@@ -236,9 +233,9 @@ class App :
             .launchIn(scope)
 
         // Updates widget update
-        widgetManager().init(scope)
+        widgetManager.init(scope)
         // RK: unified manga + novel updates widget (own driver: WidgetManager can't see novel flows)
-        unifiedUpdatesWidgetManager().init(scope)
+        unifiedUpdatesWidgetManager.init(scope)
 
         initializeMigrator()
     }

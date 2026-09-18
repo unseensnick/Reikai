@@ -57,7 +57,9 @@ codename() { printf '%b' "$1" | bash "$lint" codenames --stdin; }
 check "catches a phase marker"         1 codename '+// Phase 3 of the port\n'
 check "catches a roadmap number"       1 codename '// see Roadmap 9\n'
 check "catches one in a .sqm comment"  1 codename '-- overlay (P6). detail\n'
-check "spares R8, the code shrinker"   0 codename '// R8 strips the signature\n'
+check "catches a stage marker"         1 codename ' * wired in the settings sheet (Stage 4).\n'
+check "spares a colon-led stage"       0 codename '// Stage 2: decode the page\n'
+check "spares R8, the code shrinker"  0 codename '// R8 strips the signature\n'
 check "spares a colon-led step"        0 codename '// Step 1: read the file\n'
 check "passes an ordinary comment"     0 codename '// nothing to flag here\n'
 

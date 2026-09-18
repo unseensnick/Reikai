@@ -23,7 +23,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
 /**
  * Net-new preferences for the light-novel vertical. Only the subset the plugin host / source /
  * install / update layers need lands here; later stages (reader, library, merge) grow this
- * holder. Key strings are preserved from the Yōkai-era fork so an in-place upgrade keeps state.
+ * holder. Key strings are stored on every install and restored verbatim from backups, so renaming
+ * one needs a migration that moves the value.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -120,8 +121,7 @@ class NovelPreferences(
      */
     fun hiddenChapters() = preferenceStore.getStringSet("novel_hidden_chapters", emptySet())
 
-    // Reader display + theme. Fed into the WebView reader's `--readerSettings-*` CSS vars and
-    // pushed live on change. Key strings preserved from the Yōkai-era fork for upgrade continuity.
+    // Reader display + theme. Renaming a key needs a migration that moves the value (see the class KDoc).
 
     fun readerFontSize() = preferenceStore.getInt("ln_reader_font_size_sp", 16)
     fun readerLineSpacing() = preferenceStore.getFloat("ln_reader_line_spacing", 1.5f)
@@ -463,7 +463,7 @@ class NovelPreferences(
      *  manga's [LibraryPreferences.hideMissingChapters]. The header warning stays regardless. */
     fun hideMissingChapters() = preferenceStore.getBoolean("novel_hide_missing_chapters", false)
 
-    // Downloads. Key strings preserved from the Yōkai-era fork for upgrade continuity.
+    // Downloads. Renaming a key needs a migration that moves the value (see the class KDoc).
 
     /** Delete a downloaded chapter's offline copy once it's marked read. */
     fun removeAfterMarkedAsRead() = preferenceStore.getBoolean("novel_remove_after_marked_as_read", false)

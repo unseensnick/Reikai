@@ -258,12 +258,15 @@ it to a `setupTask`; every one of those already accepted `Context`, which is wha
 
 **The one divergence from upstream is where the set is read.** Upstream member-injects
 `Set<Migration>` as an `App` field, which here would build every migration at `graph.inject(this)`,
-and `MigrateNovelCategoriesToSharedTableMigration` takes `Database` directly, so the database object
-would exist before `LegacyYokaiDbImporter` could move an incompatible one aside. `AppGraph` carries a
-`migrations` accessor instead and `initializeMigrator()` reads it. Same reason the two widget managers
-are lambdas. The importer is gone since 0.3.2 made it unreachable ([legacy-yokai-import.md](legacy-yokai-import.md));
-the accessor and the lambdas stay, and now only keep `Database` out of the `:error_handler` process. That function's last Injekt read went with it: the
-preference store now comes off the graph too.
+in the `:error_handler` process too. `TrustExtensionRepositoryMigration` reaches `NetworkHelper`
+through `ExtensionStoreRepositoryImpl` and `ExtensionStoreService`, and `NetworkHelper` builds an
+`AndroidCookieJar`, which calls `CookieManager.getInstance()` and so loads WebView. A field would
+therefore let a broken WebView take down the crash screen as well. `AppGraph` carries a `migrations`
+accessor instead and `initializeMigrator()` reads it, after the `:error_handler` early return. (The
+accessor was first added to keep `Database` unbuilt until `LegacyYokaiDbImporter` had run; that
+importer is gone ([legacy-yokai-import.md](legacy-yokai-import.md)), and the two widget managers,
+deferred for the same reason, are upstream's injected fields again.) That function's last Injekt
+read went with it: the preference store now comes off the graph too.
 
 **Set order is not load-bearing.** `MigrationJobFactory` sorts by version before folding, and the six
 migrations sharing `Migration.ALWAYS` are independent (five schedule distinct unique WorkManager jobs,

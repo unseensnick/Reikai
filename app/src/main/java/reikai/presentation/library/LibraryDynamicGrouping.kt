@@ -49,7 +49,7 @@ fun normalizeDynamicKey(name: String): String = name.lowercase().replace(SEPARAT
  * SourceManager, tracker or status is pre-resolved by the caller. BY_DEFAULT returns empty.
  * Source and language buckets encode a disambiguator into the key (two sources can share a name, a
  * language code is not its label), which is why key and label are separate. That encoding is
- * persisted, so the splitters match the Yokai-era fork's for upgrade continuity.
+ * persisted and restored verbatim from backups, so changing a splitter needs a migration.
  */
 object LibraryDynamicGrouping {
 

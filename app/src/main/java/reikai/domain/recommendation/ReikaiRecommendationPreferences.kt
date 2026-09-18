@@ -20,8 +20,8 @@ enum class RelatedPlacement(val titleRes: StringResource) {
 }
 
 /**
- * Preferences for the recommendation carousel and taste profile. Key strings are preserved from the
- * Yōkai-era fork where they existed, so an in-place upgrade keeps the user's choices.
+ * Preferences for the recommendation carousel and taste profile. Key strings are stored on every
+ * install and restored verbatim from backups, so renaming one needs a migration that moves the value.
  *
  * MangaUpdates is recommendations-only (its user-library API is undocumented), so it has a recs
  * toggle but no library-pull toggle. Kitsu and Bangumi have no recommendations endpoint, so they
