@@ -1,6 +1,9 @@
 package mihon.gradle
 
 import org.gradle.api.Project
+import org.gradle.api.provider.Provider
+import org.gradle.api.provider.ValueSource
+import org.gradle.api.provider.ValueSourceParameters
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Instant
@@ -17,20 +20,31 @@ fun Project.getLatestCommitSha(): String {
     // return "1"
 }
 
+// RK --> the current-time branch became getCurrentBuildTime: read here, at configuration, the
+// configuration cache cannot see the clock, so a cache hit replayed the first build's time.
+
 /**
- * @param useLatestCommitTime If `true`, the build time is based on the timestamp of the last Git commit;
- *                          otherwise, the current time is used. Both are in UTC.
- * @return An ISO 8601 formatted string representing the build time.
+ * @return An ISO 8601 formatted string of the last Git commit's time, in UTC.
  */
-fun Project.getBuildTime(useLatestCommitTime: Boolean): String {
-    return if (useLatestCommitTime) {
-        val epoch = exec("git log -1 --format=%ct").toLong()
-        Instant.fromEpochSeconds(epoch).toString()
-    } else {
+fun Project.getBuildTime(): String {
+    val epoch = exec("git log -1 --format=%ct").toLong()
+    return Instant.fromEpochSeconds(epoch).toString()
+}
+
+/**
+ * The current time in UTC as ISO 8601, whole seconds. Only a provider: resolved when a task runs,
+ * a value source is not a configuration input, so each build reads its own time without
+ * invalidating the configuration cache.
+ */
+fun Project.getCurrentBuildTime(): Provider<String> = providers.of(BuildTimeValueSource::class.java) {}
+
+abstract class BuildTimeValueSource : ValueSource<String, ValueSourceParameters.None> {
+    override fun obtain(): String {
         val now = Clock.System.now()
-        (now - now.nanosecondsOfSecond.nanoseconds).toString()
+        return (now - now.nanosecondsOfSecond.nanoseconds).toString()
     }
 }
+// RK <--
 
 fun Project.exec(command: String): String {
     return providers.exec {

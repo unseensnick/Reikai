@@ -56,13 +56,13 @@ Write commits a user could skim and a contributor could read on. Scale the struc
 2. **Bullets** for the notable changes, benefit-first and scannable. For a large commit, group them under short headers (a user-facing one first, e.g. the feature area, then `Under the hood:` for internals) so a reader can stop early.
 3. **Footer (optional):** tests, deferred items / tradeoffs, upstream refs (`mihonapp/mihon#N`, which links to the Mihon repo; a bare `#N` would auto-link to a Reikai issue).
 
-**Rules:** blank line after the subject; no em dashes (see [code-quality.md](code-quality.md)); no AI watermarks (no `Co-Authored-By`, no generated-by footer). Lead with the user-facing effect; keep deep internals in a labeled section.
+**Rules:** blank line after the subject; no em dashes (see [code-quality.md](code-quality.md)); no AI watermarks (no AI co-author such as `Co-Authored-By: Claude`, no generated-by footer; a human co-author, such as the one GitHub adds for a committed review suggestion, is fine). Lead with the user-facing effect; keep deep internals in a labeled section.
 
 **Pre-commit checklist, run on EVERY commit (no exceptions: this includes `docs`, `chore`, and one-line fixes, not just feature commits).** A commit that fails any line gets reworded before it lands:
 
 1. Subject is `type(scope): summary`: a real conventional type, imperative, lower-case, no trailing period, `<=72` chars.
 2. **No bare `#N` anywhere in the message** (subject or body), per the ROADMAP-references rule above. A bare `#N` (and `Roadmap #8`, `Mihon PR #3403`) is the single most common past slip, so check the body too, not just the subject.
-3. No em dashes; no AI watermark (`Co-Authored-By`, generated-by footer).
+3. No em dashes; no AI watermark (an AI `Co-Authored-By`, generated-by footer).
 4. Non-trivial commit: body leads with 1-2 plain-language sentences, then benefit-first bullets. A trivial commit is just the compliant subject (no body needed).
 
 A **`commit-msg` git hook enforces this** automatically: `.githooks/commit-msg` (tracked) is installed at `.git/hooks/commit-msg` and rejects a non-compliant message (bad subject, over-72 subject, bare `#<number>`, em dash, AI watermark). A companion **`pre-commit` hook** (`.githooks/pre-commit`) runs six checks, so a rejection can come from any of them. The first five look at staged content; the sixth reads the manifest whether or not you staged it:
@@ -71,7 +71,7 @@ A **`commit-msg` git hook enforces this** automatically: `.githooks/commit-msg` 
 2. `ROADMAP.md`: no content-source names, no em dash, no bare `#N`.
 3. `docs/dev/upstream-sync.md` and `docs/dev/feature-ports.md`: no em dash, no bare `#N` (source names are allowed, they are dev records).
 4. `.kt` / `.kts` / `.sq` / `.sqm` comments: no plan codename markers in added lines, and under `reikai/` or `exh/` a comment-block length cap.
-5. **DI ownership**: if any staged `.kt` mentions Metro or Injekt, it runs `scripts/di-interop-check.ps1` for graph-owned / singleton / not-also-Injekt-registered mistakes, all of which are silent at build and run time. Needs `pwsh`; it skips with a message if `pwsh` is absent.
+5. **DI ownership**: if any staged `.kt` imports Metro or Injekt, it runs `scripts/di-interop-check.ps1` for an Injekt read `MetroInjektRegistrar` does not bind, an Injekt registration, an unscoped or unread binding, and a ViewModel or migration left out of its multibinding, none of which fails at build time. Needs `pwsh`; it skips with a message if `pwsh` is absent.
 6. **Off-path manifest** (`docs/dev/off-path-manifest.md`), three checks in one: no manifested path may exist in the tree, every named Replacement must exist, and staging the deletion of a file `refs/mihon` still has needs a manifest row in the same commit. The last one warns rather than blocks when the clone is missing.
 
 The doc checks also run in CI via `.github/workflows/docs-lint.yml`, from the same implementation: both call `scripts/lint-docs.sh`, so a rule exists once and the hook only decides what content to feed it. `scripts/lint-docs-test.sh` asserts each rule still rejects a real violation, and runs in that workflow. Reinstall both hooks on a fresh clone with `cp .githooks/commit-msg .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/commit-msg .git/hooks/pre-commit`.

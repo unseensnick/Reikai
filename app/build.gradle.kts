@@ -1,5 +1,7 @@
+import com.android.build.api.variant.BuildConfigField
 import mihon.gradle.Config
 import mihon.gradle.getBuildTime
+import mihon.gradle.getCurrentBuildTime
 import mihon.gradle.getLatestCommitCount
 import mihon.gradle.getLatestCommitSha
 import mihon.gradle.tasks.ReplaceShortcutsPlaceholderTask
@@ -61,7 +63,7 @@ android {
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getLatestCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getLatestCommitSha()}\"")
-        buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = false)}\"")
+        // RK: BUILD_TIME is the current time on debug and nightly, set in androidComponents below
         buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
         buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")
 
@@ -118,7 +120,8 @@ android {
 
             proguardFiles("proguard-android-optimize.txt", "proguard-rules.pro")
 
-            buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = true)}\"")
+            // RK: getBuildTime is the commit time only; the current time comes from androidComponents below
+            buildConfigField("String", "BUILD_TIME", "\"${getBuildTime()}\"")
         }
 
         val commonMatchingFallbacks = listOf(release.name)
@@ -140,7 +143,7 @@ android {
 
             matchingFallbacks.addAll(commonMatchingFallbacks)
 
-            buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = false)}\"")
+            // RK: BUILD_TIME is the current time, set in androidComponents below
         }
         create("benchmark") {
             initWith(release)
@@ -399,6 +402,18 @@ dependencies {
 }
 
 androidComponents {
+    // RK --> debug and nightly stamp the current time. A lazy field, because a buildConfigField
+    // literal is fixed at configuration and the configuration cache would replay it on every build.
+    onVariants { variant ->
+        if (variant.buildType == "debug" || variant.buildType == "nightly") {
+            variant.buildConfigFields?.put(
+                "BUILD_TIME",
+                getCurrentBuildTime().map { BuildConfigField("String", "\"$it\"", null) },
+            )
+        }
+    }
+    // RK <--
+
     onVariants { variant ->
         val resSource = variant.sources.res ?: return@onVariants
 

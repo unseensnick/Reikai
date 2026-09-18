@@ -53,14 +53,14 @@ for doc in docs/dev/upstream-sync.md docs/dev/feature-ports.md; do
   fi
 done
 
-# ===== DI ownership: graph-owned, singleton, and never Injekt-registered as well =====
-# All three mistakes are silent at build and run time: two instances of a type lose state, and a
-# missed annotation keeps working on the Injekt registration. See docs/dev/plans/metro-di-migration.md.
-# The trigger is the staged content, not a path list: a path list goes stale as the port deletes files,
-# and the mistake usually lands on an ordinary annotated class rather than on a module file.
+# ===== DI ownership: graph-owned, singleton, and every Injekt read bound =====
+# These mistakes are silent at build time: an Injekt read of a type MetroInjektRegistrar does not bind
+# throws only when the read runs, and an unscoped binding hands each caller its own instance. See
+# docs/dev/plans/metro-di-migration.md. The trigger is any staged file importing Metro or Injekt, since
+# every Injekt read and every graph annotation needs one of those imports.
 di_touched=0
 for f in $(git diff --cached --name-only --diff-filter=d | grep '\.kt$'); do
-  if git show ":$f" 2>/dev/null | grep -qE 'dev\.zacsweers\.metro|InjektModule|addSingletonFactory|addFactory'; then
+  if git show ":$f" 2>/dev/null | grep -qE 'dev\.zacsweers\.metro|uy\.kohesive\.injekt'; then
     di_touched=1
     break
   fi

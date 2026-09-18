@@ -29,7 +29,7 @@ const SIBLING_BATCH = 10
 const PARITY_BATCH = 10
 const ALWAYS_RULES = ['code-quality.md', 'content-layer.md', 'architecture.md']
 const TAGGED_RULES = { 'screen-conventions.md': 'screens', 'testing.md': 'tests', 'database.md': 'sql' }
-const TAGS = ['untrusted', 'hotpath', 'screens', 'tests', 'sql', 'prefs']
+const TAGS = ['untrusted', 'hotpath', 'screens', 'tests', 'sql']
 const ALL_LENSES = ['correctness', 'security', 'performance', 'async', 'dead', 'rules', 'docs', 'tests', 'wiring', 'parity', 'sibling', 'upstream', 'twoends']
 
 // Finders get the parked list but not the ledger: only a verifier needs a past refutation, and the
@@ -258,7 +258,7 @@ const SURFACES_PROPS = {
   }, required: ['surface', 'planDoc', 'replacedFiles'] } },
 }
 
-const SLICES_ASK = `Split the files changed in ${SCOPE} (git diff --name-only ${RANGE}${A.pathFilter ? ' -- ' + A.pathFilter : ''}) into cohesive slices of about 8 to 15 files that belong together (one feature, one surface, one subsystem). Kind is code, docs or tests. Tag each slice with what applies: untrusted (source or extension input, network, WebView, JavaScript bridges, file paths from input), hotpath (library-sized lists, reader rendering, update jobs, recomposition-heavy screens), screens (Compose screens or Voyager navigation), tests (test sources), sql (.sq, .sqm, repositories), prefs (preferences, migrations, backup). Exclude, and list under excluded with the reason: translation files outside i18n/src/commonMain/moko-resources/base/, and files whose only changes in the range come from "chore: sync Mihon" commits (check with git log --format=%s ${RANGE} -- <file>); a synced file that also carries // RK changes stays in.`
+const SLICES_ASK = `Split the files changed in ${SCOPE} (git diff --name-only ${RANGE}${A.pathFilter ? ' -- ' + A.pathFilter : ''}) into cohesive slices of about 8 to 15 files that belong together (one feature, one surface, one subsystem). Kind is code, docs or tests. Tag each slice with what applies: untrusted (source or extension input, network, WebView, JavaScript bridges, file paths from input), hotpath (library-sized lists, reader rendering, update jobs, recomposition-heavy screens), screens (Compose screens or Voyager navigation), tests (test sources), sql (.sq, .sqm, repositories). Exclude, and list under excluded with the reason: translation files outside i18n/src/commonMain/moko-resources/base/, and files whose only changes in the range come from "chore: sync Mihon" commits (check with git log --format=%s ${RANGE} -- <file>); a synced file that also carries // RK changes stays in.`
 const PAIRS_ASK = `Find the write/read pairs this range touches where a value crosses a boundary and could disagree: stored values first (preferences and their migrations, database columns, backup fields, intent extras), then host/guest messages (a WebView bridge). Rank by risk and return at most ${MAX_PAIRS}.`
 const COMMITS_ASK = `Classify commits in ${SCOPE}. "fixCommits": every commit that fixed a defect (usually a "fix" subject; exclude "chore: sync Mihon"). "userVisibleChanges": what a user could notice, from CHANGELOG.md [Unreleased] entries added in the range (git diff ${RANGE} -- CHANGELOG.md) or commit subjects, with the content types each affects.`
 const SURFACES_ASK = `List the surfaces this range took over from Mihon (the seam-depth table in .claude/rules/content-layer.md; docs/dev/off-path-manifest.md names replaced Mihon files) or on which it deleted Reikai code with behaviour of its own (git diff --diff-filter=D --name-only ${RANGE}). For each, the plan doc and the replaced or deleted files.`
@@ -398,8 +398,10 @@ async function verifyAll(deduped) {
 phase('Find')
 const tasks = planTasks(A.map, A.lenses)
 log(`${QUICK ? 'quick' : 'full'} mode: ${tasks.length} finder tasks, about ${countAgents(tasks)} finder agents`)
-if (A.map.pairs.length > MAX_PAIRS) log(`tracing the first ${MAX_PAIRS} of ${A.map.pairs.length} pairs; the rest are reported as uncovered`)
-const coverage = []
+const untracedPairs = tasks.some(t => t.lens === 'twoends') ? A.map.pairs.slice(MAX_PAIRS) : []
+if (untracedPairs.length) log(`tracing the first ${MAX_PAIRS} of ${A.map.pairs.length} pairs; the rest are reported as uncovered`)
+// Seeded before the finders run so the critic and the returned coverage both see the dropped pairs.
+const coverage = untracedPairs.map(p => ({ lens: 'twoends', target: p.id, status: 'skipped', findings: 0, searched: `over the ${MAX_PAIRS}-pair cap` }))
 let found = collect(await parallel(tasks.map(t => () => runTask(t))), coverage)
 const failed = coverage.filter(c => c.status === 'failed')
 if (failed.length) log(`${failed.length} finder tasks failed and are reported as uncovered`)

@@ -1,24 +1,23 @@
 <#
 .SYNOPSIS
-    Fails when a Metro-owned type is mis-owned: registered with Injekt as well, unscoped, or never
-    annotated for the graph at all.
+    Fails when Metro and the surviving Injekt surface disagree: a read nothing binds, a binding
+    nothing reads or scopes, an Injekt registration, or a graph multibinding member left out.
 
 .DESCRIPTION
-    During the Injekt-to-Metro port (docs/dev/plans/metro-di-migration.md) a type that moves into
-    the graph has its Injekt registration deleted and is handed back through MetroInteropModule.
-    Three ways that goes wrong, none of which surfaces at build or run time:
+    Metro owns the graph (docs/dev/plans/metro-di-migration.md). Injekt survives only for the
+    extension contract, through MetroInjektRegistrar: a read-only registrar whose bindings each read
+    one AppGraph accessor. None of these mistakes surfaces at build time:
 
-      1. Registered in both places, so the app runs with two instances and loses state silently.
-      2. Handed back without @SingleIn(AppScope::class). Injekt's addSingletonFactory caches its
-         result forever, but an unscoped Metro binding builds a new instance per injection, so
-         Injekt callers and graph callers end up on different objects.
-      3. Still Injekt-registered and never annotated, so the port walked past it.
+      1. A type read through Injekt that the registrar does not bind throws InjektionException at
+         the read.
+      2. A binding without @SingleIn(AppScope::class) hands every resolve its own instance, because
+         the registrar re-reads the graph each time, so Injekt callers and graph callers split.
+      3. A registration on Injekt or in an InjektModule throws, since the registrar rejects writes.
+      4. A binding nothing reads is dead, except the upstream extension-contract types allowed by
+         name in $upstreamContract.
 
-    Injekt module files are discovered, not listed: a hard-coded list goes stale as the port deletes
-    files, and a check that silently scans nothing reports success.
-    Registrations made directly on Injekt, outside any module, are scanned on the same terms. The
-    run also fails on a handed-back type nothing reads, allowing by name only the nine upstream hands
-    back for the extension contract, which no code in this tree resolves and never will.
+    Injekt modules are discovered, not listed, so a check that silently scans nothing cannot report
+    success. The ViewModel maps and the migration set are checked here too.
 #>
 [CmdletBinding()]
 param(
@@ -170,7 +169,7 @@ foreach ($file in $moduleFiles) {
 
         if ($registered) { $registeredTypes += $registered }
         if ($registered -and $interopTypes -contains $registered) {
-            $violations += "  $rel`:$($i + 1) registers $registered, which MetroInteropModule already hands back"
+            $violations += "  $rel`:$($i + 1) registers $registered, which MetroInjektRegistrar already binds"
         }
         if ($ctor) {
             $registeredCtors += $ctor
@@ -326,10 +325,10 @@ foreach ($group in @(
             Hint = 'Annotate it, or drop the registration if the type is genuinely retired.'
         },
         @{ Message = 'a type is registered with Injekt and handed back by Metro.'; Items = $violations
-            Hint = 'Delete the Injekt registration, or drop the type from MetroInteropModule. Never both.'
+            Hint = 'Delete the Injekt registration, or drop the binding from MetroInjektRegistrar. Never both.'
         },
         @{ Message = 'a type is handed back to Injekt that nothing reads.'; Items = @($unread | ForEach-Object { "  $_" })
-            Hint = 'Drop it. The only entries without a reader here are the nine upstream hands back for the extension contract, and those are allowed by name above.'
+            Hint = "Drop it. The only bindings allowed without a reader are the $($upstreamContract.Count) upstream types the extension contract needs: $($upstreamContract -join ', ')."
         },
         @{ Message = 'a type handed back to Injekt is not an application singleton.'; Items = $unscoped
             Hint = 'The registrar re-reads the graph on every resolve, so an unscoped binding hands every caller its own instance and any state it holds is silently per-caller. Add @SingleIn(AppScope::class), or add the type to `freshPerResolve` if per-resolve really is intended.'
