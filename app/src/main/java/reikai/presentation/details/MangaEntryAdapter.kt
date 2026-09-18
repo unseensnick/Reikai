@@ -70,7 +70,6 @@ class MangaEntryAdapter(
                 ),
                 favorite = manga.favorite,
                 trackingCount = trackingCount,
-                showIntervalButton = true,
                 nextUpdate = manga.expectedNextUpdate,
                 isUserIntervalMode = manga.fetchInterval < 0,
                 description = displayManga.description,
@@ -121,6 +120,7 @@ class MangaEntryAdapter(
             resumeChapterId = model.getNextUnreadChapter()?.id,
             hasStarted = chapters.any { it.isRead },
             chaptersDownloadable = !source.isLocalOrStub(),
+            hasViewedDownloads = downloadFolderOwner != null,
             showChapterNumberOnly = manga.displayMode == Manga.CHAPTER_DISPLAY_NUMBER,
             seedColor = seedColor,
         )

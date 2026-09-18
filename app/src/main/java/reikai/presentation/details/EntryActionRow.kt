@@ -39,8 +39,7 @@ import kotlin.time.Instant
 
 /**
  * Shared details action row for manga and novels (favorite / fetch-interval / tracking / web view).
- * Replaces MangaActionRow + NovelActionRow so the two content types can't drift. The fetch-interval
- * button shows when [showIntervalButton]; both types share from the toolbar. Long-pressing favorite
+ * Replaces MangaActionRow + NovelActionRow so the two content types can't drift. Long-pressing favorite
  * opens the category picker when [onEditCategory] is set.
  */
 @Composable
@@ -50,7 +49,6 @@ fun EntryActionRow(
     onAddToLibraryClicked: () -> Unit,
     onTrackingClicked: () -> Unit,
     onEditCategory: (() -> Unit)?,
-    showIntervalButton: Boolean,
     nextUpdate: Instant?,
     isUserIntervalMode: Boolean,
     onEditIntervalClicked: (() -> Unit)?,
@@ -80,22 +78,20 @@ fun EntryActionRow(
             onClick = onAddToLibraryClicked,
             onLongClick = onEditCategory,
         )
-        if (showIntervalButton) {
-            EntryActionButton(
-                title = when (nextUpdateDays) {
-                    null -> stringResource(MR.strings.not_applicable)
-                    0 -> stringResource(MR.strings.manga_interval_expected_update_soon)
-                    else -> pluralStringResource(
-                        MR.plurals.day,
-                        count = nextUpdateDays,
-                        nextUpdateDays,
-                    )
-                },
-                icon = MaterialSymbols.Rounded.HourglassEmpty,
-                color = if (isUserIntervalMode) MaterialTheme.colorScheme.primary else defaultActionButtonColor,
-                onClick = { onEditIntervalClicked?.invoke() },
-            )
-        }
+        EntryActionButton(
+            title = when (nextUpdateDays) {
+                null -> stringResource(MR.strings.not_applicable)
+                0 -> stringResource(MR.strings.manga_interval_expected_update_soon)
+                else -> pluralStringResource(
+                    MR.plurals.day,
+                    count = nextUpdateDays,
+                    nextUpdateDays,
+                )
+            },
+            icon = MaterialSymbols.Rounded.HourglassEmpty,
+            color = if (isUserIntervalMode) MaterialTheme.colorScheme.primary else defaultActionButtonColor,
+            onClick = { onEditIntervalClicked?.invoke() },
+        )
         EntryActionButton(
             title = if (trackingCount == 0) {
                 stringResource(MR.strings.manga_tracking_tab)

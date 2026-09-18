@@ -1271,6 +1271,7 @@
     <string name="action_clear_downloads">Clear downloads</string>
     <string name="action_open_folder">Open folder</string>
     <string name="open_folder_error">No app found to open folders</string>
+    <string name="open_folder_missing">Download folder not found</string>
     <string name="confirm_clear_downloads">Delete every downloaded chapter of this series? You can download them again.</string>
     <string name="confirm_clear_downloads_source">Delete every downloaded chapter from %1$s? You can download them again.</string>
     <string name="chapter_settings">Chapter settings</string>

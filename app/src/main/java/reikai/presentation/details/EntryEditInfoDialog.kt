@@ -115,9 +115,10 @@ fun EntryEditInfoDialog(
             if (b != null && autofill != null) {
                 scope.launch {
                     val ctx = b.root.context
-                    runCatching { autofill.fetch(track, tracker) }
-                        .onSuccess { b.applyMetadata(it, colorScheme) }
-                        .onFailure { e ->
+                    runTrackerFill(
+                        fetch = { autofill.fetch(track, tracker) },
+                        onFilled = { b.applyMetadata(it, colorScheme) },
+                        onFailed = { e ->
                             logcat(LogPriority.ERROR, e) { "Fill from tracker failed (${tracker.name})" }
                             val message = when (val error = trackerAutofillError(e)) {
                                 TrackerAutofillError.NotFound ->
@@ -129,7 +130,8 @@ fun EntryEditInfoDialog(
                                 )
                             }
                             ctx.toast(message)
-                        }
+                        },
+                    )
                 }
             }
         }

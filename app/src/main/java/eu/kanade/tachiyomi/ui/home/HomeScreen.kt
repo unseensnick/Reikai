@@ -62,7 +62,7 @@ object HomeScreen : Screen() {
 
     // RK: carries the content type beside the query, so a search sent from a series lands on that
     //     series' own chip rather than whichever one the library happens to be showing.
-    private val librarySearchEvent = Channel<Pair<String, ContentType?>>()
+    private val librarySearchEvent = Channel<Pair<String, ContentType>>()
     private val openTabEvent = Channel<Tab>()
     private val showBottomNavEvent = Channel<Boolean>()
 
@@ -300,7 +300,7 @@ object HomeScreen : Screen() {
         }
     }
 
-    suspend fun search(query: String, contentType: ContentType? = null) {
+    suspend fun search(query: String, contentType: ContentType) { // RK: the type, see librarySearchEvent
         librarySearchEvent.send(query to contentType)
     }
 

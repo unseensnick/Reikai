@@ -39,7 +39,7 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.sourcePreferences
 import eu.kanade.tachiyomi.widget.TachiyomiTextInputEditText.Companion.setIncognito
-import exh.source.EnhancedHttpSource
+import exh.source.configurableSource
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -147,17 +147,9 @@ class SourcePreferencesFragment : PreferenceFragmentCompat() {
     private suspend fun populateScreen(): PreferenceScreen {
         val sourceId = requireArguments().getLong(SOURCE_ID)
         // RK --> a delegated source arrives wrapped, and the wrapper is not a ConfigurableSource, so
-        // without unwrapping it the check below fails and the screen renders empty. Unwrap to whichever
-        // half actually carries the preferences: the delegate when it is configurable, else the
-        // installed extension underneath. Ported from Komikku, which patched the same upstream file.
-        val source = requireContext().appGraph.sourceManager.getOrStub(sourceId)
-            .let { source ->
-                if (source is EnhancedHttpSource) {
-                    if (source.enhancedSource is ConfigurableSource) source.source() else source.originalSource
-                } else {
-                    source
-                }
-            }
+        // without unwrapping it the check below fails and the screen renders empty. Ported from
+        // Komikku; the rule now lives in configurableSource, which the entry points gate on too.
+        val source = requireContext().appGraph.sourceManager.getOrStub(sourceId).configurableSource()
         // RK <--
         val sourceScreen = preferenceManager.createPreferenceScreen(requireContext())
 

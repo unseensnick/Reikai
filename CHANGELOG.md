@@ -189,7 +189,7 @@ every release now also ships a foss build with neither in it.
 #### Added
 
 - **Holding the title, author or artist on a series now offers to search your library or every source, instead of only copying.** A library search opens the content type the series belongs to, so a novel never searches your manga.
-- **A series' details overflow can now open its download folder in your file manager.** It opens the source you are viewing on a merged series, and appears only when something is downloaded.
+- **A series' details overflow can now open its download folder in your file manager.** On a merged series it opens the source you are viewing, or under All the first source holding downloads, and shows only when that folder exists.
 - **A series' details overflow can now clear its downloaded chapters.** It clears the source you are viewing on a merged series, appears only when there is something to clear, and leaves your reading progress, bookmarks and history alone.
 - **A series' details overflow now opens its source's settings.** It appears only when the source has any, and on a merged series it opens the settings of the source you are viewing.
 - **The chapter list on a merged series now says which source each chapter came from.** Manga rows name the source before the scanlator; novel rows name the source, and neither shows anything when the series is not merged.
@@ -206,7 +206,7 @@ every release now also ships a foss build with neither in it.
 - **A novel's page now shows its artist, when it has one separate from the author.** Manga pages already did; tap it to search, like every other field there.
 - **The full-screen cover viewer, Save and Share now use the cover URL you set in Edit info.** They kept showing the source's original cover while the series page showed yours.
 - **Long-pressing a novel's WebView button now copies its link, like manga.**
-- **Tapping a novel's source name now searches within that source.** It ran a cross-source global search for the source's name as a title.
+- **Closing Edit info while Fill from tracker is still loading no longer shows a tracker error.**
 
 ### Reader
 
@@ -402,7 +402,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
-- **The seven sources whose metadata the app enhances now show their settings instead of a blank screen.** Opening one from the extension list gave an empty page; they include a large mainstream source and several adult ones.
+- **The seven sources whose metadata the app enhances now open their settings, from the extension list and from their own catalogue.** The extension list gave an empty page and the catalogue had no settings button; they include a large mainstream source and several adult ones.
 - **Light-novel sources and plugins now group under their language, beside the manga sources of that language.** Plugin repos name a language in that language ("Español"), which the app read as a language of its own and could not put a heading on.
 - **An installed light-novel plugin is no longer listed a second time as available to install.** It happens when a repo offers the plugin at a second address.
 - **A light-novel source whose plugin is gone now says "Not installed" on the Migrate list and leads it.** Those hold the novels you can no longer open, and only manga sources were flagged before.
@@ -598,6 +598,7 @@ every release now also ships a foss build with neither in it.
 - Dates and times are now handled by the Kotlin standard library and kotlinx-datetime rather than java.time, matching Mihon (synced from Mihon, mihonapp/mihon#3001).
 - The library, details, add-to-library and source-grouping surfaces now run on one shared implementation across manga and novels, covering list assembly, filtering, sorting, selection, the dialogs and the merge wiring, so a change to any of them reaches both instead of being written twice.
 - A library section is now a distinct type rather than a category with a negative id, so a grouped view can no longer reach a category-scoped action that has nothing to act on.
+- The details screens lost code nothing reached: a search mode the header never used, a per-type switch both types set the same way, a merge-chip field nobody read and a library search fallback no caller took.
 - Manga and novel categories now live in one shared table with a content-type column, read and written through one repository, so the parallel novel category stack is gone.
 - Custom novel covers are now stored under a name that carries the content type, moved once on upgrade, so a novel can never collide with a manga that shares its row number.
 - Every screen except the novel reader now holds its state in an AndroidX ViewModel instead of Voyager's ScreenModel, in its own field rather than through a shared base class, matching Mihon so future upstream changes to a screen apply cleanly (synced from Mihon, mihonapp/mihon#3594 and mihonapp/mihon#3763).

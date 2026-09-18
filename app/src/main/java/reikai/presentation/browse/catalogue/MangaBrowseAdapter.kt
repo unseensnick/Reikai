@@ -3,11 +3,11 @@ package reikai.presentation.browse.catalogue
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.map
-import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
+import exh.source.configurableSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -108,7 +108,7 @@ class MangaBrowseAdapter(
             supportsLatest = source.supportsLatest,
             hasFilters = state.filters.isNotEmpty(),
             filtersActive = state.filterChipActive(),
-            hasSettings = source is ConfigurableSource,
+            hasSettings = source.configurableSource() != null,
             webUrl = (source as? HttpSource)?.getHomeUrl(),
             rowStyle = if (model.useEhentaiView) {
                 EntryBrowseRowStyle.Gallery

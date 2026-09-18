@@ -55,7 +55,8 @@ private const val HIDDEN_CHAPTER_ALPHA = 0.4f
 data class EntryDetailsNavigation(
     val navigateUp: () -> Unit,
     val onOpenChapter: (chapterId: Long) -> Unit,
-    val onSearch: (query: String, global: Boolean) -> Unit,
+    /** Header title / author / artist tap: a global search, scoped to this entry's type. */
+    val onGlobalSearch: (query: String) -> Unit,
     val onTagSearch: (String) -> Unit,
     val onCopyTag: (String) -> Unit,
     val onTracking: () -> Unit,
@@ -250,11 +251,9 @@ private fun EntryDetailsToolbar(
         onClickSourceSettings = nav.onOpenSourceSettings,
         // Hidden with nothing to clear, and on a source whose downloads are the series itself.
         onClickClearDownloads = { behavior.showClearDownloadsDialog() }.takeIf {
-            state.chaptersDownloadable && state.chapters.hasDownloads
+            state.chaptersDownloadable && state.hasViewedDownloads
         },
-        onClickOpenFolder = nav.onOpenFolder?.takeIf {
-            state.chaptersDownloadable && state.chapters.hasDownloads
-        },
+        onClickOpenFolder = nav.onOpenFolder?.takeIf { state.chaptersDownloadable && state.hasViewedDownloads },
         onClickRecommendations = nav.onRecommendations,
         onHide = behavior::hideSelected,
         onUnhide = behavior::unhideSelected,
@@ -316,7 +315,7 @@ private fun LazyListScope.entryInfoBlock(
         appBarPadding = appBarPadding,
         state = state.details,
         onCoverClick = behavior::showCoverDialog,
-        doSearch = nav.onSearch,
+        onGlobalSearch = nav.onGlobalSearch,
         librarySearch = nav.onLibrarySearch,
         onBrowseSource = nav.onBrowseSource,
         onAddToLibraryClicked = onAddToLibrary,
@@ -326,7 +325,6 @@ private fun LazyListScope.entryInfoBlock(
         onWebViewClicked = nav.onOpenWebView,
         onWebViewLongClicked = nav.onOpenWebViewLong,
         onTagSearch = nav.onTagSearch,
-        onGlobalSearch = { nav.onSearch(it, true) },
         onCopyTagToClipboard = nav.onCopyTag,
         onEditNotes = nav.onEditNotes,
         // Namespaced, grouped tag chips for the active source's gallery metadata (or its namespaced genre).
@@ -456,7 +454,7 @@ private fun LazyListScope.entryChapterItems(
                         else -> null
                     },
                     readProgress = item.readProgress,
-                    scanlator = item.subtitle?.takeIf { it.isNotBlank() },
+                    scanlator = item.subtitle,
                     read = item.read,
                     bookmark = item.bookmark,
                     selected = isSelected,

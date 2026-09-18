@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.util.fastAny
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -107,7 +108,6 @@ import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
-import reikai.domain.source.SourceKey
 import reikai.domain.track.supportingContent
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
@@ -122,6 +122,7 @@ import reikai.presentation.details.EntryMergeActionHost
 import reikai.presentation.details.EntryMergeGroupHost
 import reikai.presentation.details.EntryMergeSource
 import reikai.presentation.details.buildTrackerAutofillCandidates
+import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.library.reikaiSortCategories
@@ -383,6 +384,10 @@ class MangaViewModel(
                             mergedMangaById = mc.mangaBySource,
                             mergeDisplayManga = mc.displayManga,
                             mergeDisplaySource = mc.displaySource,
+                            downloadFolderOwner = downloadFolderOwnerOf(
+                                mc.displayManga,
+                                mc.mangaBySource.values.ifEmpty { listOf(mc.manga) },
+                            ),
                         )
                     }
                 }
@@ -500,6 +505,8 @@ class MangaViewModel(
                     // RK: seed the merge chips so they show on first render (avoids a race where the
                     // chip collector fired before State.Success existed)
                     mergeSources = mergeChips,
+                    // RK: seeded over the entry alone, as the seeded chapters are; the flow widens it.
+                    downloadFolderOwner = downloadFolderOwnerOf(null, listOf(manga)),
                     galleryMetadata = galleryMetadata,
                     // RK: page-preview thumbnails + row count (0 = off) for adult sources.
                     pagePreviewsState = if (supportsPagePreview) {
@@ -838,8 +845,16 @@ class MangaViewModel(
         groupManga().forEach { downloadManager.deleteManga(it, sourceManager.getOrStub(it.source)) }
     }
 
-    // RK: the viewed source's download directory, for the details overflow's Open folder.
-    fun viewedDownloadDir(manga: Manga, source: Source) = downloadManager.findMangaDir(manga, source)
+    // RK --> The download directory the details overflow's Open folder opens.
+    suspend fun viewedDownloadDir(): UniFile? {
+        val owner = successState?.downloadFolderOwner ?: return null
+        return downloadManager.findMangaDir(owner, sourceManager.getOrStub(owner.source))
+    }
+
+    // Counted off the download cache, which is in memory, so running it on every emission is cheap.
+    private fun downloadFolderOwnerOf(viewed: Manga?, group: Collection<Manga>): Manga? =
+        downloadFolderOwner(viewed, group.toList(), { it.id == mangaId }, { downloadManager.getDownloadCount(it) > 0 })
+    // RK <--
 
     // RK --> Clear downloads for what the screen shows: the selected chip alone, else the whole group.
     //        Distinct from deleteDownloads above, which runs when the entry itself leaves the library
@@ -1108,11 +1123,7 @@ class MangaViewModel(
         val sourceManager = sourceManager
         return ids.map { id ->
             val sourceManga = getMangaAndChapters.awaitManga(id)
-            EntryMergeSource(
-                id,
-                sourceManager.getOrStub(sourceManga.source).name,
-                SourceKey.Manga(sourceManga.source),
-            )
+            EntryMergeSource(id, sourceManager.getOrStub(sourceManga.source).name)
         }
     }
 
@@ -1929,6 +1940,8 @@ class MangaViewModel(
             // RK: per-source metadata for the info box when a chip is active (null = unified -> primary).
             val mergeDisplayManga: Manga? = null,
             val mergeDisplaySource: Source? = null,
+            // RK: whose folder Open folder opens, null hiding it and Clear downloads (downloadFolderOwner).
+            val downloadFolderOwner: Manga? = null,
             // RK: the active source's raised gallery metadata (adult/metadata sources), drives the
             // namespaced tag chips + gallery-info block; null when the source has no metadata.
             val galleryMetadata: RaisedSearchMetadata? = null,

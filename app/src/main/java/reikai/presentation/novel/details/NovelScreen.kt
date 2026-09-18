@@ -135,19 +135,8 @@ class NovelScreen(
                                     )
                                 }
                             },
-                            // A non-global search walks back to an already-open catalogue rather than
-                            // stacking a second one on the same source; global goes cross-source.
-                            onSearch = { query, global ->
-                                if (global) {
-                                    navigator.push(
-                                        EntryGlobalSearchScreen(query, scopedContentType = ContentType.NOVELS),
-                                    )
-                                } else if (navigator.items.any { it is EntryCatalogueScreen }) {
-                                    navigator.popUntil { it is EntryCatalogueScreen }
-                                    scope.launch { (navigator.lastItem as EntryCatalogueScreen).search(query) }
-                                } else {
-                                    navigator.push(EntryCatalogueScreen(SourceKey.Novel(s.displayNovel.source), query))
-                                }
+                            onGlobalSearch = {
+                                navigator.push(EntryGlobalSearchScreen(it, scopedContentType = ContentType.NOVELS))
                             },
                             onLibrarySearch = { query ->
                                 // Walk back to the library before asking it to search: its channel
@@ -158,11 +147,10 @@ class NovelScreen(
                                         ?.search(query, ContentType.NOVELS)
                                 }
                             },
-                            // Novels have no stub concept, but an uninstalled plugin resolves to no
-                            // source, and its catalogue would open on nothing.
-                            onBrowseSource = {
-                                navigator.push(EntryCatalogueScreen(SourceKey.Novel(s.displayNovel.source)))
-                            }.takeIf { s.sourceName != s.displayNovel.source },
+                            // Null for an uninstalled plugin, whose catalogue would open on nothing.
+                            onBrowseSource = s.browsableSourceId?.let { id ->
+                                { navigator.push(EntryCatalogueScreen(SourceKey.Novel(id))) }
+                            },
                             onTagSearch = {
                                 navigator.push(EntryGlobalSearchScreen(it, scopedContentType = ContentType.NOVELS))
                             },
@@ -208,7 +196,7 @@ class NovelScreen(
                 }
 
                 EntryDetailsDialogHost(
-                    s.toSharedDetailsDialog(viewModel.isUpdateIntervalEnabled()),
+                    s.toSharedDetailsDialog(viewModel.isUpdateIntervalEnabled),
                     adapter,
                     viewModel::dismissDialog,
                 )

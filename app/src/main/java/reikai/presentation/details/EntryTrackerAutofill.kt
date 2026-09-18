@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.HttpException
+import reikai.presentation.migrate.flow.runCatchingCancellable
 import tachiyomi.domain.track.model.Track
 
 /**
@@ -30,4 +31,10 @@ sealed interface TrackerAutofillError {
 fun trackerAutofillError(error: Throwable): TrackerAutofillError = when {
     error is HttpException && error.code == 404 -> TrackerAutofillError.NotFound
     else -> TrackerAutofillError.Failed(error.message?.takeIf { it.isNotBlank() })
+}
+
+/** One "Fill from tracker" fetch. Cancellation is not a failure: dismissing the dialog mid-fetch cancels
+ *  it, and reporting that would toast a tracker error for something the tracker never did. */
+suspend fun <T> runTrackerFill(fetch: suspend () -> T, onFilled: (T) -> Unit, onFailed: (Throwable) -> Unit) {
+    runCatchingCancellable { fetch() }.onSuccess(onFilled).onFailure(onFailed)
 }

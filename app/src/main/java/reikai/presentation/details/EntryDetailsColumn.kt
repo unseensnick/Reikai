@@ -9,13 +9,12 @@ import kotlin.time.Instant
 /**
  * Content-agnostic data for the shared details column ([entryInfoItems]). Each content type maps its
  * own loaded state into this, so the info box + action row + description emit identically for manga and
- * novels. Fields that only one type uses default to off.
+ * novels.
  */
 data class EntryDetailsUiState(
     val header: EntryHeaderUi,
     val favorite: Boolean,
     val trackingCount: Int,
-    val showIntervalButton: Boolean,
     val nextUpdate: Instant?,
     val isUserIntervalMode: Boolean,
     val description: String?,
@@ -36,7 +35,7 @@ fun LazyListScope.entryInfoItems(
     appBarPadding: Dp,
     state: EntryDetailsUiState,
     onCoverClick: () -> Unit,
-    doSearch: (query: String, global: Boolean) -> Unit,
+    onGlobalSearch: (query: String) -> Unit,
     librarySearch: (query: String) -> Unit,
     onBrowseSource: (() -> Unit)?,
     onAddToLibraryClicked: () -> Unit,
@@ -46,7 +45,6 @@ fun LazyListScope.entryInfoItems(
     onWebViewClicked: (() -> Unit)?,
     onWebViewLongClicked: (() -> Unit)?,
     onTagSearch: (String) -> Unit,
-    onGlobalSearch: ((String) -> Unit)?,
     onCopyTagToClipboard: (String) -> Unit,
     onEditNotes: () -> Unit,
     searchMetadataChips: SearchMetadataChips? = null,
@@ -58,7 +56,7 @@ fun LazyListScope.entryInfoItems(
             appBarPadding = appBarPadding,
             header = state.header,
             onCoverClick = onCoverClick,
-            doSearch = doSearch,
+            onGlobalSearch = onGlobalSearch,
             librarySearch = librarySearch,
             onBrowseSource = onBrowseSource,
         )
@@ -70,7 +68,6 @@ fun LazyListScope.entryInfoItems(
             onAddToLibraryClicked = onAddToLibraryClicked,
             onTrackingClicked = onTrackingClicked,
             onEditCategory = onEditCategory,
-            showIntervalButton = state.showIntervalButton,
             nextUpdate = state.nextUpdate,
             isUserIntervalMode = state.isUserIntervalMode,
             onEditIntervalClicked = onEditIntervalClicked,

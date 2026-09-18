@@ -86,7 +86,6 @@ import reikai.domain.novel.model.sortedAndFiltered
 import reikai.domain.novel.novelMissingChapterCount
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
-import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -105,6 +104,7 @@ import reikai.presentation.details.EntryMergeActionHost
 import reikai.presentation.details.EntryMergeGroupHost
 import reikai.presentation.details.EntryMergeSource
 import reikai.presentation.details.buildTrackerAutofillCandidates
+import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.library.reikaiSortCategories
@@ -333,11 +333,13 @@ class NovelDetailsViewModel(
             } else {
                 source = resolved
                 state.update {
-                    (it as? NovelDetailsState.Loaded)?.let { l ->
+                    // A chip on a sibling already shows that sibling's own source.
+                    (it as? NovelDetailsState.Loaded)?.takeIf { l -> l.displayNovel.id == l.novel.id }?.let { l ->
                         l.copy(
                             sourceName = resolved.name,
                             sourceUrl = resolved.site,
                             sourceHasSettings = resolved.pluginSettings != null,
+                            browsableSourceId = resolved.id,
                             novelWebUrl = resolved.webUrl(l.displayNovel.url),
                         )
                     } ?: it
@@ -406,7 +408,7 @@ class NovelDetailsViewModel(
             val novel = novelRepo.getById(id) ?: continue
             val src = sourceManager.get(novel.source)
             if (src != null) resolved[id] = src
-            chips += EntryMergeSource(id, src?.name ?: novel.source, SourceKey.Novel(novel.source))
+            chips += EntryMergeSource(id, src?.name ?: novel.source)
         }
         siblingSources.value = resolved
         return chips
@@ -433,6 +435,7 @@ class NovelDetailsViewModel(
             // the group's copies holds the file, not only the copy the stitch shows.
             val downloaded = downloadedIdsFor(pooled)
             val downloadedElsewhere = flaggedOnAnotherSource(pooled, ordered, stitch, { it.id }) { it.id in downloaded }
+            val members = related.toList().mapNotNull { id -> if (id == anchor.id) anchor else novelRepo.getById(id) }
             rebuildLoaded(
                 anchor,
                 anchor,
@@ -440,6 +443,7 @@ class NovelDetailsViewModel(
                 emptyList(),
                 0,
                 downloaded + downloadedElsewhere,
+                downloadFolderOwnerOf(null, members, anchor),
                 readElsewhere,
                 bookmarkedElsewhere,
             )
@@ -507,6 +511,7 @@ class NovelDetailsViewModel(
                 pages,
                 idx,
                 downloaded + downloadedElsewhere,
+                downloadFolderOwnerOf(viewNovel, listOf(viewNovel), anchor),
                 readElsewhere,
                 bookmarkedElsewhere,
             )
@@ -533,6 +538,7 @@ class NovelDetailsViewModel(
         pages: List<String>,
         pageIndex: Int,
         downloadedChapterIds: Set<Long>,
+        downloadFolderOwner: Novel?,
         readInOtherSources: Set<Long> = emptySet(),
         bookmarkedInOtherSources: Set<Long> = emptySet(),
     ) {
@@ -563,7 +569,7 @@ class NovelDetailsViewModel(
         // would reach. Hidden rows are never resumed into, even while they are being shown.
         val resumable = ReadingOrder.of(display.filterNot { it.id in hiddenChapterIds }, sortDescending)
         val resume = ReadingOrder.nextToRead(resumable) { it.read || it.id in readInOtherSources }
-        val viewSource = siblingSources.value[viewNovel.id]
+        val viewSource = viewedNovelSource(viewNovel.id, anchor.id, siblingSources.value, source)
         state.update { prev ->
             val loaded = prev as? NovelDetailsState.Loaded
             NovelDetailsState.Loaded(
@@ -581,6 +587,7 @@ class NovelDetailsViewModel(
                 isRefreshing = loaded?.isRefreshing ?: false,
                 downloadStates = loaded?.downloadStates.orEmpty(),
                 downloadedChapterIds = downloadedChapterIds,
+                downloadFolderOwner = downloadFolderOwner,
                 readInOtherSources = readInOtherSources,
                 bookmarkedInOtherSources = bookmarkedInOtherSources,
                 trackingCount = currentTrackingCount,
@@ -590,10 +597,12 @@ class NovelDetailsViewModel(
                 resumeChapter = resume,
                 hasStarted = chapters.any { it.read || it.id in readInOtherSources },
                 seedColor = loaded?.seedColor,
-                sourceName = viewSource?.name ?: source?.name ?: loaded?.sourceName ?: sourceId,
-                sourceUrl = viewSource?.site ?: source?.site ?: loaded?.sourceUrl,
-                novelWebUrl = (viewSource ?: source)?.webUrl(viewNovel.url) ?: loaded?.novelWebUrl,
-                sourceHasSettings = (viewSource ?: source)?.pluginSettings != null,
+                // An uninstalled plugin shows its own id, as its chip does.
+                sourceName = viewSource?.name ?: viewNovel.source,
+                sourceUrl = viewSource?.site,
+                novelWebUrl = viewSource?.webUrl(viewNovel.url),
+                sourceHasSettings = viewSource?.pluginSettings != null,
+                browsableSourceId = viewSource?.id,
                 sorting = anchor.effectiveSorting(novelPreferences),
                 sortDescending = sortDescending,
                 readFilter = anchor.effectiveReadFilter(novelPreferences),
@@ -728,9 +737,14 @@ class NovelDetailsViewModel(
 
     fun showPageSelectorDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.PageSelector) }
 
-    /** The viewed novel's download directory, for the details overflow's Open folder. */
+    /** The download directory the details overflow's Open folder opens. */
     fun viewedDownloadDir() = (state.value as? NovelDetailsState.Loaded)
-        ?.let { downloadManager.findNovelDir(it.displayNovel) }
+        ?.downloadFolderOwner
+        ?.let(downloadManager::findNovelDir)
+
+    /** Counted off the download cache, which is in memory, so running it on every emission is cheap. */
+    private fun downloadFolderOwnerOf(viewed: Novel?, group: List<Novel>, anchor: Novel): Novel? =
+        downloadFolderOwner(viewed, group, { it.id == anchor.id }, { downloadManager.getDownloadCount(it) > 0 })
 
     /** Clears downloads for what the screen shows: the selected chip alone, else every grouped source. */
     fun showClearDownloadsDialog() {
@@ -754,7 +768,7 @@ class NovelDetailsViewModel(
     /** Opens the viewed source's settings: the selected chip's source on a merged novel, else its own. */
     fun showSourceSettings() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        val viewed = siblingSources.value[loaded.displayNovel.id] ?: source ?: return
+        val viewed = viewedNovelSource(loaded.displayNovel.id, loaded.novel.id, siblingSources.value, source) ?: return
         if (viewed.pluginSettings == null) return
         updateLoaded { it.copy(dialog = NovelDetailsDialog.SourceSettings(viewed)) }
     }
@@ -1078,8 +1092,9 @@ class NovelDetailsViewModel(
 
     fun showSetFetchIntervalDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.SetFetchInterval) }
 
-    /** Whether the interval can be chosen, which manga ties to the release-period restriction being on. */
-    fun isUpdateIntervalEnabled() =
+    /** Whether the interval can be chosen, which manga ties to the release-period restriction being on.
+     *  Read once, as manga's is, rather than on every recomposition that builds the dialog. */
+    val isUpdateIntervalEnabled =
         LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in novelPreferences.novelUpdateRestrictions().get()
 
     /** A user-set interval is stored negative, as manga's; [days] 0 hands it back to the prediction. */
@@ -1424,6 +1439,8 @@ sealed interface NovelDetailsState {
         /** Chapter ids downloaded on disk, from NovelDownloadCache (replaces the old is_downloaded flag).
          *  A finished download shows DOWNLOADED via membership here, not a queue state. */
         val downloadedChapterIds: Set<Long> = emptySet(),
+        /** Whose folder Open folder opens; null hides it and Clear downloads. See downloadFolderOwner. */
+        val downloadFolderOwner: Novel? = null,
         /** Chapters unread on their own row but already read on another source of the merge group. */
         val readInOtherSources: Set<Long> = emptySet(),
         /** The same, for the bookmark flag. Writes reach every copy already, so this shows through only
@@ -1451,6 +1468,8 @@ sealed interface NovelDetailsState {
         val novelWebUrl: String? = null,
         /** Whether the viewed source exposes settings; gates the overflow item that opens them. */
         val sourceHasSettings: Boolean = false,
+        /** The viewed source's id when its plugin is installed; null hides the header's Browse. */
+        val browsableSourceId: String? = null,
         // Resolved (per-novel or global-default) chapter view settings.
         val sorting: Long = NovelChapterFlags.SORTING_SOURCE,
         val sortDescending: Boolean = true,
@@ -1517,3 +1536,10 @@ sealed interface NovelDetailsDialog {
      *  [DuplicateNovel] in the same slot, as the manga twin does. */
     data class Migrate(val currentId: Long, val targetId: Long) : NovelDetailsDialog
 }
+
+/**
+ * The viewed member's own source: a sibling's from [siblings], which holds only installed plugins, and
+ * [anchorSource] only for the anchor itself. A sibling whose plugin is gone has none, never the anchor's.
+ */
+internal fun <S> viewedNovelSource(viewedId: Long, anchorId: Long, siblings: Map<Long, S>, anchorSource: S?): S? =
+    siblings[viewedId] ?: anchorSource.takeIf { viewedId == anchorId }

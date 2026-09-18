@@ -111,8 +111,8 @@ fun Novel.toEntryHeader(sourceName: String, sourceSite: String?) = EntryHeaderUi
  * Shared details header (blurred cover backdrop + cover + title / author / artist / status / source)
  * for manga and novels. Replaces MangaInfoBox + NovelInfoBox. Status codes match between the two
  * (see NovelStatusCode), so the status icon + label render from one switch. Tapping the title / author
- * / artist searches ([doSearch] global), tapping the source searches it (local for manga); long-press
- * copies any of them.
+ * / artist runs [onGlobalSearch] and tapping the source browses it; long-press offers library search,
+ * global search and copy (Browse and copy on the source).
  */
 @Composable
 fun EntryInfoBox(
@@ -120,7 +120,7 @@ fun EntryInfoBox(
     appBarPadding: Dp,
     header: EntryHeaderUi,
     onCoverClick: () -> Unit,
-    doSearch: (query: String, global: Boolean) -> Unit,
+    onGlobalSearch: (query: String) -> Unit,
     librarySearch: (query: String) -> Unit,
     onBrowseSource: (() -> Unit)?,
     modifier: Modifier = Modifier,
@@ -153,7 +153,7 @@ fun EntryInfoBox(
                     appBarPadding = appBarPadding,
                     header = header,
                     onCoverClick = onCoverClick,
-                    doSearch = doSearch,
+                    onGlobalSearch = onGlobalSearch,
                     librarySearch = librarySearch,
                     onBrowseSource = onBrowseSource,
                 )
@@ -162,7 +162,7 @@ fun EntryInfoBox(
                     appBarPadding = appBarPadding,
                     header = header,
                     onCoverClick = onCoverClick,
-                    doSearch = doSearch,
+                    onGlobalSearch = onGlobalSearch,
                     librarySearch = librarySearch,
                     onBrowseSource = onBrowseSource,
                 )
@@ -176,7 +176,7 @@ private fun EntryTitlesLarge(
     appBarPadding: Dp,
     header: EntryHeaderUi,
     onCoverClick: () -> Unit,
-    doSearch: (query: String, global: Boolean) -> Unit,
+    onGlobalSearch: (query: String) -> Unit,
     librarySearch: (query: String) -> Unit,
     onBrowseSource: (() -> Unit)?,
 ) {
@@ -195,7 +195,7 @@ private fun EntryTitlesLarge(
         Spacer(modifier = Modifier.height(16.dp))
         EntryContentInfo(
             header = header,
-            doSearch = doSearch,
+            onGlobalSearch = onGlobalSearch,
             librarySearch = librarySearch,
             onBrowseSource = onBrowseSource,
             textAlign = TextAlign.Center,
@@ -208,7 +208,7 @@ private fun EntryTitlesSmall(
     appBarPadding: Dp,
     header: EntryHeaderUi,
     onCoverClick: () -> Unit,
-    doSearch: (query: String, global: Boolean) -> Unit,
+    onGlobalSearch: (query: String) -> Unit,
     librarySearch: (query: String) -> Unit,
     onBrowseSource: (() -> Unit)?,
 ) {
@@ -230,7 +230,7 @@ private fun EntryTitlesSmall(
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             EntryContentInfo(
                 header = header,
-                doSearch = doSearch,
+                onGlobalSearch = onGlobalSearch,
                 librarySearch = librarySearch,
                 onBrowseSource = onBrowseSource,
             )
@@ -241,7 +241,7 @@ private fun EntryTitlesSmall(
 @Composable
 private fun ColumnScope.EntryContentInfo(
     header: EntryHeaderUi,
-    doSearch: (query: String, global: Boolean) -> Unit,
+    onGlobalSearch: (query: String) -> Unit,
     librarySearch: (query: String) -> Unit,
     onBrowseSource: (() -> Unit)?,
     textAlign: TextAlign? = LocalTextStyle.current.textAlign,
@@ -283,7 +283,7 @@ private fun ColumnScope.EntryContentInfo(
             DropdownMenuItem(
                 text = { Text(text = stringResource(MR.strings.action_global_search)) },
                 onClick = {
-                    doSearch(menuTarget, true)
+                    onGlobalSearch(menuTarget)
                     showMenu = false
                 },
             )
@@ -308,7 +308,7 @@ private fun ColumnScope.EntryContentInfo(
                     showMenu = true
                 }
             },
-            onClick = { if (title.isNotBlank()) doSearch(title, true) },
+            onClick = { if (title.isNotBlank()) onGlobalSearch(title) },
         ),
         textAlign = textAlign,
     )
@@ -332,7 +332,7 @@ private fun ColumnScope.EntryContentInfo(
                         showMenu = true
                     }
                 },
-                onClick = { if (!author.isNullOrBlank()) doSearch(author, true) },
+                onClick = { if (!author.isNullOrBlank()) onGlobalSearch(author) },
             ),
             textAlign = textAlign,
         )
@@ -358,7 +358,7 @@ private fun ColumnScope.EntryContentInfo(
                         menuIsSource = false
                         showMenu = true
                     },
-                    onClick = { doSearch(artist, true) },
+                    onClick = { onGlobalSearch(artist) },
                 ),
                 textAlign = textAlign,
             )

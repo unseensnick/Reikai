@@ -4,7 +4,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.entry.EntryId
-import reikai.domain.source.SourceKey
 
 /**
  * The neutral details screen state both content types produce, so the shared details UI can render manga
@@ -40,6 +39,9 @@ sealed interface EntryDetailsScreenState {
         val hasStarted: Boolean,
         /** Downloads apply to this entry (false for a local/stub source); gates the download UI. */
         val chaptersDownloadable: Boolean,
+        /** A viewed member holds files on disk, so Open folder and Clear downloads have something to act
+         *  on. Answered by each adapter through [downloadFolderOwner], never from the rows. */
+        val hasViewedDownloads: Boolean,
         /** Show each chapter row as "Chapter N" rather than its title (manga display mode / novel hide-titles). */
         val showChapterNumberOnly: Boolean,
         /** Cover-derived header tint; null when off or not yet extracted. */
@@ -51,10 +53,9 @@ sealed interface EntryDetailsScreenState {
 }
 
 /** One grouped source in the merge switcher chips + manage-sources dialog. [id] is the member
- *  entry's id, not a source id; [sourceKey] names the source itself, for the header's browse
- *  action, and is null where a source could not be resolved. */
+ *  entry's id, not a source id. */
 @Immutable
-data class EntryMergeSource(val id: Long, val sourceName: String, val sourceKey: SourceKey? = null)
+data class EntryMergeSource(val id: Long, val sourceName: String)
 
 /**
  * The chapter region: the rendered rows (chapters interleaved with "N missing" separators) plus the
@@ -74,13 +75,7 @@ data class EntryChapterListUiState(
     val hiddenChapterIds: Set<Long>,
     /** How a chapter the source dated nothing reads; see [UndatedChapterDate]. */
     val undatedChapterDate: UndatedChapterDate,
-) {
-    /** Anything on disk to clear. Derived, so neither adapter has to answer it separately. */
-    val hasDownloads: Boolean
-        get() = items.any {
-            it is EntryChapterListItem.Chapter && it.downloadState == Download.State.DOWNLOADED
-        }
-}
+)
 
 /**
  * What a chapter with no date from the source shows. A typed slot rather than the row deciding for

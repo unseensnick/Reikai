@@ -27,7 +27,6 @@ import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
-import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -43,6 +42,7 @@ import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import exh.pagepreview.PagePreviewScreen
+import exh.source.configurableSource
 import exh.source.getMainSource
 import exh.ui.metadata.MetadataViewScreen
 import kotlinx.coroutines.launch
@@ -148,7 +148,7 @@ class MangaScreen(
                                 openChapter(context, it, successState.selectedSourceMangaId != null)
                             }
                         },
-                        onSearch = { query, global -> scope.launch { performSearch(navigator, query, global) } },
+                        onGlobalSearch = { scope.launch { performSearch(navigator, it, global = true) } },
                         onTagSearch = { scope.launch { performGenreSearch(navigator, it, viewModel.source!!) } },
                         onCopyTag = { if (it.isNotEmpty()) context.copyToClipboard(it, it) },
                         onTracking = {
@@ -224,11 +224,6 @@ class MangaScreen(
                             )
                         },
                         onMorePreviews = { navigator.push(PagePreviewScreen(successState.manga.id)) },
-                        // Gallery metadata viewer, only for adult/metadata sources; follows the viewed source
-                        // (the selected chip), so enhanced-MangaDex "More info" shows even when the merge is
-                        // anchored on a non-metadata source.
-                        // The viewed source, as the metadata viewer resolves it, so a merged entry
-                        // opens the settings of the source its chip is showing.
                         onLibrarySearch = { query ->
                             scope.launch { performSearch(navigator, query, global = false, library = true) }
                         },
@@ -237,18 +232,15 @@ class MangaScreen(
                         onBrowseSource = (successState.mergeDisplaySource ?: successState.source)
                             .takeIf { !it.isLocalOrStub() }
                             ?.let { source -> { navigator.push(EntryCatalogueScreen(SourceKey.Manga(source.id))) } },
-                        onOpenFolder = {
-                            openDownloadFolder(
-                                context,
-                                viewModel.viewedDownloadDir(
-                                    successState.mergeDisplayManga ?: successState.manga,
-                                    successState.mergeDisplaySource ?: successState.source,
-                                ),
-                            )
-                        },
+                        onOpenFolder = { scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) } },
+                        // The viewed source, as the metadata viewer resolves it, so a merged entry
+                        // opens the settings of the source its chip is showing.
                         onOpenSourceSettings = (successState.mergeDisplaySource ?: successState.source)
-                            .takeIf { it is ConfigurableSource }
+                            .takeIf { it.configurableSource() != null }
                             ?.let { source -> { navigator.push(SourcePreferencesScreen(source.id)) } },
+                        // Gallery metadata viewer, only for adult/metadata sources; follows the viewed source
+                        // (the selected chip), so enhanced-MangaDex "More info" shows even when the merge is
+                        // anchored on a non-metadata source.
                         onMetadataViewer = {
                             val displayManga = successState.mergeDisplayManga ?: successState.manga
                             val displaySource = successState.mergeDisplaySource ?: successState.source

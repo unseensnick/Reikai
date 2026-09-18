@@ -883,8 +883,8 @@ data object LibraryTab : Tab {
                     // RK: a requested type is applied first and then used directly. Reading the flow
                     //     back would still hold the old chip: the preference write is immediate but
                     //     its change event is not.
-                    if (requested != null) engine.setContentType(requested)
-                    engine.search(requested ?: engine.contentType.value, query)
+                    engine.setContentType(requested)
+                    engine.search(requested, query)
                 }
             }
             launch {
@@ -895,8 +895,9 @@ data object LibraryTab : Tab {
     }
 
     // For invoking search from other screen
-    private val queryEvent = Channel<Pair<String, ContentType?>>()
-    suspend fun search(query: String, contentType: ContentType? = null) =
+    // RK: carries the content type, so the search lands on the series' own chip.
+    private val queryEvent = Channel<Pair<String, ContentType>>()
+    suspend fun search(query: String, contentType: ContentType) =
         queryEvent.send(query to contentType)
 
     // For opening settings sheet in LibraryController

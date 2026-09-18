@@ -57,7 +57,6 @@ class NovelEntryAdapter(
                 header = display.toEntryHeader(sourceName = model.headerSourceName(this), sourceSite = sourceUrl),
                 favorite = novel.favorite,
                 trackingCount = trackingCount,
-                showIntervalButton = true,
                 nextUpdate = novel.expectedNextUpdate(),
                 isUserIntervalMode = novel.fetchInterval < 0,
                 description = display.description,
@@ -92,6 +91,7 @@ class NovelEntryAdapter(
             hasStarted = hasStarted,
             // Novels have no local/stub source concept, so downloads always apply.
             chaptersDownloadable = true,
+            hasViewedDownloads = downloadFolderOwner != null,
             showChapterNumberOnly = hideChapterTitles,
             seedColor = seedColor,
         )
