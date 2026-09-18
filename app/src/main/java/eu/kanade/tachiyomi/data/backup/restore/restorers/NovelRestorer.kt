@@ -5,16 +5,18 @@
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
+import eu.kanade.tachiyomi.data.backup.models.customInfo
 import reikai.data.novel.updateNovelFetchInterval
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
+import reikai.domain.category.backupCategoryIdToName
 import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
@@ -73,7 +75,7 @@ class NovelRestorer(
      */
     suspend fun remapCategoryPreferences(backupCategories: List<BackupNovelCategory>) {
         if (backupCategories.isEmpty()) return
-        val backupIdToName = backupCategories.associate { it.id.toString() to it.name }
+        val backupIdToName = backupCategoryIdToName(backupCategories.map { it.id to it.name })
         val novelVisible = categoryRepository.getAll(CategoryContentType.NOVEL)
         // On a name shared by a novel-typed and a universal row, bind to the novel-typed one (the
         // same rule CategoriesRestorer applies); associateBy silently kept whichever came last.
@@ -126,12 +128,14 @@ class NovelRestorer(
         restoreCategoryMembership(novelId, backupNovel.categories, backupCategories)
         restoreTracks(novelId, backupNovel.tracking)
         restoreHistory(novelId, backupNovel.history)
+        // An entry without custom info leaves the device's own alone, as manga does.
+        backupNovel.customInfo?.let { restoreCustomInfo(novelId, it) }
     }
 
     /**
      * Fold the newer copy's source details (and edit-count) onto this base, preserving the base's
-     * local fields. User edits are no longer in the row (they live in the custom_novel_info overlay,
-     * restored separately), so only source-owned details travel here.
+     * local fields. User edits are not in the row (they live in the custom_novel_info overlay, restored
+     * from the entry's custom fields), so only source-owned details travel here.
      */
     private fun Novel.copyFrom(newer: Novel): Novel = this.copy(
         favorite = this.favorite || newer.favorite,
@@ -229,23 +233,19 @@ class NovelRestorer(
         )
     }
 
-    /** Apply the backup's novel custom-info overlay, re-keyed from {url,source} to the restored ids. */
-    suspend fun restoreCustomNovelInfo(entries: List<BackupCustomNovelInfo>) {
-        if (entries.isEmpty()) return
-        entries.forEach { entry ->
-            val novelId = novelRepository.getByUrlAndSource(entry.url, entry.source)?.id ?: return@forEach
-            setCustomNovelInfo.set(
-                CustomNovelInfo(
-                    novelId = novelId,
-                    title = entry.title,
-                    author = entry.author,
-                    artist = entry.artist,
-                    description = entry.description,
-                    genre = entry.genre.ifEmpty { null },
-                    status = entry.status,
-                    thumbnailUrl = entry.thumbnailUrl,
-                ),
-            )
-        }
+    /** The manga twin is MangaRestorer.restoreCustomInfo; both read BackupCustomInfoFields.customInfo. */
+    private suspend fun restoreCustomInfo(novelId: Long, info: BackupCustomInfo) {
+        setCustomNovelInfo.set(
+            CustomNovelInfo(
+                novelId = novelId,
+                title = info.title,
+                author = info.author,
+                artist = info.artist,
+                description = info.description,
+                genre = info.genre,
+                status = info.status,
+                thumbnailUrl = info.thumbnailUrl,
+            ),
+        )
     }
 }

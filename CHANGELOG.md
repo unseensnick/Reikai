@@ -515,8 +515,13 @@ every release now also ships a foss build with neither in it.
 
 ### Backup & restore
 
+#### Changed
+
+- **Details you edited yourself now back up the way Komikku and Yōkai store them, so they restore in either app and theirs restore here. Reikai 0.3.2 and older nightly builds restore a new backup without them.** Backups from any earlier Reikai still bring them back.
+
 #### Fixed
 
+- **Restoring a backup now keeps Default as your default category and in your update categories, and a Yōkai backup no longer sends them to its last category.** A Yōkai backup's other category choices are left out, since it saves no way to match them.
 - **The restore log now names every manga extension a restore could not reinstall, including one whose install failed, was cancelled or timed out.** It used to list only those whose repo was missing.
 - **Your own title, author or cover edits on a series you have read but removed from the library are no longer missing from a backup.** They were dropped whenever the backup included read entries outside the library.
 - **Picking a backup to restore now opens the system file picker, which some devices could not open before (synced from Mihon, mihonapp/mihon#3948).**

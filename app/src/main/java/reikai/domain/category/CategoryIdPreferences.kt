@@ -7,6 +7,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -92,5 +93,30 @@ fun translateCategoryIds(
     nameToNewId: Map<String, String>,
     currentIds: Set<String> = emptySet(),
 ): Set<String> = ids.mapNotNullTo(mutableSetOf()) { id ->
+    translateCategoryId(id, backupIdToName, nameToNewId, currentIds)
+}
+
+/**
+ * One id of [translateCategoryIds]. 0 is the Default category in Mihon, Yōkai and Reikai alike and is
+ * never in a backup's category list, so it stays 0 instead of being dropped.
+ */
+fun translateCategoryId(
+    id: String,
+    backupIdToName: Map<String, String>,
+    nameToNewId: Map<String, String>,
+    currentIds: Set<String> = emptySet(),
+): String? = if (id == Category.UNCATEGORIZED_ID.toString()) {
+    id
+} else {
     backupIdToName[id]?.let(nameToNewId::get) ?: id.takeIf { it in currentIds }
 }
+
+/**
+ * A backup's category id to name, for [translateCategoryIds]. Empty when two categories share an id:
+ * Yōkai writes no category id, so each of its categories decodes as 0 and no id names one category.
+ */
+fun backupCategoryIdToName(idsAndNames: List<Pair<Long, String>>): Map<String, String> =
+    idsAndNames
+        .takeIf { list -> list.distinctBy { it.first }.size == list.size }
+        ?.associate { (id, name) -> id.toString() to name }
+        .orEmpty()

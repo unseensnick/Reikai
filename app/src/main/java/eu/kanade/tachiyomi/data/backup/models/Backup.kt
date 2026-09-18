@@ -26,9 +26,9 @@ data class Backup(
     // merge prefs store IDs that change on restore (the manga twin of backupNovelMerges at 702/703).
     @ProtoNumber(711) var backupMangaMerges: List<BackupMangaMergeGroup> = emptyList(),
     @ProtoNumber(712) var backupMangaUnmerges: List<BackupMangaMergeGroup> = emptyList(),
-    // RK: manga custom-info (non-destructive edits) as {url,source}-keyed entries, re-keyed on restore.
+    // RK: custom info as Reikai 0.3.x wrote it, read only. Custom info now rides on each entry
+    // (BackupCustomInfoFields), and restore folds these lists onto it through LegacyCustomInfo.
     @ProtoNumber(713) var backupCustomMangaInfo: List<BackupCustomMangaInfo> = emptyList(),
-    // RK: novel custom-info (non-destructive edits), the novel twin of backupCustomMangaInfo.
     @ProtoNumber(714) var backupCustomNovelInfo: List<BackupCustomNovelInfo> = emptyList(),
     // RK: saved browse searches and the feed rows built on them, keyed by serialized SourceKey rather
     // than by row id, which is what lets a restore match them against what is already here.

@@ -1,7 +1,5 @@
-// RK: novel custom-info backup. Net-new Reikai file, the novel twin of BackupCustomMangaInfo. User edits
-// live in the custom_novel_info table keyed by local novel id, which changes on restore, so each entry
-// carries its {url, source} ref and is re-keyed to the restored novel's fresh id. Only set fields are
-// carried; an empty entry is never backed up (the row wouldn't exist).
+// RK: novel custom info as Reikai 0.3.x wrote it (Backup field 714), keyed by {url, source}. Read only:
+// a backup now carries custom info on each BackupNovel, and LegacyCustomInfo folds these entries onto it.
 package eu.kanade.tachiyomi.data.backup.models
 
 import kotlinx.serialization.Serializable

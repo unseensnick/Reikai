@@ -7,12 +7,13 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
-import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
 import eu.kanade.tachiyomi.data.backup.models.BackupTracking
+import eu.kanade.tachiyomi.data.backup.models.customInfo
 import exh.metadata.metadata.base.FlatMetadata
 import exh.metadata.sql.models.SearchMetadata
 import exh.metadata.sql.models.SearchTag
@@ -54,7 +55,7 @@ class MangaRestorer(
     private val restoreMergeGroups: RestoreMergeGroups,
     // RK: restores captured adult/EXH gallery metadata (search_metadata/tags/titles).
     private val mangaMetadataRepository: MangaMetadataRepository,
-    // RK: applies the restored manga custom-info overlay (re-keyed by url+source).
+    // RK: writes each restored entry's custom info under its new id.
     private val setCustomMangaInfo: SetCustomMangaInfo,
 ) {
 
@@ -98,6 +99,8 @@ class MangaRestorer(
                 excludedScanlators = backupManga.excludedScanlators,
                 searchMetadata = backupManga.searchMetadata,
             )
+            // RK: an entry without custom info leaves the device's own alone, as the forks do.
+            backupManga.customInfo?.let { restoreCustomInfo(restoredManga.id, it) }
         }
     }
 
@@ -398,24 +401,20 @@ class MangaRestorer(
         )
     }
 
-    // RK: apply the restored manga custom-info overlay. Each entry is re-keyed from its {url, source} ref
-    // to the restored manga's fresh id; an unresolved ref is skipped. Call AFTER the manga loop.
-    suspend fun restoreCustomInfo(customInfo: List<BackupCustomMangaInfo>) {
-        customInfo.forEach { backup ->
-            val mangaId = getMangaByUrlAndSourceId.await(backup.url, backup.source)?.id ?: return@forEach
-            setCustomMangaInfo.set(
-                CustomMangaInfo(
-                    mangaId = mangaId,
-                    title = backup.title,
-                    author = backup.author,
-                    artist = backup.artist,
-                    description = backup.description,
-                    genre = backup.genre.takeIf { it.isNotEmpty() },
-                    status = backup.status,
-                    thumbnailUrl = backup.thumbnailUrl,
-                ),
-            )
-        }
+    // RK: the novel twin is NovelRestorer.restoreCustomInfo; both read BackupCustomInfoFields.customInfo.
+    private suspend fun restoreCustomInfo(mangaId: Long, info: BackupCustomInfo) {
+        setCustomMangaInfo.set(
+            CustomMangaInfo(
+                mangaId = mangaId,
+                title = info.title,
+                author = info.author,
+                artist = info.artist,
+                description = info.description,
+                genre = info.genre,
+                status = info.status,
+                thumbnailUrl = info.thumbnailUrl,
+            ),
+        )
     }
 
     private suspend fun restoreHistory(manga: Manga, backupHistory: List<BackupHistory>) {

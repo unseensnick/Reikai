@@ -30,6 +30,22 @@ class TranslateCategoryIdsTest {
     }
 
     @Test
+    fun `keeps the Default category, which is 0 in every app that writes these backups`() {
+        translateCategoryIds(setOf("0", "1"), backupIdToName, nameToNewId) shouldBe setOf("0", "10")
+    }
+
+    @Test
+    fun `names each backup id by its category when every id is distinct`() {
+        backupCategoryIdToName(listOf(1L to "Reading", 2L to "Completed")) shouldBe
+            mapOf("1" to "Reading", "2" to "Completed")
+    }
+
+    @Test
+    fun `names no backup id when two categories share one, as a Yokai backup's all do`() {
+        backupCategoryIdToName(listOf(0L to "Reading", 0L to "Completed")) shouldBe emptyMap()
+    }
+
+    @Test
     fun `returns empty for empty input`() {
         translateCategoryIds(emptySet(), backupIdToName, nameToNewId) shouldBe emptySet()
     }

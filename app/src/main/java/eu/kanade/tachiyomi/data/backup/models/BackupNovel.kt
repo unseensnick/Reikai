@@ -28,7 +28,7 @@ class BackupNovel(
     @ProtoNumber(17) var lastReadAt: Long? = null,
     // RK: retired lock bitmask, kept as a reserved proto slot for backup round-trip compatibility with
     // older backups (and upstream Yokai). Novel edits now live in the custom_novel_info overlay
-    // (backed up separately as backupCustomNovelInfo); this field is written 0 and ignored on restore.
+    // (backed up in the custom fields below); this field is written 0 and ignored on restore.
     @ProtoNumber(18) var editedFlags: Long = 0,
     @ProtoNumber(19) var favorite: Boolean = true,
     @ProtoNumber(20) var chapters: List<BackupNovelChapter> = emptyList(),
@@ -38,7 +38,15 @@ class BackupNovel(
     @ProtoNumber(24) var notes: String = "",
     @ProtoNumber(25) var viewerFlags: Long = 0,
     @ProtoNumber(26) var version: Long = 0,
-) {
+    // The user's custom info, on the same numbers BackupManga uses (see BackupCustomInfoFields).
+    @ProtoNumber(602) override var customStatus: Int = 0,
+    @ProtoNumber(603) override var customThumbnailUrl: String? = null,
+    @ProtoNumber(800) override var customTitle: String? = null,
+    @ProtoNumber(801) override var customArtist: String? = null,
+    @ProtoNumber(802) override var customAuthor: String? = null,
+    @ProtoNumber(804) override var customDescription: String? = null,
+    @ProtoNumber(805) override var customGenre: List<String>? = null,
+) : BackupCustomInfoFields {
     fun toNovelImpl(): Novel {
         return Novel.create().copy(
             source = this@BackupNovel.source,

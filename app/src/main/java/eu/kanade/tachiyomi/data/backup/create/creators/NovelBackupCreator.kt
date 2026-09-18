@@ -7,7 +7,7 @@ package eu.kanade.tachiyomi.data.backup.create.creators
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
-import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
@@ -15,7 +15,9 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
+import eu.kanade.tachiyomi.data.backup.models.customInfo
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.yield
 import reikai.domain.category.CategoryContentType
@@ -66,27 +68,6 @@ class NovelBackupCreator(
     suspend fun novelMerges(options: BackupOptions): List<BackupNovelMergeGroup> =
         if (options.libraryEntries) serializeGroups() else emptyList()
 
-    // Back up the novel custom-info overlay as {url, source}-keyed entries (re-keyed to fresh ids on
-    // restore). Resolves each row's novel by id (no favorites map needed, so it doesn't force the
-    // whole favorites list to stay resident during the streamed backup). A row whose novel is gone
-    // is dropped. The caller gates this on the include-novels + custom-info toggles.
-    suspend fun novelCustomInfo(): List<BackupCustomNovelInfo> {
-        return customNovelInfoRepository.getAll().mapNotNull { info ->
-            val novel = novelRepository.getById(info.novelId) ?: return@mapNotNull null
-            BackupCustomNovelInfo(
-                source = novel.source,
-                url = novel.url,
-                title = info.title,
-                author = info.author,
-                artist = info.artist,
-                description = info.description,
-                genre = info.genre.orEmpty(),
-                status = info.status,
-                thumbnailUrl = info.thumbnailUrl,
-            )
-        }
-    }
-
     private suspend fun backupNovel(novel: Novel, options: BackupOptions): BackupNovel {
         val novelObject = novel.toBackupNovel()
 
@@ -119,6 +100,20 @@ class NovelBackupCreator(
                 .awaitAsList()
             if (history.isNotEmpty()) {
                 novelObject.history = history
+            }
+        }
+
+        if (options.customInfo) {
+            customNovelInfoRepository.getByNovelIdAsFlow(novel.id).first()?.let { info ->
+                novelObject.customInfo = BackupCustomInfo(
+                    title = info.title,
+                    author = info.author,
+                    artist = info.artist,
+                    description = info.description,
+                    genre = info.genre,
+                    status = info.status,
+                    thumbnailUrl = info.thumbnailUrl,
+                )
             }
         }
 

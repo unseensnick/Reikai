@@ -18,6 +18,8 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.source.sourcePreferences
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
+import reikai.domain.category.backupCategoryIdToName
+import reikai.domain.category.translateCategoryId
 import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
@@ -32,7 +34,6 @@ import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.plusAssign
 import tachiyomi.domain.category.interactor.GetCategories
-import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 
 @Inject
@@ -73,8 +74,12 @@ class PreferenceRestorer(
         backupCategories: List<BackupCategory>? = null,
     ) {
         val allCategories = if (backupCategories != null) getCategories.await() else emptyList()
-        val categoriesByName = allCategories.associateBy { it.name }
-        val backupCategoriesById = backupCategories?.associateBy { it.id.toString() }.orEmpty()
+        // RK -->
+        // Through the shared translation, which keeps the Default category and trusts no id a backup
+        // repeats (Yōkai writes none, so all of its categories decode as 0).
+        val nameToNewId = allCategories.associate { it.name to it.id.toString() }
+        val backupIdToName = backupCategoryIdToName(backupCategories.orEmpty().map { it.id to it.name })
+        // RK <--
         val prefs = preferenceStore.getAll()
         // RK: carried once every key is back, since the bar the switch applies to may restore after it.
         var readAloudWasOn = false
@@ -172,8 +177,8 @@ class PreferenceRestorer(
                     is IntPreferenceValue -> {
                         if (prefs[key] is Int?) {
                             val newValue = if (key == LibraryPreferences.DEFAULT_CATEGORY_PREF_KEY) {
-                                backupCategoriesById[value.value.toString()]
-                                    ?.let { categoriesByName[it.name]?.id?.toInt() }
+                                // RK: was a lookup by id, which a Yōkai backup sent to its last category
+                                translateCategoryId(value.value.toString(), backupIdToName, nameToNewId)?.toInt()
                             } else {
                                 value.value
                             }
@@ -207,8 +212,8 @@ class PreferenceRestorer(
                                 key,
                                 value.value,
                                 preferenceStore,
-                                backupCategoriesById,
-                                categoriesByName,
+                                backupIdToName,
+                                nameToNewId,
                             )
                             if (!restored) preferenceStore.getStringSet(key).set(value.value)
                         }
@@ -229,8 +234,8 @@ class PreferenceRestorer(
         key: String,
         value: Set<String>,
         preferenceStore: PreferenceStore,
-        backupCategoriesById: Map<String, BackupCategory>,
-        categoriesByName: Map<String, Category>,
+        backupIdToName: Map<String, String>,
+        nameToNewId: Map<String, String>,
     ): Boolean {
         // RK: the shared sets (the library-wide include/exclude filter) remap here too; a backup's novel
         // ids in them drop, since novel categories are not restored yet (see CategoryIdPreferences).
@@ -238,11 +243,7 @@ class PreferenceRestorer(
             .mapTo(HashSet()) { it.key() }
         if (key !in remappedKeys) return false
 
-        val ids = translateCategoryIds(
-            ids = value,
-            backupIdToName = backupCategoriesById.mapValues { it.value.name },
-            nameToNewId = categoriesByName.mapValues { it.value.id.toString() },
-        )
+        val ids = translateCategoryIds(ids = value, backupIdToName = backupIdToName, nameToNewId = nameToNewId)
 
         if (ids.isNotEmpty()) {
             preferenceStore.getStringSet(key) += ids

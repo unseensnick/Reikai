@@ -5,6 +5,7 @@ import app.cash.sqldelight.async.coroutines.awaitAsOne
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
@@ -12,8 +13,10 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSearchTag
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTitle
 import eu.kanade.tachiyomi.data.backup.models.backupChapterMapper
 import eu.kanade.tachiyomi.data.backup.models.backupTrackMapper
+import eu.kanade.tachiyomi.data.backup.models.customInfo
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.yield
 import tachiyomi.data.Database
@@ -21,6 +24,7 @@ import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
 import tachiyomi.domain.manga.repository.MangaMetadataRepository
 
 @Inject
@@ -30,6 +34,8 @@ class MangaBackupCreator(
     private val getHistory: GetHistory,
     // RK: source of captured adult/EXH gallery metadata for the backup.
     private val mangaMetadataRepository: MangaMetadataRepository,
+    // RK: source of the user's custom info, written on the entry itself.
+    private val customMangaInfoRepository: CustomMangaInfoRepository,
 ) {
 
     suspend operator fun invoke(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
@@ -114,6 +120,22 @@ class MangaBackupCreator(
                     .map { BackupSearchTitle(it.title, it.type) },
             )
         }
+
+        // RK -->
+        if (options.customInfo) {
+            customMangaInfoRepository.getByMangaIdAsFlow(manga.id).first()?.let { info ->
+                mangaObject.customInfo = BackupCustomInfo(
+                    title = info.title,
+                    author = info.author,
+                    artist = info.artist,
+                    description = info.description,
+                    genre = info.genre,
+                    status = info.status,
+                    thumbnailUrl = info.thumbnailUrl,
+                )
+            }
+        }
+        // RK <--
 
         return mangaObject
     }

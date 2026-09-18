@@ -1,7 +1,5 @@
-// RK: manga custom-info backup. Net-new Reikai file. User edits live in the custom_manga_info table
-// keyed by local manga id, which changes on restore, so each entry carries its {url, source} ref and is
-// re-keyed to the restored manga's fresh id (mirrors BackupMangaMerge's {url, source} refs). Only set
-// fields are carried; an empty entry is never backed up (the row wouldn't exist).
+// RK: manga custom info as Reikai 0.3.x wrote it (Backup field 713), keyed by {url, source}. Read only:
+// a backup now carries custom info on each BackupManga, and LegacyCustomInfo folds these entries onto it.
 package eu.kanade.tachiyomi.data.backup.models
 
 import kotlinx.serialization.Serializable

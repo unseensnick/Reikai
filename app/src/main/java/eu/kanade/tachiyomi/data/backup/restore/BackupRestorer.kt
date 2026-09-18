@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
+import eu.kanade.tachiyomi.data.backup.models.LegacyCustomInfo
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionStoreRestorer
@@ -167,7 +168,7 @@ class BackupRestorer(
                     uri,
                     if (options.categories) summary.backupCategories else emptyList(),
                     summary.backupMangaMerges,
-                    summary.backupCustomMangaInfo,
+                    summary.legacyCustomInfo,
                 )
             }
             if (options.extensionStores) {
@@ -248,10 +249,9 @@ class BackupRestorer(
             backupExtensionStores = backupExtensionStores,
             backupExtensions = backupExtensions,
             backupMangaMerges = backupMangaMerges,
-            backupCustomMangaInfo = backupCustomMangaInfo,
+            legacyCustomInfo = LegacyCustomInfo(backupCustomMangaInfo, backupCustomNovelInfo),
             backupNovelCategories = backupNovelCategories,
             backupNovelMerges = backupNovelMerges,
-            backupCustomNovelInfo = backupCustomNovelInfo,
             backupSavedSearches = backupSavedSearches,
             backupFeedRows = backupFeedRows,
         )
@@ -267,16 +267,16 @@ class BackupRestorer(
         val backupExtensionStores: List<BackupExtensionStore>,
         val backupExtensions: List<BackupExtension>,
         val backupMangaMerges: List<BackupMangaMergeGroup>,
-        val backupCustomMangaInfo: List<BackupCustomMangaInfo>,
+        // An older backup's root custom-info lists, folded onto each entry as it is decoded.
+        val legacyCustomInfo: LegacyCustomInfo,
         val backupNovelCategories: List<BackupNovelCategory>,
         val backupNovelMerges: List<BackupNovelMergeGroup>,
-        val backupCustomNovelInfo: List<BackupCustomNovelInfo>,
         val backupSavedSearches: List<BackupSavedSearch>,
         val backupFeedRows: List<BackupFeedRow>,
     )
 
     // RK: restore the light-novel library, streamed. Categories first, then each novel in bounded
-    // batches, then the merge groups + custom-info overlay (both re-keyed from {url,source}).
+    // batches, then the merge groups (re-keyed from {url,source}).
     private fun CoroutineScope.restoreNovelsStream(
         uri: Uri,
         summary: BackupSummary,
@@ -331,7 +331,7 @@ class BackupRestorer(
             BackupProtoReader(context).read(uri) { fieldNumber, data ->
                 if (fieldNumber != 700) return@read
                 ensureActive()
-                batch.add(parser.decodeFromByteArray(BackupNovel.serializer(), data))
+                batch.add(summary.legacyCustomInfo.applyTo(parser.decodeFromByteArray(BackupNovel.serializer(), data)))
                 if (batch.size >= RESTORE_CHUNK) flush()
             }
             flush()
@@ -339,9 +339,6 @@ class BackupRestorer(
             // Isolated for the same reason as the manga twin: a failure here used to cancel the
             // sibling stream and escape before the error log was written.
             restoreIsolated("novel merges") { novelRestorer.restoreMerges(summary.backupNovelMerges) }
-            restoreIsolated("novel custom info") {
-                novelRestorer.restoreCustomNovelInfo(summary.backupCustomNovelInfo)
-            }
         }
     }
 
@@ -359,14 +356,14 @@ class BackupRestorer(
     }
 
     // RK: pass 2 for manga. Streams field 1, restoring bounded batches inside a DB transaction (each
-    // restore also opens its own, harmlessly nested), then materializes the merge groups + custom-info
-    // once every manga has a fresh id. The old whole-list sortByNew is dropped: entries restore
+    // restore also opens its own, harmlessly nested), then materializes the merge groups once every
+    // manga has a fresh id. The old whole-list sortByNew is dropped: entries restore
     // independently and merges resolve by {url,source} after the loop, so file order is fine.
     private fun CoroutineScope.restoreMangaStream(
         uri: Uri,
         backupCategories: List<BackupCategory>,
         backupMangaMerges: List<BackupMangaMergeGroup>,
-        backupCustomMangaInfo: List<BackupCustomMangaInfo>,
+        legacyCustomInfo: LegacyCustomInfo,
     ) = launch {
         val batch = ArrayList<BackupManga>(RESTORE_CHUNK)
         suspend fun flush() {
@@ -411,19 +408,17 @@ class BackupRestorer(
         BackupProtoReader(context).read(uri) { fieldNumber, data ->
             if (fieldNumber != 1) return@read
             ensureActive()
-            batch.add(parser.decodeFromByteArray(BackupManga.serializer(), data))
+            batch.add(legacyCustomInfo.applyTo(parser.decodeFromByteArray(BackupManga.serializer(), data)))
             if (batch.size >= RESTORE_CHUNK) flush()
         }
         flush()
 
-        // RK: with every manga restored (fresh IDs), materialize the backup's merge groups, then
-        // apply the custom-info overlay re-keyed to those same IDs. Isolated like the entry loop
-        // above: these ran bare, so a failure here cancelled the novel stream mid-batch and escaped
-        // before the error log was written, leaving the user a half-restored library and no report.
+        // RK: with every manga restored (fresh IDs), materialize the backup's merge groups. Isolated
+        // like the entry loop above: this ran bare, so a failure here cancelled the novel stream
+        // mid-batch and escaped before the error log was written, leaving the user a half-restored
+        // library and no report.
         ensureActive()
         restoreIsolated("merges") { mangaRestorer.restoreMerges(backupMangaMerges) }
-        ensureActive()
-        restoreIsolated("custom info") { mangaRestorer.restoreCustomInfo(backupCustomMangaInfo) }
     }
 
     /** Run a post-loop restore phase, recording a failure instead of taking the whole restore down. */

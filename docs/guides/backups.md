@@ -152,6 +152,13 @@ library, categories, reading history and tracking links, and a backup made here 
 Older Yōkai-based **Reikai** builds are covered as well. Reikai grew out of Yōkai before moving onto
 Mihon, and the backup format did not change with it.
 
+The details you edited yourself come across both ways with Komikku and Yōkai, except an edited cover
+address, which Yōkai does not keep. Reikai 0.3.2 and older restore a backup made now without those
+edits, though a backup made by any earlier Reikai still brings them back here.
+
+From a Yōkai backup, a default category or library update categories other than Default are left
+for you to pick again, since Yōkai saves no way to match them to your categories.
+
 What does not come across is anything specific to the app that wrote the file. Every fork saves its
 own settings alongside the shared data, and an app without that feature ignores them, so a round trip
 is safe for your library and lossy for that app's extras.

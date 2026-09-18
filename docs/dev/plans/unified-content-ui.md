@@ -166,8 +166,10 @@ collapse/sort; the manga library overlays the per-category display read, the nov
 rendered representative). This matches manga's original auto-merge-on-raw-title choice and prevents a rename
 silently reshuffling or unmerging the library. Documented in [about.md](../../about.md) to pre-empt bug reports.
 
-Backup: each override table gets its own section (`backupCustomMangaInfo` 713, `backupCustomNovelInfo` 714),
-re-keyed by url+source on restore.
+Backup: the overrides ride on each `BackupManga` / `BackupNovel` at Komikku's and Yōkai's field numbers
+(`BackupCustomInfoFields`), so they restore in those apps and theirs here. The root sections 0.3.x wrote
+(`backupCustomMangaInfo` 713, `backupCustomNovelInfo` 714) are read only, folded onto their entries at
+decode by `LegacyCustomInfo`.
 
 **Shipped: Fill-from-tracker** (the last P6 piece). The editor's "Fill from tracker" button pulls
 title/author/artist/cover/description **and genres** from a bound tracker, for both manga and novels; a

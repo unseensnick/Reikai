@@ -17,8 +17,6 @@ import eu.kanade.tachiyomi.data.backup.create.creators.NovelBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.PreferenceBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.SourcesBackupCreator
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
-import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
-import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
@@ -47,7 +45,6 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.backup.service.BackupPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.i18n.MR
 import java.io.FileOutputStream
@@ -68,8 +65,6 @@ class BackupCreator(
     private val mangaRepository: MangaRepository,
     // RK: source of the persisted manga merge groups, serialized as {url,source} refs.
     private val mergeGroupRepository: MergeGroupRepository,
-    // RK: source of the manga custom-info overlay, backed up as {url,source}-keyed entries.
-    private val customMangaInfoRepository: CustomMangaInfoRepository,
 
     private val categoriesBackupCreator: CategoriesBackupCreator,
     private val mangaBackupCreator: MangaBackupCreator,
@@ -190,14 +185,6 @@ class BackupCreator(
                 writeEach(out, 710, BackupExtension.serializer(), backupExtensions(options))
                 if (includeManga) {
                     writeEach(out, 711, BackupMangaMergeGroup.serializer(), backupMangaMergeGroups(options))
-                    if (options.customInfo) {
-                        writeEach(
-                            out,
-                            713,
-                            BackupCustomMangaInfo.serializer(),
-                            backupCustomMangaInfo(options),
-                        )
-                    }
                 }
                 // Novel categories ride the Categories option alone, like manga's field 2: a
                 // categories-only backup (Library entries off) must still carry both types' rows,
@@ -205,9 +192,6 @@ class BackupCreator(
                 writeEach(out, 701, BackupNovelCategory.serializer(), novelBackupCreator.novelCategories(options))
                 if (includeNovels) {
                     writeEach(out, 702, BackupNovelMergeGroup.serializer(), novelBackupCreator.novelMerges(options))
-                    if (options.customInfo) {
-                        writeEach(out, 714, BackupCustomNovelInfo.serializer(), novelBackupCreator.novelCustomInfo())
-                    }
                 }
                 if (options.savedSearches) {
                     writeEach(out, 715, BackupSavedSearch.serializer(), feedBackupCreator.savedSearches())
@@ -300,28 +284,6 @@ class BackupCreator(
         throw e
     } catch (_: Exception) {
         null
-    }
-
-    // RK: back up the manga custom-info overlay as {url, source}-keyed entries (re-keyed to fresh ids on
-    // restore). Resolves each row's manga by id, matching the novel creator: the backup also carries read
-    // entries that have left the library, and a favorites-keyed lookup dropped their overlay silently.
-    // Gated by libraryEntries.
-    internal suspend fun backupCustomMangaInfo(options: BackupOptions): List<BackupCustomMangaInfo> {
-        if (!options.libraryEntries) return emptyList()
-        return customMangaInfoRepository.getAll().mapNotNull { info ->
-            val manga = mangaOrNull(info.mangaId) ?: return@mapNotNull null
-            BackupCustomMangaInfo(
-                source = manga.source,
-                url = manga.url,
-                title = info.title,
-                author = info.author,
-                artist = info.artist,
-                description = info.description,
-                genre = info.genre.orEmpty(),
-                status = info.status,
-                thumbnailUrl = info.thumbnailUrl,
-            )
-        }
     }
 
     private suspend fun backupExtensionStores(options: BackupOptions): List<BackupExtensionStore> {

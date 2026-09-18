@@ -48,7 +48,16 @@ class BackupManga(
     @ProtoNumber(112) var memo: ByteArray = JsonObjectEmptyBytes,
     // RK: captured adult/EXH gallery metadata (700-range stays clear of Mihon's numbers).
     @ProtoNumber(700) var searchMetadata: BackupSearchMetadata? = null,
-) {
+    // RK --> the user's custom info, on Komikku's and Yōkai's numbers (see BackupCustomInfoFields)
+    @ProtoNumber(602) override var customStatus: Int = 0,
+    @ProtoNumber(603) override var customThumbnailUrl: String? = null,
+    @ProtoNumber(800) override var customTitle: String? = null,
+    @ProtoNumber(801) override var customArtist: String? = null,
+    @ProtoNumber(802) override var customAuthor: String? = null,
+    @ProtoNumber(804) override var customDescription: String? = null,
+    @ProtoNumber(805) override var customGenre: List<String>? = null,
+    // RK <--
+) : BackupCustomInfoFields /* RK */ {
     fun getMangaImpl(): Manga {
         return Manga.create().copy(
             url = this@BackupManga.url,
