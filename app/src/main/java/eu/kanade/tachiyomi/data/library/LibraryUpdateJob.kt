@@ -265,22 +265,22 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         val pendingDownloads = CopyOnWriteArrayList<Pair<Manga, List<Chapter>>>()
         var counted: Int? = null
         try {
-            counted = runUpdate(newUpdates, pendingDownloads)
+            reconcileMergedChapters.afterPass { runUpdate(newUpdates, pendingDownloads) }
+            counted = collapseArrivals(newUpdates, pendingDownloads)
         } finally {
             finishRun(counted, newUpdates, pendingDownloads)
         }
     }
 
-    /** RK: the run itself. Returns the arrivals the badge should carry, null when it did not finish. */
+    /** RK: the run itself, which fills [newUpdates] and [pendingDownloads] as it goes. */
     private suspend fun runUpdate(
         newUpdates: MutableList<Pair<Manga, Array<Chapter>>>,
         pendingDownloads: MutableList<Pair<Manga, List<Chapter>>>,
-    ): Int? {
+    ) {
         val semaphore = Semaphore(5)
         val progressCount = AtomicInt(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
         val failedUpdates = CopyOnWriteArrayList<Pair<Manga, String?>>()
-        var counted: Int? = null
         val timeZone = TimeZone.currentSystemDefault()
         val fetchWindow = fetchInterval.getWindow(Clock.System.now().toLocalDateTime(timeZone).date, timeZone)
 
@@ -355,37 +355,6 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
 
         notifier.cancelProgressNotification()
 
-        if (newUpdates.isNotEmpty()) {
-            // RK --> new chapters change what a merged entry's deduplicated unread count should be, so
-            //        bring the stored cross-source identities back in step first. Cheap when nothing
-            //        changed, and only covers merged entries. Then count, announce and download one
-            //        copy per merged chapter: a group's sources each report the same chapter, and
-            //        counting them apart told the user it had arrived once per source.
-            reconcileMergedChapters.await()
-            val arrivals = collapseNewUpdates(newUpdates)
-            val announced = newUpdates.mapNotNull { (manga, chapters) ->
-                chapters.filter { it.id in arrivals.announced }
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { manga to it.toTypedArray() }
-            }
-            counted = announced.sumOf { it.second.size }
-            // Empty when every arrival was a copy of a chapter the group already had, and the summary
-            // reads "for 0 entries" if it is posted anyway.
-            if (announced.isNotEmpty()) notifier.showUpdateNotifications(announced)
-            // One download per merged chapter, chosen among the copies this run found ELIGIBLE rather
-            // than by intersecting with the announced set: eligibility is per entry (its categories,
-            // its own read chapters), so the copy that may be downloaded is often not the copy the
-            // stitch ranks first, and intersecting the two left the chapter downloading from nowhere.
-            val collapsed = pendingDownloads
-                .flatMap { (manga, chapters) -> chapters.map { manga to it } }
-                .distinctBy { (_, chapter) -> arrivals.dedupeKey(chapter.id) }
-                .groupBy({ it.first }, { it.second })
-                .map { (manga, chapters) -> manga to chapters }
-            pendingDownloads.clear()
-            pendingDownloads.addAll(collapsed)
-            // RK <--
-        }
-
         // RK --> the dump is one file shared with the novel updater, rewritten on every run so an
         //        entry that has since updated stops appearing in it.
         val errorFile = updateErrorLog.write(
@@ -406,7 +375,40 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             )
         }
         // RK <--
-        return counted
+    }
+
+    /**
+     * RK: a finished run's arrivals, counted, announced and downloaded one copy per merged chapter: a
+     * group's sources each report the same chapter, and counting them apart told the user it had
+     * arrived once per source. Reads the stitch, so it runs after the run's reconcile. Returns the
+     * arrivals the badge should carry, null when nothing arrived.
+     */
+    private suspend fun collapseArrivals(
+        newUpdates: List<Pair<Manga, Array<Chapter>>>,
+        pendingDownloads: MutableList<Pair<Manga, List<Chapter>>>,
+    ): Int? {
+        if (newUpdates.isEmpty()) return null
+        val arrivals = collapseNewUpdates(newUpdates)
+        val announced = newUpdates.mapNotNull { (manga, chapters) ->
+            chapters.filter { it.id in arrivals.announced }
+                .takeIf { it.isNotEmpty() }
+                ?.let { manga to it.toTypedArray() }
+        }
+        // Empty when every arrival was a copy of a chapter the group already had, and the summary
+        // reads "for 0 entries" if it is posted anyway.
+        if (announced.isNotEmpty()) notifier.showUpdateNotifications(announced)
+        // One download per merged chapter, chosen among the copies this run found ELIGIBLE rather
+        // than by intersecting with the announced set: eligibility is per entry (its categories,
+        // its own read chapters), so the copy that may be downloaded is often not the copy the
+        // stitch ranks first, and intersecting the two left the chapter downloading from nowhere.
+        val collapsed = pendingDownloads
+            .flatMap { (manga, chapters) -> chapters.map { manga to it } }
+            .distinctBy { (_, chapter) -> arrivals.dedupeKey(chapter.id) }
+            .groupBy({ it.first }, { it.second })
+            .map { (manga, chapters) -> manga to chapters }
+        pendingDownloads.clear()
+        pendingDownloads.addAll(collapsed)
+        return announced.sumOf { it.second.size }
     }
 
     /**

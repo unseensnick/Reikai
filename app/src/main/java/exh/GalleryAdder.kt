@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.source.online.all.EHentai
 import exh.source.getMainSource
 import logcat.LogPriority
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.domain.merge.ReconcileMergedChapters
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChapter
@@ -35,6 +36,7 @@ class GalleryAdder(
     private val networkToLocalManga: NetworkToLocalManga,
     private val getChapter: GetChapter,
     private val sourceManager: SourceManager,
+    private val reconcileMergedChapters: ReconcileMergedChapters,
     sourcePreferences: SourcePreferences,
 ) {
 
@@ -93,9 +95,12 @@ class GalleryAdder(
             var manga = networkToLocalManga(
                 Manga.create().copy(source = httpSource.id, url = cleanedMangaUrl),
             )
-            manga = retry(retry) {
-                updateMangaFromRemote(httpSource, manga, fetchDetails = true, fetchChapters = true).getOrThrow()
-            }.manga
+            // A gallery already grouped with another source has a stored stitch its chapters leave stale.
+            manga = reconcileMergedChapters.afterPass {
+                retry(retry) {
+                    updateMangaFromRemote(httpSource, manga, fetchDetails = true, fetchChapters = true).getOrThrow()
+                }.manga
+            }
 
             if (fav) {
                 updateManga.awaitUpdateFavorite(manga.id, true)

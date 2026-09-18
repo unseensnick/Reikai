@@ -3,6 +3,7 @@ package reikai.domain.novel.interactor
 import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
+import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -29,6 +30,7 @@ class RepairNovelDetails(
     private val downloadManager: () -> NovelDownloadManager,
     private val database: Database,
     private val libraryPreferences: LibraryPreferences,
+    private val reconcileMergedChapters: ReconcileMergedChapters,
 ) {
 
     data class Result(val suspects: Int, val repaired: Int)
@@ -39,21 +41,24 @@ class RepairNovelDetails(
         // visible because of such a row; scanning the library alone missed it entirely.
         val suspects = findSuspects(novelRepository.getAll()).filter { it.favorite }
         var repaired = 0
-        suspects.forEach { novel ->
-            val source = sourceManager.get(novel.source) ?: return@forEach
-            runCatching {
-                refreshNovelFromSource(
-                    novel,
-                    source,
-                    novelChapterRepository,
-                    novelRepository,
-                    database,
-                    libraryPreferences,
-                    novelDownloadManager = downloadManager(),
-                )
+        // The refresh syncs chapters, which leaves a grouped novel's stored stitch stale.
+        reconcileMergedChapters.afterPass {
+            suspects.forEach { novel ->
+                val source = sourceManager.get(novel.source) ?: return@forEach
+                runCatching {
+                    refreshNovelFromSource(
+                        novel,
+                        source,
+                        novelChapterRepository,
+                        novelRepository,
+                        database,
+                        libraryPreferences,
+                        novelDownloadManager = downloadManager(),
+                    )
+                }
+                    .onSuccess { repaired++ }
+                    .onFailure { logcat(LogPriority.WARN, it) { "Novel detail repair failed: id=${novel.id}" } }
             }
-                .onSuccess { repaired++ }
-                .onFailure { logcat(LogPriority.WARN, it) { "Novel detail repair failed: id=${novel.id}" } }
         }
         return Result(suspects = suspects.size, repaired = repaired)
     }

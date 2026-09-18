@@ -91,7 +91,12 @@ class BackupRestorer(
     suspend fun restore(uri: Uri, options: RestoreOptions) {
         val startTime = System.currentTimeMillis()
 
-        restoreFromFile(uri, options)
+        // RK: a restored merge group has no stored cross-source stitch yet, and until it does the group
+        // badges the leading source's own unread count instead of the group's. Stitching here rather
+        // than waiting for the next library update, because a fresh install marks every migration done
+        // without running it, so nothing else fills it in. A restore that fails or is cancelled midway
+        // has already written groups and chapters, so it is stitched too.
+        reconcileMergedChapters.afterPass { restoreFromFile(uri, options) }
 
         // Invalidate download cache to ensure UI reflects any restored downloads
         if (options.libraryEntries) {
@@ -189,15 +194,6 @@ class BackupRestorer(
         // novel stream above, so it happens here, once both the prefs and the novel categories are in place.
         if (options.categories && options.appSettings) {
             novelRestorer.remapCategoryPreferences(summary.backupNovelCategories)
-        }
-
-        // RK: a restored merge group has no stored cross-source stitch yet, and until it does the group
-        // badges the leading source's own unread count instead of the group's. Stitching here rather
-        // than waiting for the next library update, because a fresh install marks every migration done
-        // without running it, so nothing else fills it in. Runs once both streams have restored their
-        // groups, and only when entries were restored at all, since groups come with them.
-        if (options.libraryEntries) {
-            restoreIsolated("merged chapters") { reconcileMergedChapters.await() }
         }
     }
 

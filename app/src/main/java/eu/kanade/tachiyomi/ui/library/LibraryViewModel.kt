@@ -57,6 +57,7 @@ import reikai.domain.library.toSortMode
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
+import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -294,10 +295,11 @@ class LibraryViewModel(
     init {
         // RK: a newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
         //     unread count would be wrong until something wrote them. Reconciling off the membership
-        //     flow covers every merge and unmerge from one place, instead of hooking each action, and
-        //     costs one indexed query when nothing changed. Stays always-on rather than riding the
-        //     shared state: a restore can regroup entries while the library renders nothing. The
-        //     preferred-source list rides along, since it picks each group's trunk.
+        //     flow covers every merge and unmerge from one place, instead of hooking each action. The
+        //     membership query re-runs on every write to the mangas table, at the cost of one pass over
+        //     the grouped manga, and a reconcile runs only when the answer changed. Stays always-on
+        //     rather than riding the shared state: a restore can regroup entries while the library
+        //     renders nothing. The preferred-source list rides along, since it picks each group's trunk.
         viewModelScope.launchIO {
             stitchInputChanges(ContentType.MANGA, mergeGroupRepository, reikaiLibraryPreferences)
                 .collectLatest { reconcileMergedChapters.await() }
@@ -526,10 +528,10 @@ class LibraryViewModel(
                 showUnreadBadge = preferences.unreadBadge,
                 overrideRankings = mergePrefs.overrideRankings,
                 preferredSourceIds = mergePrefs.preferredSources,
-                // RK: the same chapter count the details list ranks its trunk on, so both surfaces
-                //     lead on one source. Read here for the same reason as the unread counts above.
-                distinctChapterCounts = if (mergePrefs.mergingEnabled) {
-                    mergedChapterUnitRepository.getCoveredChapterCounts()
+                // RK: the same chapter count the stitch ranks its trunk on, so the row and the details
+                //     list lead on one source. Read here for the same reason as the unread counts above.
+                recognizedChapterCounts = if (mergePrefs.mergingEnabled) {
+                    mergedChapterUnitRepository.getRecognizedChapterCounts()
                 } else {
                     emptyMap()
                 },
@@ -664,8 +666,8 @@ class LibraryViewModel(
             mangas.forEach { manga ->
                 val group = mergedGroupOf(manga)
                 val unread = if (group != null) {
-                    // The stitch runs newest-first, the way a manga source's own order does.
-                    group.chapters.asReversed().fastFilterNot { it.read || it.id in group.readInOtherSources }
+                    group.chapters.inReadingOrder(manga)
+                        .fastFilterNot { it.read || it.id in group.readInOtherSources }
                 } else {
                     getNextChapters.await(manga.id)
                 }

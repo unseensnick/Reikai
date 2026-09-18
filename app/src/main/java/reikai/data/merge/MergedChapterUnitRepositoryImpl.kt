@@ -74,8 +74,8 @@ class MergedChapterUnitRepositoryImpl(
             }
         }.subscribeToList().map { rows -> rows.groupBy { it.groupId } }
 
-    override suspend fun getCoveredChapterCounts(): Map<Long, Long> =
-        queries.coveredChapterCountsByManga().awaitAsList().associate { it.mangaId to it.coveredCount }
+    override suspend fun getRecognizedChapterCounts(): Map<Long, Long> =
+        queries.recognizedChapterCountsByManga().awaitAsList().associate { it.mangaId to it.recognizedCount }
 
     override suspend fun replaceGroup(
         contentType: ContentType,

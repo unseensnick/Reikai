@@ -54,12 +54,12 @@ interface MergedChapterUnitRepository {
     fun getDownloadUnitsAsFlow(contentType: ContentType): Flow<Map<Long, List<DownloadUnitRow>>>
 
     /**
-     * How many of its group's chapters each merged manga covers, keyed by manga id: the count the
-     * stitch ranks the trunk on, so the collapsed library row leads on the same source the details
-     * chapter list does. An empty map means nothing is stitched yet, which callers must tell apart
-     * from a manga covering none.
+     * How many distinct recognized chapter numbers each grouped library manga lists, keyed by manga id:
+     * the count the stitch ranks the trunk on, so the collapsed library row leads on the same source the
+     * details chapter list does. Read from the chapter rows, so a group not yet stitched has it too. A
+     * manga absent from the map lists no recognized number, which ranks as zero.
      */
-    suspend fun getCoveredChapterCounts(): Map<Long, Long>
+    suspend fun getRecognizedChapterCounts(): Map<Long, Long>
 
     /**
      * One chapter's place in its group's stitch. [unit] is its position in the merged list, null when

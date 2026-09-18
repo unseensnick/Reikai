@@ -182,9 +182,10 @@ class NovelLibraryViewModel(
         viewModelScope.launchIO { runCatching { installer.ensureLoaded() } }
         // A newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
         // unread count would be wrong until something wrote them. Reconciling off the membership flow
-        // covers every merge and unmerge from one place, and costs one indexed query when nothing
-        // changed. Stays always-on: a restore can regroup entries while the library renders nothing.
-        // The preferred-source list rides along, since it picks each group's trunk.
+        // covers every merge and unmerge from one place. The membership query re-runs on every write to
+        // the novels table, at the cost of one pass over the grouped novels, and a reconcile runs only
+        // when the answer changed. Stays always-on: a restore can regroup entries while the library
+        // renders nothing. The preferred-source list rides along, since it picks each group's trunk.
         viewModelScope.launchIO {
             stitchInputChanges(ContentType.NOVELS, mergeGroupRepository, reikaiLibraryPreferences)
                 .collectLatest { reconcileMergedChapters.await() }

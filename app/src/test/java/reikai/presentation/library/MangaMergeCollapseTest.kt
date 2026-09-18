@@ -55,7 +55,8 @@ class MangaMergeCollapseTest {
         mergingEnabled: Boolean = true,
         overrideRankings: Map<Long, List<Long>> = emptyMap(),
         preferredSourceIds: List<Long> = emptyList(),
-        distinctChapterCounts: Map<Long, Long> = emptyMap(),
+        // Each member's rows all carry distinct recognized numbers unless a test says otherwise.
+        recognizedChapterCounts: Map<Long, Long> = items.associate { it.id to it.libraryManga.totalChapters },
     ) = MangaMergeCollapse.collapse(
         items,
         membership,
@@ -64,7 +65,7 @@ class MangaMergeCollapseTest {
         resolveSource,
         overrideRankings = overrideRankings,
         preferredSourceIds = preferredSourceIds,
-        distinctChapterCounts = distinctChapterCounts,
+        recognizedChapterCounts = recognizedChapterCounts,
     )
 
     @Test
@@ -104,37 +105,22 @@ class MangaMergeCollapseTest {
                 item(2, source = 200L, totalChapters = 6),
             ),
             membership = mapOf(1L to 7L, 2L to 7L),
-            distinctChapterCounts = mapOf(1L to 4L, 2L to 6L),
+            recognizedChapterCounts = mapOf(1L to 4L, 2L to 6L),
         )
         result.single().id shouldBe 2L
     }
 
     @Test
-    fun `the row count stands in until the match keys are reconciled`() = runTest {
-        // An empty map is the backfill not having run, not "every member has zero": falling through to
-        // zero would flatten the ranking onto the id tiebreak and move every merged cover at once.
-        val result = collapse(
-            listOf(
-                item(1, source = 100L, totalChapters = 3),
-                item(2, source = 200L, totalChapters = 9),
-            ),
-            membership = mapOf(1L to 7L, 2L to 7L),
-            distinctChapterCounts = emptyMap(),
-        )
-        result.single().id shouldBe 2L
-    }
-
-    @Test
-    fun `a member with no identified chapter ranks last once the keys exist`() = runTest {
-        // A populated map with no row for a member means it has no identifiable chapter, which the
-        // schema's consumer contract reads as zero rather than as unknown.
+    fun `a member absent from the counts ranks last, as the stitch ranks it`() = runTest {
+        // No row means the member lists no recognized number, which the stitch counts as zero. Its row
+        // count is not a stand-in, however large.
         val result = collapse(
             listOf(
                 item(1, source = 100L, totalChapters = 20),
                 item(2, source = 200L, totalChapters = 2),
             ),
             membership = mapOf(1L to 7L, 2L to 7L),
-            distinctChapterCounts = mapOf(2L to 2L),
+            recognizedChapterCounts = mapOf(2L to 2L),
         )
         result.single().id shouldBe 2L
     }

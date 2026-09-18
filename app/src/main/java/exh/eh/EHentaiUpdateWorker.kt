@@ -148,59 +148,60 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
         val modifiedThisIteration = mutableSetOf<Long>()
 
         try {
-            for ((index, entry) in mangaMetaToUpdateThisIter.withIndex()) {
-                val manga = entry.manga
-                if (failuresThisIteration > MAX_UPDATE_FAILURES) {
-                    logcat(LogPriority.WARN) { "Too many update failures, aborting EHentai update job" }
-                    break
-                }
-
-                if (manga.id in modifiedThisIteration) {
-                    // We already processed this manga this iteration!
-                    updatedThisIteration++
-                    continue
-                }
-
-                val (new, chapters) = try {
-                    updateNotifier.showProgressNotification(
-                        manga,
-                        updatedThisIteration + failuresThisIteration,
-                        mangaMetaToUpdateThisIter.size,
-                    )
-                    updateEntryAndGetChapters(manga)
-                } catch (e: GalleryNotUpdatedException) {
-                    if (e.network) {
-                        failuresThisIteration++
-                        failedUpdates += manga to (e.cause?.message ?: e.message)
-                        logcat(LogPriority.ERROR, e) { "Network error while updating EHentai gallery ${manga.id}" }
-                    }
-                    continue
-                }
-
-                if (chapters.isEmpty()) {
-                    logcat(LogPriority.ERROR) { "No chapters found for EHentai gallery ${manga.id}" }
-                    continue
-                }
-
-                // Find accepted root and discard others.
-                val (acceptedRoot, discardedRoots, exhNew) =
-                    updateHelper.findAcceptedRootAndDiscardOthers(manga.source, chapters) ?: continue
-
-                if (new.isNotEmpty() && manga.id == acceptedRoot.manga.id) {
-                    libraryPreferences.newUpdatesCount.getAndSet { it + new.size }
-                    updatedManga += acceptedRoot.manga to new.toTypedArray()
-                } else if (exhNew.isNotEmpty() && updatedManga.none { it.first.id == acceptedRoot.manga.id }) {
-                    libraryPreferences.newUpdatesCount.getAndSet { it + exhNew.size }
-                    updatedManga += acceptedRoot.manga to exhNew.toTypedArray()
-                }
-
-                modifiedThisIteration += acceptedRoot.manga.id
-                modifiedThisIteration += discardedRoots.map { it.manga.id }
-                updatedThisIteration++
-            }
             // A gallery grouped with other sources has a stored stitch, which new or moved chapters
-            // leave stale until something rebuilds it, as the library update does after its own pass.
-            if (modifiedThisIteration.isNotEmpty()) reconcileMergedChapters.await()
+            // leave stale until something rebuilds it, even when a later gallery fails the pass.
+            reconcileMergedChapters.afterPass {
+                for ((index, entry) in mangaMetaToUpdateThisIter.withIndex()) {
+                    val manga = entry.manga
+                    if (failuresThisIteration > MAX_UPDATE_FAILURES) {
+                        logcat(LogPriority.WARN) { "Too many update failures, aborting EHentai update job" }
+                        break
+                    }
+
+                    if (manga.id in modifiedThisIteration) {
+                        // We already processed this manga this iteration!
+                        updatedThisIteration++
+                        continue
+                    }
+
+                    val (new, chapters) = try {
+                        updateNotifier.showProgressNotification(
+                            manga,
+                            updatedThisIteration + failuresThisIteration,
+                            mangaMetaToUpdateThisIter.size,
+                        )
+                        updateEntryAndGetChapters(manga)
+                    } catch (e: GalleryNotUpdatedException) {
+                        if (e.network) {
+                            failuresThisIteration++
+                            failedUpdates += manga to (e.cause?.message ?: e.message)
+                            logcat(LogPriority.ERROR, e) { "Network error while updating EHentai gallery ${manga.id}" }
+                        }
+                        continue
+                    }
+
+                    if (chapters.isEmpty()) {
+                        logcat(LogPriority.ERROR) { "No chapters found for EHentai gallery ${manga.id}" }
+                        continue
+                    }
+
+                    // Find accepted root and discard others.
+                    val (acceptedRoot, discardedRoots, exhNew) =
+                        updateHelper.findAcceptedRootAndDiscardOthers(manga.source, chapters) ?: continue
+
+                    if (new.isNotEmpty() && manga.id == acceptedRoot.manga.id) {
+                        libraryPreferences.newUpdatesCount.getAndSet { it + new.size }
+                        updatedManga += acceptedRoot.manga to new.toTypedArray()
+                    } else if (exhNew.isNotEmpty() && updatedManga.none { it.first.id == acceptedRoot.manga.id }) {
+                        libraryPreferences.newUpdatesCount.getAndSet { it + exhNew.size }
+                        updatedManga += acceptedRoot.manga to exhNew.toTypedArray()
+                    }
+
+                    modifiedThisIteration += acceptedRoot.manga.id
+                    modifiedThisIteration += discardedRoots.map { it.manga.id }
+                    updatedThisIteration++
+                }
+            }
         } finally {
             exhPreferences.exhAutoUpdateStats().set(
                 Json.encodeToString(

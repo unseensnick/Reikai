@@ -1,5 +1,6 @@
 package reikai.presentation.library.novels
 
+import reikai.domain.merge.sourcePriority
 import reikai.domain.novel.model.LibraryNovel
 
 /**
@@ -83,19 +84,14 @@ object NovelMergeCollapse {
     }
 
     // The trunk order [NovelChapterAggregation.rank] applies, so the library row and the details chapter
-    // list lead on the same source. minWith picks the smallest: override position first (0 = trunk), else
-    // the global preferred-source position, else the most chapters, then the lowest id. Novel source ids
-    // are Strings (plugin slugs). totalChapters needs no match-key count as its manga twin does: that
-    // aggregation ranks on row count too, because novels have no scanlator variants to collapse.
+    // list lead on the same source: [sourcePriority] first, then the most chapters, then the lowest id.
+    // totalChapters is that aggregation's own count: novels have no scanlator variants to collapse, so
+    // they rank on rows where manga needs the recognized-number count.
     private fun rankComparator(
         overrideOrder: List<Long>,
         preferredSourceIds: List<String>,
-    ): Comparator<LibraryNovel> = compareBy<LibraryNovel> { novel ->
-        if (overrideOrder.isNotEmpty()) {
-            overrideOrder.indexOf(novel.novel.id).takeIf { it >= 0 } ?: Int.MAX_VALUE
-        } else {
-            preferredSourceIds.indexOf(novel.novel.source).takeIf { it >= 0 } ?: Int.MAX_VALUE
-        }
+    ): Comparator<LibraryNovel> = compareBy<LibraryNovel> {
+        sourcePriority(it.novel.id, it.novel.source, preferredSourceIds, overrideOrder)
     }
         .thenByDescending { it.totalChapters }
         .thenBy { it.novel.id }

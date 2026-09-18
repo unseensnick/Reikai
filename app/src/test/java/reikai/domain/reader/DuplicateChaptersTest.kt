@@ -79,10 +79,11 @@ class DuplicateChaptersTest {
     }
 
     @Test
-    fun `a null origin matches every copy, so the first wins`() {
-        // Novels carry no scanlator, so an unmerged novel's chapters can all answer null here.
-        val n1 = Ch(id = 6, number = 1.0, origin = null)
-        val n2 = Ch(id = 7, number = 1.0, origin = null)
-        listOf(n1, n2).dedup(Ch(id = 9, number = 5.0, origin = null)).map { it.id } shouldBe listOf(6L)
+    fun `a chapter with no origin keeps the copy that has none either`() {
+        // A manga chapter with no scanlator, among copies where some name one. The matching copy sits
+        // second, so the fall-back to the first cannot pass for the origin match.
+        val named = Ch(id = 6, number = 1.0, origin = "alpha")
+        val unnamed = Ch(id = 7, number = 1.0, origin = null)
+        listOf(named, unnamed).dedup(Ch(id = 9, number = 5.0, origin = null)).map { it.id } shouldBe listOf(7L)
     }
 }

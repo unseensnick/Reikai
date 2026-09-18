@@ -164,7 +164,8 @@ class NovelUpdateJob(
         val pendingDownloads = mutableListOf<NovelChapter>()
         var counted: Int? = null
         try {
-            counted = runUpdate(categoryId, updates, pendingDownloads)
+            val ran = reconcileMergedChapters.afterPass { runUpdate(categoryId, updates, pendingDownloads) }
+            if (ran) counted = announceArrivals(updates, pendingDownloads)
         } finally {
             withContext(NonCancellable) {
                 val arrivals = counted ?: updates.sumOf { it.second.size }
@@ -174,12 +175,13 @@ class NovelUpdateJob(
         }
     }
 
-    /** The run itself. Returns the arrivals the badge should carry, null when it did not finish. */
+    /** The run itself, which fills [updates] and [pendingDownloads] as it goes. False when it had no
+     *  novel to check. */
     private suspend fun runUpdate(
         categoryId: Long,
         updates: MutableList<Pair<Novel, List<NovelChapter>>>,
         pendingDownloads: MutableList<NovelChapter>,
-    ): Int? {
+    ): Boolean {
         // One load brings every installed plugin into the host; per-novel resolution is then cheap.
         runCatching { installer.ensureLoaded() }
 
@@ -204,7 +206,7 @@ class NovelUpdateJob(
                 }
             }
         }
-        if (favorites.isEmpty()) return null
+        if (favorites.isEmpty()) return false
 
         val downloadNew = preferences.downloadNewChapters().get()
         val failed = mutableListOf<UpdateErrorEntry>()
@@ -240,15 +242,28 @@ class NovelUpdateJob(
             // the same pair around each entry.
             notifier.showProgress(novel, index + 1, favorites.size)
         }
+        // The dump is one file shared with the manga updater, rewritten on every run so a novel that
+        // has since updated stops appearing in it.
+        val errorFile = updateErrorLog.write(ContentType.NOVELS, failed)
+        if (failed.isNotEmpty()) {
+            notifier.showUpdateErrors(failed.size, errorFile.getUriCompat(context), trackErrors)
+        }
+        return true
+    }
+
+    /**
+     * A finished run's arrivals, counted, announced and downloaded one copy per merged chapter: a
+     * group's sources each report the same chapter, and counting them apart told the user it had
+     * arrived once per source. Reads the stitch, so it runs after the run's reconcile. Returns the
+     * arrivals the badge should carry.
+     */
+    private suspend fun announceArrivals(
+        updates: List<Pair<Novel, List<NovelChapter>>>,
+        pendingDownloads: MutableList<NovelChapter>,
+    ): Int {
         val announced = if (updates.isEmpty()) {
             updates
         } else {
-            // New chapters change what a merged entry's deduplicated unread count should be, so bring
-            // the stored cross-source identities back in step first. Cheap when nothing changed, and
-            // only covers merged entries. Then count, announce and download one copy per merged
-            // chapter: a group's sources each report the same chapter, and counting them apart told
-            // the user it had arrived once per source.
-            reconcileMergedChapters.await()
             val arrivals = collapseNewUpdates(updates)
             // One download per merged chapter, chosen among the copies this run found eligible rather
             // than by intersecting with the announced set: eligibility is per entry, so the copy that
@@ -261,12 +276,6 @@ class NovelUpdateJob(
             }
         }
         notifier.showResults(announced)
-        // The dump is one file shared with the manga updater, rewritten on every run so a novel that
-        // has since updated stops appearing in it.
-        val errorFile = updateErrorLog.write(ContentType.NOVELS, failed)
-        if (failed.isNotEmpty()) {
-            notifier.showUpdateErrors(failed.size, errorFile.getUriCompat(context), trackErrors)
-        }
         return announced.sumOf { it.second.size }
     }
 

@@ -28,6 +28,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.reader.ChapterProgress
@@ -43,7 +44,6 @@ import reikai.presentation.browse.decideAdd
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
-import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
@@ -238,18 +238,9 @@ class MangaRecentsAdapter(
         )
     }
 
-    /**
-     * Ascending reading order, which every shared target rule expects. A merged list is ordered by the
-     * position the stitch restamped onto it, which runs newest-first as a manga source's own order
-     * does; a chapter number is not comparable across sources, and sorting by one here reached a
-     * different "first unread" than the library did for the same series. An unmerged list takes
-     * Mihon's own comparator, the one `GetNextChapters` applies.
-     */
-    private fun readingOrder(manga: Manga?, chapters: List<Chapter>?): List<Chapter> = when {
-        manga == null || chapters == null -> chapters.orEmpty()
-        chapters.distinctBy { it.mangaId }.size > 1 -> chapters.sortedByDescending { it.sourceOrder }
-        else -> chapters.sortedWith(getChapterSort(manga, sortDescending = false))
-    }
+    /** Ascending reading order, which every shared target rule expects: the one the reader pages in. */
+    private fun readingOrder(manga: Manga?, chapters: List<Chapter>?): List<Chapter> =
+        if (manga == null || chapters == null) chapters.orEmpty() else chapters.inReadingOrder(manga)
 
     override suspend fun latestRead(): RecentsItem? = historyModel?.getLast()?.toRecentsItem()
 

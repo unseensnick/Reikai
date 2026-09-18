@@ -8,7 +8,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
-import reikai.domain.merge.renderStoredStitch
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
@@ -60,14 +59,13 @@ class GetNextNovelChapterTest {
     // The group half: what a collapsed recents row and the library's continue button both resolve
     // through. Manga twin: LibraryViewModel.getNextUnreadChapter over MergedChapterProvider.
 
-    /** A two-source group whose stored stitch is [stitch]; the real render runs over it, so what the
-     *  interactor sees is what a screen would see. */
+    /** A two-source group whose stored stitch is [stitch]; the real render and source-order restamp run
+     *  over it, so what the interactor sees is what a screen would see. */
     private fun merged(stitch: List<ChapterUnit>) {
         coEvery { mergeManager.computeRelatedIds(any()) } returns longArrayOf(1L, 2L)
         coEvery { mergedChapterProvider.stitchOf(any()) } returns stitch
-        every { mergedChapterProvider.merged(any(), any()) } answers {
-            renderStoredStitch(firstArg<List<NovelChapter>>(), secondArg()) { it.id }
-        }
+        val render = NovelMergedChapterProvider(mockk(), mockk(), mockk())
+        every { mergedChapterProvider.merged(any(), any()) } answers { render.merged(firstArg(), secondArg()) }
     }
 
     @Test
@@ -91,6 +89,24 @@ class GetNextNovelChapterTest {
             chapter(11, 2, read = false),
         )
         coEvery { chapterRepository.getByNovelId(2L) } returns listOf(chapter(20, 1, read = true, novelId = 2L))
+
+        interactor.awaitFirstUnreadInGroup(novelId = 1L)?.id shouldBe 11L
+    }
+
+    @Test
+    fun `the first unread of a merged novel follows the novel's own chapter sort`() = runTest {
+        // The stitch runs Gamma, Alpha, Beta; alphabetically, with Alpha read on the other source, the
+        // next is Beta (11), where the stitch alone would say Gamma (10).
+        merged(listOf(ChapterUnit(10, 0, 0), ChapterUnit(20, 1, 0), ChapterUnit(11, 2, 0)))
+        coEvery { novelRepository.getById(1L) } returns Novel.create()
+            .copy(chapterFlags = NovelChapterFlags.SORT_LOCAL or NovelChapterFlags.SORTING_ALPHABET)
+        coEvery { chapterRepository.getByNovelId(1L) } returns listOf(
+            chapter(10, 1, read = false, name = "Gamma"),
+            chapter(11, 2, read = false, name = "Beta"),
+        )
+        coEvery { chapterRepository.getByNovelId(2L) } returns listOf(
+            chapter(20, 1, read = true, novelId = 2L, name = "Alpha"),
+        )
 
         interactor.awaitFirstUnreadInGroup(novelId = 1L)?.id shouldBe 11L
     }

@@ -39,6 +39,7 @@ import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.notification.hiddenEntryIds
 import reikai.domain.manga.AdultContentChecker
+import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withUIContext
@@ -87,6 +88,8 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
     @Inject private lateinit var securityPreferences: SecurityPreferences
 
     @Inject private lateinit var adultContentChecker: AdultContentChecker
+
+    @Inject private lateinit var reconcileMergedChapters: ReconcileMergedChapters
     enum class Target { SYNC_FOLLOWS, PUSH_FAVORITES }
 
     private val progressNotificationBuilder by lazy {
@@ -234,31 +237,34 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
         var imported = 0
         val skipped = mutableListOf<String?>()
         val failed = mutableListOf<String?>()
-        follows.forEachIndexed { i, (sManga, _) ->
-            currentCoroutineContext().ensureActive()
-            val name = shownName(sManga.toDomainManga(mangaDex.id))
-            showProgress(name, i, follows.size)
-            try {
-                var local = getManga.await(sManga.url, mangaDex.id)
-                    ?: networkToLocalManga(sManga.toDomainManga(mangaDex.id))
-                // UpdateMangaFromRemote runs the enhanced metadata round-trip, so it persists the rich
-                // flat metadata (rating, tags). Do NOT insert the follows-list metadata afterwards: it
-                // only carries followStatus and would blank the rating until a manual refresh.
-                local = updateMangaFromRemote(mangaDex, local, fetchDetails = true, fetchChapters = true)
-                    .getOrThrow().manga
-                if (!local.favorite) {
-                    updateManga.awaitUpdateFavorite(local.id, true)
+        // A follow already grouped with another source has a stored stitch its new chapters leave stale.
+        reconcileMergedChapters.afterPass {
+            follows.forEachIndexed { i, (sManga, _) ->
+                currentCoroutineContext().ensureActive()
+                val name = shownName(sManga.toDomainManga(mangaDex.id))
+                showProgress(name, i, follows.size)
+                try {
+                    var local = getManga.await(sManga.url, mangaDex.id)
+                        ?: networkToLocalManga(sManga.toDomainManga(mangaDex.id))
+                    // UpdateMangaFromRemote runs the enhanced metadata round-trip, so it persists the rich
+                    // flat metadata (rating, tags). Do NOT insert the follows-list metadata afterwards: it
+                    // only carries followStatus and would blank the rating until a manual refresh.
+                    local = updateMangaFromRemote(mangaDex, local, fetchDetails = true, fetchChapters = true)
+                        .getOrThrow().manga
+                    if (!local.favorite) {
+                        updateManga.awaitUpdateFavorite(local.id, true)
+                    }
+                    imported++
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: NoChaptersException) {
+                    // Benign: nothing to read in the chosen language, so there is nothing to import.
+                    skipped += name
+                    logcat(LogPriority.DEBUG) { "MangaDex follows sync: skipped ${sManga.title} (no chapters)" }
+                } catch (e: Exception) {
+                    failed += name
+                    logcat(LogPriority.WARN, e) { "MangaDex follows sync: failed ${sManga.title}" }
                 }
-                imported++
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: NoChaptersException) {
-                // Benign: nothing to read in the chosen language, so there is nothing to import.
-                skipped += name
-                logcat(LogPriority.DEBUG) { "MangaDex follows sync: skipped ${sManga.title} (no chapters)" }
-            } catch (e: Exception) {
-                failed += name
-                logcat(LogPriority.WARN, e) { "MangaDex follows sync: failed ${sManga.title}" }
             }
         }
         return SyncResult(imported, skipped, failed)

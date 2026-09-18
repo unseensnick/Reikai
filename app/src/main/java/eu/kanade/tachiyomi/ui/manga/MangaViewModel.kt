@@ -21,13 +21,13 @@ import eu.kanade.core.util.addOrRemove
 import eu.kanade.core.util.insertSeparators
 import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
 import eu.kanade.domain.chapter.interactor.SetReadStatus
+import eu.kanade.domain.chapter.model.applyFilters
 import eu.kanade.domain.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.manga.interactor.GetPagePreviews
 import eu.kanade.domain.manga.interactor.SetExcludedScanlators
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.manga.model.PagePreview
 import eu.kanade.domain.manga.model.chaptersFiltered
-import eu.kanade.domain.manga.model.downloadedFilter
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.interactor.RefreshTracks
@@ -157,7 +157,6 @@ import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
-import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
@@ -2006,22 +2005,8 @@ class MangaViewModel(
             val filterActive: Boolean
                 get() = scanlatorFilterActive || manga.chaptersFiltered()
 
-            /**
-             * Applies the view filters to the list of chapters obtained from the database.
-             * @return an observable of the list of chapters filtered and sorted.
-             */
-            private fun List<ChapterList.Item>.applyFilters(manga: Manga): Sequence<ChapterList.Item> {
-                val isLocalManga = manga.isLocal()
-                val unreadFilter = manga.unreadFilter
-                val downloadedFilter = manga.downloadedFilter
-                val bookmarkedFilter = manga.bookmarkedFilter
-                return asSequence()
-                    // RK: the any-source flags, so the filters agree with what the rows show.
-                    .filter { applyFilter(unreadFilter) { !it.isRead } }
-                    .filter { applyFilter(bookmarkedFilter) { it.isBookmarked } }
-                    .filter { applyFilter(downloadedFilter) { it.isDownloaded || isLocalManga } }
-                    .sortedWith { (chapter1), (chapter2) -> getChapterSort(manga).invoke(chapter1, chapter2) }
-            }
+            // RK: upstream's private copy of the top-level applyFilters is deleted, so the list runs the
+            //     one copy MergedChapterFilterConformanceTest pins rather than a twin that could drift.
         }
     }
 }

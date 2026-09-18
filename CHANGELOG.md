@@ -118,7 +118,8 @@ every release now also ships a foss build with neither in it.
 #### Fixed
 
 - **Removing one source of a merged series from your library, or adding it back, now updates the series' combined chapter list and unread count straight away.** Before, they stayed as they were until the next library update.
-- **A merged series that includes an adult content source's gallery now updates its combined chapter list after that source's own gallery update runs.**
+- **A merged series' combined chapter list and unread count now catch up after anything that changes its chapters.** That includes a renamed or renumbered chapter, an update that stopped part way, a follows sync, a gallery import, a novel detail repair and an adult content source's own gallery update.
+- **A merged manga's library cover, title and badge now come from the source its chapter list leads with.** A source with most of its chapters under a hidden scanlator could lead one and not the other.
 - **The reader's missing chapters warning between two chapters no longer appears when a merged series crosses from one source to another, in both readers.** It now follows the chapter list's rules, so a volume extra no longer triggers it either.
 - **Removing a merged series no longer overstates how many sources it will take with it.** The count now covers the grouped sources it can actually reach, so it matches the number of entries you selected.
 - **Splitting or removing the source you are currently viewing no longer leaves the series' page showing another source's chapters.** The title and cover stayed the one you opened while the chapter list quietly became someone else's.
@@ -135,12 +136,12 @@ every release now also ships a foss build with neither in it.
 - **Saving Edit info on a merged novel with a source chip selected no longer stores that source's details as your edits.** Opening the editor from a selected source and saving untouched used to keep its differing title, tags and cover as permanent overrides.
 - **Share and Open in WebView now follow the source chip you have selected, on novels as well as manga.**
 - **Migrating and cover edits now always act on the whole merged series, whichever source chip is selected.** A custom title also stays visible while a chip is selected.
-- **A merged series now downloads each chapter once, however many of its sources carry it.** Download next follows the group's combined list rather than the leading source, a chapter already on disk is not offered again, and the download badge counts it once.
+- **A merged series now downloads each chapter once, however many of its sources carry it.** Download next follows the group's combined list in your chapter sort rather than the leading source, a chapter already on disk is not offered again, and the download badge counts it once.
 - **Deleting a merged series' downloaded chapter now removes every source's copy of it.** The row stops reading as downloaded, which one copy left behind used to prevent.
 - **A chapter you bookmarked before merging its series now still shows as bookmarked in the combined list.** The Bookmarked filter on the series page and in the reader follows the same answer.
 - **The reader's "Skip chapters marked read" now skips a chapter read on another source of a merged series.** So do the Unread filters on the series page and in the reader.
 - **Marking read, bookmarking or deleting a download on a merged row in Updates now applies to every source in the group, as it does in the library.** The same goes for the Recents tab, if you have turned it on.
-- **Continue reading a merged series from History now opens the same chapter the library would.** The two picked differently because History ordered the group by chapter number, which its sources count differently.
+- **Continue reading a merged series from History now opens the same chapter the library would.** History ignored the series' chapter sort, so a series sorted by name or upload date resumed somewhere else.
 - **A merged row in Updates and History now shows the read and bookmarked state the series page shows.** It reported whichever source's copy the row happened to name.
 - **A merged series' library update now announces a new chapter once, not once per source that carries it.**
 - **The Updates widget now draws one cover per merged series.** It drew one per source, so a grouped series filled the grid.
@@ -570,6 +571,7 @@ every release now also ships a foss build with neither in it.
 ### Other
 
 - A novel library update now predicts a paged novel's next update once, after its last page, instead of once for every page it fetched.
+- Keeping merged series in step with the library now costs one pass over the grouped entries on each library write, rather than a walk of the whole library.
 - Smart update skipping, the chapter-sync rules for new chapters and what binding a tracker backfills are now each written once for manga and novels, so the two can no longer drift. The novel library update also decides what to skip from the library's chapter counts, rather than loading every novel's chapters first.
 - The app's native libraries are now compressed inside the download, which keeps it near its old size although the high quality renderer added about 27 MB of them: the arm64 download is about 31 MB where it would have been 53 MB. Once installed the app takes a little more space, since Android unpacks them.
 - The light-novel plugin manager now fetches the plugin repos once, and only while its tab is open. Opening Browse used to fetch every repo twice.

@@ -76,6 +76,7 @@ import logcat.LogPriority
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
+import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.withOpenedChapter
@@ -104,7 +105,6 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
-import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.interactor.UpsertHistory
@@ -396,7 +396,8 @@ class ReaderViewModel(
         }
 
         return chaptersForReader
-            .sortedWith(getChapterSort(manga, sortDescending = false))
+            // RK: the one reading order, which the library's "download next" and Recents walk too.
+            .inReadingOrder(manga)
             // RK --> user-hidden chapters and, with skip-duplicate on, duplicates, by the kernel the novel
             // reader runs too. The opened chapter is kept, so opening a hidden one directly still resolves.
             .let { sorted -> navigable(sorted, selectedChapter) }
@@ -765,10 +766,7 @@ class ReaderViewModel(
                 // Sorted the way the reader itself pages, not by stitch position: a group sorted by
                 // upload date or by name otherwise queues chapters the reader never steps into next.
                 // RK: through the reader's own rule, or it queued chapters the reader never stops on.
-                val ahead = navigable(
-                    group.chapters.sortedWith(getChapterSort(manga, sortDescending = false)),
-                    nextChapter.toDomainChapter()!!,
-                )
+                val ahead = navigable(group.chapters.inReadingOrder(manga), nextChapter.toDomainChapter()!!)
                 chaptersToDownloadAhead(
                     ahead,
                     from = ahead.indexOfFirst { it.id == nextChapter.id },

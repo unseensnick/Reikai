@@ -1,9 +1,17 @@
 package reikai.data.merge
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -174,6 +182,94 @@ class MergedStitchReconcileTest {
         counting.stitched shouldBe listOf(group, group)
     }
 
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a rebuild that read before a new chapter cannot overwrite one that read after it`(type: ContentType) =
+        runTest {
+            val fixture = fixture(type)
+            val group = fixture.twoSourceGroup()
+            val gate = CompletableDeferred<Unit>()
+            val reconcile = ReconcileMergedChapters(units, setOf(GatedStitcher(fixture.stitcher(emptyList()), gate)))
+            val early = launch { reconcile.await() }
+            runCurrent()
+            val added = fixture.addChapter(owner = fixture.membersOf(group).first(), name = "Chapter 3", number = 3.0)
+            val late = launch { reconcile.awaitGroup(type, group) }
+            runCurrent()
+
+            gate.complete(Unit)
+            joinAll(early, late)
+
+            units.getStitch(type, group).map { it.chapterId } shouldContain added
+        }
+
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a pass that only renumbers a chapter restitches the group`(type: ContentType) = runTest {
+        val fixture = fixture(type)
+        val group = fixture.twoSourceGroup()
+        val reconcile = fixture.reconcile()
+        reconcile.await()
+
+        reconcile.afterPass { fixture.renumber(chapterId = 1L, number = 5.0) }
+
+        units.isStale(type, group) shouldBe false
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a pass that fails after writing still restitches what it wrote`(type: ContentType) = runTest {
+        val fixture = fixture(type)
+        val group = fixture.twoSourceGroup()
+        val reconcile = fixture.reconcile()
+        reconcile.await()
+
+        shouldThrow<IllegalStateException> {
+            reconcile.afterPass {
+                fixture.addChapter(owner = fixture.membersOf(group).first(), name = "Chapter 3", number = 3.0)
+                error("the next entry failed")
+            }
+        }
+
+        units.isStale(type, group) shouldBe false
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a cancelled pass still restitches what it wrote`(type: ContentType) = runTest {
+        val fixture = fixture(type)
+        val group = fixture.twoSourceGroup()
+        val reconcile = fixture.reconcile()
+        reconcile.await()
+        val pass = launch {
+            reconcile.afterPass {
+                fixture.addChapter(owner = fixture.membersOf(group).first(), name = "Chapter 3", number = 3.0)
+                awaitCancellation()
+            }
+        }
+        runCurrent()
+
+        pass.cancelAndJoin()
+
+        units.isStale(type, group) shouldBe false
+    }
+
+    /** Holds its first stitch, already read, until [gate] opens: a rebuild slower than one started after. */
+    private class GatedStitcher(
+        private val inner: MergedGroupStitcher,
+        private val gate: CompletableDeferred<Unit>,
+    ) : MergedGroupStitcher by inner {
+        private var held = false
+
+        override suspend fun stitch(groupId: Long): List<StoredUnit> {
+            val stitched = inner.stitch(groupId)
+            if (!held) {
+                held = true
+                gate.await()
+            }
+            return stitched
+        }
+    }
+
     /** Records which groups were stitched, so a test can tell a rebuild from a read of what was stored. */
     private class CountingStitcher(private val inner: MergedGroupStitcher) : MergedGroupStitcher by inner {
         val stitched = mutableListOf<Long>()
@@ -225,9 +321,21 @@ class MergedStitchReconcileTest {
 
         fun membersOf(group: Long) = members.getValue(group)
 
-        suspend fun addChapter(owner: Long, name: String, number: Double) {
-            insertChapter(nextChapterId++, owner, name, number)
+        suspend fun addChapter(owner: Long, name: String, number: Double): Long {
+            val id = nextChapterId++
+            insertChapter(id, owner, name, number)
+            return id
         }
+
+        /** What a source sync writes when a chapter is renumbered: the row changes, nothing is added. */
+        suspend fun renumber(chapterId: Long, number: Double) {
+            driver.execute(null, "UPDATE $chapterTable SET chapter_number = $number WHERE _id = $chapterId", 0).await()
+            renumberLoaded(chapterId, number)
+        }
+
+        abstract val chapterTable: String
+
+        abstract fun renumberLoaded(chapterId: Long, number: Double)
 
         /** Which member's copy the stored stitch shows for the group's first chapter, as its position. */
         suspend fun ownerOfFirstChapter(group: Long): Long {
@@ -295,6 +403,12 @@ class MergedStitchReconcileTest {
         }
 
         override fun ownerOf(chapterId: Long) = chapters.first { it.id == chapterId }.mangaId
+
+        override val chapterTable = "chapters"
+
+        override fun renumberLoaded(chapterId: Long, number: Double) {
+            chapters.replaceAll { if (it.id == chapterId) it.copy(chapterNumber = number) else it }
+        }
     }
 
     private inner class NovelFixture : Fixture() {
@@ -357,6 +471,12 @@ class MergedStitchReconcileTest {
         }
 
         override fun ownerOf(chapterId: Long) = chapters.first { it.id == chapterId }.novelId
+
+        override val chapterTable = "novel_chapters"
+
+        override fun renumberLoaded(chapterId: Long, number: Double) {
+            chapters.replaceAll { if (it.id == chapterId) it.copy(chapterNumber = number) else it }
+        }
     }
 
     private fun preferences(preferredSources: InMemoryPreference<*>) =
