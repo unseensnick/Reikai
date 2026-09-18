@@ -53,7 +53,8 @@ jobs:
         run: pwsh -NoProfile -File scripts/di-interop-check.ps1
 
       # A schema change without its .sqm is invisible until an upgraded install crashes on a
-      # missing table, and this is the only thing that catches it.
+      # missing table, and this is the only thing that catches it. It checks against the 43.db
+      # snapshot; with no snapshot committed it passes having checked nothing.
       - name: Verify SQLDelight migrations
         run: ./gradlew verifySqlDelightMigration
 

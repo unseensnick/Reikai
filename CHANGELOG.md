@@ -567,6 +567,7 @@ every release now also ships a foss build with neither in it.
 - The light-novel plugin manager now fetches the plugin repos once, and only while its tab is open. Opening Browse used to fetch every repo twice.
 - A category link that no picker for its content type could show is now refused where it is written, so a manga can no longer be filed under a novels-only category or the reverse.
 - Help links in a Nightly build now open the Nightly docs at reikai.app/preview/docs, which describe what that build runs. Stable builds still open the stable docs.
+- Database upgrades are now checked in every nightly and pull request build against a saved copy of an older schema, so a schema change shipped without the step that upgrades existing installs fails the build instead of reaching a device. The check was wired up before but had nothing to compare against.
 - Gradle's configuration cache is on, which takes a no-op incremental build from about 26 seconds to under 2.
 - Installed extensions now resolve their dependencies from the app's compile-time dependency graph through a fixed, read-only list, rather than from a registry the app filled at startup (synced from Mihon, mihonapp/mihon#3965).
 - The novel reader does less work on the main thread: a text colour, line spacing or alignment change keeps each chapter's measured layout, a replaced chapter render stops early, the web page mode reads a font file once rather than on every page build, and the page is no longer re-indented as a whole.

@@ -20,11 +20,11 @@ import tachiyomi.data.StringListColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
 
 /**
- * Migration 43 on a database that predates it: the ranking table and the two staleness views it adds
- * must be usable afterwards, since an upgraded install never runs `Schema.create`. The starting schema
- * is today's with those three objects dropped, which is what migration 42 left behind.
+ * The ranking table and the two staleness views, run on a created schema. That an upgraded install
+ * reaches the same schema is checked by `verifySqlDelightMigration` against the committed `43.db`
+ * snapshot, not here: a fixture faking an older schema breaks on every later migration.
  */
-class MergedGroupRankingMigrationTest {
+class MergedGroupRankingTest {
 
     private lateinit var driver: JdbcSqliteDriver
     private lateinit var groups: MergeGroupRepositoryImpl
@@ -35,10 +35,6 @@ class MergedGroupRankingMigrationTest {
         runTest {
             driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
-            driver.execute(null, "DROP VIEW mergedChapterStaleView", 0).await()
-            driver.execute(null, "DROP VIEW mergedNovelChapterStaleView", 0).await()
-            driver.execute(null, "DROP TABLE merged_group_ranking", 0).await()
-            Database.Schema.migrate(driver, oldVersion = 43, newVersion = Database.Schema.version).await()
             driver.execute(null, "PRAGMA foreign_keys=ON", 0).await()
             val database = Database(
                 driver = driver,
@@ -67,7 +63,7 @@ class MergedGroupRankingMigrationTest {
     }
 
     @Test
-    fun `a migrated database records the ranking a group was stitched under`() = runTest {
+    fun `a group records the ranking it was stitched under`() = runTest {
         val group = twoMemberGroup()
 
         units.replaceGroup(ContentType.MANGA, group, emptyList(), ranking = "2;1")
@@ -76,7 +72,7 @@ class MergedGroupRankingMigrationTest {
     }
 
     @Test
-    fun `a migrated database sees a group with unstitched chapters as stale`() = runTest {
+    fun `a group with unstitched chapters reads as stale`() = runTest {
         val group = twoMemberGroup()
         driver.execute(
             null,

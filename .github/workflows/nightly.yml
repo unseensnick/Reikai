@@ -90,6 +90,10 @@ jobs:
         with:
           cache-read-only: false
 
+      # build_check.yml runs this on PRs only, and the release branch has none until the cut.
+      - name: Verify SQLDelight migrations
+        run: ./gradlew verifySqlDelightMigration
+
       - name: Run unit tests
         run: ./gradlew test
 
