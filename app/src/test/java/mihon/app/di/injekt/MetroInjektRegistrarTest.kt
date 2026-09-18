@@ -11,7 +11,7 @@ import exh.eh.EHentaiUpdateHelper
 import exh.pref.DelegateSourcePreferences
 import exh.source.ExhPreferences
 import io.kotest.assertions.throwables.shouldThrow
-import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.serialization.json.Json
@@ -48,10 +48,14 @@ class MetroInjektRegistrarTest {
         ),
     )
 
+    /**
+     * The map's values are untyped and the registrar's cast is erased, so a value of the wrong type
+     * would only fail in the reader's own cast. Every key here is a plain class, not a generic type.
+     */
     @ParameterizedTest(name = "{0}")
     @MethodSource("typesWithALiveReader")
-    fun `a type with a live reader resolves`(type: Type) {
-        scope.getInstance<Any>(type) shouldNotBe null
+    fun `a type with a live reader resolves to an instance of that type`(type: Type) {
+        (type as Class<*>).isInstance(scope.getInstance<Any>(type)) shouldBe true
     }
 
     @Test

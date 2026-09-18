@@ -20,8 +20,9 @@ import mihon.app.di.appGraph
 import okio.buffer
 import okio.gzip
 import okio.sink
+import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.library.novelCategoryFlagsToMangaLayout
+import tachiyomi.domain.library.model.LibrarySort
 import java.io.File
 
 /**
@@ -37,6 +38,7 @@ object LegacyYokaiDbImporter {
     private const val DB_NAME = "tachiyomi.db"
     private const val IMPORT_BACKUP_NAME = "legacy_yokai_import.tachibk"
     private const val ASIDE_SUFFIX = ".yokai.bak"
+    private const val YOKAI_COMPOSE_LIBRARY_KEY = "pref_use_compose_library"
 
     // android.util.Log, not the logcat extension: this runs before LogcatLogger is installed in
     // App.onCreate, so the extension would silently drop these lines.
@@ -63,9 +65,12 @@ object LegacyYokaiDbImporter {
         Log.i(TAG, "Legacy Yokai database detected; recovering library before reset")
 
         val libraryPreferences = context.appGraph.reikaiLibraryPreferences
+        // SharedPreferences survive the in-place update, so Yokai's own switch is still readable.
+        val composeMangaLibrary = context.appGraph.preferenceStore
+            .getBoolean(YOKAI_COMPOSE_LIBRARY_KEY, false).get()
         var backupFile: File? = null
         try {
-            val backup = db.buildBackup()
+            val backup = db.buildBackup(composeMangaLibrary)
             backupFile = writeBackup(context, backup)
             Log.i(
                 TAG,
@@ -106,15 +111,26 @@ object LegacyYokaiDbImporter {
     private fun SQLiteDatabase.isLegacyYokaiSchema(): Boolean =
         runCatching { hasColumn("categories", "manga_order") }.getOrDefault(false)
 
-    private fun SQLiteDatabase.buildBackup(): Backup {
+    /**
+     * [composeMangaLibrary] is Yokai's opt-in Compose library switch: with it off, manga rendered through
+     * the legacy library, which ran the date and count sorts newest or largest first on an even letter.
+     */
+    internal fun SQLiteDatabase.buildBackup(composeMangaLibrary: Boolean): Backup {
         // Manga categories: order value is keyed on for restore, so map id -> sort.
         val categories = mutableListOf<BackupCategory>()
         val categorySortById = HashMap<Long, Long>()
-        rawQuery("SELECT _id, name, sort, flags FROM categories WHERE _id > 0", null).use { c ->
+        rawQuery("SELECT _id, name, sort, manga_order FROM categories WHERE _id > 0", null).use { c ->
             while (c.moveToNext()) {
                 val sort = c.longOr("sort")
                 categorySortById[c.longOr("_id")] = sort
-                categories += BackupCategory(name = c.strOr("name"), order = sort, flags = c.longOr("flags"))
+                categories += BackupCategory(
+                    name = c.strOr("name"),
+                    order = sort,
+                    flags = yokaiCategorySortToFlags(
+                        c.strOr("manga_order"),
+                        reversedDateAndCountSorts = !composeMangaLibrary,
+                    ),
+                )
             }
         }
         val mangaCategoryOrders = groupCategoryOrders("mangas_categories", "manga_id", categorySortById)
@@ -260,26 +276,55 @@ object LegacyYokaiDbImporter {
     }
 
     /**
-     * A legacy row's flags are known to be in the pre-unification novel layout, where the Downloaded and
-     * Tracker-score sort types sit on each other's values, so they are translated here. Restore cannot do
-     * it: by then a value is equally consistent with an untranslated old one and a correct current one,
-     * which is what the backup format version in the roadmap is for.
+     * Yokai kept a category's sort as one letter in `manga_order` / `novel_order`: `'a' + 2 * type`, plus
+     * one for descending. It never read the `flags` column. A letter becomes the category's own sort; `D`,
+     * a slash-separated id list (a manual order Reikai cannot hold) and a blank follow the global sort.
+     * [reversedDateAndCountSorts] says whether the library that drew the letter ran the date and count
+     * sorts newest or largest first on an even letter. Record: legacy-yokai-import.md.
      */
-    internal fun legacyNovelCategory(name: String, order: Long, flags: Long) = BackupNovelCategory(
-        name = name,
-        order = order,
-        flags = novelCategoryFlagsToMangaLayout(flags),
+    internal fun yokaiCategorySortToFlags(order: String, reversedDateAndCountSorts: Boolean): Long {
+        val index = order.firstOrNull()?.takeIf { it in 'a'..'z' }?.minus('a') ?: return 0L
+        val type = YOKAI_SORT_TYPES.getOrNull(index / 2) ?: return 0L
+        val yokaiAscending = index % 2 == 0
+        val reversed = reversedDateAndCountSorts && type in YOKAI_REVERSED_SORTS
+        val ascending = if (reversed) !yokaiAscending else yokaiAscending
+        val direction = if (ascending) LibrarySort.Direction.Ascending else LibrarySort.Direction.Descending
+        return type.flag or direction.flag or CATEGORY_SORT_CUSTOMIZED
+    }
+
+    // Indexed by Yokai's LibrarySort.catValue, each mapped as Yokai's own serialize() names it. Slot 7 is
+    // drag-and-drop, which Yokai writes as `D` rather than a letter.
+    private val YOKAI_SORT_TYPES = listOf(
+        LibrarySort.Type.Alphabetical,
+        LibrarySort.Type.LatestChapter,
+        LibrarySort.Type.UnreadCount,
+        LibrarySort.Type.LastRead,
+        LibrarySort.Type.TotalChapters,
+        LibrarySort.Type.DateAdded,
+        LibrarySort.Type.ChapterFetchDate,
+        null,
+        LibrarySort.Type.Random,
+    )
+
+    // Yokai's LibrarySort.hasInvertedSort.
+    private val YOKAI_REVERSED_SORTS = setOf(
+        LibrarySort.Type.LastRead,
+        LibrarySort.Type.TotalChapters,
+        LibrarySort.Type.DateAdded,
+        LibrarySort.Type.LatestChapter,
+        LibrarySort.Type.ChapterFetchDate,
     )
 
     private fun SQLiteDatabase.buildNovelCategories(): List<BackupNovelCategory> {
         if (!hasTable("novel_categories")) return emptyList()
         val categories = mutableListOf<BackupNovelCategory>()
-        rawQuery("SELECT _id, name, sort, flags FROM novel_categories WHERE _id > 0", null).use { c ->
+        rawQuery("SELECT _id, name, sort, novel_order FROM novel_categories WHERE _id > 0", null).use { c ->
             while (c.moveToNext()) {
-                categories += legacyNovelCategory(
+                categories += BackupNovelCategory(
                     name = c.strOr("name"),
                     order = c.longOr("sort"),
-                    flags = c.longOr("flags"),
+                    // Yokai's novel library never reversed a sort.
+                    flags = yokaiCategorySortToFlags(c.strOr("novel_order"), reversedDateAndCountSorts = false),
                 )
             }
         }

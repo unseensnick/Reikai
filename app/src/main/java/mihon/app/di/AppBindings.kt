@@ -38,11 +38,17 @@ object AppBindings {
             driver = BundledSQLiteDriver(),
             databaseType = AndroidxSqliteDatabaseType.FileProvider(context, "tachiyomi.db"),
             schema = Database.Schema,
-            configuration = AndroidxSqliteConfiguration(
-                isForeignKeyConstraintsEnabled = true,
-            ),
+            // RK --> one value, so ForeignKeyEnforcementTest pins the configuration production opens with
+            configuration = sqlDriverConfiguration,
+            // RK <--
         )
     }
+
+    // RK -->
+    internal val sqlDriverConfiguration = AndroidxSqliteConfiguration(
+        isForeignKeyConstraintsEnabled = true,
+    )
+    // RK <--
 
     @Provides
     @SingleIn(AppScope::class)

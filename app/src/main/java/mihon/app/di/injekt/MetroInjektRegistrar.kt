@@ -43,20 +43,25 @@ class MetroInjektRegistrar(
         // adult subsystem's preferences and the MetadataSource contract, and the built-in MangaDex
         // and E-Hentai sources resolve their own dependencies the same way an extension would.
         // Every entry below has a reader; scripts/di-interop-check.ps1 fails on one that does not.
-        TrackerManager::class.java to { graph.trackerManager },
-        TrackPreferences::class.java to { graph.trackPreferences },
+        bind<TrackerManager> { graph.trackerManager },
+        bind<TrackPreferences> { graph.trackPreferences },
 
-        DelegateSourcePreferences::class.java to { graph.delegateSourcePreferences },
-        ExhPreferences::class.java to { graph.exhPreferences },
-        EHentaiUpdateHelper::class.java to { graph.eHentaiUpdateHelper },
+        bind<DelegateSourcePreferences> { graph.delegateSourcePreferences },
+        bind<ExhPreferences> { graph.exhPreferences },
+        bind<EHentaiUpdateHelper> { graph.eHentaiUpdateHelper },
 
         // The interactors are unscoped, so each read builds a fresh instance. That is deliberate:
         // DomainModule registered all three with addFactory, never addSingletonFactory.
-        MetadataSource.GetMangaId::class.java to { graph.getManga },
-        MetadataSource.GetFlatMetadataById::class.java to { graph.getFlatMetadataById },
-        MetadataSource.InsertFlatMetadata::class.java to { graph.insertFlatMetadata },
+        bind<MetadataSource.GetMangaId> { graph.getManga },
+        bind<MetadataSource.GetFlatMetadataById> { graph.getFlatMetadataById },
+        bind<MetadataSource.InsertFlatMetadata> { graph.insertFlatMetadata },
         // RK <--
     )
+
+    // RK --> keys the entry on its value's own type, so a value that is not a T fails to compile, as
+    // DomainModule's addFactory<T> did. The map's values are untyped, so nothing else checks this.
+    private inline fun <reified T : Any> bind(noinline get: () -> T): Pair<Type, () -> Any> = T::class.java to get
+    // RK <--
 
     override fun <R : Any> getInstance(forType: Type): R = getInstanceOrNull(forType)
         ?: throw InjektionException("$forType is not exposed to Injekt, add it to ${this::class.simpleName}")

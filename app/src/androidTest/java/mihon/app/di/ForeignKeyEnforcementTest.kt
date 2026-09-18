@@ -6,7 +6,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlSchema
-import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConfiguration
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
 import kotlinx.coroutines.runBlocking
@@ -21,8 +20,9 @@ import org.junit.runner.RunWith
  * Nineteen `.sq` files declare a foreign key, and every `ON DELETE CASCADE` in the schema assumes the
  * connection enforces them. The unit tests that demonstrate enforcement build a `JdbcSqliteDriver` and
  * turn it on with a hand-written pragma, which is neither the driver nor the mechanism production uses,
- * so they cannot answer for it. This builds the driver exactly as `AppBindings.providesSqlDriver` does
- * and asks the question there, with a control that proves the probe can tell the two apart.
+ * so they cannot answer for it. This opens the driver with `AppBindings.sqlDriverConfiguration`, the
+ * value `providesSqlDriver` passes, over a probe schema rather than the app's own database, with a
+ * control that turns only enforcement off to prove the probe can tell the two apart.
  */
 @RunWith(AndroidJUnit4::class)
 class ForeignKeyEnforcementTest {
@@ -83,9 +83,11 @@ class ForeignKeyEnforcementTest {
             driver = BundledSQLiteDriver(),
             databaseType = AndroidxSqliteDatabaseType.File(context.getDatabasePath(name).absolutePath),
             schema = ProbeSchema,
-            configuration = AndroidxSqliteConfiguration(
-                isForeignKeyConstraintsEnabled = enforced,
-            ),
+            configuration = if (enforced) {
+                AppBindings.sqlDriverConfiguration
+            } else {
+                AppBindings.sqlDriverConfiguration.copy(isForeignKeyConstraintsEnabled = false)
+            },
         )
         opened += driver to name
         return driver

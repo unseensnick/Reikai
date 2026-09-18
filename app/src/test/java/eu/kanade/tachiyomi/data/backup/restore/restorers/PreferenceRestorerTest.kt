@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
+import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
@@ -21,9 +22,13 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
+import reikai.domain.novel.DEAD_READER_TTS_BUTTON_KEYS
 import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTapLayout
@@ -85,13 +90,17 @@ class PreferenceRestorerTest {
         margins() shouldBe listOf(50, 16, 32, 32)
     }
 
-    /** The upgrade migration has already run by the time a restore lands, so nothing would read it. */
-    @Test
-    @DisplayName("the retired padding key is not written back into the store")
-    fun retiredPaddingIsNotResurrected() = runTest {
-        restore(DEAD_READER_PADDING_KEY, 32)
+    /**
+     * The upgrade migrations have already run by the time a restore lands, so nothing would read these.
+     * This store tracks `isSet` by key alone, so one probe type serves every row.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("retiredKeys")
+    @DisplayName("a retired key is not written back into the store")
+    fun retiredKeyIsNotResurrected(key: String, value: PreferenceValue) = runTest {
+        restorer.restoreApp(listOf(BackupPreference(key, value)), backupCategories = null)
 
-        store.getInt(DEAD_READER_PADDING_KEY, 0).isSet() shouldBe false
+        store.getString(key, "").isSet() shouldBe false
     }
 
     @Test
@@ -105,15 +114,16 @@ class PreferenceRestorerTest {
         novelPreferences.readerTapLayout().get() shouldBe NovelTapLayout.THIRDS
     }
 
+    /** Disabled is also the default, so only the stored value shows the off choice was carried. */
     @Test
-    @DisplayName("the retired tap to scroll key is not written back into the store")
-    fun retiredTapToScrollIsNotResurrected() = runTest {
+    @DisplayName("a backup taken with tap to scroll off stores the disabled layout")
+    fun retiredTapToScrollOffIsStored() = runTest {
         restorer.restoreApp(
-            listOf(BackupPreference(DEAD_READER_TAP_TO_SCROLL_KEY, BooleanPreferenceValue(true))),
+            listOf(BackupPreference(DEAD_READER_TAP_TO_SCROLL_KEY, BooleanPreferenceValue(false))),
             backupCategories = null,
         )
 
-        store.getBoolean(DEAD_READER_TAP_TO_SCROLL_KEY, false).isSet() shouldBe false
+        novelPreferences.readerTapLayout().isSet() shouldBe true
     }
 
     @Test
@@ -139,17 +149,6 @@ class PreferenceRestorerTest {
 
         sourcePreferences.enabledContentWarnings.get() shouldBe
             setOf(ContentWarning.SAFE, ContentWarning.MIXED, ContentWarning.NSFW)
-    }
-
-    @Test
-    @DisplayName("the retired NSFW switch is not written back into the store")
-    fun retiredNsfwSwitchIsNotResurrected() = runTest {
-        restorer.restoreApp(
-            listOf(BackupPreference(ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY, BooleanPreferenceValue(false))),
-            backupCategories = null,
-        )
-
-        store.getBoolean(ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY, true).isSet() shouldBe false
     }
 
     /** A shared backup is someone else's code, so none of it runs until the user switches it on. */
@@ -219,5 +218,15 @@ class PreferenceRestorerTest {
         restore(novelPreferences.readerFontSize().key(), 22)
 
         novelPreferences.readerFontSize().get() shouldBe 22
+    }
+
+    companion object {
+        @JvmStatic
+        fun retiredKeys() = listOf(
+            Arguments.of(DEAD_READER_PADDING_KEY, IntPreferenceValue(32)),
+            Arguments.of(DEAD_READER_TAP_TO_SCROLL_KEY, BooleanPreferenceValue(true)),
+            Arguments.of(ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY, BooleanPreferenceValue(false)),
+            Arguments.of(DEAD_READER_TTS_ENABLED_KEY, BooleanPreferenceValue(true)),
+        ) + DEAD_READER_TTS_BUTTON_KEYS.map { Arguments.of(it, IntPreferenceValue(120)) }
     }
 }

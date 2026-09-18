@@ -62,11 +62,12 @@ if (-not (Test-Path -LiteralPath $interopFile)) {
     exit 1
 }
 
-# Types the graph hands back: the keys of the registrar's binding map, one per `X::class.java to {`.
+# Types the graph hands back: the keys of the registrar's binding map, one per upstream-shaped
+# `X::class.java to {` or Reikai's type-checked `bind<X> {`.
 $interopTypes = [System.Collections.Generic.List[string]]::new()
 foreach ($line in Get-Content -LiteralPath $interopFile) {
-    if ($line -match '^\s*([A-Za-z0-9_.]+)::class\.java\s+to\s+\{') {
-        $interopTypes.Add(($Matches[1] -split '\.')[-1])
+    if ($line -match '^\s*(?:(?<type>[A-Za-z0-9_.]+)::class\.java\s+to|bind<(?<type>[A-Za-z0-9_.]+)>)\s*\{') {
+        $interopTypes.Add(($Matches['type'] -split '\.')[-1])
     }
 }
 

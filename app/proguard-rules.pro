@@ -3,15 +3,14 @@
 -keep,allowoptimization class eu.kanade.**
 -keep,allowoptimization class tachiyomi.**
 -keep,allowoptimization class mihon.**
-# RK: net-new light-novel package. Without this, R8 strips the generic signatures Injekt's
-# FullTypeReference needs, so any Injekt.get<reikai.*>() crashes in minified builds (preview/release)
-# with "TypeReference constructed without actual type information" (hit on startup by the novel-update
-# migration: SetupNovelUpdateMigration -> NovelUpdateJob.setupTask -> Injekt.get<NovelPreferences>()).
+# RK: Reikai's own package. Nothing resolves a reikai.* type through Injekt any more, so the keep is
+# retirable, and stays only until a reflection audit clears it. See .claude/rules/architecture.md and
+# docs/dev/plans/metro-di-migration.md.
 -keep,allowoptimization class reikai.**
-# RK: ported adult/EXH subsystem (Komikku lineage). Same FullTypeReference issue as reikai.** above:
-# without this, toggling the E-Hentai gallery update checker (SettingsEhScreen -> EHentaiUpdateWorker
-# .setupTask -> Injekt.get<ExhPreferences>()) crashes minified builds with "TypeReference constructed
-# without actual type information". Debug builds aren't minified, so it is invisible there.
+# RK: ported adult/EXH subsystem (Komikku lineage). R8 strips the generic signatures Injekt's
+# FullTypeReference needs, and exh types are still read through Injekt: source-api's
+# DelegateSourcePreferences reads, and ExhPreferences / EHentaiUpdateHelper in the built-in E-Hentai
+# source. Minified builds only, so it is invisible in debug.
 -keep,allowoptimization class exh.**
 
 # RK: keep @JavascriptInterface bridge methods. They are invoked only from JS (the WebView novel

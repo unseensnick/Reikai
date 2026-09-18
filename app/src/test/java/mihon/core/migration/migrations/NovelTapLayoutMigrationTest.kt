@@ -34,6 +34,16 @@ class NovelTapLayoutMigrationTest {
         novelPreferences.readerTapLayout().get() shouldBe NovelTapLayout.DISABLED
     }
 
+    /** Disabled is also the default, so only the stored value shows the off choice was carried. */
+    @Test
+    fun `tap to scroll switched off is stored rather than left to the default`() = runTest {
+        store.getBoolean(DEAD_READER_TAP_TO_SCROLL_KEY, false).set(false)
+
+        migration.invoke(MigrationContext(dryrun = false, previousVersion = 193))
+
+        novelPreferences.readerTapLayout().isSet() shouldBe true
+    }
+
     @Test
     fun `the retired switch is cleared once it has been carried over`() = runTest {
         store.getBoolean(DEAD_READER_TAP_TO_SCROLL_KEY, false).set(true)

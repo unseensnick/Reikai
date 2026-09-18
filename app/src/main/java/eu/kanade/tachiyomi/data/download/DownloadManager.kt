@@ -221,13 +221,13 @@ class DownloadManager(
         return provider.findChapterDir(chapterName, chapterScanlator, chapterUrl, mangaTitle, source) != null
     }
 
-    /**
-     * Returns the amount of downloaded chapters.
-     */
     // RK: the entry's download directory, for the details overflow's Open folder. Null until
     //     something is downloaded.
     fun findMangaDir(manga: Manga, source: Source) = provider.findMangaDir(manga.title, source)
 
+    /**
+     * Returns the amount of downloaded chapters.
+     */
     fun getDownloadCount(): Int {
         return cache.getTotalDownloadCount()
     }
