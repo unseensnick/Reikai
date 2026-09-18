@@ -106,6 +106,7 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/eu/kanade/presentation/reader/settings/ReadingModePage.kt | mihon | reikai/presentation/reader/settings/MangaReaderSettingsPages.kt |
 | app/src/main/java/eu/kanade/presentation/reader/settings/GeneralSettingsPage.kt | mihon | reikai/presentation/reader/settings/MangaReaderSettingsPages.kt |
 | app/src/main/java/eu/kanade/presentation/reader/settings/ColorFilterPage.kt | mihon | reikai/presentation/reader/settings/ReaderFiltersPage.kt |
+| app/src/main/java/eu/kanade/tachiyomi/data/backup/BackupDecoder.kt | mihon | eu/kanade/tachiyomi/data/backup/BackupProtoReader.kt |
 
 **A row tracks the file's CURRENT upstream path, not the name Reikai deleted.** When upstream renames a
 manifested file, repoint the row at the new path, because the check `cat-file`s the path at upstream HEAD and,
