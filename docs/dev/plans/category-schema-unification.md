@@ -63,8 +63,7 @@ both sides, unchanged.
   manual drag order of library entries, a Yokai-era feature the owner never used on either build. The
   column is dropped with the table and its read path (`NovelCategory.novelOrder`, the mapper and repo
   references) goes with the novel-stack retirement. Backups never carried it, so nothing round-trips
-  through it. The one reader left is the Yokai database import, which decodes a sort letter into the
-  category's own sort (`LegacyYokaiDbImporter.yokaiCategorySortToFlags`, see
+  through it. The Yokai database import, its last reader, is removed (see
   [legacy-yokai-import.md](legacy-yokai-import.md)).
 - **Category default is `content_type = 1` (manga), not tsundoku's 0.** Existing manga categories are
   manga-typed, not universal; tsundoku defaults to universal only because it has one entries table. New

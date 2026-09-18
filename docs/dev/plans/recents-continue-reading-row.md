@@ -273,7 +273,7 @@ takes as the gate here, and it holds only while the novel reader has no page con
 
 `chapters.page_count` is written by `updateChapterProgress` in `ReaderViewModel`, out of the page list
 the loader already resolved, on the same update that saves the page. Every other writer of reading
-progress (mark-as-read, a restore, the gallery-update reconciler, the legacy import) acts on chapters
+progress (mark-as-read, a restore, the gallery-update reconciler) acts on chapters
 that were never loaded, so none of them can supply a count and nothing backfills one.
 
 So 0 means unknown rather than empty, and the label falls back to `Page: 5` while it is 0. A count

@@ -8,7 +8,7 @@
 - Mihon upstream: `https://github.com/mihonapp/mihon`
 - Package ID: `app.reikai`, with no suffix on release and upstream's suffixes elsewhere (`.dev` debug, `.debug` preview, `.foss`, `.benchmark`). Renamed at 0.3.2 from `eu.kanade.tachiyomi` + `.y2k`. The `eu.kanade.tachiyomi` **namespace** is unchanged and shared with Mihon, so source classes and installed extensions resolve either way.
 - App name string: `Reikai` (`i18n/src/commonMain/moko-resources/base/strings.xml`).
-- The **database** is not interchangeable with the old Yōkai-based builds: the schema differs, so a Mihon-based install cannot open a Yōkai-Reikai `tachiyomi.db`, which is why `LegacyYokaiDbImporter` exists. **Backup files are** interchangeable: the proto is shared and each side's extra field numbers are disjoint, so a Yōkai `.tachibk` restores here and vice versa.
+- The **database** is not interchangeable with the old Yōkai-based builds: the schema differs, so a Mihon-based install cannot open a Yōkai-Reikai `tachiyomi.db`. Since the 0.3.2 rename a Yōkai install never shares a data folder with this one, so the two databases cannot meet ([legacy-yokai-import.md](plans/legacy-yokai-import.md) records the importer that bridged them until then). **Backup files are** interchangeable: the proto is shared and each side's extra field numbers are disjoint, so a Yōkai `.tachibk` restores here and vice versa.
 
 ## Rebase status
 

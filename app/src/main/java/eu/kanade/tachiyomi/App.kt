@@ -8,11 +8,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.Uri
 import android.os.Build
 import android.os.Process
 import android.webkit.WebView
-import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat.NotificationWithIdAndTag
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -35,8 +33,6 @@ import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
 import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.crash.CrashActivity
 import eu.kanade.tachiyomi.crash.GlobalExceptionHandler
-import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
-import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
 import eu.kanade.tachiyomi.data.coil.BufferedSourceFetcher
 import eu.kanade.tachiyomi.data.coil.ImageDecoder
 import eu.kanade.tachiyomi.data.coil.MangaCoverFetcher
@@ -55,8 +51,6 @@ import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.isDebugBuildType
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
-import eu.kanade.tachiyomi.util.system.toast
-import eu.kanade.tachiyomi.util.system.workManager
 import exh.md.MangaDexTrackCoverFetcher
 import exh.md.MangaDexTrackCoverKeyer
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +67,6 @@ import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
 import reikai.data.coil.NovelCoverFetcher
 import reikai.data.coil.NovelCoverKeyer
-import reikai.data.legacy.LegacyYokaiDbImporter
 import reikai.data.work.WorkerStartFailures
 import reikai.presentation.widget.UnifiedUpdatesWidgetManager
 import tachiyomi.core.common.i18n.stringResource
@@ -102,9 +95,9 @@ class App :
 
     @Inject private lateinit var uiPreferences: UiPreferences
 
-    // Both are deferred so nothing in the inject closure below reaches the database: they pull the
-    // updates and novel repositories, which take Database, and the legacy-database recovery has to move
-    // an incompatible database aside before anything opens it. See docs/dev/plans/legacy-yokai-import.md.
+    // Both are deferred, unlike upstream, so graph.inject never reaches the database: they pull the
+    // updates and novel repositories, which take Database, and the :error_handler process returns
+    // before it calls either.
     @Inject private lateinit var widgetManager: () -> WidgetManager
 
     @Inject private lateinit var unifiedUpdatesWidgetManager: () -> UnifiedUpdatesWidgetManager
@@ -180,29 +173,19 @@ class App :
         setAppCompatDelegateThemeMode(uiPreferences.themeMode.get())
 
         // RK --> everything below belongs to the main process. CrashActivity runs in :error_handler,
-        // so this method runs a second time there: a second legacy-database recovery would move an
-        // in-flight database aside, the migrator would stamp a version for migrations it never ran,
-        // and the warm-up, widget drivers and legacy restore would race their main-process twins.
+        // so this method runs a second time there: the migrator would stamp a version for migrations
+        // it never ran, and the warm-up and widget drivers would race their main-process twins.
         if (!isMainProcess) return
         // RK <--
 
         // Warm the expensive singletons off the critical path, as the old app module did. Posted, so
-        // it runs after onCreate returns and never races the legacy-database recovery below.
+        // it runs after onCreate returns.
         ContextCompat.getMainExecutor(this).execute {
             graph.networkHelper
             graph.sourceManager
             graph.database
             graph.downloadManager
         }
-
-        // RK --> recover a library left behind by an in-place update from the old Yōkai-based build.
-        // The old DB shares tachiyomi.db's name but sits at a higher, incompatible schema version, so
-        // SQLDelight skips all migrations and crashes on the first query (no such table). Detect it,
-        // export the library to a backup, and move the old DB aside so a fresh DB is created. Runs
-        // before the DB is first opened (the factories above are lazy); the restore is enqueued at the
-        // end of onCreate once DI is ready. See docs/dev/plans/legacy-yokai-import.md.
-        val legacyImportFile = LegacyYokaiDbImporter.prepareIfLegacyDb(this)
-        // RK <--
 
         setupNotificationChannels()
 
@@ -258,23 +241,6 @@ class App :
         unifiedUpdatesWidgetManager().init(scope)
 
         initializeMigrator()
-
-        // RK --> restore the recovered legacy library once DI and a fresh DB are ready
-        legacyImportFile?.let { file ->
-            toast(MR.strings.legacy_import_notice, Toast.LENGTH_LONG)
-            BackupRestoreJob.start(
-                workManager = this.workManager,
-                uri = Uri.fromFile(file),
-                options = RestoreOptions(
-                    libraryEntries = true,
-                    categories = true,
-                    appSettings = false,
-                    extensionStores = true,
-                    sourceSettings = false,
-                ),
-            )
-        }
-        // RK <--
     }
 
     private fun currentProcessName(): String? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

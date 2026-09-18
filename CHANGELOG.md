@@ -515,7 +515,6 @@ every release now also ships a foss build with neither in it.
 #### Fixed
 
 - **The restore log now names every manga extension a restore could not reinstall, including one whose install failed, was cancelled or timed out.** It used to list only those whose repo was missing.
-- **Importing from a Yokai-era install now keeps each manga and novel category's own sort order.** Each used to come back following the library-wide sort, and a manual drag order still can't carry over.
 - **Your own title, author or cover edits on a series you have read but removed from the library are no longer missing from a backup.** They were dropped whenever the backup included read entries outside the library.
 - **Picking a backup to restore now opens the system file picker, which some devices could not open before (synced from Mihon, mihonapp/mihon#3948).**
 - **A category that covers both manga and novels now survives a backup.** Restoring one used to split it into two separate categories, one per library.
@@ -622,6 +621,7 @@ every release now also ships a foss build with neither in it.
 - Light-novel browse now pages through the same paging library the manga catalogue uses, instead of its own hand-rolled pager.
 - The reader's dialogs and its viewer slot now sit in a shared layer that does not know which kind of entry it is showing, the first step of serving manga and light novels from one reader. Nothing about the manga reader changes.
 - The manga reader now queues its internal events instead of discarding one when it arrives while the reader is busy. Two of them were sent in a way that could be dropped silently, which would have cost a page-turn signal or left a preloaded chapter unshown.
+- The one-time import of a Yokai-era database on first launch is removed. It could not run since the 0.3.2 package change, which installs the app beside a Yokai-era build rather than over it.
 
 ## [0.3.2]
 

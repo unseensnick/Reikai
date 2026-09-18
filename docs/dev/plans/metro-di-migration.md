@@ -259,9 +259,10 @@ it to a `setupTask`; every one of those already accepted `Context`, which is wha
 **The one divergence from upstream is where the set is read.** Upstream member-injects
 `Set<Migration>` as an `App` field, which here would build every migration at `graph.inject(this)`,
 and `MigrateNovelCategoriesToSharedTableMigration` takes `Database` directly, so the database object
-would exist before `LegacyYokaiDbImporter` can move an incompatible one aside. `AppGraph` carries a
-`migrations` accessor instead and `initializeMigrator()` reads it, after the recovery has run. Same
-reason the two widget managers are lambdas. That function's last Injekt read went with it: the
+would exist before `LegacyYokaiDbImporter` could move an incompatible one aside. `AppGraph` carries a
+`migrations` accessor instead and `initializeMigrator()` reads it. Same reason the two widget managers
+are lambdas. The importer is gone since 0.3.2 made it unreachable ([legacy-yokai-import.md](legacy-yokai-import.md));
+the accessor and the lambdas stay, and now only keep `Database` out of the `:error_handler` process. That function's last Injekt read went with it: the
 preference store now comes off the graph too.
 
 **Set order is not load-bearing.** `MigrationJobFactory` sorts by version before folding, and the six
@@ -725,11 +726,11 @@ contributed model cannot resolve without all three.
 - **The closure-capturing cover factory** in `EntryDetailsDialog` builds a star-projected
   `EntryCoverViewModel<*>` from a captured behaviour object. There is no upstream analogue and no
   graph key for it; design it before touching it.
-- **`App.onCreate` ordering.** `LegacyYokaiDbImporter.prepareIfLegacyDb` must run after DI exists and
-  before the database is first opened, so nothing `graph.inject(this)` builds may reach `Database`.
-  Both widget managers did, through the updates and novel repositories, which is why `App` holds them
-  as lambdas. A lazily built graph whose eager singletons touch SQLDelight breaks the recovery
-  silently, and only the driver's own lazy connection pool kept it from firing.
+- **`App.onCreate` ordering.** Nothing `graph.inject(this)` builds reaches `Database`: both widget
+  managers are lambdas and the migration set is an accessor. This once guarded the removed legacy
+  Yōkai importer ([legacy-yokai-import.md](legacy-yokai-import.md)); what it still buys is that the
+  `:error_handler` process, which returns before calling any of them, never builds the database.
+  Reverting all three to upstream's injected fields is now a free choice rather than a hazard.
 - **The `:error_handler` process.** `CrashActivity` is the only component with `android:process`, so
   `App.onCreate` and therefore graph construction runs there too.
 - **Widget surfaces are system-instantiated**, and the two of them inject from different places.

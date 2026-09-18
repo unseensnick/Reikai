@@ -231,8 +231,8 @@ interface AppGraph : ViewModelGraph {
     val repairNovelDetails: RepairNovelDetails
 
     // RK: an accessor rather than upstream's injected App field. A field would build every migration
-    // at graph.inject, and one of them takes Database, before the legacy-database recovery can move
-    // an incompatible database aside. Read where it is used instead, after that recovery has run.
+    // at graph.inject, and one of them takes Database, in the :error_handler process too, which
+    // returns before the migrator runs.
     val migrations: Set<Migration>
 
     // Read by App's cold-start warm-up.
