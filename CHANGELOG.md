@@ -421,6 +421,7 @@ every release now also ships a foss build with neither in it.
 - **Clearing a site's cookies in the WebView now removes the ones it shares with its subdomains.** Those were left behind, so a site could stay signed in or stay challenged after a clear that reported success.
 - **Open in WebView now opens the page a Cloudflare challenge blocked, so there is something to solve.** It opened the source's front page, which often carries no challenge at all, so nothing cleared and Retry kept failing. Works on manga and novels.
 - **Manga browse now reloads by itself when you come back from the WebView.** Novels already did.
+- **Browse -> Sources and Extensions now show their list as soon as it is ready, without a short pause first.** Clearing the search box restores the full list at once too.
 
 ### Migration
 

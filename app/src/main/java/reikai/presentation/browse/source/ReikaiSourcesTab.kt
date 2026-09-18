@@ -131,8 +131,6 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
                     title = dialog.row.name,
                     isPinned = dialog.row.isPinned,
                     showToggleDisable = dialog.canDisable,
-                    // A disabled source is not listed, so a row that is here is never disabled.
-                    isDisabled = false,
                     showToggleIncognito = dialog.canToggleIncognito,
                     isIncognito = dialog.isIncognito,
                     onClickPin = {
@@ -250,7 +248,6 @@ private fun SourceRow(
             NovelSourceRow(
                 modifier = modifier,
                 name = row.title,
-                lang = row.lang,
                 // The row hides a language it has none of, so the flagged line is dropped the same way.
                 subtitle = languageLabel.takeIf { row.lang.isNotEmpty() },
                 iconUrl = source.iconUrl,

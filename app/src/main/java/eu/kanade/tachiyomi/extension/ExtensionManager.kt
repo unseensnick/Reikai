@@ -27,18 +27,19 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
+import reikai.domain.source.ContentWarningScan
+import reikai.domain.source.contentWarningScan
+import reikai.domain.source.contentWarningScanChanges
+import reikai.domain.source.reloadWhenScanStale
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -86,6 +87,10 @@ class ExtensionManager(
     // after a re-trust would put every extension back to Untrusted until the next launch.
     // Twin of LnPluginInstaller.loadMutex, which serializes the novel plugin loads for this reason.
     private val loadMutex = Mutex()
+
+    /** The content-warning settings the latest scan judged against, see [reloadWhenScanStale]. */
+    @Volatile
+    private var scannedContentWarnings: ContentWarningScan? = null
     // RK <--
 
     init {
@@ -94,11 +99,14 @@ class ExtensionManager(
             ExtensionInstallReceiver(InstallationListener()).register(context)
 
             // Everything the load decision rests on can change while running, so decide again
-            merge(
-                trustExtension.changes(),
-                preferences.enabledContentWarnings.changes().distinctUntilChanged().drop(1).map {},
-                preferences.applyContentWarningsToInstalled.changes().distinctUntilChanged().drop(1).map {},
-            )
+            // RK --> content warnings compare against what the scan used rather than drop(1), which
+            // lost a write landing during the first scan (the upgrade carry, a backup restore).
+            launch {
+                preferences.contentWarningScanChanges()
+                    .reloadWhenScanStale({ scannedContentWarnings }) { loadExtensions() }
+            }
+            trustExtension.changes()
+                // RK <--
                 .collectLatest { loadExtensions() }
         }
     }
@@ -157,7 +165,11 @@ class ExtensionManager(
      * that still pass keep the instances they already had.
      */
     private suspend fun loadExtensions() = loadMutex.withLock {
+        // RK: serialized, see loadMutex
         try {
+            // RK --> read before the loader reads them, so a write in between costs only a spare scan
+            scannedContentWarnings = preferences.contentWarningScan()
+            // RK <--
             val extensions = ExtensionLoader.loadExtensions(context, loadedExtensionMapFlow.value)
 
             loadedExtensionMapFlow.value = extensions

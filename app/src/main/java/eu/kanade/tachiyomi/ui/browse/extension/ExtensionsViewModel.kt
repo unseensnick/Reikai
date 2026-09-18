@@ -134,7 +134,7 @@ class ExtensionsViewModel(
     }
 
     // RK: manual lever to re-scan installed extensions and re-evaluate trust against the current
-    // repos (for the rare case an extension is stuck untrusted after its repo was added).
+    // repos, for what the automatic re-scan misses (see ExtensionManager.reloadInstalledExtensions).
     fun reloadInstalledExtensions() {
         extensionManager.reloadInstalledExtensions()
     }

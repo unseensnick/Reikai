@@ -19,13 +19,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
-import reikai.presentation.browse.BROWSE_SEARCH_DEBOUNCE
+import reikai.presentation.browse.debouncedBrowseQuery
 import tachiyomi.core.common.util.lang.launchIO
 import kotlin.time.Duration.Companion.seconds
 
@@ -54,7 +53,7 @@ class SourcesEngine(
         combine(providers.map { it.rows }) { it.toList() },
         sourcePreferences.browseContentType.changes(),
         // Debounced so a burst of typing re-sections every source once rather than per keystroke.
-        query.debounce(BROWSE_SEARCH_DEBOUNCE),
+        query.debouncedBrowseQuery(),
     ) { rowsPerProvider, contentType, query ->
         val active = providers.indices.filter { providers[it].shows(contentType) }
         State(

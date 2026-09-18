@@ -16,18 +16,15 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Long-press options for a browse source (manga or novel): pin/unpin, enable/disable when
- * [showToggleDisable], and incognito when [showToggleIncognito]. The disable row's label
- * flips on [isDisabled]; a caller that only ever disables (manga's source list drops disabled
- * sources) passes `isDisabled = false` so it always reads "Disable". The manga/novel option lists can
- * no longer drift.
+ * Long-press options for a browse source (manga or novel): pin/unpin, disable when
+ * [showToggleDisable], and incognito when [showToggleIncognito]. The disable row always reads
+ * "Disable", because a disabled source is not listed. The manga/novel option lists can no longer drift.
  */
 @Composable
 fun EntrySourceOptionsDialog(
     title: String,
     isPinned: Boolean,
     showToggleDisable: Boolean,
-    isDisabled: Boolean,
     onClickPin: () -> Unit,
     showToggleIncognito: Boolean,
     isIncognito: Boolean,
@@ -48,7 +45,7 @@ fun EntrySourceOptionsDialog(
                 )
                 if (showToggleDisable) {
                     Text(
-                        text = stringResource(if (isDisabled) MR.strings.action_enable else MR.strings.action_disable),
+                        text = stringResource(MR.strings.action_disable),
                         modifier = Modifier
                             .clickable(onClick = onClickToggleDisable)
                             .fillMaxWidth()

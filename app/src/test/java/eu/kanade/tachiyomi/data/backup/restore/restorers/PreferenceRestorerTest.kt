@@ -128,6 +128,20 @@ class PreferenceRestorerTest {
     }
 
     @Test
+    @DisplayName("a backup taken with NSFW sources shown allows every extension again")
+    fun retiredNsfwSwitchOnRestoresEveryContentWarning() = runTest {
+        sourcePreferences.enabledContentWarnings.set(setOf(ContentWarning.SAFE))
+
+        restorer.restoreApp(
+            listOf(BackupPreference(ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY, BooleanPreferenceValue(true))),
+            backupCategories = null,
+        )
+
+        sourcePreferences.enabledContentWarnings.get() shouldBe
+            setOf(ContentWarning.SAFE, ContentWarning.MIXED, ContentWarning.NSFW)
+    }
+
+    @Test
     @DisplayName("the retired NSFW switch is not written back into the store")
     fun retiredNsfwSwitchIsNotResurrected() = runTest {
         restorer.restoreApp(

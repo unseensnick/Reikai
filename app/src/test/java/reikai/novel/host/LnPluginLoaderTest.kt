@@ -63,4 +63,14 @@ class LnPluginLoaderTest {
 
         loader.installed(url) shouldBe script
     }
+
+    /** A partial download left in the cache folder would fail to load, so it counts as missing. */
+    @Test
+    fun `a truncated script left in the cache folder has nothing to load`() = runTest {
+        loader.store(url, "var plugin = { name: ")
+        val stored = appFiles.resolve("lnplugins").listFiles()!!.single()
+        stored.renameTo(appCache.resolve("lnplugins").apply { mkdirs() }.resolve(stored.name))
+
+        loader.installed(url) shouldBe null
+    }
 }

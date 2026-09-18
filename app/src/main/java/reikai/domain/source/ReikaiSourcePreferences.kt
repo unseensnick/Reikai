@@ -247,9 +247,10 @@ class ReikaiSourcePreferences(
 }
 
 /**
- * Carries the retired NSFW switch into the allowed content warnings: off leaves only safe extensions.
- * Shared by the upgrade migration and the backup restorer, which lands an old backup's key after it.
+ * Carries the retired NSFW switch into the allowed content warnings: off leaves only safe extensions,
+ * on allows every warning again. Shared by the upgrade migration and the backup restorer, which lands
+ * an old backup's key over whatever the device had set, so both states have to write.
  */
 fun SourcePreferences.carryShowNsfwSource(show: Boolean) {
-    if (!show) enabledContentWarnings.set(setOf(ContentWarning.SAFE))
+    if (show) enabledContentWarnings.delete() else enabledContentWarnings.set(setOf(ContentWarning.SAFE))
 }

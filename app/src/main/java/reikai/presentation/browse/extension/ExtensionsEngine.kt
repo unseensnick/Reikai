@@ -16,12 +16,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
-import reikai.presentation.browse.BROWSE_SEARCH_DEBOUNCE
+import reikai.presentation.browse.debouncedBrowseQuery
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -46,7 +45,7 @@ class ExtensionsEngine(
         sourcePreferences.browseContentType.changes(),
         // Debounced because the available list runs to thousands of rows and every keystroke
         // re-filters and re-sorts all of them; the search field itself stays live either way.
-        query.debounce(BROWSE_SEARCH_DEBOUNCE),
+        query.debouncedBrowseQuery(),
     ) { snapshots, contentType, query ->
         val active = providers.indices.filter { providers[it].shows(contentType) }
         val rows = active.flatMap { snapshots[it].rows.orEmpty() }

@@ -55,8 +55,9 @@ import tachiyomi.presentation.core.util.secondaryItemAlpha
 
 // RK: partially collapsed. The screen, its sectioned list, pull-to-refresh, the install-permission
 //     banner and the loading and empty states moved to the shared Extensions engine and tab
-//     (reikai/presentation/browse/extension/). What is left is the manga extension row and the two
-//     dialogs it raises, which the shared list draws for its manga half.
+//     (reikai/presentation/browse/extension/). What is left is the manga extension row and the
+//     trust, not-loaded and uninstall dialogs it raises, which the shared list draws for its manga
+//     half, plus the NotLoadedDialog body that the novel plugin rows share.
 
 // RK: public so the Reikai unified Browse view can reuse the manga extension row verbatim.
 @Composable

@@ -239,7 +239,5 @@ class LnPluginManagerViewModel(
         val inProgress: Set<String> = emptySet(),
         /** Canonical URL -> last install error, shown inline. */
         val errors: Map<String, String> = emptyMap(),
-    ) {
-        val isEmpty get() = installed.isEmpty() && notLoaded.isEmpty() && available.isEmpty() && updates.isEmpty()
-    }
+    )
 }

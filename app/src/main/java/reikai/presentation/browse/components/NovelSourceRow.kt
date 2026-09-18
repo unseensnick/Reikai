@@ -43,7 +43,7 @@ import tachiyomi.presentation.core.util.secondaryItemAlpha
 @Composable
 fun NovelSourceRow(
     name: String,
-    lang: String,
+    lang: String = "",
     iconUrl: String?,
     modifier: Modifier = Modifier,
     subtitle: String? = null,

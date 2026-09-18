@@ -1,5 +1,9 @@
 package reikai.presentation.browse
 
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.debounce
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -17,3 +21,11 @@ fun matchesBrowseQuery(query: String?, terms: List<String>, ids: List<String>): 
 
 /** How long a Browse list waits after the last keystroke before filtering on the query. */
 val BROWSE_SEARCH_DEBOUNCE = 0.25.seconds
+
+/**
+ * The query a Browse list filters on: typing waits for [BROWSE_SEARCH_DEBOUNCE], an empty field passes at
+ * once. debounce holds the first value too, so without that a cold open waited out the delay unsearched.
+ */
+@OptIn(FlowPreview::class)
+fun Flow<String?>.debouncedBrowseQuery(): Flow<String?> =
+    debounce { if (it.isNullOrBlank()) Duration.ZERO else BROWSE_SEARCH_DEBOUNCE }

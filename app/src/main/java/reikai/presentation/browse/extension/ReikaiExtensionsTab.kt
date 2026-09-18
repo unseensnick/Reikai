@@ -123,8 +123,8 @@ fun Screen.reikaiExtensionsTab(
                 onClick = openRepos,
             ),
             // Re-check both verticals: re-scan installed manga extensions and re-evaluate trust
-            // against the current repos (recovers extensions stuck Untrusted after their repo was
-            // added post-startup), and force-reload the installed novel plugins.
+            // against the current repos (for a scan that failed transiently or a package change the
+            // receiver missed), and force-reload the installed novel plugins.
             AppBar.OverflowAction(
                 title = stringResource(MR.strings.action_recheck_extensions),
                 onClick = {
@@ -465,41 +465,52 @@ private fun NovelExtensionRow(
 ) {
     val navigator = LocalNavigator.currentOrThrow
     when (val payload = row.payload) {
-        is LnPluginLoadFailure -> NovelSourceRow(
-            modifier = modifier,
-            name = payload.name,
-            lang = row.lang,
-            iconUrl = payload.iconUrl,
-            version = payload.version,
-            onLongClickItem = { onNotLoaded(payload) },
-            badge = badge,
-            action = {
-                IconButton(onClick = { onNotLoaded(payload) }) {
-                    Icon(
-                        imageVector = MaterialSymbols.Rounded.Info,
-                        contentDescription = stringResource(MR.strings.ext_not_loaded),
-                    )
-                }
-            },
-        )
-        is LnPluginUpdate -> NovelSourceRow(
-            modifier = modifier,
-            name = payload.entry.name,
-            lang = row.lang,
-            iconUrl = payload.entry.iconUrl,
-            subtitle = "v${payload.installedVersion} -> v${payload.entry.version}",
-            badge = badge,
-            action = {
-                NovelRowAction(inProgress = canonicalizePluginUrl(payload.entry.url) in state.inProgress) {
-                    IconButton(onClick = { model.update(payload) }) {
-                        Icon(
-                            imageVector = MaterialSymbols.Rounded.Download,
-                            contentDescription = stringResource(MR.strings.ext_update),
-                        )
+        is LnPluginLoadFailure -> {
+            // Keyed as the install writes it, so a reinstall from the dialog shows its progress and error here.
+            val key = canonicalizePluginUrl(payload.url)
+            NovelSourceRow(
+                modifier = modifier,
+                name = payload.name,
+                lang = row.lang,
+                iconUrl = payload.iconUrl,
+                version = payload.version,
+                subtitle = state.errors[key],
+                onClickItem = { onNotLoaded(payload) },
+                onLongClickItem = { onNotLoaded(payload) },
+                badge = badge,
+                action = {
+                    NovelRowAction(inProgress = key in state.inProgress) {
+                        IconButton(onClick = { onNotLoaded(payload) }) {
+                            Icon(
+                                imageVector = MaterialSymbols.Rounded.Info,
+                                contentDescription = stringResource(MR.strings.ext_not_loaded),
+                            )
+                        }
                     }
-                }
-            },
-        )
+                },
+            )
+        }
+        is LnPluginUpdate -> {
+            val key = canonicalizePluginUrl(payload.entry.url)
+            NovelSourceRow(
+                modifier = modifier,
+                name = payload.entry.name,
+                lang = row.lang,
+                iconUrl = payload.entry.iconUrl,
+                subtitle = state.errors[key] ?: "v${payload.installedVersion} -> v${payload.entry.version}",
+                badge = badge,
+                action = {
+                    NovelRowAction(inProgress = key in state.inProgress) {
+                        IconButton(onClick = { model.update(payload) }) {
+                            Icon(
+                                imageVector = MaterialSymbols.Rounded.Download,
+                                contentDescription = stringResource(MR.strings.ext_update),
+                            )
+                        }
+                    }
+                },
+            )
+        }
         is NovelSource -> NovelSourceRow(
             modifier = modifier,
             name = payload.name,

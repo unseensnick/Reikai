@@ -10,6 +10,7 @@ import logcat.LogPriority
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.TimeUnit
@@ -77,22 +78,24 @@ data class LnPluginUpdate(
 )
 
 /**
- * The installed plugins a repo offers a newer version of, with [entries] in repo order so the first repo
- * listing a plugin wins. Matched by plugin id: a repo can publish a new version at a new URL, and
- * matching by URL showed that as a separate plugin rather than an update.
+ * The installed plugins a repo offers a newer version of, matched by plugin id since a repo can publish
+ * a new version at a new URL. Where several repos list the id, the listing at the installed URL decides,
+ * because accepting another repo's entry replaces the installed script with that repo's. With no such
+ * listing the highest version wins, a tie going to the earlier repo in [entries].
  */
 fun findPluginUpdates(
     installedUrls: Set<String>,
     metadata: Map<String, LnInstalledPluginMetadata>,
     entries: List<LnRegistryEntry>,
 ): List<LnPluginUpdate> {
-    val byId = LinkedHashMap<String, LnRegistryEntry>()
-    entries.forEach { byId.putIfAbsent(it.id, it) }
+    val byId = entries.groupBy { it.id }
     return installedUrls
         .mapNotNull { url ->
             val record = metadata[url] ?: return@mapNotNull null
             val installedVersion = record.version ?: return@mapNotNull null
-            val entry = byId[record.pluginId] ?: return@mapNotNull null
+            val listings = byId[record.pluginId] ?: return@mapNotNull null
+            val entry = listings.firstOrNull { canonicalizePluginUrl(it.url) == url }
+                ?: listings.maxWith { a, b -> LnPluginVersion.compare(a.version, b.version) }
             if (LnPluginVersion.compare(entry.version, installedVersion) > 0) {
                 LnPluginUpdate(entry = entry, installedVersion = installedVersion)
             } else {

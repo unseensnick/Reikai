@@ -167,7 +167,6 @@ class EntrySourcesFilterScreen(
                                 NovelSourceRow(
                                     modifier = Modifier.animateItem(),
                                     name = source.name,
-                                    lang = "",
                                     iconUrl = source.iconUrl,
                                     onClickItem = { viewModel.toggleSource(source.id) },
                                     action = {
