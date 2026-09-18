@@ -497,16 +497,18 @@ class BackupRestorer(
                 )
             }
 
-        // RK: with the repos restored, reinstall the recorded manga extensions. Those whose repo is
-        // missing can't be matched; log them so the user knows what to reinstall by hand.
+        // RK --> with the repos restored, reinstall the recorded manga extensions. Log each one that
+        // did not come back (repo missing, install failed, cancelled or timed out) so the user knows
+        // what to reinstall by hand.
         ensureActive()
         try {
-            extensionRestorer.restore(backupExtensions).forEach { name ->
-                errors.add(Date() to "Extension not reinstalled (repo missing): $name")
+            extensionRestorer.restore(backupExtensions).forEach { (name, reason) ->
+                errors.add(Date() to "Extension not reinstalled (${reason.label}): $name")
             }
         } catch (e: Exception) {
             errors.add(Date() to "Error reinstalling extensions: ${e.message}")
         }
+        // RK <--
     }
 
     private fun writeErrorLog(): File {

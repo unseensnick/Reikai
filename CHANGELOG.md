@@ -514,6 +514,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **The restore log now names every manga extension a restore could not reinstall, including one whose install failed, was cancelled or timed out.** It used to list only those whose repo was missing.
 - **Importing from a Yokai-era install now keeps each manga and novel category's own sort order.** Each used to come back following the library-wide sort, and a manual drag order still can't carry over.
 - **Your own title, author or cover edits on a series you have read but removed from the library are no longer missing from a backup.** They were dropped whenever the backup included read entries outside the library.
 - **Picking a backup to restore now opens the system file picker, which some devices could not open before (synced from Mihon, mihonapp/mihon#3948).**

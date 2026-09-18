@@ -1,8 +1,8 @@
 // RK: installed-extensions backup. Net-new Reikai file: reinstalls the manga
 // extensions a backup recorded. Must run after the extension repos are restored, since the available
-// list is fetched from them. Installs are fired on the ExtensionManager's own scope (the standard
-// installer, respecting the user's installer mode) so the restore job doesn't block on downloads or
-// per-apk prompts. Extensions with no available match (repo missing) are returned for the restore log.
+// list is fetched from them. Installs go through the standard installer (respecting the user's
+// installer mode). Every extension that does not come back is returned with its reason for the
+// restore log, which the backups guide promises names each one.
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import dev.zacsweers.metro.Inject
@@ -10,12 +10,11 @@ import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.takeWhile
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
@@ -25,8 +24,8 @@ class ExtensionRestorer(
     private val extensionManager: ExtensionManager,
 ) {
 
-    /** Reinstall the backed-up extensions; returns the names of those that couldn't be matched. */
-    suspend fun restore(backupExtensions: List<BackupExtension>): List<String> = coroutineScope {
+    /** Reinstall the backed-up extensions; returns each one that did not come back, with why. */
+    suspend fun restore(backupExtensions: List<BackupExtension>): List<NotRestored> = coroutineScope {
         if (backupExtensions.isEmpty()) return@coroutineScope emptyList()
 
         extensionManager.findAvailableExtensions()
@@ -40,45 +39,50 @@ class ExtensionRestorer(
         val availableByPkg = available.associateBy { it.pkgName }
         val installedPkgs = extensionManager.loadedExtensionsFlow.first().mapTo(HashSet()) { it.pkgName }
 
-        val unmatched = mutableListOf<String>()
-        backupExtensions.forEach { backupExtension ->
-            if (backupExtension.pkgName in installedPkgs) return@forEach
-            val match = availableByPkg[backupExtension.pkgName]
-            if (match == null) {
-                unmatched += backupExtension.name
-                return@forEach
-            }
-            // RK: install on the restore's own scope and let coroutineScope await it, instead of firing
-            // it onto the app-lifetime extensionManager.scope. The fire-and-forget installs kept landing
-            // after the restore "finished", racing the trust evaluation (so a freshly reinstalled
-            // extension could be seen once as untrusted and once as trusted, lingering in both lists) and
-            // colliding with the user's own actions. Each install is bounded so one slow download can't
-            // stall the whole restore.
-            launch {
-                // A failed, errored or timed-out install leaves the extension absent; without this
-                // log there was no trace of why (only repo-missing extensions reached the report).
-                var lastStep: InstallStep? = null
-                val result = withTimeoutOrNull(INSTALL_TIMEOUT_MS) {
-                    runCatching {
-                        extensionManager.installExtension(match)
-                            .onEach { lastStep = it }
-                            .takeWhile { it != InstallStep.Installed && it != InstallStep.Error }
-                            .collect()
-                    }
-                }
-                when {
-                    result == null ->
-                        logcat(LogPriority.WARN) { "Extension restore timed out: ${backupExtension.pkgName}" }
-                    result.isFailure ->
-                        logcat(LogPriority.WARN, result.exceptionOrNull()) {
-                            "Extension restore failed: ${backupExtension.pkgName}"
-                        }
-                    lastStep == InstallStep.Error ->
-                        logcat(LogPriority.WARN) { "Extension restore install error: ${backupExtension.pkgName}" }
+        backupExtensions
+            .filterNot { it.pkgName in installedPkgs }
+            .map { backupExtension ->
+                // RK: install on the restore's own scope and await it, instead of firing it onto the
+                // app-lifetime extensionManager.scope. The fire-and-forget installs kept landing after the
+                // restore "finished", racing the trust evaluation and colliding with the user's own actions.
+                async {
+                    val match = availableByPkg[backupExtension.pkgName]
+                    val reason = if (match == null) Reason.RepoMissing else install(match)
+                    reason?.let { NotRestored(backupExtension.name, it) }
                 }
             }
+            .awaitAll()
+            .filterNotNull()
+    }
+
+    /** Null when the extension installed; bounded so one slow download can't stall the whole restore. */
+    private suspend fun install(extension: Extension.Available): Reason? {
+        val step = try {
+            withTimeoutOrNull(INSTALL_TIMEOUT_MS) {
+                extensionManager.installExtension(extension).first { it.isCompleted() }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logcat(LogPriority.WARN, e) { "Extension restore failed: ${extension.pkgName}" }
+            return Reason.InstallFailed
         }
-        unmatched
+        return when (step) {
+            null -> Reason.TimedOut
+            InstallStep.Installed -> null
+            // The installer reports a dismissed prompt or a cancelled queue entry as Idle.
+            InstallStep.Idle -> Reason.InstallCancelled
+            else -> Reason.InstallFailed
+        }
+    }
+
+    data class NotRestored(val name: String, val reason: Reason)
+
+    enum class Reason(val label: String) {
+        RepoMissing("repo missing"),
+        InstallFailed("install failed"),
+        InstallCancelled("install cancelled"),
+        TimedOut("install timed out"),
     }
 
     companion object {
