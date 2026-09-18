@@ -276,13 +276,18 @@ class ReaderEngine(
      * folding that in here would mean nothing could exercise the swap without inventing a host.
      */
     fun installViewport(viewport: ReaderViewport) {
-        mutableViewport.value?.destroy()
+        mutableViewport.value?.let(::release)
         mutableViewport.value = viewport
     }
 
     /** Called when the host goes away, since the viewport holds its view tree. */
     fun destroyViewport() {
-        mutableViewport.value?.destroy()
+        mutableViewport.value?.let(::release)
         mutableViewport.value = null
+    }
+
+    private fun release(viewport: ReaderViewport) {
+        provider.detach(viewport)
+        viewport.destroy()
     }
 }

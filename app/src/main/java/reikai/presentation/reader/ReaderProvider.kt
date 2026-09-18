@@ -161,4 +161,14 @@ interface ReaderProvider {
      * instance on a reading-mode switch, and the engine destroys the previous one.
      */
     fun createViewport(host: ReaderActivity): ReaderViewport
+
+    /**
+     * Wires this session into a [host] that has just set its content view, once per Activity. A session
+     * whose viewport is ready at once builds and shows it here, with whatever feeds it. The window stays
+     * the host's: it shows the viewport under its insets and applies the orientation it is handed.
+     */
+    fun attach(host: ReaderActivity)
+
+    /** Lets go of [viewport] before the engine destroys it, since the session can outlive the view tree. */
+    fun detach(viewport: ReaderViewport)
 }

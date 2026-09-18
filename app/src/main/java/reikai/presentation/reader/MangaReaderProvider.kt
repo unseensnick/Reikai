@@ -285,6 +285,13 @@ class MangaReaderProvider(
             activeChapter = { viewModel.state.value.currentChapter },
         )
 
+    // Nothing to wire at creation: Mihon's updateViewer builds manga's viewport once the manga arrives in
+    // state, and setChapters feeds it, which the host keeps as upstream has them.
+    override fun attach(host: ReaderActivity) = Unit
+
+    // The image viewers hold nothing of the session's beyond the host, which goes with them.
+    override fun detach(viewport: ReaderViewport) = Unit
+
     /**
      * Binds the page-action verbs to one page, so the dialog carries a capability rather than a
      * manga type and the verbs need no argument. Novels build no equivalent, which is what makes

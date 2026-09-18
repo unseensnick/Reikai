@@ -361,6 +361,32 @@ class ReaderEngineTest {
     }
 
     /**
+     * A novel session marks the renderer it reads aloud, and speech outlives the Activity, so the
+     * session has to let go before the view tree does. The host no longer asks which type that is.
+     */
+    @Test
+    fun `destroying the viewport lets the session let go of it first`() {
+        val calls = mutableListOf<String>()
+        val engine = engine(FakeReaderProvider(calls))
+        engine.installViewport(FakeViewport(calls))
+
+        engine.destroyViewport()
+
+        calls shouldBe listOf("detach", "destroy")
+    }
+
+    @Test
+    fun `replacing the viewport lets the session let go of the outgoing one first`() {
+        val calls = mutableListOf<String>()
+        val engine = engine(FakeReaderProvider(calls))
+        engine.installViewport(FakeViewport(calls))
+
+        engine.installViewport(FakeViewport())
+
+        calls shouldBe listOf("detach", "destroy")
+    }
+
+    /**
      * The manga shape. A session that offers no continuous scroll still has to answer the bar, and
      * answering false is what leaves the button off rather than lit over nothing.
      */
@@ -796,6 +822,12 @@ private class FakeReaderProvider(
 
     override fun createViewport(host: ReaderActivity): ReaderViewport =
         error("a unit test never builds a viewport")
+
+    override fun attach(host: ReaderActivity) = error("a unit test never attaches a host")
+
+    override fun detach(viewport: ReaderViewport) {
+        calls += "detach"
+    }
 }
 
 /** Opening reports the chapter as current, the way a load that finished would. */
@@ -843,6 +875,7 @@ private class FakeViewport(private val calls: MutableList<String> = mutableListO
 
     override fun destroy() {
         destroyed = true
+        calls += "destroy"
     }
 
     override fun handleKeyEvent(event: KeyEvent) = false

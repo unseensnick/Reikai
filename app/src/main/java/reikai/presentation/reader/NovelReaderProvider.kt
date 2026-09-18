@@ -2,6 +2,7 @@ package reikai.presentation.reader
 
 import android.content.Context
 import android.content.Intent
+import androidx.lifecycle.lifecycleScope
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -11,9 +12,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onEach
+import logcat.LogPriority
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.novel.tts.NovelTtsSession
@@ -21,9 +27,12 @@ import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
+import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.font.NovelFontManager
+import reikai.presentation.reader.text.NovelWindowDiff
 import tachiyomi.core.common.Constants
+import tachiyomi.core.common.util.system.logcat
 
 /**
  * The light-novel half of the reader's provider seam, over the live [NovelReaderViewModel] the host
@@ -222,7 +231,7 @@ class NovelReaderProvider(
      * A change to a setting [createViewport] reads once, after the one it was built with. The sheet reaches
      * all four, so the host rebuilds the viewport around the live session, as a rotation does.
      */
-    val viewportRebuilds: Flow<Unit> = listOf<Flow<Any>>(
+    private val viewportRebuilds: Flow<Unit> = listOf<Flow<Any>>(
         novelPreferences.readerRenderingMode().changes(),
         novelPreferences.readerTextSelectable().changes(),
         novelPreferences.readerUseOriginalFonts().changes(),
@@ -297,5 +306,111 @@ class NovelReaderProvider(
             onChapterFits = viewModel::reportFitsOnScreen,
             onChapterEndSeen = viewModel::reportChapterEndSeen,
         )
+    }
+
+    // Built here rather than from the host's manga collector, which is what updateViewer hangs off and
+    // which never fires without a Manga in state.
+    override fun attach(host: ReaderActivity) {
+        // The session and its position outlive the Activity, so a rebuild lands where the reader is.
+        viewportRebuilds.onEach { host.recreate() }.launchIn(host.lifecycleScope)
+        val viewport = createViewport(host)
+        host.showViewport(viewport)
+        // Asked for rather than cast: which text renderer is running is the provider's choice.
+        // A novel viewport that does not answer would render an empty reader in silence, so say so.
+        when (viewport) {
+            is TextViewport -> {
+                // Before the first load, which is what reports the renderer landing to read-aloud.
+                viewModel.readAloud.attach(viewport.readAloud)
+                loadChapters(host, viewport)
+            }
+            else -> logcat(LogPriority.ERROR) { "Novel viewport renders no text: ${viewport::class}" }
+        }
+        // Manga locks the window from updateViewer, deferred behind the shared-element transition; a
+        // novel launch runs neither, so it follows its own resolved orientation from here.
+        viewModel.settings
+            .map { it.resolvedOrientation }
+            .distinctUntilChanged()
+            .onEach(host::setOrientation)
+            .launchIn(host.lifecycleScope)
+    }
+
+    // Speech outlives the Activity, so the renderer it marks is let go of before it is destroyed.
+    override fun detach(viewport: ReaderViewport) {
+        (viewport as? TextViewport)?.let { viewModel.readAloud.detach(it.readAloud) }
+    }
+
+    /**
+     * Hands each chapter the model loads to the installed text renderer, for as long as [host] lives. How
+     * that becomes pixels is the viewport's business; the theme is resolved here, because "Auto" reads
+     * the host's own night mode.
+     */
+    private fun loadChapters(host: ReaderActivity, viewport: TextViewport) {
+        val scope = host.lifecycleScope
+        // "Auto" resolves to a preset here; the stored colours are only what a manual choice left
+        // behind, so a document built from them would show the wrong shade.
+        val resolvedSettings = viewModel.settings.map { it.resolvedForSystemTheme(host.isNightMode()) }
+        // One collector for the load and the window verbs, so an arriving neighbour can never overtake
+        // the open that invalidated it.
+        val window = viewport.window
+        var rendered = emptyList<Long>()
+        // Starts unseen, so an Activity rebuilt around a live session renders its window again, at
+        // where the reader is rather than where the chapter was opened (landingOf).
+        var renderedGeneration = -1
+        viewModel.window
+            .filter { it.chapters.isNotEmpty() }
+            .onEach { state ->
+                val settings = resolvedSettings.first()
+                val opened = state.generation != renderedGeneration
+                if (opened) {
+                    renderedGeneration = state.generation
+                    val anchor = viewModel.landingOf(state)
+                    viewport.load(anchor, settings)
+                    // The renderer has let go of the window it had, so its reports count again.
+                    viewModel.rendererLanded(state.generation)
+                    viewModel.readAloud.onRendererLanded(anchor.chapterId)
+                    rendered = listOf(anchor.chapterId)
+                }
+                val wanted = state.chapters.map { it.chapterId }
+                val byId = state.chapters.associateBy { it.chapterId }
+                NovelWindowDiff.plan(rendered, wanted).forEach { step ->
+                    when (step) {
+                        is NovelWindowDiff.Step.Evict -> window.evict(step.chapterId)
+                        is NovelWindowDiff.Step.Append -> window.append(byId.getValue(step.chapterId))
+                        is NovelWindowDiff.Step.Prepend -> window.prepend(byId.getValue(step.chapterId))
+                    }
+                }
+                rendered = wanted
+                // After the verbs, since the chapter being read aloud may be one they just added.
+                viewModel.readAloud.onWindowChanged()
+                // After the verbs, so an edge is never marked failed on a window that is one append
+                // away from reaching past it.
+                window.setBoundaryFailures(state.failedPrevious, state.failedNext)
+            }
+            .launchIn(scope)
+
+        // Changing a display setting reflows the open chapter in place. The first emission is what the
+        // document was just built with, so it is dropped rather than pushed straight back.
+        resolvedSettings
+            .distinctUntilChanged()
+            .drop(1)
+            .onEach(viewport::applySettings)
+            .launchIn(scope)
+
+        // Auto-scroll pauses while the chrome is showing and while the reader is off screen, both of
+        // which are the host's own state rather than settings, so the decision is made once here and
+        // each renderer only starts and stops. Off screen matters because the loop is not lifecycle
+        // aware: left running it advances the chapter behind whatever the reader is looking at. Speech
+        // pauses it too, since read-aloud keeps its own paragraph in view and the two would fight.
+        combine(
+            resolvedSettings,
+            host.menuVisibility,
+            host.isOnScreen,
+            host.engine.readAloudState.map { it.playback == TtsPlayback.Playing },
+        ) { settings, menuVisible, onScreen, speaking ->
+            (settings.autoScroll && !menuVisible && onScreen && !speaking) to settings.autoScrollSpeed
+        }
+            .distinctUntilChanged()
+            .onEach { (running, speed) -> viewport.setAutoScroll(running, speed) }
+            .launchIn(scope)
     }
 }
