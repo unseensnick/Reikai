@@ -103,17 +103,35 @@ object NovelHtmlUtils {
         Regex("<br>\\s*<br>\\s*(?=</?p[> ])|(?<=</?p>)\\s*<br>\\s*<br>\\s*", RegexOption.IGNORE_CASE)
     private val loneBreakBesideParagraphRegex =
         Regex("<br>\\s*(?=</?p[> ])|(?<=</?p>)\\s*<br>\\s*", RegexOption.IGNORE_CASE)
+    private val tagOrEntityRegex = Regex("<[^>]*>|&#?[A-Za-z0-9]+;")
 
     /**
      * Sources pad chapters with blank paragraphs and stacked line breaks, which read as gaps the
      * paragraph-spacing setting is then measured on top of. Ported from the vendored `core.js` so it
      * runs for every rendering mode instead of only the one that ships a JS engine.
      */
-    fun removeExtraParagraphSpacing(content: String): String = content
-        .replace(paddingEntityRegex, "")
-        .replace(breakRunRegex, "<br><br>")
-        .replace(breakBesideParagraphRegex, "")
-        .replace(loneBreakBesideParagraphRegex, "")
+    fun removeExtraParagraphSpacing(content: String): String = mapOutsideVerbatimBlocks(content) { prose ->
+        prose
+            .replace(paddingEntityRegex, "")
+            .replace(breakRunRegex, "<br><br>")
+            .replace(breakBesideParagraphRegex, "")
+            .replace(loneBreakBesideParagraphRegex, "")
+    }
+
+    /**
+     * Lowercases the text of [markup] and nothing else. Tags carry case-sensitive values (an image
+     * address, an inlined base64 picture), and entity names are case-sensitive too: `&Dagger;` and
+     * `&dagger;` are different characters.
+     */
+    fun lowercaseText(markup: String): String = mapOutsideVerbatimBlocks(markup) { prose ->
+        val out = StringBuilder(prose.length)
+        var from = 0
+        for (kept in tagOrEntityRegex.findAll(prose)) {
+            out.append(prose.substring(from, kept.range.first).lowercase()).append(kept.value)
+            from = kept.range.last + 1
+        }
+        out.append(prose.substring(from).lowercase()).toString()
+    }
 
     fun isPlainTextChapter(chapterUrl: String?): Boolean {
         val ext = extensionFor(chapterUrl)
@@ -228,7 +246,7 @@ object NovelHtmlUtils {
      * showed one paragraph there and two in the native mode.
      */
     fun wrapBareParagraphs(content: String): String {
-        val trimmed = content.replace(leadingSpaceInParagraph, "<p>")
+        val trimmed = mapOutsideVerbatimBlocks(content) { it.replace(leadingSpaceInParagraph, "<p>") }
         if (paragraphTagRegex.containsMatchIn(trimmed) || !blankLineRegex.containsMatchIn(trimmed)) return trimmed
         return "<p>${mapOutsideVerbatimBlocks(trimmed, ::breakParagraphs)}</p>"
     }

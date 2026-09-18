@@ -57,6 +57,15 @@ class NovelExtraSpacingTest {
         cleaned shouldBe "<p>One<br>Two</p>"
     }
 
+    /** A `pre` block's breaks are the block's own layout, not padding a source added. */
+    @Test
+    @DisplayName("breaks inside a pre block are left alone")
+    fun keepsBreaksInsidePre() {
+        val pre = "<pre>a<br>\n<br>\n<br>\nb</pre>"
+
+        NovelHtmlUtils.removeExtraParagraphSpacing(pre) shouldBe pre
+    }
+
     @Test
     @DisplayName("markup with nothing to strip comes back unchanged")
     fun leavesCleanMarkupAlone() {

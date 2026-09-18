@@ -468,6 +468,7 @@ private fun NovelExtensionRow(
         is LnPluginLoadFailure -> {
             // Keyed as the install writes it, so a reinstall from the dialog shows its progress and error here.
             val key = canonicalizePluginUrl(payload.url)
+            val installing = key in state.inProgress
             NovelSourceRow(
                 modifier = modifier,
                 name = payload.name,
@@ -475,11 +476,11 @@ private fun NovelExtensionRow(
                 iconUrl = payload.iconUrl,
                 version = payload.version,
                 subtitle = state.errors[key],
-                onClickItem = { onNotLoaded(payload) },
-                onLongClickItem = { onNotLoaded(payload) },
+                onClickItem = { if (!installing) onNotLoaded(payload) },
+                onLongClickItem = { if (!installing) onNotLoaded(payload) },
                 badge = badge,
                 action = {
-                    NovelRowAction(inProgress = key in state.inProgress) {
+                    NovelRowAction(inProgress = installing) {
                         IconButton(onClick = { onNotLoaded(payload) }) {
                             Icon(
                                 imageVector = MaterialSymbols.Rounded.Info,

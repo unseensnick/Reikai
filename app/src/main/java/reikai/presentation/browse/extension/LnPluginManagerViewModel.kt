@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.merge
@@ -166,8 +167,13 @@ class LnPluginManagerViewModel(
 
     private fun install(url: String, metadata: LnInstalledPluginMetadata) {
         val key = canonicalizePluginUrl(url)
+        // Claimed before the launch, so a second tap on any entry point finds it taken: two installs
+        // of one plugin share its temp file, and the second rename fails.
+        val claimed = installs.getAndUpdate {
+            if (key in it.inProgress) it else it.copy(inProgress = it.inProgress + key, errors = it.errors - key)
+        }
+        if (key in claimed.inProgress) return
         viewModelScope.launchIO {
-            installs.update { it.copy(inProgress = it.inProgress + key, errors = it.errors - key) }
             try {
                 installer.installFromUrl(url, metadata)
                 refresh()

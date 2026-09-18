@@ -40,7 +40,9 @@ class NovelContentPipeline(private val preferences: NovelPreferences) {
 
         content = NovelRegexReplacements.apply(content, preferences)
 
-        if (config.forceLowercase) content = content.lowercase()
+        if (config.forceLowercase) {
+            content = if (plainTextMode) content.lowercase() else NovelHtmlUtils.lowercaseText(content)
+        }
 
         if (preferences.readerAutoSplitText().get()) {
             content = NovelTextSplitter.splitText(

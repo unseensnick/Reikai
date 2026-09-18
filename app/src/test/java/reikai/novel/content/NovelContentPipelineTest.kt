@@ -186,6 +186,38 @@ class NovelContentPipelineTest {
         html shouldContain "&lt;script&gt;"
     }
 
+    private fun lowercased(raw: String) =
+        pipeline.preTranslate(raw, config("/book/ch1.html").copy(forceLowercase = true)).text
+
+    /** Attribute values are case-sensitive: a lowercased URL can point at a file that does not exist. */
+    @Test
+    fun `force lowercase lowercases the text and leaves an image address alone`() {
+        val processed = lowercased("<p>Hello</p><img src=\"https://Example.com/Pic_01.JPG\">")
+
+        processed shouldBe "<p>hello</p><img src=\"https://Example.com/Pic_01.JPG\">"
+    }
+
+    /** A downloaded chapter carries its pictures inline as base64, which lowercasing corrupts. */
+    @Test
+    fun `force lowercase keeps an inlined picture intact`() {
+        val image = "<img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAB\">"
+
+        lowercased("<p>A</p>$image") shouldContain image
+    }
+
+    @Test
+    fun `force lowercase leaves a script body unchanged`() {
+        val script = "<script>document.getElementById('Main')</script>"
+
+        lowercased("<p>A</p>$script") shouldContain script
+    }
+
+    /** Entity names are case-sensitive, and some have no lowercase twin at all. */
+    @Test
+    fun `force lowercase leaves an entity name as written`() {
+        lowercased("<p>CAF&Eacute;</p>") shouldBe "<p>caf&Eacute;</p>"
+    }
+
     /** A chapter on disk and a source with different text, so which one a load read shows in its output. */
     private fun sourceOrDownloadLoader(): NovelChapterTextLoader {
         val source = mockk<NovelSource> {

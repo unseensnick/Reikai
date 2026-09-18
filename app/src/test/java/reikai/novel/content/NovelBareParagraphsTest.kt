@@ -27,4 +27,11 @@ class NovelBareParagraphsTest {
     fun `a blank line inside preformatted text is kept, not split into paragraphs`() {
         NovelHtmlUtils.wrapBareParagraphs("A\n\n<PRE>x\n\ny</PRE>") shouldContain "<PRE>x\n\ny</PRE>"
     }
+
+    @Test
+    fun `a paragraph's leading space inside a script string is left alone`() {
+        val chapter = "<p>A</p><script>s = '<p>&nbsp;x'</script>"
+
+        NovelHtmlUtils.wrapBareParagraphs(chapter) shouldBe chapter
+    }
 }
