@@ -18,8 +18,11 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,8 +36,10 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.data.coil.NovelCover
 import reikai.data.novel.tts.SystemTtsEngine
@@ -84,8 +89,6 @@ import reikai.presentation.reader.text.NovelResume
 import reikai.presentation.reader.text.NovelWarmPolicy
 import reikai.presentation.reader.text.NovelWindowReach
 import reikai.presentation.reader.web.NovelWebSnippets
-import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -126,6 +129,9 @@ class NovelReaderViewModel(
     private val novelDownloadCache: NovelDownloadCache,
     private val deleteChaptersBehindReader: DeleteNovelChaptersBehindReader,
     private val context: Context,
+    // Dispatchers.IO, which is what launchIO would have used. Passed in so a JVM test can run the
+    // whole session on its own scheduler.
+    @Assisted private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -137,8 +143,17 @@ class NovelReaderViewModel(
             initialChapterId: Long,
             sourceScoped: Boolean,
             savedState: SavedStateHandle,
+            io: CoroutineDispatcher,
         ): NovelReaderViewModel
     }
+
+    // Shadow the shared launchIO and launchNonCancellable, which hard-code Dispatchers.IO: members win
+    // over imported extensions, so every launch below runs on [io].
+    private fun CoroutineScope.launchIO(block: suspend CoroutineScope.() -> Unit): Job =
+        launch(io, block = block)
+
+    private fun CoroutineScope.launchNonCancellable(block: suspend CoroutineScope.() -> Unit): Job =
+        launchIO { withContext(NonCancellable, block) }
 
     // Building the manager restores the persisted queue and can start the download worker, so it is
     // resolved on first read rather than at construction, which keeps that off the opening thread.
@@ -759,7 +774,7 @@ class NovelReaderViewModel(
         novelPreferences.readerAutoLoadNextAt().changes()
             .drop(1)
             .onEach { rebuildWindow() }
-            .flowOn(Dispatchers.IO)
+            .flowOn(io)
             .launchIn(viewModelScope)
         load()
     }
@@ -1114,7 +1129,7 @@ class NovelReaderViewModel(
                 chapters.map { it.toReaderChapterRow(sourceNames, queued, flags) }
             },
         )
-    }.flowOn(Dispatchers.IO)
+    }.flowOn(io)
 
     /** Per-source display names keyed by the merge group's members, for a merged novel's source labels. */
     private suspend fun chapterSourceNames(): Map<Long, String> = mergeSourceLabels(

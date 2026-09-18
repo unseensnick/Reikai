@@ -83,6 +83,7 @@ import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -244,6 +245,7 @@ class ReaderActivity : BaseActivity() {
                         // The model's own, as ReaderViewModel takes one off the graph's extras: a
                         // process kill must reopen the chapter being read, not the launch chapter.
                         savedState = createSavedStateHandle(),
+                        io = Dispatchers.IO,
                     )
             }
         }

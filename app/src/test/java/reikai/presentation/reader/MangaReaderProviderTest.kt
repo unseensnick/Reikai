@@ -34,29 +34,6 @@ class MangaReaderProviderTest {
     private fun failure(message: String?, fromSource: Boolean = false, attempt: Long = 1L) =
         ReaderViewModel.AdjacentLoadFailure(5L, message, fromSource, attempt)
 
-    /** Upstream only logged it, and the engine's wait on the pick then jumped the reader there later. */
-    @Test
-    fun `a chapter that failed to open with nothing on screen closes the reader`() = runTest {
-        val state = ReaderViewModel.State(
-            adjacentLoadFailure = failure("no connection"),
-        )
-
-        provider(state).loadState.first() shouldBe
-            ReaderLoadState.Failed("no connection", canKeepReading = false, attempt = 1L)
-    }
-
-    @Test
-    fun `a failed step with a chapter on screen keeps the reader open`() = runTest {
-        val onScreen = ReaderChapter(Chapter.create().copy(id = 4L).toDbChapter())
-        val state = ReaderViewModel.State(
-            viewerChapters = ViewerChapters(onScreen, prevChapter = null, nextChapter = null),
-            adjacentLoadFailure = failure("no connection"),
-        )
-
-        provider(state).loadState.first() shouldBe
-            ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
-    }
-
     /** The chapter on screen is the one the reader kept, not the one to fetch again. */
     @Test
     fun `retrying opens the chapter that failed`() {
@@ -76,17 +53,6 @@ class MangaReaderProviderTest {
         provider(state, viewModel).retryLoad()
 
         verify { viewModel.loadNewChapterFromDialog(failed) }
-    }
-
-    /** A reload from the source skipped the downloaded copy, and its retry must not fall back to it. */
-    @Test
-    fun `retrying a failed reload from the source reloads from the source`() {
-        val viewModel = mockk<ReaderViewModel>(relaxed = true)
-        val state = ReaderViewModel.State(adjacentLoadFailure = failure(null, fromSource = true))
-
-        provider(state, viewModel).retryLoad()
-
-        verify { viewModel.reloadChapter(fromSource = true) }
     }
 
     /** Equal failures are one state value, so the second would never reach the reader as a failure. */

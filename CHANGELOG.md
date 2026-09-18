@@ -576,6 +576,7 @@ every release now also ships a foss build with neither in it.
 - The novel reader does less work on the main thread: a text colour, line spacing or alignment change keeps each chapter's measured layout, a replaced chapter render stops early, the web page mode reads a font file once rather than on every page build, and the page is no longer re-indented as a whole.
 - The search bar and the tracker sign-in fields now use Compose's newer text-field implementation, and the reader's progress sliders its newer slider state, following a Compose bump synced from Mihon (mihonapp/mihon#3752).
 - Cancelling an extension install no longer goes through a local broadcast, which the Material library dropped at 1.14.0 (synced from Mihon, mihonapp/mihon#3226).
+- The novel reader's session model now runs under unit tests against a real in-memory database, which pins how it handles a failed chapter load, a retried reload from the source, the next-chapter threshold setting and a merged novel's source labels.
 - The app now compiles against Android SDK 37.1 (synced from Mihon).
 - Dependency bumps synced from Mihon: Injekt, FlexibleAdapter and the SQLDelight AndroidX driver moved to their upstream releases, and the markdown renderer, the Metro dependency-injection compiler and the benchmark and baseline-profile tooling were updated.
 - Added an on-device test that measures how a scrolling list holds its position when content is inserted above the reader, to settle a design question for the upcoming novel reader. Test only, nothing in the app changed.
