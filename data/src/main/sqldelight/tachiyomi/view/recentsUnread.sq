@@ -1,4 +1,4 @@
--- RK: which entries still have something left to read, for the recents surface's "show read" filter.
+-- Which entries still have something left to read, for the recents surface's "show read" filter.
 -- Declares no view or table, so it needs no .sqm: these are queries over the base chapter tables.
 --
 -- Read from the chapter side rather than from mangas/novels so the partial indexes carry the whole

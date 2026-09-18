@@ -57,6 +57,12 @@ class NovelWebSnippetsTest {
         NovelWebSnippets.jsLiteral("a</script><script>alert(1)") shouldNotContain "</script>"
     }
 
+    /** `<!--<script` puts a script element into its escaped state, where its own `</script>` no longer ends it. */
+    @Test
+    fun `css cannot open a comment in the script it is written into`() {
+        NovelWebSnippets.jsLiteral("a<!--<script>b") shouldNotContain "<"
+    }
+
     @Test
     fun `nothing to run builds no script`() {
         NovelWebSnippets.runner(emptyList()) shouldBe null

@@ -32,12 +32,6 @@ interface NovelChapterRepository {
     /** Focused write for the reader's auto-save path; avoids the round-trip a full update needs. */
     suspend fun setLastTextProgress(id: Long, progress: Long): Boolean
 
-    /**
-     * Focused read write. Touches only the one column so a chapter object carrying a
-     * synthetic `source_order` (a merged unified-list copy) can't overwrite the stored order.
-     */
-    suspend fun setRead(id: Long, read: Boolean): Boolean
-
     /** Bookmark many chapters in one transaction, so a group's copies never end up half bookmarked. */
     suspend fun setBookmarkBulk(ids: List<Long>, bookmark: Boolean): Boolean
 

@@ -1,9 +1,11 @@
 package reikai.presentation.reader
 
 import android.content.Context
+import android.content.Intent
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import kotlinx.coroutines.flow.Flow
+import tachiyomi.core.common.preference.Preference
 
 /**
  * One content type's answers for the reader engine. The host is passed per call rather than held, so
@@ -38,6 +40,27 @@ interface ReaderProvider {
 
     /** This content type's own brightness and colour treatment, which the host applies to the page. */
     val displayFilters: ReaderDisplayFilters
+
+    /**
+     * This content type's own fullscreen and draw-under-cutout settings, which the host applies to the
+     * window. The session's type is fixed at launch, so which pair answers never changes under it.
+     */
+    val fullscreen: Preference<Boolean>
+
+    val drawUnderCutout: Preference<Boolean>
+
+    /**
+     * Told when the reader moves the page by hand: a drag past the touch slop, or a key the viewport
+     * took. A novel open holds the chapter it landed in until then; manga has nothing to release.
+     */
+    fun onReaderMoved()
+
+    /** Writes a position the session is still holding back. The host calls it on pause, since a
+     *  backgrounded reader can be killed before a deferred write runs. */
+    fun flushPosition()
+
+    /** Opens the entry's own details page, or null while the entry is not resolved yet. */
+    fun detailsIntent(context: Context): Intent?
 
     /**
      * The colour behind the page, which shows while a chapter loads or fails. Each type has its own

@@ -83,10 +83,17 @@ interface RecentsProvider : RecentsBehavior {
 
     /**
      * Emits whenever any of this type's chapter download states may have changed: the on-disk index,
-     * the queue, or a queued download's status or progress. [downloadUi]'s callbacks are polled, so
-     * without this nothing tells a drawn row to ask again, and a History row kept its old icon.
+     * the queue, or a queued download's status. [downloadUi]'s callbacks are polled, so without this
+     * nothing tells a drawn row to ask again, and a History row kept its old icon.
      */
     val downloadChanges: Flow<Unit>
+
+    /**
+     * Emits when a queued download's progress moves. Kept apart from [downloadChanges] because it ticks
+     * several times a second and only a progress indicator reads it; one that reports no progress
+     * answers an empty flow.
+     */
+    val progressChanges: Flow<Unit>
 
     /**
      * Everything [item] draws, read out of this type's own payload. Answered per rendered row rather

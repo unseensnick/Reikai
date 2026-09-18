@@ -1,10 +1,12 @@
 package reikai.presentation.reader
 
 import android.content.Context
+import android.content.Intent
 import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
@@ -31,6 +33,7 @@ import reikai.data.coil.seedColor
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupChapterFlags
 import reikai.presentation.components.chapterSubtitle
+import tachiyomi.core.common.Constants
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.asMangaCover
 import kotlin.time.Duration.Companion.milliseconds
@@ -78,6 +81,24 @@ class MangaReaderProvider(
         grayscale = readerPreferences.grayscale,
         invertedColors = readerPreferences.invertedColors,
     )
+
+    override val fullscreen = readerPreferences.fullscreen
+
+    override val drawUnderCutout = readerPreferences.drawUnderCutout
+
+    override fun onReaderMoved() = Unit
+
+    // Each page turn writes its own position, so nothing is held back.
+    override fun flushPosition() = Unit
+
+    // Upstream's ReaderActivity.openMangaScreen, moved here so the host asks the session.
+    override fun detailsIntent(context: Context): Intent? = viewModel.manga?.id?.let { id ->
+        Intent(context, MainActivity::class.java).apply {
+            action = Constants.SHORTCUT_MANGA
+            putExtra(Constants.MANGA_EXTRA, id)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+    }
 
     override fun pageBackground(context: Context): Flow<Int> =
         readerPreferences.readerTheme.changes().map(context::readerBackgroundColor)

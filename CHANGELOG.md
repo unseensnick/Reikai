@@ -207,6 +207,7 @@ every release now also ships a foss build with neither in it.
 - **The full-screen cover viewer, Save and Share now use the cover URL you set in Edit info.** They kept showing the source's original cover while the series page showed yours.
 - **Long-pressing a novel's WebView button now copies its link, like manga.**
 - **Closing Edit info while Fill from tracker is still loading no longer shows a tracker error.**
+- **Titles you just added from the full related-manga grid no longer come back selected with your next pick.**
 
 ### Reader
 
@@ -581,6 +582,7 @@ every release now also ships a foss build with neither in it.
 - Database upgrades are now checked in every nightly and pull request build against a saved copy of an older schema, so a schema change shipped without the step that upgrades existing installs fails the build instead of reaching a device. The check was wired up before but had nothing to compare against.
 - Gradle's configuration cache is on, which takes a no-op incremental build from about 26 seconds to under 2.
 - Installed extensions now resolve their dependencies from the app's compile-time dependency graph through a fixed, read-only list, rather than from a registry the app filled at startup (synced from Mihon, mihonapp/mihon#3965).
+- Updates, History and Recents no longer start the novel downloader while they show only manga, and a manga download's progress now redraws only the progress rings rather than every download icon and the selection bar.
 - The novel reader does less work on the main thread: a text colour, line spacing or alignment change keeps each chapter's measured layout, a replaced chapter render stops early, the web page mode reads a font file once rather than on every page build, and the page is no longer re-indented as a whole.
 - The search bar and the tracker sign-in fields now use Compose's newer text-field implementation, and the reader's progress sliders its newer slider state, following a Compose bump synced from Mihon (mihonapp/mihon#3752).
 - Cancelling an extension install no longer goes through a local broadcast, which the Material library dropped at 1.14.0 (synced from Mihon, mihonapp/mihon#3226).

@@ -1059,6 +1059,47 @@ class RecentsEngineTest {
         invalidated shouldBe true
     }
 
+    /**
+     * A progress tick moves a percentage and nothing else, so it must not reach a state poll: the
+     * selection bar polls every selected row, and manga progress ticks several times a second.
+     */
+    @Test
+    fun `a progress tick does not invalidate a polled download state`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val provider = provider(ContentType.MANGA, read = rows(row), downloadedEntries = setOf(manga1))
+        val engine = engine(listOf(provider))
+        val poll = engine.downloadUi(row)!!.state
+        val reads = mutableSetOf<Any>()
+        Snapshot.observe(readObserver = { reads += it }) { poll() }
+        var invalidated = false
+        val observer = Snapshot.registerApplyObserver { changed, _ -> invalidated = changed.any { it in reads } }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { engine.trackDownloads() }
+        provider.awaitProgressWatcher()
+
+        provider.tickProgress()
+        advanceUntilIdle()
+        Snapshot.sendApplyNotifications()
+        observer.dispose()
+
+        invalidated shouldBe false
+    }
+
+    /**
+     * Watching the novel downloads builds the novel download manager, which restores its queue and can
+     * start the worker, so a surface showing only manga must not watch them.
+     */
+    @Test
+    fun `a chip showing only manga does not watch novel downloads`() = runTest {
+        val manga = provider(ContentType.MANGA)
+        val novel = provider(ContentType.NOVELS)
+        val engine = engine(listOf(manga, novel), chip = ContentType.MANGA)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { engine.trackDownloads() }
+        manga.awaitDownloadWatcher()
+        advanceUntilIdle()
+
+        novel.isDownloadWatched shouldBe false
+    }
+
     /** The downloaded filter judges a row by its download, so a deleted download has to re-judge it. */
     @Test
     fun `a read row leaves the downloaded filter once its download is deleted`() = runTest {
@@ -1405,9 +1446,23 @@ private class FakeRecentsProvider(
     private val downloadSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
     override val downloadChanges: Flow<Unit> = downloadSignal
 
+    private val progressSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+    override val progressChanges: Flow<Unit> = progressSignal
+
     /** A change reported before anything watches is dropped, as a real cache's would be to nobody. */
     suspend fun awaitDownloadWatcher() {
         downloadSignal.subscriptionCount.first { it > 0 }
+    }
+
+    suspend fun awaitProgressWatcher() {
+        progressSignal.subscriptionCount.first { it > 0 }
+    }
+
+    val isDownloadWatched: Boolean get() = downloadSignal.subscriptionCount.value > 0
+
+    /** A queued download's byte progress moving, with nothing downloaded or deleted. */
+    fun tickProgress() {
+        progressSignal.tryEmit(Unit)
     }
 
     /** Deletes an entry's download and reports it, the way a cache change does. */

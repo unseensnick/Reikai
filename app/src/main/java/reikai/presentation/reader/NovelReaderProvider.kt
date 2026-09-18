@@ -1,7 +1,9 @@
 package reikai.presentation.reader
 
 import android.content.Context
+import android.content.Intent
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.util.system.isNightMode
@@ -21,6 +23,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.font.NovelFontManager
+import tachiyomi.core.common.Constants
 
 /**
  * The light-novel half of the reader's provider seam, over the live [NovelReaderViewModel] the host
@@ -60,6 +63,24 @@ class NovelReaderProvider(
         grayscale = novelPreferences.readerGrayscale(),
         invertedColors = novelPreferences.readerInvertedColors(),
     )
+
+    override val fullscreen = novelPreferences.readerFullscreen()
+
+    override val drawUnderCutout = novelPreferences.readerDrawUnderCutout()
+
+    override fun onReaderMoved() = viewModel.readerMoved()
+
+    override fun flushPosition() = viewModel.flushProgress()
+
+    // By source and url rather than row id, since that is what the novel screen is pushed with.
+    override fun detailsIntent(context: Context): Intent? = viewModel.detailsRoute.value?.let { route ->
+        Intent(context, MainActivity::class.java).apply {
+            action = Constants.SHORTCUT_NOVEL
+            putExtra(Constants.NOVEL_SOURCE_EXTRA, route.source)
+            putExtra(Constants.NOVEL_URL_EXTRA, route.url)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+    }
 
     override fun pageBackground(context: Context): Flow<Int> = viewModel.settings.map {
         readerBackgroundColorInt(it.resolvedForSystemTheme(context.isNightMode()).backgroundColor)

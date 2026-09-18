@@ -61,8 +61,9 @@ class NovelChapterNavigationClientTest {
         decide("$base-evil", base, hasGesture = false) shouldBe Decision.BLOCK
     }
 
+    /** Without the null check a missing base renders as "null", so this would read as the document. */
     @Test
     fun `nothing is same-document when the chapter was loaded without an origin`() {
-        decide("https://source.example/novel/ch1", null, hasGesture = false) shouldBe Decision.BLOCK
+        decide("null#note", null, hasGesture = true) shouldBe Decision.BLOCK
     }
 }

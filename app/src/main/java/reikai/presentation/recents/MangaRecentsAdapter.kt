@@ -151,8 +151,9 @@ class MangaRecentsAdapter(
         downloadCache.changes,
         downloadManager.queueState.map { },
         downloadManager.statusFlow().map { },
-        downloadManager.progressFlow().map { },
     )
+
+    override val progressChanges: Flow<Unit> = downloadManager.progressFlow().map { }
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? =
         resolveTarget(item)?.let { ChapterRef(item.entryId, it.chapterId) }

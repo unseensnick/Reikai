@@ -83,4 +83,15 @@ class DeleteNovelChaptersAfterReadTest {
         managerBuilds shouldBe 1
         verify { manager.deleteChapters(any()) }
     }
+
+    // The categories mock answers none, so this novel sits in Default.
+    @Test
+    fun `an uncategorized novel keeps its downloads when Default is excluded`() = runTest {
+        preferences.removeAfterMarkedAsRead().set(true)
+        preferences.removeExcludeCategories().set(setOf("0"))
+
+        interactor.await(novelId = 1L, chapters = listOf(chapter(1)))
+
+        verify(exactly = 0) { manager.deleteChapters(any()) }
+    }
 }

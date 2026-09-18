@@ -2,8 +2,6 @@ package reikai.presentation.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -32,7 +30,6 @@ import reikai.presentation.icons.ReikaiIcons
 import reikai.presentation.icons.Remove
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
-import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.math.roundToInt
 
@@ -52,8 +49,8 @@ fun StepperItem(
     value: Int,
     onChange: (Int) -> Unit,
     valueRange: IntRange,
+    defaultValue: Int,
     step: Int = 1,
-    defaultValue: Int? = null,
     scale: Int = 1,
     valueString: String = value.toString(),
 ) {
@@ -110,7 +107,7 @@ private fun StepperInputDialog(
     value: Int,
     valueRange: IntRange,
     scale: Int,
-    defaultValue: Int?,
+    defaultValue: Int,
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit,
 ) {
@@ -146,10 +143,8 @@ private fun StepperInputDialog(
         },
         dismissButton = {
             Row {
-                if (defaultValue != null) {
-                    TextButton(onClick = { onConfirm(defaultValue) }) {
-                        Text(stringResource(MR.strings.label_default))
-                    }
+                TextButton(onClick = { onConfirm(defaultValue) }) {
+                    Text(stringResource(MR.strings.label_default))
                 }
                 TextButton(onClick = onDismiss) {
                     Text(stringResource(MR.strings.action_cancel))
@@ -165,17 +160,3 @@ internal fun parseStepperInput(input: String, scale: Int, range: IntRange): Int?
 
 private fun unscaled(value: Int, scale: Int): String =
     if (scale == 1) value.toString() else (value.toFloat() / scale).toString()
-
-/** A label with its chips on the same line, for a choice short enough to fit beside it. */
-@Composable
-fun InlineSettingsChipRow(label: String, content: @Composable FlowRowScope.() -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = SettingsItemsPaddings.Vertical / 4),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small), content = content)
-    }
-}

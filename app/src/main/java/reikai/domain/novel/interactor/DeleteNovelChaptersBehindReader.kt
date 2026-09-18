@@ -35,11 +35,8 @@ class DeleteNovelChaptersBehindReader(
         val target = chapterRepository.getById(targetId) ?: return
         if (!target.read) return
         if (target.bookmark && !novelPreferences.removeBookmarkedChapters().get()) return
-        val excluded = novelPreferences.removeExcludeCategories().get().mapNotNull { it.toLongOrNull() }
-        if (excluded.isNotEmpty()) {
-            val cats = getNovelCategories.awaitByNovelId(novelId).map { it.id }.ifEmpty { listOf(0L) }
-            if (cats.intersect(excluded.toSet()).isNotEmpty()) return
-        }
+        val excluded = novelPreferences.removeExcludeCategories().get()
+        if (isExcludedFromRemoval(excluded) { getNovelCategories.awaitByNovelId(novelId).map { it.id } }) return
         downloadManager().deleteChapters(listOf(target))
     }
 }

@@ -17,6 +17,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -206,12 +207,12 @@ class RecentsEngine(
             groupBySeries,
             expandedGroups,
             // The downloaded filter asks each row's download state, so it is asked again when one
-            // changes. Only then: progress alone emits several times a second while downloading.
+            // changes, and only while it is on.
             rowGate.flatMapLatest { gate ->
                 if (gate.filters.downloaded == TriState.DISABLED) {
                     flowOf(gate)
                 } else {
-                    downloadChanges.map { gate }.onStart { emit(gate) }
+                    activeChanges(RecentsProvider::downloadChanges).map { gate }.onStart { emit(gate) }
                 }
             },
         ) { assembled, mode, grouped, expanded, gate ->
@@ -560,16 +561,26 @@ class RecentsEngine(
     /**
      * Bumped by [trackDownloads] and read by every download callback this engine hands out, so a
      * composition that polled one is invalidated when a download changes rather than when it next
-     * happens to redraw.
+     * happens to redraw. Progress has its own revision, so a tick redraws only a progress indicator
+     * and never a state icon or the selection bar, which polls every selected row.
      */
     private val downloadRevision = mutableLongStateOf(0L)
+    private val progressRevision = mutableLongStateOf(0L)
 
     /** Runs for as long as the surface is on screen, which is as long as its rows poll download state. */
     suspend fun trackDownloads() {
-        downloadChanges.collect { downloadRevision.longValue++ }
+        coroutineScope {
+            launch { activeChanges(RecentsProvider::progressChanges).collect { progressRevision.longValue++ } }
+            activeChanges(RecentsProvider::downloadChanges).collect { downloadRevision.longValue++ }
+        }
     }
 
-    private val downloadChanges: Flow<Unit> = merge(*providers.map { it.downloadChanges }.toTypedArray())
+    /**
+     * [signal] from the providers the chip shows only: watching novel downloads builds the novel
+     * download manager, which a surface drawing no novel row must not pay for.
+     */
+    private fun activeChanges(signal: (RecentsProvider) -> Flow<Unit>): Flow<Unit> =
+        contentType.flatMapLatest { chip -> merge(*activeIndices(chip).map { signal(providers[it]) }.toTypedArray()) }
 
     private fun RecentsDownloadUi.observed(): RecentsDownloadUi {
         val poll = state
@@ -580,7 +591,7 @@ class RecentsEngine(
             },
             progress = when (val progress = progress) {
                 is RecentsDownloadProgress.Live -> RecentsDownloadProgress.Live {
-                    downloadRevision.longValue
+                    progressRevision.longValue
                     progress.percent()
                 }
                 RecentsDownloadProgress.Unsupported -> progress

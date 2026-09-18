@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -145,11 +146,14 @@ class NovelRecentsAdapter(
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Novel)
 
-    // Built on collection, so the download manager is still only constructed once something renders a
-    // download state, as the providers above promise. The queue carries each download's state.
+    // Built on collection, which the engine does only while its chip shows novels, so a surface drawing
+    // no novel row never builds the download manager. The queue carries each download's state.
     override val downloadChanges: Flow<Unit> = flow {
         emitAll(merge(novelDownloadCacheProvider().changes, novelDownloadManagerProvider().queueState.map { }))
     }
+
+    // The novel engine reports no byte progress, matching the `Unsupported` its download states declare.
+    override val progressChanges: Flow<Unit> = emptyFlow()
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? =
         resolveTarget(item)?.let { ChapterRef(item.entryId, it.chapterId) }

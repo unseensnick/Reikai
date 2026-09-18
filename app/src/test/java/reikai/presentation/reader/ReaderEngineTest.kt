@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import android.content.Context
+import android.content.Intent
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -618,7 +619,7 @@ class ReaderEngineTest {
 
         engine(provider).chapterList.setRead(7L, read = true)
 
-        provider.chapterList.readMarks shouldBe 1
+        provider.chapterList.readMarks shouldBe listOf(7L to true)
     }
 
     /** A session with no auto-scroll still scrubs, rather than the engine reaching through a null. */
@@ -701,6 +702,16 @@ private class FakeReaderProvider(
         mockk(relaxed = true),
         EnglishChapterTitleWords,
     ).displayFilters
+
+    override val fullscreen = ReaderPreferences(InMemoryPreferenceStore()).fullscreen
+
+    override val drawUnderCutout = ReaderPreferences(InMemoryPreferenceStore()).drawUnderCutout
+
+    override fun onReaderMoved() = Unit
+
+    override fun flushPosition() = Unit
+
+    override fun detailsIntent(context: Context): Intent? = null
 
     override val orientation = MutableStateFlow(0)
 
@@ -793,8 +804,7 @@ private class FakeChapterList : ReaderChapterList {
 
     override val currentChapterId = MutableStateFlow(-1L)
 
-    var readMarks = 0
-        private set
+    val readMarks = mutableListOf<Pair<Long, Boolean>>()
 
     val opened = mutableListOf<Long>()
 
@@ -807,7 +817,7 @@ private class FakeChapterList : ReaderChapterList {
     }
 
     override fun setRead(chapterId: Long, read: Boolean) {
-        readMarks++
+        readMarks += chapterId to read
     }
 
     override fun setBookmark(chapterId: Long, bookmarked: Boolean) = Unit

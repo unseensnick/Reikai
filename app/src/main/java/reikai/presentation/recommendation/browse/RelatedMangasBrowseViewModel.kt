@@ -31,6 +31,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
@@ -115,27 +116,29 @@ class RelatedMangasBrowseViewModel(
     /** Enter selection mode from the toolbar Select button (long-press is the other entry point). */
     fun enterSelectionMode() = state.update { it.copy(selectionMode = true) }
 
-    fun toggleSelection(url: String) = state.update { st ->
-        selectionState = EntrySelection.toggle(selectionState, url)
-        st.copy(selectedUrls = selectionState.selection)
-    }
+    fun toggleSelection(url: String) = applySelection(EntrySelection.toggle(selectionState, url))
 
     /** Select every item between the last-toggled anchor and [url] (inclusive), in display order. */
-    fun toggleRangeSelection(url: String) = state.update { st ->
-        selectionState =
-            EntrySelection.rangeOrToggle(selectionState, url, st.visibleItems().map { it.candidate.manga.url })
-        st.copy(selectedUrls = selectionState.selection, selectionMode = true)
+    fun toggleRangeSelection(url: String) {
+        applySelection(EntrySelection.rangeOrToggle(selectionState, url, visibleUrls()))
+        state.update { it.copy(selectionMode = true) }
     }
 
-    fun selectAll() = state.update { st ->
-        selectionState = EntrySelection.selectAll(selectionState, st.visibleItems().map { it.candidate.manga.url })
-        st.copy(selectedUrls = selectionState.selection)
+    fun selectAll() = applySelection(EntrySelection.selectAll(selectionState, visibleUrls()))
+
+    fun clearSelection() {
+        applySelection(EntrySelection.clear())
+        state.update { it.copy(selectionMode = false) }
     }
 
-    fun clearSelection() = state.update {
-        selectionState = EntrySelection.clear()
-        it.copy(selectedUrls = selectionState.selection, selectionMode = false)
+    // The one writer of the selection, outside `update`: its block re-runs when a concurrent write
+    // wins, and a toggle run twice undoes itself.
+    private fun applySelection(next: SelectionState<String>) {
+        selectionState = next
+        state.update { it.copy(selectedUrls = next.selection) }
     }
+
+    private fun visibleUrls() = state.value.visibleItems().map { it.candidate.manga.url }
 
     fun dismissDialog() = state.update { it.copy(dialog = null) }
 
@@ -207,6 +210,8 @@ class RelatedMangasBrowseViewModel(
 
     private suspend fun finishAdd(added: Int, skipped: Int) {
         val favoriteKeys = currentFavoriteKeys()
+        // On the main thread, where every other selection write happens.
+        withUIContext { clearSelection() }
         state.update { st ->
             st.copy(
                 items = st.items.map {
@@ -215,8 +220,6 @@ class RelatedMangasBrowseViewModel(
                         (it.candidate.manga.url to it.candidate.sourceId) in favoriteKeys,
                     )
                 },
-                selectedUrls = emptySet(),
-                selectionMode = false,
                 dialog = null,
             )
         }

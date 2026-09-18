@@ -65,7 +65,6 @@ import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.databinding.ReaderActivityBinding
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
-import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.AddToLibraryFirst
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.Error
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.Success
@@ -129,7 +128,6 @@ import reikai.presentation.reader.resolvedForSystemTheme
 import reikai.presentation.reader.settings.ReaderSettingsPages
 import reikai.presentation.reader.settings.ReaderSettingsSheet
 import reikai.presentation.reader.text.NovelWindowDiff
-import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -352,7 +350,7 @@ class ReaderActivity : BaseActivity() {
             provider.viewportRebuilds.onEach { recreate() }.launchIn(lifecycleScope)
             val viewport = provider.createViewport(this)
             engine.installViewport(viewport)
-            updateViewerInset(fullscreenPref().get(), drawUnderCutoutPref().get())
+            updateViewerInset(engine.provider.fullscreen.get(), engine.provider.drawUnderCutout.get())
             binding.viewerContainer.addView(viewport.view)
             // Asked for rather than cast: which text renderer is running is the provider's choice.
             // A novel viewport that does not answer would render an empty reader in silence, so say so.
@@ -775,19 +773,10 @@ class ReaderActivity : BaseActivity() {
      * viewports add it at the top of the page. The WebView one is initial-scale=1, so its CSS pixels
      * are dp.
      */
-    // Fullscreen and draw-under-cutout belong to the reader the session is in: a novel session is
-    // configured from the novel reader screen, where its own pair lives. The session's type is fixed
-    // at launch, so which pair answers cannot change under a running reader.
-    private fun fullscreenPref() =
-        if (novelSession != null) novelPreferences.readerFullscreen() else readerPreferences.fullscreen
-
-    private fun drawUnderCutoutPref() =
-        if (novelSession != null) novelPreferences.readerDrawUnderCutout() else readerPreferences.drawUnderCutout
-
     internal fun displayCutoutTopDp(): Int {
         // RK: applyInsetsPadding already keeps the container clear of the cutout unless the reader
         // draws under it; a page adding the inset on top of that padding cleared the cutout twice.
-        if (!fullscreenPref().get() || !drawUnderCutoutPref().get()) return 0
+        if (!engine.provider.fullscreen.get() || !engine.provider.drawUnderCutout.get()) return 0
         val insets = ViewCompat.getRootWindowInsets(binding.root)
             ?.getInsets(WindowInsetsCompat.Type.displayCutout())
         return ((insets?.top ?: 0) / resources.displayMetrics.density).roundToInt()
@@ -827,9 +816,9 @@ class ReaderActivity : BaseActivity() {
     // RK <--
 
     override fun onPause() {
-        // RK: the novel model debounces its position writes, so the pending one is flushed here or
-        // being backgrounded and killed loses it.
-        novelSession?.viewModel?.flushProgress()
+        // RK: a session that defers its position writes flushes them here, or being backgrounded and
+        // killed loses the pending one.
+        engine.provider.flushPosition()
         lifecycleScope.launchNonCancellable {
             // RK: the session writes its own history row; the manga model was never given a novel entry.
             engine.provider.updateHistory()
@@ -912,30 +901,28 @@ class ReaderActivity : BaseActivity() {
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val handled = engine.viewport.value?.handleKeyEvent(event) ?: false
-        // RK: a key a novel page takes scrolls it, which is the reader moving (readerMoved).
-        if (handled) novelSession?.viewModel?.readerMoved()
+        // RK: a key the page takes scrolls it, which is the reader moving it.
+        if (handled) engine.provider.onReaderMoved()
         return handled || super.dispatchKeyEvent(event)
     }
 
-    // RK --> a novel open holds a chapter it landed in until the reader moves the page, and every
-    // drag in the reader, the rail's included, passes through here before any view sees it.
-    private var novelTouchDownX = 0f
-    private var novelTouchDownY = 0f
+    // RK --> the session hears when the reader moves the page, and every drag in the reader, the
+    // rail's included, passes through here before any view sees it.
+    private var touchDownX = 0f
+    private var touchDownY = 0f
     private val touchSlop by lazy { ViewConfiguration.get(this).scaledTouchSlop }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        novelSession?.let { session ->
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    novelTouchDownX = ev.x
-                    novelTouchDownY = ev.y
-                }
-                // Past the slop only: a tap that opens the menu moves nothing.
-                MotionEvent.ACTION_MOVE -> if (
-                    abs(ev.x - novelTouchDownX) > touchSlop || abs(ev.y - novelTouchDownY) > touchSlop
-                ) {
-                    session.viewModel.readerMoved()
-                }
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                touchDownX = ev.x
+                touchDownY = ev.y
+            }
+            // Past the slop only: a tap that opens the menu moves nothing.
+            MotionEvent.ACTION_MOVE -> if (
+                abs(ev.x - touchDownX) > touchSlop || abs(ev.y - touchDownY) > touchSlop
+            ) {
+                engine.provider.onReaderMoved()
             }
         }
         return super.dispatchTouchEvent(ev)
@@ -1096,9 +1083,10 @@ class ReaderActivity : BaseActivity() {
      */
     private fun setMenuVisibility(visible: Boolean) {
         viewModel.showMenus(visible)
+        // RK: fullscreen is the open session's own setting, as the inset pair below is.
         if (visible) {
             windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
-        } else if (fullscreenPref().get()) {
+        } else if (engine.provider.fullscreen.get()) {
             windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
         }
     }
@@ -1125,7 +1113,8 @@ class ReaderActivity : BaseActivity() {
         if (hadViewer) {
             binding.viewerContainer.removeAllViews()
         }
-        updateViewerInset(fullscreenPref().get(), drawUnderCutoutPref().get())
+        // RK: the session's own fullscreen and cutout pair.
+        updateViewerInset(engine.provider.fullscreen.get(), engine.provider.drawUnderCutout.get())
         binding.viewerContainer.addView(newViewport.view)
 
         // RK --> auto-webtoon overrode the default, so say why. Deliberately not gated on
@@ -1149,42 +1138,12 @@ class ReaderActivity : BaseActivity() {
         startPostponedEnterTransition()
     }
 
-    // RK -->
-
-    /**
-     * The app bar's title opens the entry's own details page. Two routes rather than one because the
-     * two screens are addressed differently: a manga by the row id the library route takes, a novel
-     * by its source and url, which is what its screen is pushed with. A novel with no row resolved
-     * yet falls through to manga's, which is a no-op in a novel session.
-     */
+    // RK --> the app bar's title opens the entry's own details page, which the session addresses.
+    // Upstream's openMangaScreen moved into MangaReaderProvider.detailsIntent.
     private fun openEntryScreen() {
-        val novelRoute = novelSession?.viewModel?.detailsRoute?.value
-        if (novelRoute == null) {
-            openMangaScreen()
-            return
-        }
-        startActivity(
-            Intent(this, MainActivity::class.java).apply {
-                action = Constants.SHORTCUT_NOVEL
-                putExtra(Constants.NOVEL_SOURCE_EXTRA, novelRoute.source)
-                putExtra(Constants.NOVEL_URL_EXTRA, novelRoute.url)
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            },
-        )
+        engine.provider.detailsIntent(this)?.let(::startActivity)
     }
     // RK <--
-
-    private fun openMangaScreen() {
-        viewModel.manga?.id?.let { id ->
-            startActivity(
-                Intent(this, MainActivity::class.java).apply {
-                    action = Constants.SHORTCUT_MANGA
-                    putExtra(Constants.MANGA_EXTRA, id)
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                },
-            )
-        }
-    }
 
     // RK: the URL is the session's answer rather than manga's, so a novel opens its own chapter page.
     // The source id is manga's only: it lets the WebView reuse that source's headers, and a novel
@@ -1438,9 +1397,10 @@ class ReaderActivity : BaseActivity() {
                 }
                 .launchIn(lifecycleScope)
 
+            // RK: the session's own fullscreen and cutout pair.
             combine(
-                fullscreenPref().changes(),
-                drawUnderCutoutPref().changes(),
+                engine.provider.fullscreen.changes(),
+                engine.provider.drawUnderCutout.changes(),
             ) { fullscreen, drawUnderCutout -> fullscreen to drawUnderCutout }
                 .onEach { (fullscreen, drawUnderCutout) ->
                     updateViewerInset(fullscreen, drawUnderCutout)

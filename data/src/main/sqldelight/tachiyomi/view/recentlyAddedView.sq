@@ -1,4 +1,4 @@
--- RK: the "newly added to the library" lane of the recents surface, one query per content type.
+-- The "newly added to the library" lane of the recents surface, one query per content type.
 -- Deliberately over the base tables rather than libraryView / novelLibraryView: those aggregate a
 -- chapter count per entry, which a row with no chapter has no use for. The category blocks match
 -- updatesView's, sentinel id 0 for uncategorized, so all three lanes filter the same way. No

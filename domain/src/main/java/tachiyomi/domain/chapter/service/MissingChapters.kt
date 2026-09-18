@@ -1,8 +1,5 @@
 package tachiyomi.domain.chapter.service
 
-import tachiyomi.domain.chapter.model.Chapter
-import kotlin.math.floor
-
 fun List<Double>.missingChaptersCount(): Int {
     if (this.isEmpty()) {
         return 0
@@ -37,13 +34,5 @@ fun List<Double>.missingChaptersCount(): Int {
     return missingChaptersCount
 }
 
-fun calculateChapterGap(higherChapter: Chapter?, lowerChapter: Chapter?): Int {
-    if (higherChapter == null || lowerChapter == null) return 0
-    if (!higherChapter.isRecognizedNumber || !lowerChapter.isRecognizedNumber) return 0
-    return calculateChapterGap(higherChapter.chapterNumber, lowerChapter.chapterNumber)
-}
-
-fun calculateChapterGap(higherChapterNumber: Double, lowerChapterNumber: Double): Int {
-    if (higherChapterNumber < 0.0 || lowerChapterNumber < 0.0) return 0
-    return floor(higherChapterNumber).toInt() - floor(lowerChapterNumber).toInt() - 1
-}
+// RK: upstream's two calculateChapterGap overloads are deleted. Their callers count a gap by the
+// chapter list's owner-aware rule instead, reikai.domain.merge.ChapterGap.

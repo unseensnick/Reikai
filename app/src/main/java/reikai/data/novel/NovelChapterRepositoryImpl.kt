@@ -114,14 +114,18 @@ class NovelChapterRepositoryImpl(
         false
     }
 
-    override suspend fun setLastTextProgress(id: Long, progress: Long): Boolean =
+    override suspend fun setLastTextProgress(id: Long, progress: Long): Boolean = try {
         // Null every column but last_text_progress so coalesce keeps the rest.
-        updateSingleColumn(id, lastTextProgress = progress)
-
-    override suspend fun setRead(id: Long, read: Boolean): Boolean =
-        // Null everywhere but read so coalesce keeps the rest (notably source_order, which a
-        // merged unified-list copy would otherwise overwrite with its synthetic value).
-        updateSingleColumn(id, read = read)
+        database.novel_chaptersQueries.update(
+            novelId = null, url = null, name = null, read = null, bookmark = null,
+            lastTextProgress = progress, chapterNumber = null, sourceOrder = null,
+            dateFetch = null, dateUpload = null, page = null, chapterId = id,
+        )
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to update novel chapter id=$id" }
+        false
+    }
 
     override suspend fun setBookmarkBulk(ids: List<Long>, bookmark: Boolean): Boolean = try {
         database.transaction {
@@ -159,21 +163,5 @@ class NovelChapterRepositoryImpl(
 
     override suspend fun delete(id: Long) {
         database.novel_chaptersQueries.delete(id)
-    }
-
-    private suspend fun updateSingleColumn(
-        id: Long,
-        read: Boolean? = null,
-        lastTextProgress: Long? = null,
-    ): Boolean = try {
-        database.novel_chaptersQueries.update(
-            novelId = null, url = null, name = null, read = read, bookmark = null,
-            lastTextProgress = lastTextProgress, chapterNumber = null, sourceOrder = null,
-            dateFetch = null, dateUpload = null, page = null, chapterId = id,
-        )
-        true
-    } catch (e: Exception) {
-        logcat(LogPriority.ERROR, e) { "Failed to update novel chapter id=$id" }
-        false
     }
 }

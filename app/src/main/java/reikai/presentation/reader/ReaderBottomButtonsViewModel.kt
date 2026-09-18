@@ -44,11 +44,10 @@ class ReaderBottomButtonsViewModel(
     val state: StateFlow<List<Row>> = combine(selection.changes(), order.changes()) { _, _ -> rows() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, rows())
 
+    /** A row is on exactly when the reader draws it, so the always-drawn gear reads as on here too. */
     fun rows(): List<Row> {
-        val selected = selection.get()
-        return ReaderBottomButton.arranged(order.get(), scope).map {
-            Row(it, it == ReaderBottomButton.Settings || it.value in selected)
-        }
+        val drawn = ReaderBottomButton.ordered(selection.get(), order.get(), scope).toSet()
+        return ReaderBottomButton.arranged(order.get(), scope).map { Row(it, it in drawn) }
     }
 
     fun toggle(button: ReaderBottomButton) {

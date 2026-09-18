@@ -18,7 +18,7 @@ sealed interface NovelChapterListEntry {
  * numbers leave a gap. Mirrors manga's `insertSeparators` swap logic: [sortDescending] flips which
  * neighbour is the higher number, the leading gap (ascending, before the first) and trailing gap
  * (descending, after the last) use `floor(number) - 1`, and an unrecognized number (< 0) yields no
- * separator (the Double [calculateChapterGap] overload returns 0 for it).
+ * separator ([ChapterGap.between] returns 0 for it).
  */
 fun buildNovelChapterListEntries(
     chapters: List<NovelChapter>,

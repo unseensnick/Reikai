@@ -28,11 +28,8 @@ class DeleteNovelChaptersAfterRead(
 
     suspend fun await(novelId: Long, chapters: List<NovelChapter>) {
         if (chapters.isEmpty() || !novelPreferences.removeAfterMarkedAsRead().get()) return
-        val excluded = novelPreferences.removeExcludeCategories().get().mapNotNull { it.toLongOrNull() }
-        if (excluded.isNotEmpty()) {
-            val cats = getNovelCategories.awaitByNovelId(novelId).map { it.id }.ifEmpty { listOf(0L) }
-            if (cats.intersect(excluded.toSet()).isNotEmpty()) return
-        }
+        val excluded = novelPreferences.removeExcludeCategories().get()
+        if (isExcludedFromRemoval(excluded) { getNovelCategories.awaitByNovelId(novelId).map { it.id } }) return
         val novel = novelRepository.getById(novelId) ?: return
         val allowBookmarked = novelPreferences.removeBookmarkedChapters().get()
         val manager = downloadManager()
