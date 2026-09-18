@@ -38,12 +38,12 @@ class ReadAloudControllerTest {
     // on the preference collectors, which never end.
     private fun TestScope.controller(
         dispatcher: CoroutineDispatcher = StandardTestDispatcher(testScheduler),
-        failsOnBuild: Boolean = false,
+        startsOnBuild: List<Boolean> = emptyList(),
     ) = ReadAloudController(
         scope = CoroutineScope(dispatcher + Job()),
         preferences = preferences,
         createEngine = { enginePackage, onInit ->
-            FakeTtsEngine(enginePackage, onInit, failsOnBuild).also { engines += it }
+            FakeTtsEngine(enginePackage, onInit, startsOnBuild.getOrNull(engines.size)).also { engines += it }
         },
         navigation = navigation,
         transport = transport,
@@ -354,17 +354,48 @@ class ReadAloudControllerTest {
     }
 
     /**
-     * Main.immediate runs the init callback's launch inline once the building coroutine was resumed from
-     * a real wait, which the unconfined scope and a surface slow to answer reproduce here.
+     * Played on engines reporting [starts] from their constructors. Main.immediate runs the init callback's
+     * launch inline once the building coroutine was resumed from a real wait, so the start lands before
+     * the build returns; the unconfined scope and a surface slow to answer reproduce that here.
+     */
+    private fun TestScope.playedOnEnginesStarting(vararg starts: Boolean): ReadAloudController {
+        surface.answerDelayMs = 1
+        return controller(UnconfinedTestDispatcher(testScheduler), starts.toList()).also { act { it.play() } }
+    }
+
+    @Test
+    fun `an engine that fails while being built speaks nothing`() = runTest {
+        playedOnEnginesStarting(false)
+
+        engines[0].spoken shouldBe emptyList()
+    }
+
+    @Test
+    fun `an engine that fails while being built stops playback`() = runTest {
+        val controller = playedOnEnginesStarting(false)
+
+        controller.state.value.playback shouldBe TtsPlayback.Stopped
+    }
+
+    @Test
+    fun `an engine that fails while being built is shut down`() = runTest {
+        playedOnEnginesStarting(false)
+
+        engines[0].shutDown shouldBe true
+    }
+
+    /**
+     * A wait for the failed engine's start, left behind, is taken up by the next engine's start while it
+     * is still being built, which builds a third engine and leaves reading on one that never starts.
      */
     @Test
-    fun `an engine that fails while being built stops playback and is shut down`() = runTest {
-        surface.answerDelayMs = 1
-        val controller = controller(UnconfinedTestDispatcher(testScheduler), failsOnBuild = true)
-
+    fun `a play after an engine failed while being built reads on with the engine it built`() = runTest {
+        val controller = playedOnEnginesStarting(false, true)
         act { controller.play() }
 
-        (controller.state.value.playback to engine.shutDown) shouldBe (TtsPlayback.Stopped to true)
+        act { engines[1].finishLast() }
+
+        engines[1].spoken shouldBe listOf("b", "c")
     }
 
     @Test
@@ -973,11 +1004,14 @@ class ReadAloudControllerTest {
         transport.released shouldBe true
     }
 
-    /** [failsOnBuild] reports a failed start from the constructor, as TextToSpeech does with no engine installed. */
+    /**
+     * [startsOnBuild] reports its start from the constructor, as TextToSpeech reports a failure when no
+     * engine is installed; null leaves the start to [init].
+     */
     private class FakeTtsEngine(
         val enginePackage: String,
         private val onInit: (Boolean) -> Unit,
-        failsOnBuild: Boolean,
+        startsOnBuild: Boolean?,
     ) : NovelTtsEngine {
         val spoken = mutableListOf<String>()
         val bySentence = mutableListOf<Boolean>()
@@ -994,7 +1028,7 @@ class ReadAloudControllerTest {
         var lastVoice: String? = null
 
         init {
-            if (failsOnBuild) onInit(false)
+            startsOnBuild?.let(onInit)
         }
 
         fun init(ready: Boolean) = onInit(ready)

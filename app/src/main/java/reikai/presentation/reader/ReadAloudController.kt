@@ -315,9 +315,7 @@ class ReadAloudController(
         val bySentence = preferences.readerTtsHighlight().get() && preferences.readerTtsHighlightSentence().get()
         // Marked sentence by sentence as each starts, so marking the paragraph first would flash all of it.
         if (!bySentence) surface?.highlight(at)
-        val speaker = engine ?: buildEngine()
-        // Building can fail at once, which has already stopped playback and dropped the engine.
-        if (playback != TtsPlayback.Playing || engine !== speaker) return
+        val speaker = engine ?: buildEngine() ?: return
         if (!engineReady) {
             awaitingInit = true
             return
@@ -373,13 +371,20 @@ class ReadAloudController(
         publish()
     }
 
-    private fun buildEngine(): NovelTtsEngine {
+    /**
+     * The engine now in use, or null when its start failed before the constructor returned: on an
+     * immediate scope that failure has already discarded this generation and stopped playback.
+     */
+    private fun buildEngine(): NovelTtsEngine? {
         val generation = ++engineGeneration
         enginePackage = preferences.readerTtsEngine().get()
         engineReady = false
         val built = createEngine(enginePackage) { ready -> scope.launch { onEngineInit(generation, ready) } }
-        // An init that failed before the constructor returned has already discarded this generation.
-        if (generation == engineGeneration) engine = built else built.shutdown()
+        if (generation != engineGeneration) {
+            built.shutdown()
+            return null
+        }
+        engine = built
         return built
     }
 
