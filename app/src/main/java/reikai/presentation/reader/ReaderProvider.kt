@@ -77,7 +77,10 @@ interface ReaderProvider {
      */
     val loadState: Flow<ReaderLoadState>
 
-    /** Re-runs the load that failed. Only reachable from the failure the host raises. */
+    /**
+     * Re-runs the load that failed as it ran, so a failed reload from the source is retried from the
+     * source rather than from a downloaded copy. Only reachable from the failure the host raises.
+     */
     fun retryLoad()
 
     /**

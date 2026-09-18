@@ -51,7 +51,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.google.android.material.transition.platform.MaterialContainerTransform
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.base.BasePreferences
-import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.reader.DisplayRefreshHost
 import eu.kanade.presentation.reader.ReaderContentOverlay
 import eu.kanade.presentation.reader.ReaderPageActionsDialog
@@ -210,8 +209,6 @@ class ReaderActivity : BaseActivity() {
     @Inject private lateinit var preferences: BasePreferences
 
     // RK -->
-    @Inject private lateinit var uiPreferences: UiPreferences
-
     @Inject private lateinit var novelPreferences: NovelPreferences
     // RK <--
 
@@ -488,9 +485,10 @@ class ReaderActivity : BaseActivity() {
         }
 
         // RK -->
-        // Both sessions answer through one kernel, so a novel's chrome tints as a manga's does.
-        val coverSeed by remember { engine.provider.seedColor(applicationContext) }.collectAsState(null)
-        val seedColor = coverSeed?.takeIf { uiPreferences.themeCoverBased.get() }?.let { ComposeColor(it) }
+        // Both sessions answer through one kernel, so a novel's chrome tints as a manga's does. Null while
+        // cover-based theming is off, and then the cover is never decoded.
+        val coverSeed by remember { engine.coverSeed(applicationContext) }.collectAsState(null)
+        val seedColor = coverSeed?.let { ComposeColor(it) }
         TachiyomiTheme(seedColor = seedColor) {
             // RK <--
             Box(modifier = Modifier.fillMaxSize()) {

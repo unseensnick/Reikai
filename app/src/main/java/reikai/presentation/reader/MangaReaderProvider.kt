@@ -106,22 +106,29 @@ class MangaReaderProvider(
 
     override val showProgress: Flow<Boolean> = readerPreferences.showPageNumber.changes()
 
-    // A step or a pick that failed is reported, and stays so until the next one starts. A chapter that
-    // cannot open at all is upstream's initError, which closes the reader with its own message. A
-    // neighbour failing to preload keeps upstream's retry on its transition page and reports nothing.
+    // A step, a pick or a reload that failed is reported, and stays so until the next one starts. A
+    // chapter that cannot open at all is upstream's initError, which closes the reader with its own
+    // message. A neighbour failing to preload keeps upstream's retry on its transition page and
+    // reports nothing.
     override val loadState: Flow<ReaderLoadState> = viewModel.state.map { state ->
         val failure = state.adjacentLoadFailure
         when {
             state.isLoadingAdjacentChapter -> ReaderLoadState.Loading
-            failure != null -> ReaderLoadState.Failed(failure.message, canKeepReading = state.currentChapter != null)
+            failure != null -> ReaderLoadState.Failed(
+                failure.message,
+                canKeepReading = state.currentChapter != null,
+                attempt = failure.attempt,
+            )
             else -> ReaderLoadState.Idle
         }
     }
 
     // The chapter that failed, re-opened through the sheet's own path, which resolves against the live
-    // chapter list rather than the reader's copy. Retrying a pick goes through the engine instead.
+    // chapter list rather than the reader's copy. Retrying a pick goes through the engine instead, and
+    // a reload from the source is retried as one, since the sheet's path would serve a downloaded copy.
     override fun retryLoad() {
         val state = viewModel.state.value
+        if (state.adjacentLoadFailure?.fromSource == true) return viewModel.reloadChapter(fromSource = true)
         val id = state.adjacentLoadFailure?.chapterId ?: state.currentChapter?.chapter?.id ?: return
         chapterList.open(id)
     }

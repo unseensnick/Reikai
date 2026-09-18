@@ -909,7 +909,11 @@ class NovelReaderViewModel(
                 logcat(LogPriority.ERROR, e) { "Failed to load novel chapter $target" }
                 // A failed step stamped the chapter it left into history, and the reader goes on in it.
                 if (loadedChapter.value != null && chapterReadStartTime == null) restartReadTimer()
-                loadState.value = ReaderLoadState.Failed(e.message, canKeepReading = loadedChapter.value != null)
+                loadState.value = ReaderLoadState.Failed(
+                    e.message,
+                    canKeepReading = loadedChapter.value != null,
+                    attempt = ReaderLoadState.Failed.nextAttempt(),
+                )
                 readAloud.onChapterLoadFailed()
             }
         }

@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
@@ -9,15 +10,17 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -39,6 +42,7 @@ class ReaderEngine(
     // the call site. Public because the host builds its viewport through it, which is what keeps the
     // host from branching on content type once there is a second provider.
     @Assisted val provider: ReaderProvider,
+    private val uiPreferences: UiPreferences,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -77,10 +81,18 @@ class ReaderEngine(
     val currentChapterId: StateFlow<Long> =
         provider.chapterList.currentChapterId.stateIn(viewModelScope, SharingStarted.Eagerly, -1L)
 
-    /** A pick that failed is retried as a pick, so the chapter still lands where it resumes. */
+    /**
+     * A pick that failed is retried as a pick, so the chapter still lands where it resumes. Only while
+     * its failure is the latest: a load that failed since is what the raised failure is about.
+     */
     fun retryLoad() {
-        failedPick?.let(::openChapter) ?: provider.retryLoad()
+        val pick = failedPick?.takeIf { it.attempt == latestFailure }
+        if (pick != null) openChapter(pick.chapterId) else provider.retryLoad()
     }
+
+    /** The colour the chrome tints with, from the entry's cover, while cover-based theming is on. */
+    fun coverSeed(context: Context): Flow<Int?> =
+        if (uiPreferences.themeCoverBased.get()) provider.seedColor(context) else flowOf(null)
 
     /** Whether the open chapter is bookmarked, so the bar's control reflects this session's chapter. */
     val bookmarked: StateFlow<Boolean> =
@@ -121,24 +133,31 @@ class ReaderEngine(
     /** One pick at a time: a chapter that never loads would otherwise leave a wait behind per tap. */
     private var openJob: Job? = null
 
+    private class FailedPick(val chapterId: Long, val attempt: Long)
+
     /** The last pick, while its load has failed and nothing has been picked since. */
-    private var failedPick: Long? = null
+    private var failedPick: FailedPick? = null
+
+    /** The attempt of the latest failure raised, which is the one a Retry answers. */
+    private var latestFailure: Long? = null
 
     private fun openChapter(chapterId: Long) {
         openJob?.cancel()
         failedPick = null
         openJob = viewModelScope.launch {
+            // A failure already showing is an earlier load's, so only a later one counts. Told apart
+            // by attempt: the Loading between the two can be conflated away, and the messages match.
+            val earlier = (provider.loadState.first() as? ReaderLoadState.Failed)?.attempt
             provider.chapterList.open(chapterId)
             // A failure ends the pick, or reaching that chapter later by a step would land it like one.
-            // A failure already showing is an earlier load's, so only one after it counts.
-            val landed = merge(
-                provider.chapterList.currentChapterId.filter { it == chapterId }.map { true },
-                provider.loadState.dropWhile { it is ReaderLoadState.Failed }
-                    .filter { it is ReaderLoadState.Failed }
-                    .map { false },
+            val landed: Flow<ReaderLoadState.Failed?> =
+                provider.chapterList.currentChapterId.filter { it == chapterId }.map { null }
+            val failure = merge(
+                landed,
+                provider.loadState.filterIsInstance<ReaderLoadState.Failed>().filter { it.attempt != earlier },
             ).first()
-            if (!landed) {
-                failedPick = chapterId
+            if (failure != null) {
+                failedPick = FailedPick(chapterId, failure.attempt)
                 return@launch
             }
             // Yielded, because the host hands the new chapters to the viewer from its own collector on
@@ -226,8 +245,10 @@ class ReaderEngine(
                     ReaderLoadState.Loading -> if (mutableDialog.value != ReaderDialog.Settings) {
                         openDialog(ReaderDialog.Loading)
                     }
-                    is ReaderLoadState.Failed ->
+                    is ReaderLoadState.Failed -> {
+                        latestFailure = state.attempt
                         openDialog(ReaderDialog.LoadFailed(state.message, state.canKeepReading))
+                    }
                     // Only what this raised: a chapter arriving must not close the sheet the reader
                     // opened while waiting for it.
                     ReaderLoadState.Idle -> dismissLoadDialog()

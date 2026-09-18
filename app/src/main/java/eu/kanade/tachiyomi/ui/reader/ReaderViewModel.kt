@@ -89,7 +89,9 @@ import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
 import reikai.presentation.reader.ChapterSwitches
+import reikai.presentation.reader.ReaderLoadState
 import reikai.presentation.reader.ReaderResume
+import reikai.presentation.reader.unloadForReload
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -612,25 +614,36 @@ class ReaderViewModel(
 
         logcat { "Loading adjacent ${chapter.chapter.url}" }
 
-        // RK: the failure is kept, not only logged, so the engine ends a pick that failed and the host says so.
-        mutableState.update { it.copy(isLoadingAdjacentChapter = true, adjacentLoadFailure = null) }
-        // RK: a pick or a step outranks any switch a page asked for before it, see ChapterSwitches.
-        withUIContext { chapterSwitches.beginExplicit() }
-        try {
+        // RK -->
+        reportExplicitLoad(chapter.chapter.id!!, fromSource = false) {
+            // A pick or a step outranks any switch a page asked for before it, see ChapterSwitches.
+            withUIContext { chapterSwitches.beginExplicit() }
             withIOContext {
                 loadChapter(loader, chapter)
             }
+        }
+        // RK <--
+    }
+
+    // RK --> a load the reader asked for by a step, a pick or a reload. The failure is kept, not only
+    // logged, so the engine ends a pick that failed and the host says so. It is cleared as each load
+    // starts, so a success goes back to idle and a repeat of the same failure is reported again.
+    private suspend fun reportExplicitLoad(chapterId: Long, fromSource: Boolean, load: suspend () -> Unit) {
+        mutableState.update { it.copy(isLoadingAdjacentChapter = true, adjacentLoadFailure = null) }
+        try {
+            load()
         } catch (e: Throwable) {
             if (e is CancellationException) {
                 throw e
             }
             logcat(LogPriority.ERROR, e)
-            // RK
-            mutableState.update { it.copy(adjacentLoadFailure = AdjacentLoadFailure(chapter.chapter.id!!, e.message)) }
+            val failure = AdjacentLoadFailure(chapterId, e.message, fromSource, ReaderLoadState.Failed.nextAttempt())
+            mutableState.update { it.copy(adjacentLoadFailure = failure) }
         } finally {
             mutableState.update { it.copy(isLoadingAdjacentChapter = false) }
         }
     }
+    // RK <--
 
     /**
      * Called when the viewers decide it's a good time to preload a [chapter] and improve the UX so
@@ -764,8 +777,7 @@ class ReaderViewModel(
             } else {
                 navigable(getNextChapters.await(nextChapterManga.id, nextChapter.id!!), nextChapter.toDomainChapter()!!)
                     // RK: a source-scoped session on a merged series skips what another source read too.
-                    .let { own -> own.filterNot(groupFlags(own)::isRead) }
-                    .take(downloadAheadAmount)
+                    .let { own -> chaptersToDownloadAhead(own, 0, downloadAheadAmount, groupFlags(own)::isRead) }
             }
 
             chaptersToDownload.groupBy { it.mangaId }.forEach { (ownerId, owned) ->
@@ -971,7 +983,6 @@ class ReaderViewModel(
         // RK --> flipped from the group's answer the bar shows, and written to every source's copy
         // through the chapter sheet's verb, which also moves the bar.
         val bookmarked = !state.value.bookmarked
-        chapter.bookmark = bookmarked
         toggleBookmark(chapter.id!!, bookmarked)
         // RK <--
     }
@@ -1145,24 +1156,12 @@ class ReaderViewModel(
         val loader = loader ?: return
         val chapter = state.value.viewerChapters?.currChapter ?: return
         viewModelScope.launchIO {
-            try {
-                if (fromSource) {
-                    chapter.pages?.forEach { page -> page.imageUrl?.let(chapterCache::removeImage) }
-                    chapter.chapter.toDomainChapter()?.let(chapterCache::removePageList)
-                }
-                chapter.pageLoader?.recycle()
-                chapter.pageLoader = null
-                chapter.state = ReaderChapter.State.Wait
+            reportExplicitLoad(chapter.chapter.id!!, fromSource) {
+                chapter.unloadForReload(fromSource, chapterCache)
                 loader.loadChapter(chapter, fromSource)
                 val lastPage = chapter.pages?.lastIndex ?: 0
                 chapter.requestedPage = chapterPageIndex.coerceIn(0, maxOf(0, lastPage))
                 eventChannel.send(Event.ReloadedChapter)
-            } catch (e: Throwable) {
-                if (e is CancellationException) throw e
-                logcat(LogPriority.ERROR, e) { "Failed to reload chapter" }
-                mutableState.update {
-                    it.copy(adjacentLoadFailure = AdjacentLoadFailure(chapter.chapter.id!!, e.message))
-                }
             }
         }
     }
@@ -1175,7 +1174,8 @@ class ReaderViewModel(
             // instead of silently doing nothing when skip-read has removed it from the navigation list.
             val newChapter = fullChapterList.firstOrNull { it.chapter.id == chapter.id }
                 ?: return@launchIO mutableState.update {
-                    it.copy(adjacentLoadFailure = AdjacentLoadFailure(chapter.id, message = null))
+                    val failure = AdjacentLoadFailure(chapter.id, null, false, ReaderLoadState.Failed.nextAttempt())
+                    it.copy(adjacentLoadFailure = failure)
                 }
             loadAdjacent(newChapter)
         }
@@ -1438,8 +1438,15 @@ class ReaderViewModel(
         }
     }
 
-    // RK: a chapter the reader asked for by a step or a pick that did not open, and why.
-    data class AdjacentLoadFailure(val chapterId: Long, val message: String?)
+    // RK: a chapter the reader asked for by a step, a pick or a reload that did not open, and why.
+    // [fromSource] marks a reload from the source, which a retry repeats as one; [attempt] is
+    // ReaderLoadState.Failed's, so a repeat of the same failure still reads as new.
+    data class AdjacentLoadFailure(
+        val chapterId: Long,
+        val message: String?,
+        val fromSource: Boolean,
+        val attempt: Long,
+    )
 
     @Immutable
     data class State(
@@ -1451,7 +1458,7 @@ class ReaderViewModel(
         val isLoadingAdjacentChapter: Boolean = false,
         // RK -->
         val position: ReaderPosition? = null,
-        /** The step or pick that could not open, kept until the next one starts. */
+        /** The step, pick or reload that could not open, kept until the next one starts. */
         val adjacentLoadFailure: AdjacentLoadFailure? = null,
         // RK <--
 

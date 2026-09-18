@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
@@ -15,6 +16,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -29,6 +31,7 @@ import reikai.data.novel.tts.SleepTimer
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 
 class ReaderEngineTest {
 
@@ -46,7 +49,15 @@ class ReaderEngineTest {
         Dispatchers.resetMain()
     }
 
-    private fun engine(provider: FakeReaderProvider = FakeReaderProvider()) = ReaderEngine(provider)
+    private fun engine(provider: FakeReaderProvider = FakeReaderProvider(), themeCoverBased: Boolean = true) =
+        ReaderEngine(
+            provider,
+            UiPreferences(
+                InMemoryPreferenceStore(
+                    sequenceOf(InMemoryPreference("pref_theme_cover_based_key", themeCoverBased, true)),
+                ),
+            ),
+        )
 
     @Test
     fun `nothing is raised to begin with`() {
@@ -105,7 +116,7 @@ class ReaderEngineTest {
         val provider = FakeReaderProvider()
         val engine = engine(provider)
 
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true)
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
 
         engine.dialog.value shouldBe ReaderDialog.LoadFailed("no connection", canKeepReading = true)
     }
@@ -494,7 +505,7 @@ class ReaderEngineTest {
         engine.chapterList.open(FakeChapterList.NEVER_LOADS)
         provider.loadState.value = ReaderLoadState.Loading
         advanceUntilIdle()
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true)
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
         advanceUntilIdle()
 
         provider.chapterList.currentChapterId.value = FakeChapterList.NEVER_LOADS
@@ -509,7 +520,7 @@ class ReaderEngineTest {
         val engine = engine(provider)
         val viewport = FakeViewport()
         engine.installViewport(viewport)
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true)
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
         engine.chapterList.open(FakeChapterList.NEVER_LOADS)
         advanceUntilIdle()
 
@@ -529,7 +540,7 @@ class ReaderEngineTest {
         engine.chapterList.open(FakeChapterList.NEVER_LOADS)
         provider.loadState.value = ReaderLoadState.Loading
         advanceUntilIdle()
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true)
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
         advanceUntilIdle()
 
         provider.chapterList.loadsAgain = true
@@ -538,6 +549,66 @@ class ReaderEngineTest {
         advanceUntilIdle()
 
         "${provider.chapterList.opened} ${viewport.chapterOpens} ${provider.retried}" shouldBe "[99, 99] 1 0"
+    }
+
+    /** Retry answers the failure on screen, and a load since the pick is what that failure is about. */
+    @Test
+    fun `a load failing after a failed pick retries that load, not the pick`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        engine.chapterList.open(FakeChapterList.NEVER_LOADS)
+        provider.loadState.value = ReaderLoadState.Loading
+        advanceUntilIdle()
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
+        advanceUntilIdle()
+        provider.loadState.value = ReaderLoadState.Loading
+        advanceUntilIdle()
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 2L)
+        advanceUntilIdle()
+
+        engine.retryLoad()
+        advanceUntilIdle()
+
+        "${provider.chapterList.opened} ${provider.retried}" shouldBe "[99] 1"
+    }
+
+    /**
+     * The state is conflated, so the Loading between an earlier failure and the pick's own can go
+     * unseen. The pick has to end on its failure all the same, or its Retry is not a pick.
+     */
+    @Test
+    fun `a pick failing the way the failure before it did still ends`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
+        engine.chapterList.open(FakeChapterList.NEVER_LOADS)
+        advanceUntilIdle()
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 2L)
+        advanceUntilIdle()
+
+        engine.retryLoad()
+        advanceUntilIdle()
+
+        "${provider.chapterList.opened} ${provider.retried}" shouldBe "[99, 99] 0"
+    }
+
+    /** Finding the colour decodes the cover, which is wasted where nothing is tinted from it. */
+    @Test
+    fun `with cover theming off the cover is never asked for its colour`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+
+        engine(provider, themeCoverBased = false).coverSeed(mockk()).first()
+
+        provider.seedAsked shouldBe false
+    }
+
+    @Test
+    fun `with cover theming on the chrome tints from the cover`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+
+        engine(provider, themeCoverBased = true).coverSeed(mockk()).first()
+
+        provider.seedAsked shouldBe true
     }
 
     /** The sheet's other verbs are the provider's own, so wrapping open must not swallow them. */
@@ -650,7 +721,13 @@ private class FakeReaderProvider(
 
     override val readAloud: ReaderReadAloud? get() = readAloudSlot
 
-    override fun seedColor(context: Context): Flow<Int?> = flowOf(null)
+    var seedAsked = false
+        private set
+
+    override fun seedColor(context: Context): Flow<Int?> {
+        seedAsked = true
+        return flowOf(null)
+    }
 
     override fun pageBackground(context: Context): Flow<Int> = flowOf(0)
 

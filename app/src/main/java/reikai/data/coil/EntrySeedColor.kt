@@ -33,9 +33,14 @@ suspend fun Context.extractCoverColor(coverData: Any): Int? = withIOContext {
     val request = ImageRequest.Builder(this@extractCoverColor)
         .data(coverData)
         .allowHardware(false) // Palette can't read hardware bitmaps
+        // With no view to size it, the cover would decode at full size for a pick Palette makes from
+        // about 112 by 112 pixels anyway.
+        .size(PALETTE_SAMPLE_SIZE)
         .build()
     imageLoader.execute(request).image
         ?.asDrawable(resources)
         ?.getBitmapOrNull()
         ?.let { Palette.from(it).generate().getBestColor() }
 }
+
+private const val PALETTE_SAMPLE_SIZE = 256

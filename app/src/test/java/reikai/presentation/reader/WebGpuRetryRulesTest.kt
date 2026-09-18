@@ -40,6 +40,18 @@ class WebGpuRetryRulesTest {
     }
 
     @Test
+    fun `with transition pages on a waiting neighbour still leads to one`() {
+        showsTransition(alwaysShowChapterTransition = true, neighbour = ReaderChapter.State.Wait) shouldBe true
+    }
+
+    @Test
+    fun `with both sides failed the next one is offered first`() {
+        val next = chapter(2L, failed)
+
+        chapterToRetry(chapter(1L, failed), next) shouldBe next
+    }
+
+    @Test
     fun `a transition page offers the side that failed`() {
         val previous = chapter(1L, failed)
 
