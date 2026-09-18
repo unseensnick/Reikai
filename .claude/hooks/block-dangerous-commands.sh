@@ -51,7 +51,7 @@ contains_icmd() { printf '%s' "$COMMAND" | grep -qiE "$1"; }
 # branch probe below would otherwise read THIS repo's branch and gate a push to a different one.
 UNPROTECTED_REPOS="${CLAUDE_UNPROTECTED_REPOS:-reikai-claude-memories}"
 # The session's cwd, which is where the command actually runs. The hook's own cwd is always the
-# project dir, so it can see neither a loop worktree nor a session working in a sibling repo.
+# project dir, so it can see neither a worktree nor a session working in a sibling repo.
 SESSION_CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 targets_unprotected_repo() {
   local repo
@@ -77,7 +77,7 @@ if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push' && ! targets_unpro
   fi
   # Bare `git push` while on protected branch
   if contains_cmd 'git[[:space:]]+push[[:space:]]*($|[;&|])'; then
-    # Probe the session's cwd, not the hook's, so a push from a loop worktree is judged against the
+    # Probe the session's cwd, not the hook's, so a push from a worktree is judged against the
     # worktree's own branch instead of the main tree's.
     CURRENT=$(git -C "${SESSION_CWD:-.}" branch --show-current 2>/dev/null || git branch --show-current 2>/dev/null || true)
     if [ -n "$CURRENT" ] && printf '%s' ",$PROTECTED_BRANCHES," | grep -q ",$CURRENT,"; then
@@ -96,9 +96,7 @@ if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push'; then
 fi
 
 # ── Merging is never the agent's call ───────────────────────────────────
-# Both loops (.claude/skills/sync-loop, audit-loop) open a PR and stop; the owner merges. Rulesets
-# cannot cover this one: to GitHub a PR merge is legitimate, so this matcher is the only guard, and it
-# is why merging stays a named stop condition in both skills rather than resting on the remote.
+# Rulesets cannot cover this one: to GitHub a PR merge is legitimate, so this matcher is the only guard.
 if contains_cmd '(^|[;&|()]+[[:space:]]*)gh[[:space:]]+pr[[:space:]]+merge'; then
   emit_deny "Blocked: merging a PR is the owner's call. Open the PR and stop."
 fi

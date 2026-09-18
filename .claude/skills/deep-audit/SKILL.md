@@ -1,6 +1,6 @@
 ---
 name: deep-audit
-description: Read-only, many-agent audit of a whole range of work (default the current branch against main) for bugs, misconfiguration, missing wiring, dead code, rule violations and manga/novel drift. Runs a Workflow that slices the range, points thirteen lenses at it (including two-ends tracing, where independent agents start at the write side and the read side of one value and a third compares them), refutes high and medium findings before they count, and reports. A --quick mode reads the same range with far fewer agents and verifies only high findings. Never edits code; fixes go to /audit-loop one surface at a time. Use when the user asks for a broad audit, a pre-release audit, or "check that all the changes work together". NOT for one surface (/audit-loop), one diff (/pr-review) or parity with the Yōkai branch (/port-audit).
+description: Read-only, many-agent audit of a whole range of work (default the current branch against main) for bugs, misconfiguration, missing wiring, dead code, rule violations and manga/novel drift. Runs a Workflow that slices the range, points thirteen lenses at it (including two-ends tracing, where independent agents start at the write side and the read side of one value and a third compares them), refutes high and medium findings before they count, and reports. A --quick mode reads the same range with far fewer agents and verifies only high findings. Never edits code; it reports, and fixing is a separate step. Use when the user asks for a broad audit, a pre-release audit, or "check that all the changes work together". NOT for one diff (/pr-review) or parity with the Yōkai branch (/port-audit).
 argument-hint: "[<rev>..<rev> | <path> | <surface>] [--quick] [--lenses a,b] [--mutate] [--yes]"
 disable-model-invocation: false
 allowed-tools:
@@ -13,11 +13,11 @@ allowed-tools:
 
 Audit a whole range of Reikai work with many agents, verify every finding adversarially, and report.
 **This skill writes one file, the ledger, and nothing else.** It never edits code, never fixes, never
-commits. Fixing is `/audit-loop`'s job, one surface per run, because that loop's rule (attack the
-finding before touching anything) is what keeps fixes honest.
+commits. Fixing is a separate step, and each fix starts by attacking its finding again before
+touching anything, which is what keeps fixes honest.
 
-How it differs from its siblings: `/pr-review` is a fast diff check with no verification,
-`/audit-loop` takes one surface and ends in a PR, `/port-audit` compares against the Yōkai branch.
+How it differs from its siblings: `/pr-review` is a fast diff check with no verification, and
+`/port-audit` compares against the Yōkai branch.
 This one is broad on purpose, and the map step shows what it will cost before anything expensive runs.
 A full run on a large range is a large share of a week's quota (one run over 674 files used more than
 80M tokens before the cost fixes), so reach for `--quick` unless the owner asks for full depth.
@@ -159,9 +159,8 @@ with its range. Everything around the list stays dense.
 - **Coverage**: a compact table of lens by target with its status. Name every failed task and every
   gap the critic raised that was not re-run. Without this, "no findings" can't be told apart from
   "nobody looked".
-- **Hand-offs**: group confirmed findings by surface, with one line each: `/audit-loop <surface>`. A
-  surface with more than about five confirmed findings is flagged as a design problem for the owner,
-  which is `/audit-loop`'s own stop condition.
+- **Hand-offs**: group confirmed findings by surface, one line each, as the work list for fixing. A
+  surface with more than about five confirmed findings is flagged as a design problem for the owner.
 - **Refuted**: a count, plus any refutation the owner might want to overturn.
 
 Say plainly that the run was read-only, and which findings still need a device.

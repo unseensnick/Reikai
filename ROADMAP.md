@@ -39,10 +39,6 @@ Opportunistic polish:
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move Reikai's look off the stock Material 3 aesthetic (shape, typography, component styling, spacing, layout) across the shared `Entry*` surfaces, while keeping Mihon's existing theme system in Appearance settings intact: the user-selectable color themes, light/dark, AMOLED, and Theme-based-on-cover all stay, and the redesign renders under whichever the user picked. It owns component styling and layout, not the color-palette picker, and must preserve both the phone and tablet layouts Reikai inherited from Mihon. Exploratory, and it starts by seeding tokens in `DESIGN.md`. [Plan](docs/dev/plans/unified-content-ui.md).
 
-### Build & CI
-
-- **Exercise the three work loops for real** `[S]` - the worktree and PR path is untested on all three, and `/sync-loop` has only had a read-only rehearsal, so the stop conditions that sit after the gates and the PR are still theory and no `--dry-run` reaches them. `--no-worktree` exercises the stop conditions on all three and opens nothing, leaving only the worktree and PR plumbing untested.
-
 ## Parked / not building
 
 One line each; revive note where relevant.
