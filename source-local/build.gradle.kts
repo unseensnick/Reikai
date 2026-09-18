@@ -30,4 +30,6 @@ dependencies {
     implementation(libs.metro.runtime)
     implementation(libs.injekt)
     implementation(libs.jsoup)
+
+    implementation(libs.kotlinx.datetime)
 }

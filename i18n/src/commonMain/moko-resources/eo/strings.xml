@@ -884,4 +884,5 @@
     <string name="pref_vertical_navigator">Uzi vertikalan ĉapitran navigilon en</string>
     <string name="downloading_with_progress">Elŝutado… (%d%%)</string>
     <string name="theme_tokyonight">Tokia nokto</string>
+    <string name="pref_category_extensions">Etendaĵoj</string>
 </resources>

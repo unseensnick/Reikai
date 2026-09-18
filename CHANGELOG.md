@@ -369,6 +369,7 @@ every release now also ships a foss build with neither in it.
 
 #### Added
 
+- **A chapter in the local manga source now takes its date from the Year, Month and Day in its ComicInfo.xml (synced from Mihon, mihonapp/mihon#3967).** Only the file's last-modified date could set it before.
 - **Any source's filters can now be saved as a named search and re-applied from a chip while you browse that source (ported from Komikku).** Long-press the chip to delete the search.
 - **Browse can now show a Feed tab, turned on under Settings -> Browse, with one row of covers for every source or saved search you add to it (ported from Komikku).** A row holds that source's latest, or what the saved search returns; the tab takes twenty, and a long press removes a row.
 - **The Feed's rows can now be dragged into the order you want.** The order sticks across restarts, and comes back with a backup restore.
@@ -486,6 +487,10 @@ every release now also ships a foss build with neither in it.
 
 ### Downloads & extensions
 
+#### Changed
+
+- **A downloaded manga chapter now records its upload date in its ComicInfo.xml (synced from Mihon, mihonapp/mihon#3967).** Move the folder into the local source later and the date comes with it.
+
 #### Fixed
 
 - **Installing an extension through Shizuku works again.**
@@ -568,14 +573,14 @@ every release now also ships a foss build with neither in it.
 - The search bar and the tracker sign-in fields now use Compose's newer text-field implementation, and the reader's progress sliders its newer slider state, following a Compose bump synced from Mihon (mihonapp/mihon#3752).
 - Cancelling an extension install no longer goes through a local broadcast, which the Material library dropped at 1.14.0 (synced from Mihon, mihonapp/mihon#3226).
 - The app now compiles against Android SDK 37.1 (synced from Mihon).
-- Dependency bumps synced from Mihon: Injekt, FlexibleAdapter and the SQLDelight AndroidX driver moved to their upstream releases, and the markdown renderer and the benchmark and baseline-profile tooling were updated.
+- Dependency bumps synced from Mihon: Injekt, FlexibleAdapter and the SQLDelight AndroidX driver moved to their upstream releases, and the markdown renderer, the Metro dependency-injection compiler and the benchmark and baseline-profile tooling were updated.
 - Added an on-device test that measures how a scrolling list holds its position when content is inserted above the reader, to settle a design question for the upcoming novel reader. Test only, nothing in the app changed.
 - The bottom navigation and the tablet side rail are now drawn by Material's own adaptive navigation component instead of hand-rolled copies (synced from Mihon, mihonapp/mihon#3834).
 - The in-app browser and the Cloudflare bypass now present a consistent browser identity, so a site checking both the user agent and its client hints no longer sees them disagree (synced from Mihon, mihonapp/mihon#3678).
 - The tracker sign-in browser now presents that same identity, so a Cloudflare clearance earned while signing in stays valid for the requests that follow.
 - Category renames, reorders and flag changes each write through their own query instead of one update that touched every column (synced from Mihon, mihonapp/mihon#3693).
 - Looking up a source now waits for the extension scan instead of reading a half-built list, so a screen opened during startup gets a slow answer rather than a wrong one (synced from Mihon, mihonapp/mihon#3869). Novel sources changed the same way.
-- Translated strings refreshed across most locales (synced from Mihon, mihonapp/mihon#3563, mihonapp/mihon#3677, mihonapp/mihon#3701 and mihonapp/mihon#3938).
+- Translated strings refreshed across most locales (synced from Mihon, mihonapp/mihon#3563, mihonapp/mihon#3677, mihonapp/mihon#3701, mihonapp/mihon#3938 and mihonapp/mihon#3950).
 - A shared crash log now carries verbose lines when verbose logging is on, instead of always filtering to errors (synced from Mihon, mihonapp/mihon#3682).
 - Extensions are now class-loaded through the platform's own delegate-last loader rather than a hand-rolled one (synced from Mihon, mihonapp/mihon#3874).
 - Dates and times are now handled by the Kotlin standard library and kotlinx-datetime rather than java.time, matching Mihon (synced from Mihon, mihonapp/mihon#3001).
