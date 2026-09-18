@@ -1,11 +1,13 @@
 package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -34,10 +36,15 @@ class ReadAloudControllerTest {
 
     // Not backgroundScope, whose tasks advanceUntilIdle leaves unrun. Its own Job, so runTest does not wait
     // on the preference collectors, which never end.
-    private fun TestScope.controller() = ReadAloudController(
-        scope = CoroutineScope(StandardTestDispatcher(testScheduler) + Job()),
+    private fun TestScope.controller(
+        dispatcher: CoroutineDispatcher = StandardTestDispatcher(testScheduler),
+        failsOnBuild: Boolean = false,
+    ) = ReadAloudController(
+        scope = CoroutineScope(dispatcher + Job()),
         preferences = preferences,
-        createEngine = { enginePackage, onInit -> FakeTtsEngine(enginePackage, onInit).also { engines += it } },
+        createEngine = { enginePackage, onInit ->
+            FakeTtsEngine(enginePackage, onInit, failsOnBuild).also { engines += it }
+        },
         navigation = navigation,
         transport = transport,
     ).also { it.attach(surface) }
@@ -283,13 +290,15 @@ class ReadAloudControllerTest {
         engine.spoken shouldBe listOf("b", "a")
     }
 
+    /** Two paragraphs on, which neither the notification's next nor its previous reaches. */
     @Test
     fun `the notification's seek speaks the paragraph sought`() = runTest {
+        surface.firstVisible = ReadAloudPosition(1L, 0)
         playing()
 
-        act { transport.onSeek(0) }
+        act { transport.onSeek(2) }
 
-        engine.spoken shouldBe listOf("b", "a")
+        engine.spoken shouldBe listOf("a", "c")
     }
 
     @Test
@@ -330,6 +339,32 @@ class ReadAloudControllerTest {
         act { controller.play() }
 
         engines.size shouldBe 2
+    }
+
+    @Test
+    fun `an engine replaced before it starts ignores the old engine's start`() = runTest {
+        val controller = controller()
+        act { controller.play() }
+        act { preferences.readerTtsEngine().set("other") }
+        act { controller.play() }
+
+        act { engines[0].init(true) }
+
+        engines[1].spoken shouldBe emptyList()
+    }
+
+    /**
+     * Main.immediate runs the init callback's launch inline once the building coroutine was resumed from
+     * a real wait, which the unconfined scope and a surface slow to answer reproduce here.
+     */
+    @Test
+    fun `an engine that fails while being built stops playback and is shut down`() = runTest {
+        surface.answerDelayMs = 1
+        val controller = controller(UnconfinedTestDispatcher(testScheduler), failsOnBuild = true)
+
+        act { controller.play() }
+
+        (controller.state.value.playback to engine.shutDown) shouldBe (TtsPlayback.Stopped to true)
     }
 
     @Test
@@ -620,6 +655,24 @@ class ReadAloudControllerTest {
     }
 
     @Test
+    fun `resuming after a paused handoff starts the new chapter at its first sentence`() = runTest {
+        sentenceChapter()
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        val controller = playing()
+        act { engine.pieceStarts.last()(1) }
+        act { engine.finishLast() }
+        act { controller.pause() }
+        surface.chapters[2L] = listOf("Eight. Nine.")
+        act { controller.onRendererLanded(2L) }
+
+        act { controller.play() }
+
+        engine.spoken.last() shouldBe "Eight. Nine."
+    }
+
+    @Test
     fun `play after a pause while the next chapter opens starts it once the renderer lands`() = runTest {
         preferences.readerTtsAutoPageAdvance().set(true)
         navigation.after[1L] = 2L
@@ -839,6 +892,33 @@ class ReadAloudControllerTest {
     }
 
     @Test
+    fun `a saved rate reaches the engine once it starts`() = runTest {
+        preferences.readerTtsRate().set(1.5f)
+
+        playing()
+
+        engine.lastRate shouldBe 1.5f
+    }
+
+    @Test
+    fun `a saved pitch reaches the engine once it starts`() = runTest {
+        preferences.readerTtsPitch().set(0.5f)
+
+        playing()
+
+        engine.lastPitch shouldBe 0.5f
+    }
+
+    @Test
+    fun `a saved voice reaches the engine once it starts`() = runTest {
+        preferences.readerTtsVoice().set("voice")
+
+        playing()
+
+        engine.lastVoice shouldBe "voice"
+    }
+
+    @Test
     fun `an engine change stops playback`() = runTest {
         val controller = playing()
 
@@ -893,8 +973,12 @@ class ReadAloudControllerTest {
         transport.released shouldBe true
     }
 
-    private class FakeTtsEngine(val enginePackage: String, private val onInit: (Boolean) -> Unit) : NovelTtsEngine {
-        override var isReady = false
+    /** [failsOnBuild] reports a failed start from the constructor, as TextToSpeech does with no engine installed. */
+    private class FakeTtsEngine(
+        val enginePackage: String,
+        private val onInit: (Boolean) -> Unit,
+        failsOnBuild: Boolean,
+    ) : NovelTtsEngine {
         val spoken = mutableListOf<String>()
         val bySentence = mutableListOf<Boolean>()
 
@@ -909,10 +993,11 @@ class ReadAloudControllerTest {
         var lastPitch: Float? = null
         var lastVoice: String? = null
 
-        fun init(ready: Boolean) {
-            isReady = ready
-            onInit(ready)
+        init {
+            if (failsOnBuild) onInit(false)
         }
+
+        fun init(ready: Boolean) = onInit(ready)
 
         fun finish(index: Int) = finishes[index]()
 

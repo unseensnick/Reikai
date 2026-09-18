@@ -237,6 +237,12 @@ class NovelPreferences(
     /** Chosen voice name within the engine (the `Voice.name` id); empty = engine default. */
     fun readerTtsVoice() = preferenceStore.getString("ln_reader_tts_voice", "")
 
+    /** Sets the engine. A voice belongs to the engine offering it, so switching engines clears the voice. */
+    fun setReaderTtsEngine(enginePackage: String) {
+        if (enginePackage != readerTtsEngine().get()) readerTtsVoice().set("")
+        readerTtsEngine().set(enginePackage)
+    }
+
     /** Base language codes (e.g. `en`, `ja`) the voice picker is filtered to. Empty = show every
      *  language the engine offers. */
     fun readerTtsLanguages() = preferenceStore.getStringSet("ln_reader_tts_languages", emptySet())

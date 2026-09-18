@@ -2183,11 +2183,14 @@ class TextViewportContractTest(private val renderer: Renderer) {
         return (-top).coerceIn(0f, height - viewport) / (height - viewport) * 100f
     }
 
-    private fun paragraphs(chapterId: Long): List<String>? =
-        runBlocking(Dispatchers.Main) { viewport.readAloud.paragraphs(chapterId) }
+    /** Bounded, since the web renderer answers only once the page does, and a page that never does would hang. */
+    private fun paragraphs(chapterId: Long): List<String>? = runBlocking(Dispatchers.Main) {
+        withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { viewport.readAloud.paragraphs(chapterId) }
+    }
 
-    private fun firstVisibleParagraph(): ReadAloudPosition? =
-        runBlocking(Dispatchers.Main) { viewport.readAloud.firstVisibleParagraph() }
+    private fun firstVisibleParagraph(): ReadAloudPosition? = runBlocking(Dispatchers.Main) {
+        withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { viewport.readAloud.firstVisibleParagraph() }
+    }
 
     private fun highlight(position: ReadAloudPosition?, range: IntRange? = null) {
         instrumentation.runOnMainSync { viewport.readAloud.highlight(position, range) }

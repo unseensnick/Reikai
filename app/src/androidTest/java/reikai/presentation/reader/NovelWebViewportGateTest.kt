@@ -11,6 +11,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import mihon.app.di.appGraph
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -186,14 +187,19 @@ class NovelWebViewportGateTest {
     fun aMalformedFirstVisibleParagraphReadsAsNone() {
         openAndAwaitReady(1L)
         evalOnPage("window.rkReader.readAloud.firstVisible = function () { return 5; }")
-        assertEquals(null, runBlocking { viewport.readAloud.firstVisibleParagraph() })
+        assertEquals(null, bounded { viewport.readAloud.firstVisibleParagraph() })
     }
 
     @Test
     fun malformedParagraphsReadAsNone() {
         openAndAwaitReady(1L)
         evalOnPage("window.rkReader.readAloud.paragraphs = function () { return { not: 'a list' }; }")
-        assertEquals(null, runBlocking { viewport.readAloud.paragraphs(1L) })
+        assertEquals(null, bounded { viewport.readAloud.paragraphs(1L) })
+    }
+
+    /** A read-aloud answer waits on the page's reply, so a page that never replies fails here rather than hangs. */
+    private fun <T> bounded(query: suspend () -> T): T = runBlocking {
+        withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { query() }
     }
 
     private fun evalOnPage(js: String) {

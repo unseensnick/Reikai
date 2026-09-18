@@ -30,6 +30,8 @@ import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withCompositionLocal
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -276,9 +278,17 @@ private fun getIndex() = settingScreens
         SettingsData(
             title = stringResource(screen.getTitleRes()),
             route = screen,
-            contents = screen.getPreferences(),
+            // RK -->
+            contents = withCompositionLocal(LocalSettingsIndexing provides true) { screen.getPreferences() },
+            // RK <--
         )
     }
+
+// RK -->
+
+/** True while search composes a screen's rows only to read their titles, so a row costly to back skips that. */
+internal val LocalSettingsIndexing = staticCompositionLocalOf { false }
+// RK <--
 
 private fun getLocalizedBreadcrumb(path: String, node: String?, isLtr: Boolean): String {
     return if (node == null) {

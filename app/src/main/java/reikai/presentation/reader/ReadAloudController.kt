@@ -275,12 +275,17 @@ class ReadAloudController(
     private suspend fun playAt(index: Int, fromSentence: Int = 0) {
         val id = chapterId ?: return stop()
         if (index > paragraphs.lastIndex) return endChapter()
+        moveTo(id, index, fromSentence)
+        setPlayback(TtsPlayback.Playing)
+        speakCurrent()
+    }
+
+    /** Every move to a paragraph, so no sentence state of the one before is carried into it. */
+    private fun moveTo(id: Long, index: Int, fromSentence: Int = 0) {
         position = ReadAloudPosition(id, index)
         sentence = null
         sentences = emptyList()
         sentenceIndex = fromSentence
-        setPlayback(TtsPlayback.Playing)
-        speakCurrent()
     }
 
     private suspend fun endChapter() {
@@ -300,8 +305,7 @@ class ReadAloudController(
         chapterId = id
         paragraphs = chapter
         unplaced = false
-        position = ReadAloudPosition(id, 0)
-        sentence = null
+        moveTo(id, 0)
         surface?.highlight(position)
         publish()
     }

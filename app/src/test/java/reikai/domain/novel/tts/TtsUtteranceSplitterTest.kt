@@ -17,7 +17,7 @@ class TtsUtteranceSplitterTest {
     private val runOnSentence = List(300) { "word" }.joinToString(" ") + "."
 
     private fun split(text: String, maxLength: Int, locale: Locale = Locale.ENGLISH) =
-        TtsUtteranceSplitter.split(text, maxLength, locale)
+        TtsUtteranceSplitter.pieces(text, maxLength, locale, bySentence = false).map { it.text }
 
     /** Capitalized because a sentence boundary is not one where the next word is lower case, so a
      *  fixture without it never exercises the sentence pass at all. */
@@ -136,6 +136,6 @@ class TtsUtteranceSplitterTest {
     @Test
     fun `a sentence past the cap still splits under it when spoken by sentence`() {
         TtsUtteranceSplitter.pieces(runOnSentence, maxLength = 200, Locale.ENGLISH, bySentence = true)
-            .forEach { it.text.length shouldBeLessThanOrEqual 200 }
+            .maxOf { it.text.length } shouldBeLessThanOrEqual 200
     }
 }

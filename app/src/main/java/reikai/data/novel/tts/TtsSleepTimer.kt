@@ -30,7 +30,7 @@ class TtsSleepTimer(private val clock: () -> Long) {
         timer.value = SleepTimer.At(clock() + minutes * MINUTE_MS, minutes)
     }
 
-    /** Only for an owner that reports chapter ends; [onPublished] drops it for one that does not. */
+    /** Only for an owner that calls [takeEndOfChapter] at chapter ends; nothing clears it for one that does not. */
     fun setEndOfChapter() {
         timer.value = SleepTimer.EndOfChapter
     }

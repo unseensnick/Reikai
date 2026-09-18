@@ -34,6 +34,7 @@ import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.toHexRgb
 import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
+import reikai.presentation.reader.TtsOptions
 import reikai.presentation.reader.readerBottomButtonsPreference
 import reikai.presentation.reader.readerFonts
 import reikai.presentation.reader.readerGenericFonts
@@ -87,7 +88,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val highlight by novelPreferences.readerTtsHighlight().collectAsState()
         val keepInView by novelPreferences.readerTtsKeepInView().collectAsState()
         val highlightStyle by novelPreferences.readerTtsHighlightStyle().collectAsState()
-        val options by rememberTtsOptions(context, engine)
+        // Search composes every screen for each query, and binding an engine there only to name three rows
+        // would start one per keystroke, so it indexes them without one.
+        val indexing = LocalSettingsIndexing.current
+        val options = if (indexing) TtsOptions() else rememberTtsOptions(context, engine).value
 
         val defaultLabel = stringResource(MR.strings.label_default)
         val languages = remember(options.voices) {
@@ -108,12 +112,12 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     entries = mapOf("" to defaultLabel) + options.engines.associate { it.packageName to it.label },
                     title = stringResource(MR.strings.pref_tts_engine),
                     subtitleProvider = { value, entries -> entries[value] ?: value },
-                    // A voice belongs to the engine that offers it, so one kept across a switch never applies.
+                    // Stored through the helper, which also clears a voice the new engine does not offer.
                     onValueChanged = {
-                        if (it != engine) voicePref.set("")
-                        true
+                        novelPreferences.setReaderTtsEngine(it)
+                        false
                     },
-                ).takeIf { options.engines.size > 1 },
+                ).takeIf { indexing || options.engines.size > 1 },
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = novelPreferences.readerTtsLanguages(),
                     entries = languages,
@@ -121,7 +125,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     subtitleProvider = { values, entries ->
                         values.mapNotNull { entries[it] }.joinToString().ifEmpty { stringResource(MR.strings.all) }
                     },
-                ).takeIf { languages.size > 1 },
+                ).takeIf { indexing || languages.size > 1 },
                 Preference.PreferenceItem.ListPreference(
                     preference = voicePref,
                     entries = mapOf("" to defaultLabel) + shownVoices,

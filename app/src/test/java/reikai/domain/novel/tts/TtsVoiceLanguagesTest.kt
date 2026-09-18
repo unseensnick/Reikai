@@ -21,6 +21,12 @@ class TtsVoiceLanguagesTest {
         voices.inLanguages(setOf("en")) shouldBe listOf(usEnglish, ukEnglish)
     }
 
+    /** A filter kept from another engine, which would otherwise leave nothing to pick but Default. */
+    @Test
+    fun `a selection naming no language these voices offer shows every voice`() {
+        listOf(usEnglish, ukEnglish).inLanguages(setOf("ja")) shouldBe listOf(usEnglish, ukEnglish)
+    }
+
     @Test
     fun `the language list folds regions and drops a voice with no language`() {
         voices.baseLanguages() shouldBe listOf("en", "ja")

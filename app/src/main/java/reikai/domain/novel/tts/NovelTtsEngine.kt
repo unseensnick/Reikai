@@ -10,9 +10,6 @@ package reikai.domain.novel.tts
  */
 interface NovelTtsEngine {
 
-    /** Whether the backend has finished initializing and can speak. */
-    val isReady: Boolean
-
     /** Installed engines on the device, for the settings engine picker. */
     fun availableEngines(): List<TtsEngineInfo>
 
@@ -59,6 +56,12 @@ data class TtsVoice(val name: String, val displayName: String, val locale: Strin
 /** Base language codes the voices span, in first-seen order. */
 fun List<TtsVoice>.baseLanguages(): List<String> = map { it.baseLanguage }.filter { it.isNotBlank() }.distinct()
 
-/** The voices in [languages]; an empty set is no filter, which is the preference's default. */
-fun List<TtsVoice>.inLanguages(languages: Set<String>): List<TtsVoice> =
-    if (languages.isEmpty()) this else filter { it.baseLanguage in languages }
+/**
+ * The voices in [languages], counting only the ones these voices offer. None of them, the preference's
+ * empty default included, is no filter: one kept from another engine would leave nothing to pick. It is
+ * not cleared on a switch, so switching back brings it back.
+ */
+fun List<TtsVoice>.inLanguages(languages: Set<String>): List<TtsVoice> {
+    val offered = languages intersect baseLanguages().toSet()
+    return if (offered.isEmpty()) this else filter { it.baseLanguage in offered }
+}

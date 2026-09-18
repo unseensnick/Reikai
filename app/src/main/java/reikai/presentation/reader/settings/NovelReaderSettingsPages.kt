@@ -652,9 +652,7 @@ private fun EngineRow(preferences: NovelPreferences, options: TtsOptions) {
         ListPickerDialog(MR.strings.pref_tts_engine, onDismiss = { picking = false }) {
             (listOf("" to defaultLabel) + options.engines.map { it.packageName to it.label }).forEach { (name, label) ->
                 RadioItem(label = label, selected = name == engine) {
-                    // A voice belongs to the engine that offers it, so one kept across a switch never applies.
-                    if (name != engine) preferences.readerTtsVoice().set("")
-                    enginePref.set(name)
+                    preferences.setReaderTtsEngine(name)
                     picking = false
                 }
             }

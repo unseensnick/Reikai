@@ -16,9 +16,6 @@ data class TtsPiece(val text: String, val start: Int, val end: Int)
  */
 object TtsUtteranceSplitter {
 
-    fun split(text: String, maxLength: Int, locale: Locale): List<String> =
-        pieces(text, maxLength, locale, bySentence = false).map { it.text }
-
     /**
      * The pieces of [text] with their offsets in it. [bySentence] gives every sentence a piece of its own,
      * so the one being spoken can be marked; otherwise sentences are packed up to [maxLength].

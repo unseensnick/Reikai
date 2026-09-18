@@ -138,8 +138,13 @@ class TtsFocusPolicyTest {
     }
 
     @Test
-    fun `stopping during a transient loss cancels the resume`() {
-        pausedBy(Change.LossTransient).onPlayback(TtsPlayback.Stopped)
+    fun `stopping during a transient loss gives focus back`() {
+        pausedBy(Change.LossTransient).onPlayback(TtsPlayback.Stopped) shouldBe Focus.Abandon
+    }
+
+    @Test
+    fun `a gain after a transient then a permanent loss does not resume`() {
+        pausedBy(Change.LossTransient).onFocusChange(Change.Loss)
 
         policy.onFocusChange(Change.Gain) shouldBe Response.Nothing
     }
