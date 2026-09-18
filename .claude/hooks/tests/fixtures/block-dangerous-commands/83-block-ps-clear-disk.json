@@ -1,0 +1,13 @@
+{
+  "name": "block Clear-Disk",
+  "stdin": {
+    "tool_input": {
+      "command": "Clear-Disk -Number 1"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "disk or volume"
+  ]
+}

@@ -5,8 +5,7 @@
 # Both tools must be matched in settings.json. The PowerShell tool is a
 # separate tool from Bash, so a matcher of "Bash" alone leaves every guard
 # here bypassable by rewriting the command in PowerShell. Both tools carry the
-# command in .tool_input.command, so the parsing below is shared, but the
-# destructive spellings are not: see the PowerShell section.
+# command in .tool_input.command, so the parsing below is shared.
 #
 # Exit 2 = block. Exit 0 = allow.
 #
@@ -38,11 +37,125 @@ if GIT_DEFAULT=$(git config --get init.defaultBranch 2>/dev/null) && [ -n "$GIT_
   DEFAULT_BRANCHES="$DEFAULT_BRANCHES,$GIT_DEFAULT"
 fi
 PROTECTED_BRANCHES="${CLAUDE_PROTECTED_BRANCHES:-$DEFAULT_BRANCHES}"
-# Build a regex alternation: main|master|develop|...
-BR_REGEX=$(printf '%s' "$PROTECTED_BRANCHES" | tr ',' '\n' | awk 'NF{printf "%s%s",sep,$0; sep="|"}')
 
 contains_cmd() { printf '%s' "$COMMAND" | grep -qE "$1"; }
 contains_icmd() { printf '%s' "$COMMAND" | grep -qiE "$1"; }
+
+# ── One normalised reading of the command ───────────────────────────────
+# The structural rules (push, merge, deletes, secret reads, destructive git) read the command as the
+# shell and PowerShell would split it, not as one spelling: quotes and backticks dropped, backslashes
+# turned into slashes, lower-cased, and cut into one command per line at ; & | ( ) { } and newlines.
+# A rule matching the raw text knew one spelling each and missed the rest (-fr, --recursive,
+# -Recurse:$true, C:/, .\.env, GC, +main, git -C, a merge inside a script block).
+NORM=$(printf '%s' "$COMMAND" | tr -d "'\"\`" | tr '\\' '/' | tr '[:upper:]' '[:lower:]' | sed -E 's/[;&|(){}]+/\n/g')
+
+# Each normalised command is read token by token. A finding is printed as one line: its code, then an
+# argument. Command-position rules look at the verb only (after sudo/env-style prefixes), since several
+# verbs are also English words that a commit message may carry; delete and destructive-git rules look
+# anywhere in a command, as the raw-text rules before them did.
+FINDINGS=$(printf '%s\n' "$NORM" | awk -v protected="$(printf '%s' "$PROTECTED_BRANCHES" | tr '[:upper:]' '[:lower:]')" '
+BEGIN {
+  n = split(protected, p, ",")
+  for (i = 1; i <= n; i++) if (p[i] != "") PROT[p[i]] = 1
+  READERS = "^(cat|head|tail|sed|awk|grep|rg|less|more|strings|xxd|od|base64|cp|mv|scp|curl|get-content|gc|type|select-string|sls|copy-item|copy|cpi|move-item|move|mi|invoke-item|ii)$"
+  DELETES = "^(rm|rmdir|rd|del|erase|ri|remove-item|remove-itemproperty)$"
+  PS_ONLY = "^(rmdir|rd|del|erase|ri|remove-item|remove-itemproperty)$"
+  split("recurse force path literalpath include exclude filter confirm whatif credential stream erroraction verbose", PSP, " ")
+}
+function base(x) { sub(/^.*\//, "", x); return x }
+# First token after git and its global options, recording a -C directory.
+function git_sub(j,    x) {
+  j++
+  while (j <= nt) {
+    x = t[j]
+    if (x == "-c") { if (t[j + 1] !~ /=/) print "GITC " t[j + 1]; j += 2; continue }
+    if (x ~ /^--(git-dir|work-tree|namespace|exec-path|super-prefix)=/ || x ~ /^--(no-pager|paginate|bare|no-replace-objects|literal-pathspecs)$/ || x == "-p") { j++; continue }
+    break
+  }
+  return j
+}
+function check_push(k,    m, x, force, remote, nonflag, refs, probe, r, d) {
+  force = 0; nonflag = 0; refs = 0; probe = 0
+  for (m = k + 1; m <= nt; m++) {
+    x = t[m]
+    if (x == "") continue
+    if (x == "--force") force = 1
+    else if (x ~ /^--force-(with-lease|if-includes)/) continue
+    else if (x == "--all" || x == "--mirror") print "PUSH_PROTECTED every branch"
+    else if (x ~ /^--(repo|push-option|receive-pack|exec)$/) m++
+    else if (x ~ /^--/) continue
+    else if (x ~ /^-[a-z]+$/) { if (x ~ /f/) force = 1; if (x == "-o") m++ }
+    else {
+      nonflag++
+      if (nonflag == 1) { remote = x; continue }
+      refs++; r = x
+      if (substr(r, 1, 1) == "+") { force = 1; r = substr(r, 2) }
+      d = r; sub(/^.*:/, "", d); sub(/^refs\/heads\//, "", d)
+      if (d == "head" || d == "") probe = 1
+      else if (d in PROT) print "PUSH_PROTECTED " d
+    }
+  }
+  if (force) print "FORCE"
+  if (refs == 0 || probe) print "PUSH_PROBE"
+}
+function is_ps_param(y,    i) {
+  if (length(y) < 2) return 0
+  for (i in PSP) if (index(PSP[i], y) == 1) return 1
+  return 0
+}
+function check_delete(j,    m, x, y, recursive, ps, danger, sys) {
+  recursive = 0; ps = (base(t[j]) ~ PS_ONLY); danger = ""; sys = ""
+  for (m = j + 1; m <= nt; m++) {
+    x = t[m]
+    if (x == "" || x == "--") continue
+    if (x == "--recursive") { recursive = 1; continue }
+    if (x ~ /^-/) {
+      y = substr(x, 2)
+      if (y ~ /:\$?false$/) continue
+      sub(/:\$?true$/, "", y)
+      if (index("recurse", y) == 1) { recursive = 1; if (length(y) > 1) ps = 1 }
+      else if (is_ps_param(y)) ps = 1
+      else if (y ~ /^[a-z]+$/ && y ~ /r/) recursive = 1
+      continue
+    }
+    if (x ~ /^\/\*?$/ || x ~ /^~\/?\*?$/ || x ~ /^\$/ || x ~ /^\.\.\/\.\./ || x ~ /^[a-z]:\/?\*?$/ || x ~ /^\/[a-z]\/?\*?$/) danger = x
+    if (x ~ /^\/(usr|etc|var|bin|sbin|lib|opt|root|boot)(\/|$)/) sys = "posix"
+    if (x ~ /^([a-z]:|\/[a-z])\/(windows|users|programdata)(\/|$)/ || x ~ /^([a-z]:|\/[a-z])\/program$/) sys = "windows"
+  }
+  if (sys == "windows") print "DELETE_SYSDIR ps"
+  else if (recursive && sys == "posix") print "DELETE_SYSDIR posix"
+  if (recursive && danger != "") print "DELETE_ROOT " (ps ? "ps" : "posix")
+}
+function has_secret(j,    m, x) {
+  for (m = j + 1; m <= nt; m++) {
+    x = t[m]
+    if (x ~ /keystore\.properties|google-services\.json/ || x ~ /\.(jks|keystore)$/) return 1
+    if (x ~ /(^|[=\/])\.env([.\/]|$)/) return 1
+  }
+  return 0
+}
+{
+  nt = split($0, t, /[ \t]+/)
+  i = 1
+  while (i <= nt && (t[i] == "" || t[i] ~ /^(sudo|command|exec|nohup|time|env)$/ || t[i] ~ /^[a-z_][a-z0-9_]*=/)) i++
+  if (i > nt) next
+  verb = base(t[i])
+  if (verb ~ /^git(\.exe)?$/) { k = git_sub(i); if (t[k] == "push") check_push(k) }
+  if (verb ~ /^gh(\.exe)?$/ && t[i + 1] == "pr" && t[i + 2] == "merge") print "MERGE"
+  if (verb ~ /^gh(\.exe)?$/ && t[i + 1] == "api" && $0 ~ /pulls\/[0-9]+\/merge/) print "MERGE_API"
+  if (verb ~ READERS && has_secret(i)) print "SECRET"
+  for (j = i; j <= nt; j++) {
+    if (base(t[j]) ~ DELETES) check_delete(j)
+    if (base(t[j]) ~ /^git(\.exe)?$/) {
+      k = git_sub(j)
+      if (t[k] == "clean") for (m = k + 1; m <= nt; m++) if (t[m] == "--force" || t[m] ~ /^-[a-z]*f[a-z]*$/) { print "CLEAN"; break }
+      if (t[k] == "reset") for (m = k + 1; m <= nt; m++) if (t[m] == "--hard") { print "RESET"; break }
+    }
+  }
+}')
+
+found() { printf '%s\n' "$FINDINGS" | grep -q "^$1\( \|$\)"; }
+found_arg() { printf '%s\n' "$FINDINGS" | grep "^$1 " | head -1 | cut -d' ' -f2-; }
 
 # ── Git push protections ────────────────────────────────────────────────
 # Repos whose main IS the working branch (the memories store), so protecting it only produces
@@ -65,21 +178,15 @@ targets_unprotected_repo() {
   return 1
 }
 
-if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push' && ! targets_unprotected_repo; then
-  # Explicit refspec to a protected branch (origin main, :main, HEAD:main, remote branch)
-  if contains_cmd "git[[:space:]]+push[[:space:]]+[^[:space:]]+[[:space:]]+([^[:space:]]*:)?($BR_REGEX)(\$|[[:space:]])"; then
-    MATCHED_BRANCH=$(printf '%s' "$COMMAND" | grep -oE "($BR_REGEX)(\$|[[:space:]])" | head -1 | tr -d '[:space:]')
-    emit_deny "Blocked: push to protected branch '${MATCHED_BRANCH:-main}'. Use a feature branch and open a PR."
+if ! targets_unprotected_repo; then
+  if found PUSH_PROTECTED; then
+    emit_deny "Blocked: push to protected branch '$(found_arg PUSH_PROTECTED)'. Use a feature branch and open a PR."
   fi
-  if contains_cmd "git[[:space:]]+push.*:($BR_REGEX)(\$|[[:space:]])"; then
-    MATCHED_BRANCH=$(printf '%s' "$COMMAND" | grep -oE ":($BR_REGEX)(\$|[[:space:]])" | head -1 | tr -d ': [:space:]')
-    emit_deny "Blocked: push to protected branch '${MATCHED_BRANCH:-main}' via refspec. Use a feature branch and open a PR."
-  fi
-  # Bare `git push` while on protected branch
-  if contains_cmd 'git[[:space:]]+push[[:space:]]*($|[;&|])'; then
-    # Probe the session's cwd, not the hook's, so a push from a worktree is judged against the
-    # worktree's own branch instead of the main tree's.
-    CURRENT=$(git -C "${SESSION_CWD:-.}" branch --show-current 2>/dev/null || git branch --show-current 2>/dev/null || true)
+  # A push naming no branch pushes the current one. Probe the session's cwd (and any git -C
+  # directory), not the hook's, so a push from a worktree is judged against its own branch.
+  if found PUSH_PROBE; then
+    GIT_C=$(found_arg GITC)
+    CURRENT=$(git -C "${SESSION_CWD:-.}" ${GIT_C:+-C "$GIT_C"} branch --show-current 2>/dev/null || true)
     if [ -n "$CURRENT" ] && printf '%s' ",$PROTECTED_BRANCHES," | grep -q ",$CURRENT,"; then
       emit_deny "Blocked: you are on '$CURRENT' (a protected branch). Switch to a feature branch."
     fi
@@ -87,52 +194,36 @@ if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push' && ! targets_unpro
 fi
 
 # Force push is blocked everywhere, including the unprotected repos above: the reason to exempt
-# them is that main is their working branch, not that overwriting their history is fine.
-if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push'; then
-  if contains_cmd 'git[[:space:]]+push([[:space:]]+[^[:space:]]+)*[[:space:]]+(-[a-zA-Z]*f[a-zA-Z]*|--force)([[:space:]=]|$)' \
-     && ! contains_cmd '\-\-force-with-lease'; then
-    emit_deny "Blocked: force push is not allowed. Use --force-with-lease if you must overwrite remote."
-  fi
+# them is that main is their working branch, not that overwriting their history is fine. A `+`
+# refspec is a force push, and an explicit --force counts even beside --force-with-lease.
+if found FORCE; then
+  emit_deny "Blocked: force push is not allowed. Use --force-with-lease if you must overwrite remote."
 fi
 
 # ── Merging is never the agent's call ───────────────────────────────────
 # Rulesets cannot cover this one: to GitHub a PR merge is legitimate, so this matcher is the only guard.
-if contains_cmd '(^|[;&|()]+[[:space:]]*)gh[[:space:]]+pr[[:space:]]+merge'; then
+if found MERGE; then
   emit_deny "Blocked: merging a PR is the owner's call. Open the PR and stop."
 fi
-if contains_cmd 'gh[[:space:]]+api[^;&|]*pulls/[0-9]+/merge'; then
+if found MERGE_API; then
   emit_deny "Blocked: merging a PR through the API is the owner's call. Open the PR and stop."
 fi
 
 # ── Destructive filesystem operations ───────────────────────────────────
-# rm -rf targeting root, home, $HOME, $VAR (any unresolved expansion), or parent traversal.
-# We normalise quotes before matching so "my folder", '$HOME/trash', etc. Are all inspected.
-CMD_NOQUOTE=$(printf '%s' "$COMMAND" | tr -d "'\"")
-if printf '%s' "$CMD_NOQUOTE" | grep -qE 'rm[[:space:]]+(-[a-zA-Z]*[[:space:]]+)*-?[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*[[:space:]]+(/([[:space:]]|\*|$)|~|\$HOME|\$[A-Za-z_][A-Za-z0-9_]*|\.\./\.\.)' ; then
+# A recursive delete (rm, or any PowerShell delete verb or alias, however the recurse switch is
+# spelled) of /, a drive root, home, an unresolved $variable or ../.., and any delete inside a
+# system directory. `rm` is PowerShell's alias for Remove-Item, so a PowerShell switch on it counts.
+if found "DELETE_ROOT ps"; then
+  emit_deny "Blocked: recursive PowerShell delete on a drive root, home, or unresolved \$variable. Specify a concrete safe target."
+fi
+if found DELETE_ROOT; then
   emit_deny "Blocked: recursive force-delete on /, ~, \$HOME, an unresolved \$VAR, or .../.. Path. Specify a concrete safe target."
 fi
-# rm -rf /usr, /etc, /var, /bin, etc.
-if printf '%s' "$CMD_NOQUOTE" | grep -qE 'rm[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*-?[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*[[:space:]]+/(usr|etc|var|bin|sbin|lib|opt|root|boot)([[:space:]/]|$)'; then
-  emit_deny "Blocked: recursive delete targeting a system directory."
+if found "DELETE_SYSDIR ps"; then
+  emit_deny "Blocked: PowerShell delete targeting a system directory."
 fi
-
-# ── PowerShell destructive operations ───────────────────────────────────
-# PowerShell has its own spelling for everything above and the POSIX patterns
-# see none of it. `rm` is PowerShell's own alias for Remove-Item, and a parameter
-# name may be cut to any unambiguous prefix (-Recurse accepts -r), so the
-# recurse switch is matched from its first letter.
-PS_DEL='(^|[;&|(){}[:space:]])(Remove-Item|Remove-ItemProperty|ri|rm|rmdir|rd|del|erase)[[:space:]]'
-PS_ROOT='([A-Za-z]:\\?([[:space:]*]|$)|~([[:space:]\\/]|$)|\$HOME|\$env:USERPROFILE|\$env:HOMEDRIVE|\$env:SystemRoot|\$[A-Za-z_][A-Za-z0-9_]*([[:space:]]|$)|\.\.[\\/]\.\.)'
-PS_SYSDIR='[A-Za-z]:\\(Windows|Program Files|Program Files \(x86\)|Users|ProgramData)([[:space:]\\]|$)'
-
-if printf '%s' "$CMD_NOQUOTE" | grep -qiE "$PS_DEL"; then
-  if printf '%s' "$CMD_NOQUOTE" | grep -qiE -- '-R(e(c(u(r(s(e)?)?)?)?)?)?([[:space:]]|$)' \
-     && printf '%s' "$CMD_NOQUOTE" | grep -qiE "$PS_ROOT"; then
-    emit_deny "Blocked: recursive PowerShell delete on a drive root, home, or unresolved \$variable. Specify a concrete safe target."
-  fi
-  if printf '%s' "$CMD_NOQUOTE" | grep -qiE "$PS_SYSDIR"; then
-    emit_deny "Blocked: PowerShell delete targeting a system directory."
-  fi
+if found DELETE_SYSDIR; then
+  emit_deny "Blocked: recursive delete targeting a system directory."
 fi
 
 # Disk and volume destruction.
@@ -161,13 +252,9 @@ fi
 # The permissions deny list is tool-scoped (Read/Write/Edit only), and auto mode routes
 # file reads through Bash instead, so `cat keystore.properties` walks straight past it.
 # Only the hook sees the command text, which makes this the sole place the rule can hold.
-SECRET_READERS='cat|head|tail|sed|awk|grep|rg|less|more|strings|xxd|od|base64|cp|mv|scp|curl|Get-Content|gc|type|Select-String'
-SECRET_TARGETS='keystore\.properties|google-services\.json|\.jks([[:space:]]|$)|\.keystore([[:space:]]|$)|api-probes.\.env|(^|[[:space:]=/])\.env([[:space:]./]|$)'
-# The verb must sit in command position (line start, or after a shell operator), never
-# merely after a space: several reader names are also ordinary English words, so matching
-# mid-sentence rejects any command carrying prose, a commit message being the way that bit.
-if printf '%s' "$CMD_NOQUOTE" | grep -qE "(^|[;&|(])[[:space:]]*($SECRET_READERS)[[:space:]]" \
-   && printf '%s' "$CMD_NOQUOTE" | grep -qE "$SECRET_TARGETS"; then
+# The reader must be the command's verb, never a word inside it, since several reader
+# names are also English words and a commit message may carry them.
+if found SECRET; then
   emit_deny "Blocked: that reads a secret file (signing keystore, google-services.json, or a .env). Open it yourself if you need its contents."
 fi
 
@@ -218,10 +305,10 @@ if contains_cmd '(^|[;&|[:space:]])(mkfs|mkfs\.[a-z0-9]+)([[:space:]]|$)' \
 fi
 
 # ── Destructive git ─────────────────────────────────────────────────────
-if contains_cmd 'git[[:space:]]+reset[[:space:]]+--hard'; then
+if found RESET; then
   emit_deny "Blocked: git reset --hard discards uncommitted changes permanently."
 fi
-if contains_cmd 'git[[:space:]]+clean[[:space:]]+-[a-zA-Z]*f'; then
+if found CLEAN; then
   emit_deny "Blocked: git clean -f permanently deletes untracked files."
 fi
 

@@ -1,0 +1,13 @@
+{
+  "name": "block Remove-Item -Recurse -Force C:/Users/me",
+  "stdin": {
+    "tool_input": {
+      "command": "Remove-Item -Recurse -Force C:/Users/me"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "system directory"
+  ]
+}

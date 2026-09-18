@@ -1,0 +1,13 @@
+{
+  "name": "block Type google-services.json",
+  "stdin": {
+    "tool_input": {
+      "command": "Type google-services.json"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "secret file"
+  ]
+}

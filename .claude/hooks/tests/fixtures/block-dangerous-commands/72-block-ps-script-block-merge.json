@@ -1,0 +1,13 @@
+{
+  "name": "block gh pr merge inside a PowerShell script block",
+  "stdin": {
+    "tool_input": {
+      "command": "& { gh pr merge 12 }"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "owner's call"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "block git push origin main inside an if block",
+  "stdin": {
+    "tool_input": {
+      "command": "if ($true) { git push origin main }"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "main"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "block rm -rf /c/Users/me (Git Bash drive path)",
+  "stdin": {
+    "tool_input": {
+      "command": "rm -rf /c/Users/me"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "block git push --all, which pushes every branch",
+  "stdin": {
+    "tool_input": {
+      "command": "git push --all origin"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

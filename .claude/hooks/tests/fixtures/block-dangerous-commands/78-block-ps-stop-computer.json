@@ -1,0 +1,13 @@
+{
+  "name": "block Stop-Computer -Force",
+  "stdin": {
+    "tool_input": {
+      "command": "Stop-Computer -Force"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "restarting the machine"
+  ]
+}

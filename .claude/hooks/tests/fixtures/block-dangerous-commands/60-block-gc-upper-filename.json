@@ -1,0 +1,13 @@
+{
+  "name": "block gc KEYSTORE.PROPERTIES (file name in upper case)",
+  "stdin": {
+    "tool_input": {
+      "command": "gc KEYSTORE.PROPERTIES"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "secret file"
+  ]
+}

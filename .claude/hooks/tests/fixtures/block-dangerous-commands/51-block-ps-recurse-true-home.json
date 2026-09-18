@@ -1,0 +1,13 @@
+{
+  "name": "block Remove-Item ~ -Recurse:$true -Force",
+  "stdin": {
+    "tool_input": {
+      "command": "Remove-Item ~ -Recurse:$true -Force"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "recursive PowerShell delete"
+  ]
+}

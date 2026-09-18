@@ -1,0 +1,13 @@
+{
+  "name": "block Set-Partition",
+  "stdin": {
+    "tool_input": {
+      "command": "Set-Partition -DriveLetter D -NewDriveLetter E"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "disk or volume"
+  ]
+}

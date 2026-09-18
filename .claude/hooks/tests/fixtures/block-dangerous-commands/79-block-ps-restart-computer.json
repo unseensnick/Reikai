@@ -1,0 +1,13 @@
+{
+  "name": "block Restart-Computer",
+  "stdin": {
+    "tool_input": {
+      "command": "Restart-Computer"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "restarting the machine"
+  ]
+}

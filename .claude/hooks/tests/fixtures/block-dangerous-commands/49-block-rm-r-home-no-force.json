@@ -1,0 +1,12 @@
+{
+  "name": "block rm -r ~ (recursive without force)",
+  "stdin": {
+    "tool_input": {
+      "command": "rm -r ~"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

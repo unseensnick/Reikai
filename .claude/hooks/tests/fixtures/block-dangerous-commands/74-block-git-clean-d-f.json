@@ -1,0 +1,13 @@
+{
+  "name": "block git clean -d -f",
+  "stdin": {
+    "tool_input": {
+      "command": "git clean -d -f"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "git clean"
+  ]
+}

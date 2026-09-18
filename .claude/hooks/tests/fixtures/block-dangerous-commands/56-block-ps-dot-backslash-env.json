@@ -1,0 +1,13 @@
+{
+  "name": "block Get-Content .\\.env",
+  "stdin": {
+    "tool_input": {
+      "command": "Get-Content .\\.env"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "secret file"
+  ]
+}

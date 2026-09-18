@@ -1,0 +1,13 @@
+{
+  "name": "block git -C ../app reset --hard",
+  "stdin": {
+    "tool_input": {
+      "command": "git -C ../app reset --hard"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "reset --hard"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "block an explicit --force beside --force-with-lease",
+  "stdin": {
+    "tool_input": {
+      "command": "git push --force-with-lease --force origin feat/x"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "force push"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "block rm -Rf ~ (capital R)",
+  "stdin": {
+    "tool_input": {
+      "command": "rm -Rf ~"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

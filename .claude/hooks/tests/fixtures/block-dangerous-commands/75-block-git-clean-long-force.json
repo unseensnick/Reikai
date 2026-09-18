@@ -1,0 +1,13 @@
+{
+  "name": "block git clean --force -d",
+  "stdin": {
+    "tool_input": {
+      "command": "git clean --force -d"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "git clean"
+  ]
+}

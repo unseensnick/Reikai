@@ -15,6 +15,8 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 if [ -z "$FILE_PATH" ]; then
   exit 0
 fi
+# Windows paths arrive with backslashes, which every pattern below would miss (as protect-files.sh does).
+FILE_PATH=${FILE_PATH//\\//}
 
 # Block dependency and build directories
 case "$FILE_PATH" in

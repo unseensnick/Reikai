@@ -1,0 +1,12 @@
+{
+  "name": "block rm -fr ~ (force before recurse)",
+  "stdin": {
+    "tool_input": {
+      "command": "rm -fr ~"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

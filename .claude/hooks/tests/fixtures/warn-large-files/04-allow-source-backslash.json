@@ -1,0 +1,9 @@
+{
+  "name": "allow a source file given a Windows backslash path",
+  "stdin": {
+    "tool_input": {
+      "file_path": "E:\\Code\\app\\app\\src\\main\\Foo.kt"
+    }
+  },
+  "expect_exit": 0
+}

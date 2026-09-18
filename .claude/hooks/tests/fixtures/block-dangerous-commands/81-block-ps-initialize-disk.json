@@ -1,0 +1,13 @@
+{
+  "name": "block Initialize-Disk",
+  "stdin": {
+    "tool_input": {
+      "command": "Initialize-Disk -Number 1"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "disk or volume"
+  ]
+}

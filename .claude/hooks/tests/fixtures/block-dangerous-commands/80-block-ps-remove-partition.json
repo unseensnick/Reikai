@@ -1,0 +1,13 @@
+{
+  "name": "block Remove-Partition",
+  "stdin": {
+    "tool_input": {
+      "command": "Remove-Partition -DiskNumber 1"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "disk or volume"
+  ]
+}

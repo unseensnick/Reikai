@@ -1,0 +1,13 @@
+{
+  "name": "block a force push written as +branch",
+  "stdin": {
+    "tool_input": {
+      "command": "git push origin +feat/x"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "force push"
+  ]
+}

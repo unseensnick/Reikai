@@ -1,0 +1,9 @@
+{
+  "name": "block a write into build/ given a Windows backslash path",
+  "stdin": {
+    "tool_input": {
+      "file_path": "E:\\Code\\app\\app\\build\\out.txt"
+    }
+  },
+  "expect_exit": 2
+}

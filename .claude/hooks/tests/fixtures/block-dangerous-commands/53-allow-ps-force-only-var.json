@@ -1,0 +1,9 @@
+{
+  "name": "allow a non-recursive Remove-Item -Force of a variable",
+  "stdin": {
+    "tool_input": {
+      "command": "Remove-Item -Force $tmpFile"
+    }
+  },
+  "expect_exit": 0
+}

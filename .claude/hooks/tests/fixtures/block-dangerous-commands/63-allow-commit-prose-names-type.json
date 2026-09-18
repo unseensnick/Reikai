@@ -1,0 +1,9 @@
+{
+  "name": "allow a commit message that mentions type and a secret file",
+  "stdin": {
+    "tool_input": {
+      "command": "git commit -m \"docs: type keystore.properties is refused\""
+    }
+  },
+  "expect_exit": 0
+}

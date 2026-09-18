@@ -1,0 +1,13 @@
+{
+  "name": "block rm -fr /usr",
+  "stdin": {
+    "tool_input": {
+      "command": "rm -fr /usr"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "system directory"
+  ]
+}

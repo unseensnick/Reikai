@@ -1,0 +1,13 @@
+{
+  "name": "block git -C ../app push origin main",
+  "stdin": {
+    "tool_input": {
+      "command": "git -C ../app push origin main"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "main"
+  ]
+}
