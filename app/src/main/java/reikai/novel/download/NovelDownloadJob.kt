@@ -45,7 +45,9 @@ class NovelDownloadJob(context: Context, workerParams: WorkerParameters) :
     private val notifier = NovelDownloadNotifier(context, securityPreferences)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
-        val notification = notifier.progress("", 0, manager.queueState.value.size, isAdult = false)
+        val notification = notifier.progress(
+            NovelDownloadProgress.Downloading(0, manager.queueState.value.size, "", isAdult = false),
+        )
         val id = Notifications.ID_NOVEL_DOWNLOADER
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ForegroundInfo(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -58,8 +60,8 @@ class NovelDownloadJob(context: Context, workerParams: WorkerParameters) :
         setForegroundSafely()
         return try {
             manager.runQueue(
-                onProgress = { current, total, title, isAdult -> notifier.show(title, current, total, isAdult) },
-                onError = { title, error -> notifier.onError(title, error) },
+                onProgress = notifier::show,
+                onError = notifier::onError,
             )
             Result.success()
         } catch (_: CancellationException) {

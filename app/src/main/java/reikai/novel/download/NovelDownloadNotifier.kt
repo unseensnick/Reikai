@@ -9,7 +9,7 @@ import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
-import reikai.data.notification.shownEntryName
+import reikai.data.notification.downloadErrorTitle
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 
@@ -37,22 +37,22 @@ class NovelDownloadNotifier(
     }
 
     /** Build the progress notification (also used for the worker's `getForegroundInfo`). */
-    fun progress(title: String, current: Int, total: Int, isAdult: Boolean): Notification =
+    fun progress(progress: NovelDownloadProgress): Notification =
         builder
-            .setContentTitle("${context.stringResource(MR.strings.label_download_queue)} ($current/$total)")
+            .setContentTitle(
+                "${context.stringResource(MR.strings.label_download_queue)} (${progress.current}/${progress.total})",
+            )
             .setContentText(
-                shownEntryName(
-                    title,
+                progress.shownText(
                     securityPreferences.hideNotificationContent.get(),
                     securityPreferences.hideAdultNotificationContent.get(),
-                    isAdult,
                 ),
             )
-            .setProgress(total, current, total == 0)
+            .setProgress(progress.total, progress.current, progress.total == 0)
             .build()
 
-    fun show(title: String, current: Int, total: Int, isAdult: Boolean) {
-        context.notificationManager.notify(Notifications.ID_NOVEL_DOWNLOADER, progress(title, current, total, isAdult))
+    fun show(progress: NovelDownloadProgress) {
+        context.notificationManager.notify(Notifications.ID_NOVEL_DOWNLOADER, progress(progress))
     }
 
     fun dismiss() {
@@ -64,12 +64,15 @@ class NovelDownloadNotifier(
      * Without this a failed novel download was completely silent (only an ERROR row in the queue,
      * gone on restart). Mirrors the manga downloader's error notification; tapping opens the queue.
      */
-    fun onError(novelTitle: String?, error: String?) {
+    fun onError(novelTitle: String?, chapterName: String?, error: String?, isAdult: Boolean) {
+        val title = downloadErrorTitle(
+            novelTitle,
+            chapterName,
+            securityPreferences.hideAdultNotificationContent.get(),
+            isAdult,
+        )
         val notification = context.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_ERROR) {
-            setContentTitle(
-                novelTitle?.takeIf { it.isNotBlank() }
-                    ?: context.stringResource(MR.strings.download_notifier_downloader_title),
-            )
+            setContentTitle(title ?: context.stringResource(MR.strings.download_notifier_downloader_title))
             setContentText(error ?: context.stringResource(MR.strings.download_notifier_unknown_error))
             setSmallIcon(R.drawable.ic_warning_white_24dp)
             setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))

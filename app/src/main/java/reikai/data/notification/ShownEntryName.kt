@@ -25,3 +25,14 @@ suspend fun <T> hiddenEntryIds(
     val adultIds = if (hideAdult && !hideAll) adultIdsAmong(entries) else emptySet()
     return entries.map(id).filterTo(mutableSetOf()) { isEntryHidden(hideAll, hideAdult, it in adultIds) }
 }
+
+/**
+ * A download error's title, null for the generic downloader title. "Hide notification content" is not
+ * applied, as Mihon names the entry in its errors under it too. An adult entry hidden by the adult switch
+ * takes its chapter with it, since a chapter name can carry the series'.
+ */
+fun downloadErrorTitle(entryName: String?, chapterName: String?, hideAdult: Boolean, isAdult: Boolean): String? {
+    val name = entryName?.takeUnless { it.isBlank() || isEntryHidden(hideAll = false, hideAdult, isAdult) }
+        ?: return null
+    return chapterName?.let { "$name: $it" } ?: name
+}

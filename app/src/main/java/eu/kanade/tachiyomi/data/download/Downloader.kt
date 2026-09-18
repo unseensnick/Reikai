@@ -348,7 +348,7 @@ class Downloader(
     private suspend fun downloadChapter(download: Download) {
         val mangaDir = provider.getMangaDir(download.manga.title, download.source).getOrElse { e ->
             download.status = Download.State.ERROR
-            notifier.onError(e.message, download.chapter.name, download.manga.title, download.manga.id)
+            notifier.onError(e.message, download.chapter.name, download.manga) // RK
             return
         }
 
@@ -358,8 +358,7 @@ class Downloader(
             notifier.onError(
                 context.stringResource(MR.strings.download_insufficient_space),
                 download.chapter.name,
-                download.manga.title,
-                download.manga.id,
+                download.manga, // RK
             )
             return
         }
@@ -441,7 +440,7 @@ class Downloader(
             // If the page list threw, it will resume here
             logcat(LogPriority.ERROR, error)
             download.status = Download.State.ERROR
-            notifier.onError(error.message, download.chapter.name, download.manga.title, download.manga.id)
+            notifier.onError(error.message, download.chapter.name, download.manga) // RK
         }
     }
 
@@ -485,7 +484,7 @@ class Downloader(
             // Mark this page as error and allow to download the remaining
             page.progress = 0
             page.status = Page.State.Error(e)
-            notifier.onError(e.message, download.chapter.name, download.manga.title, download.manga.id)
+            notifier.onError(e.message, download.chapter.name, download.manga) // RK
         }
     }
 

@@ -283,7 +283,7 @@ every release now also ships a foss build with neither in it.
 - **A picture that fails to load in the novel reader now says so, with a Retry button, in both text modes.** Native text mode showed a blank grey block, and the web page mode the browser's broken-image mark.
 - **Pictures in the novel reader's native text mode now sit 1em clear of the text around them, as in the web page mode, and no longer run into the text above at a tight line spacing.**
 - **In the novel reader's native text mode, pictures loading above where you are reading no longer push the text you are on down the screen.** The web page mode already held your place.
-- **Hide notification content now also keeps novel titles out of the read-aloud notification and lock screen, and the novel download and update notifications.** Manga notifications already followed it.
+- **Hide notification content now also keeps novel titles out of the read-aloud notification and lock screen, and the novel download progress and update notifications.** Manga notifications already followed it.
 - **A read-aloud sleep timer set before you press play now counts down from when reading starts.** It used to count from when it was set, so it could stop reading as soon as you began.
 - **Pressing play on read aloud during a call or a navigation prompt no longer reads over it.** It stays paused until you press play again after.
 - **Read aloud carrying on into a novel's next chapter no longer fetches that chapter twice when it was already loading.**
@@ -567,6 +567,7 @@ every release now also ships a foss build with neither in it.
 - **Statistics now counts your downloaded novel chapters.** The Downloaded figure only ever counted manga.
 - **Update notifications no longer hide the title of every series from a source that carries extra metadata.** "Hide adult content in notifications" was treating those as adult, so their notifications arrived blank.
 - **Hide adult content in notifications now keeps adult novel titles out of novel update, download progress and read-aloud notifications, and adult manga titles out of library update and download progress.** Novels are judged adult by their genre tags.
+- **Hide adult content in notifications now also keeps adult manga and novel titles out of download error notifications.** They show the generic downloader title instead, and a novel's error now names the failed chapter as a manga's does.
 - **Hide notification content now also keeps series names out of the follows sync's progress and summary notifications.**
 - **A long series title no longer pushes the chapter numbers out of its update notification.**
 - **A crash can no longer run your data migrations, library recovery or a backup restore a second time.** The crash screen runs in its own process, which was repeating the app's whole startup.

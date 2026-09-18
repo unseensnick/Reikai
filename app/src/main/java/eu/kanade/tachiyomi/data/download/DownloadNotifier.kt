@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.util.lang.chop
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
+import reikai.data.notification.downloadErrorTitle
 import reikai.data.notification.hiddenEntryIds
 import reikai.domain.manga.AdultContentChecker
 import tachiyomi.core.common.i18n.stringResource
@@ -219,13 +220,20 @@ class DownloadNotifier(
      *
      * @param error string containing error information.
      * @param chapter string containing chapter title.
-     * @param mangaId the id of the entry that the error occurred on
+     * @param manga the entry that the error occurred on
      */
-    fun onError(error: String? = null, chapter: String? = null, mangaTitle: String? = null, mangaId: Long? = null) {
+    // RK: takes the manga and suspends for the adult verdict, so adult titles stay out of errors too
+    suspend fun onError(error: String? = null, chapter: String? = null, manga: Manga? = null) {
+        // RK -->
+        val hideAdult = preferences.hideAdultNotificationContent.get()
+        val isAdult = hideAdult && manga != null && manga.id in adultChecker.adultIdsAmong(listOf(manga))
+        val title = downloadErrorTitle(manga?.title, chapter, hideAdult, isAdult)
+        val mangaId = manga?.id
+        // RK <--
         // Create notification
         with(errorNotificationBuilder) {
             setContentTitle(
-                mangaTitle?.plus(": $chapter") ?: context.stringResource(MR.strings.download_notifier_downloader_title),
+                title ?: context.stringResource(MR.strings.download_notifier_downloader_title), // RK
             )
             setContentText(error ?: context.stringResource(MR.strings.download_notifier_unknown_error))
             setSmallIcon(R.drawable.ic_warning_white_24dp)

@@ -252,11 +252,11 @@ class NovelDownloadManager(
     /**
      * Drain the queue sequentially until empty. Called by [NovelDownloadJob]; the worker stays
      * foreground for the duration. Restores the persisted queue first if the in-memory one is empty
-     * (cold restart). [onProgress] reports `(done, total, novelTitle, isAdult)` for the notification.
+     * (cold restart). [onProgress] reports the chapter being downloaded, or why the drain is paused.
      */
     suspend fun runQueue(
-        onProgress: (current: Int, total: Int, title: String, isAdult: Boolean) -> Unit,
-        onError: (novelTitle: String?, error: String?) -> Unit,
+        onProgress: (NovelDownloadProgress) -> Unit,
+        onError: (novelTitle: String?, chapterName: String?, error: String?, isAdult: Boolean) -> Unit,
     ) {
         if (!running.compareAndSet(false, true)) return
         try {
@@ -284,7 +284,7 @@ class NovelDownloadManager(
                     while (!context.activeNetworkState().isOnline) {
                         val pending = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
                         val status = context.stringResource(MR.strings.download_notifier_no_network)
-                        onProgress(done, pending, status, false)
+                        onProgress(NovelDownloadProgress.Paused(done, pending, status))
                         delay(WIFI_RECHECK_MS)
                     }
                     continue
@@ -299,7 +299,7 @@ class NovelDownloadManager(
                     while (downloadPreferences.downloadOnlyOverWifi.get() && !context.activeNetworkState().isWifi) {
                         val pending = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
                         val status = context.stringResource(MR.strings.download_notifier_text_only_wifi)
-                        onProgress(done, pending, status, false)
+                        onProgress(NovelDownloadProgress.Paused(done, pending, status))
                         delay(WIFI_RECHECK_MS)
                     }
                     continue // re-pick the next chapter: the queue may have changed while we waited
@@ -309,7 +309,8 @@ class NovelDownloadManager(
                 val novel = novelRepo.getById(next.novelId)
                 val chapter = chapterRepo.getById(next.chapterId)
                 val total = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
-                onProgress(done, total, novel?.title.orEmpty(), novel?.isLewd() == true)
+                val isAdult = novel?.isLewd() == true
+                onProgress(NovelDownloadProgress.Downloading(done, total, novel?.title.orEmpty(), isAdult))
                 // Try a few times before giving up so a transient network blip or a momentarily
                 // rate-limited source doesn't kill the chapter on the first stumble (mirrors the manga
                 // Downloader). Backoff is per-chapter, separate from the cross-chapter pacing below.
@@ -361,7 +362,7 @@ class NovelDownloadManager(
                     setState(next.chapterId, NovelDownload.State.ERROR)
                     store.remove(next.chapterId)
                     // Notify the user: a failed novel download was previously completely silent.
-                    onError(novel?.title, lastError?.message)
+                    onError(novel?.title, chapter?.name, lastError?.message, isAdult)
                 }
                 // Per-source adaptive pacing. Downloads are sequential and LN plugins share one client
                 // with no per-source rate limiter, so each source self-throttles: halve its delay
