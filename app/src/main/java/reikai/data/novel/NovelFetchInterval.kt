@@ -39,6 +39,24 @@ suspend fun updateNovelFetchInterval(
     novelRepository.update(NovelUpdate(id = novel.id, nextUpdate = nextUpdate, fetchInterval = interval))
 }
 
+/**
+ * Manga's sync-time prediction rule, run once after a whole-novel sync. [novel] is the snapshot from
+ * before the sync, whose `lastUpdate` the prediction counts from. As manga's sync, an unchanged list
+ * still moves a prediction that was forced, never made, or has fallen behind [window].
+ */
+suspend fun predictNovelFetchInterval(
+    novel: Novel,
+    listChanged: Boolean,
+    manualFetch: Boolean,
+    novelChapterRepository: NovelChapterRepository,
+    novelRepository: NovelRepository,
+    window: Pair<Long, Long> = Pair(0, 0),
+) {
+    if (listChanged || manualFetch || novel.fetchInterval == 0 || novel.nextUpdate < window.first) {
+        updateNovelFetchInterval(novel, novelChapterRepository, novelRepository, window)
+    }
+}
+
 /** When this novel is next due, or null once it is completed, as manga's `Manga.expectedNextUpdate`. */
 fun Novel.expectedNextUpdate(): Instant? =
     nextUpdate.takeIf { status != NovelStatusCode.COMPLETED.toLong() }?.let(Instant::fromEpochMilliseconds)

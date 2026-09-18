@@ -17,6 +17,7 @@ import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.track.model.toDomainTrack
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.main.MainActivity
@@ -36,6 +37,8 @@ import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.data.notification.hiddenEntryIds
+import reikai.domain.manga.AdultContentChecker
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withUIContext
@@ -44,6 +47,7 @@ import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
 import tachiyomi.i18n.MR
@@ -79,6 +83,10 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
     @Inject private lateinit var trackerManager: TrackerManager
 
     @Inject private lateinit var reikaiSourcePreferences: ReikaiSourcePreferences
+
+    @Inject private lateinit var securityPreferences: SecurityPreferences
+
+    @Inject private lateinit var adultContentChecker: AdultContentChecker
     enum class Target { SYNC_FOLLOWS, PUSH_FAVORITES }
 
     private val progressNotificationBuilder by lazy {
@@ -123,15 +131,28 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
         )
     }
 
-    private fun showProgress(title: String, current: Int, total: Int) {
+    /** [name] is null while the series may not be named. The builder is reused, so the style is reset. */
+    private fun showProgress(name: String?, current: Int, total: Int) {
         context.notificationManager.notify(
             Notifications.ID_MANGADEX_PROGRESS,
             progressNotificationBuilder
-                .setContentText(title)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(title))
+                .setContentText(name)
+                .setStyle(name?.let { NotificationCompat.BigTextStyle().bigText(it) })
                 .setProgress(total, current, false)
                 .build(),
         )
+    }
+
+    /** The name a notification may show for [manga], through the rule every notifier follows. */
+    private suspend fun shownName(manga: Manga): String? {
+        val hidden = hiddenEntryIds(
+            listOf(manga),
+            securityPreferences.hideNotificationContent.get(),
+            securityPreferences.hideAdultNotificationContent.get(),
+            Manga::id,
+            adultContentChecker::adultIdsAmong,
+        )
+        return manga.title.takeIf { hidden.isEmpty() }
     }
 
     // A persistent, expandable completion notification, styled like the library-update one: the action
@@ -139,21 +160,13 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
     // expanded (big text) view so the user can see what did not sync. Tapping it opens the app.
     private fun showComplete(target: Target, result: SyncResult) {
         val summary = buildSummary(target, result)
-        val detail = buildString {
-            append(summary)
-            if (result.skipped.isNotEmpty()) {
-                append("\n\n")
-                append(context.stringResource(MR.strings.pref_mangadex_skipped_header))
-                append("\n")
-                append(result.skipped.joinToString("\n"))
-            }
-            if (result.failed.isNotEmpty()) {
-                append("\n\n")
-                append(context.stringResource(MR.strings.pref_mangadex_failed_header))
-                append("\n")
-                append(result.failed.joinToString("\n"))
-            }
-        }
+        val detail = syncDetail(
+            summary,
+            listOf(
+                context.stringResource(MR.strings.pref_mangadex_skipped_header) to result.skipped,
+                context.stringResource(MR.strings.pref_mangadex_failed_header) to result.failed,
+            ),
+        )
         context.notificationManager.notify(
             Notifications.ID_MANGADEX_COMPLETE,
             context.notificationBuilder(Notifications.CHANNEL_MANGADEX) {
@@ -180,10 +193,11 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
     }
 
     // done = imported/updated; skipped = benign (no chapters in the chosen language); failed = errors.
+    // A null name is a series the notification may not name, still counted.
     private data class SyncResult(
         val done: Int,
-        val skipped: List<String> = emptyList(),
-        val failed: List<String> = emptyList(),
+        val skipped: List<String?> = emptyList(),
+        val failed: List<String?> = emptyList(),
     )
 
     // The notification/toast title, e.g. "Follows synced to your library".
@@ -218,11 +232,12 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
         val follows = mangaDex.fetchAllFollows().filter { (_, meta) -> meta.followStatus in statuses }
 
         var imported = 0
-        val skipped = mutableListOf<String>()
-        val failed = mutableListOf<String>()
+        val skipped = mutableListOf<String?>()
+        val failed = mutableListOf<String?>()
         follows.forEachIndexed { i, (sManga, _) ->
             currentCoroutineContext().ensureActive()
-            showProgress(sManga.title, i, follows.size)
+            val name = shownName(sManga.toDomainManga(mangaDex.id))
+            showProgress(name, i, follows.size)
             try {
                 var local = getManga.await(sManga.url, mangaDex.id)
                     ?: networkToLocalManga(sManga.toDomainManga(mangaDex.id))
@@ -239,10 +254,10 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
                 throw e
             } catch (e: NoChaptersException) {
                 // Benign: nothing to read in the chosen language, so there is nothing to import.
-                skipped += sManga.title
+                skipped += name
                 logcat(LogPriority.DEBUG) { "MangaDex follows sync: skipped ${sManga.title} (no chapters)" }
             } catch (e: Exception) {
-                failed += sManga.title
+                failed += name
                 logcat(LogPriority.WARN, e) { "MangaDex follows sync: failed ${sManga.title}" }
             }
         }
@@ -258,10 +273,11 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
             .distinctBy { it.id }
 
         var pushed = 0
-        val failed = mutableListOf<String>()
+        val failed = mutableListOf<String?>()
         favourites.forEachIndexed { i, manga ->
             currentCoroutineContext().ensureActive()
-            showProgress(manga.title, i, favourites.size)
+            val name = shownName(manga)
+            showProgress(name, i, favourites.size)
             try {
                 val tracks = getTracks.await(manga.id)
                 var tracker = tracks.firstOrNull { it.trackerId == TrackerManager.MDLIST }
@@ -276,7 +292,7 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                failed += manga.title
+                failed += name
                 logcat(LogPriority.WARN, e) { "MangaDex library sync: failed ${manga.title}" }
             }
         }
@@ -294,5 +310,21 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
                 .build()
             context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.REPLACE, request)
         }
+    }
+}
+
+/**
+ * The completion notification's expanded text: [summary], then each non-empty section's header and the
+ * names in it. A null name is a series the notification may not name, which only the counts carry.
+ */
+internal fun syncDetail(summary: String, sections: List<Pair<String, List<String?>>>): String = buildString {
+    append(summary)
+    for ((header, names) in sections) {
+        val shown = names.filterNotNull()
+        if (shown.isEmpty()) continue
+        append("\n\n")
+        append(header)
+        append("\n")
+        append(shown.joinToString("\n"))
     }
 }

@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.util.lang.chop
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.notify
+import reikai.data.notification.shownEntryName
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.manga.model.Manga
@@ -59,14 +60,13 @@ class EHentaiUpdateNotifier(
                 ),
             )
 
-        // Drop the gallery title too when adult-content notifications are hidden (EH is always adult).
-        if (!securityPreferences.hideNotificationContent.get() &&
-            !securityPreferences.hideAdultNotificationContent.get()
-        ) {
-            progressNotificationBuilder.setStyle(
-                NotificationCompat.BigTextStyle().bigText(manga.title.chop(40)),
-            )
-        }
+        // A gallery is always adult.
+        shownEntryName(
+            manga.title,
+            securityPreferences.hideNotificationContent.get(),
+            securityPreferences.hideAdultNotificationContent.get(),
+            isAdult = true,
+        )?.let { progressNotificationBuilder.setStyle(NotificationCompat.BigTextStyle().bigText(it.chop(40))) }
 
         context.notificationManager.notify(
             Notifications.ID_EHENTAI_PROGRESS,

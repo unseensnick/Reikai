@@ -321,7 +321,12 @@ class NovelTtsService : Service() {
 
     /** The notification's and the lock screen's title, which name the novel only while content is shown. */
     private fun contentTitle(state: NovelTtsSession.State) =
-        shownEntryName(state.title, appGraph.securityPreferences.hideNotificationContent.get())
+        shownEntryName(
+            state.title,
+            appGraph.securityPreferences.hideNotificationContent.get(),
+            appGraph.securityPreferences.hideAdultNotificationContent.get(),
+            state.isAdult,
+        )
             ?.ifBlank { null }
             ?: stringResource(MR.strings.tts_reading_aloud)
 

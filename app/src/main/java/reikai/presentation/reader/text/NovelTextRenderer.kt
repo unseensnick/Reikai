@@ -25,6 +25,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
+import reikai.novel.content.NovelImageSources
 import reikai.presentation.reader.NovelTextScale
 import tachiyomi.core.common.util.system.logcat
 
@@ -227,11 +228,13 @@ class NovelTextRenderer(
         val doc = Jsoup.parse(html, baseUrl.orEmpty())
         doc.select("style, script").remove()
         NovelChapterTags.prepare(doc)
-        unwrapPictureSources(doc)
+        doc.select("video source, audio source").remove()
+        // `source` is a void element and Html.fromHtml corrupts the rest of the document without one.
+        NovelImageSources.unwrapPictures(doc)
         rebuildBlockLayout(doc)
         val targetWidth = context.resources.displayMetrics.widthPixels
         doc.select("img").forEach { img ->
-            applySrcsetCandidate(img, targetWidth)
+            NovelImageSources.srcsetCandidate(img, targetWidth)?.let { img.attr("src", it) }
             resolveAgainstBase(img, "src")
             val parent = img.parent()
             if (parent?.tagName() == "p" || parent?.tagName() == "div") {
@@ -292,25 +295,6 @@ class NovelTextRenderer(
         if (element.attr(attribute).startsWith("data:")) return
         val resolved = element.absUrl(attribute)
         if (resolved.isNotBlank()) element.attr(attribute, resolved)
-    }
-
-    /** Picks the narrowest candidate at least as wide as the screen, else the widest available. */
-    private fun applySrcsetCandidate(img: Element, targetWidth: Int) {
-        val srcset = img.attr("srcset").takeIf { it.isNotBlank() } ?: return
-        val candidates = srcset.split(',').mapNotNull { entry ->
-            val parts = entry.trim().split(whitespace, limit = 2)
-            val url = parts.getOrNull(0)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            val width = parts.getOrNull(1)?.trim()
-                ?.let { widthDescriptor.find(it) }
-                ?.groupValues?.get(1)?.toIntOrNull()
-            url to width
-        }
-        if (candidates.isEmpty()) return
-        val withWidth = candidates.filter { it.second != null }
-        val best = withWidth.filter { it.second!! >= targetWidth }.minByOrNull { it.second!! }
-            ?: withWidth.maxByOrNull { it.second!! }
-            ?: candidates.first()
-        img.attr("src", best.first)
     }
 
     private fun applyParagraphSpans(spannable: SpannableStringBuilder, spacingPx: Int, indentPx: Int) {
@@ -448,42 +432,6 @@ class NovelTextRenderer(
                 val start = text.getSpanStart(script)
                 val end = text.getSpanEnd(script)
                 text.setSpan(RelativeSizeSpan(NovelTextScale.SCRIPT), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
-        }
-
-        private val whitespace = Regex("\\s+")
-        private val widthDescriptor = Regex("^(\\d+)w$")
-
-        // `source` is a void element and Html.fromHtml corrupts the rest of the document without one,
-        // so a picture is collapsed to the img it wraps before it ever reaches the parser.
-        private val decodableImageTypes = setOf(
-            "image/jpeg",
-            "image/jpg",
-            "image/png",
-            "image/webp",
-            "image/gif",
-            "image/bmp",
-        )
-
-        private fun Element.isDecodableSource(): Boolean {
-            val type = attr("type").trim().lowercase()
-            return type.isEmpty() || type in decodableImageTypes
-        }
-
-        internal fun unwrapPictureSources(doc: Document) {
-            doc.select("video source, audio source").remove()
-            doc.select("picture").forEach { picture ->
-                val sources = picture.select("source")
-                val fallbackSrcset = sources.firstOrNull { it.isDecodableSource() && it.hasAttr("srcset") }
-                    ?.attr("srcset")
-                val img = picture.selectFirst("img")
-                if (img == null) {
-                    if (fallbackSrcset != null) picture.appendElement("img").attr("srcset", fallbackSrcset)
-                } else if (!img.hasAttr("srcset") && fallbackSrcset != null) {
-                    img.attr("srcset", fallbackSrcset)
-                }
-                sources.remove()
-                picture.unwrap()
             }
         }
     }

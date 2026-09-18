@@ -1,7 +1,27 @@
 package reikai.data.notification
 
 /**
- * The name of a series a notification may show: none while "Hide notification content" is on. The manga
- * notifiers apply the setting at each of theirs, and every novel one takes it from here.
+ * Whether a notification must leave an entry unnamed: every entry while "Hide notification content" is
+ * on, an adult one while "Hide adult content in notifications" is. Every manga and novel notifier that
+ * names an entry decides here.
  */
-fun shownEntryName(name: String, hideContent: Boolean): String? = name.takeUnless { hideContent }
+fun isEntryHidden(hideAll: Boolean, hideAdult: Boolean, isAdult: Boolean): Boolean = hideAll || (hideAdult && isAdult)
+
+/** The name a notification may show for an entry, none while [isEntryHidden]. */
+fun shownEntryName(name: String, hideAll: Boolean, hideAdult: Boolean, isAdult: Boolean): String? =
+    name.takeUnless { isEntryHidden(hideAll, hideAdult, isAdult) }
+
+/**
+ * The ids among [entries] a notification must leave unnamed, by [isEntryHidden]. [adultIdsAmong] is
+ * asked only when the answer depends on it, since the manga verdict can wait on the extension scan.
+ */
+suspend fun <T> hiddenEntryIds(
+    entries: List<T>,
+    hideAll: Boolean,
+    hideAdult: Boolean,
+    id: (T) -> Long,
+    adultIdsAmong: suspend (List<T>) -> Set<Long>,
+): Set<Long> {
+    val adultIds = if (hideAdult && !hideAll) adultIdsAmong(entries) else emptySet()
+    return entries.map(id).filterTo(mutableSetOf()) { isEntryHidden(hideAll, hideAdult, it in adultIds) }
+}

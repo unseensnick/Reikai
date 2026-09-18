@@ -29,6 +29,7 @@ import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
 import reikai.data.notification.NOTIF_TITLE_MAX_LEN
+import reikai.data.notification.hiddenEntryIds
 import reikai.data.notification.newChaptersDescription
 import reikai.data.updateerror.updateErrorPendingIntent
 import reikai.domain.library.ContentType
@@ -65,11 +66,13 @@ class LibraryUpdateNotifier(
 
     // RK: resolved once per batch, because the adult verdict now suspends and the notification
     //     builders below do not, so it cannot be asked per row.
-    private suspend fun hiddenContentIds(entries: List<Manga>): Set<Long> = when {
-        securityPreferences.hideNotificationContent.get() -> entries.mapTo(mutableSetOf()) { it.id }
-        securityPreferences.hideAdultNotificationContent.get() -> adultChecker.adultIdsAmong(entries)
-        else -> emptySet()
-    }
+    private suspend fun hiddenContentIds(entries: List<Manga>): Set<Long> = hiddenEntryIds(
+        entries,
+        securityPreferences.hideNotificationContent.get(),
+        securityPreferences.hideAdultNotificationContent.get(),
+        Manga::id,
+        adultChecker::adultIdsAmong,
+    )
 
     /**
      * Pending intent of action that cancels the library update
@@ -106,7 +109,8 @@ class LibraryUpdateNotifier(
      * @param current the current progress.
      * @param total the total progress.
      */
-    fun showProgressNotification(manga: List<Manga>, current: Int, total: Int) {
+    // RK: suspends for the adult verdict, which keeps adult titles out of the progress text too
+    suspend fun showProgressNotification(manga: List<Manga>, current: Int, total: Int) {
         progressNotificationBuilder
             .setContentTitle(
                 context.stringResource(
@@ -116,7 +120,10 @@ class LibraryUpdateNotifier(
             )
 
         if (!securityPreferences.hideNotificationContent.get()) {
-            val updatingText = manga.joinToString("\n") { it.title.chop(40) }
+            // RK -->
+            val hidden = hiddenContentIds(manga)
+            val updatingText = manga.filterNot { it.id in hidden }.joinToString("\n") { it.title.chop(40) }
+            // RK <--
             progressNotificationBuilder.setStyle(NotificationCompat.BigTextStyle().bigText(updatingText))
         }
 

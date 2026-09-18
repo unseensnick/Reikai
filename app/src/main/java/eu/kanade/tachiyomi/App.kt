@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Process
 import android.webkit.WebView
 import android.widget.Toast
+import androidx.core.app.NotificationManagerCompat.NotificationWithIdAndTag
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -52,6 +53,7 @@ import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.animatorDurationScale
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.isDebugBuildType
+import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.workManager
@@ -120,12 +122,13 @@ class App :
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerInitializationExceptionHandler(
-                WorkerStartFailures { workerName ->
-                    notify(Notifications.ID_WORKER_START_FAILURE, Notifications.CHANNEL_COMMON) {
+                WorkerStartFailures { tag, workerName ->
+                    val notice = notificationBuilder(Notifications.CHANNEL_COMMON) {
                         setSmallIcon(R.drawable.ic_warning_white_24dp)
                         setContentTitle(stringResource(MR.strings.worker_start_failed))
                         setContentText(workerName)
-                    }
+                    }.build()
+                    notify(listOf(NotificationWithIdAndTag(tag, Notifications.ID_WORKER_START_FAILURE, notice)))
                 },
             )
             .build()

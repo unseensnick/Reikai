@@ -16,10 +16,12 @@ import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
 import reikai.data.notification.NOTIF_TITLE_MAX_LEN
+import reikai.data.notification.hiddenEntryIds
 import reikai.data.notification.newChaptersDescription
 import reikai.data.notification.shownEntryName
 import reikai.data.updateerror.updateErrorPendingIntent
 import reikai.domain.library.ContentType
+import reikai.domain.novel.isLewd
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.core.common.Constants
@@ -64,8 +66,8 @@ class NovelUpdateNotifier(
         }
     }
 
-    /** Build the progress notification (also used for the worker's `getForegroundInfo`). */
-    fun progress(title: String, current: Int, total: Int): Notification =
+    /** Build the progress notification (also used for the worker's `getForegroundInfo`, with no [novel]). */
+    fun progress(novel: Novel?, current: Int, total: Int): Notification =
         progressBuilder
             .setContentTitle(
                 if (total == 0) {
@@ -77,12 +79,21 @@ class NovelUpdateNotifier(
                     )
                 },
             )
-            .setContentText(shownEntryName(title, securityPreferences.hideNotificationContent.get()))
+            .setContentText(
+                novel?.let {
+                    shownEntryName(
+                        it.title,
+                        securityPreferences.hideNotificationContent.get(),
+                        securityPreferences.hideAdultNotificationContent.get(),
+                        it.isLewd(),
+                    )
+                },
+            )
             .setProgress(total, current, total == 0)
             .build()
 
-    fun showProgress(title: String, current: Int, total: Int) {
-        context.notify(Notifications.ID_NOVEL_LIBRARY_PROGRESS, progress(title, current, total))
+    fun showProgress(novel: Novel, current: Int, total: Int) {
+        context.notify(Notifications.ID_NOVEL_LIBRARY_PROGRESS, progress(novel, current, total))
     }
 
     fun dismissProgress() {
@@ -103,25 +114,42 @@ class NovelUpdateNotifier(
 
     /** One notification per updated novel (tap to open its details), grouped under a summary; skipped
      *  when nothing changed. Mirrors the manga per-title update notifications. */
-    fun showResults(updates: List<Pair<Novel, List<NovelChapter>>>) {
+    suspend fun showResults(updates: List<Pair<Novel, List<NovelChapter>>>) {
         if (updates.isEmpty()) return
+        val hideAll = securityPreferences.hideNotificationContent.get()
+        val hidden = hiddenNovelIds(
+            updates.map { it.first },
+            hideAll,
+            securityPreferences.hideAdultNotificationContent.get(),
+        )
         // Hidden, only the count is posted, as the manga updater posts no per-series entries then.
-        val hidden = securityPreferences.hideNotificationContent.get()
-        val perNovel = if (hidden) {
+        val perNovel = if (hideAll) {
             emptyList()
         } else {
             updates.take(Notifications.MAX_ENTRY_UPDATE_NOTIFICATIONS).map { (novel, newChapters) ->
                 val chapterIds = newChapters.map { it.id }.toLongArray()
+                val isHidden = novel.id in hidden
                 // Names the chapters through the shared rule rather than counting them, so a novel row
-                // reads like a manga one: "Chapters 1, 2, 3 and 10 more".
-                val description = context.newChaptersDescription(
-                    newChapters.map { it.chapterNumber },
-                    newChapters.size,
-                )
+                // reads like a manga one: "Chapters 1, 2, 3 and 10 more". A hidden one only counts them.
+                val description = if (isHidden) {
+                    context.pluralStringResource(
+                        MR.plurals.notification_chapters_generic,
+                        newChapters.size,
+                        newChapters.size,
+                    )
+                } else {
+                    context.newChaptersDescription(newChapters.map { it.chapterNumber }, newChapters.size)
+                }
                 novel.id.hashCode() to context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
                     // Chopped for the same reason the manga twin is: a collapsed group draws the title and
                     // the chapters on one line, and a long title pushed the chapters off the end.
-                    setContentTitle(novel.title.chop(NOTIF_TITLE_MAX_LEN))
+                    setContentTitle(
+                        if (isHidden) {
+                            context.stringResource(MR.strings.notification_new_chapters)
+                        } else {
+                            novel.title.chop(NOTIF_TITLE_MAX_LEN)
+                        },
+                    )
                     setContentText(description)
                     setStyle(NotificationCompat.BigTextStyle().bigText(description))
                     setSmallIcon(R.drawable.ic_reikai)
@@ -196,3 +224,9 @@ class NovelUpdateNotifier(
         )
     }
 }
+
+/** The novels among [novels] a notification must leave unnamed. A novel's only adult signal is its genres. */
+internal suspend fun hiddenNovelIds(novels: List<Novel>, hideAll: Boolean, hideAdult: Boolean): Set<Long> =
+    hiddenEntryIds(novels, hideAll, hideAdult, Novel::id) { among ->
+        among.filter(Novel::isLewd).mapTo(mutableSetOf(), Novel::id)
+    }

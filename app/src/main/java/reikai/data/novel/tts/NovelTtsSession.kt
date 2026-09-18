@@ -14,12 +14,16 @@ import reikai.domain.novel.tts.TtsPlayback
  */
 object NovelTtsSession {
 
-    /** Read-aloud steps by paragraph, so the service shows [paragraph] of [paragraphCount] as its seek bar. */
+    /**
+     * Read-aloud steps by paragraph, so the service shows [paragraph] of [paragraphCount] as its seek bar.
+     * [isAdult] is the novel's verdict, which the notification's privacy switches read.
+     */
     data class State(
         val playback: TtsPlayback,
         val title: String,
         val paragraph: Int = 0,
         val paragraphCount: Int = 0,
+        val isAdult: Boolean = false,
     )
 
     val state: StateFlow<State>

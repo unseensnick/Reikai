@@ -4,6 +4,9 @@ import android.util.Base64
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.Jsoup
+import org.jsoup.internal.StringUtil
+import org.jsoup.nodes.Element
+import reikai.novel.content.NovelImageSources
 
 /**
  * Inlines a downloaded chapter's images as `data:` URIs so the saved HTML is self-contained and reads
@@ -17,17 +20,23 @@ private const val MAX_INLINE_BYTES = 5L * 1024 * 1024
 
 suspend fun inlineChapterImages(html: String, baseSite: String, client: OkHttpClient): String {
     val document = Jsoup.parse(html, baseSite)
-    val images = document.select("img")
-    if (images.isEmpty()) return html
+    if (document.select("img, picture").isEmpty()) return html
     // Pretty-printing reflows the markup, which folds the line breaks inside a paragraph the source
     // styles as preformatted; only the image sources are meant to change here. Same trap as the
     // sanitiser's, in NovelHtmlUtils.
     document.outputSettings().prettyPrint(false)
+    // Both readers prefer a srcset over src, so a stored image keeps one source: the one inlined.
+    NovelImageSources.unwrapPictures(document)
 
-    for (img in images) {
-        val src = img.attr("src")
-        if (src.isBlank() || src.startsWith("data:")) continue
-        val absolute = img.absUrl("src").ifBlank { src }
+    for (img in document.select("img")) {
+        if (img.attr("src").startsWith("data:")) {
+            dropCandidates(img)
+            continue
+        }
+        // With no src, the widest candidate, since a stored copy is read at whatever width the device has.
+        val src = img.attr("src").ifBlank { NovelImageSources.srcsetCandidate(img, Int.MAX_VALUE).orEmpty() }
+        if (src.isBlank()) continue
+        val absolute = StringUtil.resolve(img.baseUri(), src).ifBlank { src }
         runCatching {
             client.newCall(Request.Builder().url(absolute).build()).execute().use { response ->
                 if (!response.isSuccessful) return@use
@@ -45,8 +54,14 @@ suspend fun inlineChapterImages(html: String, baseSite: String, client: OkHttpCl
                     ?: "image/jpeg"
                 val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
                 img.attr("src", "data:$mime;base64,$encoded")
+                dropCandidates(img)
             }
         }
     }
     return document.body().html()
+}
+
+private fun dropCandidates(img: Element) {
+    img.removeAttr("srcset")
+    img.removeAttr("sizes")
 }

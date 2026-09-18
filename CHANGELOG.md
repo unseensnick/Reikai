@@ -364,7 +364,8 @@ every release now also ships a foss build with neither in it.
 - **An adult content source's update notice no longer dismisses the novel library's error notice.** The two shared a notification slot, so one silently replaced the other.
 - **Picking the Black reader theme again draws the novel reader's progress percentage in the same dimmed white as the text, instead of pale yellow.** A reader already set to it keeps the old colour until the theme is picked again.
 - **Resuming a novel, and its next-chapter downloads, now follow the order you sorted its chapter list into.** Continue reading, the Resume button, Download next and Mark previous as read all walked the source's own order, so on a novel sorted by name or date they picked a chapter the reader reaches much later.
-- **A new novel chapter numbered like one you have already read now arrives read, when the duplicate-chapter setting asks for it.** The setting only reached manga before.
+- **A new novel chapter numbered like one you have already read now arrives read, when the duplicate-chapter setting asks for it, and is no longer announced or downloaded as new.** The setting only reached manga before.
+- **A novel chapter its source moved to a new address no longer comes back as new in update notifications, or downloads again.**
 
 ### Browse & sources
 
@@ -504,6 +505,7 @@ every release now also ships a foss build with neither in it.
 - **A novel chapter that failed to download can be retried again.** Resume skipped it, so it sat in the queue as an error with no way to get it going short of queueing it afresh.
 - **An outdated manga extension no longer crashes the app when you open one of its series or browse it.** It shows an error instead, as a library update already did.
 - **A downloaded novel chapter with pictures now keeps the line breaks the source draws.** Saving it folded them into spaces, so a chapter laid out with its own breaks read as one run-on block offline.
+- **A downloaded novel chapter's pictures now show offline even when the source offers them in several sizes.** Both readers went back to the source for the larger ones.
 
 ### Backup & restore
 
@@ -531,7 +533,7 @@ every release now also ships a foss build with neither in it.
 
 #### Added
 
-- **A background job that fails to start now shows a notification naming it.** It used to fail silently, and a scheduled one kept failing the same way every time it ran.
+- **A background job that fails to start now shows its own notification naming it.** It used to fail silently, and a scheduled one kept failing the same way every time it ran.
 - **The What's new screen now draws GitHub's Note, Tip, Important, Warning and Caution callouts.** They were dropped entirely before, so a warning written into a release note never reached you.
 - **Reikai can now send crash reports so bugs get found and fixed faster, and both they and anonymous usage data are opt-out under Settings -> Security and privacy.** Onboarding offers the same choice on a fresh install.
 - **Every release now also has a `-foss` APK with no crash reporting or analytics in it at all.** It installs as a separate app, so it can sit alongside your normal one.
@@ -560,11 +562,14 @@ every release now also ships a foss build with neither in it.
 - **Statistics now counts a merged series once instead of once per source.** The title, completed, started and tracked figures all read higher than the library they describe.
 - **Statistics now counts your downloaded novel chapters.** The Downloaded figure only ever counted manga.
 - **Update notifications no longer hide the title of every series from a source that carries extra metadata.** "Hide adult content in notifications" was treating those as adult, so their notifications arrived blank.
+- **Hide adult content in notifications now keeps adult novel titles out of novel update, download progress and read-aloud notifications, and adult manga titles out of library update and download progress.** Novels are judged adult by their genre tags.
+- **Hide notification content now also keeps series names out of the follows sync's progress and summary notifications.**
 - **A long series title no longer pushes the chapter numbers out of its update notification.**
 - **A crash can no longer run your data migrations, library recovery or a backup restore a second time.** The crash screen runs in its own process, which was repeating the app's whole startup.
 
 ### Other
 
+- A novel library update now predicts a paged novel's next update once, after its last page, instead of once for every page it fetched.
 - Smart update skipping, the chapter-sync rules for new chapters and what binding a tracker backfills are now each written once for manga and novels, so the two can no longer drift. The novel library update also decides what to skip from the library's chapter counts, rather than loading every novel's chapters first.
 - The app's native libraries are now compressed inside the download, which keeps it near its old size although the high quality renderer added about 27 MB of them: the arm64 download is about 31 MB where it would have been 53 MB. Once installed the app takes a little more space, since Android unpacks them.
 - The light-novel plugin manager now fetches the plugin repos once, and only while its tab is open. Opening Browse used to fetch every repo twice.

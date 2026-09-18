@@ -81,7 +81,7 @@ import kotlin.time.Clock
  * [eu.kanade.tachiyomi.data.library.LibraryUpdateJob]: a configurable WorkManager schedule that
  * re-parses each favorite, syncs its chapter list, optionally auto-downloads the new chapters, and
  * posts progress and result notifications. Per-novel logic is the shared [refreshNovelFromSource], the
- * same helper the details refresh uses; new chapters come from a before/after chapter-id diff.
+ * same helper the details refresh uses; new chapters are what its syncs report as new.
  */
 class NovelUpdateJob(
     private val context: Context,
@@ -130,7 +130,7 @@ class NovelUpdateJob(
     private val notifier = NovelUpdateNotifier(context, securityPreferences)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
-        val notification = notifier.progress("", 0, 0)
+        val notification = notifier.progress(null, 0, 0)
         val id = Notifications.ID_NOVEL_LIBRARY_PROGRESS
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ForegroundInfo(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -211,7 +211,7 @@ class NovelUpdateJob(
         favorites.forEachIndexed { index, novel ->
             currentCoroutineContext().ensureActive()
             // [index] is how many are already done, which is what the bar reports while this one runs.
-            notifier.showProgress(novel.title, index, favorites.size)
+            notifier.showProgress(novel, index, favorites.size)
             val source = sourceManager.get(novel.source) ?: return@forEachIndexed
             try {
                 val newChapters = checkNovel(novel, source, fetchWindow)
@@ -238,7 +238,7 @@ class NovelUpdateJob(
             }
             // Again once the entry is done, so the bar actually reaches its end; the manga job posts
             // the same pair around each entry.
-            notifier.showProgress(novel.title, index + 1, favorites.size)
+            notifier.showProgress(novel, index + 1, favorites.size)
         }
         val announced = if (updates.isEmpty()) {
             updates
@@ -282,26 +282,22 @@ class NovelUpdateJob(
     }
 
     /** Re-parse the novel, persist metadata edit-lock-safely, sync page 1, and walk any newly-opened
-     *  pages. Returns the chapters that did not exist before (the before/after id diff). */
+     *  pages. Returns the chapters the syncs report as new, which leaves out a duplicate marked read
+     *  and a re-listed chapter, as the manga job's sync result does. */
     private suspend fun checkNovel(
         novel: Novel,
         source: NovelSource,
         fetchWindow: Pair<Long, Long>,
-    ): List<NovelChapter> {
-        val before = chapterRepo.getByNovelId(novel.id).map { it.id }.toSet()
-        refreshNovelFromSource(
-            novel,
-            source,
-            chapterRepo,
-            novelRepo,
-            database,
-            libraryPreferences,
-            novelDownloadManager = downloadManager,
-            fetchWindow = fetchWindow,
-        )
-        val after = chapterRepo.getByNovelId(novel.id)
-        return after.filter { it.id !in before }
-    }
+    ): List<NovelChapter> = refreshNovelFromSource(
+        novel,
+        source,
+        chapterRepo,
+        novelRepo,
+        database,
+        libraryPreferences,
+        novelDownloadManager = downloadManager,
+        fetchWindow = fetchWindow,
+    ).newChapters
 
     /** Mirror of the manga FilterChaptersForDownload: gate by the novel's categories, then (when
      *  "skip duplicate read" is on) drop new chapters whose number matches an already-read one. */

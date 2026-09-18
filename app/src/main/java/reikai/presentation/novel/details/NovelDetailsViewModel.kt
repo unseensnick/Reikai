@@ -41,6 +41,7 @@ import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.mergeRefreshedNovel
+import reikai.data.novel.predictNovelFetchInterval
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
@@ -648,9 +649,10 @@ class NovelDetailsViewModel(
         }
     }
 
-    /** parseNovel + persist metadata (edit-lock + blank safe) + sync the first page's chapters. The
-     *  reactive flow then re-emits the updated novel/chapter list. A novel opened from Browse is
-     *  inserted non-favorite. Returns the persisted novel (carries the refreshed `totalPages`). */
+    /** parseNovel + persist metadata (edit-lock + blank safe) + sync the first page's chapters, then
+     *  predict the next update. The reactive flow then re-emits the updated novel/chapter list. A novel
+     *  opened from Browse is inserted non-favorite. Returns the persisted novel (carries the refreshed
+     *  `totalPages`). */
     private suspend fun fetchAndSync(src: NovelSource, existing: Novel?): Novel? {
         val sourceNovel = src.parseNovel(existing?.url ?: novelUrl)
         val target = if (existing != null) {
@@ -667,7 +669,7 @@ class NovelDetailsViewModel(
         if (chapters.isNotEmpty()) {
             // A paged source's first page is page "1"; tag it so the page-"1" query finds these rows.
             val pageTag = if (sourceNovel.totalPages > 1) "1" else null
-            syncChaptersWithNovelSource(
+            val synced = syncChaptersWithNovelSource(
                 chapters,
                 target,
                 chapterRepo,
@@ -677,6 +679,7 @@ class NovelDetailsViewModel(
                 page = pageTag,
                 novelDownloadManager = downloadManager,
             )
+            predictNovelFetchInterval(target, synced.changed, manualFetch = false, chapterRepo, novelRepo)
         }
         return target
     }
@@ -871,7 +874,7 @@ class NovelDetailsViewModel(
                 novelDownloadManager = downloadManager,
                 manualFetch = true,
             )
-        }.getOrNull()
+        }.getOrNull()?.novel
             ?: novel
 
     private suspend fun forceRefreshViewedPage(loaded: NovelDetailsState.Loaded, updated: Novel, src: NovelSource) {

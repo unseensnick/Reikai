@@ -7,9 +7,12 @@ import reikai.domain.novel.tts.TtsPlayback
 
 /**
  * [ReadAloudTransport] over the app-wide [NovelTtsSession]. It only writes to that singleton while the
- * callbacks it installed are still the session's.
+ * callbacks it installed are still the session's. [isAdult] is the open novel's verdict, read on each publish.
  */
-class NovelTtsSessionTransport(private val context: Context) : ReadAloudTransport {
+class NovelTtsSessionTransport(
+    private val context: Context,
+    private val isAdult: () -> Boolean,
+) : ReadAloudTransport {
 
     private var installed: (() -> Unit)? = null
 
@@ -33,7 +36,7 @@ class NovelTtsSessionTransport(private val context: Context) : ReadAloudTranspor
 
     override fun publish(playback: TtsPlayback, title: String, paragraph: Int, paragraphCount: Int) {
         if (!owns()) return
-        NovelTtsSession.publish(NovelTtsSession.State(playback, title, paragraph, paragraphCount))
+        NovelTtsSession.publish(NovelTtsSession.State(playback, title, paragraph, paragraphCount, isAdult()))
     }
 
     override fun takeStopAtChapterEnd() = owns() && NovelTtsSession.sleepTimer.takeEndOfChapter()

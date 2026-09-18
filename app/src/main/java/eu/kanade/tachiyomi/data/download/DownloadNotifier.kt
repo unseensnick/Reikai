@@ -15,7 +15,10 @@ import eu.kanade.tachiyomi.util.lang.chop
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
+import reikai.data.notification.hiddenEntryIds
+import reikai.domain.manga.AdultContentChecker
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import java.util.regex.Pattern
 
@@ -28,7 +31,11 @@ import java.util.regex.Pattern
 class DownloadNotifier(
     private val context: Context,
     private val preferences: SecurityPreferences,
+    // RK: deferred, so the extension manager behind it is only built once a download needs a verdict
+    private val adultCheckerProvider: () -> AdultContentChecker,
 ) {
+
+    private val adultChecker by lazy { adultCheckerProvider() } // RK
 
     private val progressNotificationBuilder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
@@ -71,7 +78,17 @@ class DownloadNotifier(
      *
      * @param download download object containing download information.
      */
-    fun onProgressChange(download: Download) {
+    // RK: suspends for the adult verdict, which keeps adult titles out of this notification too
+    suspend fun onProgressChange(download: Download) {
+        // RK -->
+        val hidden = hiddenEntryIds(
+            listOf(download.manga),
+            preferences.hideNotificationContent.get(),
+            preferences.hideAdultNotificationContent.get(),
+            Manga::id,
+            adultChecker::adultIdsAmong,
+        ).isNotEmpty()
+        // RK <--
         with(progressNotificationBuilder) {
             if (!isDownloading) {
                 setSmallIcon(android.R.drawable.stat_sys_download)
@@ -98,7 +115,7 @@ class DownloadNotifier(
                 download.pages!!.size,
             )
 
-            if (preferences.hideNotificationContent.get()) {
+            if (hidden) { // RK
                 setContentTitle(downloadingProgressText)
                 setContentText(null)
             } else {

@@ -37,15 +37,22 @@ class NovelDownloadNotifier(
     }
 
     /** Build the progress notification (also used for the worker's `getForegroundInfo`). */
-    fun progress(title: String, current: Int, total: Int): Notification =
+    fun progress(title: String, current: Int, total: Int, isAdult: Boolean): Notification =
         builder
             .setContentTitle("${context.stringResource(MR.strings.label_download_queue)} ($current/$total)")
-            .setContentText(shownEntryName(title, securityPreferences.hideNotificationContent.get()))
+            .setContentText(
+                shownEntryName(
+                    title,
+                    securityPreferences.hideNotificationContent.get(),
+                    securityPreferences.hideAdultNotificationContent.get(),
+                    isAdult,
+                ),
+            )
             .setProgress(total, current, total == 0)
             .build()
 
-    fun show(title: String, current: Int, total: Int) {
-        context.notificationManager.notify(Notifications.ID_NOVEL_DOWNLOADER, progress(title, current, total))
+    fun show(title: String, current: Int, total: Int, isAdult: Boolean) {
+        context.notificationManager.notify(Notifications.ID_NOVEL_DOWNLOADER, progress(title, current, total, isAdult))
     }
 
     fun dismiss() {

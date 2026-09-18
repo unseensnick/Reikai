@@ -57,6 +57,7 @@ import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
+import reikai.domain.novel.isLewd
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryUpdate
@@ -432,6 +433,11 @@ class NovelReaderViewModel(
     /** The opened entry's own title, which a merged session keeps even as chapters cross sources. */
     internal val entryTitle = MutableStateFlow<String?>(null)
 
+    /** Whether the opened novel is adult, for read-aloud's notification. Adult until the row is read, as
+     *  a privacy switch reads it: a generic title beats a leaked one. */
+    @Volatile
+    private var isAdultEntry = true
+
     /** How the opened novel's details screen is reached, for the app bar's title tap. Its source and
      *  url rather than its row id, since the screen is pushed with those. */
     data class DetailsRoute(val source: String, val url: String)
@@ -734,7 +740,7 @@ class NovelReaderViewModel(
                 windowState.value.chapters.firstOrNull { it.chapterId == chapterId }?.title
                     ?: loadedChapter.value?.title.orEmpty()
         },
-        transport = NovelTtsSessionTransport(context),
+        transport = NovelTtsSessionTransport(context) { isAdultEntry },
     )
 
     init {
@@ -742,6 +748,7 @@ class NovelReaderViewModel(
             novelRepo.getById(novelId)?.let {
                 orientationOverride.value = it.readerOrientation.toInt()
                 entryTitle.value = it.title
+                isAdultEntry = it.isLewd()
                 detailsRoute.value = DetailsRoute(it.source, it.url)
                 cover.value = it.thumbnailUrl?.takeIf(String::isNotBlank)?.let { url ->
                     NovelCover(

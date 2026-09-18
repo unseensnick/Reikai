@@ -22,7 +22,8 @@ object NovelTextSplitter {
         val effectiveWordCount = wordCount.coerceAtLeast(20)
 
         return if (isHtml) {
-            splitHtmlText(text, effectiveWordCount)
+            // Each stretch between verbatim blocks is counted afresh, so a block also ends a paragraph.
+            NovelHtmlUtils.mapOutsideVerbatimBlocks(text) { splitHtmlText(it, effectiveWordCount) }
         } else {
             splitPlainText(text, effectiveWordCount)
         }

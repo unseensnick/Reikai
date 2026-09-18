@@ -4,6 +4,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 /**
  * Auto-split breaks a wall of text into paragraphs, for a source that ships one. Ported whole from
@@ -69,5 +71,22 @@ class NovelTextSplitterTest {
         val html = (1..4).joinToString("") { "<p>${sentences(count = 1, wordsEach = 10)}</p>" }
 
         NovelTextSplitter.splitText(html, wordCount = 25, isHtml = true) shouldBe html
+    }
+
+    /** A stylesheet, a script, preformatted text or a text box holds content, not prose to break. */
+    @ParameterizedTest
+    @ValueSource(strings = ["pre", "script", "style", "textarea"])
+    fun `a verbatim block is left as it came`(tag: String) {
+        val html = "<$tag>${sentences(count = 1, wordsEach = 25)}\nline two</$tag>"
+
+        NovelTextSplitter.splitText(html, wordCount = 20, isHtml = true) shouldBe html
+    }
+
+    /** The count restarts after a verbatim block, so prose before it cannot break the prose after early. */
+    @Test
+    fun `the count restarts after a verbatim block`() {
+        val html = "${sentences(count = 1, wordsEach = 15)}<pre>code</pre>${sentences(count = 1, wordsEach = 10)}"
+
+        NovelTextSplitter.splitText(html, wordCount = 20, isHtml = true) shouldBe html
     }
 }

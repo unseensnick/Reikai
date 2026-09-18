@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.isLewd
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
@@ -209,7 +210,8 @@ class NovelDownloadManager(
     }
 
     /** The novel's download directory, for the details overflow's Open folder; null until something
-     *  is downloaded. The twin of DownloadManager.findMangaDir. */
+     *  is downloaded. The novel side of the lookup [reikai.presentation.details.openDownloadFolder] opens
+     *  for both types, which owns the nothing-downloaded case. */
     fun findNovelDir(novel: Novel) = provider.findNovelDir(novel)
 
     /**
@@ -250,10 +252,10 @@ class NovelDownloadManager(
     /**
      * Drain the queue sequentially until empty. Called by [NovelDownloadJob]; the worker stays
      * foreground for the duration. Restores the persisted queue first if the in-memory one is empty
-     * (cold restart). [onProgress] reports `(done, total, novelTitle)` for the notification.
+     * (cold restart). [onProgress] reports `(done, total, novelTitle, isAdult)` for the notification.
      */
     suspend fun runQueue(
-        onProgress: (current: Int, total: Int, title: String) -> Unit,
+        onProgress: (current: Int, total: Int, title: String, isAdult: Boolean) -> Unit,
         onError: (novelTitle: String?, error: String?) -> Unit,
     ) {
         if (!running.compareAndSet(false, true)) return
@@ -281,7 +283,8 @@ class NovelDownloadManager(
                     _downloadingNovelId.value = null
                     while (!context.activeNetworkState().isOnline) {
                         val pending = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
-                        onProgress(done, pending, context.stringResource(MR.strings.download_notifier_no_network))
+                        val status = context.stringResource(MR.strings.download_notifier_no_network)
+                        onProgress(done, pending, status, false)
                         delay(WIFI_RECHECK_MS)
                     }
                     continue
@@ -295,7 +298,8 @@ class NovelDownloadManager(
                     _downloadingNovelId.value = null
                     while (downloadPreferences.downloadOnlyOverWifi.get() && !context.activeNetworkState().isWifi) {
                         val pending = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
-                        onProgress(done, pending, context.stringResource(MR.strings.download_notifier_text_only_wifi))
+                        val status = context.stringResource(MR.strings.download_notifier_text_only_wifi)
+                        onProgress(done, pending, status, false)
                         delay(WIFI_RECHECK_MS)
                     }
                     continue // re-pick the next chapter: the queue may have changed while we waited
@@ -305,7 +309,7 @@ class NovelDownloadManager(
                 val novel = novelRepo.getById(next.novelId)
                 val chapter = chapterRepo.getById(next.chapterId)
                 val total = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
-                onProgress(done, total, novel?.title.orEmpty())
+                onProgress(done, total, novel?.title.orEmpty(), novel?.isLewd() == true)
                 // Try a few times before giving up so a transient network blip or a momentarily
                 // rate-limited source doesn't kill the chapter on the first stumble (mirrors the manga
                 // Downloader). Backoff is per-chapter, separate from the cross-chapter pacing below.

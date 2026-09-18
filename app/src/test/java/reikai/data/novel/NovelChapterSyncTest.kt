@@ -52,7 +52,7 @@ class NovelChapterSyncTest {
         ChapterItem(name = name, path = url, chapterNumber = number)
 
     private class Synced(
-        val result: Pair<List<NovelChapter>, List<NovelChapter>>,
+        val result: NovelChapterSyncResult,
         val inserted: List<InsertedRow>,
     )
 
@@ -113,7 +113,7 @@ class NovelChapterSyncTest {
         val db = listOf(dbChapter("/c/5-a", number = 5.0, read = true))
         val source = listOf(srcItem("/c/5-a", number = 5.0), srcItem("/c/5-b", number = 5.0))
 
-        sync(db, source).result.first shouldBe emptyList()
+        sync(db, source).result.newChapters shouldBe emptyList()
     }
 
     @Test
@@ -155,14 +155,14 @@ class NovelChapterSyncTest {
         val db = listOf(dbChapter("/c/5-old", number = 5.0, read = true))
         val source = listOf(srcItem("/c/5-new", number = 5.0))
 
-        sync(db, source).result.first shouldBe emptyList()
+        sync(db, source).result.newChapters shouldBe emptyList()
     }
 
     @Test
     fun `a genuinely new chapter surfaces as new`() = runTest {
         val source = listOf(srcItem("/c/1", number = 1.0))
 
-        sync(emptyList(), source).result.first.map { it.url } shouldBe listOf("/c/1")
+        sync(emptyList(), source).result.newChapters.map { it.url } shouldBe listOf("/c/1")
     }
 
     @Test
