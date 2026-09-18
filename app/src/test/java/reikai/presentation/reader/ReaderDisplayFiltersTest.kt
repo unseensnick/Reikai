@@ -18,11 +18,13 @@ class ReaderDisplayFiltersTest {
         viewModel = mockk(relaxed = true),
         readerPreferences = ReaderPreferences(store),
         downloadManager = mockk(relaxed = true),
+        titleWords = EnglishChapterTitleWords,
     ).displayFilters
     private val novel = NovelReaderProvider(
         viewModel = mockk(relaxed = true),
         novelPreferences = NovelPreferences(store),
         fontManager = mockk(),
+        titleWords = EnglishChapterTitleWords,
     ).displayFilters
 
     @Test

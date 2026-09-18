@@ -31,6 +31,7 @@ class NovelReaderProvider(
     val viewModel: NovelReaderViewModel,
     private val novelPreferences: NovelPreferences,
     private val fontManager: NovelFontManager,
+    private val titleWords: ChapterTitleWords,
 ) : ReaderProvider {
 
     override val chrome: Flow<ReaderChromeState> = combine(
@@ -38,15 +39,7 @@ class NovelReaderProvider(
         viewModel.chapter,
         novelPreferences.readerChapterTitleFormat().changes(),
     ) { title, chapter, format ->
-        val chapterTitle = chapter?.let {
-            format.chapterTitle(
-                it.title,
-                it.chapterNumber,
-                viewModel::numberedChapterTitle,
-                viewModel::numberedChapterTitle,
-            )
-        }
-        ReaderChromeState(title, chapterTitle)
+        ReaderChromeState(title, chapter?.let { format.chapterTitle(it.title, it.chapterNumber, titleWords) })
     }
 
     override val bottomButtons: Flow<List<ReaderBottomButton>> =

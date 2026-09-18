@@ -13,6 +13,7 @@ import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
+import reikai.domain.reader.ChapterTitleFormat
 import reikai.novel.content.NovelSnippetKind
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -299,7 +300,7 @@ class NovelPreferences(
     /** What the reader's bar calls the open chapter. Name, the default, is what the bar always showed. */
     fun readerChapterTitleFormat() = preferenceStore.getEnum(
         "ln_reader_chapter_title_format",
-        NovelChapterTitleFormat.NAME,
+        ChapterTitleFormat.NAME,
     )
 
     /** How a tap on the page is read. Disabled, the default, toggles the chrome wherever the page is tapped. */

@@ -6,6 +6,7 @@ import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import reikai.domain.reader.ChapterTitleFormat
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
@@ -130,6 +131,10 @@ class ReaderPreferences(
     val preserveReadingPosition: Preference<Boolean> = preferenceStore.getBoolean("preserve_reading_position", false)
 
     val preloadSize: Preference<Int> = preferenceStore.getInt("reader_preload_size", 4)
+
+    /** Its own key rather than the novel reader's, since each reader keeps its own settings. */
+    val chapterTitleFormat: Preference<ChapterTitleFormat> =
+        preferenceStore.getEnum("pref_reader_chapter_title_format", ChapterTitleFormat.NAME)
     // RK <--
 
     val webtoonDisableZoomOut: Preference<Boolean> = preferenceStore.getBoolean("webtoon_disable_zoom_out", false)

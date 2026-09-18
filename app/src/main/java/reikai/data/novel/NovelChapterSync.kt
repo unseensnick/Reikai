@@ -1,6 +1,9 @@
 package reikai.data.novel
 
 import app.cash.sqldelight.async.coroutines.awaitAsOne
+import reikai.domain.chapter.ArrivingChapter
+import reikai.domain.chapter.StoredChapter
+import reikai.domain.chapter.chapterArrivals
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -11,7 +14,6 @@ import reikai.novel.host.ChapterItem
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.library.service.LibraryPreferences
-import java.util.TreeSet
 
 /**
  * Novel-side parallel of the manga `syncChaptersWithSource`: reconcile a freshly-parsed source chapter
@@ -103,41 +105,21 @@ suspend fun syncChaptersWithNovelSource(
         return emptyList<NovelChapter>() to emptyList()
     }
 
-    val deletedNumbers = TreeSet<Double>()
-    val deletedReadNumbers = TreeSet<Double>()
-    val deletedBookmarkedNumbers = TreeSet<Double>()
-    toDelete.forEach {
-        if (it.read) deletedReadNumbers.add(it.chapterNumber)
-        if (it.bookmark) deletedBookmarkedNumbers.add(it.chapterNumber)
-        deletedNumbers.add(it.chapterNumber)
-    }
-
-    val now = System.currentTimeMillis()
-    val changedOrDuplicateReadUrls = mutableSetOf<String>()
-    val readNumbers = dbChapters.filter { it.read && it.chapterNumber >= 0.0 }.map { it.chapterNumber }.toSet()
     val markDuplicateAsRead = libraryPreferences.markDuplicateReadChapterAsRead.get()
         .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
-
-    // Stagger date_fetch so newer-listed chapters get higher values; sources return most-to-least
-    // recent. A re-added chapter reuses its deleted twin's state + original fetch date.
-    var itemCount = toAdd.size
-    val updatedToAdd = toAdd.map { addItem ->
-        var dateFetch = now + itemCount--
-        var read = addItem.read
-        var bookmark = addItem.bookmark
-        if (markDuplicateAsRead && addItem.chapterNumber in readNumbers) {
-            read = true
-            changedOrDuplicateReadUrls.add(addItem.url)
-        }
-        if (addItem.chapterNumber >= 0.0 && addItem.chapterNumber in deletedNumbers) {
-            read = addItem.chapterNumber in deletedReadNumbers
-            bookmark = addItem.chapterNumber in deletedBookmarkedNumbers
-            toDelete.filter { it.chapterNumber == addItem.chapterNumber }
-                .minByOrNull { it.dateFetch }
-                ?.let { dateFetch = it.dateFetch }
-            changedOrDuplicateReadUrls.add(addItem.url)
-        }
-        addItem.copy(dateFetch = dateFetch, read = read, bookmark = bookmark)
+    // Sources list newest first, so the kernel counts fetch dates down from now in that order.
+    val arrivals = chapterArrivals(
+        added = toAdd.map { ArrivingChapter(it.chapterNumber, it.read, it.bookmark) },
+        stored = dbChapters.map { it.toStoredChapter() },
+        removed = toDelete.map { it.toStoredChapter() },
+        markDuplicateAsRead = markDuplicateAsRead,
+        now = System.currentTimeMillis(),
+    )
+    val changedOrDuplicateReadUrls = toAdd.zip(arrivals)
+        .filter { (_, arrival) -> arrival.isChangedOrDuplicate }
+        .mapTo(mutableSetOf()) { (chapter, _) -> chapter.url }
+    val updatedToAdd = toAdd.zip(arrivals) { chapter, arrival ->
+        chapter.copy(dateFetch = arrival.dateFetch, read = arrival.read, bookmark = arrival.bookmark)
     }
 
     val insertedChapters = mutableListOf<NovelChapter>()
@@ -193,6 +175,8 @@ suspend fun syncChaptersWithNovelSource(
     return insertedChapters.filterNot { it.url in changedOrDuplicateReadUrls } to
         toDelete.filterNot { it.url in changedOrDuplicateReadUrls }
 }
+
+private fun NovelChapter.toStoredChapter() = StoredChapter(chapterNumber, read, bookmark, dateFetch)
 
 private fun shouldUpdateDbNovelChapter(dbChapter: NovelChapter, sourceChapter: NovelChapter): Boolean =
     dbChapter.name != sourceChapter.name ||

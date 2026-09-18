@@ -66,6 +66,7 @@ Reference upstream PRs/issues as **`mihonapp/mihon#<n>`** (a cross-repo link). A
 - **Version and release commits are N/A:** Reikai keeps its `.y2k` identity, so skip Mihon's version-code bumps and release-artifact commits.
 - **CI-action bumps go to Reikai's own workflows:** Reikai owns `build_check.yml` / `nightly.yml` / `release.yml`; apply an action bump there, not to a Mihon `build.yml` Reikai lacks.
 - **Coupled bumps land together:** a major dependency bump and its deprecation-fix commit must ride one commit (e.g. xmlutil 1.0.0 with its `XML.v1` migration), or the first commit will not compile.
+- **Three upstream rules now live in Reikai kernels both content types call**, each reached from a `// RK` island: the Smart update skip `when` in `LibraryUpdateJob` (and the three restrictions `StatsViewModel` counts) is `reikai.domain.library.smartUpdateSkip`, the last-read and start-date backfill in `AddTracks.bind` is `reikai.domain.track.bindBackfill`, and the added-chapter rules in `SyncChaptersWithSource` (fetch-date stagger, mark duplicate read, re-added chapter inheritance) are `reikai.domain.chapter.chapterArrivals`. An upstream change to any of those blocks lands in the kernel, not in the island, so the novel side gets it too.
 
 ## Deliberate divergences from upstream
 

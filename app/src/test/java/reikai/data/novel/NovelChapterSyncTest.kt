@@ -125,6 +125,14 @@ class NovelChapterSyncTest {
     }
 
     @Test
+    fun `a new unnumbered chapter stays unread when an unnumbered chapter was read`() = runTest {
+        val db = listOf(dbChapter("/prologue", number = -1.0, read = true))
+        val source = listOf(srcItem("/prologue", number = -1.0), srcItem("/afterword", number = -1.0))
+
+        sync(db, source).inserted.single().read shouldBe false
+    }
+
+    @Test
     fun `a re-added chapter inherits the deleted twin's read and bookmark state`() = runTest {
         val db = listOf(dbChapter("/c/5-old", number = 5.0, read = true, bookmark = true))
         val source = listOf(srcItem("/c/5-new", number = 5.0))

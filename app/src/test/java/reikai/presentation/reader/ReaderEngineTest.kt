@@ -628,6 +628,7 @@ private class FakeReaderProvider(
         mockk(relaxed = true),
         ReaderPreferences(InMemoryPreferenceStore()),
         mockk(relaxed = true),
+        EnglishChapterTitleWords,
     ).displayFilters
 
     override val orientation = MutableStateFlow(0)

@@ -22,8 +22,6 @@ import androidx.work.workDataOf
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import eu.kanade.tachiyomi.source.nHentaiDelegatedSourceIds
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.isConnectedToWifi
@@ -53,6 +51,8 @@ import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.smartUpdateFacts
+import reikai.domain.library.smartUpdateSkip
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import reikai.domain.merge.CollapsedArrivals
@@ -73,10 +73,6 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETWORK_NOT_METERED
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_HAS_UNREAD
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_NON_COMPLETED
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_NON_READ
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_OUTSIDE_RELEASE_PERIOD
 import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
@@ -233,38 +229,11 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             }
             // RK <--
             .filter {
-                when {
-                    it.manga.updateStrategy == UpdateStrategy.ONLY_FETCH_ONCE && it.totalChapters > 0L -> {
-                        skippedUpdates.add(
-                            it.manga to context.stringResource(MR.strings.skipped_reason_not_always_update),
-                        )
-                        false
-                    }
-
-                    MANGA_NON_COMPLETED in restrictions && it.manga.status.toInt() == SManga.COMPLETED -> {
-                        skippedUpdates.add(it.manga to context.stringResource(MR.strings.skipped_reason_completed))
-                        false
-                    }
-
-                    MANGA_HAS_UNREAD in restrictions && it.unreadCount != 0L -> {
-                        skippedUpdates.add(it.manga to context.stringResource(MR.strings.skipped_reason_not_caught_up))
-                        false
-                    }
-
-                    MANGA_NON_READ in restrictions && it.totalChapters > 0L && !it.hasStarted -> {
-                        skippedUpdates.add(it.manga to context.stringResource(MR.strings.skipped_reason_not_started))
-                        false
-                    }
-
-                    MANGA_OUTSIDE_RELEASE_PERIOD in restrictions && it.manga.nextUpdate > fetchWindowUpperBound -> {
-                        skippedUpdates.add(
-                            it.manga to context.stringResource(MR.strings.skipped_reason_not_in_release_period),
-                        )
-                        false
-                    }
-
-                    else -> true
-                }
+                // RK --> the rules live in a kernel the novel update job calls too
+                val skip = smartUpdateSkip(it.smartUpdateFacts(), restrictions, fetchWindowUpperBound)
+                if (skip != null) skippedUpdates.add(it.manga to context.stringResource(skip.reason))
+                skip == null
+                // RK <--
             }
             .sortedBy { it.manga.title }
 

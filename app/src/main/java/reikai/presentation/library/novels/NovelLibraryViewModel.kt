@@ -342,36 +342,21 @@ class NovelLibraryViewModel(
         // filtering, matching the manga library. Filtering first would test each source separately, so a
         // group could survive on a member the user never sees, and the representative would be picked
         // from whichever members happened to pass, changing the cover as filters change.
-        val collapsedAll = NovelMergeCollapse.collapse(
+        // Each group's unread and downloads are the deduplicated cross-source counts: one unit per chapter
+        // the group covers, which summing the members double-counted for every chapter two of them hold.
+        val groups = NovelMergeCollapse.collapse(
             withCounts,
             settings.merge.membership,
             settings.merge.mergingEnabled,
             settings.merge.overrideRankings,
             settings.merge.preferredSources,
+            mergedUnreadByGroup = settings.merge.mergedUnread,
+            mergedDownloadsByGroup = if (settings.merge.mergingEnabled) {
+                mergedDownloadCounts(withCounts, settings.merge.downloadUnits)
+            } else {
+                emptyMap()
+            },
         )
-        // Replace each group's unread with the deduplicated cross-source count: one unit per chapter the
-        // group covers, unread only when no source's copy is read. A group absent from the map has not
-        // been stitched yet, so it keeps the representative's own count: reading that as zero badged a
-        // freshly stitched library as fully read until something made the list rebuild.
-        val mergedUnread = if (settings.merge.mergingEnabled) settings.merge.mergedUnread else emptyMap()
-        // Downloads take the same treatment, which summing the members double-counted for every chapter
-        // two of them hold. Absent means the group holds none; an empty map means nothing probed it.
-        val mergedDownloads = if (settings.merge.mergingEnabled) {
-            mergedDownloadCounts(withCounts, settings.merge.downloadUnits)
-        } else {
-            emptyMap()
-        }
-        val groups = collapsedAll.map { group ->
-            val groupId = settings.merge.membership[group.representative.novel.id]
-                ?.takeIf { group.memberIds.size > 1 }
-            val merged = groupId?.let { mergedUnread[it] }
-            // Absent is a group nothing has stitched, where the members' own sum is the only answer.
-            val downloads = groupId?.takeIf { mergedDownloads.isNotEmpty() }?.let { mergedDownloads[it] }
-            group.copy(
-                unreadCount = merged ?: group.unreadCount,
-                totalDownloadCount = downloads?.toLong() ?: group.totalDownloadCount,
-            )
-        }
         // Union each merge group's member tracks (deduped per tracker), keyed by the rep's real novel id,
         // so the shared filter's tracker axis and the sort's mean score both read a track bound on ANY
         // grouped source. Synchronous: reads the in-memory group members, never the suspend awaitGroup.

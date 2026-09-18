@@ -42,7 +42,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
-import reikai.domain.novel.NovelChapterTitleFormat
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
@@ -51,6 +50,7 @@ import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.novel.tts.baseLanguages
 import reikai.domain.novel.tts.inLanguages
+import reikai.domain.reader.ChapterTitleFormat
 import reikai.novel.font.NovelFont
 import reikai.novel.font.fontDisplayName
 import reikai.presentation.components.ColorPickerDialog
@@ -237,8 +237,8 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
     HeadingItem(MR.strings.pref_category_page)
     val titleFormatPref = preferences.readerChapterTitleFormat()
     val titleFormat by titleFormatPref.collectAsState()
-    SettingsChipRow(MR.strings.pref_novel_chapter_title_format) {
-        NovelChapterTitleFormat.entries.forEach {
+    SettingsChipRow(MR.strings.pref_chapter_title_format) {
+        ChapterTitleFormat.entries.forEach {
             FilterChip(
                 selected = titleFormat == it,
                 onClick = { titleFormatPref.set(it) },

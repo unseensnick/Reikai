@@ -82,13 +82,11 @@ import reikai.presentation.reader.text.NovelResume
 import reikai.presentation.reader.text.NovelWarmPolicy
 import reikai.presentation.reader.text.NovelWindowReach
 import reikai.presentation.reader.web.NovelWebSnippets
-import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.i18n.MR
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 
@@ -413,12 +411,6 @@ class NovelReaderViewModel(
          *  (`NovelSeam.end`) is drawn below it. */
         val isLast: Boolean,
     )
-
-    /** A chapter named by its number, and by its number and name, in the words the bar uses. */
-    fun numberedChapterTitle(number: String): String = context.stringResource(MR.strings.display_mode_chapter, number)
-
-    fun numberedChapterTitle(number: String, name: String): String =
-        context.stringResource(MR.strings.novel_chapter_title_numbered, number, name)
 
     /** The opened entry's own title, which a merged session keeps even as chapters cross sources. */
     internal val entryTitle = MutableStateFlow<String?>(null)

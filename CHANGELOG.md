@@ -223,6 +223,7 @@ every release now also ships a foss build with neither in it.
 - **Bottom bar buttons under Settings -> Manga reader and Settings -> Novel reader now set the order of the reader's buttons, not just which ones show.** Drag a button by its handle, the settings button included, which is always shown.
 - **Settings -> Novel reader -> Resume reading position now reopens read chapters where you left them, as the manga reader's setting does.**
 - **The reader's top menu can reload the open chapter where you are, from its downloaded copy or fresh from the source.**
+- **Both readers' bars can now name a chapter by its number, or by number and name, under Settings -> Manga reader, Settings -> Novel reader or the reader's Appearance tab.** Each reader keeps its own choice, and a number the chapter's name already opens with is not shown twice.
 - **Settings -> Manga reader and Settings -> Novel reader can now hide the progress slider, which moves the chapter buttons to the ends of the button bar.**
 - **Settings -> Novel reader -> Add the next chapter at sets how far into a chapter the next one appears below it, 95% by default.** It is still fetched as soon as the chapter opens, so Next and read aloud never wait.
 
@@ -318,7 +319,6 @@ every release now also ships a foss build with neither in it.
 - **Settings -> Novel reader can now show a chapter's raw HTML as text, in either rendering mode.** It helps tell a source's broken markup apart from a reader problem.
 - **The novel web page reader can now add your own CSS and JavaScript snippets to every chapter, under Settings -> Novel reader.** JavaScript snippets restored from a backup come back switched off.
 - **Settings -> Advanced can now open the novel web page reader to a computer's browser inspector and show its script errors as toasts.** Off by default, since it opens every web page in the app while on.
-- **The novel reader's bar can now name a chapter by its number, or by number and name, under Settings -> Novel reader or the reader's Appearance tab.** A number the chapter's name already opens with is not shown twice.
 - **Settings -> Novel reader can now swap the vertical chapter navigator for a horizontal slider above the bar's buttons.**
 - **Both readers can now put a Scroll to top button on the bottom bar.** It returns a novel to the chapter's start and manga to the chapter's first page.
 - **Both readers' bottom bar can now be edited without leaving the reader, from Edit bottom bar in the top bar's menu.**
@@ -564,6 +564,7 @@ every release now also ships a foss build with neither in it.
 
 ### Other
 
+- Smart update skipping, the chapter-sync rules for new chapters and what binding a tracker backfills are now each written once for manga and novels, so the two can no longer drift. The novel library update also decides what to skip from the library's chapter counts, rather than loading every novel's chapters first.
 - The app's native libraries are now compressed inside the download, which keeps it near its old size although the high quality renderer added about 27 MB of them: the arm64 download is about 31 MB where it would have been 53 MB. Once installed the app takes a little more space, since Android unpacks them.
 - The light-novel plugin manager now fetches the plugin repos once, and only while its tab is open. Opening Browse used to fetch every repo twice.
 - A category link that no picker for its content type could show is now refused where it is written, so a manga can no longer be filed under a novels-only category or the reverse.

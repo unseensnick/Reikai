@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
+import reikai.domain.reader.ChapterTitleFormat
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -181,6 +182,16 @@ internal fun ColumnScope.MangaAppearancePage(viewModel: ReaderSettingsViewModel)
                 selected = readerTheme == value,
                 onClick = { preferences.readerTheme.set(value) },
                 label = { Text(stringResource(labelRes)) },
+            )
+        }
+    }
+    val titleFormat by preferences.chapterTitleFormat.collectAsState()
+    SettingsChipRow(MR.strings.pref_chapter_title_format) {
+        ChapterTitleFormat.entries.forEach {
+            FilterChip(
+                selected = titleFormat == it,
+                onClick = { preferences.chapterTitleFormat.set(it) },
+                label = { Text(stringResource(it.titleRes)) },
             )
         }
     }

@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
+import reikai.domain.reader.ChapterTitleFormat
 import reikai.presentation.reader.readerBottomButtonsPreference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -126,6 +127,13 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     preference = readerPreferences.showPageNumber,
                     title = stringResource(MR.strings.pref_show_page_number),
                 ),
+                // RK -->
+                Preference.PreferenceItem.ListPreference(
+                    preference = readerPreferences.chapterTitleFormat,
+                    entries = ChapterTitleFormat.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_chapter_title_format),
+                ),
+                // RK <--
             ),
         )
     }

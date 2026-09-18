@@ -121,6 +121,7 @@ import reikai.presentation.reader.ReaderSleepTimerDialog
 import reikai.presentation.reader.ReaderTextSizeDialog
 import reikai.presentation.reader.ReaderThemeDialog
 import reikai.presentation.reader.TextViewport
+import reikai.presentation.reader.chapterTitleWords
 import reikai.presentation.reader.isSameLaunch
 import reikai.presentation.reader.putEntryId
 import reikai.presentation.reader.readEntryId
@@ -222,7 +223,9 @@ class ReaderActivity : BaseActivity() {
     // The provider is held here as its own type as well, because building page actions is a manga
     // question the neutral seam does not carry; it is stateless, so the engine surviving a recreate
     // with an earlier instance changes nothing.
-    private val mangaProvider by lazy { MangaReaderProvider(viewModel, readerPreferences, graph.downloadManager) }
+    private val mangaProvider by lazy {
+        MangaReaderProvider(viewModel, readerPreferences, graph.downloadManager, applicationContext.chapterTitleWords())
+    }
 
     // Resolved after viewModel so the provider has a model to wrap. Manual assisted factories are a
     // plain function rather than a ViewModelProvider.Factory, which is what the initializer wraps.
@@ -256,7 +259,12 @@ class ReaderActivity : BaseActivity() {
     /** The novel half of the session, or null when this launch is a manga one. */
     private val novelSession: NovelReaderProvider? by lazy {
         (intent.entryId() as? EntryId.Novel)?.let {
-            NovelReaderProvider(novelViewModel, novelPreferences, appGraph.novelFontManager)
+            NovelReaderProvider(
+                novelViewModel,
+                novelPreferences,
+                appGraph.novelFontManager,
+                applicationContext.chapterTitleWords(),
+            )
         }
     }
 

@@ -17,11 +17,10 @@ object NovelMergeCollapse {
         val memberIds: List<Long>,
         val totalDownloadCount: Long,
         /**
-         * The group's unread count. Starts as the representative's own, and the caller replaces it with
-         * the deduplicated cross-source count once that is available. It lives here rather than being
-         * written back into [representative] because `LibraryNovel.unreadCount` is derived from
-         * `totalChapters - readCount`, and a group can cover more chapters than its representative (the
-         * other sources gap-fill), which would make that subtraction negative and break `hasStarted`.
+         * The group's unread count. It lives here rather than being written back into [representative]
+         * because `LibraryNovel.unreadCount` is derived from `totalChapters - readCount`, and a group can
+         * cover more chapters than its representative (the other sources gap-fill), which would make that
+         * subtraction negative and break `hasStarted`.
          */
         val unreadCount: Long,
     )
@@ -37,6 +36,11 @@ object NovelMergeCollapse {
         // Global preferred novel-source ids (plugin slugs), highest priority first; the fallback ranking
         // when a group has no override. Empty means ranking falls through to chapter count then id.
         preferredSourceIds: List<String> = emptyList(),
+        // Group id -> deduplicated unread count. A stitched group always has an entry, zero included, so
+        // an absent one has not been stitched and keeps the representative's own count, as on manga.
+        mergedUnreadByGroup: Map<Long, Long> = emptyMap(),
+        // Group id -> merged chapters with a copy on disk. Absent keeps the members' own sum, as on manga.
+        mergedDownloadsByGroup: Map<Long, Int> = emptyMap(),
     ): List<CollapsedNovel> {
         if (library.size <= 1 || !mergingEnabled) {
             return library.map { CollapsedNovel(it, listOf(it.novel.id), it.downloadCount, it.unreadCount) }
@@ -54,7 +58,8 @@ object NovelMergeCollapse {
 
         val result = mutableListOf<CollapsedNovel>()
         for ((key, bucket) in buckets) {
-            val overrideOrder = groupIdByKey[key]?.let { overrideRankings[it] }.orEmpty()
+            val groupId = groupIdByKey[key]?.takeIf { bucket.size > 1 }
+            val overrideOrder = groupId?.let { overrideRankings[it] }.orEmpty()
             val rep = bucket.minWith(rankComparator(overrideOrder, preferredSourceIds))
             // The merged entry sorts (LastRead) by the most recent read across all members, not just the
             // representative's own, so reading any source bubbles the whole group up.
@@ -67,10 +72,10 @@ object NovelMergeCollapse {
                 CollapsedNovel(
                     representative = representative,
                     memberIds = bucket.map { it.novel.id },
-                    totalDownloadCount = bucket.sumOf { it.downloadCount },
-                    // The representative's own count until the caller supplies the deduplicated one.
+                    totalDownloadCount = groupId?.let { mergedDownloadsByGroup[it] }?.toLong()
+                        ?: bucket.sumOf { it.downloadCount },
                     // Never a sum: the grouped sources share chapters, so summing double-counts them.
-                    unreadCount = representative.unreadCount,
+                    unreadCount = groupId?.let { mergedUnreadByGroup[it] } ?: representative.unreadCount,
                 ),
             )
         }

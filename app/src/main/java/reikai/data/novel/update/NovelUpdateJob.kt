@@ -31,6 +31,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -45,6 +46,8 @@ import reikai.domain.category.GetNovelCategories
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.ReleaseInterval
+import reikai.domain.library.smartUpdateFacts
+import reikai.domain.library.smartUpdateSkip
 import reikai.domain.merge.CollapsedArrivals
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -188,15 +191,15 @@ class NovelUpdateJob(
         val fetchWindow = ReleaseInterval.window(Clock.System.now().toLocalDateTime(timeZone).date, timeZone)
         val restrictions = preferences.novelUpdateRestrictions().get()
         val favorites = buildList {
-            for (novel in novelRepo.getFavorites()) {
+            // The library rows carry the chapter counts the rules read, so no chapter is loaded to decide.
+            for (entry in novelRepo.getLibraryNovelAsFlow().first()) {
+                val novel = entry.novel
                 val categoryOk = if (categoryId != -1L) {
                     categoryId in getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
                 } else {
                     shouldUpdate(novel)
                 }
-                if (categoryOk &&
-                    novelPassesSmartUpdate(novel, restrictions, fetchWindow) { chapterRepo.getByNovelId(novel.id) }
-                ) {
+                if (categoryOk && smartUpdateSkip(entry.smartUpdateFacts(), restrictions, fetchWindow.second) == null) {
                     add(novel)
                 }
             }

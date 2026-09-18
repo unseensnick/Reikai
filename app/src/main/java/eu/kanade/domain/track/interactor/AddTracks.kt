@@ -8,9 +8,10 @@ import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.util.lang.convertEpochMillisZone
 import kotlinx.datetime.TimeZone
 import logcat.LogPriority
+import reikai.domain.track.BindChapter
+import reikai.domain.track.bindBackfill
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
@@ -41,38 +42,22 @@ class AddTracks(
 
             // TODO: merge into [SyncChapterProgressWithTrack]?
             // Update chapter progress if newer chapters marked read locally
-            if (hasReadChapters) {
-                val latestLocalReadChapterNumber = allChapters
-                    .sortedBy { it.chapterNumber }
-                    .takeWhile { it.read }
-                    .lastOrNull()
-                    ?.chapterNumber ?: -1.0
-
-                if (latestLocalReadChapterNumber > track.lastChapterRead) {
-                    track = track.copy(
-                        lastChapterRead = latestLocalReadChapterNumber,
-                    )
-                    tracker.setRemoteLastChapterRead(track.toDbTrack(), latestLocalReadChapterNumber.toInt())
-                }
-
-                if (track.startDate <= 0) {
-                    val firstReadChapterDate = getHistory.await(mangaId)
-                        .sortedBy { it.readAt }
-                        .firstOrNull()
-                        ?.readAt
-
-                    firstReadChapterDate?.let {
-                        val startDate = firstReadChapterDate.time.convertEpochMillisZone(
-                            TimeZone.currentSystemDefault(),
-                            TimeZone.UTC,
-                        )
-                        track = track.copy(
-                            startDate = startDate,
-                        )
-                        tracker.setRemoteStartDate(track.toDbTrack(), startDate)
-                    }
-                }
+            // RK --> the rule is a kernel the novel bind calls too
+            val backfill = bindBackfill(
+                allChapters.map { BindChapter(it.chapterNumber, it.read) },
+                track.lastChapterRead,
+                track.startDate,
+                TimeZone.currentSystemDefault(),
+            ) { getHistory.await(mangaId).sortedBy { it.readAt }.firstOrNull()?.readAt?.time }
+            backfill.lastChapterRead?.let {
+                track = track.copy(lastChapterRead = it)
+                tracker.setRemoteLastChapterRead(track.toDbTrack(), it.toInt())
             }
+            backfill.startDate?.let {
+                track = track.copy(startDate = it)
+                tracker.setRemoteStartDate(track.toDbTrack(), it)
+            }
+            // RK <--
 
             syncChapterProgressWithTrack.await(mangaId, track, tracker)
         }

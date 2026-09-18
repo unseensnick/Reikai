@@ -19,7 +19,6 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
-import reikai.domain.novel.NovelChapterTitleFormat
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
@@ -28,6 +27,7 @@ import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.novel.tts.baseLanguages
 import reikai.domain.novel.tts.inLanguages
+import reikai.domain.reader.ChapterTitleFormat
 import reikai.novel.content.NovelSnippetKind
 import reikai.novel.font.fontDisplayName
 import reikai.presentation.components.ColorPickerDialog
@@ -462,8 +462,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ).takeIf { seamless },
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerChapterTitleFormat(),
-                    entries = NovelChapterTitleFormat.entries.associateWith { stringResource(it.titleRes) },
-                    title = stringResource(MR.strings.pref_novel_chapter_title_format),
+                    entries = ChapterTitleFormat.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_chapter_title_format),
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerDefaultOrientation(),

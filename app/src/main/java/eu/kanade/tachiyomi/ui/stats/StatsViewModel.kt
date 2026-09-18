@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.library.ContentType
+import reikai.domain.library.smartUpdateFacts
+import reikai.domain.library.smartUpdateProgressSkip
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.dedupeByMergeGroup
 import reikai.domain.novel.NovelHistoryRepository
@@ -38,9 +40,6 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.history.interactor.GetTotalReadDuration
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_HAS_UNREAD
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_NON_COMPLETED
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_NON_READ
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.model.Track
@@ -211,11 +210,7 @@ class StatsViewModel(
             val excluded = it.categories.intersect(excludedCategories).isNotEmpty()
             included && !excluded
         }
-            .fastCountNot {
-                (MANGA_NON_COMPLETED in updateRestrictions && it.manga.status.toInt() == SManga.COMPLETED) ||
-                    (MANGA_HAS_UNREAD in updateRestrictions && it.unreadCount != 0L) ||
-                    (MANGA_NON_READ in updateRestrictions && it.totalChapters > 0 && !it.hasStarted)
-            }
+            .fastCountNot { smartUpdateProgressSkip(it.smartUpdateFacts(), updateRestrictions) != null } // RK
     }
 
     // RK --> novel twin of getGlobalUpdateItemCount, over the novel update categories + restrictions
@@ -229,11 +224,7 @@ class StatsViewModel(
             val excluded = it.categories.intersect(excludedCategories).isNotEmpty()
             included && !excluded
         }
-            .fastCountNot {
-                (MANGA_NON_COMPLETED in updateRestrictions && it.novel.status.toInt() == NovelStatusCode.COMPLETED) ||
-                    (MANGA_HAS_UNREAD in updateRestrictions && it.unreadCount != 0L) ||
-                    (MANGA_NON_READ in updateRestrictions && it.totalChapters > 0 && !it.hasStarted)
-            }
+            .fastCountNot { smartUpdateProgressSkip(it.smartUpdateFacts(), updateRestrictions) != null }
     }
     // RK <--
 

@@ -43,12 +43,21 @@ class MangaReaderProvider(
     private val viewModel: ReaderViewModel,
     private val readerPreferences: ReaderPreferences,
     private val downloadManager: DownloadManager,
+    private val titleWords: ChapterTitleWords,
 ) : ReaderProvider {
 
     // The visible chapter rather than the active one: they differ mid-scroll across a boundary, and
     // pairing a title from one with a page count from the other is the chrome tear.
-    override val chrome: Flow<ReaderChromeState> = viewModel.state
-        .map { ReaderChromeState(it.manga?.title, it.visibleChapter?.chapter?.name) }
+    override val chrome: Flow<ReaderChromeState> = combine(
+        viewModel.state,
+        readerPreferences.chapterTitleFormat.changes(),
+    ) { state, format ->
+        val chapter = state.visibleChapter?.chapter
+        ReaderChromeState(
+            state.manga?.title,
+            chapter?.let { format.chapterTitle(it.name, it.chapter_number.toDouble(), titleWords) },
+        )
+    }
 
     override val bottomButtons: Flow<List<ReaderBottomButton>> =
         ReaderBottomButton.orderedChanges(ReaderBottomButton.BarPreferences.manga(readerPreferences))
