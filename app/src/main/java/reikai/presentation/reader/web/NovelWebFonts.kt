@@ -12,8 +12,9 @@ import reikai.novel.font.isSupportedFontFile
  * `NovelTextStyle`: a user's file through the font manager, anything else as a bundled asset.
  * Inlined because the page cannot fetch either: this mode keeps file access off, and a document
  * whose origin is the source's site may not load a `file://` URL anyway. Null for a generic family.
+ * One per viewport, so the face it holds goes with the reader rather than staying for the process.
  */
-internal object NovelWebFonts {
+internal class NovelWebFonts {
 
     /** The last face resolved, which every document build and font push asks for again, and which for a
      *  CJK face is megabytes read and encoded. A user's file is told apart by its size and timestamp. */

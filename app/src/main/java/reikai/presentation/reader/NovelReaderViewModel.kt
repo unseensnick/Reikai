@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -74,6 +75,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.components.chapterSubtitle
+import reikai.presentation.components.mergeSourceLabels
 import reikai.presentation.reader.text.InFlightLoads
 import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.reader.text.NovelLeaveRule
@@ -752,6 +754,13 @@ class NovelReaderViewModel(
                 load()
             }
             .launchIn(viewModelScope)
+        // Reports reach the next chapter by crossing the threshold, which a threshold lowered below the
+        // reader's place never does. The window re-reads it, and never takes back a chapter it holds.
+        novelPreferences.readerAutoLoadNextAt().changes()
+            .drop(1)
+            .onEach { rebuildWindow() }
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
         load()
     }
 
@@ -1096,7 +1105,7 @@ class NovelReaderViewModel(
         val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
         val byId = pooled.associateBy { it.id }
         val chapters = orderedIds.mapNotNull { id -> byId[id] ?: chapterRepo.getById(id) }
-        val sourceNames = chapterSourceNames(chapters)
+        val sourceNames = chapterSourceNames()
         val novels = novelsOf(pooled + chapters)
         emitAll(
             combine(downloadManager.queueState, loadedChapter) { queue, _ ->
@@ -1107,17 +1116,14 @@ class NovelReaderViewModel(
         )
     }.flowOn(Dispatchers.IO)
 
-    /** Per-source display names keyed by novelId, for a merged novel's source labels. Empty for a
-     *  single-source novel, so no label is drawn. */
-    private suspend fun chapterSourceNames(chapters: List<NovelChapter>): Map<Long, String> {
-        val novelIds = chapters.map { it.novelId }.distinct()
-        if (novelIds.size <= 1) return emptyMap()
-        return novelIds.associateWith { id ->
+    /** Per-source display names keyed by the merge group's members, for a merged novel's source labels. */
+    private suspend fun chapterSourceNames(): Map<Long, String> = mergeSourceLabels(
+        memberIds.associateWith { id ->
             textLoader.cachedSource(id)?.name
                 ?: novelRepo.getById(id)?.source?.let { sourceManager.get(it)?.name ?: it }
                 ?: ""
-        }
-    }
+        },
+    )
 
     /** Reaches every source's copy of the chapter, as the manga sheet and the details list do. */
     fun setChapterRead(chapterId: Long, read: Boolean) {
@@ -1509,8 +1515,7 @@ class NovelReaderViewModel(
     }
 }
 
-/** A chapter sheet's row, as the merge group's [flags] answer for it. The legacy reader's sheet builds
- *  its rows here too, so the two sheets cannot say different things about one chapter. */
+/** A chapter sheet's row, as the merge group's [flags] answer for it. */
 internal fun NovelChapter.toReaderChapterRow(
     sourceNames: Map<Long, String>,
     queued: Map<Long, NovelDownload>,

@@ -1,6 +1,5 @@
 package eu.kanade.presentation.webview
 
-import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.os.Message
 import android.webkit.JsPromptResult
@@ -43,7 +42,6 @@ import com.kevinnzou.web.WebViewState
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.WarningBanner
-import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.util.system.getHtml
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
@@ -53,6 +51,7 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ArrowBack
 import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
 import mihon.icons.materialsymbols.rounded.Close
+import reikai.util.isDebugInspectorBuild
 import tachiyomi.core.common.Constants
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -338,9 +337,9 @@ fun WebViewScreenContent(
                     webView.setDefaultSettings()
 
                     // Debug mode (chrome://inspect/#devices)
-                    if (BuildConfig.DEBUG &&
-                        0 != webView.context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE
-                    ) {
+                    // RK --> the gate the novel web reader shares, since it can switch the inspector off
+                    if (webView.context.isDebugInspectorBuild()) {
+                        // RK <--
                         WebView.setWebContentsDebuggingEnabled(true)
                     }
 

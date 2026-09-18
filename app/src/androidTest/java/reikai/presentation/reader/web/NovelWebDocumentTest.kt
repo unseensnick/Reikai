@@ -143,6 +143,10 @@ class NovelWebDocumentTest {
         fun onChapterEndSeen(documentToken: String, chapterId: String) {
             if (documentToken == DOCUMENT_TOKEN) endsSeen += chapterId
         }
+
+        /** Unrecorded, but missing it threw in the page's frame before the end and fit checks ran. */
+        @JavascriptInterface
+        fun onTopLine(documentToken: String, chapterId: String, line: Int) = Unit
     }
 
     /** How many settled positions, and how many boundary retries, the page sent the host. */
@@ -251,7 +255,7 @@ class NovelWebDocumentTest {
     @Test
     fun aBundledFontActuallyLoads() {
         val context = instrumentation.targetContext
-        val source = runBlocking { NovelWebFonts.dataUri(context, context.appGraph.novelFontManager, "lora") }
+        val source = runBlocking { NovelWebFonts().dataUri(context, context.appGraph.novelFontManager, "lora") }
         loadDocument(document(fontFamily = "lora", fontSource = source))
         assertEquals("the bundled face did not load", "true", awaitEval(LORA_LOADED, "true"))
     }
@@ -261,9 +265,20 @@ class NovelWebDocumentTest {
     fun theSameFaceAskedForTwiceIsReadOnce() {
         val context = instrumentation.targetContext
         val fonts = context.appGraph.novelFontManager
-        val first = runBlocking { NovelWebFonts.dataUri(context, fonts, "lora") }
-        val second = runBlocking { NovelWebFonts.dataUri(context, fonts, "lora") }
+        val webFonts = NovelWebFonts()
+        val first = runBlocking { webFonts.dataUri(context, fonts, "lora") }
+        val second = runBlocking { webFonts.dataUri(context, fonts, "lora") }
         assertTrue("the face was read and encoded again", first != null && first === second)
+    }
+
+    /** The face is megabytes for a CJK font, so it goes with the reader that asked for it. */
+    @Test
+    fun theFaceCacheEndsWithItsViewport() {
+        val context = instrumentation.targetContext
+        val fonts = context.appGraph.novelFontManager
+        val first = runBlocking { NovelWebFonts().dataUri(context, fonts, "lora") }
+        val second = runBlocking { NovelWebFonts().dataUri(context, fonts, "lora") }
+        assertTrue("a new reader was handed the last reader's face", first != null && first !== second)
     }
 
     /** A font picked while a chapter is open reaches the page as a face, not only as a family name. */
@@ -271,7 +286,7 @@ class NovelWebDocumentTest {
     fun aFontPickedWithThePageOpenLoadsItsFace() {
         val context = instrumentation.targetContext
         loadDocument()
-        val source = runBlocking { NovelWebFonts.dataUri(context, context.appGraph.novelFontManager, "lora") }
+        val source = runBlocking { NovelWebFonts().dataUri(context, context.appGraph.novelFontManager, "lora") }
         // What the viewport's settings push sends: the family as a variable, then its face.
         val variables = NovelWebDocument.variables(settings.copy(fontFamily = "lora"), 0)
         eval("document.documentElement.setAttribute('style', ${JSONObject.quote(variables)})")
@@ -380,7 +395,8 @@ class NovelWebDocumentTest {
     }
 
     /** Held the same way, since a forward step reads a chapter that fits, and a long illustrated one
-     *  measures short until its pictures arrive. The native renderer holds its fit report too. */
+     *  measures short until its pictures arrive. Both renderers are held to it by
+     *  `TextViewportContractTest.anIllustratedChapterSaysWhetherItFitsOnlyOnceItsPicturesArrive`. */
     @Test
     fun anImageStillLoadingHoldsBackTheFit() {
         loadDocument(document(chapterHtml = "<p>short</p>"))
@@ -532,6 +548,20 @@ class NovelWebDocumentTest {
         assertEquals(
             "Couldn't load | no luck",
             eval("[...document.querySelectorAll('.rk-failure > div')].map(e => e.textContent).join(' | ')"),
+        )
+    }
+
+    /**
+     * A failed picture's box sits inside the chapter, where the reader's overrides of the chapter's own
+     * styling reach, and those took the Retry pill's colours off. The box is the reader's, so it keeps them.
+     */
+    @Test
+    fun aFailedPicturesRetryKeepsItsPillInsideTheChapter() {
+        loadDocument(document(chapterHtml = "<img src=\"https://invalid.invalid/x.png\"><p>lorem ipsum</p>"))
+        awaitEval("String(!!document.querySelector('.rk-image-failure .rk-failure-retry'))", "true")
+        assertEquals(
+            eval("getComputedStyle(document.querySelector('.rk-chapter')).color"),
+            eval("getComputedStyle(document.querySelector('.rk-image-failure .rk-failure-retry')).backgroundColor"),
         )
     }
 

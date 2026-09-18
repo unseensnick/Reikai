@@ -23,12 +23,9 @@ internal class ImageFailureDrawable(
     private val textColor: () -> Int,
 ) : Drawable() {
 
-    /** While a retry runs, the pill stands dimmed rather than taking a second tap. */
+    /** While a retry runs, the pill stands dimmed rather than taking a second tap. Whoever sets it redraws
+     *  the view: a drawable in a span has no callback, so it cannot redraw itself. */
     var retrying = false
-        set(value) {
-            field = value
-            invalidateSelf()
-        }
 
     private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = em }
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }

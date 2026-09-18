@@ -47,6 +47,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
 import reikai.presentation.reader.text.ChapterImageSpan
 import reikai.presentation.reader.text.DrawableWrapper
 import reikai.presentation.reader.text.ImageFailureDrawable
@@ -1008,6 +1009,103 @@ class TextViewportContractTest(private val renderer: Renderer) {
             shown
         }
         Renderer.WEB -> eval("document.querySelectorAll('#rk-chapters .rk-chapter p').length > 0") == "true"
+    }
+
+    /**
+     * A picture whose request never answers holds the saved place back only for the image wait, after
+     * which it lands on the chapter as it measures without the picture. Waiting on for it left the reader
+     * at the chapter's top, reporting nothing.
+     */
+    @Test
+    fun aSavedPlaceLandsWithinTheImageWaitWhenAPictureNeverArrives() {
+        val openedAt = SystemClock.uptimeMillis()
+        runBlocking(Dispatchers.Main) {
+            viewport.load(illustratedChapter(SAVED_PERCENT, held = true), readerTestSettings)
+        }
+        awaitWhile { reports.none { it.chapterId == FIRST } }
+        val reportedAfter = SystemClock.uptimeMillis() - openedAt
+        assertTrue(
+            "the first report came ${reportedAfter}ms after the open",
+            reportedAfter <= CHAPTER_IMAGE_WAIT_MS + IMAGE_WAIT_GRACE_MS,
+        )
+        awaitScrollStill()
+        assertEquals(SAVED_PERCENT.toFloat(), lastReported(FIRST), LANDING_SLACK_PERCENT)
+    }
+
+    /**
+     * A top line the chapter's text does not reach, as a count from other text can be, lands on the saved
+     * share as the page lands it. Landing at the chapter's end reported all of it, which reads the chapter.
+     */
+    @Test
+    fun aTopLinePastTheChaptersEndLandsOnTheSavedShare() {
+        open(chapter(FIRST, long("first"), progressPercent = SAVED_PERCENT).copy(topLine = PAST_THE_END))
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        assertEquals(SAVED_PERCENT.toFloat(), firstReported(FIRST), LANDING_SLACK_PERCENT)
+    }
+
+    /** Until its pictures land a long illustrated chapter measures short, and would be read on opening. */
+    @Test
+    fun anIllustratedChapterSaysNothingAboutItsEndWhileItsPicturesLoad() {
+        val pictures = PngServer(pngOf(400, 1600), held = true).also { server = it }
+        runBlocking(Dispatchers.Main) {
+            viewport.load(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${pictures.url}\">"), readerTestSettings)
+        }
+        awaitWhile { !textShown() }
+        settle()
+        Thread.sleep(QUIET_MS)
+        val whileLoading = endsSeen.toList()
+        pictures.release()
+        awaitWhile { !fits.containsKey(FIRST) }
+        settle()
+        assertEquals(emptyList<Long>() to emptyList<Long>(), whileLoading to endsSeen.toList())
+    }
+
+    /** Held the same way, since a forward step reads a chapter that fits. */
+    @Test
+    fun anIllustratedChapterSaysWhetherItFitsOnlyOnceItsPicturesArrive() {
+        val pictures = PngServer(pngOf(400, 1600), held = true).also { server = it }
+        runBlocking(Dispatchers.Main) {
+            viewport.load(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${pictures.url}\">"), readerTestSettings)
+        }
+        awaitWhile { !textShown() }
+        settle()
+        Thread.sleep(QUIET_MS)
+        val whileLoading = fits[FIRST]
+        pictures.release()
+        awaitWhile { !fits.containsKey(FIRST) }
+        assertEquals(null to false, whileLoading to fits[FIRST])
+    }
+
+    /**
+     * A failed picture's box is the reader's own words, which the top line counts no more than the text
+     * renderer does: a line above or below it is named by the same count either way.
+     */
+    @Test
+    fun aFailedPictureAboveTheTopLineAddsNothingToItsCount() {
+        val picture = PngServer(pngOf(SMALL_IMAGE_PX, SMALL_IMAGE_PX), failFirst = Int.MAX_VALUE, held = true)
+            .also { server = it }
+        runBlocking(Dispatchers.Main) {
+            viewport.load(
+                chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${picture.url}\">" + long("first")),
+                readerTestSettings,
+            )
+        }
+        awaitWhile { !textShown() }
+        // Past the wait on the pictures, so the opening landing is done with before the reader scrolls.
+        Thread.sleep(CHAPTER_IMAGE_WAIT_MS + IMAGE_WAIT_GRACE_MS)
+        scrollBy(REBUILT_SCROLL_DP)
+        Thread.sleep(QUIET_MS)
+        val before = topLines.lastOrNull { it.first == FIRST }?.second
+        picture.release()
+        awaitWhile { imageFailure() == null }
+        awaitScrollStill()
+        scrollBy(SCROLL_DP)
+        scrollBy(-SCROLL_DP)
+        Thread.sleep(QUIET_MS)
+        val after = topLines.lastOrNull { it.first == FIRST }?.second
+        assertTrue("no line was reported before the box", before != null)
+        assertEquals(before, after)
     }
 
     /** Further in, where a landing measured against the placeholders would fall further short. */
@@ -2738,6 +2836,12 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
         /** More characters than one line of the test text holds. */
         const val LINE_CHARS = 120
+
+        /** A top line further in than any test chapter's text reaches. */
+        const val PAST_THE_END = 1_000_000
+
+        /** What a landing may take past the image wait: a frame, a layout and the report after them. */
+        const val IMAGE_WAIT_GRACE_MS = 1_500L
         const val LATE_PERCENT = 80
 
         /**

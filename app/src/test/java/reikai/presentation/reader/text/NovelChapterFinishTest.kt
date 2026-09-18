@@ -12,6 +12,7 @@ import reikai.domain.merge.ChapterUnit
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.track.TrackNovelChapter
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -36,12 +37,17 @@ class NovelChapterFinishTest {
             listOf(chapter(205L, novelId = 2L, number = 4.0), chapter(206L, novelId = 2L, number = 5.0))
     }
 
-    private fun subject(libraryStore: InMemoryPreferenceStore = InMemoryPreferenceStore()) = NovelChapterFinish(
+    private val trackNovelChapter = mockk<TrackNovelChapter>(relaxed = true)
+
+    private fun subject(
+        libraryStore: InMemoryPreferenceStore = InMemoryPreferenceStore(),
+        trackStore: InMemoryPreferenceStore = InMemoryPreferenceStore(),
+    ) = NovelChapterFinish(
         chapterRepo = repo,
         setNovelReadStatus = SetNovelReadStatus(repo, mockk(relaxed = true)),
         libraryPreferences = LibraryPreferences(libraryStore),
-        trackPreferences = TrackPreferences(InMemoryPreferenceStore()),
-        trackNovelChapter = mockk(relaxed = true),
+        trackPreferences = TrackPreferences(trackStore),
+        trackNovelChapter = trackNovelChapter,
         context = mockk(relaxed = true),
     )
 
@@ -81,5 +87,48 @@ class NovelChapterFinishTest {
         finish.finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) {}
 
         coVerify(exactly = 1) { repo.setReadBulk(listOf(5L, 55L, 205L), true) }
+    }
+
+    @Test
+    fun `finishing a chapter pushes it to the trackers when auto update is on`() = runTest {
+        subject().finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) {}
+
+        coVerify { trackNovelChapter.await(any(), 1L, 5.0) }
+    }
+
+    @Test
+    fun `finishing a chapter pushes nothing to the trackers when auto update is off`() = runTest {
+        val off = InMemoryPreferenceStore(
+            sequenceOf(InMemoryPreferenceStore.InMemoryPreference("pref_auto_update_manga_sync_key", false, true)),
+        )
+
+        subject(trackStore = off).finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) {}
+
+        coVerify(exactly = 0) { trackNovelChapter.await(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `the trim behind runs after the chapter is marked read`() = runTest {
+        var marked = false
+        coEvery { repo.setReadBulk(listOf(5L, 55L, 205L), true) } answers {
+            marked = true
+            true
+        }
+        val markedWhenTrimmed = mutableListOf<Boolean>()
+
+        subject().finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) { markedWhenTrimmed += marked }
+
+        markedWhenTrimmed shouldBe listOf(true)
+    }
+
+    @Test
+    fun `a chapter released after finishing can be finished again`() = runTest {
+        val finish = subject()
+        finish.finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) {}
+
+        finish.release(listOf(5L))
+        finish.finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) {}
+
+        coVerify(exactly = 2) { trackNovelChapter.await(any(), 1L, 5.0) }
     }
 }

@@ -3,6 +3,8 @@ package reikai.presentation.reader
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Paint
+import android.os.Handler
+import android.os.Looper
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -34,6 +36,7 @@ import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
 import reikai.novel.font.NovelFontManager
 import reikai.presentation.reader.text.AnchorSpan
+import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.ChapterTextBlock
 import reikai.presentation.reader.text.ChunkParagraph
@@ -51,8 +54,8 @@ import reikai.presentation.reader.text.ReadAloudBoxDecoration
 import reikai.presentation.reader.text.ReadAloudMark
 import reikai.presentation.reader.text.chunkRange
 import reikai.presentation.reader.text.readAloudParagraphs
-import reikai.presentation.reader.text.shownCharCount
 import reikai.presentation.reader.text.shownCharOffset
+import reikai.presentation.reader.text.shownCharPrefix
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -101,6 +104,7 @@ class NovelTextViewport(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val renderer = NovelTextRenderer(context, scope, ::jumpToAnchor)
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     /** The latest settings the viewport was given, which every chapter is built with. The host hands
      *  the window verbs the value it read when the window changed, and a change may have landed since. */
@@ -128,13 +132,20 @@ class NovelTextViewport(
         /** Before the text is set there is nothing to be a percentage of. */
         var rendered = false
 
+        /** A share landing held on the pictures waits [CHAPTER_IMAGE_WAIT_MS] for them, as the page does, and
+         *  then lands without them. [imageWait] is that timer while it runs. */
+        var imageWaitOver = false
+        var imageWait: Runnable? = null
+
         /** Read once the text is set, which nothing changes afterwards: a restyle keeps the characters. */
         val paragraphs: List<ChunkParagraph> by lazy { readAloudParagraphs(block.chunkViews.map { it.text }) }
 
-        /** Each chunk's [shownCharCount], read once for the same reason. */
-        val shownCounts: IntArray by lazy {
-            block.chunkViews.map { shownCharCount(it.text, it.text.length) }.toIntArray()
-        }
+        /** Each chunk's [shownCharPrefix], read once for the same reason: a line reaching the top on every
+         *  scroll frame is looked up rather than counted again from the chunk's start. */
+        val shownPrefixes: List<IntArray> by lazy { block.chunkViews.map { shownCharPrefix(it.text) } }
+
+        /** Each chunk's whole count, the last entry of its prefix. */
+        fun shownCount(chunk: Int): Int = shownPrefixes.getOrNull(chunk)?.last() ?: 0
     }
 
     /** The paragraph being read aloud, kept while highlighting is off so it is still followed. */
@@ -157,9 +168,10 @@ class NovelTextViewport(
 
         /**
          * The line holding counted character [line] of the chapter (`shownCharCount`), put at the top: what a
-         * rebuilt renderer is handed, where the chunking and the width may both have changed.
+         * rebuilt renderer is handed, where the chunking and the width may both have changed. A line the
+         * text does not reach lands on the saved [fraction] instead, as the page falls back to it.
          */
-        data class Text(val line: Int) : Landing
+        data class Text(val line: Int, val fraction: Float) : Landing
     }
 
     /**
@@ -254,13 +266,13 @@ class NovelTextViewport(
 
     /** The spoken paragraph's box for the styles that draw one. Declared above the recycler that registers it. */
     private val readAloudBox = ReadAloudBoxDecoration {
-        val (view, start, end) = markedText() ?: return@ReadAloudBoxDecoration null
-        val current = checkNotNull(settings)
+        val current = settings ?: return@ReadAloudBoxDecoration null
         val style = when (current.ttsHighlightStyle) {
             TtsHighlightStyle.BACKGROUND -> Paint.Style.FILL
             TtsHighlightStyle.OUTLINE -> Paint.Style.STROKE
             TtsHighlightStyle.UNDERLINE -> return@ReadAloudBoxDecoration null
         }
+        val (view, start, end) = markedText() ?: return@ReadAloudBoxDecoration null
         ReadAloudBoxDecoration.Box(view, start, end, current.ttsHighlightColor, style)
     }
 
@@ -325,7 +337,8 @@ class NovelTextViewport(
         reportedFits.clear()
         reportedEnds.clear()
         reportedTopLine = null
-        val landing = chapter.topLine?.let(Landing::Text) ?: Landing.Share(chapter.progressPercent / 100f)
+        val share = chapter.progressPercent / 100f
+        val landing = chapter.topLine?.let { Landing.Text(it, share) } ?: Landing.Share(share)
         add(chapter, atEnd = true, landing = landing)
     }
 
@@ -457,9 +470,26 @@ class NovelTextViewport(
         val slot = renderedSlot(position.chapterId) ?: return null
         val paragraph = slot.paragraphs.getOrNull(position.paragraph) ?: return null
         val view = slot.block.chunkViews.getOrNull(paragraph.chunk) ?: return null
-        val (start, end) = spokenRange?.let { paragraph.chunkRange(view.text, it) }
+        val (start, end) = spokenRange?.let { sentenceRange(paragraph, view.text, it) }
             ?: (paragraph.start to paragraph.end)
         return SpokenText(view, start, end)
+    }
+
+    /** The last sentence resolved, which the box decoration asks for on every frame of a scroll. Keyed on
+     *  the chunk's text object, which a restyle or a picture landing replaces with a copy. */
+    private var sentence: SentenceRange? = null
+
+    private class SentenceRange(
+        val paragraph: ChunkParagraph,
+        val range: IntRange,
+        val text: CharSequence,
+        val bounds: Pair<Int, Int>?,
+    )
+
+    private fun sentenceRange(paragraph: ChunkParagraph, text: CharSequence, range: IntRange): Pair<Int, Int>? {
+        sentence?.takeIf { it.paragraph === paragraph && it.range == range && it.text === text }
+            ?.let { return it.bounds }
+        return paragraph.chunkRange(text, range).also { sentence = SentenceRange(paragraph, range, text, it) }
     }
 
     /**
@@ -536,7 +566,9 @@ class NovelTextViewport(
         if (spokenParagraph?.chapterId == chapterId) spokenParagraph = null
         val index = slots.indexOfFirst { it.chapter.chapterId == chapterId }
         if (index < 0) return
-        slots.removeAt(index).block.discarded = true
+        val slot = slots.removeAt(index)
+        slot.block.discarded = true
+        cancelImageWait(slot)
         adapter.show(joined())
     }
 
@@ -885,8 +917,12 @@ class NovelTextViewport(
     /** Empties the window. Each block's views leave with it, and a pooled holder lets go of its
      *  chapter as it is recycled, so nothing holds a chapter's text once it is out. */
     private fun evictAll() {
-        slots.forEach { it.block.discarded = true }
+        slots.forEach {
+            it.block.discarded = true
+            cancelImageWait(it)
+        }
         slots.clear()
+        sentence = null
         reportedVisibleId = null
         adapter.show(joined())
     }
@@ -1020,7 +1056,8 @@ class NovelTextViewport(
         if (key == reportedTopLine) return
         reportedTopLine = key
         val line = anchor?.takeIf { chunk >= 0 }?.let {
-            slot.shownCounts.take(chunk).sum() + shownCharCount(it.view.text, it.offset)
+            val prefix = slot.shownPrefixes[chunk]
+            (0 until chunk).sumOf(slot::shownCount) + prefix[it.offset.coerceIn(0, prefix.lastIndex)]
         }
         onTopLine(slot.chapter.chapterId, line)
     }
@@ -1029,7 +1066,7 @@ class NovelTextViewport(
     private fun textLineOf(slot: ChapterSlot, line: Int): Pair<TextView, Int>? {
         var left = line
         slot.block.chunkViews.forEachIndexed { index, view ->
-            val count = slot.shownCounts.getOrElse(index) { 0 }
+            val count = slot.shownCount(index)
             if (left < count) return shownCharOffset(view.text, left)?.let { view to it }
             left -= count
         }
@@ -1043,7 +1080,28 @@ class NovelTextViewport(
      * behalf, and a seek names a landing of its own.
      */
     private fun readerMoved() {
-        slots.forEach { it.landing = null }
+        slots.forEach {
+            it.landing = null
+            cancelImageWait(it)
+        }
+    }
+
+    /** Lands [slot]'s share without its pictures once [CHAPTER_IMAGE_WAIT_MS] has passed. A main-looper
+     *  handler rather than the recycler's, whose posts never run while it is detached. */
+    private fun waitOutImages(slot: ChapterSlot) {
+        if (slot.imageWait != null) return
+        val wait = Runnable {
+            slot.imageWait = null
+            slot.imageWaitOver = true
+            if (slot.landing is Landing.Share) land(slot)
+        }
+        slot.imageWait = wait
+        mainHandler.postDelayed(wait, CHAPTER_IMAGE_WAIT_MS)
+    }
+
+    private fun cancelImageWait(slot: ChapterSlot) {
+        slot.imageWait?.let(mainHandler::removeCallbacks)
+        slot.imageWait = null
     }
 
     /** The last fit answer sent per chapter, so a scroll that changes nothing says nothing. */
@@ -1163,9 +1221,15 @@ class NovelTextViewport(
             is Landing.Share -> {
                 // The share is of the chapter's height with its images in it, and they land after the
                 // text, so seeking now would measure the chapter short and put the reader past text
-                // they have not read. Held until they arrive, which lays the column out again. A chapter
-                // the list has not laid out has nowhere to scroll, and laying it out comes back here.
-                if (slot.block.imagesLoading || boundsOf(slot) == null) return
+                // they have not read. Held until they arrive, which lays the column out again, or until
+                // the wait for them runs out. A chapter the list has not laid out has nowhere to scroll,
+                // and laying it out comes back here.
+                if (boundsOf(slot) == null) return
+                if (slot.block.imagesLoading && !slot.imageWaitOver) {
+                    waitOutImages(slot)
+                    return
+                }
+                cancelImageWait(slot)
                 // Before the scroll, so the report the scroll sends is the landed position's.
                 slot.landing = null
                 val before = scrolled
@@ -1178,11 +1242,17 @@ class NovelTextViewport(
                 // Held for a layout but not for the images: once landed, one arriving above the line is
                 // growth the line is held across, where waiting left the chapter's start on screen meanwhile.
                 if (boundsOf(slot) == null) return
+                val (view, offset) = textLineOf(slot, landing.line) ?: run {
+                    // Past the text, as a count taken from other text can be. Landing at its end read the
+                    // chapter; the saved share is where the reader was, and it waits for the pictures.
+                    slot.landing = Landing.Share(landing.fraction)
+                    land(slot)
+                    return
+                }
+                val top = lineTopOf(view, offset) ?: return
                 slot.landing = null
                 val before = scrolled
-                val top = textLineOf(slot, landing.line)?.let { (view, offset) -> lineTopOf(view, offset) }
-                // A line the chapter no longer reaches is past its end, where a share of all of it lands.
-                if (top == null) scrollWithin(slot, 1f) else recycler.scrollBy(0, top)
+                recycler.scrollBy(0, top)
                 if (scrolled == before) report(onProgressChanged)
             }
             is Landing.Line -> {

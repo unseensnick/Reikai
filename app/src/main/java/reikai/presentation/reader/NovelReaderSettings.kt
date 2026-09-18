@@ -81,10 +81,18 @@ data class ReaderMargins(
  * the one the user is in rather than falling back to a sensible default.
  */
 fun NovelReaderSettings.resolvedForSystemTheme(isDark: Boolean): NovelReaderSettings {
-    if (!followSystemTheme) return this
-    val preset = if (isDark) readerDarkPreset else readerLightPreset
-    return copy(backgroundColor = preset.background, textColor = preset.textColor)
+    val shown = readerThemeShown(followSystemTheme, isDark, backgroundColor, textColor)
+    return copy(backgroundColor = shown.background, textColor = shown.textColor)
 }
+
+/** The colours the page shows: the stored ones, or under follow-system the preset the system's shade
+ *  picks. The settings sheet shows the same, so its swatches are what the renderers draw. */
+fun readerThemeShown(followSystem: Boolean, isDark: Boolean, background: String, textColor: String): ReaderThemePreset =
+    when {
+        !followSystem -> ReaderThemePreset("", background, textColor)
+        isDark -> readerDarkPreset
+        else -> readerLightPreset
+    }
 
 /**
  * A selectable reader font. [family] is empty for the source's own font, one of the generic CSS

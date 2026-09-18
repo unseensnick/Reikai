@@ -37,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
@@ -65,14 +64,13 @@ import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.PresetSwatch
 import reikai.presentation.reader.ReaderFont
-import reikai.presentation.reader.ReaderThemePreset
 import reikai.presentation.reader.TtsOptions
-import reikai.presentation.reader.readerColorOrNull
-import reikai.presentation.reader.readerDarkPreset
+import reikai.presentation.reader.readerBackgroundColorInt
 import reikai.presentation.reader.readerFonts
 import reikai.presentation.reader.readerGenericFonts
-import reikai.presentation.reader.readerLightPreset
+import reikai.presentation.reader.readerTextColorInt
 import reikai.presentation.reader.readerThemePresets
+import reikai.presentation.reader.readerThemeShown
 import reikai.presentation.reader.rememberTtsOptions
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
@@ -200,11 +198,7 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
     val background by preferences.readerBackgroundColor().collectAsState()
     val text by preferences.readerTextColor().collectAsState()
     // What the page shows, which under Follow system is the preset it resolves to, not what is stored.
-    val shown = when {
-        !followSystem -> ReaderThemePreset("", background, text)
-        isSystemInDarkTheme() -> readerDarkPreset
-        else -> readerLightPreset
-    }
+    val shown = readerThemeShown(followSystem, isSystemInDarkTheme(), background, text)
 
     HeadingItem(MR.strings.pref_category_theme)
     // A radio, not a checkbox: following the system is left by picking a swatch, never by unticking it.
@@ -227,10 +221,10 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
         }
     }
     // Either colour picked by hand is the custom theme; the other keeps what the page shows now.
-    PageColorRow(MR.strings.pref_novel_background_color, shown.background) {
+    PageColorRow(MR.strings.pref_novel_background_color, readerBackgroundColorInt(shown.background)) {
         pages.textSettings.setThemeColors(it, shown.textColor)
     }
-    PageColorRow(MR.strings.pref_novel_text_color, shown.textColor) {
+    PageColorRow(MR.strings.pref_novel_text_color, readerTextColorInt(shown.textColor)) {
         pages.textSettings.setThemeColors(shown.background, it)
     }
 
@@ -427,13 +421,12 @@ private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences) {
     }
 }
 
-/** One page colour with its swatch and hex, picked by hand; [onPick] gets six hex digits. */
+/** One page colour with its swatch and hex, picked by hand; [color] is what the page draws, and [onPick]
+ *  gets six hex digits. */
 @Composable
-private fun PageColorRow(labelRes: StringResource, hex: String, onPick: (String) -> Unit) {
+private fun PageColorRow(labelRes: StringResource, color: Int, onPick: (String) -> Unit) {
     var picking by remember { mutableStateOf(false) }
     val label = stringResource(labelRes)
-    val color =
-        remember(hex) { readerColorOrNull(hex) ?: Color.Gray.toArgb() }
     Row(
         modifier = Modifier
             .fillMaxWidth()

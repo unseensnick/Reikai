@@ -54,9 +54,11 @@ html:not(.rk-bionic-on) .rk-bionic b {
 /*
  * Set on the root only for the one synchronous read of a chapter's paragraphs; see readAloud in
  * reader.js. Qualified by the root for weight, since "source CSS priority" promises no important rules.
+ * A failed picture's box is the reader's own words, not the chapter's, so it is left out with the readings.
  */
 html.rk-readings-hidden rt,
-html.rk-readings-hidden rp {
+html.rk-readings-hidden rp,
+html.rk-readings-hidden .rk-failure {
   display: none;
 }
 

@@ -20,8 +20,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
@@ -80,68 +82,76 @@ fun ReaderActionRow(
     keepScreenOn: Boolean,
     onClickKeepScreenOn: () -> Unit,
     onClickScrollToTop: () -> Unit,
-    modifier: Modifier = Modifier,
     // Novel toggles. The active flag tints the icon.
-    autoScrollActive: Boolean = false,
-    onClickAutoScroll: (() -> Unit)? = null,
-    bionicActive: Boolean = false,
-    onClickBionic: (() -> Unit)? = null,
+    autoScrollActive: Boolean,
+    onClickAutoScroll: (() -> Unit)?,
+    bionicActive: Boolean,
+    onClickBionic: (() -> Unit)?,
     // Novel pickers: open a small chooser (theme / text size), like the rotation button.
-    onClickTheme: (() -> Unit)? = null,
-    onClickTextSize: (() -> Unit)? = null,
+    onClickTheme: (() -> Unit)?,
+    onClickTextSize: (() -> Unit)?,
     // Novel: tap shows or hides the read-aloud controls, long-press stops speech.
-    readAloudControlsVisible: Boolean = false,
-    onClickReadAloud: (() -> Unit)? = null,
-    onLongClickReadAloud: () -> Unit = {},
-    chapterStep: ReaderChapterStep? = null,
+    readAloudControlsVisible: Boolean,
+    onClickReadAloud: (() -> Unit)?,
+    onLongClickReadAloud: () -> Unit,
+    chapterStep: ReaderChapterStep?,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            // Swallow taps so pressing empty bar space doesn't toggle the reader chrome.
-            .pointerInput(Unit) {},
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        chapterStep?.let { ChapterStepButton(it, leading = true) }
-        // The chapter buttons are pinned to the ends, so the rest share what is left between them. Their
-        // touch targets narrow while they are there, or a full bar pushed the last button off the screen.
+    val systemDirection = LocalLayoutDirection.current
+    // The chapter buttons stand in for the navigator, which places them by the reading direction and never
+    // by the app language's, so they sit left to right; the buttons between them keep the language's order.
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Row(
-            modifier = Modifier.weight(1f),
+            modifier = modifier
+                // Swallow taps so pressing empty bar space doesn't toggle the reader chrome.
+                .pointerInput(Unit) {},
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CompositionLocalProvider(
-                LocalMinimumInteractiveComponentSize provides if (chapterStep != null) CROWDED_TARGET else 48.dp,
-            ) {
-                ActionButtons(
-                    enabledButtons = enabledButtons,
-                    onClickChapterList = onClickChapterList,
-                    onClickWebView = onClickWebView,
-                    onClickBrowser = onClickBrowser,
-                    onClickShare = onClickShare,
-                    orientation = orientation,
-                    onClickOrientation = onClickOrientation,
-                    onClickSettings = onClickSettings,
-                    readingMode = readingMode,
-                    onClickReadingMode = onClickReadingMode,
-                    cropEnabled = cropEnabled,
-                    onClickCropBorder = onClickCropBorder,
-                    keepScreenOn = keepScreenOn,
-                    onClickKeepScreenOn = onClickKeepScreenOn,
-                    onClickScrollToTop = onClickScrollToTop,
-                    autoScrollActive = autoScrollActive,
-                    onClickAutoScroll = onClickAutoScroll,
-                    bionicActive = bionicActive,
-                    onClickBionic = onClickBionic,
-                    onClickTheme = onClickTheme,
-                    onClickTextSize = onClickTextSize,
-                    readAloudControlsVisible = readAloudControlsVisible,
-                    onClickReadAloud = onClickReadAloud,
-                    onLongClickReadAloud = onLongClickReadAloud,
-                )
+            chapterStep?.let { ChapterStepButton(it, leading = true) }
+            // The chapter buttons are pinned to the ends, so the rest share what is left between them. Their
+            // touch targets narrow while they are there, or a full bar pushed the last button off the screen.
+            CompositionLocalProvider(LocalLayoutDirection provides systemDirection) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CompositionLocalProvider(
+                        LocalMinimumInteractiveComponentSize provides
+                            if (chapterStep != null) CROWDED_TARGET else 48.dp,
+                    ) {
+                        ActionButtons(
+                            enabledButtons = enabledButtons,
+                            onClickChapterList = onClickChapterList,
+                            onClickWebView = onClickWebView,
+                            onClickBrowser = onClickBrowser,
+                            onClickShare = onClickShare,
+                            orientation = orientation,
+                            onClickOrientation = onClickOrientation,
+                            onClickSettings = onClickSettings,
+                            readingMode = readingMode,
+                            onClickReadingMode = onClickReadingMode,
+                            cropEnabled = cropEnabled,
+                            onClickCropBorder = onClickCropBorder,
+                            keepScreenOn = keepScreenOn,
+                            onClickKeepScreenOn = onClickKeepScreenOn,
+                            onClickScrollToTop = onClickScrollToTop,
+                            autoScrollActive = autoScrollActive,
+                            onClickAutoScroll = onClickAutoScroll,
+                            bionicActive = bionicActive,
+                            onClickBionic = onClickBionic,
+                            onClickTheme = onClickTheme,
+                            onClickTextSize = onClickTextSize,
+                            readAloudControlsVisible = readAloudControlsVisible,
+                            onClickReadAloud = onClickReadAloud,
+                            onLongClickReadAloud = onLongClickReadAloud,
+                        )
+                    }
+                }
             }
+            chapterStep?.let { ChapterStepButton(it, leading = false) }
         }
-        chapterStep?.let { ChapterStepButton(it, leading = false) }
     }
 }
 

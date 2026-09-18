@@ -36,7 +36,7 @@ object NovelTextStyle {
         view.includeFontPadding = false
         view.typeface = typefaceFor(context, fontManager, settings.fontFamily)
         val lineExtra = applyLineSpacing(view, settings.lineHeight)
-        holdImagesOffLineSpacing(view)
+        (view.text as? Spanned)?.let { holdImagesOffLineSpacing(it, view.lineSpacingExtra) }
         val density = context.resources.displayMetrics.density
         // The page margin goes on the sides only; the top and bottom belong to the column, or a chapter
         // split across chunk views would repeat it at every seam. The bottom takes the line spacing the
@@ -81,11 +81,10 @@ object NovelTextStyle {
         return extra
     }
 
-    /** A picture's line takes back the spacing the view adds under lines, as an img ignores line-height.
+    /** A picture's line takes back the spacing its view adds under lines, as an img ignores line-height.
      *  Called on a restyle and before a render sets its text, since the span reads it at layout. */
-    fun holdImagesOffLineSpacing(view: TextView) {
-        val text = view.text as? Spanned ?: return
-        val extra = view.lineSpacingExtra.roundToInt()
+    fun holdImagesOffLineSpacing(text: Spanned, lineSpacingExtra: Float) {
+        val extra = lineSpacingExtra.roundToInt()
         text.getSpans(0, text.length, ChapterImageSpan::class.java).forEach { it.lineExtraPx = extra }
     }
 

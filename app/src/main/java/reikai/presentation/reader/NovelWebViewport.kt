@@ -34,6 +34,8 @@ import reikai.presentation.reader.web.NovelWebBridge
 import reikai.presentation.reader.web.NovelWebDocument
 import reikai.presentation.reader.web.NovelWebFonts
 import reikai.presentation.reader.web.NovelWebSnippets
+import reikai.util.isDebugInspectorBuild
+import reikai.util.webContentsDebugging
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -45,8 +47,8 @@ import kotlin.math.roundToInt
  * Reikai's own: its stylesheet and engine come from `assets/novel-web/`, not the vendored bundle.
  *
  * The volume-key preferences arrive as values rather than a preferences class, so the viewport is
- * constructible without the graph. They are read once at construction and nothing rebuilds the
- * viewport, so a mid-session change to them takes effect on the next open.
+ * constructible without the graph. The switch is read on each press, and the direction and distance
+ * come from the last settings push.
  */
 @SuppressLint("SetJavaScriptEnabled")
 class NovelWebViewport(
@@ -60,11 +62,12 @@ class NovelWebViewport(
      *  builds it once for both viewports, so they cannot disagree on when the keys are theirs. Which
      *  way and how far a press scrolls come from the settings pushed last. */
     private val volumeKeysActive: () -> Boolean,
-    /** Two settings only a WebView renderer can honour, so the rows are gated to this mode. Read
-     *  once, so a change lands on the next open. */
+    /** Two settings only a WebView renderer can honour, so the rows are gated to this mode. A change to
+     *  either rebuilds the viewport (`NovelReaderProvider.viewportRebuilds`). */
     private val useOriginalFonts: Boolean,
     private val sourceCssPriority: Boolean,
-    /** Chrome's inspector and a toast per script error, for the user's own snippets and a source's scripts. */
+    /** Chrome's inspector and a toast per script error, for the user's own snippets and a source's scripts.
+     *  The inspector is process-wide, so building a viewport with this off closes it for every WebView. */
     private val devTools: Boolean = false,
     /** Named with its chapter, matching the native viewport, so the model never has to assume which
      *  chapter a percentage belongs to. */
@@ -150,16 +153,16 @@ class NovelWebViewport(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    private val webFonts = NovelWebFonts()
+
     /** The family the page holds a face for, so a settings push knows when the face has to change. */
     private var faceFamily: String? = null
     private var faceJob: Job? = null
 
     private val webView = WebView(context).apply {
         setDefaultSettings()
+        WebView.setWebContentsDebuggingEnabled(webContentsDebugging(devTools, context.isDebugInspectorBuild()))
         if (devTools) {
-            // Only ever switched on: it is process-wide, and switching it off here would also close the
-            // debug build's inspector on every other WebView.
-            WebView.setWebContentsDebuggingEnabled(true)
             webChromeClient = object : WebChromeClient() {
                 override fun onConsoleMessage(message: ConsoleMessage): Boolean {
                     if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
@@ -288,7 +291,7 @@ class NovelWebViewport(
         // Resolving a user font copies it out of the user's storage folder on first use, which is
         // disk work over SAF, so it happens off the main thread with the document build rather than
         // in front of it.
-        val fontSource = NovelWebFonts.dataUri(context, fontManager, settings.fontFamily)
+        val fontSource = webFonts.dataUri(context, fontManager, settings.fontFamily)
         val html = withContext(Dispatchers.Default) {
             NovelWebDocument.build(
                 context = context,
@@ -374,7 +377,7 @@ class NovelWebViewport(
             // The face travels as a data URI, so resolving it reads the file and escaping it copies
             // megabytes for a CJK one; neither belongs on the thread the reader is scrolling on.
             val js = withContext(Dispatchers.Default) {
-                val source = NovelWebFonts.dataUri(context, fontManager, family)
+                val source = webFonts.dataUri(context, fontManager, family)
                 "rkReader.setFontFace(${JSONObject.quote(NovelWebDocument.fontFace(family, source))});"
             }
             runOrQueue(js)

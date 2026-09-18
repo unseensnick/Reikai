@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -20,6 +21,17 @@ class ReaderColorTest {
     @ValueSource(strings = ["#12345", "#1234567", "#ggg", "red", "", "#"])
     fun `a value CSS does not read is no colour`(stored: String) {
         readerColorOrNull(stored) shouldBe null
+    }
+
+    /** The settings sheet shows these too, so its swatch is the colour the page draws. */
+    @Test
+    fun `an unreadable stored background draws the dark default`() {
+        readerBackgroundColorInt("#12345") shouldBe readerColorOrNull(readerDarkPreset.background)
+    }
+
+    @Test
+    fun `an unreadable stored text colour draws the dark default`() {
+        readerTextColorInt("#12345") shouldBe readerColorOrNull(readerDarkPreset.textColor)
     }
 
     companion object {

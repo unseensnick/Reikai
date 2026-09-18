@@ -53,4 +53,14 @@ class ChapterSubtitleTest {
     fun `an absent piece stays absent`() {
         subtitlePart(null) shouldBe null
     }
+
+    @Test
+    fun `every member of a merged group is labelled with its source`() {
+        mergeSourceLabels(mapOf(1L to "A", 2L to "B")) shouldBe mapOf(1L to "A", 2L to "B")
+    }
+
+    @Test
+    fun `a group of one labels nothing, since every row would carry the same name`() {
+        mergeSourceLabels(mapOf(1L to "A")) shouldBe emptyMap()
+    }
 }

@@ -15,6 +15,7 @@ import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.components.chapterSubtitle
+import reikai.presentation.components.mergeSourceLabels
 import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.presentation.novel.details.NovelDetailsState
 import reikai.presentation.novel.details.NovelDetailsViewModel
@@ -65,7 +66,8 @@ class NovelEntryAdapter(
                 descriptionDefaultExpanded = false,
             ),
             chapters = EntryChapterListUiState(
-                items = chapterListEntries.map { it.toNeutralItem(this) },
+                items = mergeSourceLabels(mergeSources.associate { it.id to it.sourceName })
+                    .let { sourceNames -> chapterListEntries.map { it.toNeutralItem(this, sourceNames) } },
                 missingChapterCount = missingChapterCount,
                 showHidden = showHidden,
                 hasHiddenChapters = hasHiddenChapters,
@@ -95,16 +97,16 @@ class NovelEntryAdapter(
         )
     }
 
-    private fun NovelChapterListEntry.toNeutralItem(loaded: NovelDetailsState.Loaded): EntryChapterListItem =
+    private fun NovelChapterListEntry.toNeutralItem(
+        loaded: NovelDetailsState.Loaded,
+        sourceNames: Map<Long, String>,
+    ): EntryChapterListItem =
         when (this) {
             is NovelChapterListEntry.Item -> EntryChapterListItem.Chapter(
                 id = chapter.id,
                 name = chapter.name,
                 // Novels have no scanlator, so the line carries the source alone, and only when merged.
-                subtitle = chapterSubtitle(
-                    loaded.mergeSources.takeIf { it.size > 1 }
-                        ?.firstOrNull { it.id == chapter.novelId }?.sourceName,
-                ),
+                subtitle = chapterSubtitle(sourceNames[chapter.novelId]),
                 // Read on any source of the merge group, matching the manga side and the badge.
                 read = chapter.read || chapter.id in loaded.readInOtherSources,
                 bookmark = chapter.bookmark || chapter.id in loaded.bookmarkedInOtherSources,

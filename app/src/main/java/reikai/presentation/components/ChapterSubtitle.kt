@@ -21,3 +21,10 @@ fun chapterSubtitle(sourceName: String?, scanlator: String? = null): String? =
  * safe.
  */
 fun subtitlePart(value: String?): String? = value?.takeIf { it.isNotBlank() }
+
+/**
+ * The source names a chapter row's subtitle leads with, by merge group member: all of them in a merged
+ * group, none for a group of one. Decided by membership, never by whose chapters a list happens to show,
+ * since a stitch drawing every unit from one member, or a source-scoped reader, still reads a merged group.
+ */
+fun <K> mergeSourceLabels(members: Map<K, String>): Map<K, String> = if (members.size > 1) members else emptyMap()

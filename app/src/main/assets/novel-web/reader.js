@@ -21,6 +21,9 @@
 
   var CHAPTER_SELECTOR = '.rk-chapter';
   var CHAPTER_ID_ATTR = 'data-rk-chapter-id';
+  // Text in a chapter that is not the chapter's words: ruby readings, code, and a failed picture's box.
+  // Read aloud and the top line both skip it, so a line is counted as the native renderer counts it.
+  var UNCOUNTED_SELECTOR = 'rt, rp, script, style, .rk-failure';
   // core.js's swipe distance, in CSS pixels. The document is initial-scale=1, so this is the same
   // unit the native renderer's SWIPE_MIN_DP resolves to and the gesture matches in all three.
   var SWIPE_MIN_PX = 180;
@@ -31,8 +34,9 @@
   var SETTLE_MS = 400;
   // Sub-pixel slack when deciding which chapter a scroll position is in. See state().
   var EDGE_TOLERANCE = 2;
-  // How long a restore waits for the opening chapter's images before seeking anyway. See start().
-  var IMAGE_WAIT_MS = 3000;
+  // How long a restore waits for the opening chapter's images before seeking anyway, the native renderer's
+  // wait too (CHAPTER_IMAGE_WAIT_MS). See start().
+  var IMAGE_WAIT_MS = __IMAGE_WAIT_MS__;
   // The keys a browser scrolls a page with, so pressing one is the reader moving it.
   var SCROLL_KEYS = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '];
   // How far the read-aloud outline stands off its paragraph's text, in CSS pixels.
@@ -71,6 +75,8 @@
   var heldReport = null;
   var lastResizeAt = 0;
   var framePending = false;
+  // A picture settled since the last frame, whose layout the cached boundaries have not measured.
+  var imageSettled = false;
   // The host drops everything this page says before its ready report, and a fit or an end is said only
   // once, so neither is sent before then.
   var ready = false;
@@ -382,7 +388,7 @@
         var walker = document.createTreeWalker(chapter, NodeFilter.SHOW_TEXT, {
           acceptNode: function (node) {
             var parent = node.parentElement;
-            return parent && parent.closest('rt, rp, script, style') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+            return parent && parent.closest(UNCOUNTED_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
           },
         });
         while (walker.nextNode()) {
@@ -455,7 +461,10 @@
     framePending = false;
     // A layout change this frame has not rebuilt the boundaries for yet, and measured against the old
     // ones the corrected offset read as a place far down the chapter.
-    if (place.sync()) rebuildBoundaries();
+    if (place.sync() || imageSettled) {
+      imageSettled = false;
+      rebuildBoundaries();
+    }
     var s = state();
     if (s.id === null) return;
 
@@ -774,7 +783,7 @@
       var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
         acceptNode: function (node) {
           var parent = node.parentElement;
-          return parent && parent.closest('rt, rp, script, style') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+          return parent && parent.closest(UNCOUNTED_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
         },
       });
       while (walker.nextNode()) {
@@ -1341,9 +1350,13 @@
 
   // An image that lands without changing the layout escapes the resize observer, and it is what
   // releases a chapter reportFits or reportEnds is holding. A broken one releases it the same way.
+  // Measured again in the frame rather than read from the boundaries: a frame runs before the resize
+  // observer, so a tall picture below the reader still measured short, and its chapter's end was said.
   ['load', 'error'].forEach(function (type) {
     document.addEventListener(type, function (e) {
-      if (e.target.tagName === 'IMG') onScroll();
+      if (e.target.tagName !== 'IMG') return;
+      imageSettled = true;
+      onScroll();
     }, true);
   });
 

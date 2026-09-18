@@ -37,6 +37,14 @@ class ReadAloudTextTest {
         shownCharOffset(chunk, shownCharCount(chunk, chunk.indexOf('c'))) shouldBe chunk.indexOf('c')
     }
 
+    /** The viewport looks a line's count up in the prefix, so it must be the count at every offset. */
+    @Test
+    fun `the prefix holds the count before every offset`() {
+        val chunk = "A b\n￼cd  e　f"
+
+        shownCharPrefix(chunk).toList() shouldBe (0..chunk.length).map { shownCharCount(chunk, it) }
+    }
+
     @Test
     fun `a count past the text names no offset`() {
         shownCharOffset("ab", 2) shouldBe null

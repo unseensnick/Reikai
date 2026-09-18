@@ -103,4 +103,10 @@ class NovelOpenLandingTest {
     fun `a later chapter's position counts`() {
         landing.counts(3L, 0) shouldBe true
     }
+
+    @Test
+    fun `a later chapter's position settles the landing`() {
+        landing.counts(3L, 0)
+        landing.mayRead(1L) shouldBe true
+    }
 }

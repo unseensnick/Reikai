@@ -1,6 +1,7 @@
 package reikai.presentation.reader.text
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
@@ -129,25 +130,29 @@ class NovelImageGetter(
         return started
     }
 
-    /** A downloaded chapter stores its images inline, so this is the offline path. */
+    /** A downloaded chapter stores its images inline, so this is the offline path. Anything short of a
+     *  picture drawn is the failure box, never the placeholder left standing. */
     private fun decodeInlineImage(source: String, wrapper: DrawableWrapper) {
-        try {
-            val commaIndex = source.indexOf(',')
-            if (commaIndex <= 0) return
-            val bytes = Base64.decode(source.substring(commaIndex + 1), Base64.DEFAULT)
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            val options = BitmapFactory.Options().apply { inSampleSize = sampleSizeFor(bounds.outWidth) }
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-            if (bitmap == null) {
-                showFailure(wrapper, retryable = false)
-            } else {
-                fitToWidth(bitmap.toDrawable(context.resources), wrapper)
-            }
+        val bitmap = try {
+            decodeInline(source)
         } catch (e: Exception) {
             logcat(LogPriority.DEBUG, e) { "Failed to decode an inline chapter image" }
+            null
+        }
+        if (bitmap == null || !fitToWidth(bitmap.toDrawable(context.resources), wrapper)) {
             showFailure(wrapper, retryable = false)
         }
+    }
+
+    /** The picture a `data:` address carries, or null when it carries none. */
+    private fun decodeInline(source: String): Bitmap? {
+        val commaIndex = source.indexOf(',')
+        if (commaIndex <= 0) return null
+        val bytes = Base64.decode(source.substring(commaIndex + 1), Base64.DEFAULT)
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val options = BitmapFactory.Options().apply { inSampleSize = sampleSizeFor(bounds.outWidth) }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
     }
 
     private fun loadFromNetwork(imageUrl: String, wrapper: DrawableWrapper) {
@@ -155,16 +160,13 @@ class NovelImageGetter(
             try {
                 val drawable = fetch(imageUrl)
                 withContext(Dispatchers.Main) {
-                    if (drawable != null) {
-                        fitToWidthAndInvalidate(drawable, wrapper)
-                    } else {
-                        showFailure(wrapper, retryable = true)
-                        resolveView(wrapper)?.let { view ->
-                            view.invalidate()
-                            dirtyViews.add(view)
-                        }
-                        offerRetry(imageUrl, wrapper)
+                    val loaded = drawable != null && fitToWidth(drawable, wrapper)
+                    if (!loaded) showFailure(wrapper, retryable = true)
+                    resolveView(wrapper)?.let { view ->
+                        view.invalidate()
+                        dirtyViews.add(view)
                     }
+                    if (!loaded) offerRetry(imageUrl, wrapper)
                 }
             } finally {
                 withContext(Dispatchers.Main) { onLoadFinished() }
@@ -239,13 +241,16 @@ class NovelImageGetter(
             val box = wrapper.innerDrawable as? ImageFailureDrawable ?: return
             if (box.retrying) return
             box.retrying = true
+            widget.invalidate()
             scope.launch {
                 val drawable = fetch(imageUrl, retry = true)
                 box.retrying = false
-                if (drawable == null) return@launch
+                if (drawable == null || !fitToWidth(drawable, wrapper)) {
+                    widget.invalidate()
+                    return@launch
+                }
                 val view = widget as TextView
                 (view.text as? Spannable)?.removeSpan(this@RetryImageSpan)
-                fitToWidth(drawable, wrapper)
                 view.invalidate()
                 onImagesReady(listOf(view))
             }
@@ -263,24 +268,19 @@ class NovelImageGetter(
         onImagesReady(views)
     }
 
-    /** Its own width in density-independent pixels, as the page's `max-width: 100%` draws it, up to the column. */
-    private fun fitToWidth(drawable: Drawable, wrapper: DrawableWrapper) {
+    /** Its own width in density-independent pixels, as the page's `max-width: 100%` draws it, up to the column.
+     *  False for a drawable with no size of its own, which has nothing to draw at. */
+    private fun fitToWidth(drawable: Drawable, wrapper: DrawableWrapper): Boolean {
         val imgWidth = drawable.intrinsicWidth
         val imgHeight = drawable.intrinsicHeight
-        if (imgWidth <= 0 || imgHeight <= 0) return
+        if (imgWidth <= 0 || imgHeight <= 0) return false
         val width = min(contentWidth, (imgWidth * context.resources.displayMetrics.density).roundToInt())
             .coerceAtLeast(1)
         val height = (imgHeight * (width.toFloat() / imgWidth)).toInt().coerceAtLeast(1)
         drawable.setBounds(0, 0, width, height)
         wrapper.innerDrawable = drawable
         wrapper.setBounds(0, 0, width, height)
-    }
-
-    private fun fitToWidthAndInvalidate(drawable: Drawable, wrapper: DrawableWrapper) {
-        fitToWidth(drawable, wrapper)
-        val textView = resolveView(wrapper) ?: return
-        textView.invalidate()
-        dirtyViews.add(textView)
+        return true
     }
 
     /** Decodes no larger than the column it will be drawn in, which is what keeps a big scan cheap. */

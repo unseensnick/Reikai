@@ -88,6 +88,7 @@ import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
+import reikai.presentation.components.mergeSourceLabels
 import reikai.presentation.reader.ChapterSwitches
 import reikai.presentation.reader.ReaderLoadState
 import reikai.presentation.reader.ReaderResume
@@ -1136,16 +1137,16 @@ class ReaderViewModel(
     /** Snapshot of the reader's chapter list for the in-reader chapter dialog (Y10). */
     fun getChapters(): List<ReaderChapterItem> {
         manga ?: return emptyList()
-        // RK: in a merged group each row carries its source's name as a label; an unmerged manga gets
-        // no label, as before. Its download state is the group's, from sheetFlags.
-        val merged = mergedGroup?.isMerged == true
+        // RK: in a merged group each row carries its source's name as a label, by the kernel every
+        // chapter list shares; an unmerged manga gets none. Its download state is the group's, from sheetFlags.
+        val sourceNames = mergeSourceLabels(mergedGroup?.sourceNameByMangaId.orEmpty())
         // RK: the sheet lists every chapter, including ones the reader's skip-read navigation steps
         // over. Filtering them out here made already-read chapters look like they did not exist.
         return fullChapterList.map {
             val dbChapter = it.chapter
             ReaderChapterItem(
                 chapter = dbChapter.toDomainChapter()!!,
-                sourceName = if (merged) mergedGroup?.sourceNameByMangaId?.get(dbChapter.manga_id) else null,
+                sourceName = sourceNames[dbChapter.manga_id],
             )
         }
     }

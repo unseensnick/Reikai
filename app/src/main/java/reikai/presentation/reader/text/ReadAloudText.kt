@@ -3,6 +3,7 @@ package reikai.presentation.reader.text
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.UnderlineSpan
+import java.util.BitSet
 
 /**
  * A paragraph of one chunk, as read-aloud counts it (`ReadAloudSurface`). [start] and [end] bound its
@@ -45,15 +46,13 @@ internal fun ChunkParagraph.chunkRange(chunk: CharSequence, range: IntRange): Pa
  * collapsed space stands for the gap before the character after it, so it takes that character's offset.
  */
 private fun shownText(chunk: CharSequence, lineStart: Int, lineEnd: Int): Pair<String, IntArray> {
-    val readings = (chunk as? Spanned)?.getSpans(lineStart, lineEnd, RubyReadingSpan::class.java)
-        ?.map { chunk.getSpanStart(it) until chunk.getSpanEnd(it) }
-        .orEmpty()
+    val readings = rubyCoverage(chunk, lineStart, lineEnd)
     val text = StringBuilder()
     val sources = mutableListOf<Int>()
     var spaceOwed = false
     for (i in lineStart until lineEnd) {
         val c = chunk[i]
-        if (c == OBJECT_REPLACEMENT || readings.any { i in it }) continue
+        if (c == OBJECT_REPLACEMENT || readings[i]) continue
         if (c.isReadAloudSpace()) {
             spaceOwed = text.isNotEmpty()
             continue
@@ -75,14 +74,22 @@ private fun shownText(chunk: CharSequence, lineStart: Int, lineEnd: Int): Pair<S
  * these is the same line in either renderer.
  */
 internal fun shownCharCount(chunk: CharSequence, end: Int): Int {
-    val readings = rubyReadings(chunk)
+    val readings = rubyCoverage(chunk, 0, end)
     return (0 until end).count { chunk.isCounted(it, readings) }
+}
+
+/** [shownCharCount] at every offset of [chunk] in one pass: entry `i` is the count before offset `i`. */
+internal fun shownCharPrefix(chunk: CharSequence): IntArray {
+    val readings = rubyCoverage(chunk, 0, chunk.length)
+    val prefix = IntArray(chunk.length + 1)
+    for (i in chunk.indices) prefix[i + 1] = prefix[i] + if (chunk.isCounted(i, readings)) 1 else 0
+    return prefix
 }
 
 /** The offset in [chunk] of its counted character [index] (see [shownCharCount]), or null past its last. */
 internal fun shownCharOffset(chunk: CharSequence, index: Int): Int? {
     if (index < 0) return null
-    val readings = rubyReadings(chunk)
+    val readings = rubyCoverage(chunk, 0, chunk.length)
     var left = index
     for (i in chunk.indices) {
         if (!chunk.isCounted(i, readings)) continue
@@ -92,14 +99,18 @@ internal fun shownCharOffset(chunk: CharSequence, index: Int): Int? {
     return null
 }
 
-private fun rubyReadings(chunk: CharSequence): List<IntRange> =
-    (chunk as? Spanned)?.getSpans(0, chunk.length, RubyReadingSpan::class.java)
-        ?.map { chunk.getSpanStart(it) until chunk.getSpanEnd(it) }
-        .orEmpty()
+/** Which offsets of [chunk] a ruby reading covers, from the readings reaching into [start] until [end]. One
+ *  pass over the spans, so each character's test is a lookup rather than a scan of every reading. */
+private fun rubyCoverage(chunk: CharSequence, start: Int, end: Int): BitSet {
+    val covered = BitSet()
+    (chunk as? Spanned)?.getSpans(start, end, RubyReadingSpan::class.java)
+        ?.forEach { covered.set(chunk.getSpanStart(it), chunk.getSpanEnd(it)) }
+    return covered
+}
 
-private fun CharSequence.isCounted(i: Int, readings: List<IntRange>): Boolean {
+private fun CharSequence.isCounted(i: Int, readings: BitSet): Boolean {
     val c = this[i]
-    return c != OBJECT_REPLACEMENT && !c.isReadAloudSpace() && readings.none { i in it }
+    return c != OBJECT_REPLACEMENT && !c.isReadAloudSpace() && !readings[i]
 }
 
 private const val OBJECT_REPLACEMENT = '￼'

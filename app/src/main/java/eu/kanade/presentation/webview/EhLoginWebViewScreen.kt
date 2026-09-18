@@ -1,6 +1,5 @@
 package eu.kanade.presentation.webview
 
-import android.content.pm.ApplicationInfo
 import android.webkit.CookieManager
 import android.webkit.WebView
 import androidx.compose.animation.core.animateFloatAsState
@@ -35,10 +34,10 @@ import com.kevinnzou.web.WebView
 import com.kevinnzou.web.rememberWebViewNavigator
 import com.kevinnzou.web.rememberWebViewState
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.tachiyomi.util.system.isDebugBuildType
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Close
+import reikai.util.isDebugInspectorBuild
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Button
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -124,9 +123,9 @@ fun EhLoginWebViewScreen(
                         webView.setDefaultSettings()
 
                         // Debug mode (chrome://inspect/#devices)
-                        if (isDebugBuildType &&
-                            0 != webView.context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE
-                        ) {
+                        // RK --> the gate the novel web reader shares, since it can switch the inspector off
+                        if (webView.context.isDebugInspectorBuild()) {
+                            // RK <--
                             WebView.setWebContentsDebuggingEnabled(true)
                         }
                     },

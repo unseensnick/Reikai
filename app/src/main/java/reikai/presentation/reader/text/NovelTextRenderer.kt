@@ -27,7 +27,6 @@ import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
 import reikai.presentation.reader.NovelTextScale
 import tachiyomi.core.common.util.system.logcat
-import kotlin.math.roundToInt
 
 /**
  * Turns a processed chapter into styled text across [ChapterTextBlock]'s chunk views.
@@ -154,8 +153,7 @@ class NovelTextRenderer(
             block.clearSelections()
             // The views are styled by now, and a picture's span reads their spacing when it is laid out.
             chunks.forEachIndexed { i, chunk ->
-                val extra = block.chunkViews[i].lineSpacingExtra.roundToInt()
-                chunk.getSpans(0, chunk.length, ChapterImageSpan::class.java).forEach { it.lineExtraPx = extra }
+                NovelTextStyle.holdImagesOffLineSpacing(chunk, block.chunkViews[i].lineSpacingExtra)
             }
             if (precomputed == null) {
                 chunks.forEachIndexed { i, chunk -> block.chunkViews[i].text = chunk }

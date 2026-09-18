@@ -5,6 +5,7 @@ import com.google.android.material.color.MaterialColors
 import org.json.JSONObject
 import reikai.presentation.reader.NovelReaderSettings
 import reikai.presentation.reader.NovelTextScale
+import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
 import reikai.presentation.reader.text.NovelChapterSeamView
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -47,6 +48,7 @@ object NovelWebDocument {
                 "__READ_ALOUD__" to readAloudJson(settings).toString(),
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
                 "__INITIAL_LINE__" to (initialLine?.coerceAtLeast(0) ?: -1).toString(),
+                "__IMAGE_WAIT_MS__" to CHAPTER_IMAGE_WAIT_MS.toString(),
                 "__DOCUMENT_TOKEN__" to jsString(documentToken),
                 // The seam names both chapters under these, the way TransitionText does. Resolved
                 // here because the page has no resources of its own.
@@ -144,12 +146,11 @@ object NovelWebDocument {
     private const val FALLBACK_PRIMARY = 0xFF6750A4.toInt()
 
     /**
-     * How the reader's display settings hold their ground against a chapter that ships its own CSS.
-     * A chapter's styles sit inside the body and so win a tie on document order, which is why these
-     * carry `!important` rather than being folded into the stylesheet. Ported from tsundoku's
-     * `fontOverrideCss`, including why the headings are restated: forcing `font-size: inherit` on
-     * every element is what stops a source sizing its own text, and it flattens headings with it.
-     * Tsundoku restates only headings, which left footnote markers and ruby readings at full body size.
+     * How the reader's display settings hold their ground against a chapter's own CSS, which wins a tie
+     * on document order, hence `!important`. Ported from tsundoku's `fontOverrideCss`: forcing
+     * `font-size: inherit` everywhere flattens headings, so they are restated, and so are footnote
+     * markers and ruby readings, which tsundoku left at body size. A failed picture's box keeps its own
+     * look through `:where`, which adds no weight, so the sized elements below still win on weight.
      */
     private fun overrides(useOriginalFonts: Boolean, sourceCssPriority: Boolean): String {
         if (sourceCssPriority) return ""
@@ -163,7 +164,7 @@ object NovelWebDocument {
               text-align: var(--rk-text-align) !important;
               $family
             }
-            .rk-chapter * {
+            .rk-chapter *:where(:not(.rk-failure, .rk-failure *)) {
               font-size: inherit !important;
               color: inherit !important;
               background-color: transparent !important;
