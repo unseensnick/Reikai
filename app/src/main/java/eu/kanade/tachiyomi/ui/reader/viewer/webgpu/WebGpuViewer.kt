@@ -61,6 +61,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.presentation.reader.chapterToRetry
+import reikai.presentation.reader.isCachedPageCurrent
 import reikai.presentation.reader.shouldAutoPreload
 import reikai.presentation.reader.showsTransition
 import tachiyomi.core.common.i18n.stringResource
@@ -416,6 +417,17 @@ open class WebGpuViewer(
     fun getPage(page: ReaderPage, referencePage: ViewerPage? = null): ViewerPage {
         val key = PageKey.Reader(page.chapter.chapter.id, page.index)
         return synchronized(lock) {
+            // RK --> a chapter loaded again keeps its id and indices but has new pages, so the wrapper
+            // of a page it replaced goes, cleaned up as an eviction is, rather than drawing the old image.
+            val cached = findInCache(key) as? ViewerReaderPage
+            cached?.takeUnless { isCachedPageCurrent(it.page, page) }?.let { stale ->
+                pageCache.remove(key)
+                decodeQueue.remove(stale)
+                stale.state = PageState.IDLE
+                stale.spreadPage?.let(::cleanupImage)
+                cleanupImage(stale.imagePage)
+            }
+            // RK <--
             findInCache(key) ?: ViewerReaderPage(page).also { newPage ->
                 pageCache[key] = newPage
                 val limit = cacheSize
@@ -1527,8 +1539,10 @@ open class WebGpuViewer(
         // chapter, so it still wins and the reader does not lurch. Upstream has the same defect.
         val shown = when (val current = currentPage) {
             null -> null
+            // Not a page the chapter replaced by loading again: the reload lands on its requested page.
             is ViewerReaderPage -> current.takeIf {
-                it.page.chapter.chapter.id == chapters.currChapter.chapter.id
+                it.page.chapter.chapter.id == chapters.currChapter.chapter.id &&
+                    isCachedPageCurrent(it.page, pages.getOrNull(it.page.index))
             }
             else -> current.takeIf {
                 it.prevChapter?.chapter?.id == chapters.currChapter.chapter.id ||
