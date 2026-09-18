@@ -39,6 +39,13 @@ object NovelHtmlUtils {
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
 
+    // Raw-text elements: the parser reads what they hold as text, so a heading written inside one is not
+    // a heading. Narrower than the prose passes' verbatim rule, since a pre's tags are real elements.
+    private val rawTextBlockRegex = Regex(
+        "<(style|script|textarea)\\b[^>]*>.*?</\\1\\s*>",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
+
     private val titlePatterns = listOf(
         Regex("""<h[1-6][^>]*>.*?</h[1-6]>""", RegexOption.IGNORE_CASE) to true,
         Regex("""<(strong|[bi]|em)\b[^>]*>.*?</\1>""", RegexOption.IGNORE_CASE) to false,
@@ -285,9 +292,10 @@ object NovelHtmlUtils {
     fun stripChapterTitle(content: String, chapterName: String): String {
         val normalizedChapterName = chapterName.trim().lowercase()
         val searchArea = content.take(CHAPTER_TITLE_SEARCH_LIMIT)
+        val rawText = rawTextBlockRegex.findAll(searchArea).map { it.range }.toList()
 
         for ((regex, unconditional) in titlePatterns) {
-            val match = regex.find(searchArea)
+            val match = regex.findAll(searchArea).firstOrNull { m -> rawText.none { m.range.first in it } }
             if (match != null) {
                 val matchText = match.value.replace(stripTagsRegex, "").trim().lowercase()
                 if (unconditional || isTitleMatch(matchText, normalizedChapterName)) {
@@ -297,7 +305,7 @@ object NovelHtmlUtils {
             }
         }
 
-        val plainTextContent = searchArea.replace(stripTagsRegex, " ").trim()
+        val plainTextContent = searchArea.replace(rawTextBlockRegex, " ").replace(stripTagsRegex, " ").trim()
         val firstLine = plainTextContent.lines().firstOrNull()?.trim()?.lowercase() ?: ""
         if (firstLine.isNotEmpty() && isTitleMatch(firstLine, normalizedChapterName)) {
             val rawFirstLine = content.lines().firstOrNull()?.trim() ?: ""
