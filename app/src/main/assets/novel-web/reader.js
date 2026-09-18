@@ -375,6 +375,9 @@
     // Per chapter id, a Map of each counted text node to the characters before it, dropped on any DOM change.
     var cache = {};
     var sent = null;
+    // A line seek the document ended too soon below to reach: { chapter, line, at }, at being the line it
+    // stopped on. A chapter joining below lands it again, unless the reader has moved off that line.
+    var shortSeek = null;
 
     function count(text) {
       return text.replace(UNCOUNTED, '').length;
@@ -423,6 +426,7 @@
       },
       /* Scrolls counted character line of chapter to the top, saying whether the chapter holds it. */
       seek: function (chapter, line) {
+        shortSeek = null;
         var found = null;
         countsOf(chapter).forEach(function (before, node) {
           if (found || line >= before + count(node.nodeValue)) return;
@@ -444,8 +448,23 @@
         if (!rect) return false;
         window.scrollTo({ top: Math.round(scrollTop() + rect.top), behavior: 'instant' });
         place.sync();
-        lastChapterSeen = chapter.getAttribute(CHAPTER_ID_ATTR);
+        var id = chapter.getAttribute(CHAPTER_ID_ATTR);
+        lastChapterSeen = id;
+        var landed = range.getClientRects()[0];
+        if (landed && landed.top > EDGE_TOLERANCE) shortSeek = { chapter: chapter, line: line, at: measure(id) };
         return true;
+      },
+      /* A chapter joined below: a line that landed short lands again while the reader is still where it stopped. */
+      reland: function () {
+        var pending = shortSeek;
+        shortSeek = null;
+        if (!pending || !pending.chapter.isConnected) return;
+        if (measure(pending.chapter.getAttribute(CHAPTER_ID_ATTR)) !== pending.at) return;
+        this.seek(pending.chapter, pending.line);
+      },
+      /* The reader moved, or a seek named its own place, which a line landing again would take them from. */
+      forget: function () {
+        shortSeek = null;
       },
       invalidate: function () {
         cache = {};
@@ -1011,6 +1030,7 @@
     /* Scrolls so a chapter's own fraction is the reading position, which is how a restore and the
        rail both land somewhere inside one chapter of a window rather than of the document. */
     seekWithin: function (chapterId, fraction) {
+      topLine.forget();
       rebuildBoundaries();
       for (var i = 0; i < boundaries.length; i++) {
         if (boundaries[i].id !== String(chapterId)) continue;
@@ -1255,6 +1275,8 @@
     }
     runScripts(chapter);
     window.rkReader.refresh();
+    // Room below a line that landed short, measured now the chapter is in.
+    if (!atStart) topLine.reland();
   }
 
   /*
@@ -1467,6 +1489,7 @@
    */
   function onReaderMove() {
     readerMoved = true;
+    topLine.forget();
     if (!seekWaiting) return;
     seekWaiting = false;
     reportReady();

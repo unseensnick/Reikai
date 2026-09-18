@@ -132,6 +132,10 @@ class NovelTextViewport(
         /** Before the text is set there is nothing to be a percentage of. */
         var rendered = false
 
+        /** A line landing the list stopped short of for want of room below ([holdShort]). Landed again when a
+         *  chapter joins below, while the reader is still on the line it stopped at; it never holds a report. */
+        var shortLanding: ShortLanding? = null
+
         /** A share landing held on the pictures waits [CHAPTER_IMAGE_WAIT_MS] for them, as the page does, and
          *  then lands without them. [imageWait] is that timer while it runs. */
         var imageWaitOver = false
@@ -153,6 +157,9 @@ class NovelTextViewport(
 
     /** The part of [spokenParagraph] being spoken, in its read-aloud text; null for all of it. */
     private var spokenRange: IntRange? = null
+
+    /** [landing], and the line at the top of the screen where it stopped short, null for the chapter's start. */
+    private class ShortLanding(val landing: Landing, val stoppedAt: Pair<TextView, Int>?)
 
     /** Where a chapter is put once its text has a height. */
     private sealed interface Landing {
@@ -632,12 +639,13 @@ class NovelTextViewport(
         redrawJob?.cancel()
         // A chapter on its way to a position is where the reader is headed; failing that, the layout.
         val seeking = slots.firstOrNull { it.landing != null }
+        val short = slots.firstOrNull { it.stillShort() != null }
         val visible = visibleSlot()
         val pending = redraw
         val plan = Redraw(
             chapters = pending?.chapters ?: slots.mapTo(mutableListOf()) { it.chapter },
-            readingId = (seeking ?: visible)?.chapter?.chapterId ?: pending?.readingId,
-            landing = seeking?.landing ?: visible?.let(::landingOf) ?: pending?.landing,
+            readingId = (seeking ?: short ?: visible)?.chapter?.chapterId ?: pending?.readingId,
+            landing = seeking?.landing ?: short?.stillShort() ?: visible?.let(::landingOf) ?: pending?.landing,
         )
         redraw = plan
         redrawJob = scope.launch {
@@ -648,14 +656,14 @@ class NovelTextViewport(
                 add(chapter, atEnd, landing = plan.landing.takeIf { chapter.chapterId == plan.readingId })
             }
             redraw = null
-            // Posted behind the last join's own landing. Every chapter the redraw adds has joined, so a line
-            // still short of room gets none, and waiting on would move the reader when the window next grows.
+            // Posted behind the last join's own landing. Every chapter the redraw adds has joined, so a line still
+            // short of room is kept for a chapter joining below rather than held, which would stop the reports.
             // A share still waiting on its images or its layout is not short of room, so it waits on.
             val rebuilt = joined()
             recycler.post {
                 rebuilt.forEach { slot ->
                     land(slot)
-                    if (slot.landing is Landing.Line) slot.landing = null
+                    (slot.landing as? Landing.Line)?.let { holdShort(slot, it) }
                 }
             }
         }
@@ -932,6 +940,8 @@ class NovelTextViewport(
         // of the chapter for page 3 of 10. The twin rejects it the same way.
         if (progress !is ChapterProgress.Percent) return
         val fraction = progress.fraction
+        // A seek names a place of its own, which a short line landing again would take the reader from.
+        slots.forEach { it.shortLanding = null }
         val slot = visibleSlot() ?: slots.firstOrNull() ?: return
         // Held for the chapter's own landing to apply when it has one still to come, which is also where
         // one waits that has not rendered yet. Nothing reads it on a chapter already settled.
@@ -1082,6 +1092,7 @@ class NovelTextViewport(
     private fun readerMoved() {
         slots.forEach {
             it.landing = null
+            it.shortLanding = null
             cancelImageWait(it)
         }
     }
@@ -1198,6 +1209,9 @@ class NovelTextViewport(
         slots.firstOrNull { it.landing != null && it.rendered && boundsOf(it) == null }?.let { headed ->
             (recycler.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(adapter.positionOf(headed), 0)
         }
+        // Room below a line that landed short, which lands again unless the reader has moved off it.
+        val shortAbove = slots.take(slots.indexOf(slot)).filter { it.shortLanding != null }
+        if (shortAbove.isNotEmpty()) beforeNextDraw { shortAbove.forEach(::reLand) }
         // With no chapter headed anywhere this is the window growing around the reader, which must not
         // move them. Every chapter is landed, not only this one: a line near a chapter's end waits for
         // the chapter below it to join.
@@ -1211,7 +1225,8 @@ class NovelTextViewport(
     /**
      * Puts the reader where [slot]'s landing names and clears it, and only then: one that cannot be applied
      * yet stays for the column's next layout. A line near the chapter's end can need the chapter below it
-     * for room, which a redraw adds after this one, so a line the list stops short of stays until then.
+     * for room: a redraw's line waits for the redraw to add it, and a rebuilt renderer's lands as far as it
+     * can and is kept for that chapter ([holdShort]).
      * A share of zero is a real position: the first line, below the item's marker.
      */
     private fun land(slot: ChapterSlot) {
@@ -1253,6 +1268,7 @@ class NovelTextViewport(
                 slot.landing = null
                 val before = scrolled
                 recycler.scrollBy(0, top)
+                if (lineTopOf(view, offset) != 0) holdShort(slot, landing)
                 if (scrolled == before) report(onProgressChanged)
             }
             is Landing.Line -> {
@@ -1262,6 +1278,27 @@ class NovelTextViewport(
                 if (lineTopOf(view, landing.offset) == landing.y) slot.landing = null
             }
         }
+    }
+
+    /** Keeps [landing], which the list stopped short of, for a chapter joining below to make room. */
+    private fun holdShort(slot: ChapterSlot, landing: Landing) {
+        slot.landing = null
+        slot.shortLanding = ShortLanding(landing, topLineAnchor())
+    }
+
+    private fun topLineAnchor(): Pair<TextView, Int>? = lineAtTop()?.let { it.view to it.offset }
+
+    /** The landing [holdShort] kept, while the reader is still on the line it stopped at. */
+    private fun ChapterSlot.stillShort(): Landing? = shortLanding?.takeIf { it.stoppedAt == topLineAnchor() }?.landing
+
+    /** Lands a short line again once a chapter below gives it room. Short again, or not yet measurable, it
+     *  is kept once more rather than left pending, which would hold every report. */
+    private fun reLand(slot: ChapterSlot) {
+        val landing = slot.stillShort()
+        slot.shortLanding = null
+        slot.landing = landing ?: return
+        land(slot)
+        slot.landing?.let { holdShort(slot, it) }
     }
 
     @SuppressLint("ClickableViewAccessibility")

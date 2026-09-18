@@ -900,6 +900,75 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertTrue("handed $line, reported $landed", line - landed in 0..LINE_CHARS)
     }
 
+    /**
+     * A line on a chapter's last screen needs the chapter below for room, which joins after a rebuilt
+     * renderer has landed. The line lands as far as it can and then exactly once that chapter joins.
+     */
+    @Test
+    fun aChapterRebuiltAtALineOnItsLastScreenLandsThatLineOnceTheNextChapterJoins() {
+        val line = lineOnTheLastScreen()
+        open(chapter(FIRST, long("first")).copy(topLine = line))
+        append(chapter(SECOND, long("second")))
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        val landed = checkNotNull(topLines.lastOrNull { it.first == FIRST }?.second)
+        assertTrue("handed $line, landed $landed", line - landed in 0..LINE_CHARS)
+    }
+
+    /** With nothing joining below, as for the novel's last chapter, the reader is never left unreported. */
+    @Test
+    fun aChapterRebuiltAtALineOnItsLastScreenWithNothingBelowStillReports() {
+        val line = lineOnTheLastScreen()
+        open(chapter(FIRST, long("first")).copy(topLine = line))
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        val landedReported = topLines.any { it.first == FIRST } && reports.any { it.chapterId == FIRST }
+        topLines.clear()
+        scrollBy(-SCROLL_DP)
+        Thread.sleep(QUIET_MS)
+        assertTrue(
+            "reported on landing: $landedReported, after a scroll: ${topLines.toList()}",
+            landedReported && topLines.any { it.first == FIRST },
+        )
+    }
+
+    /** The second landing waits for room, and a reader who has moved off the line by then keeps their place. */
+    @Test
+    fun aReaderWhoMovesOffAShortLandingIsNotMovedWhenTheNextChapterJoins() {
+        val line = lineOnTheLastScreen()
+        open(chapter(FIRST, long("first")).copy(topLine = line))
+        awaitScrollStill()
+        scrollBy(-SCROLL_DP)
+        Thread.sleep(QUIET_MS)
+        val moved = checkNotNull(topLines.lastOrNull { it.first == FIRST }?.second)
+        append(chapter(SECOND, long("second")))
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        val after = checkNotNull(topLines.lastOrNull { it.first == FIRST }?.second)
+        assertTrue(
+            "moved to $moved, then $after once the next chapter joined",
+            moved == after && line - after > LINE_CHARS,
+        )
+    }
+
+    /**
+     * The top line of a place past where [FIRST] alone can scroll to, reached with the next chapter below:
+     * its end on screen, then a little further. The window is cleared for the rebuild that follows.
+     */
+    private fun lineOnTheLastScreen(): Int {
+        open(chapter(FIRST, long("first")))
+        append(chapter(SECOND, long("second")))
+        instrumentation.runOnMainSync { (viewport as ReaderViewport).seekTo(ChapterProgress.Percent(10_000)) }
+        settle()
+        scrollBy(LAST_SCREEN_SCROLL_DP)
+        Thread.sleep(QUIET_MS)
+        val line = checkNotNull(topLines.lastOrNull { it.first == FIRST }?.second)
+        topLines.clear()
+        reports.clear()
+        fits.clear()
+        return line
+    }
+
     /** A report from the chapter's top, sent before the landing, would be saved over the position. */
     @Test
     fun aChapterOpenedPartWayNeverReportsItsTop() {
@@ -2842,6 +2911,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
         /** A top line further in than any test chapter's text reaches. */
         const val PAST_THE_END = 1_000_000
+
+        /** How far past a lone chapter's end its last-screen line is read from: many lines, under a screen. */
+        const val LAST_SCREEN_SCROLL_DP = 300
 
         /** What a landing may take past the image wait: a frame, a layout and the report after them. */
         const val IMAGE_WAIT_GRACE_MS = 1_500L
