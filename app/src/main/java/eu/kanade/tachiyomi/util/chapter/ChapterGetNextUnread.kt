@@ -4,6 +4,7 @@ import eu.kanade.domain.chapter.model.applyFilters
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import reikai.domain.chapter.ReadingOrder
+import reikai.domain.manga.inReadingOrder
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 
@@ -20,17 +21,14 @@ fun List<Chapter>.getNextUnread(
     mangaById: Map<Long, Manga> = emptyMap(),
 ): Chapter? {
     val shown = applyFilters(manga, downloadManager) { mangaById[it.mangaId] ?: manga }
-    // RK: the shared reading-order rule, so novels resume at the same chapter this picks.
-    return ReadingOrder.nextToRead(ReadingOrder.of(shown, manga.sortDescending())) {
-        it.read || it.id in readInOtherSources
-    }
+    // RK: the order the reader pages in, asked the question novels resume by.
+    return ReadingOrder.nextToRead(shown.inReadingOrder(manga)) { it.read || it.id in readInOtherSources }
 }
 
 /**
  * Gets next unread chapter with filters and sorting applied
  */
 fun List<ChapterList.Item>.getNextUnread(manga: Manga): Chapter? {
-    // RK: as above, the shared rule rather than a second copy of it.
-    val shown = applyFilters(manga).toList()
-    return ReadingOrder.nextToRead(ReadingOrder.of(shown, manga.sortDescending())) { it.isRead }?.chapter
+    // RK: as above, through the reader's order. Filtered on the item, whose read flag spans the group.
+    return applyFilters(manga).filterNot { it.isRead }.map { it.chapter }.toList().inReadingOrder(manga).firstOrNull()
 }

@@ -11,7 +11,12 @@ fun getChapterSort(
     Chapter,
     Chapter,
 ) -> Int {
-    return when (manga.sorting) {
+    // RK --> the source's own order breaks every other key's ties, as it does for novels. Without it a tie
+    // kept whatever order the database returned, so a newest-first list, reversed to read, disagreed with
+    // the reader over which tied chapter comes next.
+    val bySourceOrder = compareBy<Chapter> { it.sourceOrder }.let { if (sortDescending) it else it.reversed() }
+    val byKey: (Chapter, Chapter) -> Int = when (manga.sorting) {
+        // RK <--
         Manga.CHAPTER_SORTING_SOURCE -> when (sortDescending) {
             true -> { c1, c2 -> c1.sourceOrder.compareTo(c2.sourceOrder) }
             false -> { c1, c2 -> c2.sourceOrder.compareTo(c1.sourceOrder) }
@@ -30,4 +35,6 @@ fun getChapterSort(
         }
         else -> throw NotImplementedError("Invalid chapter sorting method: ${manga.sorting}")
     }
+    // RK: the tie-break above
+    return { c1, c2 -> byKey(c1, c2).takeIf { it != 0 } ?: bySourceOrder.compare(c1, c2) }
 }

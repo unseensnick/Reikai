@@ -24,18 +24,18 @@ data class ListedChapter(val id: Long, val name: String, val number: Double, val
  */
 class ReadingOrderCase<T>(
     private val label: String,
-    private val shown: (sorting: Long, descending: Boolean, read: Set<Long>) -> List<T>,
+    private val shown: (sorting: Long, descending: Boolean, read: Set<Long>, tied: Boolean) -> List<T>,
     private val id: (T) -> Long,
     private val isRead: (T) -> Boolean,
 ) {
-    fun readingOrder(sorting: Long, descending: Boolean = false): List<Long> =
-        ReadingOrder.of(shown(sorting, descending, emptySet()), descending).map(id)
+    fun readingOrder(sorting: Long, descending: Boolean = false, tied: Boolean = false): List<Long> =
+        ReadingOrder.of(shown(sorting, descending, emptySet(), tied), descending).map(id)
 
     fun resumeTarget(sorting: Long, read: Set<Long>, descending: Boolean = false): Long? =
-        ReadingOrder.nextToRead(ReadingOrder.of(shown(sorting, descending, read), descending), isRead)?.let(id)
+        ReadingOrder.nextToRead(ReadingOrder.of(shown(sorting, descending, read, false), descending), isRead)?.let(id)
 
     fun markedPrevious(sorting: Long, pointer: Long, descending: Boolean = false): List<Long> =
-        ReadingOrder.before(ReadingOrder.of(shown(sorting, descending, emptySet()), descending)) {
+        ReadingOrder.before(ReadingOrder.of(shown(sorting, descending, emptySet(), false), descending)) {
             id(it) == pointer
         }.map(id)
 
@@ -86,6 +86,14 @@ class ReadingOrderConformanceTest {
         case.markedPrevious(SORTING_ALPHABET, pointer = 3L, descending = true) shouldBe listOf(2L, 1L)
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("cases")
+    fun `chapters a newest-first list cannot tell apart are read in their source's order`(
+        case: ReadingOrderCase<*>,
+    ) {
+        case.readingOrder(SORTING_NUMBER, descending = true, tied = true) shouldBe listOf(1L, 2L, 3L)
+    }
+
     @Test
     fun `the two flag layouts agree on the sort bits, which is what lets one table cover both`() {
         listOf(SORTING_SOURCE, SORTING_NUMBER, SORTING_UPLOAD_DATE, SORTING_ALPHABET) shouldBe
@@ -112,7 +120,7 @@ class ReadingOrderConformanceTest {
 
         private val mangaCase = ReadingOrderCase<Chapter>(
             label = "manga",
-            shown = { sorting, descending, read ->
+            shown = { sorting, descending, read, tied ->
                 val manga = Manga.create().copy(
                     chapterFlags = sorting or
                         if (descending) Manga.CHAPTER_SORT_DESC else Manga.CHAPTER_SORT_ASC,
@@ -121,7 +129,7 @@ class ReadingOrderConformanceTest {
                     Chapter.create().copy(
                         id = spec.id,
                         name = spec.name,
-                        chapterNumber = spec.number,
+                        chapterNumber = if (tied) 1.0 else spec.number,
                         dateUpload = spec.upload,
                         // A manga source lists newest first, so the chapter listed last is read first.
                         sourceOrder = (listed.lastIndex - index).toLong(),
@@ -135,7 +143,7 @@ class ReadingOrderConformanceTest {
 
         private val novelCase = ReadingOrderCase<NovelChapter>(
             label = "novels",
-            shown = { sorting, descending, read ->
+            shown = { sorting, descending, read, tied ->
                 // Its own sort and filter, so the global defaults never enter the comparison.
                 val novel = Novel.create().copy(
                     chapterFlags = NovelChapterFlags.SORT_LOCAL or NovelChapterFlags.FILTER_LOCAL or
@@ -151,7 +159,7 @@ class ReadingOrderConformanceTest {
                         read = spec.id in read,
                         bookmark = false,
                         lastTextProgress = 0L,
-                        chapterNumber = spec.number,
+                        chapterNumber = if (tied) 1.0 else spec.number,
                         // A novel source lists oldest first, the opposite of a manga source.
                         sourceOrder = index.toLong(),
                         dateFetch = 0L,

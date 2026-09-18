@@ -1,20 +1,32 @@
 package reikai.domain.manga
 
 import eu.kanade.domain.manga.model.downloadedFilter
+import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.ui.manga.ChapterList
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.merge.ChapterUnit
 import tachiyomi.core.common.preference.TriState
+import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.chapter.repository.ChapterRepository
+import tachiyomi.domain.history.interactor.GetNextChapters
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.repository.MangaRepository
 
 /**
  * A merged manga's chapters in reading order, the one rule the library's "download next", the reader's
@@ -60,6 +72,16 @@ class MangaReadingOrderTest {
         group().getNextUnread(mangaSortedBy(Manga.CHAPTER_SORTING_ALPHABET), mockk())?.id shouldBe ALPHA
     }
 
+    @ParameterizedTest(name = "{0}, {1}")
+    @MethodSource("tiedOrders")
+    fun `every caller resumes a tie at the chapter its source lists first to read`(
+        caller: NextChapterCaller,
+        mode: String,
+        manga: Manga,
+    ) = runTest {
+        caller.next(manga, tied()) shouldBe EARLIEST_BY_SOURCE
+    }
+
     private fun mangaSortedBy(sorting: Long) =
         Manga.create().copy(id = 1L, chapterFlags = sorting or Manga.CHAPTER_SORT_ASC)
 
@@ -86,10 +108,66 @@ class MangaReadingOrderTest {
             chapterNumber = id.toDouble(),
         )
 
-    private companion object {
-        const val DOWNLOADED_FILTER_FILE = "eu.kanade.domain.manga.model.MangaKt"
-        const val BETA = 1L
-        const val ALPHA = 2L
-        const val GAMMA = 3L
+    /** Where one caller resumes, asked of the same chapters. */
+    class NextChapterCaller(private val label: String, val next: suspend (Manga, List<Chapter>) -> Long?) {
+        override fun toString() = label
+    }
+
+    companion object {
+        private const val DOWNLOADED_FILTER_FILE = "eu.kanade.domain.manga.model.MangaKt"
+        private const val BETA = 1L
+        private const val ALPHA = 2L
+        private const val GAMMA = 3L
+        private const val EARLIEST_BY_SOURCE = 12L
+
+        /**
+         * Three chapters no sort key tells apart, in the order the database hands them back: one fetch
+         * inserts newest first, so the chapter the source lists as earliest comes out last.
+         */
+        private fun tied(): List<Chapter> = listOf(10L, 11L, 12L).mapIndexed { index, id ->
+            Chapter.create().copy(
+                id = id,
+                mangaId = 1L,
+                name = "Chapter",
+                chapterNumber = 1.0,
+                dateUpload = 100L,
+                sourceOrder = index.toLong(),
+            )
+        }
+
+        private val callers = listOf(
+            // The reader's list, the library's and Recents' targets, and download next from details.
+            NextChapterCaller("reader") { manga, chapters ->
+                ReadingOrder.nextToRead(chapters.inReadingOrder(manga)) { it.read }?.id
+            },
+            NextChapterCaller("library continue reading") { manga, chapters ->
+                chapters.getNextUnread(manga, mockk())?.id
+            },
+            NextChapterCaller("details resume") { manga, chapters ->
+                chapters.map { ChapterList.Item(it, Download.State.NOT_DOWNLOADED, 0) }.getNextUnread(manga)?.id
+            },
+            NextChapterCaller("download next, one source") { manga, chapters ->
+                val chapterRepository = mockk<ChapterRepository> {
+                    coEvery { getChapterByMangaId(manga.id, any()) } returns chapters
+                }
+                val mangaRepository = mockk<MangaRepository> { coEvery { getMangaById(manga.id) } returns manga }
+                GetNextChapters(GetChaptersByMangaId(chapterRepository), GetManga(mangaRepository), mockk())
+                    .await(manga.id).firstOrNull()?.id
+            },
+        )
+
+        @JvmStatic
+        fun tiedOrders(): List<Arguments> = callers.flatMap { caller ->
+            listOf(
+                "by source" to Manga.CHAPTER_SORTING_SOURCE,
+                "by number" to Manga.CHAPTER_SORTING_NUMBER,
+                "by upload date" to Manga.CHAPTER_SORTING_UPLOAD_DATE,
+                "alphabetically" to Manga.CHAPTER_SORTING_ALPHABET,
+            ).flatMap { (mode, sorting) ->
+                listOf(Manga.CHAPTER_SORT_ASC to "", Manga.CHAPTER_SORT_DESC to " newest first").map { (dir, label) ->
+                    Arguments.of(caller, mode + label, Manga.create().copy(id = 1L, chapterFlags = sorting or dir))
+                }
+            }
+        }
     }
 }

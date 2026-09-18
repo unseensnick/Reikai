@@ -208,6 +208,7 @@ every release now also ships a foss build with neither in it.
 - **Long-pressing a novel's WebView button now copies its link, like manga.**
 - **Closing Edit info while Fill from tracker is still loading no longer shows a tracker error.**
 - **Titles you just added from the full related-manga grid no longer come back selected with your next pick.**
+- **When two manga chapters share a number, upload date or name, Resume, Continue reading and Download next now pick the one the reader opens next.** Ties follow the source's own order, as they already did for novels.
 
 ### Reader
 

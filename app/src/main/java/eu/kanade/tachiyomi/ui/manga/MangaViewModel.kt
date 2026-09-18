@@ -93,6 +93,7 @@ import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
+import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.flaggedOnAnotherSource
@@ -144,7 +145,6 @@ import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.model.NoChaptersException
-import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
@@ -1279,8 +1279,8 @@ class MangaViewModel(
 
     private fun getUnreadChaptersSorted(): List<Chapter> {
         val manga = successState?.manga ?: return emptyList()
-        // RK: the shared reading-order rule, so a novel's "next N" queues the same way.
-        return ReadingOrder.of(getUnreadChapters().sortedWith(getChapterSort(manga)), manga.sortDescending())
+        // RK: the order the reader pages in, so "next N" queues the chapters it steps into.
+        return getUnreadChapters().inReadingOrder(manga)
     }
 
     private fun getBookmarkedChapters(): List<Chapter> {
