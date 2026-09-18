@@ -147,7 +147,7 @@ A `popularNovels` call (the others are analogous):
 |---|---|
 | `LnPluginHost.kt` | The engine owner: per-plugin engine slots plus the shared loader slot, lazy QuickJS creation, the idle sweeper, host-function binding, per-slot mutex serialization, typed suspend methods, per-plugin settings accessors, `LnPluginException`. |
 | `LnHostBridge.kt` | OkHttp fetch (`runFetch`), namespaced `PreferenceStore` storage, logging; the `FetchOpts` / `FetchResponseDto` wire types. |
-| `LnPluginLoader.kt` | Downloads a plugin `.js` and caches it under `cacheDir/lnplugins/<sha>.js`. |
+| `LnPluginLoader.kt` | Downloads a plugin `.js` and keeps the installed one under `filesDir/lnplugins/<sha256(url)>.js` (`download` / `installed` / `store` / `delete`). A script changes only on install or update; one left in the old `cacheDir` location is adopted once, and one missing its default export is treated as not installed. |
 | `LnPluginModels.kt` | Wire DTOs: `LnPluginInfo`, `LnCallResult`, `NovelItem`, `ChapterItem`, `SourceNovel`, `SourcePage`, `ChapterContent`. |
 
 ### Source, install, registry, network, download, update (`app/src/main/java/reikai/novel/`)
@@ -183,8 +183,8 @@ LN screens follow Mihon's Voyager `Screen` + AndroidX `ViewModel` conventions. N
 | `presentation/novel/details/` | Novel details (`NovelScreen` + `NovelDetailsViewModel`), cover dialog, merge-source chips, manage-sources / page-selector. |
 | `presentation/reader/` | The novel side of the shared reader: `NovelReaderViewModel` under `NovelReaderProvider`, `NovelReaderSettings`, the native text renderer (`text/`, `NovelTextViewport`) and the WebView mode (`web/`, `NovelWebViewport`). Record: [content-layer-reader-surface.md](plans/content-layer-reader-surface.md). |
 | `presentation/novel/globalsearch/` | Cross-source global search. |
-| `presentation/novel/migrate/` | Migrate a novel between sources. |
-| `presentation/novel/track/` | Tracker info dialog. |
+| `presentation/migrate/flow/` | Migrate a novel between sources, through the migrate flow shared with manga (`NovelMigrationFlowAdapter`). |
+| `presentation/track/` | Tracker info dialog, shared with manga (`EntryTrackInfoDialog`). |
 | `presentation/novel/notes/` | Per-novel notes. |
 | `presentation/library/novels/` | Novel library surface: `NovelLibraryViewModel`, library item/sort/settings, category filter, merge-collapse. |
 
@@ -211,8 +211,9 @@ interactors. `LnPluginHost` is app-scoped because the headless engine has no Act
 it takes `NetworkHelper` rather than a bare `OkHttpClient`, which the graph could not tell apart from
 any other client.
 
-The Injekt-era `AppModule` is gone. `DomainModule` survives with three registrations, `source-api`'s
-`MetadataSource` contracts, none of them novel types; nothing new belongs in it.
+The Injekt-era `AppModule` and `DomainModule` are gone. The whole Injekt surface is
+`MetroInjektRegistrar` (`mihon/app/di/injekt/`), a read-only registrar over the graph; none of its
+bindings are novel types, and nothing new belongs in it.
 
 ## Build and run
 

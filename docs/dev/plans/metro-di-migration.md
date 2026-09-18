@@ -2,9 +2,11 @@
 
 > **Status: complete.** All eight phases have landed, the ledger has advanced past `b2015d1ef`
 > (`f674e77bf`), and the novel reader tail closed with the reader takeover's cutover (`d6904484d`):
-> the legacy reader was deleted, `DomainModule` keeps only `source-api`'s three `MetadataSource`
-> contracts, and `MetroInteropModule` hands back fifteen types. What stays on Injekt is permanent:
-> `source-api`, `source-local`, those three contracts, and the ruled holdouts below. The proguard
+> the legacy reader was deleted. Since the Mihon sync `b54351849`, `DomainModule` and
+> `MetroInteropModule` are gone: the whole Injekt surface is `MetroInjektRegistrar`, a read-only
+> registrar whose fifteen bindings each read one `AppGraph` accessor, pinned by
+> `MetroInjektRegistrarTest`. What stays on Injekt is permanent: `source-api`, `source-local`, the
+> three `MetadataSource` contracts, and the ruled holdout below. The proguard
 > keeps were never part of the tail: none of the five goes (see below). Research completed 2026-08-16 against upstream `b2015d1ef`; re-verified 2026-08-17
 > before phase 0; re-measured against current code 2026-08-20.
 >
@@ -35,12 +37,12 @@ Metro resolves the graph in the compiler and ships only `-assumenosideeffects` r
 
 **None of the five keeps goes, and this was overstated twice.** `source-api` and `source-local` hold
 Injekt permanently, because they are the contract installed extensions compile against, and they live
-under `eu.kanade.**`, `exh.**` and `tachiyomi.**`. **`mihon.**` stays too** (corrected 2026-08-21):
-`MetroInteropModule` lives in `mihon.app.di.injekt`, and every reified `addSingletonFactory` there
-compiles to its own `FullTypeReference` subclass in that package. **`reikai.**` stays as well**
-(corrected 2026-08-21): `Novel.hasCustomCover`'s `CoverCache = Injekt.get()` default is a reified call
-in `reikai.domain.novel.model`, and that default is ruled to stay for twin parity with the manga side,
-so it outlives the reader. So the keep list is not part of this port's tail at all.
+under `eu.kanade.**`, `exh.**` and `tachiyomi.**`. **`mihon.**` stays too**: it is upstream's own
+package, and `MetroInjektRegistrar` lives in `mihon.app.di.injekt`. **`reikai.**` stays but is
+retirable**: `Novel.hasCustomCover` was its last reflective read, and since `b54351849` its default
+reads `appGraph` through an `Injekt.get<Context>()` locator, as upstream's `Manga.hasCustomCover`
+does; the keep remains only because nothing has verified that no other reflection depends on it
+(`.claude/rules/architecture.md`). So the keep list is not part of this port's tail at all.
 
 ## Status
 
@@ -58,6 +60,12 @@ rules and docs that still described Injekt as the DI system were rewritten; and 
 leaving the three `MetadataSource` contracts `DomainModuleTest` resolves; `MetroInteropModule` lost
 sixteen entries and hands back fifteen types, which `di-interop-check.ps1` passes against; and
 `voyager-screenModel` left the catalog. The novel reader resolves nothing through Injekt.
+
+**Both Injekt modules went with the Mihon sync `b54351849`** (mihonapp/mihon#3965, mihon
+`1c43addec`). `MetroInjektRegistrar` replaced `MetroInteropModule` and `DomainModule`: fifteen
+bindings, each reading one `AppGraph` accessor, every write method throwing, so nothing registers at
+runtime. `MetroInjektRegistrarTest` replaced `DomainModuleTest`, and `di-interop-check.ps1` now parses
+the registrar's binding map.
 
 `source-api` and `source-local` are the permanent half and close never: they are the contract
 installed extensions compile against. The table below is the landed record and the original phase
@@ -208,9 +216,10 @@ is expressed in the type: `NovelDownloadManager` in `MigrateNovelUseCase`, `Repa
 `BatchAddViewModel`. The manager is the one that matters: constructing it restores the persisted
 download queue and can start the download worker.
 
-**Three ruled holdouts, two left.** `NovelReaderScreenModel` stayed by design until the reader
-takeover deleted it. `Novel.hasCustomCover` keeps its `CoverCache = Injekt.get()` default because upstream's
-`Manga.hasCustomCover` twin is byte-identical, so converting one would fork the pair. `DebugToggles`
+**Three ruled holdouts, one left.** `NovelReaderScreenModel` stayed by design until the reader
+takeover deleted it. `Novel.hasCustomCover` kept a `CoverCache = Injekt.get()` default to match its
+manga twin; since `b54351849` both read `appGraph` through an `Injekt.get<Context>()` locator, the
+shape upstream moved `Manga.hasCustomCover` to, so it is no longer a `CoverCache` holdout. `DebugToggles`
 is an enum whose dependency hangs off its companion, and its only callers are `EHentai`, which
 `AndroidSourceManager` constructs by hand: it belongs to the source-construction family that
 `source-api` keeps Injekt for, not to this phase.
@@ -375,7 +384,7 @@ Phase 7 remains, with one correction found by the 2026-08-17 audit and amended s
   of its own (a `PreferenceStore`, not a fourth `DelegateSourcePreferences`).
   `reikai.**` is permanent because `Novel.hasCustomCover` keeps a reified `Injekt.get()` default that
   is itself ruled to stay, for twin parity with the manga side. Phase 7 keeps the baseline profiles
-  and the rules files only.
+  and the rules files only. (That reason for `reikai.**` has since gone, see Why.)
 
 **The interop module's floor is the novel reader's subgraph**, which phase 6 did not shrink and could
 not: keeping `NovelReaderScreenModel` on Injekt means everything it resolves must be handed back. It
@@ -649,7 +658,7 @@ on the GMD after the port, or they are dead rules.
 Each phase is a commit that compiles and boots. The verification column says what actually proves it.
 
 **This table is the landed record.** Phases 0 to 3c are history and accurate. Phase 4 grew sub-units
-as it ran and phase 7 has not started, so for what is left read "What is left, in order" at
+as it ran and phase 7 has since landed too, so for what is left read "What is left, in order" at
 the top of Status instead; it is the list that gets maintained.
 
 | Phase | Work | Proves |
@@ -795,8 +804,8 @@ it was written up as: all three types were already built once here, by `Download
   `mihon/app/di/injekt/MetroInteropModule.kt`, `core/metro/src/main/kotlin/mihon/core/metro/*.kt`,
   and `eu/kanade/tachiyomi/App.kt`, all at `b2015d1ef`.
 - Here: `app/src/main/java/mihon/app/di/` (the graph, both binding containers, the ViewModel factory
-  and the interop module), `app/src/main/java/eu/kanade/domain/DomainModule.kt` (the last Injekt
-  module), `app/src/main/java/eu/kanade/tachiyomi/App.kt`, `scripts/di-interop-check.ps1` with the
+  and `injekt/MetroInjektRegistrar.kt`, the whole Injekt surface),
+  `app/src/main/java/eu/kanade/tachiyomi/App.kt`, `scripts/di-interop-check.ps1` with the
   `pre-commit` hook and the `build_check` workflow step that run it, `app/proguard-rules.pro`,
   `app/src/main/baselineProfiles/`, and the two engines named under Traps. `AppModule.kt` and
   `PreferenceModule.kt` are deleted.

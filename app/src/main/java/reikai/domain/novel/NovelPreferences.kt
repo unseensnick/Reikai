@@ -568,9 +568,10 @@ class NovelPreferences(
 }
 
 /**
- * The novel reader's retired single-padding key, superseded by the four margins. Its accessor is gone,
- * so only [mihon.core.migration.migrations.SplitNovelReaderPaddingMigration] still reads it, to carry a
- * customised value into the four that replaced it.
+ * The novel reader's retired single-padding key, superseded by the four margins. Its accessor is gone;
+ * [mihon.core.migration.migrations.SplitNovelReaderPaddingMigration] and the backup restorer still read
+ * it, each through [NovelPreferences.carryReaderPaddingToMargins], which carries it into the left and
+ * right margins only.
  */
 const val DEAD_READER_PADDING_KEY = "ln_reader_padding"
 

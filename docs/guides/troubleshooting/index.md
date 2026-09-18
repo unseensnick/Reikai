@@ -94,8 +94,9 @@ Wait for the source to lower its protection, or switch to a different source.
 
 ### A download keeps failing
 
-Usually not. Reikai's download code is Mihon's, so whether a chapter can actually be
-fetched is almost always on the source or extension side, not the app. Common cases:
+This is rarely a bug in Reikai: whether a chapter can be fetched is almost always decided
+on the source, extension or plugin side. Manga downloads use Mihon's download code;
+light novels have Reikai's own downloader. Common cases:
 
 - **Blank in the reader too / a Cloudflare error:** the source's own server is
   unreachable. Nothing to do but wait for it to come back, or route it through a
@@ -106,10 +107,15 @@ fetched is almost always on the source or extension side, not the app. Common ca
 - **Renders in the reader but saves zero pages:** the page shows, but the extension's
   parser returns no pages, so there is nothing to save.
 
-Quick test: try the same source and chapter in Mihon. If it fails there too, it is not
-specific to Reikai (more likely the source blocking you, or something on your network:
-ISP, DNS, a VPN or firewall). If it works in Mihon but not Reikai, that one is on me,
-so open an issue with the exact source, chapter, and steps.
+Quick test for manga: try the same source and chapter in Mihon. If it fails there too,
+it is not specific to Reikai (more likely the source blocking you, or something on your
+network: ISP, DNS, a VPN or firewall). If it works in Mihon but not Reikai, that one is
+on me, so open an issue with the exact source, chapter, and steps.
+
+Quick test for light novels: open the chapter in the reader, then on the site itself
+(**Open in WebView**). If the site will not show it either, the problem is the site or
+your network. If the chapter reads fine but will not download, open an issue with the
+exact source, chapter, and steps.
 
 ### Obtaining crash/error logs
 For crash investigations, navigate to <nav to="advanced"> and tap **Share crash logs**.

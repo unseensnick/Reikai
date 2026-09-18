@@ -57,6 +57,7 @@ Turn on **Show all categories in one list** under **Tabs** on the **Display** ta
 Each category gets a header with its name, plus its item count when **Show number of items** is on.
 Tap the header to collapse or expand that category.
 A category's header also shows its sort, which you can tap to change for that category alone, and a button that updates just that category.
+On **Default**, the sort you pick there is the library-wide sort, which every category without its own sort follows.
 A group from the **Group** tab has neither, since it is not one of your categories.
 
 With the setting off you are back to one category per page.

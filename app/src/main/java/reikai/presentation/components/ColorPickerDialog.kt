@@ -32,8 +32,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.math.roundToInt
 
 /**
- * Six hex digits, alpha dropped. Both reader renderers read this form alike, where eight digits mean
- * `#rrggbbaa` to the WebView's CSS and `#aarrggbb` to `android.graphics.Color` (`ReaderThemePreset`).
+ * Six hex digits, alpha dropped: the form the picker writes. Both reader renderers read stored colours
+ * through `readerColorOrNull`, so they draw this value alike.
  */
 fun Int.toHexRgb(): String = "#%06X".format(this and 0xFFFFFF)
 

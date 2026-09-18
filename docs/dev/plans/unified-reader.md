@@ -28,7 +28,7 @@ The mechanism:
 
 - **The shared chrome composables** live under `eu/kanade/presentation/reader/`: `ReaderAppBars` (top + bottom bars with tap-to-toggle immersive animation), `ReaderTopBar`, `ReaderBottomBar`, `ChapterNavigator` (prev/next + seekbar), and `ReaderPageIndicator`. These are Mihon's own reader chrome, already pure Compose, already driven by immutable state. Since the reader takeover both content types render them, from the one `ReaderActivity` host.
 
-- **The settings sheets are shared now**, settled by the reader takeover rather than this plan: one `ReaderSettingsSheet` with the same four tabs for both readers, each content type answering its own pages. See step 11 of [content-layer-reader-surface.md](content-layer-reader-surface.md).
+- **The settings sheets are shared now**, settled by the reader takeover rather than this plan: one `ReaderSettingsSheet` with the same tabs for both readers bar Read aloud, which only novels get, each content type answering its own pages. See step 11 of [content-layer-reader-surface.md](content-layer-reader-surface.md).
 
 - **The manga reader stays View-based.** `ReaderActivity` remains the manga host. The image viewers (`PagerViewer`, `WebtoonViewer`) take a concrete `ReaderActivity` reference, so leaving the activity in place means the viewers stay byte-identical to upstream and keep porting cleanly on each Mihon sync. No viewer decoupling is required.
 

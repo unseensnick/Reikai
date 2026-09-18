@@ -8,8 +8,8 @@ description: Frequently Asked Questions about Upcoming Updates
 Frequently Asked Questions about Upcoming Updates
 
 ::: info Manga only
-The calendar is built from predicted release dates, which novel sources do not publish, so light
-novels never appear on it.
+Reikai predicts when a light novel's next chapter is due too, but the calendar only shows manga for
+now, so light novels do not appear on it.
 :::
 
 ## What is this Calendar?

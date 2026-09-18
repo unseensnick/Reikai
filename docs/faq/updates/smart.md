@@ -20,9 +20,8 @@ Adult gallery sources are always left out of a global update, whichever conditio
 You can see how many days the app expects to wait for the next chapter of a series **by looking at the hourglass**.
 After that many days, the app will allow that series to check for updates.
 
-::: info Light novels get the first three conditions, not the fourth
-Novel sources publish no release schedule, so there is nothing to predict from and nothing to
-count down. A novel is skipped for status and unread chapters as a manga is. For progress, a
-novel with no chapter read counts as not started even when it has no chapters yet, so it is
-skipped until you read one. Otherwise it is checked every time.
+::: info Light novels get all four conditions
+A novel's next chapter is predicted from its own chapter history, the same way as for manga, and it
+has the hourglass on its details page too. For either kind, a series with no chapters yet does not
+count as not started, so it keeps being checked until it has some.
 :::

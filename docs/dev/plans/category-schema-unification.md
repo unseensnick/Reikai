@@ -59,10 +59,13 @@ both sides, unchanged.
   bucket; novels drop their two render-time syntheses (which today disagree on flags). Matches tsundoku
   and removes the synthesis drift. Per-type sentinel rows were rejected: they need id 0 shared across two
   junctions or a second reserved id, more surface for no benefit.
-- **`novel_order` is retired, not carried.** It stored the per-category manual drag order of library
-  entries, a Yokai-era feature the owner never used on either build. The column is dropped with the
-  table and its read path (`NovelCategory.novelOrder`, the mapper and repo references) goes with the
-  novel-stack retirement. Backups never carried it, so nothing round-trips through it.
+- **`novel_order` is retired, not carried.** It stored either the category's sort, as one letter, or a
+  manual drag order of library entries, a Yokai-era feature the owner never used on either build. The
+  column is dropped with the table and its read path (`NovelCategory.novelOrder`, the mapper and repo
+  references) goes with the novel-stack retirement. Backups never carried it, so nothing round-trips
+  through it. The one reader left is the Yokai database import, which decodes a sort letter into the
+  category's own sort (`LegacyYokaiDbImporter.yokaiCategorySortToFlags`, see
+  [legacy-yokai-import.md](legacy-yokai-import.md)).
 - **Category default is `content_type = 1` (manga), not tsundoku's 0.** Existing manga categories are
   manga-typed, not universal; tsundoku defaults to universal only because it has one entries table. New
   categories created through the unchanged `insert` inherit the manga default until the novel path gets

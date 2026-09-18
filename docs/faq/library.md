@@ -8,7 +8,7 @@ description: Frequently Asked Questions about the Library.
 Frequently Asked Questions about the Library.
 
 ## Why is my Global Update skipping entries?
-By default, a global update skips entries that are unlikely to have anything new: ones with unread chapters, ones you have not started, ones marked **Completed**, and manga not yet predicted to have a new chapter. [Smart updates](/docs/faq/updates/smart) explains each condition, how light novels differ, and where to turn them off.
+By default, a global update skips entries that are unlikely to have anything new: ones with unread chapters, ones you have not started, ones marked **Completed**, and ones not yet predicted to have a new chapter. [Smart updates](/docs/faq/updates/smart) explains each condition and where to turn them off.
 
 This strategy helps reduce unnecessary requests which may lead to sources implementing measures against **Reikai** or your extensions.
 * We recommend to prioritize reading your unread chapters, and letting **Reikai** update the library by itself to better adapt & predict chapter releases over time.

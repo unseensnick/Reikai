@@ -463,9 +463,10 @@ shared body started reading the column preference itself.
   mutex only once upstream moved its initial scan off the main thread
   (mihonapp/mihon#3788), which let a slow startup scan land after a re-trust and undo it.
 - **Re-trusting is driven by the store list rather than by callers (2026-08-16).** Trust is judged
-  against the signing keys a scan reads as it starts, so `ExtensionManager` collects
-  `GetExtensionStores.subscribe()`, maps it to that key set and re-scans whenever the set changes,
-  dropping the first emission (the list the startup scan already saw). Both explicit callers, the
+  against the signing keys a scan reads as it starts, so `ExtensionManager` re-scans on upstream's
+  `TrustExtension.changes()`, which maps the store list to that key set and emits whenever the set
+  (or the trusted list) changes, dropping the first emission (the list the startup scan already saw).
+  Reikai's own collector was folded into it at the `f88dfbf5f` sync. Both explicit callers, the
   repo-add screen and the backup restorer, are gone with it, so a repo arriving from any path,
   including one nobody has wired yet, re-trusts on its own. The manual "Re-check extensions" lever
   stays for what that flow cannot see: a scan that failed transiently, or a package change the

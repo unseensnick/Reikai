@@ -128,10 +128,9 @@ Fixed:
 - **Light novels were missing from `getting-started.md` entirely**, which is the page a new user
   reads first. Novel repos live in their own section of the same Extension stores screen, and the
   plugins install from the Extensions tab beside manga extensions.
-- **Smart updates reach novels, the prediction does not.** `NovelUpdateJob` applies the same three
-  skip rules (unstarted, completed, unread) and cannot apply the fourth, because novel sources
-  publish no release schedule. That also keeps novels off the Upcoming calendar entirely. Three
-  pages presented all four conditions as universal.
+- **Smart updates reach novels, the Upcoming calendar does not.** `NovelUpdateJob` applies all four
+  skip rules through the same `smartUpdateSkip` kernel as manga, predicting a novel's next chapter
+  from its own chapter history, but the calendar stays manga-only by owner ruling. The pages say so.
 - **The pre-Android-8 leftovers**, now that `minSdk` is 26: the WebView table's "Android 6 and
   below" row is gone and its "Android 7 - 9" row is "Android 8 - 9".
 - **`source-migration.md` described a flow the app no longer has.** Its Reikai tab said "a global

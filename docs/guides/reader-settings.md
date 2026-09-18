@@ -108,6 +108,9 @@ Keeps the screen from going to sleep.
 #### Show page number <Badge type="info" text="On" />
 Shows the current page number at the bottom of the screen.
 
+#### Chapter title <Badge type="info" text="Name" />
+What the reader's bar calls the open chapter: its **Name**, its **Number**, or **Number and name**. The novel reader has its own copy of this setting.
+
 ### E-Ink
 #### Flash on page change <Badge type="info" text="Off" />
 Flashes the screen on page change to reduce ghosting on E-ink displays. The three settings below only appear once this is on.
