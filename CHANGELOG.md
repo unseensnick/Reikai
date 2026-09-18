@@ -564,6 +564,7 @@ every release now also ships a foss build with neither in it.
 
 ### Other
 
+- The app's native libraries are now compressed inside the download, which keeps it near its old size although the high quality renderer added about 27 MB of them: the arm64 download is about 31 MB where it would have been 53 MB. Once installed the app takes a little more space, since Android unpacks them.
 - The light-novel plugin manager now fetches the plugin repos once, and only while its tab is open. Opening Browse used to fetch every repo twice.
 - A category link that no picker for its content type could show is now refused where it is written, so a manga can no longer be filed under a novels-only category or the reverse.
 - Help links in a Nightly build now open the Nightly docs at reikai.app/preview/docs, which describe what that build runs. Stable builds still open the stable docs.

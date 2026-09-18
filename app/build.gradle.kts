@@ -172,6 +172,11 @@ android {
 
     packaging {
         jniLibs {
+            // RK --> compress native libraries in the APK. Stored uncompressed they are 35 MB of the
+            // arm64 APK against 14 MB compressed; an APK fetched from GitHub on every update is worth
+            // more small than the few MB Android saves by running them straight from the APK.
+            useLegacyPackaging = true
+            // RK <--
             keepDebugSymbols += listOf(
                 "libandroidx.graphics.path",
                 "libarchive-jni",
