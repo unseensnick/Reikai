@@ -46,6 +46,13 @@ object NovelHtmlUtils {
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
 
+    private val markupSkipRegex = Regex(
+        "<(style|script|textarea)\\b[^>]*>.*?</\\1\\s*>|<[^>]+>",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
+    private val textLineRegex = Regex("[^\\r\\n]*\\S[^\\r\\n]*")
+    private val leadingBreakRegex = Regex("^\\r?\\n")
+
     private val titlePatterns = listOf(
         Regex("""<h[1-6][^>]*>.*?</h[1-6]>""", RegexOption.IGNORE_CASE) to true,
         Regex("""<(strong|[bi]|em)\b[^>]*>.*?</\1>""", RegexOption.IGNORE_CASE) to false,
@@ -305,16 +312,32 @@ object NovelHtmlUtils {
             }
         }
 
-        val plainTextContent = searchArea.replace(rawTextBlockRegex, " ").replace(stripTagsRegex, " ").trim()
-        val firstLine = plainTextContent.lines().firstOrNull()?.trim()?.lowercase() ?: ""
-        if (firstLine.isNotEmpty() && isTitleMatch(firstLine, normalizedChapterName)) {
-            val rawFirstLine = content.lines().firstOrNull()?.trim() ?: ""
-            if (rawFirstLine.isNotEmpty()) {
-                return content.removePrefix(rawFirstLine).trimStart('\n', '\r', ' ')
-            }
+        val line = firstTextLine(searchArea) ?: return content
+        if (!isTitleMatch(searchArea.substring(line).lowercase(), normalizedChapterName)) return content
+        val before = content.substring(0, line.first)
+        val after = content.substring(line.last + 1)
+        return if (before.isBlank()) {
+            after.trimStart('\n', '\r', ' ')
+        } else {
+            before +
+                after.replaceFirst(leadingBreakRegex, "")
         }
+    }
 
-        return content
+    /** Where the first line of text a reader sees sits in [markup], outside tags and raw-text blocks, so
+     *  the title is cut from where it is rather than by removing the markup's first line. */
+    private fun firstTextLine(markup: String): IntRange? {
+        var from = 0
+        for (skip in markupSkipRegex.findAll(markup) + sequenceOf(null)) {
+            val end = skip?.range?.first ?: markup.length
+            textLineRegex.find(markup.substring(from, end))?.let { found ->
+                val text = found.value.trim()
+                val start = from + found.range.first + found.value.indexOf(text)
+                return start until start + text.length
+            }
+            from = skip?.range?.last?.plus(1) ?: break
+        }
+        return null
     }
 
     fun isTitleMatch(text: String, chapterName: String): Boolean {

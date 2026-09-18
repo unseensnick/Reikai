@@ -36,6 +36,28 @@ class NovelChapterTitleStripTest {
     }
 
     @Test
+    @DisplayName("a title on its own line inside a tag is removed without taking the tag with it")
+    fun firstLineKeepsItsTag() {
+        val stripped = NovelHtmlUtils.stripChapterTitle("<div>\nChapter 5\n</div><p>It was raining.</p>", "Chapter 5")
+
+        stripped shouldBe "<div>\n</div><p>It was raining.</p>"
+    }
+
+    @Test
+    @DisplayName("a plain-text title line is removed with the break after it")
+    fun plainTextTitleLine() {
+        NovelHtmlUtils.stripChapterTitle("Chapter 5\nIt was raining.", "Chapter 5") shouldBe "It was raining."
+    }
+
+    @Test
+    @DisplayName("a first line that is not the title is left alone")
+    fun otherFirstLineStays() {
+        val content = "<div>\nIt was raining.\n</div>"
+
+        NovelHtmlUtils.stripChapterTitle(content, "Chapter 5") shouldBe content
+    }
+
+    @Test
     @DisplayName("a first line inside a verbatim block is not taken for the title")
     fun firstLineSkipsVerbatimBlocks() {
         val content = "<script>Chapter 5</script>\nIt was raining."
