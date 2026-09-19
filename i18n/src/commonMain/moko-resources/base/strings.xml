@@ -944,6 +944,13 @@
     <string name="download_ahead">Download ahead</string>
     <string name="auto_download_while_reading">Auto download while reading</string>
     <string name="download_ahead_info">Only works if the current chapter + the next one are already downloaded.</string>
+    <string name="pref_category_download_pacing">Pacing</string>
+    <string name="pref_novel_chapter_delay">Delay between chapters</string>
+    <string name="pref_novel_source_delay">Delay per source</string>
+    <string name="pref_novel_source_delay_none">No source has its own delay</string>
+    <string name="pref_novel_source_delay_default">Default (%1$s)</string>
+    <string name="pref_novel_source_delay_empty">No novel sources installed</string>
+    <string name="download_delay_seconds">%1$s s</string>
     <string name="save_chapter_as_cbz">Save as CBZ archive</string>
     <string name="split_tall_images">Split tall images</string>
     <string name="split_tall_images_summary">Improves reader performance</string>

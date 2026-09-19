@@ -497,6 +497,7 @@ every release now also ships a foss build with neither in it.
 #### Added
 
 - **Tap a series in the download queue to see its chapters, cancel one, start one now, or read why it failed.**
+- **Settings -> Downloads -> Pacing sets the wait between novel chapters, for every source or one source at a time.** Manga sources pace themselves.
 - **The novel download notification now has Pause and Show entry, as manga's does.** A paused queue leaves a notification with Resume and Cancel all.
 
 #### Changed

@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.download.SeriesCompletions
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.isLewd
 import reikai.domain.novel.model.Novel
@@ -57,6 +58,7 @@ class NovelDownloadManager(
     private val networkHelper: NetworkHelper,
     private val downloadPreferences: DownloadPreferences,
     private val sourcePreferences: ReikaiSourcePreferences,
+    private val novelPreferences: NovelPreferences,
 ) {
 
     private val store = NovelDownloadStore(context, chapterRepo)
@@ -398,22 +400,19 @@ class NovelDownloadManager(
                     // Notify the user: a failed novel download was previously completely silent.
                     onError(novel?.title, chapter?.name, lastError?.message, isAdult)
                 }
-                // Per-source adaptive pacing. Downloads are sequential and LN plugins share one client
-                // with no per-source rate limiter, so each source self-throttles: halve its delay
-                // toward the floor on success, double it toward the cap on failure. A rate-limited or
-                // blocked site backs off on its own without dragging healthy sources.
-                novel?.source?.let { sourceId ->
-                    val current = sourceDelays[sourceId] ?: BASE_DELAY_MS
-                    sourceDelays[sourceId] = if (ok) {
-                        (current / 2).coerceAtLeast(BASE_DELAY_MS)
-                    } else {
-                        (current.coerceAtLeast(BASE_DELAY_MS) * 2).coerceAtMost(MAX_DELAY_MS)
-                    }
-                }
+                // Per-source pacing, by the user's delay and NovelDownloadPacing's back-off, so a
+                // rate-limited or blocked site slows down on its own without dragging healthy sources.
+                val floorMs = NovelDownloadPacing.floorFor(
+                    novel?.source.orEmpty(),
+                    novelPreferences.downloadChapterDelayMs().get(),
+                    NovelDownloadPacing.parse(novelPreferences.downloadSourceDelays().get()),
+                )
+                val paceMs = NovelDownloadPacing.next(sourceDelays[novel?.source] ?: floorMs, ok, floorMs)
+                novel?.source?.let { sourceDelays[it] = paceMs }
                 if (_queueState.value.any { it.state == NovelDownload.State.QUEUE }) {
-                    val paceMs = novel?.source?.let { sourceDelays[it] } ?: BASE_DELAY_MS
-                    // +/-25% jitter so the cadence isn't perfectly metronomic.
-                    delay((paceMs * (0.75 + Random.nextDouble() * 0.5)).toLong())
+                    // Up to a quarter more, never less, so the cadence is not metronomic and the
+                    // user's delay stays a minimum.
+                    delay((paceMs * (1.0 + Random.nextDouble() * 0.25)).toLong())
                 }
             }
         } finally {
@@ -429,13 +428,6 @@ class NovelDownloadManager(
     }
 
     companion object {
-        /** Per-source pacing bounds. A source cruises at [BASE_DELAY_MS] when healthy and backs off
-         *  toward [MAX_DELAY_MS] (x2 per failure, /2 per success). The floor sits below LNReader's flat
-         *  1s because parseChapter's own latency already adds dead time, keeping the effective rate to
-         *  a single host polite (~<=1 req/s); the adaptive cap covers sites that push back. */
-        private const val BASE_DELAY_MS = 500L
-        private const val MAX_DELAY_MS = 30_000L
-
         /** Retry a failed chapter download this many times (after the first try) before surfacing ERROR,
          *  with exponential backoff (2s, 4s, 8s), mirroring the manga Downloader. */
         private const val MAX_RETRIES = 3

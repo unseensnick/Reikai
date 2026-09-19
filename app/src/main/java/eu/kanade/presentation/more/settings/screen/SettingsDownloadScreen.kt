@@ -10,11 +10,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.util.fastMap
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.presentation.more.settings.screen.novel.NovelSourceDelaysScreen
+import eu.kanade.presentation.more.settings.screen.novel.downloadDelayLabel
 import eu.kanade.presentation.more.settings.widget.TriStateListDialog
 import mihon.app.di.appGraph
+import reikai.domain.novel.NovelPreferences
+import reikai.novel.download.NovelDownloadPacing
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -107,6 +113,7 @@ object SettingsDownloadScreen : SearchableSettings {
                 autoDownloadWhileReading = novelPreferences.autoDownloadWhileReading(),
                 showDownloadAheadInfo = true,
             ),
+            novelPacingGroup(novelPreferences),
             // RK <--
         )
     }
@@ -164,6 +171,33 @@ object SettingsDownloadScreen : SearchableSettings {
             subtitleProvider = { value, entries ->
                 value.mapNotNull { entries[it] }.sorted().joinToString()
             },
+        )
+    }
+
+    // RK: novels only, since manga extensions rate-limit their own clients and LN plugins cannot.
+    @Composable
+    private fun novelPacingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
+        val navigator = LocalNavigator.currentOrThrow
+        val perSource by novelPreferences.downloadSourceDelays().collectAsState()
+        val setCount = NovelDownloadPacing.parse(perSource).size
+        return Preference.PreferenceGroup(
+            title = contentTypedCategory(MR.strings.pref_category_download_pacing, MR.strings.content_type_novels),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.downloadChapterDelayMs(),
+                    entries = NovelDownloadPacing.DELAY_OPTIONS_MS.associateWith { downloadDelayLabel(it) },
+                    title = stringResource(MR.strings.pref_novel_chapter_delay),
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_novel_source_delay),
+                    subtitle = if (setCount == 0) {
+                        stringResource(MR.strings.pref_novel_source_delay_none)
+                    } else {
+                        pluralStringResource(MR.plurals.pref_novel_source_delay_count, count = setCount, setCount)
+                    },
+                    onClick = { navigator.push(NovelSourceDelaysScreen()) },
+                ),
+            ),
         )
     }
 

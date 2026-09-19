@@ -486,6 +486,12 @@ class NovelPreferences(
      *  `chaptersToDownloadAhead` in `reikai/domain/reader/ChapterNeighbours.kt`. */
     fun autoDownloadWhileReading() = preferenceStore.getInt("novel_auto_download_while_reading", 0)
 
+    /** The shortest wait between two downloaded chapters from one source; see `NovelDownloadPacing`. */
+    fun downloadChapterDelayMs() = preferenceStore.getLong("novel_download_chapter_delay_ms", 500L)
+
+    /** A source's own delay, overriding [downloadChapterDelayMs], as `sourceId=ms` entries. */
+    fun downloadSourceDelays() = preferenceStore.getStringSet("novel_download_source_delays", emptySet())
+
     /** Auto-download newly fetched chapters when an update is detected. The pref + download-manager
      *  plumbing exist; the update-detection trigger that consumes it is wired into the background
      *  update job. */
