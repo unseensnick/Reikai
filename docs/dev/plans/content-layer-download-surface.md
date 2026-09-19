@@ -22,17 +22,19 @@ The queue screen stacks two separately owned lists. In the All view a manga card
 
 **The card** shows the chapter currently downloading ("Downloading ch. 142"). Novels latch that across the pacing gap between chapters, as the card's status already does, showing the next queued chapter while no chapter is marked downloading.
 
-**The per-series sheet.** Tapping a card opens that series' queued chapters in download order in Mihon's `AdaptiveSheet`, the component the in-reader chapter list uses: a bottom sheet on a phone, a centred dialog under the tablet layout. Each row shows the chapter name, its status, a page-progress bar for manga, and the failure reason when it failed. Row actions are Cancel and Download next, which also retries a failed chapter. The header opens the series details. Chapters inside the sheet are not dragged: Sort and Download next already cover chapter order.
+**The per-series sheet.** Tapping a card opens that series' queued chapters in download order in Mihon's `AdaptiveSheet`, the component the in-reader chapter list uses: a bottom sheet on a phone, a centred dialog under the tablet layout. Each row shows the chapter name, its status, a page-progress bar and page count for manga, and the failure reason when it failed. Row actions are Cancel and Download next, which also retries a failed chapter. The header opens the series details. Chapters inside the sheet are not dragged: Sort and Download next already cover chapter order.
 
 **Failure reasons.** Each downloader keeps the error message on the failed chapter. Failed downloads live only in memory on both sides, so the reason lives exactly as long as the failed row and nothing is persisted.
 
-**Notifications.** The novel notification gains manga's shape: Pause while downloading, and a paused notification with Resume and Cancel all.
+**Notifications.** The novel notification has manga's shape: Pause and Show entry while downloading, and a paused notification with Resume and Cancel all. The paused entry has its own id on both types, because WorkManager takes the worker's foreground notification down when a paused worker stops.
 
-**The download index.** The two download folders stay separate (`downloads` and `novel_downloads`). The novel cache gains what the manga cache has: an index saved to disk, an initializing signal and remove-source. One conformance test run against both caches pins the rules they share (both non-ASCII filename variants accepted, `_tmp` folders skipped, the one-hour rescan limit).
+**Resuming.** Both types follow Mihon when the app is killed: a worker the system was running is rescheduled by WorkManager, and any other queue waits for Resume. Both wait out a missing connection, including a manga queue started offline, which upstream gives up on.
 
-**Downloaded only in the reader.** The global switch moves into the shared `navigableChapters` kernel, which both readers already call, so the novel reader honours it and the rule exists once.
+**The download index.** The two download folders stay separate (`downloads` and `novel_downloads`). The novel cache has what the manga cache has: an index saved between launches with the time it was last scanned, the first-scan indexing banner, and Reindex downloads in Settings and a backup restore rebuilding it. `DownloadIndexRules`, which both caches call, holds the rescan interval and the half-written-file rule. Deleting a novel's last downloaded chapter removes its folder, and its source's folder once empty, as manga does.
 
-**Pacing settings.** Scoped against tsundoku's `NovelDownloadPreferences` (a request delay, jitter, burst size and a per-source override map, applied in its HTTP client) and proposed to the owner before any setting is built.
+**Downloaded only.** Both readers page over `downloadedOrCurrent`, the downloaded chapters plus the one being read, while download-ahead walks the unfiltered list. The novel details list and filter sheet follow the switch through `appliedDownloadedFilter`, as manga's do through `Manga.downloadedFilter`, without saving it over the novel's own filter.
+
+**Pacing.** Settings, Downloads, Pacing sets the shortest wait between two chapters from one novel source, globally and per source, with `NovelDownloadPacing`'s back-off on top. Novels only: manga extensions rate-limit their own clients through `RateLimitInterceptor`, which LN plugins have no equivalent of.
 
 ## Key files
 
@@ -40,22 +42,22 @@ The queue screen stacks two separately owned lists. In the All view a manga card
 - `eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt`: the host screen.
 - `eu/kanade/tachiyomi/data/download/Downloader.kt`, `model/Download.kt`: `// RK` islands for the completed count and the failure reason.
 - `reikai/novel/download/NovelDownloadManager.kt`, `NovelDownload.kt`, `NovelDownloadNotifier.kt`, `NovelDownloadCache.kt`: the novel downloader, its notification and its index.
-- `reikai/domain/reader/DuplicateChapters.kt`: `navigableChapters`, which gains the Downloaded only rule.
-- `reikai/presentation/browse/components/ContentTypeBadge.kt`: the badge, moving to shared components.
+- `reikai/domain/download/SeriesCompletions.kt`, `DownloadIndexRules.kt`: the completed counts and the index rules both downloaders share.
+- `reikai/novel/download/NovelDownloadPacing.kt`, `eu/kanade/presentation/more/settings/screen/novel/NovelSourceDelaysScreen.kt`: pacing and its per-source screen.
+- `reikai/domain/reader/DuplicateChapters.kt` (`downloadedOrCurrent`), `reikai/domain/novel/model/NovelChapterFlags.kt` (`appliedDownloadedFilter`): Downloaded only.
+- `reikai/presentation/components/ContentTypeBadge.kt`: the type badge, shared with Browse.
 
 ## Status
 
-In progress. Landed: steps 1 and 2 together (`c62b43ef7`), since the engine has no screen to verify on without the new list; step 3 (`44514dd71`); step 4 (`6fb6f87d6`); step 5 (`b6c09e28a`), with the same paused-notification race fixed on the manga side (`021a30623`); step 6 (`18f68220c`); step 7 (`2273cd3f8`), which also brought the novel details list under the Downloaded only switch, the same gap one surface over. Step 3's forced failure was shown for manga only: the novel plugins tried return a page even for an unreachable or malformed chapter URL, so a novel failure reason is verified from code, not on screen. Step 6 pins the shared index rules with a kernel both caches call (`DownloadIndexRules`) rather than the conformance test first planned, the higher rung of the pin-once ladder. Sequence, each step its own commit and each gated on its check:
+Built, one inventory item awaiting a ruling (below). The queue engine, list and screen (`c62b43ef7`); the per-series sheet and failure reasons (`44514dd71`); Mihon's per-chapter queue deleted and manifested (`6fb6f87d6`); the novel notification's Pause and Resume (`b6c09e28a`) and the manga paused notification's same race (`021a30623`); the novel download index (`18f68220c`); Downloaded only for novels, reader and details (`2273cd3f8`); resuming the same way for both types and Show entry (`e25102054`); pacing (`acc0be116`); the manga page count in the sheet, found by the inventory (`c25da8386`).
 
-1. The engine, the adapters, the downloader-side completed counts and the single view model. Check: one test over both adapters for card building, combined-order save and split, cancel and the current chapter, each rule mutated to red once.
-2. The screen: chips and their setting removed, one list, the badge, drag and the chevrons across the whole list, the current-chapter line. Check: on the emulator with one manga and one novel queued, a novel dragged above a manga keeps its place across a restart and each engine downloads in the new order.
-3. The per-series sheet and failure reasons. Check: engine tests for rows and actions; on device, cancel one chapter, Download next, and a forced failure showing its reason, for both types, plus the sheet centred under Tablet UI.
-4. Mihon's per-chapter queue cluster deleted and manifested. Check: the manifest hook and the build.
-5. Pause and Resume on the novel notification. Check: on device from the notification shade.
-6. The novel download index and the cache conformance test. Check: the test, and a cold start that shows novel downloads without a full rescan.
-7. Downloaded only in the novel reader. Check: a failing test first, then on device.
-8. Pacing settings, after an owner-approved proposal.
-9. The behaviour inventory over everything replaced (both queue view models, the novel notifier, the novel cache), then the docs.
+Not shown on device: a novel failure reason (the plugins tried return a page even for an unreachable or malformed chapter URL, so it is verified from code), and a restored novel queue waiting for Resume on launch (the change removes the auto-start). A card's counts survive reopening the queue but not the app being killed, since the downloaders keep them in memory.
+
+**Behaviour inventory** of the replaced code: Mihon's `DownloadQueueScreen`, `DownloadQueueViewModel`, `DownloadHolder` and `download_single` menu, and Reikai's previous queue models, card list, novel notifier and novel cache.
+
+- Present: pause and resume, cancel all, the pending-chapter count, the empty screen, drag reorder, series to top and to bottom, cancel a chapter, cancel a series, sort by upload date or chapter number in either direction (within each series, where upstream sorted within each source), per-chapter status and page progress with its count, the novel card's latched status and the source-name fallback, the transient-empty guard on a manga reorder, the notification's cancel and error entries, the index's storage-move rescan and per-chapter edits.
+- Deliberately dropped: per-chapter drag and the source header rows (series cards, owner 2026-09-19); the content-type chips (owner 2026-09-19); the novel queue's launch auto-start (owner 2026-09-19).
+- Missing: moving one chapter to the bottom of the queue, upstream's `move_to_bottom`. Start now covers moving one to the top.
 
 ## Decisions & tradeoffs
 
@@ -65,3 +67,6 @@ In progress. Landed: steps 1 and 2 together (`c62b43ef7`), since the engine has 
 - **Per-chapter control is a per-series sheet, built in full the first time (owner, 2026-09-19)**, including failure reasons. An expanding card was rejected: a novel with thousands of queued chapters would nest thousands of rows inside a draggable list.
 - **Mihon's per-chapter queue cluster is deleted (owner, 2026-09-19).** It was kept alive as the revive path for per-chapter control, which the sheet now provides; `refs/mihon` keeps the files as the diff base.
 - **Progress counts move into the downloaders.** The observed running maximum could not survive the screen closing and would have counted cancelled chapters as downloaded.
+- **Resume as Mihon does, wait out a lost connection on both (owner, 2026-09-19).**
+- **Pacing is two settings, novels only (owner, 2026-09-19):** a global delay and per-source delays. Tsundoku's on/off switch, random extra delay and burst size were left out, since they pace every request in its HTTP client and ours paces chapters. The random extra wait only adds, so the set delay is a real minimum.
+- **Shared rules are pinned by kernels, not a conformance test.** The index rules and Downloaded only each live in one function both types call, the rung the content-layer rules prefer.
