@@ -60,9 +60,8 @@ class ReikaiSourcePreferences(
 
     // endregion
 
-    /** User pause on the novel downloader, persisted so a paused queue stays paused across restart
-     *  (the manga side gets this free from WorkManager; the novel job auto-starts on init, so it needs
-     *  an explicit flag). */
+    /** User pause on the novel downloader: the stopped worker reads it to leave the paused
+     *  notification rather than none. */
     val novelDownloadsPaused: Preference<Boolean> =
         preferenceStore.getBoolean("novel_downloads_paused", false)
 

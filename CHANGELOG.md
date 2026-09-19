@@ -497,13 +497,14 @@ every release now also ships a foss build with neither in it.
 #### Added
 
 - **Tap a series in the download queue to see its chapters, cancel one, start one now, or read why it failed.**
-- **Novel downloads can be paused and resumed from their notification, as manga downloads can.** A paused queue leaves a notification with Resume and Cancel all.
+- **The novel download notification now has Pause and Show entry, as manga's does.** A paused queue leaves a notification with Resume and Cancel all.
 
 #### Changed
 
 - **A downloaded manga chapter now records its upload date in its ComicInfo.xml (synced from Mihon, mihonapp/mihon#3967).** Move the folder into the local source later and the date comes with it.
 - **The download queue is now one list for manga and novels, and any series can be dragged above any other.** The Manga and Novels chips are gone; a badge names each card's type while both are queued.
 - **Download queue cards show the chapter downloading now, and their counts no longer reset when you reopen the queue.**
+- **Novel downloads left in the queue no longer restart on their own when the app opens; tap Resume, as with manga.** Downloads cut off by closing the app still pick up again.
 - **Downloaded novel chapters show as downloaded as soon as the app opens.** The novel download folder is no longer rescanned on every launch, only hourly, as manga's is.
 
 #### Fixed
@@ -522,6 +523,7 @@ every release now also ships a foss build with neither in it.
 - **Tapping install, update or reinstall twice on a light-novel plugin no longer shows a false install error.**
 - **The download queue no longer counts a cancelled chapter as downloaded.**
 - **Start downloading now on a novel chapter retries it if it failed, and keeps its place after a restart.**
+- **Manga downloads queued without a connection now start on their own once it returns, as novel downloads do.**
 - **With Downloaded only on, a novel's chapter list and reader now show only downloaded chapters, as manga's do.**
 - **Deleting a novel's last downloaded chapter now removes its empty folder, as manga does.**
 - **Settings -> Advanced -> Reindex downloads now covers novel downloads too, as does restoring a backup.**

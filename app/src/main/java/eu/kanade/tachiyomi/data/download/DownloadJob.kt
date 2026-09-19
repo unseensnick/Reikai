@@ -70,7 +70,9 @@ class DownloadJob(context: Context, workerParams: WorkerParameters) : CoroutineW
         downloadManager.awaitQueueRestored()
         var active = networkCheck && downloadManager.downloaderStart()
 
-        if (!active) {
+        // RK: a queue started without a connection waits for one, as a dropped connection does below,
+        // instead of giving up until a manual resume. The novel downloader waits the same way.
+        if (!active && (networkCheck || downloadManager.queueState.value.isEmpty())) {
             return Result.failure()
         }
 

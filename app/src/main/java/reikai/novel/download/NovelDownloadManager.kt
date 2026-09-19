@@ -86,18 +86,14 @@ class NovelDownloadManager(
 
     init {
         // Load the persisted queue into memory on launch, off the main thread (restore() reads the DB),
-        // so the queue screen shows it even while paused. Previously only the drain restored it, but a
-        // paused restart no longer starts the drain, which otherwise left the queue invisible and
-        // unresumable. Constructing this manager therefore reads the database and can start the
-        // download worker, which is why its consumers take a Provider rather than the manager itself.
+        // so the queue screen shows it before anything resumes it. Nothing starts here, as in Mihon: a
+        // worker the system was running when the process died is rescheduled by WorkManager, and any
+        // other queue waits for Resume. Constructing this manager still reads the database, which is
+        // why its consumers take a Provider rather than the manager itself.
         scope.launch {
             val restored = store.restore()
             if (restored.isNotEmpty() && _queueState.value.isEmpty()) {
                 _queueState.value = restored
-            }
-            // Resume a queue persisted by a previous process, unless the user left it paused.
-            if (restored.isNotEmpty() && !sourcePreferences.novelDownloadsPaused.get()) {
-                NovelDownloadJob.start(context)
             }
         }
     }
@@ -346,7 +342,7 @@ class NovelDownloadManager(
                 val chapter = chapterRepo.getById(next.chapterId)
                 val total = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
                 val isAdult = novel?.isLewd() == true
-                onProgress(NovelDownloadProgress.Downloading(done, total, novel?.title.orEmpty(), isAdult))
+                onProgress(NovelDownloadProgress.Downloading(done, total, novel?.title.orEmpty(), isAdult, novel))
                 // Try a few times before giving up so a transient network blip or a momentarily
                 // rate-limited source doesn't kill the chapter on the first stumble (mirrors the manga
                 // Downloader). Backoff is per-chapter, separate from the cross-chapter pacing below.

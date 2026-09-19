@@ -23,6 +23,7 @@ import mihon.app.di.appGraph
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.interactor.SetNovelReadStatus
+import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.Constants
@@ -595,6 +596,22 @@ class NotificationReceiver : BroadcastReceiver() {
         // RK --> cancel the novel chapter downloader
         internal fun cancelNovelDownloadPendingBroadcast(context: Context): PendingIntent =
             novelDownloaderPendingBroadcast(context, ACTION_CANCEL_NOVEL_DOWNLOAD)
+
+        /** A novel's details, which open by source and url; the novel twin of [openEntryPendingActivity]. */
+        internal fun openNovelPendingActivity(context: Context, novel: Novel): PendingIntent {
+            val intent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                action = Constants.SHORTCUT_NOVEL
+                putExtra(Constants.NOVEL_SOURCE_EXTRA, novel.source)
+                putExtra(Constants.NOVEL_URL_EXTRA, novel.url)
+            }
+            return PendingIntent.getActivity(
+                context,
+                novel.id.hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
 
         internal fun pauseNovelDownloadsPendingBroadcast(context: Context): PendingIntent =
             novelDownloaderPendingBroadcast(context, ACTION_PAUSE_NOVEL_DOWNLOADS)

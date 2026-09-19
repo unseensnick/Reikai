@@ -15,8 +15,8 @@ import tachiyomi.i18n.MR
 
 /**
  * Foreground progress notification for the novel chapter downloader, sibling of the manga downloader
- * notifier: an ongoing progress entry with pause and cancel, and a paused entry with resume and
- * cancel all. Tapping either opens the download queue.
+ * notifier: an ongoing progress entry with pause, show entry and cancel, and a paused entry with
+ * resume and cancel all. Tapping either opens the download queue.
  */
 class NovelDownloadNotifier(
     private val context: Context,
@@ -29,16 +29,6 @@ class NovelDownloadNotifier(
             setOngoing(true)
             setOnlyAlertOnce(true)
             setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))
-            addAction(
-                R.drawable.ic_pause_24dp,
-                context.stringResource(MR.strings.action_pause),
-                NotificationReceiver.pauseNovelDownloadsPendingBroadcast(context),
-            )
-            addAction(
-                R.drawable.ic_close_24dp,
-                context.stringResource(MR.strings.action_cancel),
-                NotificationReceiver.cancelNovelDownloadPendingBroadcast(context),
-            )
         }
     }
 
@@ -66,6 +56,25 @@ class NovelDownloadNotifier(
     /** Build the progress notification (also used for the worker's `getForegroundInfo`). */
     fun progress(progress: NovelDownloadProgress): Notification =
         builder
+            .clearActions()
+            .addAction(
+                R.drawable.ic_pause_24dp,
+                context.stringResource(MR.strings.action_pause),
+                NotificationReceiver.pauseNovelDownloadsPendingBroadcast(context),
+            )
+            .apply {
+                val novel = (progress as? NovelDownloadProgress.Downloading)?.novel ?: return@apply
+                addAction(
+                    R.drawable.ic_book_24dp,
+                    context.stringResource(MR.strings.action_show_manga),
+                    NotificationReceiver.openNovelPendingActivity(context, novel),
+                )
+            }
+            .addAction(
+                R.drawable.ic_close_24dp,
+                context.stringResource(MR.strings.action_cancel),
+                NotificationReceiver.cancelNovelDownloadPendingBroadcast(context),
+            )
             .setContentTitle(
                 "${context.stringResource(MR.strings.label_download_queue)} (${progress.current}/${progress.total})",
             )

@@ -196,20 +196,8 @@ class NovelUpdateNotifier(
     }
 
     /** Deep-link a per-novel notification into its details via the [Constants.SHORTCUT_NOVEL] action. */
-    private fun openNovelPendingIntent(novel: Novel): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            action = Constants.SHORTCUT_NOVEL
-            putExtra(Constants.NOVEL_SOURCE_EXTRA, novel.source)
-            putExtra(Constants.NOVEL_URL_EXTRA, novel.url)
-        }
-        return PendingIntent.getActivity(
-            context,
-            novel.id.hashCode(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-    }
+    private fun openNovelPendingIntent(novel: Novel): PendingIntent =
+        NotificationReceiver.openNovelPendingActivity(context, novel)
 
     private fun openLibraryPendingIntent(): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
