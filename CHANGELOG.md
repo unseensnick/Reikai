@@ -521,6 +521,7 @@ every release now also ships a foss build with neither in it.
 - **Tapping install, update or reinstall twice on a light-novel plugin no longer shows a false install error.**
 - **The download queue no longer counts a cancelled chapter as downloaded.**
 - **Start downloading now on a novel chapter retries it if it failed, and keeps its place after a restart.**
+- **Pausing manga downloads from the notification now leaves the paused notification to resume from.** It used to vanish, leaving the queue paused with no way back from the shade.
 
 ### Backup & restore
 

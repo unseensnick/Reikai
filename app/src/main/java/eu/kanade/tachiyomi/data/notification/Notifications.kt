@@ -69,6 +69,10 @@ object Notifications {
     const val CHANNEL_DOWNLOADER_ERROR = "downloader_error_channel"
     const val ID_DOWNLOAD_CHAPTER_ERROR = -202
 
+    // RK: the manga downloader's paused entry. Not the worker's foreground id, which WorkManager
+    // takes down when the paused worker stops, after this has been posted.
+    const val ID_DOWNLOAD_CHAPTER_PAUSED = -203
+
     // RK: light-novel chapter downloader, grouped with the manga downloader
     const val CHANNEL_NOVEL_DOWNLOADER = "novel_downloader_progress_channel"
     const val ID_NOVEL_DOWNLOADER = -205

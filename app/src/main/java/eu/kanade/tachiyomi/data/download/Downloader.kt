@@ -177,7 +177,7 @@ class Downloader(
             .forEach { it.status = Download.State.ERROR }
 
         if (isPaused && queueState.value.isNotEmpty()) {
-            notifier.onPaused()
+            notifier.onPaused(workerStopping = true) // RK
         } else {
             notifier.onComplete()
         }

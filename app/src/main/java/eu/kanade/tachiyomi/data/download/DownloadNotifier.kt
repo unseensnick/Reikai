@@ -72,6 +72,7 @@ class DownloadNotifier(
      */
     fun dismissProgress() {
         context.cancelNotification(Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS)
+        context.cancelNotification(Notifications.ID_DOWNLOAD_CHAPTER_PAUSED) // RK
     }
 
     /**
@@ -92,6 +93,7 @@ class DownloadNotifier(
         // RK <--
         with(progressNotificationBuilder) {
             if (!isDownloading) {
+                context.cancelNotification(Notifications.ID_DOWNLOAD_CHAPTER_PAUSED) // RK
                 setSmallIcon(android.R.drawable.stat_sys_download)
                 clearActions()
                 // Open download manager when clicked
@@ -140,7 +142,10 @@ class DownloadNotifier(
     /**
      * Show notification when download is paused.
      */
-    fun onPaused() {
+    // RK: [workerStopping] when the pause ends the worker, which takes its foreground notification
+    // down with it, so the paused entry goes under its own id. A network pause keeps the worker alive
+    // and reuses the foreground one.
+    fun onPaused(workerStopping: Boolean = false) {
         with(progressNotificationBuilder) {
             setContentTitle(context.stringResource(MR.strings.chapter_paused))
             setContentText(context.stringResource(MR.strings.download_notifier_download_paused))
@@ -163,7 +168,15 @@ class DownloadNotifier(
                 NotificationReceiver.clearDownloadsPendingBroadcast(context),
             )
 
-            show(Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS)
+            // RK -->
+            show(
+                if (workerStopping) {
+                    Notifications.ID_DOWNLOAD_CHAPTER_PAUSED
+                } else {
+                    Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS
+                },
+            )
+            // RK <--
         }
 
         // Reset initial values
