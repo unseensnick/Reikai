@@ -30,9 +30,9 @@ class ReikaiSourcePreferences(
     val browseContentType: Preference<ContentType> =
         preferenceStore.getEnum("browse_content_type", ContentType.ALL)
 
-    /** Sticky content-type filter on the unified download queue (manga + novels), its own key. */
-    val downloadContentType: Preference<ContentType> =
-        preferenceStore.getEnum("download_content_type", ContentType.ALL)
+    /** The download queue's card order across manga and novels, as card keys joined by commas. */
+    val downloadQueueOrder: Preference<String> =
+        preferenceStore.getString("download_queue_order", "")
 
     /** Leave the Latest button off Sources rows, since a catalogue's own chip switches to Latest. */
     val hideSourceLatestButton: Preference<Boolean> =

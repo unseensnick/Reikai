@@ -1,4 +1,4 @@
-package reikai.presentation.browse.components
+package reikai.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
@@ -14,8 +14,8 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Says which content type a Browse row belongs to, beside its name. Drawn only where the list holds
- * both, since the rows are interleaved by language there and nothing else on the row can say.
+ * Says which content type a row belongs to, beside its name. Drawn only where the list holds both
+ * types interleaved, since nothing else on the row can say.
  */
 @Composable
 fun ContentTypeBadge(

@@ -36,6 +36,7 @@ import mihon.icons.materialsymbols.rounded.DragHandle
 import mihon.icons.materialsymbols.rounded.ExpandLess
 import mihon.icons.materialsymbols.rounded.ExpandMore
 import reikai.domain.library.ContentType
+import reikai.presentation.components.ContentTypeBadge
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -62,58 +63,50 @@ data class EntryDownloadCardUi(
     val downloadedChapters: Int,
     val totalChapters: Int,
     val status: EntryDownloadCardStatus,
+    /** The chapter an active series is on; null while the series waits. */
+    val currentChapterId: Long? = null,
+    val currentChapterName: String? = null,
 ) {
     val cardKey: String get() = "${contentType.name}-$seriesId"
 }
 
 /**
  * The shared download-queue list for both content types: a flat, drag-reorderable list of per-series
- * cards, where a drag and the top / bottom chevrons all commit the same way, a new series-id order via
- * [onReorder]. A committed order is held until the manager's queue echoes it back, so a stale
- * progress-driven emission arriving before the echo can't clobber it. Card content (counts, status)
- * always refreshes; only the ordering is guarded.
+ * cards, where a drag and the top / bottom chevrons all commit the same way, a new card-key order via
+ * [onReorder]. A committed order is held until the queue echoes it back, so a stale progress-driven
+ * emission arriving before the echo can't clobber it. Card content (counts, status) always
+ * refreshes; only the ordering is guarded.
  */
 @Composable
 fun EntryDownloadCardList(
     items: List<EntryDownloadCardUi>,
-    onReorder: (contentType: ContentType, seriesIdsInOrder: List<Long>) -> Unit,
-    onCancel: (contentType: ContentType, seriesId: Long) -> Unit,
+    showTypeBadge: Boolean,
+    onReorder: (cardKeysInOrder: List<String>) -> Unit,
+    onCancel: (EntryDownloadCardUi) -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
     val localItems = remember { items.toMutableStateList() }
     val listState = rememberLazyListState()
     var didDrag by remember { mutableStateOf(false) }
-    var draggedType by remember { mutableStateOf<ContentType?>(null) }
-    // The card-key order last committed here, held until the manager echoes it back (see class KDoc).
+    // The card-key order last committed here, held until the queue echoes it back (see class KDoc).
     var committedOrder by remember { mutableStateOf<List<String>?>(null) }
 
     val reorderableState = rememberReorderableLazyListState(listState, contentPadding) { from, to ->
         val fromIndex = localItems.indexOfFirst { it.cardKey == from.key }
         val toIndex = localItems.indexOfFirst { it.cardKey == to.key }
         if (fromIndex == -1 || toIndex == -1) return@rememberReorderableLazyListState
-        // Reorder within a content type only: manga and novels are separate queues, so in the All view
-        // the two blocks can't interleave.
-        if (localItems[fromIndex].contentType != localItems[toIndex].contentType) {
-            return@rememberReorderableLazyListState
-        }
         localItems.add(toIndex, localItems.removeAt(fromIndex))
-        draggedType = localItems[toIndex].contentType
         didDrag = true
     }
 
-    // Commit a new order for one content type (from a chevron): reorder that type's cards in place
-    // (other-type cards keep their slots), hold the order until echoed, and route to that type's queue.
-    fun commit(type: ContentType, typeIdsInOrder: List<Long>) {
-        val byId = localItems.filter { it.contentType == type }.associateBy { it.seriesId }
-        val reordered = typeIdsInOrder.mapNotNull { byId[it] }.iterator()
-        val rebuilt = localItems.map {
-            if (it.contentType == type && reordered.hasNext()) reordered.next() else it
-        }
+    fun commit(keysInOrder: List<String>) {
+        val byKey = localItems.associateBy { it.cardKey }
+        val rebuilt = keysInOrder.mapNotNull { byKey[it] }
         localItems.clear()
         localItems.addAll(rebuilt)
-        committedOrder = localItems.map { it.cardKey }
-        onReorder(type, typeIdsInOrder)
+        committedOrder = keysInOrder
+        onReorder(keysInOrder)
     }
 
     LaunchedEffect(items) {
@@ -149,9 +142,9 @@ fun EntryDownloadCardList(
     LaunchedEffect(reorderableState.isAnyItemDragging) {
         if (!reorderableState.isAnyItemDragging && didDrag) {
             didDrag = false
-            val type = draggedType ?: return@LaunchedEffect
-            committedOrder = localItems.map { it.cardKey }
-            onReorder(type, localItems.filter { it.contentType == type }.map { it.seriesId })
+            val keys = localItems.map { it.cardKey }
+            committedOrder = keys
+            onReorder(keys)
         }
     }
 
@@ -164,15 +157,13 @@ fun EntryDownloadCardList(
     ) {
         items(localItems, key = { it.cardKey }) { item ->
             ReorderableItem(reorderableState, key = item.cardKey) {
-                val siblingsOfType = {
-                    localItems.filter { it.contentType == item.contentType && it.seriesId != item.seriesId }
-                        .map { it.seriesId }
-                }
+                val others = { localItems.map { it.cardKey } - item.cardKey }
                 EntryDownloadCard(
                     item = item,
-                    onMoveToTop = { commit(item.contentType, listOf(item.seriesId) + siblingsOfType()) },
-                    onMoveToBottom = { commit(item.contentType, siblingsOfType() + item.seriesId) },
-                    onCancel = { onCancel(item.contentType, item.seriesId) },
+                    showTypeBadge = showTypeBadge,
+                    onMoveToTop = { commit(listOf(item.cardKey) + others()) },
+                    onMoveToBottom = { commit(others() + item.cardKey) },
+                    onCancel = { onCancel(item) },
                     modifier = Modifier.animateItem(),
                 )
             }
@@ -183,6 +174,7 @@ fun EntryDownloadCardList(
 @Composable
 private fun ReorderableCollectionItemScope.EntryDownloadCard(
     item: EntryDownloadCardUi,
+    showTypeBadge: Boolean,
     onMoveToTop: () -> Unit,
     onMoveToBottom: () -> Unit,
     onCancel: () -> Unit,
@@ -206,13 +198,20 @@ private fun ReorderableCollectionItemScope.EntryDownloadCard(
                         .draggableHandle(),
                 )
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = item.sourceName,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = item.sourceName,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (showTypeBadge) ContentTypeBadge(item.contentType)
+                    }
                     Text(
                         text = item.title,
                         style = MaterialTheme.typography.titleSmall,
@@ -234,6 +233,15 @@ private fun ReorderableCollectionItemScope.EntryDownloadCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    item.currentChapterName?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 EntryDownloadStatusChip(item.status)
             }

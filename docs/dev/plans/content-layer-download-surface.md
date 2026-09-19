@@ -45,7 +45,7 @@ The queue screen stacks two separately owned lists. In the All view a manga card
 
 ## Status
 
-Planned. Sequence, each step its own commit and each gated on its check:
+In progress. Steps 1 and 2 landed together, since the engine has no screen to verify on without the new list. Sequence, each step its own commit and each gated on its check:
 
 1. The engine, the adapters, the downloader-side completed counts and the single view model. Check: one test over both adapters for card building, combined-order save and split, cancel and the current chapter, each rule mutated to red once.
 2. The screen: chips and their setting removed, one list, the badge, drag and the chevrons across the whole list, the current-chapter line. Check: on the emulator with one manga and one novel queued, a novel dragged above a manga keeps its place across a restart and each engine downloads in the new order.

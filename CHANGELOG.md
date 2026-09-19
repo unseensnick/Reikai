@@ -497,6 +497,8 @@ every release now also ships a foss build with neither in it.
 #### Changed
 
 - **A downloaded manga chapter now records its upload date in its ComicInfo.xml (synced from Mihon, mihonapp/mihon#3967).** Move the folder into the local source later and the date comes with it.
+- **The download queue is now one list for manga and novels, and any series can be dragged above any other.** The Manga and Novels chips are gone; a badge names each card's type while both are queued.
+- **Download queue cards show the chapter downloading now, and their counts no longer reset when you reopen the queue.**
 
 #### Fixed
 
@@ -512,6 +514,7 @@ every release now also ships a foss build with neither in it.
 - **A downloaded novel chapter with pictures now keeps the line breaks the source draws.** Saving it folded them into spaces, so a chapter laid out with its own breaks read as one run-on block offline.
 - **A downloaded novel chapter's pictures now show offline even when the source offers them in several sizes.** Both readers went back to the source for the larger ones.
 - **Tapping install, update or reinstall twice on a light-novel plugin no longer shows a false install error.**
+- **The download queue no longer counts a cancelled chapter as downloaded.**
 
 ### Backup & restore
 

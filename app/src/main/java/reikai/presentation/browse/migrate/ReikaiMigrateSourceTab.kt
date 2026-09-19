@@ -41,8 +41,8 @@ import mihon.icons.materialsymbols.rounded.SortByAlpha
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.ReikaiBrowseViewModel
-import reikai.presentation.browse.components.ContentTypeBadge
 import reikai.presentation.browse.components.NovelSourceIcon
+import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.migrate.flow.EntryMigrationFavoritesScreen
 import tachiyomi.core.common.Constants

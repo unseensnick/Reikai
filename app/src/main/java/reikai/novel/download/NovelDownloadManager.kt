@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import reikai.domain.download.SeriesCompletions
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.isLewd
@@ -69,6 +70,9 @@ class NovelDownloadManager(
     /** True while the drain worker is running (drives the queue FAB's Pause/Resume); false when the
      *  user paused or the queue is idle. Mirrors the manga DownloadManager.isDownloaderRunning. */
     val isDownloaderRunning: Flow<Boolean> get() = NovelDownloadJob.isRunningFlow(context)
+
+    /** Chapters finished per novel while it stayed queued, read by the download queue's cards. */
+    val completions = SeriesCompletions()
 
     /** True while [runQueue] is draining; gates a single drain. */
     private val running = AtomicBoolean(false)
@@ -136,6 +140,7 @@ class NovelDownloadManager(
         NovelDownloadJob.stop(context)
         sourcePreferences.novelDownloadsPaused.set(false)
         _queueState.value = emptyList()
+        completions.clear()
         store.clear()
     }
 
@@ -160,6 +165,7 @@ class NovelDownloadManager(
         val ids = chapterIds.toSet()
         if (ids.isEmpty()) return
         _queueState.update { q -> q.filter { it.chapterId !in ids } }
+        retainQueuedCompletions()
         scope.launch { ids.forEach { store.remove(it) } }
     }
 
@@ -225,6 +231,7 @@ class NovelDownloadManager(
     suspend fun awaitDeleteNovel(novel: Novel) {
         val queued = _queueState.value.filter { it.novelId == novel.id }.map { it.chapterId }
         _queueState.update { q -> q.filterNot { it.novelId == novel.id } }
+        retainQueuedCompletions()
         withIOContext {
             queued.forEach { store.remove(it) }
             provider.deleteNovel(novel)
@@ -235,6 +242,11 @@ class NovelDownloadManager(
     private fun dequeueChapters(chapters: List<NovelChapter>) {
         val ids = chapters.map { it.id }.toSet()
         _queueState.update { q -> q.filter { it.chapterId !in ids } }
+        retainQueuedCompletions()
+    }
+
+    private fun retainQueuedCompletions() {
+        completions.retainOnly(_queueState.value.mapTo(HashSet()) { it.novelId })
     }
 
     private suspend fun deleteChapterFiles(chapters: List<NovelChapter>) {
@@ -355,7 +367,9 @@ class NovelDownloadManager(
                 if (ok) {
                     if (novel != null && chapter != null) cache.addChapter(novel, chapter)
                     store.remove(next.chapterId)
+                    completions.record(next.novelId)
                     _queueState.update { q -> q.filter { it.chapterId != next.chapterId } }
+                    retainQueuedCompletions()
                     done++
                 } else {
                     // Don't retry forever across restarts; surface ERROR and drop from persistence.

@@ -46,6 +46,7 @@ import logcat.LogPriority
 import mihon.core.archive.ZipWriter
 import nl.adaptivity.xmlutil.serialization.XML
 import okhttp3.Response
+import reikai.domain.download.SeriesCompletions
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNow
@@ -122,6 +123,9 @@ class Downloader(
             }
         }
     }
+
+    // RK: chapters finished per manga while it stayed queued, read by the download queue's cards.
+    val completions = SeriesCompletions()
 
     // RK: suspends until the startup queue restore has finished.
     suspend fun awaitQueueRestored() = queueRestored.await()
@@ -201,6 +205,7 @@ class Downloader(
         cancelDownloaderJob()
 
         internalClearQueue()
+        completions.clear() // RK: here, not in internalClearQueue, which a reorder also runs
         notifier.dismissProgress()
     }
 
@@ -262,6 +267,7 @@ class Downloader(
 
             // Remove successful download from queue
             if (download.status == Download.State.DOWNLOADED) {
+                completions.record(download.manga.id) // RK
                 removeFromQueue(download)
             }
             if (areAllDownloadsFinished()) {
@@ -704,6 +710,7 @@ class Downloader(
             }
             it - download
         }
+        completions.retainOnly(queueState.value.mapTo(HashSet()) { it.manga.id }) // RK
     }
 
     private inline fun removeFromQueueIf(predicate: (Download) -> Boolean) {
@@ -717,6 +724,7 @@ class Downloader(
             }
             queue - downloads
         }
+        completions.retainOnly(queueState.value.mapTo(HashSet()) { it.manga.id }) // RK
     }
 
     fun removeFromQueue(chapters: List<Chapter>) {

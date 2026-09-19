@@ -15,9 +15,9 @@ import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
-import reikai.presentation.browse.components.ContentTypeBadge
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
+import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.novel.browse.SelectedNovel
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR

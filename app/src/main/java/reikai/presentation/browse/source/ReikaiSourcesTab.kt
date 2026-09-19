@@ -35,13 +35,13 @@ import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.BrowseSectionHeader
-import reikai.presentation.browse.components.ContentTypeBadge
 import reikai.presentation.browse.components.ContentWarningBadge
 import reikai.presentation.browse.components.NovelSourceLatestButton
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.browse.sourceLanguageLabel
+import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
