@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.ArrowDownward
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Refresh
@@ -38,6 +39,7 @@ fun EntryDownloadSeriesSheet(
     sheet: EntryDownloadQueueViewModel.SeriesSheet,
     onShowEntry: () -> Unit,
     onDownloadNow: (chapterId: Long) -> Unit,
+    onMoveToBottom: (chapterId: Long) -> Unit,
     onCancel: (chapterId: Long) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
@@ -75,6 +77,7 @@ fun EntryDownloadSeriesSheet(
                     EntryDownloadChapterRow(
                         row = row,
                         onDownloadNow = { onDownloadNow(row.chapter.chapterId) },
+                        onMoveToBottom = { onMoveToBottom(row.chapter.chapterId) },
                         onCancel = { onCancel(row.chapter.chapterId) },
                     )
                 }
@@ -87,6 +90,7 @@ fun EntryDownloadSeriesSheet(
 private fun EntryDownloadChapterRow(
     row: EntryDownloadChapterUi,
     onDownloadNow: () -> Unit,
+    onMoveToBottom: () -> Unit,
     onCancel: () -> Unit,
 ) {
     val chapter = row.chapter
@@ -144,6 +148,13 @@ private fun EntryDownloadChapterRow(
                 contentDescription = stringResource(
                     if (failed) MR.strings.action_retry else MR.strings.action_start_downloading_now,
                 ),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = onMoveToBottom) {
+            Icon(
+                imageVector = MaterialSymbols.Rounded.ArrowDownward,
+                contentDescription = stringResource(MR.strings.action_move_to_bottom),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

@@ -111,6 +111,17 @@ fun seriesOrderChanges(
 }
 
 /**
+ * The queue with one chapter moved behind the rest of its series, the chapter sheet's Move to bottom.
+ * The series keeps its place: its card, not the sheet, orders it against other series.
+ */
+fun <T> List<T>.withChapterLastInSeries(chapterId: Long, chapterIdOf: (T) -> Long, seriesOf: (T) -> Long): List<T> {
+    val moved = find { chapterIdOf(it) == chapterId } ?: return this
+    val rest = this - moved
+    val lastOfSeries = rest.indexOfLast { seriesOf(it) == seriesOf(moved) }
+    return rest.toMutableList().apply { add(lastOfSeries + 1, moved) }
+}
+
+/**
  * Reorders chapters within each series by [keyOf], keeping the series in their current order. Both
  * downloaders' sort goes through this, so Sort means the same thing for either type.
  */

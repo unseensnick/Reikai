@@ -30,6 +30,9 @@ interface DownloadQueueProvider {
     /** Move a chapter to the front of its downloader and start it, retrying it if it failed. */
     fun downloadNow(chapterId: Long)
 
+    /** Move a chapter behind the rest of its series; see [withChapterLastInSeries]. */
+    fun moveChapterToBottom(chapterId: Long)
+
     fun cancelAll()
 
     fun pause()

@@ -173,6 +173,15 @@ class DownloadQueueKernelTest {
     }
 
     @Test
+    @DisplayName("move to bottom puts a chapter behind the rest of its series, not the whole queue")
+    fun moveToBottomStaysInSeries() {
+        val queue = listOf(9L to 1L, 9L to 2L, 9L to 3L, 4L to 7L)
+
+        queue.withChapterLastInSeries(1L, { it.second }, { it.first }) shouldBe
+            listOf(9L to 2L, 9L to 3L, 9L to 1L, 4L to 7L)
+    }
+
+    @Test
     @DisplayName("a sort orders chapters within each series and keeps the series order")
     fun sortWithinSeries() {
         val chapters = listOf(9L to 3.0, 9L to 1.0, 4L to 2.0, 4L to 0.5)

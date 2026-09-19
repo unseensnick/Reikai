@@ -195,6 +195,7 @@ object DownloadQueueScreen : Screen() {
                         }
                     },
                     onDownloadNow = { screenModel.downloadNow(opened.card.contentType, it) },
+                    onMoveToBottom = { screenModel.moveChapterToBottom(opened.card.contentType, it) },
                     onCancel = { screenModel.cancelChapter(opened.card.contentType, it) },
                     onDismissRequest = screenModel::closeSeries,
                 )

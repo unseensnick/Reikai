@@ -66,6 +66,12 @@ class MangaDownloadQueueProvider(
 
     override fun downloadNow(chapterId: Long) = downloadManager.startDownloadNow(chapterId)
 
+    override fun moveChapterToBottom(chapterId: Long) {
+        val queue = downloadManager.queueState.value
+        val moved = queue.withChapterLastInSeries(chapterId, { it.chapter.id }, { it.manga.id })
+        if (moved != queue) downloadManager.reorderQueue(moved)
+    }
+
     override fun reorderSeries(seriesIdsInOrder: List<Long>) {
         val bySeries = downloadManager.queueState.value.groupBy { it.manga.id }
         val named = seriesIdsInOrder.toSet()

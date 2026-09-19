@@ -135,6 +135,10 @@ class EntryDownloadQueueViewModel(
         providers[type]?.downloadNow(chapterId)
     }
 
+    fun moveChapterToBottom(type: ContentType, chapterId: Long) {
+        providers[type]?.moveChapterToBottom(chapterId)
+    }
+
     suspend fun detailsScreen(card: EntryDownloadCardUi): Screen? =
         providers[card.contentType]?.detailsScreen(card.seriesId)
 
