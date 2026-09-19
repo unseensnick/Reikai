@@ -36,15 +36,12 @@ A dropped connection (airplane mode, dead network) is not a download failure. Th
 ## Key files
 
 - `reikai/presentation/download/EntryDownloadCardList.kt` (new): the shared composable + the neutral `EntryDownloadCardUi` / `EntryDownloadCardStatus` model.
-- `reikai/presentation/download/NovelDownloadQueueViewModel.kt`: the novel aggregator (per-series cards, `initialTotals`, status from `downloadingNovelId`), `reorderBySeries`, `cancelSeries`, `sort`.
 - `reikai/novel/download/NovelDownloadManager.kt`: `downloadingNovelId`, the offline pause, and the mid-download requeue.
-- `reikai/presentation/download/MangaDownloadQueueViewModel.kt`: the manga aggregator (per-series cards from Mihon's `queueState` + `statusFlow`), `reorderBySeries`, `cancelSeries`, `sort`, pause/resume. The manga twin of the novel ScreenModel.
-- `eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt`: hosts both content types behind the `ContentType` chip; both branches render the shared card list, and one Pause/Resume FAB drives the visible content's downloader(s).
-- `eu/kanade/tachiyomi/ui/download/DownloadQueueViewModel`, `DownloadHolder`, `DownloadHeaderHolder`, `DownloadAdapter`, `DownloadItem`, `DownloadHeaderItem`: the parked per-chapter manga View queue, kept as the revive path for the expandable-cards roadmap item. Only `DownloadQueueViewModel` carries a `// RK: inert` marker; the five View classes below it are unmarked, and reachable only from each other and from that model.
+- `eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt`: the host screen.
 
 ## Status
 
-Shipped. Both content types render on the shared card list. The novel side landed first (series cards, drag + to-top / to-bottom / cancel, the latched-status flicker fix, the offline pause, Tsundoku's 16.dp card gutter); the manga side followed on a net-new `MangaDownloadQueueViewModel` that aggregates Mihon's per-chapter queue by series, with `DownloadQueueScreen`'s manga branch redirected off the `AndroidView` and Mihon's `DownloadQueueViewModel` + View adapter/holders marked inert.
+Superseded by [content-layer-download-surface.md](content-layer-download-surface.md), which replaced the two per-type queue models with one engine and one list, took the chips away, and deleted Mihon's per-chapter queue. What follows is the card list's origin. Both content types render on the shared card list. The novel side landed first (series cards, drag + to-top / to-bottom / cancel, the latched-status flicker fix, the offline pause, Tsundoku's 16.dp card gutter); the manga side followed on a net-new `MangaDownloadQueueViewModel` that aggregates Mihon's per-chapter queue by series, with `DownloadQueueScreen`'s manga branch redirected off the `AndroidView` and Mihon's `DownloadQueueViewModel` + View adapter/holders marked inert.
 
 ## Decisions & tradeoffs
 
