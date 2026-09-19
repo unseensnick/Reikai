@@ -494,6 +494,10 @@ every release now also ships a foss build with neither in it.
 
 ### Downloads & extensions
 
+#### Added
+
+- **Tap a series in the download queue to see its chapters, cancel one, start one now, or read why it failed.**
+
 #### Changed
 
 - **A downloaded manga chapter now records its upload date in its ComicInfo.xml (synced from Mihon, mihonapp/mihon#3967).** Move the folder into the local source later and the date comes with it.
@@ -515,6 +519,7 @@ every release now also ships a foss build with neither in it.
 - **A downloaded novel chapter's pictures now show offline even when the source offers them in several sizes.** Both readers went back to the source for the larger ones.
 - **Tapping install, update or reinstall twice on a light-novel plugin no longer shows a false install error.**
 - **The download queue no longer counts a cancelled chapter as downloaded.**
+- **Start downloading now on a novel chapter retries it if it failed, and keeps its place after a restart.**
 
 ### Backup & restore
 

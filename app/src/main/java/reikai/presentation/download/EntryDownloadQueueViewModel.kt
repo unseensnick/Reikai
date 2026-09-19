@@ -3,16 +3,20 @@ package reikai.presentation.download
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
@@ -36,19 +40,41 @@ class EntryDownloadQueueViewModel(
     private val providers: Map<ContentType, DownloadQueueProvider> =
         listOf(mangaProvider, novelProvider).associateBy { it.contentType }
 
-    val state: StateFlow<State> = combine(
+    private val snapshots: Flow<Map<ContentType, DownloadQueueSnapshot>> = combine(
         mangaProvider.snapshots,
         novelProvider.snapshots,
+    ) { manga, novels -> mapOf(ContentType.MANGA to manga, ContentType.NOVELS to novels) }
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), replay = 1)
+
+    val state: StateFlow<State> = combine(
+        snapshots,
         sourcePreferences.downloadQueueOrder.changes(),
-    ) { manga, novels, savedOrder -> Triple(manga, novels, savedOrder) }
-        .mapLatest { (manga, novels, savedOrder) ->
-            val cardsByType = mapOf(
-                ContentType.MANGA to manga.toCards(ContentType.MANGA),
-                ContentType.NOVELS to novels.toCards(ContentType.NOVELS),
-            )
+    ) { snapshotsByType, savedOrder -> snapshotsByType to savedOrder }
+        .mapLatest { (snapshotsByType, savedOrder) ->
+            val cardsByType = snapshotsByType.mapValues { (type, snapshot) -> snapshot.toCards(type) }
             State(arrangeCards(savedOrder.toKeys(), cardsByType).map { it.withChapterName() })
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
+
+    private val openedSeries = MutableStateFlow<Pair<ContentType, Long>?>(null)
+
+    /** The chapter sheet of the series the user opened; null once that series has left the queue. */
+    val sheet: StateFlow<SeriesSheet?> = combine(snapshots, openedSeries) { snapshotsByType, opened ->
+        snapshotsByType to opened
+    }
+        .mapLatest { (snapshotsByType, opened) ->
+            val (type, seriesId) = opened ?: return@mapLatest null
+            val snapshot = snapshotsByType[type] ?: return@mapLatest null
+            val card = snapshot.toCards(type).find { it.seriesId == seriesId }
+            if (card == null) {
+                openedSeries.value = null
+                return@mapLatest null
+            }
+            val chapters = snapshot.chapters.filter { it.seriesId == seriesId }
+            val names = providers[type]?.chapterNames(seriesId, chapters.map { it.chapterId }).orEmpty()
+            SeriesSheet(card, chapters.map { EntryDownloadChapterUi(it, names[it.chapterId].orEmpty()) })
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 
     val isRunning: StateFlow<Map<ContentType, Boolean>> = combine(
         mangaProvider.isRunning,
@@ -93,9 +119,29 @@ class EntryDownloadQueueViewModel(
         viewModelScope.launchIO { providers.values.forEach { it.sort(key, descending) } }
     }
 
+    fun openSeries(card: EntryDownloadCardUi) {
+        openedSeries.value = card.contentType to card.seriesId
+    }
+
+    fun closeSeries() {
+        openedSeries.value = null
+    }
+
+    fun cancelChapter(type: ContentType, chapterId: Long) {
+        providers[type]?.cancelChapter(chapterId)
+    }
+
+    fun downloadNow(type: ContentType, chapterId: Long) {
+        providers[type]?.downloadNow(chapterId)
+    }
+
+    suspend fun detailsScreen(card: EntryDownloadCardUi): Screen? =
+        providers[card.contentType]?.detailsScreen(card.seriesId)
+
     private suspend fun EntryDownloadCardUi.withChapterName(): EntryDownloadCardUi {
         val chapterId = currentChapterId ?: return this
-        return copy(currentChapterName = providers[contentType]?.chapterName(seriesId, chapterId))
+        val names = providers[contentType]?.chapterNames(seriesId, listOf(chapterId)).orEmpty()
+        return copy(currentChapterName = names[chapterId])
     }
 
     private fun String.toKeys(): List<String> = split(ORDER_SEPARATOR).filter { it.isNotEmpty() }
@@ -108,6 +154,9 @@ class EntryDownloadQueueViewModel(
         /** The type badge only matters while both content types are queued. */
         val showTypeBadge: Boolean get() = cards.distinctBy { it.contentType }.size > 1
     }
+
+    @Immutable
+    data class SeriesSheet(val card: EntryDownloadCardUi, val chapters: List<EntryDownloadChapterUi>)
 
     private companion object {
         const val ORDER_SEPARATOR = ","

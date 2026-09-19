@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.download.SeriesCompletions
@@ -169,15 +170,22 @@ class NovelDownloadManager(
         scope.launch { ids.forEach { store.remove(it) } }
     }
 
-    /** Bump a queued chapter to the front so it downloads next. No-op if it isn't queued (already
-     *  downloading, or not enqueued). In-memory only: the persisted store keeps its order, so a cold
-     *  restart drains in the original sequence. */
+    /** Bump a queued chapter to the front so it downloads next, retrying it if it failed, and persist
+     *  the order, as manga's startDownloadNow does. No-op if it isn't queued. */
     fun startDownloadNow(chapterId: Long) {
-        _queueState.update { q ->
-            val idx = q.indexOfFirst { it.chapterId == chapterId }
-            if (idx <= 0) q else listOf(q[idx]) + q.filterIndexed { i, _ -> i != idx }
+        val queue = _queueState.updateAndGet { q ->
+            val target = q.find { it.chapterId == chapterId } ?: return@updateAndGet q
+            val front = if (target.state ==
+                NovelDownload.State.ERROR
+            ) {
+                target.copy(state = NovelDownload.State.QUEUE)
+            } else {
+                target
+            }
+            listOf(front) + q.filter { it.chapterId != chapterId }
         }
-        NovelDownloadJob.start(context)
+        scope.launch { store.replaceAll(queue) }
+        startDownloads()
     }
 
     /** Replace the pending queue order (drag-to-reorder or sort from the queue screen) and persist it,
@@ -373,7 +381,7 @@ class NovelDownloadManager(
                     done++
                 } else {
                     // Don't retry forever across restarts; surface ERROR and drop from persistence.
-                    setState(next.chapterId, NovelDownload.State.ERROR)
+                    setState(next.chapterId, NovelDownload.State.ERROR, lastError?.message)
                     store.remove(next.chapterId)
                     // Notify the user: a failed novel download was previously completely silent.
                     onError(novel?.title, chapter?.name, lastError?.message, isAdult)
@@ -402,8 +410,10 @@ class NovelDownloadManager(
         }
     }
 
-    private fun setState(chapterId: Long, state: NovelDownload.State) {
-        _queueState.update { q -> q.map { if (it.chapterId == chapterId) it.copy(state = state) else it } }
+    private fun setState(chapterId: Long, state: NovelDownload.State, failure: String? = null) {
+        _queueState.update { q ->
+            q.map { if (it.chapterId == chapterId) it.copy(state = state, failure = failure) else it }
+        }
     }
 
     companion object {

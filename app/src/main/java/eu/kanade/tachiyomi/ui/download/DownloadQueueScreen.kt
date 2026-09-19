@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +41,9 @@ import reikai.presentation.download.DownloadQueueSortKey
 import reikai.presentation.download.DownloadQueueSortSheet
 import reikai.presentation.download.EntryDownloadCardList
 import reikai.presentation.download.EntryDownloadQueueViewModel
+import reikai.presentation.download.EntryDownloadSeriesSheet
+import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Pill
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -55,6 +59,8 @@ object DownloadQueueScreen : Screen() {
         val screenModel = metroViewModel<EntryDownloadQueueViewModel>()
         val state by screenModel.state.collectAsStateWithLifecycle()
         val running by screenModel.isRunning.collectAsStateWithLifecycle()
+        val sheet by screenModel.sheet.collectAsStateWithLifecycle()
+        val scope = rememberCoroutineScope()
         val isRunning = running.values.any { it }
         val hasQueue = state.cards.isNotEmpty()
         var showSortSheet by remember { mutableStateOf(false) }
@@ -169,9 +175,28 @@ object DownloadQueueScreen : Screen() {
                     showTypeBadge = state.showTypeBadge,
                     onReorder = screenModel::reorder,
                     onCancel = screenModel::cancel,
+                    onOpen = screenModel::openSeries,
                     contentPadding = contentPadding,
                     // Feed the FAB-collapse-on-scroll connection.
                     modifier = Modifier.nestedScroll(nestedScrollConnection),
+                )
+            }
+
+            sheet?.let { opened ->
+                EntryDownloadSeriesSheet(
+                    sheet = opened,
+                    onShowEntry = {
+                        scope.launchIO {
+                            val screen = screenModel.detailsScreen(opened.card) ?: return@launchIO
+                            withUIContext {
+                                screenModel.closeSeries()
+                                navigator.push(screen)
+                            }
+                        }
+                    },
+                    onDownloadNow = { screenModel.downloadNow(opened.card.contentType, it) },
+                    onCancel = { screenModel.cancelChapter(opened.card.contentType, it) },
+                    onDismissRequest = screenModel::closeSeries,
                 )
             }
 

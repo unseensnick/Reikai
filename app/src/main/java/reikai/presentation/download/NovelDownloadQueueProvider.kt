@@ -1,5 +1,6 @@
 package reikai.presentation.download
 
+import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -13,6 +14,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.novel.details.NovelScreen
 import java.util.concurrent.ConcurrentHashMap
 
 /** The novel downloader under the download queue, over [NovelDownloadManager]. */
@@ -51,6 +53,7 @@ class NovelDownloadQueueProvider(
                             NovelDownload.State.DOWNLOADING -> QueuedChapterStatus.DOWNLOADING
                             NovelDownload.State.ERROR -> QueuedChapterStatus.ERROR
                         },
+                        failure = download.failure,
                     )
                 },
                 // Latched across the pacing gap between chapters, so the card does not flicker to Queued.
@@ -61,10 +64,19 @@ class NovelDownloadQueueProvider(
         }
         .flowOn(Dispatchers.IO)
 
-    override suspend fun chapterName(seriesId: Long, chapterId: Long): String? =
-        chapterNames[seriesId]?.get(chapterId)
-            ?: chaptersOf(seriesId).associate { it.id to it.name }
-                .also { chapterNames[seriesId] = it }[chapterId]
+    override suspend fun chapterNames(seriesId: Long, chapterIds: Collection<Long>): Map<Long, String> {
+        val cached = chapterNames[seriesId]
+        // Read again only when a chapter was queued after the names were.
+        if (cached != null && cached.keys.containsAll(chapterIds)) return cached
+        return chaptersOf(seriesId).associate { it.id to it.name }.also { chapterNames[seriesId] = it }
+    }
+
+    override suspend fun detailsScreen(seriesId: Long): Screen? =
+        novelRepo.getById(seriesId)?.let { NovelScreen(it.source, it.url) }
+
+    override fun cancelChapter(chapterId: Long) = downloadManager.cancelDownloads(listOf(chapterId))
+
+    override fun downloadNow(chapterId: Long) = downloadManager.startDownloadNow(chapterId)
 
     override fun reorderSeries(seriesIdsInOrder: List<Long>) {
         val bySeries = downloadManager.queueState.value.groupBy { it.novelId }

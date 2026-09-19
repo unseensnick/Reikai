@@ -15,6 +15,8 @@ data class NovelDownload(
     val chapterId: Long,
     val url: String,
     val state: State = State.QUEUE,
+    /** Why the last attempt failed, shown by the download queue while [state] is ERROR. */
+    val failure: String? = null,
 ) {
     enum class State { QUEUE, DOWNLOADING, ERROR }
 }

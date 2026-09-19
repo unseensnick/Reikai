@@ -21,6 +21,10 @@ data class Download(
 ) {
     var pages: List<Page>? = null
 
+    // RK: why the last attempt failed, shown by the download queue while the status is ERROR
+    @Transient
+    var failure: String? = null
+
     val totalProgress: Int
         get() = pages?.sumOf(Page::progress) ?: 0
 

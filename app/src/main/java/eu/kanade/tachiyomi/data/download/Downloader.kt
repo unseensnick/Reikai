@@ -353,6 +353,7 @@ class Downloader(
      */
     private suspend fun downloadChapter(download: Download) {
         val mangaDir = provider.getMangaDir(download.manga.title, download.source).getOrElse { e ->
+            download.failure = e.message // RK
             download.status = Download.State.ERROR
             notifier.onError(e.message, download.chapter.name, download.manga) // RK
             return
@@ -360,6 +361,7 @@ class Downloader(
 
         val availSpace = DiskUtil.getAvailableStorageSpace(mangaDir)
         if (availSpace != -1L && availSpace < MIN_DISK_SPACE) {
+            download.failure = context.stringResource(MR.strings.download_insufficient_space) // RK
             download.status = Download.State.ERROR
             notifier.onError(
                 context.stringResource(MR.strings.download_insufficient_space),
@@ -419,6 +421,8 @@ class Downloader(
             // Do after download completes
 
             if (!isDownloadSuccessful(download, tmpDir)) {
+                // RK: the first failed page's reason stands for the chapter
+                download.failure = pageList.firstNotNullOfOrNull { (it.status as? Page.State.Error)?.error?.message }
                 download.status = Download.State.ERROR
                 return
             }
@@ -445,6 +449,7 @@ class Downloader(
             if (error is CancellationException) throw error
             // If the page list threw, it will resume here
             logcat(LogPriority.ERROR, error)
+            download.failure = error.message // RK
             download.status = Download.State.ERROR
             notifier.onError(error.message, download.chapter.name, download.manga) // RK
         }

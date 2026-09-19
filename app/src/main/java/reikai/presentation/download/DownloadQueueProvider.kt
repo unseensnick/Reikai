@@ -1,5 +1,6 @@
 package reikai.presentation.download
 
+import cafe.adriel.voyager.core.screen.Screen
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.library.ContentType
 
@@ -14,12 +15,20 @@ interface DownloadQueueProvider {
 
     val isRunning: Flow<Boolean>
 
-    suspend fun chapterName(seriesId: Long, chapterId: Long): String?
+    /** Names of a series' queued chapters, by chapter id. */
+    suspend fun chapterNames(seriesId: Long, chapterIds: Collection<Long>): Map<Long, String>
+
+    suspend fun detailsScreen(seriesId: Long): Screen?
 
     /** Download whole series in this order; a series not named keeps its place after them. */
     fun reorderSeries(seriesIdsInOrder: List<Long>)
 
     fun cancelSeries(seriesId: Long)
+
+    fun cancelChapter(chapterId: Long)
+
+    /** Move a chapter to the front of its downloader and start it, retrying it if it failed. */
+    fun downloadNow(chapterId: Long)
 
     fun cancelAll()
 

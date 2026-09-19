@@ -83,6 +83,7 @@ fun EntryDownloadCardList(
     showTypeBadge: Boolean,
     onReorder: (cardKeysInOrder: List<String>) -> Unit,
     onCancel: (EntryDownloadCardUi) -> Unit,
+    onOpen: (EntryDownloadCardUi) -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -164,6 +165,7 @@ fun EntryDownloadCardList(
                     onMoveToTop = { commit(listOf(item.cardKey) + others()) },
                     onMoveToBottom = { commit(others() + item.cardKey) },
                     onCancel = { onCancel(item) },
+                    onOpen = { onOpen(item) },
                     modifier = Modifier.animateItem(),
                 )
             }
@@ -178,9 +180,11 @@ private fun ReorderableCollectionItemScope.EntryDownloadCard(
     onMoveToTop: () -> Unit,
     onMoveToBottom: () -> Unit,
     onCancel: () -> Unit,
+    onOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
+        onClick = onOpen,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
