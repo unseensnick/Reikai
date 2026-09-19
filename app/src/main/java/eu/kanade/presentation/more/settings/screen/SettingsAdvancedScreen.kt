@@ -196,6 +196,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_invalidate_download_cache_summary),
                     onClick = {
                         context.appGraph.downloadCache.invalidateCache()
+                        context.appGraph.novelDownloadCache.invalidate() // RK
                         context.toast(MR.strings.download_cache_invalidated)
                     },
                 ),

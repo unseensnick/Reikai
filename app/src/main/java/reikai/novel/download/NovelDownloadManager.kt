@@ -278,6 +278,11 @@ class NovelDownloadManager(
             provider.deleteChapter(novel, ch)
             cache.removeChapter(novel, ch)
         }
+        // A novel left with nothing downloaded loses its folder, as a manga does.
+        novelsById.values.filter(provider::isNovelDirEmpty).forEach { novel ->
+            provider.deleteNovel(novel)
+            cache.removeNovel(novel)
+        }
     }
 
     /**

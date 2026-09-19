@@ -72,6 +72,7 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.font.NovelFontManager
 import reikai.novel.update.LnPluginUpdateChecker
@@ -192,6 +193,7 @@ interface AppGraph : ViewModelGraph {
     val pagePreviewCache: PagePreviewCache
     val mangaCoverMetadata: MangaCoverMetadata
     val downloadCache: DownloadCache
+    val novelDownloadCache: NovelDownloadCache // RK: Settings invalidates both download indexes
     val mangaMergeManager: MangaMergeManager
     val novelMergeManager: NovelMergeManager
     val novelFontManager: NovelFontManager

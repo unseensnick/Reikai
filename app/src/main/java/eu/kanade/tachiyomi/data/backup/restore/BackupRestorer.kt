@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import reikai.domain.merge.ReconcileMergedChapters
+import reikai.novel.download.NovelDownloadCache
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
@@ -72,6 +73,7 @@ class BackupRestorer(
     private val extensionRestorer: ExtensionRestorer,
     private val feedRestorer: FeedRestorer,
     private val reconcileMergedChapters: ReconcileMergedChapters,
+    private val novelDownloadCache: NovelDownloadCache,
     // RK <--
 ) {
 
@@ -103,6 +105,7 @@ class BackupRestorer(
         if (options.libraryEntries) {
             try {
                 downloadCache.invalidateCache()
+                novelDownloadCache.invalidate() // RK
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to invalidate download cache after restore" }
             }

@@ -119,9 +119,14 @@ class NovelDownloadProvider(
         findChapterFile(novel, chapter)?.delete()
     }
 
+    /** Deletes the novel's folder, then its source's folder once that is empty, as manga's does. */
     fun deleteNovel(novel: Novel) {
         findNovelDir(novel)?.delete()
+        val sourceDir = downloadsDir?.findFile(sourceDirName(novel))
+        if (sourceDir?.listFiles()?.isEmpty() == true) sourceDir.delete()
     }
+
+    fun isNovelDirEmpty(novel: Novel): Boolean = findNovelDir(novel)?.listFiles()?.isEmpty() == true
 
     /**
      * Rename a downloaded chapter's file when its title changes, so the stable-name path follows the new

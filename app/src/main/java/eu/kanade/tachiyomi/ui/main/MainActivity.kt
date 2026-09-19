@@ -100,6 +100,7 @@ import mihon.core.migration.Migrator
 import mihon.icons.materialsymbols.automirroredrounded.OpenInNew
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
+import reikai.novel.download.NovelDownloadCache
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
@@ -129,6 +130,9 @@ class MainActivity : BaseActivity() {
     @Inject private lateinit var preferences: BasePreferences
 
     @Inject private lateinit var downloadCache: DownloadCache
+
+    // RK: the novel index's first scan shows the same indexing banner
+    @Inject private lateinit var novelDownloadCache: NovelDownloadCache
 
     @Inject private lateinit var chapterCache: ChapterCache
 
@@ -168,7 +172,9 @@ class MainActivity : BaseActivity() {
 
             var incognito by remember { mutableStateOf(false) }
             val downloadOnly by preferences.downloadedOnly.collectAsState()
-            val indexing by downloadCache.isInitializing.collectAsState()
+            val mangaIndexing by downloadCache.isInitializing.collectAsState()
+            val novelIndexing by novelDownloadCache.isInitializing.collectAsState() // RK
+            val indexing = mangaIndexing || novelIndexing // RK
 
             val isSystemInDarkTheme = isSystemInDarkTheme()
             val statusBarBackgroundColor = when {

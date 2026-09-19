@@ -40,6 +40,7 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
+import reikai.domain.download.DownloadIndexRules
 import tachiyomi.core.common.storage.extension
 import tachiyomi.core.common.storage.nameWithoutExtension
 import tachiyomi.core.common.util.lang.launchIO
@@ -52,13 +53,12 @@ import tachiyomi.domain.storage.service.StorageManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
-import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 
 /**
  * Cache where we dump the downloads directory from the filesystem. This class is needed because
  * directory checking is expensive and it slows down the app. The cache is invalidated by the time
- * defined in [renewInterval] as we don't have any control over the filesystem and the user can
+ * defined in [DownloadIndexRules.RENEW_INTERVAL_MS] as we don't have any control over the filesystem and the user can
  * delete the folders at any time without the app noticing.
  */
 @Inject
@@ -76,12 +76,6 @@ class DownloadCache(
     val changes = _changes.receiveAsFlow()
         .onStart { emit(Unit) }
         .shareIn(scope, SharingStarted.Lazily, 1)
-
-    /**
-     * The interval after which this cache should be invalidated. 1 hour shouldn't cause major
-     * issues, as the cache is only used for UI feedback.
-     */
-    private val renewInterval = 1.hours.inWholeMilliseconds
 
     /**
      * The last time the cache was refreshed.
@@ -112,7 +106,7 @@ class DownloadCache(
                         rootDownloadsDir = diskCache
                         // RK --> take the persisted scan time rather than treating a restore as a
                         // fresh scan. Upstream sets this to now, which restarts the renew window on
-                        // every launch, so an app opened more often than renewInterval never
+                        // every launch, so an app opened more often than the renew interval never
                         // re-scans and never notices folders deleted outside it. An index written
                         // before this field existed decodes as 0, which renews once on first launch.
                         lastRenew = diskCache.lastRenew
@@ -340,7 +334,8 @@ class DownloadCache(
      */
     private fun renewCache() {
         // Avoid renewing cache if in the process nor too often
-        if (lastRenew + renewInterval >= System.currentTimeMillis() || renewalJob?.isActive == true) {
+        // RK: the novel index renews by the same rule
+        if (!DownloadIndexRules.isStale(lastRenew, System.currentTimeMillis()) || renewalJob?.isActive == true) {
             return
         }
 
@@ -379,7 +374,7 @@ class DownloadCache(
                                 .mapNotNull {
                                     when {
                                         // Ignore incomplete downloads
-                                        it.name?.endsWith(Downloader.TMP_DIR_SUFFIX) == true -> null
+                                        it.name?.let(DownloadIndexRules::isIndexed) == false -> null // RK
                                         // Folder of images
                                         it.isDirectory -> it.name
                                         // CBZ files

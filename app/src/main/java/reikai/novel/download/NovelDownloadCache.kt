@@ -1,37 +1,50 @@
 package reikai.novel.download
 
+import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import eu.kanade.tachiyomi.data.download.Downloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import logcat.LogPriority
+import reikai.domain.download.DownloadIndexRules
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.time.Duration.Companion.seconds
 
 /**
- * In-memory index of which novel chapters are downloaded, derived from a disk scan rather than a DB flag, mirroring
- * the manga [eu.kanade.tachiyomi.data.download.DownloadCache]. Disk is the source of truth, so downloaded state
- * survives reinstall, restore and storage moves. Queries answer from the possibly-stale tree synchronously and kick
- * a background [renew] past [RENEW_INTERVAL_MS], which rescans and emits [changes]: eventually consistent, like the
- * manga cache. Files carrying the downloader's [Downloader.TMP_DIR_SUFFIX] are skipped, so a half-written chapter is
- * never counted.
+ * Index of which novel chapters are downloaded, derived from a disk scan rather than a DB flag, mirroring the manga
+ * [eu.kanade.tachiyomi.data.download.DownloadCache]: disk is the source of truth, and the index is saved between
+ * launches so a start does not rescan. Queries answer from the possibly-stale tree synchronously and kick a background
+ * [renew] once [DownloadIndexRules.isStale], which rescans and emits [changes]: eventually consistent, like the manga
+ * cache.
  */
 @Inject
 @SingleIn(AppScope::class)
 class NovelDownloadCache(
+    private val context: Context,
     private val storageManager: StorageManager,
     private val provider: NovelDownloadProvider,
 ) {
@@ -55,9 +68,30 @@ class NovelDownloadCache(
     /** Serializes tree edits so a mutator and a renew can't clobber each other's read-modify-write. */
     private val mutex = Mutex()
 
+    private val _isInitializing = MutableStateFlow(false)
+
+    /** True while a first scan builds an index from nothing, as the manga cache reports it. */
+    val isInitializing: StateFlow<Boolean> = _isInitializing
+        .debounce(1.seconds) // Don't notify if it finishes quickly enough
+        .stateIn(scope, SharingStarted.WhileSubscribed(), false)
+
+    private val indexFile: File get() = File(context.cacheDir, INDEX_FILE)
+
+    private var saveJob: Job? = null
+
     init {
         // Re-scan when the storage location moves: the files relocate under the new root.
         storageManager.changes.onEach { invalidate() }.launchIn(scope)
+        scope.launch {
+            restoreIndex()
+            renewIfStale()
+        }
+    }
+
+    /** Throw the index away and rescan, for a restore or the Settings action that asks for it. */
+    fun invalidate() {
+        lastRenew = 0L
+        indexFile.delete()
         scope.launch { renew() }
     }
 
@@ -165,20 +199,16 @@ class NovelDownloadCache(
     }
 
     private fun renewIfStale() {
-        if (System.currentTimeMillis() - lastRenew > RENEW_INTERVAL_MS && !renewing.get()) {
+        if (DownloadIndexRules.isStale(lastRenew, System.currentTimeMillis()) && !renewing.get()) {
             scope.launch { renew() }
         }
-    }
-
-    private fun invalidate() {
-        lastRenew = 0L
-        scope.launch { renew() }
     }
 
     /** Full disk scan: rebuild the tree from what is actually on disk. */
     private suspend fun renew() {
         if (!renewing.compareAndSet(false, true)) return
         try {
+            if (lastRenew == 0L) _isInitializing.value = true
             val root = storageManager.getNovelDownloadsDirectory()
             val scanned: Map<String, Map<String, Set<String>>> = buildMap {
                 root?.listFiles().orEmpty()
@@ -190,7 +220,7 @@ class NovelDownloadCache(
                                 .forEach { novelDir ->
                                     val files = novelDir.listFiles().orEmpty()
                                         .mapNotNull { it.name }
-                                        .filterNot { it.endsWith(Downloader.TMP_DIR_SUFFIX) }
+                                        .filter(DownloadIndexRules::isIndexed)
                                         .toSet()
                                     if (files.isNotEmpty()) put(novelDir.name!!, files)
                                 }
@@ -204,12 +234,46 @@ class NovelDownloadCache(
             }
             notifyChanges()
         } finally {
+            _isInitializing.value = false
             renewing.set(false)
         }
     }
 
+    private suspend fun restoreIndex() {
+        val saved = try {
+            indexFile.takeIf { it.exists() }?.readText()?.let { json.decodeFromString<SavedIndex>(it) }
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Failed to read the novel download index" }
+            indexFile.delete()
+            null
+        } ?: return
+        mutex.withLock {
+            // A write that landed first is newer than anything saved.
+            if (lastRenew == 0L && tree.isEmpty()) {
+                tree = saved.sources
+                lastRenew = saved.lastRenew
+            }
+        }
+        _changes.send(Unit)
+    }
+
     private fun notifyChanges() {
         scope.launch { _changes.send(Unit) }
+        saveIndex()
+    }
+
+    /** Written a second after the last change, so a burst of downloads writes once. */
+    private fun saveIndex() {
+        saveJob?.cancel()
+        saveJob = scope.launch {
+            delay(1.seconds)
+            val snapshot = SavedIndex(tree, lastRenew)
+            try {
+                indexFile.writeText(json.encodeToString(snapshot))
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to write the novel download index" }
+            }
+        }
     }
 
     private inline fun Map<String, Map<String, Set<String>>>.mutate(
@@ -222,9 +286,14 @@ class NovelDownloadCache(
         return copy
     }
 
-    companion object {
-        /** Re-scan disk at most this often for a stale query (out-of-band changes; in-app writes update
-         *  the tree immediately). Matches the manga cache's hourly cadence. */
-        private const val RENEW_INTERVAL_MS = 60 * 60 * 1000L
+    @Serializable
+    private data class SavedIndex(
+        val sources: Map<String, Map<String, Set<String>>> = emptyMap(),
+        val lastRenew: Long = 0L,
+    )
+
+    private companion object {
+        const val INDEX_FILE = "novel_dl_index_v1.json"
+        val json = Json { ignoreUnknownKeys = true }
     }
 }
