@@ -67,7 +67,12 @@ class NovelDownloadJob(context: Context, workerParams: WorkerParameters) :
         } catch (_: CancellationException) {
             Result.success()
         } finally {
-            notifier.dismiss()
+            // A user pause cancels this worker; leave a way back, as the manga downloader does.
+            if (manager.isPausedByUser && manager.queueState.value.isNotEmpty()) {
+                notifier.onPaused()
+            } else {
+                notifier.dismiss()
+            }
         }
     }
 

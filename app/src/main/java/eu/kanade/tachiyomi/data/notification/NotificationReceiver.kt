@@ -99,6 +99,9 @@ class NotificationReceiver : BroadcastReceiver() {
             // left the queue and its store intact, and the manager restarts a stored queue on the next
             // app open, so Cancel deferred the downloads rather than cancelling them.
             ACTION_CANCEL_NOVEL_DOWNLOAD -> novelDownloadManager().cancelAllDownloads()
+            // RK: the novel downloader's pause and resume, as the manga notification offers
+            ACTION_PAUSE_NOVEL_DOWNLOADS -> novelDownloadManager().pauseDownloads()
+            ACTION_RESUME_NOVEL_DOWNLOADS -> novelDownloadManager().startDownloads()
             // RK: cancel the background novel library update
             ACTION_CANCEL_NOVEL_LIBRARY_UPDATE -> NovelUpdateJob.stop(context)
             // Open reader activity
@@ -295,6 +298,10 @@ class NotificationReceiver : BroadcastReceiver() {
 
         // RK: cancel the novel chapter downloader
         private const val ACTION_CANCEL_NOVEL_DOWNLOAD = "$ID.$NAME.CANCEL_NOVEL_DOWNLOAD"
+
+        // RK: pause and resume the novel chapter downloader
+        private const val ACTION_PAUSE_NOVEL_DOWNLOADS = "$ID.$NAME.PAUSE_NOVEL_DOWNLOADS"
+        private const val ACTION_RESUME_NOVEL_DOWNLOADS = "$ID.$NAME.RESUME_NOVEL_DOWNLOADS"
 
         // RK: cancel the background novel library update
         private const val ACTION_CANCEL_NOVEL_LIBRARY_UPDATE = "$ID.$NAME.CANCEL_NOVEL_LIBRARY_UPDATE"
@@ -586,9 +593,18 @@ class NotificationReceiver : BroadcastReceiver() {
         }
 
         // RK --> cancel the novel chapter downloader
-        internal fun cancelNovelDownloadPendingBroadcast(context: Context): PendingIntent {
+        internal fun cancelNovelDownloadPendingBroadcast(context: Context): PendingIntent =
+            novelDownloaderPendingBroadcast(context, ACTION_CANCEL_NOVEL_DOWNLOAD)
+
+        internal fun pauseNovelDownloadsPendingBroadcast(context: Context): PendingIntent =
+            novelDownloaderPendingBroadcast(context, ACTION_PAUSE_NOVEL_DOWNLOADS)
+
+        internal fun resumeNovelDownloadsPendingBroadcast(context: Context): PendingIntent =
+            novelDownloaderPendingBroadcast(context, ACTION_RESUME_NOVEL_DOWNLOADS)
+
+        private fun novelDownloaderPendingBroadcast(context: Context, action: String): PendingIntent {
             val intent = Intent(context, NotificationReceiver::class.java).apply {
-                action = ACTION_CANCEL_NOVEL_DOWNLOAD
+                this.action = action
             }
             return PendingIntent.getBroadcast(
                 context,

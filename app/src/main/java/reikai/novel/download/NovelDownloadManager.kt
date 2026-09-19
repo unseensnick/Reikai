@@ -4,8 +4,10 @@ import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.system.activeNetworkState
+import eu.kanade.tachiyomi.util.system.notificationManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -132,6 +134,7 @@ class NovelDownloadManager(
         store.addAll(targets)
         // Adding downloads implies wanting them, so clear any user pause and (re)start the drain.
         sourcePreferences.novelDownloadsPaused.set(false)
+        dismissPausedNotification()
         NovelDownloadJob.start(context)
     }
 
@@ -143,6 +146,11 @@ class NovelDownloadManager(
         _queueState.value = emptyList()
         completions.clear()
         store.clear()
+        dismissPausedNotification()
+    }
+
+    private fun dismissPausedNotification() {
+        context.notificationManager.cancel(Notifications.ID_NOVEL_DOWNLOADER_PAUSED)
     }
 
     /** User pause: stop the drain without clearing the queue, persisted so a restart stays paused. The
@@ -154,9 +162,12 @@ class NovelDownloadManager(
         NovelDownloadJob.stop(context)
     }
 
+    val isPausedByUser: Boolean get() = sourcePreferences.novelDownloadsPaused.get()
+
     /** User resume: clear the pause and restart the drain. */
     fun startDownloads() {
         sourcePreferences.novelDownloadsPaused.set(false)
+        dismissPausedNotification()
         NovelDownloadJob.start(context)
     }
 

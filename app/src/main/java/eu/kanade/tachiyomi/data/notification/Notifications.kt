@@ -73,6 +73,10 @@ object Notifications {
     const val CHANNEL_NOVEL_DOWNLOADER = "novel_downloader_progress_channel"
     const val ID_NOVEL_DOWNLOADER = -205
 
+    // RK: the novel downloader's paused entry. Not the worker's foreground id, which WorkManager
+    // takes down when the paused worker stops, sometimes after this has been posted.
+    const val ID_NOVEL_DOWNLOADER_PAUSED = -207
+
     // RK: novel download failure notification (own id on the shared errors channel, so it neither
     // overwrites nor is overwritten by the ongoing progress entry).
     const val ID_NOVEL_DOWNLOADER_ERROR = -206

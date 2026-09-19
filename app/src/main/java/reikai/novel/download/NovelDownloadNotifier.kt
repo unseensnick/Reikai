@@ -14,9 +14,9 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 
 /**
- * Foreground progress notification for the novel chapter downloader. Minimal sibling of the manga
- * downloader notifier: one ongoing progress entry with a cancel action, no per-novel deep links
- * (there's no novel-downloads detail surface to open into).
+ * Foreground progress notification for the novel chapter downloader, sibling of the manga downloader
+ * notifier: an ongoing progress entry with pause and cancel, and a paused entry with resume and
+ * cancel all. Tapping either opens the download queue.
  */
 class NovelDownloadNotifier(
     private val context: Context,
@@ -28,12 +28,39 @@ class NovelDownloadNotifier(
             setSmallIcon(android.R.drawable.stat_sys_download)
             setOngoing(true)
             setOnlyAlertOnce(true)
+            setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))
+            addAction(
+                R.drawable.ic_pause_24dp,
+                context.stringResource(MR.strings.action_pause),
+                NotificationReceiver.pauseNovelDownloadsPendingBroadcast(context),
+            )
             addAction(
                 R.drawable.ic_close_24dp,
                 context.stringResource(MR.strings.action_cancel),
                 NotificationReceiver.cancelNovelDownloadPendingBroadcast(context),
             )
         }
+    }
+
+    /** What a user pause leaves behind, so the queue can be resumed or cleared from the shade. */
+    fun onPaused() {
+        val notification = context.notificationBuilder(Notifications.CHANNEL_NOVEL_DOWNLOADER) {
+            setContentTitle(context.stringResource(MR.strings.chapter_paused))
+            setContentText(context.stringResource(MR.strings.download_notifier_download_paused))
+            setSmallIcon(R.drawable.ic_pause_24dp)
+            setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))
+            addAction(
+                R.drawable.ic_play_arrow_24dp,
+                context.stringResource(MR.strings.action_resume),
+                NotificationReceiver.resumeNovelDownloadsPendingBroadcast(context),
+            )
+            addAction(
+                R.drawable.ic_close_24dp,
+                context.stringResource(MR.strings.action_cancel_all),
+                NotificationReceiver.cancelNovelDownloadPendingBroadcast(context),
+            )
+        }.build()
+        context.notificationManager.notify(Notifications.ID_NOVEL_DOWNLOADER_PAUSED, notification)
     }
 
     /** Build the progress notification (also used for the worker's `getForegroundInfo`). */
