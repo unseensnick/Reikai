@@ -279,7 +279,7 @@ every release now also ships a foss build with neither in it.
 - **Download ahead in the manga reader no longer fetches hidden chapters or duplicates the reader skips.**
 - **Scrolling into the next manga chapter and straight back no longer leaves the reader on the chapter you left.** The bookmark button and Open in WebView could act on it, and the high quality renderer could jump there.
 - **Headings and small text in the novel reader's native text mode are now sized as the web page mode sizes them.** A top-level heading was a quarter smaller there.
-- **Small pictures in the novel reader's native text mode are now drawn at their own size, as in the web page mode, instead of stretched across the page.**
+- **Small pictures in the novel reader's native text mode are now drawn at their own size and centred, as in the web page mode, instead of stretched across the page.**
 - **A picture that fails to load in the novel reader now says so, with a Retry button, in both text modes.** Native text mode showed a blank grey block, and the web page mode the browser's broken-image mark.
 - **Pictures in the novel reader's native text mode now sit 1em clear of the text around them, as in the web page mode, and no longer run into the text above at a tight line spacing.**
 - **In the novel reader's native text mode, pictures loading above where you are reading no longer push the text you are on down the screen.** The web page mode already held your place.

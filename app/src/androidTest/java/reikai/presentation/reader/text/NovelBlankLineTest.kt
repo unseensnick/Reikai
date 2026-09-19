@@ -2,6 +2,7 @@ package reikai.presentation.reader.text
 
 import android.text.Html
 import android.text.SpannableStringBuilder
+import android.text.style.ParagraphStyle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import org.junit.Assert.assertEquals
@@ -55,6 +56,24 @@ class NovelBlankLineTest {
         val source = "<p>a</p><p>&nbsp;</p><p>b</p>"
         val on = rendered(NovelHtmlUtils.removeExtraParagraphSpacing(source))
         assertTrue("padding survived: ${on.escaped()}", !on.contains('\u00A0'))
+    }
+
+    @Test
+    fun aCentredParagraphKeepsItsAlignment() {
+        assertEquals("b", paragraphStyledText("<p>a</p><p style=\"text-align:center;\">b</p><p>c</p>"))
+    }
+
+    @Test
+    fun aQuoteKeepsItsBar() {
+        assertEquals("b", paragraphStyledText("<p>a</p><blockquote>b</blockquote><p>c</p>"))
+    }
+
+    /** The text the paragraph styles cover once the separators are gone, which must be their own block. */
+    private fun paragraphStyledText(html: String): String {
+        val text = SpannableStringBuilder(Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY, null, null))
+            .also { NovelTextRenderer.collapseBlankLines(it) }
+        return text.getSpans(0, text.length, ParagraphStyle::class.java)
+            .joinToString("|") { text.substring(text.getSpanStart(it), text.getSpanEnd(it)).trimEnd('\n') }
     }
 
     private fun String.escaped() = replace("\n", "\\n")

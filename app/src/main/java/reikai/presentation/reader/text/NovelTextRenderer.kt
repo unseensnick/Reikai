@@ -273,14 +273,18 @@ class NovelTextRenderer(
     /**
      * The WebView's stylesheet lays every image out as a block, so text either side of one reads as its
      * own line there. The paragraph is split around it to match, the image taking the centred block an
-     * image outside a paragraph gets; a side left with nothing to show is dropped.
+     * image outside a paragraph gets; a side left with nothing to show is dropped. A paragraph showing
+     * only the image is centred where it stands.
      */
     private fun liftOutOfText(img: Element, parent: Element) {
         val siblings = parent.childNodes()
         val showsSomethingElse = siblings.any {
             it !== img && ((it is TextNode && !it.isBlank) || (it is Element && it.hasText()))
         }
-        if (!showsSomethingElse) return
+        if (!showsSomethingElse) {
+            parent.attr("style", "text-align:center;")
+            return
+        }
         val after = parent.shallowClone().appendChildren(siblings.drop(siblings.indexOf(img) + 1))
         parent.after(after)
         parent.after(Element("p").attr("style", "text-align:center;").appendChild(img))
@@ -370,13 +374,16 @@ class NovelTextRenderer(
          * `Html.fromHtml` separates blocks with a blank line, which would sit under the paragraph
          * spacing and draw a wider gap than the same settings do in a WebView. Exactly one break per
          * run is taken, which is that separator: a longer run is line breaks the source asked for,
-         * and flattening those too made "Remove extra spacing" invisible in this renderer.
+         * and flattening those too made "Remove extra spacing" invisible in this renderer. The earlier
+         * break goes, since deleting the later one pushes a SPAN_PARAGRAPH span starting after it (a
+         * centring, a quote bar) onto the next block.
          */
         internal fun collapseBlankLines(text: SpannableStringBuilder) {
             var i = text.length - 1
             while (i > 0) {
                 if (text[i] == '\n' && text[i - 1] == '\n') {
-                    text.delete(i, i + 1)
+                    text.delete(i - 1, i)
+                    i--
                     while (i > 0 && text[i - 1] == '\n') i--
                 }
                 i--

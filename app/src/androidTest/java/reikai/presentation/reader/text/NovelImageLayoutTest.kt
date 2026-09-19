@@ -145,6 +145,54 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
         )
     }
 
+    /**
+     * The page centres every picture (reader.css). A picture alone in a paragraph is the usual shape, and
+     * text before it is what the blank-line collapse must not move the centring past (NovelBlankLineTest).
+     */
+    @Test
+    fun aPictureAloneInAParagraphIsCentred() {
+        // Narrower than the column at any density, since a picture is drawn at its own dp width.
+        server.close()
+        server = PngServer(pngOf(100, 60))
+        runBlocking(Dispatchers.Main) {
+            renderer.render(
+                block = block,
+                html =
+                "<p>before</p><p><img src=\"${server.url("narrow")}\"></p><p>after</p>" +
+                    "<p>lorem ipsum</p>".repeat(20),
+                fontSize = 18,
+                paragraphSpacing = 0f,
+                paragraphIndent = 0f,
+                selectable = selectable,
+                bionic = false,
+                contentWidth = COLUMN_PX,
+                baseUrl = null,
+                holdAcross = { it() },
+                onTextSet = {},
+            ).join()
+        }
+        awaitWhile { block.imagesLoading }
+
+        var left = 0f
+        var width = 0
+        var column = 0
+        instrumentation.runOnMainSync {
+            val view = block.chunkViews.first { view ->
+                (view.text as? Spanned)?.let { it.getSpans(0, it.length, ImageSpan::class.java).isNotEmpty() } == true
+            }
+            val text = view.text as Spanned
+            val span = text.getSpans(0, text.length, ImageSpan::class.java).first()
+            left = view.layout.getPrimaryHorizontal(text.getSpanStart(span))
+            width = span.drawable.bounds.width()
+            column = view.layout.width
+        }
+        assertTrue("the picture is ${width}px, as wide as the ${column}px column", width < column - 2)
+        assertTrue(
+            "a ${width}px picture starts at ${left}px in a ${column}px column",
+            abs(left - (column - width) / 2f) <= 1,
+        )
+    }
+
     /** How many image spans sit on a line shorter than their picture. */
     private fun shortPictureLines(): Int = block.chunkViews.sumOf { view ->
         val text = view.text as? Spanned ?: return@sumOf 0
