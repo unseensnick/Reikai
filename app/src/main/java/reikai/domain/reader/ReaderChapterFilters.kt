@@ -4,8 +4,8 @@ import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapterFlags
+import reikai.domain.novel.model.appliedDownloadedFilter
 import reikai.domain.novel.model.effectiveBookmarkedFilter
-import reikai.domain.novel.model.effectiveDownloadedFilter
 import reikai.domain.novel.model.effectiveReadFilter
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.manga.model.Manga
@@ -27,7 +27,7 @@ fun Manga.readerChapterFilters() = ChapterListFilters(
     },
 )
 
-fun Novel.readerChapterFilters(prefs: NovelPreferences) = ChapterListFilters(
+fun Novel.readerChapterFilters(prefs: NovelPreferences, downloadedOnly: Boolean) = ChapterListFilters(
     unread = triState(effectiveReadFilter(prefs), NovelChapterFlags.SHOW_UNREAD, NovelChapterFlags.SHOW_READ),
     bookmarked = triState(
         effectiveBookmarkedFilter(prefs),
@@ -35,7 +35,7 @@ fun Novel.readerChapterFilters(prefs: NovelPreferences) = ChapterListFilters(
         NovelChapterFlags.SHOW_NOT_BOOKMARKED,
     ),
     downloaded = triState(
-        effectiveDownloadedFilter(prefs),
+        appliedDownloadedFilter(prefs, downloadedOnly),
         NovelChapterFlags.SHOW_DOWNLOADED,
         NovelChapterFlags.SHOW_NOT_DOWNLOADED,
     ),

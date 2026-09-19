@@ -75,6 +75,14 @@ fun Novel.effectiveBookmarkedFilter(prefs: NovelPreferences): Long =
     if (usesLocalFilter) bookmarkedFilter else prefs.defaultChapterFilterBookmarked().get()
 fun Novel.effectiveDownloadedFilter(prefs: NovelPreferences): Long =
     if (usesLocalFilter) downloadedFilter else prefs.defaultChapterFilterDownloaded().get()
+
+/**
+ * The downloaded filter the chapter list and reader apply: downloaded only while the global Downloaded
+ * only switch is on, as manga's `Manga.downloadedFilter` is. Never saved: the novel's own setting stays
+ * [effectiveDownloadedFilter], so it comes back when the switch goes off.
+ */
+fun Novel.appliedDownloadedFilter(prefs: NovelPreferences, downloadedOnly: Boolean): Long =
+    if (downloadedOnly) NovelChapterFlags.SHOW_DOWNLOADED else effectiveDownloadedFilter(prefs)
 fun Novel.effectiveHideChapterTitles(prefs: NovelPreferences): Boolean =
     if (usesLocalSort) hideChapterTitles else prefs.defaultChapterHideTitles().get()
 
@@ -110,10 +118,11 @@ fun List<NovelChapter>.sortedAndFiltered(
     downloadedChapterIds: Set<Long>,
     readInOtherSources: Set<Long>,
     bookmarkedInOtherSources: Set<Long>,
+    downloadedOnly: Boolean,
 ): List<NovelChapter> {
     val read = novel.effectiveReadFilter(prefs)
     val bookmarked = novel.effectiveBookmarkedFilter(prefs)
-    val downloaded = novel.effectiveDownloadedFilter(prefs)
+    val downloaded = novel.appliedDownloadedFilter(prefs, downloadedOnly)
     val filtered = filter { ch ->
         val isRead = ch.read || ch.id in readInOtherSources
         val isBookmarked = ch.bookmark || ch.id in bookmarkedInOtherSources

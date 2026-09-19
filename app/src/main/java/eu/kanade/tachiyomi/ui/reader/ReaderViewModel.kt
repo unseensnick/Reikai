@@ -83,6 +83,7 @@ import reikai.domain.merge.withOpenedChapter
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReaderPosition
 import reikai.domain.reader.chaptersToDownloadAhead
+import reikai.domain.reader.downloadedOrCurrent
 import reikai.domain.reader.duplicatesOfRead
 import reikai.domain.reader.isChapterComplete
 import reikai.domain.reader.isForwardEligible
@@ -404,7 +405,9 @@ class ReaderViewModel(
             // RK <--
             .run {
                 if (basePreferences.downloadedOnly.get()) {
-                    filterDownloaded(downloadCache) { mangaForChapterId(it.mangaId) }
+                    // RK: by the rule the novel reader shares, which keeps the chapter being read
+                    val onDisk = filterDownloaded(downloadCache) { mangaForChapterId(it.mangaId) }
+                    downloadedOrCurrent(selectedChapter, { it.id }, onDisk.mapTo(HashSet()) { it.id })
                 } else {
                     this
                 }

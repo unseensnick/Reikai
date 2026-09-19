@@ -52,6 +52,14 @@ fun <T> List<T>.duplicatesOfRead(
 }
 
 /**
+ * What a reader pages through while the global Downloaded only switch is on: the chapters on disk, and
+ * the one being read even when it is not, so a chapter opened from History or Updates keeps its place.
+ * Download-ahead must walk the list before this: under the switch this one holds nothing left to fetch.
+ */
+fun <T> List<T>.downloadedOrCurrent(current: T, idOf: (T) -> Long, downloadedIds: Set<Long>): List<T> =
+    filter { idOf(it) == idOf(current) || idOf(it) in downloadedIds }
+
+/**
  * The chapters a reader steps through: user-hidden ones dropped, the one being read kept, and then, with
  * skip-duplicate on, same-numbered copies removed. Hidden first, so a hidden copy can never be the one
  * a duplicate group keeps and take the whole number with it when it is hidden afterwards. Both readers

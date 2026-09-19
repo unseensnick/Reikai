@@ -102,6 +102,7 @@ class MergedChapterFilterConformanceTest {
                 downloadedChapterIds = emptySet(),
                 readInOtherSources = if (readElsewhere) setOf(CHAPTER_ID) else emptySet(),
                 bookmarkedInOtherSources = if (bookmarkedElsewhere) setOf(CHAPTER_ID) else emptySet(),
+                downloadedOnly = false,
             ).map { it.id }
 
         override fun toString() = "novel details"
@@ -151,7 +152,9 @@ class MergedChapterFilterConformanceTest {
 
     private object NovelReader : Reader<NovelChapter>(
         name = "novel reader",
-        filtersOf = { novelWith(it).readerChapterFilters(NovelPreferences(InMemoryPreferenceStore())) },
+        filtersOf = {
+            novelWith(it).readerChapterFilters(NovelPreferences(InMemoryPreferenceStore()), downloadedOnly = false)
+        },
         chapter = { id, read, bookmark -> novelChapter(id, read, bookmark) },
         id = { it.id },
         read = { it.read },

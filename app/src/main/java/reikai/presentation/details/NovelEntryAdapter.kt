@@ -84,7 +84,8 @@ class NovelEntryAdapter(
             ),
             mergeSources = mergeSources,
             selectedSourceId = selectedSourceNovelId,
-            hasActiveFilter = readFilter != 0L || bookmarkedFilter != 0L || downloadedFilter != 0L,
+            hasActiveFilter = readFilter != 0L || bookmarkedFilter != 0L || downloadedFilter != 0L ||
+                downloadedFilterLocked,
             isRefreshing = isRefreshing,
             selection = selection,
             resumeChapterId = resumeChapter?.id,

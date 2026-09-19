@@ -14,6 +14,7 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
@@ -167,6 +168,7 @@ class NovelDetailsViewModel(
     private val trackNovelChapter: TrackNovelChapter,
     private val trackerManager: TrackerManager,
     private val trackPreferences: TrackPreferences,
+    private val basePreferences: BasePreferences,
 ) : ViewModel() {
 
     // Building the manager restores the persisted queue and can start the download worker, so it is
@@ -552,6 +554,7 @@ class NovelDetailsViewModel(
             downloadedChapterIds,
             readInOtherSources,
             bookmarkedInOtherSources,
+            downloadedOnly = basePreferences.downloadedOnly.get(),
         )
         val sortDescending = anchor.effectiveSortDescending(novelPreferences)
         // The header total is the sum of the gaps the list itself would mark, so the two can never
@@ -608,6 +611,7 @@ class NovelDetailsViewModel(
                 readFilter = anchor.effectiveReadFilter(novelPreferences),
                 bookmarkedFilter = anchor.effectiveBookmarkedFilter(novelPreferences),
                 downloadedFilter = anchor.effectiveDownloadedFilter(novelPreferences),
+                downloadedFilterLocked = basePreferences.downloadedOnly.get(),
                 hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
                 mergeSources = mergeGroup.chips.value,
                 selectedSourceNovelId = mergeGroup.selectedSource,
@@ -700,7 +704,10 @@ class NovelDetailsViewModel(
         val src = source ?: return
         val loaded = state.value as? NovelDetailsState.Loaded
         if (loaded != null &&
-            (loaded.readFilter != 0L || loaded.bookmarkedFilter != 0L || loaded.downloadedFilter != 0L)
+            (
+                loaded.readFilter != 0L || loaded.bookmarkedFilter != 0L || loaded.downloadedFilter != 0L ||
+                    loaded.downloadedFilterLocked
+                )
         ) {
             return
         }
@@ -1476,6 +1483,8 @@ sealed interface NovelDetailsState {
         val readFilter: Long = 0L,
         val bookmarkedFilter: Long = 0L,
         val downloadedFilter: Long = 0L,
+        /** The global Downloaded only switch is on, which forces the downloaded filter and locks it. */
+        val downloadedFilterLocked: Boolean = false,
         val hideChapterTitles: Boolean = false,
         /** Source-switcher chips for a merged group (empty/single = not merged, chips hidden). */
         val mergeSources: List<EntryMergeSource> = emptyList(),

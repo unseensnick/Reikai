@@ -172,6 +172,7 @@ class ReadingOrderConformanceTest {
                     emptySet(),
                     emptySet(),
                     emptySet(),
+                    downloadedOnly = false,
                 )
             },
             id = { it.id },

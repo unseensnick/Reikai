@@ -236,6 +236,7 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
             readFilter = state.readFilter,
             bookmarkedFilter = state.bookmarkedFilter,
             downloadedFilter = state.downloadedFilter,
+            downloadedFilterLocked = state.downloadedFilterLocked,
             hideChapterTitles = state.hideChapterTitles,
             onDismiss = viewModel::dismissDialog,
             onSortChange = viewModel::setSortOrder,

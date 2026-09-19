@@ -29,6 +29,19 @@ class NavigableChaptersTest {
         listOf(one, twoHidden, twoShown, three).navigable(one).map { it.id } shouldBe listOf(1L, 3L, 4L)
     }
 
+    @Test
+    fun `Downloaded only keeps the chapters on disk`() {
+        listOf(one, twoShown, three).downloadedOrCurrent(one, { it.id }, setOf(1L, 4L)).map { it.id } shouldBe
+            listOf(1L, 4L)
+    }
+
+    /** A chapter opened from History or Updates may not be on disk, and the reader still needs it. */
+    @Test
+    fun `Downloaded only keeps the chapter being read when it is not on disk`() {
+        listOf(one, twoShown, three).downloadedOrCurrent(twoShown, { it.id }, setOf(4L)).map { it.id } shouldBe
+            listOf(3L, 4L)
+    }
+
     /** Opening a hidden chapter directly still has to resolve to something to read. */
     @Test
     fun `the chapter being read stays when it is hidden`() {

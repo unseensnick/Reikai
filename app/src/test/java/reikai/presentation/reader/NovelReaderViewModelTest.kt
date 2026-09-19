@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -56,6 +57,44 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
 
         model.chapterRows.first().map { it.subtitle }.distinct() shouldBe listOf("Beta Source")
+    }
+
+    /** The opened chapter is on disk, the next is not, the one after is. */
+    @Test
+    fun `with Downloaded only on the reader steps over a chapter not on disk`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        harness.chapter(novel, 2.0)
+        val third = harness.chapter(novel, 3.0)
+        harness.download(opened, "one")
+        harness.download(third, "three")
+        harness.downloadedOnly.set(true)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        model.chapterRows.first().map { it.id } shouldBe listOf(opened.id, third.id)
+    }
+
+    /** Under the switch the reader's own list holds nothing left to fetch, so download-ahead walks past it. */
+    @Test
+    fun `with Downloaded only on download-ahead still queues the next chapter not on disk`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val second = harness.chapter(novel, 2.0)
+        harness.download(opened, "one")
+        harness.downloadedOnly.set(true)
+        harness.novelPreferences.autoDownloadWhileReading().set(1)
+        harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        verify {
+            harness.downloadManager.downloadChapters(
+                match { chapters ->
+                    chapters.map { it.id } ==
+                        listOf(second.id)
+                },
+            )
+        }
     }
 
     /** Both members carry the same chapters, so the stitch draws every one from the member that leads. */

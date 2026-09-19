@@ -12,6 +12,7 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
@@ -67,6 +68,7 @@ import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.chaptersToDownloadAhead
+import reikai.domain.reader.downloadedOrCurrent
 import reikai.domain.reader.isChapterComplete
 import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.navigableChapters
@@ -129,6 +131,7 @@ class NovelReaderViewModel(
     private val setNovelViewerFlags: SetNovelViewerFlags,
     private val novelDownloadCache: NovelDownloadCache,
     private val deleteChaptersBehindReader: DeleteNovelChaptersBehindReader,
+    private val basePreferences: BasePreferences,
     private val context: Context,
     // Dispatchers.IO, which is what launchIO would have used. Passed in so a JVM test can run the
     // whole session on its own scheduler.
@@ -646,6 +649,10 @@ class NovelReaderViewModel(
     /** Every chapter this session can reach, in reading order, duplicates and hidden ones already gone. */
     @Volatile
     private var orderedIds: List<Long> = emptyList()
+
+    /** [orderedIds] before the Downloaded only switch narrows it, which is what download-ahead walks. */
+    @Volatile
+    private var aheadIds: List<Long> = emptyList()
 
     /** Which of [orderedIds] a forward step may land on, per the skip settings. A back step ignores it,
      *  so the chapter just finished stays reachable from the one after it. */
@@ -1239,7 +1246,14 @@ class NovelReaderViewModel(
                 restamp = { chapter, order -> chapter.copy(sourceOrder = order) },
             )
         }
-        val visible = navigable(chapters.sortedWith(readingOrder()))
+        val inOrder = navigable(chapters.sortedWith(readingOrder()))
+        aheadIds = inOrder.map { it.id }
+        val current = inOrder.find { it.id == currentChapterId }
+        val visible = if (basePreferences.downloadedOnly.get() && current != null) {
+            inOrder.downloadedOrCurrent(current, { it.id }, downloadedChapterIds(inOrder, novelsOf(inOrder)))
+        } else {
+            inOrder
+        }
         orderedIds = visible.map { it.id }
         val members = pooled.ifEmpty { visible }
         forwardEligibleIds = resolveForwardEligible(visible, groupFlags(members, visible, novelsOf(members)))
@@ -1288,7 +1302,7 @@ class NovelReaderViewModel(
         val skipFiltered = novelPreferences.readerSkipFiltered().get()
         if (!skipRead && !skipFiltered) return chapters.mapTo(HashSet()) { it.id }
         val novel = novelRepo.getById(novelId) ?: return chapters.mapTo(HashSet()) { it.id }
-        val filters = novel.readerChapterFilters(novelPreferences)
+        val filters = novel.readerChapterFilters(novelPreferences, basePreferences.downloadedOnly.get())
         return chapters.filterTo(HashSet()) { ch ->
             ch.id == currentChapterId || flags.isForwardEligible(ch, skipRead, skipFiltered, filters)
         }.mapTo(HashSet()) { it.id }
@@ -1457,11 +1471,11 @@ class NovelReaderViewModel(
         if (incognitoMode) return
         val ahead = novelPreferences.autoDownloadWhileReading().get()
         if (ahead <= 0) return
-        val index = orderedIds.indexOf(currentChapterId)
+        val index = aheadIds.indexOf(currentChapterId)
         if (index < 0) return
         val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
         val byId = pooled.associateBy { it.id }
-        val candidates = orderedIds.drop(index + 1).mapNotNull { byId[it] ?: chapterRepo.getById(it) }
+        val candidates = aheadIds.drop(index + 1).mapNotNull { byId[it] ?: chapterRepo.getById(it) }
         val novels = novelsOf(pooled + candidates)
         val flags = groupFlags(pooled, candidates, novels)
         val toDownload = chaptersToDownloadAhead(candidates, from = 0, count = ahead, isRead = flags::isRead)

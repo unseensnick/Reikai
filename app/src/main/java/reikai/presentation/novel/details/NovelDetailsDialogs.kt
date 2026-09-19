@@ -39,6 +39,7 @@ fun NovelChapterSettingsDialog(
     readFilter: Long,
     bookmarkedFilter: Long,
     downloadedFilter: Long,
+    downloadedFilterLocked: Boolean,
     hideChapterTitles: Boolean,
     onDismiss: () -> Unit,
     onSortChange: (Long, Boolean) -> Unit,
@@ -91,13 +92,15 @@ fun NovelChapterSettingsDialog(
                         ),
                         onClick = { onFilterChange(readFilter, it.toBookmarkFlag(), downloadedFilter) },
                     )
+                    // Under the global Downloaded only switch the filter is forced on and not editable, as
+                    // manga's is. The other two rows still hand back the novel's own setting, never the forced one.
                     TriStateItem(
                         label = stringResource(MR.strings.label_downloaded),
-                        state = downloadedFilter.toTriState(
-                            NovelChapterFlags.SHOW_DOWNLOADED,
-                            NovelChapterFlags.SHOW_NOT_DOWNLOADED,
-                        ),
-                        onClick = { onFilterChange(readFilter, bookmarkedFilter, it.toDownloadFlag()) },
+                        state = (if (downloadedFilterLocked) NovelChapterFlags.SHOW_DOWNLOADED else downloadedFilter)
+                            .toTriState(NovelChapterFlags.SHOW_DOWNLOADED, NovelChapterFlags.SHOW_NOT_DOWNLOADED),
+                        onClick = { state: TriState ->
+                            onFilterChange(readFilter, bookmarkedFilter, state.toDownloadFlag())
+                        }.takeUnless { downloadedFilterLocked },
                     )
                 }
                 1 -> listOf(

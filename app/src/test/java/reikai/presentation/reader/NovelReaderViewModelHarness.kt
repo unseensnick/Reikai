@@ -115,7 +115,11 @@ class NovelReaderViewModelHarness private constructor(
 
     /** Chapter id to the text its downloaded copy holds. */
     private val downloaded = mutableMapOf<Long, String>()
-    private val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
+
+    /** The global Downloaded only switch. */
+    val downloadedOnly = store.getBoolean(Preference.appStateKey("pref_downloaded_only"), false)
+
+    val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
         every { queueState } returns MutableStateFlow(emptyList())
         every { getChapterText(any(), any()) } answers { downloaded[secondArg<NovelChapter>().id] }
         every { isChapterDownloaded(any(), any()) } answers { secondArg<NovelChapter>().id in downloaded }
@@ -229,6 +233,10 @@ class NovelReaderViewModelHarness private constructor(
                 { downloadManager },
                 chapterRepo,
             ),
+            // Only the Downloaded only switch; BasePreferences itself cannot be built on the JVM.
+            basePreferences = mockk<BasePreferences> {
+                every { downloadedOnly } returns this@NovelReaderViewModelHarness.downloadedOnly
+            },
             context = context,
             io = dispatcher,
         ).also { viewModels.put("novel-$novelId-$chapterId-${viewModels.keys().size}", it) }
