@@ -22,7 +22,7 @@ The queue screen stacks two separately owned lists. In the All view a manga card
 
 **The card** shows the chapter currently downloading ("Downloading ch. 142"). Novels latch that across the pacing gap between chapters, as the card's status already does, showing the next queued chapter while no chapter is marked downloading.
 
-**The per-series sheet.** Tapping a card opens that series' queued chapters in download order in Mihon's `AdaptiveSheet`, the component the in-reader chapter list uses: a bottom sheet on a phone, a centred dialog under the tablet layout. Each row shows the chapter name, its status, a page-progress bar and page count for manga, and the failure reason when it failed. Row actions are Cancel and Download next, which also retries a failed chapter. The header opens the series details. Chapters inside the sheet are not dragged: Sort and Download next already cover chapter order.
+**The per-series sheet.** Tapping a card opens that series' queued chapters in download order in Mihon's `AdaptiveSheet`, the component the in-reader chapter list uses: a bottom sheet on a phone, a centred dialog under the tablet layout. Each row shows the chapter name, its status, a page-progress bar and page count for manga, and the failure reason when it failed. Row actions are Download next, which also retries a failed chapter, Move to bottom, behind the rest of its series, and Cancel. The header opens the series details. Chapters inside the sheet are not dragged: Sort and Download next already cover chapter order.
 
 **Failure reasons.** Each downloader keeps the error message on the failed chapter. Failed downloads live only in memory on both sides, so the reason lives exactly as long as the failed row and nothing is persisted.
 
@@ -49,15 +49,15 @@ The queue screen stacks two separately owned lists. In the All view a manga card
 
 ## Status
 
-Built, one inventory item awaiting a ruling (below). The queue engine, list and screen (`c62b43ef7`); the per-series sheet and failure reasons (`44514dd71`); Mihon's per-chapter queue deleted and manifested (`6fb6f87d6`); the novel notification's Pause and Resume (`b6c09e28a`) and the manga paused notification's same race (`021a30623`); the novel download index (`18f68220c`); Downloaded only for novels, reader and details (`2273cd3f8`); resuming the same way for both types and Show entry (`e25102054`); pacing (`acc0be116`); the manga page count in the sheet, found by the inventory (`c25da8386`).
+Complete, closing inventory included. The queue engine, list and screen (`c62b43ef7`); the per-series sheet and failure reasons (`44514dd71`); Mihon's per-chapter queue deleted and manifested (`6fb6f87d6`); the novel notification's Pause and Resume (`b6c09e28a`) and the manga paused notification's same race (`021a30623`); the novel download index (`18f68220c`); Downloaded only for novels, reader and details (`2273cd3f8`); resuming the same way for both types and Show entry (`e25102054`); pacing (`acc0be116`); the manga page count in the sheet (`c25da8386`) and a chapter's Move to bottom (`7d131a14b`), both found by the inventory.
 
 Not shown on device: a novel failure reason (the plugins tried return a page even for an unreachable or malformed chapter URL, so it is verified from code), and a restored novel queue waiting for Resume on launch (the change removes the auto-start). A card's counts survive reopening the queue but not the app being killed, since the downloaders keep them in memory.
 
 **Behaviour inventory** of the replaced code: Mihon's `DownloadQueueScreen`, `DownloadQueueViewModel`, `DownloadHolder` and `download_single` menu, and Reikai's previous queue models, card list, novel notifier and novel cache.
 
-- Present: pause and resume, cancel all, the pending-chapter count, the empty screen, drag reorder, series to top and to bottom, cancel a chapter, cancel a series, sort by upload date or chapter number in either direction (within each series, where upstream sorted within each source), per-chapter status and page progress with its count, the novel card's latched status and the source-name fallback, the transient-empty guard on a manga reorder, the notification's cancel and error entries, the index's storage-move rescan and per-chapter edits.
+- Present: pause and resume, cancel all, the pending-chapter count, the empty screen, drag reorder, series to top and to bottom, a chapter to the bottom (of its series, where upstream's was of its source), cancel a chapter, cancel a series, sort by upload date or chapter number in either direction (within each series, where upstream sorted within each source), per-chapter status and page progress with its count, the novel card's latched status and the source-name fallback, the transient-empty guard on a manga reorder, the notification's cancel and error entries, the index's storage-move rescan and per-chapter edits.
 - Deliberately dropped: per-chapter drag and the source header rows (series cards, owner 2026-09-19); the content-type chips (owner 2026-09-19); the novel queue's launch auto-start (owner 2026-09-19).
-- Missing: moving one chapter to the bottom of the queue, upstream's `move_to_bottom`. Start now covers moving one to the top.
+- Missing: nothing. The two gaps the walk found, the page count and a chapter's Move to bottom, are built.
 
 ## Decisions & tradeoffs
 

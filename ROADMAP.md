@@ -4,15 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## The 0.4.0 cut
 
-0.4.0 is **not** cut before the download subsystem rework (Road B) lands. One item, and nothing else in this file moves the cut; the reader surface takeover is complete, its record is [content-layer-reader-surface.md](docs/dev/plans/content-layer-reader-surface.md). The light-novel trackers no longer gate it; MyNovelList sits under Parked, and the rulings behind both are in [novel-specific-trackers.md](docs/dev/plans/novel-specific-trackers.md).
-
-## Now
-
-- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters. Remaining: the download unification below, which closes the program. [Plan](docs/dev/plans/content-layer-architecture.md).
-
-## Next
-
-- **Unify the download subsystem across manga and novels (Road B)** `[L]` - one queue, sheet, notification shape, index rules and pacing over the two download engines. Left: a ruling on the one missing inventory item, moving a single chapter to the bottom of the queue, then the closing docs. [Plan](docs/dev/plans/content-layer-download-surface.md).
+Nothing in this file gates the 0.4.0 cut; when to cut it is the owner's call. The light-novel trackers do not gate it; MyNovelList sits under Parked, and the rulings behind both are in [novel-specific-trackers.md](docs/dev/plans/novel-specific-trackers.md).
 
 ## Later
 
