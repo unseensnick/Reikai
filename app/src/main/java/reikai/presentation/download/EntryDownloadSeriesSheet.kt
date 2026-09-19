@@ -106,14 +106,22 @@ private fun EntryDownloadChapterRow(
             )
             when (chapter.status) {
                 QueuedChapterStatus.DOWNLOADING -> {
-                    val progress = chapter.progress
-                    val barModifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp, end = 8.dp)
-                    if (progress == null) {
-                        LinearProgressIndicator(modifier = barModifier)
-                    } else {
-                        LinearProgressIndicator(progress = { progress / 100f }, modifier = barModifier)
+                    val pages = chapter.pages
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 6.dp, end = 8.dp),
+                    ) {
+                        if (pages == null) {
+                            LinearProgressIndicator(modifier = Modifier.weight(1f))
+                        } else {
+                            LinearProgressIndicator(progress = { pages.percent / 100f }, modifier = Modifier.weight(1f))
+                            Text(
+                                text = "${pages.downloaded}/${pages.total}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
                     }
                 }
                 QueuedChapterStatus.QUEUED -> Text(

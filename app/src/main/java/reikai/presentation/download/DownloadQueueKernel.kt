@@ -6,16 +6,20 @@ import reikai.domain.library.ContentType
 enum class QueuedChapterStatus { QUEUED, DOWNLOADING, ERROR }
 
 /**
- * One queued chapter, as its downloader holds it. [progress] is the page progress in percent, null
- * for a novel chapter, which arrives in one fetch. [failure] is only meaningful while it failed.
+ * One queued chapter, as its downloader holds it. [pages] is null for a novel chapter, which arrives
+ * in one fetch, and for a manga chapter whose page list has not loaded. [failure] is only meaningful
+ * while it failed.
  */
 data class QueuedChapter(
     val seriesId: Long,
     val chapterId: Long,
     val status: QueuedChapterStatus,
-    val progress: Int? = null,
+    val pages: PageProgress? = null,
     val failure: String? = null,
 )
+
+/** A manga chapter's pages: how many are saved, of how many, and the byte progress in percent. */
+data class PageProgress(val downloaded: Int, val total: Int, val percent: Int)
 
 /** One row of a series' chapter sheet. */
 data class EntryDownloadChapterUi(val chapter: QueuedChapter, val name: String)

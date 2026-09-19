@@ -131,7 +131,7 @@ private fun snapshotOf(queue: List<Download>, sourceLimit: Int, completed: Map<L
                     Download.State.ERROR -> QueuedChapterStatus.ERROR
                     else -> QueuedChapterStatus.QUEUED
                 },
-                progress = download.progress,
+                pages = download.pages?.let { PageProgress(download.downloadedImages, it.size, download.progress) },
                 failure = download.failure,
             )
         },
