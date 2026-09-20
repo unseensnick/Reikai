@@ -1,0 +1,34 @@
+name: Dependency availability
+
+# Asks whether every dependency hosted outside Maven Central still resolves.
+#
+# JitPack serves artifacts it built from a source repo. When that repo is deleted or renamed the
+# artifact is gone and cannot be rebuilt, which is how com.github.arkon.FlexibleAdapter broke a cold
+# build of main. Nothing else here catches it: a developer's Gradle cache still holds the jar, and
+# setup-build restores that cache instead of re-resolving, so the failure waits for a fresh clone.
+#
+# Weekly rather than per-push, because the tree does not change the answer; the outside world does.
+# Note that GitHub runs a schedule only on the default branch, so this starts reporting once it
+# reaches main. Run it by hand from any branch with the dispatch trigger below.
+
+on:
+  schedule:
+    # Mondays, 06:00 UTC.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths: ['gradle/libs.versions.toml', 'gradle/mihon.versions.toml', 'scripts/check-external-artifacts.sh']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check external artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check every JitPack dependency still resolves
+        run: bash scripts/check-external-artifacts.sh
