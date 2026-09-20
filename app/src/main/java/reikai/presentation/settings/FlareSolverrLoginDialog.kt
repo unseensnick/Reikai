@@ -2,10 +2,12 @@ package reikai.presentation.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -19,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.semantics.contentType
@@ -95,17 +98,36 @@ fun FlareSolverrLoginDialog(
                 )
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(MR.strings.action_cancel))
-            }
-        },
+        // One full-width row so Clear sits in the bottom-left corner and the actions stay at the
+        // right, instead of all three clustering at the end like the default dialog button layout.
         confirmButton = {
-            // Saving both empty is how a reader clears credentials they no longer need.
-            TextButton(
-                onClick = { onConfirm(username.text.toString().trim(), password.text.toString()) },
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(text = stringResource(MR.strings.action_save))
+                // Empties the fields rather than saving: Save still commits, so a mistaken tap costs
+                // nothing and Cancel puts the stored pair back.
+                TextButton(
+                    enabled = username.text.isNotEmpty() || password.text.isNotEmpty(),
+                    onClick = {
+                        username.clearText()
+                        password.clearText()
+                    },
+                ) {
+                    Text(text = stringResource(MR.strings.action_clear))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onDismissRequest) {
+                        Text(text = stringResource(MR.strings.action_cancel))
+                    }
+                    // Saving both empty is how a reader drops credentials they no longer need.
+                    TextButton(
+                        onClick = { onConfirm(username.text.toString().trim(), password.text.toString()) },
+                    ) {
+                        Text(text = stringResource(MR.strings.action_save))
+                    }
+                }
             }
         },
     )
