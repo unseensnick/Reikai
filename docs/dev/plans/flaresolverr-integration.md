@@ -35,3 +35,24 @@ Shipped (Roadmap P4, on-device verified). Light-novel sources ride the same netw
 - **Proxy mode (serve the page), not cookie-replay.** Replaying the proxy's `cf_clearance` through OkHttp fails on the strict tiers, so the app serves the proxy's own already-cleared page back to the source instead.
 - **Internals extracted to `FlareSolverrClient`.** Mihon's `CloudflareInterceptor` keeps only detection and the delegate decision inside a `// RK` island; every proxy mechanic lives in the net-new class, keeping the upstream patch minimal and the surface greppable.
 - **WebView stays primary.** The proxy is only a fallback, so sources the WebView can clear never pay the proxy round-trip, and a per-host "needed the proxy" memory (in-RAM only) skips the WebView pre-attempt on repeat hosts within a session.
+
+## Open: a server behind basic auth
+
+A reader running the proxy on a public domain has to put auth in front of it, and basic auth is the
+only one of the three the docs suggest (basic auth, an IP allowlist, mTLS) that a phone can use.
+Typing credentials into the address does nothing: OkHttp parses `user:pass@` into the URL and never
+derives an `Authorization` header from it, so the server answers 401 and the app reports only that
+the test failed. Diagnosed in `unseensnick/Reikai` discussion 70, where the reporter offered the PR.
+
+The shape agreed there, waiting on their setup answers before someone writes it:
+
+- Separate username and password fields, the password on a `Preference.privateKey` so a preference
+  backup cannot carry it in clear text, which `flaresolverr_url` would.
+- The header sent preemptively on all four calls the client makes, the root banner probe included: a
+  401 there makes the client decide the server is sessionless, and that decision sticks for the run.
+- The password entered through the tracker sign-in dialog's shape, hidden by default with a reveal,
+  since a settings row prints its value as the subtitle.
+- Userinfo typed into the address moved into the new fields on save, plus a preference migration for
+  the addresses already stored that way, whose credentials are already sitting in old backups.
+- Userinfo never reaches the wire today (OkHttp sends the path and a Host header), so stripping it is
+  about keeping it out of a logged URL rather than stopping a second copy in flight.
