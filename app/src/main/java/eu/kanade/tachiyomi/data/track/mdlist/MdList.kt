@@ -56,6 +56,8 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
 
     override fun displayScore(track: DomainTrack) = track.score.toInt().toString()
 
+    override suspend fun updateUserConfig() = Unit
+
     override suspend fun update(track: Track, didReadChapter: Boolean): Track {
         return withIOContext {
             val mdex = mdex ?: throw MangaDexNotFoundException()

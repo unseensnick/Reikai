@@ -164,6 +164,10 @@ class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates"), DeletableTracker
         saveCredentials(username.ifBlank { name }, credential)
     }
 
+    override suspend fun updateUserConfig() {
+        saveDisplayUsername(api.account().username.orEmpty())
+    }
+
     /**
      * Status moves the entry between lists; progress is written into the note. The note is read back
      * first and left alone when it does not parse, so a bad response cannot blank what the user

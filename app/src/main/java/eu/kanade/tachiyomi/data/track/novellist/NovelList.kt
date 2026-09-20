@@ -177,6 +177,10 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
         }
     }
 
+    override suspend fun updateUserConfig() {
+        saveDisplayUsername(api.getCurrentUser().username)
+    }
+
     override fun logout() {
         super.logout()
         interceptor.newAuth(null)

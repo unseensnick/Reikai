@@ -446,6 +446,7 @@ every release now also ships a foss build with neither in it.
 ### Tracking
 
 #### Added
+- **Settings -> Tracking has a refresh button on each signed-in tracker, so a nickname or score format changed on the site reaches Reikai without signing out.** Works for the light-novel trackers too; trackers that track a server rather than an account do not show it.
 
 - **Binding a tracker to a novel you have already read now fills in when you started reading, as it does for manga.**
 - **Light novels can now be tracked on RanobeDB, NovelList and NovelUpdates, three services built for novels.** Sign in through a browser window on any of them, or paste a personal access token on RanobeDB; what each keeps in sync differs, because not all of them store a score, reading dates or an on-hold state.

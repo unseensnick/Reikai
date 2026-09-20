@@ -207,6 +207,10 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker, Cookie
         }
     }
 
+    override suspend fun updateUserConfig() {
+        saveDisplayUsername(api.getCurrentUser().username)
+    }
+
     override fun logout() {
         super.logout()
         interceptor.newAuth(null)
