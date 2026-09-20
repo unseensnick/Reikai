@@ -30,7 +30,7 @@ if (Config.includeTelemetry) {
 // RK --> AGP-native release signing (adapted from Mihon "Sign APK with AGP", upstream 6552ffe31).
 // The release build is signed with the real key when it's available (CI secrets under unseensnick/*,
 // or a local keystore.properties); see the signingConfigs block in android {}.
-val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystorePropertiesFile = layout.settingsDirectory.file("keystore.properties").asFile
 // RK <--
 
 android {
