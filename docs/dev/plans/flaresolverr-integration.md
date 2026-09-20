@@ -44,6 +44,10 @@ can use. Diagnosed in `unseensnick/Reikai` discussion 70; the shape below was se
 stack that reproduced the reporter's setup, Solverr 1.7.0 with no published ports behind nginx with
 an htpasswd access list.
 
+- **One sign-in row, not two.** The pair is entered together in a dialog shaped like the tracker
+  sign-in one, because a username and password are one thing to fill in, and because a preference row
+  renders its stored value as the subtitle at up to ten lines, which would print the password. The row
+  shows the username, which is what identifies the entry.
 - **Separate username and password preferences, both on `Preference.privateKey`**, matching
   `TrackPreferences`. A default backup then carries neither, since the private-settings option is off
   by default. `flaresolverr_url` has no such prefix, which is why credentials typed into the address

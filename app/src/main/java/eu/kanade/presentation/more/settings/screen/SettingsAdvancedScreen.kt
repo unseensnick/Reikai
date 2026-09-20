@@ -65,7 +65,7 @@ import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.RepairNovelDetails
-import reikai.presentation.settings.FlareSolverrPasswordDialog
+import reikai.presentation.settings.FlareSolverrLoginDialog
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
@@ -233,11 +233,10 @@ object SettingsAdvancedScreen : SearchableSettings {
         val flareSolverrEnabled by networkPreferences.enableFlareSolverr.collectAsState()
         val flareSolverrUrl by networkPreferences.flareSolverrUrl.collectAsState()
         val flareSolverrUsername by networkPreferences.flareSolverrUsername.collectAsState()
-        val flareSolverrPassword by networkPreferences.flareSolverrPassword.collectAsState()
         var flareSolverrTesting by remember { mutableStateOf(false) }
         var flareSolverrTestResult by remember { mutableStateOf<FlareSolverrTestResult?>(null) }
         var flareSolverrTestFailure by remember { mutableStateOf<FlareSolverrTestResult.Failure?>(null) }
-        var showFlareSolverrPassword by remember { mutableStateOf(false) }
+        var showFlareSolverrLogin by remember { mutableStateOf(false) }
         val turnstileSolverEnabled by networkPreferences.enableTurnstileSolver.collectAsState()
         // Spike state, debug only: mirrors the solver's own flag so the row can show it.
         var forceHeadlessSolver by remember { mutableStateOf(TurnstileSolver.forceHeadless) }
@@ -246,14 +245,16 @@ object SettingsAdvancedScreen : SearchableSettings {
         // A local copy, so the row below can tell the two outcomes apart.
         val lastTest = flareSolverrTestResult
 
-        if (showFlareSolverrPassword) {
-            FlareSolverrPasswordDialog(
+        if (showFlareSolverrLogin) {
+            FlareSolverrLoginDialog(
+                currentUsername = flareSolverrUsername,
                 currentPassword = networkPreferences.flareSolverrPassword.get(),
-                onConfirm = {
-                    networkPreferences.flareSolverrPassword.set(it)
-                    showFlareSolverrPassword = false
+                onConfirm = { username, password ->
+                    networkPreferences.flareSolverrUsername.set(username)
+                    networkPreferences.flareSolverrPassword.set(password)
+                    showFlareSolverrLogin = false
                 },
-                onDismissRequest = { showFlareSolverrPassword = false },
+                onDismissRequest = { showFlareSolverrLogin = false },
             )
         }
 
@@ -440,27 +441,17 @@ object SettingsAdvancedScreen : SearchableSettings {
                         }
                     },
                 ),
-                Preference.PreferenceItem.EditTextPreference(
-                    preference = networkPreferences.flareSolverrUsername,
-                    title = stringResource(MR.strings.pref_flaresolverr_username),
-                    subtitle = if (flareSolverrUsername.isBlank()) {
-                        stringResource(MR.strings.pref_flaresolverr_username_summary)
-                    } else {
-                        "%s"
-                    },
-                    enabled = flareSolverrEnabled,
-                ),
                 Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_flaresolverr_password),
-                    // Never "%s": a preference row renders its value as the subtitle, so an
-                    // EditTextPreference here would print the password on the screen.
-                    subtitle = if (flareSolverrPassword.isBlank()) {
-                        stringResource(MR.strings.pref_flaresolverr_password_unset)
+                    title = stringResource(MR.strings.pref_flaresolverr_login),
+                    // The username identifies the row; the password is never rendered, since a
+                    // preference subtitle prints its value at up to ten lines.
+                    subtitle = if (flareSolverrUsername.isBlank()) {
+                        stringResource(MR.strings.pref_flaresolverr_login_summary)
                     } else {
-                        stringResource(MR.strings.pref_flaresolverr_password_set)
+                        flareSolverrUsername
                     },
                     enabled = flareSolverrEnabled,
-                    onClick = { showFlareSolverrPassword = true },
+                    onClick = { showFlareSolverrLogin = true },
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_test_flaresolverr),

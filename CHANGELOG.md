@@ -362,7 +362,7 @@ every release now also ships a foss build with neither in it.
 ### Browse & sources
 
 #### Added
-- **A FlareSolverr server behind a password now works: enter its username and password under Settings -> Advanced.** Credentials already typed into the address move across on upgrade, and neither field is included in a backup unless you turn on private settings.
+- **A FlareSolverr server behind a password now works: sign in to it under Settings -> Advanced.** Credentials already typed into the address move across on upgrade, and neither field is included in a backup unless you turn on private settings.
 
 - **A chapter in the local manga source now takes its date from the Year, Month and Day in its ComicInfo.xml (synced from Mihon, mihonapp/mihon#3967).** Only the file's last-modified date could set it before.
 - **Any source's filters can now be saved as a named search and re-applied from a chip while you browse that source (ported from Komikku).** Long-press the chip to delete the search.

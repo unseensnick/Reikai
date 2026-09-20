@@ -57,7 +57,7 @@ Pick Byparr or FlareSolverr only if you already run one and it works for your so
 1. Check it is reachable: open `http://<host>:8191` in a browser on the same network. Solverr and FlareSolverr answer with a welcome page, Byparr serves its API docs at `/docs`.
 1. Go to <nav to="advanced"> and, under **Networking**, turn on **Enable FlareSolverr**.
 1. Enter `http://<host>:8191` in **FlareSolverr URL**. That field and the test below it are not on the screen at all until the switch is on, so turn it on first.
-1. Fill in **FlareSolverr username** and **FlareSolverr password** only if something in front of the server asks for them. Leave both empty otherwise.
+1. Open **FlareSolverr sign-in** and fill it in only if something in front of the server asks for a password. Leave it alone otherwise.
 1. Tap **Test FlareSolverr**. Optional: it fetches a page through the server and tells you whether that worked.
 :::
 
@@ -96,7 +96,7 @@ If you already run a reverse proxy (Caddy, nginx, Traefik), point a subdomain at
 
 Put TLS and authentication in front of it. See the warning below.
 
-Basic auth goes in **FlareSolverr username** and **FlareSolverr password**, the two fields under the address. Do not put `user:password@` in the address itself: the app will not accept it there, and an address is not a private setting, so it would travel in your backups in clear text.
+Basic auth goes under **FlareSolverr sign-in**, the row below the address, which asks for a username and password together. Do not put `user:password@` in the address itself: the app will not accept it there, and an address is not a private setting, so it would travel in your backups in clear text.
 
 Raise the proxy's read timeout to at least 180 seconds. A hard solve takes longer than the 60 seconds nginx allows by default, and the proxy cuts the request off before the solver answers.
 ::::
