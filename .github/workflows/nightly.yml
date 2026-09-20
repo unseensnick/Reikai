@@ -89,6 +89,7 @@ jobs:
         uses: ./.github/actions/setup-build
         with:
           cache-read-only: false
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       # build_check.yml runs this on PRs only, and the release branch has none until the cut.
       - name: Verify SQLDelight migrations
@@ -102,11 +103,18 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: bash scripts/ci/write-firebase-config.sh
 
+      # The build script reads a keystore path, never the base64 secret: writing that file from
+      # Gradle's configuration phase is a side effect the configuration cache refuses to replay.
+      - name: Decode the signing keystore
+        run: echo "$SIGNING_KEY" | base64 -d > "${{ runner.temp }}/reikai.keystore"
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+
       - name: Build signed nightly APKs
         run: ./gradlew assembleNightly -Pinclude-telemetry -Penable-updater -Ppreview-docs
         env:
           REIKAI_GITHUB_RELEASE: "true"
-          storeFileBase64: ${{ secrets.SIGNING_KEY }}
+          storeFile: ${{ runner.temp }}/reikai.keystore
           storePassword: ${{ secrets.KEY_STORE_PASSWORD }}
           keyAlias: ${{ secrets.ALIAS }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}

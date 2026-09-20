@@ -1,13 +1,13 @@
+import com.android.build.api.variant.ApplicationVariant
 import com.android.build.api.variant.BuildConfigField
 import mihon.gradle.Config
-import mihon.gradle.getBuildTime
-import mihon.gradle.getCurrentBuildTime
+import mihon.gradle.getCurrentTime
 import mihon.gradle.getLatestCommitCount
 import mihon.gradle.getLatestCommitSha
+import mihon.gradle.getLatestCommitTime
 import mihon.gradle.tasks.ReplaceShortcutsPlaceholderTask
 import java.io.FileInputStream
 import java.util.Properties
-import kotlin.io.encoding.Base64
 
 plugins {
     alias(mihonx.plugins.android.application)
@@ -61,9 +61,6 @@ android {
         versionName = "0.3.2"
         // RK <--
 
-        buildConfigField("String", "COMMIT_COUNT", "\"${getLatestCommitCount()}\"")
-        buildConfigField("String", "COMMIT_SHA", "\"${getLatestCommitSha()}\"")
-        // RK: BUILD_TIME is the current time on debug and nightly, set in androidComponents below
         buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
         buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")
 
@@ -72,16 +69,13 @@ android {
 
     // RK --> sign release with the real key when available, reconfiguring the "debug" signing config
     // that the release buildType references. Gated on REIKAI_GITHUB_RELEASE (set only by release.yml /
-    // preview.yml, which also pass the keystore secrets), so the unsigned PR build (build_check.yml)
+    // nightly.yml, which also pass the keystore secrets), so the unsigned PR build (build_check.yml)
     // never reads a keystore that isn't there. Adapted from Mihon's MIHON_GITHUB_RELEASE gate (upstream
     // 50d0e8ae0). Locally a keystore.properties signs; with neither, "debug" stays the default debug key.
     if (System.getenv("REIKAI_GITHUB_RELEASE").toBoolean()) {
-        val tempStoreFile = file(System.getenv("RUNNER_TEMP")).resolve("reikai.keystore")
-        val storeFileBytes = System.getenv("storeFileBase64").let(Base64::decode)
-        tempStoreFile.outputStream().use { it.write(storeFileBytes) }
         signingConfigs {
             named("debug") {
-                storeFile = tempStoreFile
+                storeFile = file(System.getenv("storeFile"))
                 storePassword = System.getenv("storePassword")
                 keyAlias = System.getenv("keyAlias")
                 keyPassword = System.getenv("keyPassword")
@@ -103,7 +97,6 @@ android {
     buildTypes {
         val debug = getByName("debug") {
             applicationIdSuffix = ".dev" // RK: matches upstream, so this block stays diffable
-            versionNameSuffix = "-${getLatestCommitCount()}"
             isPseudoLocalesEnabled = true
         }
         val release = getByName("release") {
@@ -119,9 +112,6 @@ android {
             isProfileable = true
 
             proguardFiles("proguard-android-optimize.txt", "proguard-rules.pro")
-
-            // RK: getBuildTime is the commit time only; the current time comes from androidComponents below
-            buildConfigField("String", "BUILD_TIME", "\"${getBuildTime()}\"")
         }
 
         val commonMatchingFallbacks = listOf(release.name)
@@ -138,12 +128,9 @@ android {
 
             applicationIdSuffix = ".debug"
 
-            versionNameSuffix = debug.versionNameSuffix
             signingConfig = debug.signingConfig
 
             matchingFallbacks.addAll(commonMatchingFallbacks)
-
-            // RK: BUILD_TIME is the current time, set in androidComponents below
         }
         create("benchmark") {
             initWith(release)
@@ -400,18 +387,31 @@ dependencies {
     testImplementation(libs.sqldelight.sqliteDriver)
 }
 
+val latestCommitCount = getLatestCommitCount()
+val latestCommitSha = getLatestCommitSha()
+val latestCommitTime = getLatestCommitTime()
+val currentTime = getCurrentTime()
+
+fun ApplicationVariant.buildConfigField(type: String, name: String, value: Provider<String>) {
+    buildConfigFields?.put(name, value.map { BuildConfigField(type, it, null) })
+}
+
 androidComponents {
-    // RK --> debug and nightly stamp the current time. A lazy field, because a buildConfigField
-    // literal is fixed at configuration and the configuration cache would replay it on every build.
     onVariants { variant ->
-        if (variant.buildType == "debug" || variant.buildType == "nightly") {
-            variant.buildConfigFields?.put(
-                "BUILD_TIME",
-                getCurrentBuildTime().map { BuildConfigField("String", "\"$it\"", null) },
-            )
+        val isUnstableBuild = variant.buildType == "debug" || variant.buildType == "nightly"
+        val buildTime = if (isUnstableBuild) currentTime else latestCommitTime
+
+        variant.buildConfigField("String", "COMMIT_COUNT", latestCommitCount.map { "\"$it\"" })
+        variant.buildConfigField("String", "COMMIT_SHA", latestCommitSha.map { "\"$it\"" })
+        variant.buildConfigField("String", "BUILD_TIME", buildTime.map { "\"$it\"" })
+
+        if (isUnstableBuild) {
+            variant.outputs.forEach { output ->
+                val versionName = output.versionName.get()
+                output.versionName.set(latestCommitCount.map { "$versionName-$it" })
+            }
         }
     }
-    // RK <--
 
     onVariants { variant ->
         val resSource = variant.sources.res ?: return@onVariants

@@ -12,6 +12,13 @@ inputs:
       warm instead of restoring whatever the default branch last wrote.
     required: false
     default: 'true'
+  cache-encryption-key:
+    description: >
+      Base64 AES key the Gradle action encrypts cached configuration-cache data with. A composite
+      action cannot read secrets itself, so each caller passes GRADLE_ENCRYPTION_KEY. Left empty the
+      build still runs, the action just declines to save that half of the cache.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -26,6 +33,7 @@ runs:
       uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       with:
         cache-read-only: ${{ inputs.cache-read-only }}
+        cache-encryption-key: ${{ inputs.cache-encryption-key }}
 
     - name: Copy CI gradle.properties
       shell: bash
