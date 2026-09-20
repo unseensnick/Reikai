@@ -111,7 +111,7 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
 
       - name: Build signed nightly APKs
-        run: ./gradlew assembleNightly -Pinclude-telemetry -Penable-updater -Ppreview-docs
+        run: ./gradlew assembleNightly -Pdist=github -Ppreview-docs
         env:
           REIKAI_GITHUB_RELEASE: "true"
           storeFile: ${{ runner.temp }}/reikai.keystore

@@ -73,6 +73,9 @@ jobs:
           report_paths: '**/build/test-results/test*/TEST-*.xml'
 
       # Mihon base has no product flavors; the variant is just `release` (debug-signed for now).
+      # No -Pdist, so this is the local profile: no telemetry and no updater. Upstream builds its
+      # PR check as `ci`, which we cannot, because that applies the Firebase plugins and a pull
+      # request has no google-services.json written for it.
       - name: Build the app
         run: ./gradlew assembleRelease
 

@@ -66,7 +66,7 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
 
       - name: Build signed release APKs
-        run: ./gradlew assembleRelease -Pinclude-telemetry -Penable-updater
+        run: ./gradlew assembleRelease -Pdist=github
         env:
           REIKAI_GITHUB_RELEASE: "true"
           storeFile: ${{ runner.temp }}/reikai.keystore
@@ -74,11 +74,12 @@ jobs:
           keyAlias: ${{ secrets.ALIAS }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      # The FOSS build is the Firebase-free alternative, so it is a second Gradle run WITHOUT
-      # -Pinclude-telemetry (telemetry inclusion is a whole-build property, not a per-variant one).
+      # The FOSS build is the Firebase-free alternative, so it is a second Gradle run under a
+      # distribution that excludes telemetry, which is a whole-build property rather than a
+      # per-variant one.
       # Universal only, and the name must keep "-foss" for the in-app updater to match it.
       - name: Build signed FOSS APK
-        run: ./gradlew assembleFoss -Penable-updater
+        run: ./gradlew assembleFoss -Pdist=foss
         env:
           REIKAI_GITHUB_RELEASE: "true"
           storeFile: ${{ runner.temp }}/reikai.keystore
