@@ -23,9 +23,6 @@ Opportunistic polish:
 
 - **Compiled-APK novel extensions (tsundoku / IReader repos)** `[XL]` - load the two APK novel-extension ecosystems alongside LN plugins: tsundoku's novel-extension type (a `tachiyomi.novelextension` feature flag on Mihon's extension format plus extra methods like `fetchPageText`) and IReader's extension repo. Requested in `unseensnick/Reikai#31`; starts with its own scout (the 2026-08-02 tsundoku source-system research is the groundwork).
 
-### Network & bypass
-
-
 ### Data & backup
 
 - **Share the backup entry loop behind one neutral driver** `[M]` - one adapter answering chapters, categories, tracks and history per `EntryId`, so the option gates and flush cadence are written once rather than per content type. It collapses the gates, never the fields, which the frozen wire format rules out. [Plan](docs/dev/plans/content-layer-architecture.md).

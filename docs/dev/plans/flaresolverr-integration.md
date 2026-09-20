@@ -73,8 +73,31 @@ an htpasswd access list.
   install marks every migration done without running it, so a restored address would otherwise keep
   its password where nothing reads it and every later backup would copy it forward. Neither path can
   fix a backup already taken, so the docs say to rotate the password.
-- **Still open, from the same investigation:** the client reads for 60 seconds while asking the server
-  for a 60-second `maxTimeout`, so a solve that runs long is lost at the app end with a socket timeout
-  and reported as unreachable. Measured against a server answering at 75 seconds: the call dies at
-  exactly 60.0. The reporter having to raise their proxy's read timeout to 180 seconds says their
-  solves do run that long. Tracked separately, since it is not an auth defect.
+- **A separate defect the same investigation found, fixed in its own commit:** the client read for 60
+  seconds while asking the server for a 60-second `maxTimeout`, so a solve that ran long was lost at
+  the app end with a socket timeout and reported as an unreachable server. The read timeout is 90
+  seconds now, above what each command asks for, and a timeout is classified apart from other IO
+  failures on `InterruptedIOException`, which covers OkHttp's call timeout as well as a socket read.
+  The 90-second call timeout stays: a solve runs inside `NetworkHelper`'s client, whose own
+  `callTimeout` is two minutes, so nothing above that is reachable on this path. Measured against a
+  server answering at 75 seconds: it died at exactly 60.0 before and succeeds at 75.3 now. No solve
+  that long was reproducible against a real solver here, since the sites tried return no challenge to
+  this address; the reporter having to raise their proxy to 180 seconds is what says these run long.
+- **Clearing the pair is one tap.** The dialog carries a Clear button in the bottom-left corner that
+  empties both fields without saving, so Save still commits and Cancel restores the stored pair. The
+  button row follows the one `ManageMergeSourcesDialog` already uses for a bottom-left action.
+
+### Verification
+
+Device-verified end to end on the Fold on a minified nightly, against a local stack reproducing the
+reporter's setup (Solverr 1.7.0 with no published ports behind nginx with an htpasswd access list,
+reached from the phone over `adb reverse`). Before the change the proxy logged
+`POST /v1 401 auth_hdr_present=0`, which is the reporter's own line; after it, `user=[reikai] 200`
+with the solver solving. The upgrade migration was exercised by planting a credential-bearing address
+on the installed 195 build and installing 196 over it. The restore half was exercised separately on
+the emulator: a backup taken on 195 carries the password in clear text (confirmed by reading the
+decompressed `.tachibk`), and restoring it into a data-cleared 196 install, where no migration runs,
+came back with the address stripped and the credentials moved.
+
+The reporter confirmed the shipped build against their own public-domain proxy: sign-in took and the
+test passed first go.
