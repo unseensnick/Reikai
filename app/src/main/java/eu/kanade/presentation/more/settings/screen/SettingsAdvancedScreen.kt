@@ -702,6 +702,7 @@ private fun FlareSolverrTestFailure.stringRes(): StringResource = when (this) {
     FlareSolverrTestFailure.SOLVER_DOWN -> MR.strings.flaresolverr_test_error_solver_down
     FlareSolverrTestFailure.HTTP_ERROR -> MR.strings.flaresolverr_test_error_http
     FlareSolverrTestFailure.UNREACHABLE -> MR.strings.flaresolverr_test_error_unreachable
+    FlareSolverrTestFailure.TIMED_OUT -> MR.strings.flaresolverr_test_error_timed_out
     FlareSolverrTestFailure.NOT_A_SOLVER -> MR.strings.flaresolverr_test_error_not_solver
     FlareSolverrTestFailure.SOLVE_FAILED -> MR.strings.flaresolverr_test_error_solve
 }

@@ -393,6 +393,7 @@ every release now also ships a foss build with neither in it.
 - **The Browse sources filter now covers manga and light novels from one screen, whichever chip you opened it from.** A Manga / Novels chip switches halves; the All and Manga chips used to reach only the manga sources.
 
 #### Fixed
+- **A Cloudflare bypass that takes over a minute now finishes instead of failing for no visible reason.** Reikai gave up at the very moment it had asked the server to answer by, and the test button called such a server unreachable rather than slow.
 - **Testing FlareSolverr now tells a solver that is still starting apart from a broken one.** A reverse proxy answers for the solver's first twenty seconds or so, which read as a plain server error before.
 
 - **The seven sources whose metadata the app enhances now open their settings, from the extension list and from their own catalogue.** The extension list gave an empty page and the catalogue had no settings button; they include a large mainstream source and several adult ones.

@@ -2,6 +2,9 @@ package eu.kanade.tachiyomi.network.interceptor
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import java.io.InterruptedIOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
 
 /**
  * The settings Test button names the failure in the reader's language, so the status the server (or
@@ -49,5 +52,23 @@ class FlareSolverrTestFailureTest {
     @Test
     fun `the solver's own error is not blamed on a gateway`() {
         FlareSolverrTestFailure.ofStatus(500) shouldBe FlareSolverrTestFailure.HTTP_ERROR
+    }
+
+    @Test
+    fun `a read that ran out is not reported as an unreachable server`() {
+        FlareSolverrTestFailure.ofException(SocketTimeoutException("timeout")) shouldBe
+            FlareSolverrTestFailure.TIMED_OUT
+    }
+
+    @Test
+    fun `the call timeout reads the same way, though it is a different exception`() {
+        FlareSolverrTestFailure.ofException(InterruptedIOException("timeout")) shouldBe
+            FlareSolverrTestFailure.TIMED_OUT
+    }
+
+    @Test
+    fun `anything else really is an unreachable server`() {
+        FlareSolverrTestFailure.ofException(ConnectException("failed to connect")) shouldBe
+            FlareSolverrTestFailure.UNREACHABLE
     }
 }

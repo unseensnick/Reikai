@@ -1072,6 +1072,7 @@
     <string name="flaresolverr_test_error_solver_down">The proxy answered, but the solver behind it is down</string>
     <string name="flaresolverr_test_error_http">The server returned an error</string>
     <string name="flaresolverr_test_error_unreachable">Could not reach the server</string>
+    <string name="flaresolverr_test_error_timed_out">The server took too long to answer</string>
     <string name="flaresolverr_test_error_not_solver">Something answered, but it is not a solver</string>
     <string name="flaresolverr_test_error_solve">The server could not fetch the test page</string>
     <string name="error_flaresolverr_invalid_url">Invalid URL, must start with http:// or https://</string>

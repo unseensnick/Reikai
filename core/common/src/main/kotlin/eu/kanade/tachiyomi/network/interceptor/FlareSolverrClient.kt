@@ -23,6 +23,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
 import org.jsoup.Jsoup
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -48,7 +49,11 @@ class FlareSolverrClient(
     private val flareSolverrClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
+            // Above the 60s maxTimeout every command asks the server for, so the server has room to
+            // report its own failure rather than the read expiring at the same moment and the failure
+            // reading as an unreachable server. The 90s cap stays: the solve runs inside
+            // NetworkHelper's client, whose own callTimeout is two minutes.
+            .readTimeout(90, TimeUnit.SECONDS)
             .callTimeout(90, TimeUnit.SECONDS)
             // Basic auth for a proxy in front of the server, applied here rather than at each call
             // so no request can be left out. Missing it on the banner probe alone would 401 that
@@ -144,7 +149,7 @@ class FlareSolverrClient(
             }
         } catch (e: IOException) {
             return@withContext FlareSolverrTestResult.Failure(
-                FlareSolverrTestFailure.UNREACHABLE,
+                FlareSolverrTestFailure.ofException(e),
                 e.message ?: e.toString(),
             )
         }
@@ -407,6 +412,7 @@ enum class FlareSolverrTestFailure {
     NOT_FOUND,
     SOLVER_DOWN,
     HTTP_ERROR,
+    TIMED_OUT,
     UNREACHABLE,
     NOT_A_SOLVER,
     SOLVE_FAILED,
@@ -424,6 +430,11 @@ enum class FlareSolverrTestFailure {
             502, 503, 504 -> SOLVER_DOWN
             else -> HTTP_ERROR
         }
+
+        // A read that ran out is not an unreachable address: something answered and then took too
+        // long. Matches the call timeout too, which OkHttp reports as the same supertype.
+        fun ofException(e: IOException): FlareSolverrTestFailure =
+            if (e is InterruptedIOException) TIMED_OUT else UNREACHABLE
     }
 }
 
