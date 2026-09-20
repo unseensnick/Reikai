@@ -6,6 +6,7 @@ import android.content.Intent
 import android.provider.Settings
 import android.webkit.WebStorage
 import android.webkit.WebView
+import android.widget.Toast
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -223,6 +224,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         val scope = rememberCoroutineScope()
         val flareSolverrEnabled by networkPreferences.enableFlareSolverr.collectAsState()
         val flareSolverrUrl by networkPreferences.flareSolverrUrl.collectAsState()
+        val flareSolverrTestFailure = stringResource(MR.strings.flaresolverr_test_failure)
         val turnstileSolverEnabled by networkPreferences.enableTurnstileSolver.collectAsState()
         // Spike state, debug only: mirrors the solver's own flag so the row can show it.
         var forceHeadlessSolver by remember { mutableStateOf(TurnstileSolver.forceHeadless) }
@@ -394,7 +396,13 @@ object SettingsAdvancedScreen : SearchableSettings {
                                         context.toast(MR.strings.flaresolverr_test_success)
                                     }
                                     .onFailure {
-                                        context.toast(MR.strings.flaresolverr_test_failure)
+                                        // The status or host error is the whole diagnosis: a 401 from
+                                        // an auth proxy in front of the server reads nothing like an
+                                        // unreachable one, and the fixed sentence hid both.
+                                        context.toast(
+                                            it.message.orEmpty().ifBlank { flareSolverrTestFailure },
+                                            Toast.LENGTH_LONG,
+                                        )
                                     }
                             }
                         }
