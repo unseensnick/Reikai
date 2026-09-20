@@ -526,6 +526,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **Restoring a backup now brings your light-novel plugins back by itself, and names any it could not.** A backup carries a plugin's address but not its script, so the novel sources it restored could not open anything until you reinstalled each plugin by hand, with the restore reporting no errors.
 - **Restoring a backup now keeps Default as your default category and in your update categories, and a Yōkai backup no longer sends them to its last category.** A Yōkai backup's other category choices are left out, since it saves no way to match them.
 - **The restore log now names every manga extension a restore could not reinstall, including one whose install failed, was cancelled or timed out.** It used to list only those whose repo was missing.
 - **Your own title, author or cover edits on a series you have read but removed from the library are no longer missing from a backup.** They were dropped whenever the backup included read entries outside the library.

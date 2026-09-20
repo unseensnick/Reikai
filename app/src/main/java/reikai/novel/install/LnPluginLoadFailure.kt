@@ -63,5 +63,6 @@ data class LnPluginLoadFailure(
     }
 }
 
-/** An installed plugin whose script is not stored, which a load never downloads to replace. */
-class LnPluginScriptMissingException(url: String) : Exception("no installed script for $url")
+/** An installed plugin whose script is not stored and could not be fetched from its URL again. */
+class LnPluginScriptMissingException(url: String, cause: Throwable? = null) :
+    Exception("no installed script for $url", cause)

@@ -62,11 +62,6 @@ class LnPluginInstaller(
     // network blip or Cloudflare) heals on the next novel-screen open instead of needing a cold restart.
     private val loadedUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-    // Restored URLs a repo vouched for whose script this device never stored. They are the one case a
-    // load downloads, since a restore is when the repo's current script is expected; each leaves once
-    // stored. In memory only, so after a process death a still-missing one waits for a reinstall.
-    private val restoredUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
-
     /**
      * Installed plugins whose last load failed, by canonical URL. Kept until a load or install of that
      * URL succeeds or it is uninstalled, so the Extensions list can offer the reason and an uninstall.
@@ -109,7 +104,6 @@ class LnPluginInstaller(
         val dropped = registryMutex.withLock {
             val installed = prefs.installedPluginUrls().get()
             val validated = installed.filterTo(HashSet()) { it in trusted }
-            restoredUrls += validated
             if (validated.size == installed.size) {
                 0
             } else {
@@ -136,7 +130,6 @@ class LnPluginInstaller(
         val info = host.loadPlugin(scopeIdFromUrl(canonical), src, metadata?.iconUrl, metadata?.lang)
         // Stored only once it loads, so a broken new version leaves the installed one in place.
         loader.store(canonical, src)
-        restoredUrls -= canonical
         val source = LnPluginSource(host, info)
         manager.register(source)
         rememberSeenSources(listOf(source))
@@ -190,24 +183,14 @@ class LnPluginInstaller(
                 async {
                     try {
                         val stored = loader.installed(url)
-                        val src = stored
-                            ?: if (url in
-                                restoredUrls
-                            ) {
-                                loader.download(url)
-                            } else {
-                                throw LnPluginScriptMissingException(url)
-                            }
+                        val src = stored ?: downloadMissingScript(url)
                         val info = host.loadPlugin(
                             scopeIdFromUrl(url),
                             src,
                             metadata[url]?.iconUrl,
                             metadata[url]?.lang,
                         )
-                        if (stored == null) {
-                            loader.store(url, src)
-                            restoredUrls -= url
-                        }
+                        if (stored == null) loader.store(url, src)
                         val source = LnPluginSource(host, info)
                         manager.register(source)
                         LoadResult.Loaded(url, source, info.version)
@@ -236,6 +219,21 @@ class LnPluginInstaller(
         rememberSeenSources(ok.map { it.source })
         recordLoadedVersions(ok)
         return ok.map { it.source }
+    }
+
+    /**
+     * Fetch the script for an installed plugin this device has none stored for. A backup carries the
+     * URL list but never the scripts, and a cleared data dir loses them, which used to leave the
+     * plugin listed as installed with nothing able to run until the reader reinstalled it by hand.
+     * Trust is unchanged: the URL is one they installed, or one revalidation kept because an added
+     * repo vouches for it. A fetch that fails still reports the script as missing.
+     */
+    private suspend fun downloadMissingScript(url: String): String = try {
+        loader.download(url)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        throw LnPluginScriptMissingException(url, e)
     }
 
     /**
@@ -336,7 +334,6 @@ class LnPluginInstaller(
         }
         urlsToRemove.forEach { loader.delete(it) }
         loadedUrls.removeAll(urlsToRemove)
-        restoredUrls.removeAll(urlsToRemove)
         failures.update { it - urlsToRemove }
         manager.unregister(pluginId)
         logcat(LogPriority.INFO) { "uninstalled plugin $pluginId (${urlsToRemove.size} url(s))" }

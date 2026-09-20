@@ -28,6 +28,7 @@ import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionStoreRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.FeedRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
+import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelPluginRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
 import eu.kanade.tachiyomi.data.download.DownloadCache
@@ -72,6 +73,7 @@ class BackupRestorer(
     private val novelRestorer: NovelRestorer,
     private val extensionRestorer: ExtensionRestorer,
     private val feedRestorer: FeedRestorer,
+    private val novelPluginRestorer: NovelPluginRestorer,
     private val reconcileMergedChapters: ReconcileMergedChapters,
     private val novelDownloadCache: NovelDownloadCache,
     // RK <--
@@ -184,10 +186,26 @@ class BackupRestorer(
                 }
             }
             restoreNovelsStream(uri, summary, options)
-            // RK: novel plugins are NOT reinstalled here. Their install state (URLs + metadata) rides
-            // the preference backup, so the normal lazy loader re-downloads them on the next novel-
-            // screen open. A restore-time reinstall just duplicated that work and stalled on any
-            // unreachable repo.
+            // RK: a backup carries the plugin URLs (through the preference backup) but never their
+            // scripts, so bring those back here and name the ones that could not come, as the manga
+            // extensions above are named. Leaving it to the lazy loader meant a restore reported no
+            // errors while every novel source was unusable.
+            if (options.appSettings) {
+                ensureActive()
+                try {
+                    novelPluginRestorer.restore().forEach { (name, reason) ->
+                        errors.add(
+                            Date() to if (name != null) {
+                                "Light-novel plugin not reinstalled ($reason): $name"
+                            } else {
+                                "Light-novel plugins not reinstalled ($reason)"
+                            },
+                        )
+                    }
+                } catch (e: Exception) {
+                    errors.add(Date() to "Error reinstalling light-novel plugins: ${e.message}")
+                }
+            }
             // RK <--
 
             // TODO: optionally trigger online library + tracker update
