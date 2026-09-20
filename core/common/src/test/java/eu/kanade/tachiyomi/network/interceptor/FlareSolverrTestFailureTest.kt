@@ -30,7 +30,24 @@ class FlareSolverrTestFailureTest {
     }
 
     @Test
-    fun `any other status falls back to the generic server error`() {
+    fun `a gateway status means the proxy is up and the solver is not`() {
+        // A cold solver behind a live proxy answers this for its whole startup, which is long
+        // enough that a reader will press Test during it.
+        FlareSolverrTestFailure.ofStatus(502) shouldBe FlareSolverrTestFailure.SOLVER_DOWN
+    }
+
+    @Test
+    fun `an unavailable solver reads the same way`() {
+        FlareSolverrTestFailure.ofStatus(503) shouldBe FlareSolverrTestFailure.SOLVER_DOWN
+    }
+
+    @Test
+    fun `a gateway timeout reads the same way`() {
+        FlareSolverrTestFailure.ofStatus(504) shouldBe FlareSolverrTestFailure.SOLVER_DOWN
+    }
+
+    @Test
+    fun `the solver's own error is not blamed on a gateway`() {
         FlareSolverrTestFailure.ofStatus(500) shouldBe FlareSolverrTestFailure.HTTP_ERROR
     }
 }

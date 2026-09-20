@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.network.interceptor
 
 import eu.kanade.tachiyomi.network.AndroidCookieJar
+import eu.kanade.tachiyomi.network.NetworkPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -41,6 +42,7 @@ import java.util.concurrent.TimeUnit
  */
 class FlareSolverrClient(
     private val cookieManager: AndroidCookieJar,
+    private val networkPreferences: NetworkPreferences,
 ) {
 
     private val flareSolverrClient: OkHttpClient by lazy {
@@ -48,6 +50,19 @@ class FlareSolverrClient(
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .callTimeout(90, TimeUnit.SECONDS)
+            // Basic auth for a proxy in front of the server, applied here rather than at each call
+            // so no request can be left out. Missing it on the banner probe alone would 401 that
+            // probe, which latches [fsSessionsSupported] off for the rest of the run.
+            .addInterceptor { chain ->
+                val header = flareSolverrAuthHeader(
+                    networkPreferences.flareSolverrUsername.get().trim(),
+                    networkPreferences.flareSolverrPassword.get(),
+                )
+                val request = chain.request()
+                chain.proceed(
+                    if (header == null) request else request.newBuilder().header("Authorization", header).build(),
+                )
+            }
             .build()
     }
 
@@ -390,6 +405,7 @@ enum class FlareSolverrTestFailure {
     AUTH_REQUIRED,
     FORBIDDEN,
     NOT_FOUND,
+    SOLVER_DOWN,
     HTTP_ERROR,
     UNREACHABLE,
     NOT_A_SOLVER,
@@ -398,11 +414,14 @@ enum class FlareSolverrTestFailure {
 
     companion object {
         /** A proxy in front of the server answers before it does, so these statuses are about the
-         *  proxy rather than the solve: 407 is a proxy's own challenge, 401 a password on the path. */
+         *  proxy rather than the solve: 407 is a proxy's own challenge, 401 a password on the path,
+         *  and a gateway status means the proxy is up while the solver behind it is not, which a
+         *  cold solver produces for its whole startup. */
         fun ofStatus(code: Int): FlareSolverrTestFailure = when (code) {
             401, 407 -> AUTH_REQUIRED
             403 -> FORBIDDEN
             404 -> NOT_FOUND
+            502, 503, 504 -> SOLVER_DOWN
             else -> HTTP_ERROR
         }
     }

@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.network.NetworkPreferences
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -61,6 +62,7 @@ class CategoryPreferenceRestoreTest {
         ),
         novelPreferences = NovelPreferences(store),
         extensionSourcePreferences = SourcePreferences(store),
+        networkPreferences = NetworkPreferences(store, isDebugBuild = false),
     )
 
     @BeforeEach

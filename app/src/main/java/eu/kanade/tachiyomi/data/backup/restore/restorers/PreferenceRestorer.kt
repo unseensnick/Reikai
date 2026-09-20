@@ -15,6 +15,9 @@ import eu.kanade.tachiyomi.data.backup.models.LongPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.network.NetworkPreferences
+import eu.kanade.tachiyomi.network.interceptor.FLARESOLVERR_URL_KEY
+import eu.kanade.tachiyomi.network.interceptor.carryFlareSolverrUserInfo
 import eu.kanade.tachiyomi.source.sourcePreferences
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
@@ -46,6 +49,8 @@ class PreferenceRestorer(
     private val novelPreferences: NovelPreferences,
     // RK: for upstream's retired extension NSFW switch, carried the same way.
     private val extensionSourcePreferences: SourcePreferences,
+    // RK: for a bypass-server address that still carries credentials in it.
+    private val networkPreferences: NetworkPreferences,
 ) {
     suspend fun restoreApp(
         preferences: List<BackupPreference>,
@@ -164,6 +169,13 @@ class PreferenceRestorer(
                 return@forEach
             }
             if (key in DEAD_READER_TTS_BUTTON_KEYS) {
+                return@forEach
+            }
+            // RK: an address that carries user:password@ never authenticated anything, and the key is
+            // not private, so it is exactly what an old backup holds in clear text. Cleaned through
+            // the same kernel the upgrade migration uses, since a fresh install runs no migrations.
+            if (key == FLARESOLVERR_URL_KEY) {
+                (value as? StringPreferenceValue)?.let { networkPreferences.carryFlareSolverrUserInfo(it.value) }
                 return@forEach
             }
             // RK: a restored ln_installed_plugin_urls set can auto-load arbitrary plugin .js URLs that

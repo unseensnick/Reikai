@@ -57,6 +57,7 @@ Pick Byparr or FlareSolverr only if you already run one and it works for your so
 1. Check it is reachable: open `http://<host>:8191` in a browser on the same network. Solverr and FlareSolverr answer with a welcome page, Byparr serves its API docs at `/docs`.
 1. Go to <nav to="advanced"> and, under **Networking**, turn on **Enable FlareSolverr**.
 1. Enter `http://<host>:8191` in **FlareSolverr URL**. That field and the test below it are not on the screen at all until the switch is on, so turn it on first.
+1. Fill in **FlareSolverr username** and **FlareSolverr password** only if something in front of the server asks for them. Leave both empty otherwise.
 1. Tap **Test FlareSolverr**. Optional: it fetches a page through the server and tells you whether that worked.
 :::
 
@@ -94,11 +95,21 @@ Nothing is opened on your router, and the proxy answers only devices signed in t
 If you already run a reverse proxy (Caddy, nginx, Traefik), point a subdomain at port `8191` and set **FlareSolverr URL** to `https://flaresolverr.example.com`.
 
 Put TLS and authentication in front of it. See the warning below.
+
+Basic auth goes in **FlareSolverr username** and **FlareSolverr password**, the two fields under the address. Do not put `user:password@` in the address itself: the app will not accept it there, and an address is not a private setting, so it would travel in your backups in clear text.
+
+Raise the proxy's read timeout to at least 180 seconds. A hard solve takes longer than the 60 seconds nginx allows by default, and the proxy cuts the request off before the solver answers.
 ::::
 
 ::: danger An exposed bypass proxy is an open proxy
 Reaching it over a public domain puts an endpoint on the open internet, and anyone who finds it can use your machine to browse through.
 Lock it down with basic auth, an IP allowlist or mTLS before pointing anything at it.
+
+This is not theoretical. A reader who did this had the hostname appear in Certificate Transparency logs within minutes of issuing the certificate, and bots probing `/.env` and `/.git/HEAD` the same evening. The password in front of it is what turned those away.
+:::
+
+::: warning A hosted solver is blocked by some sources
+A solver on a rented server browses from a datacenter address, and some sites refuse those outright while opening normally from a phone. If one source fails through the proxy while the rest work, the address it browses from is the first thing to suspect, not your setup.
 :::
 
 ## What to expect
@@ -119,6 +130,16 @@ The fast rows need sessions, so they apply to Solverr and FlareSolverr.
 **A connection error, or `FlareSolverr returned HTTP 5xx`.**
 The proxy is unreachable or has crashed.
 Check it is running, the URL is right, and your device can reach it.
+
+**The test says the server rejected the username and password.**
+The credentials did not satisfy whatever guards the server. Check them with `curl -su 'user:password' https://your.server/v1` first, so you know whether the app or the server is the problem.
+If the password has characters outside plain ASCII and `curl` works where the app does not, the encoding is the likely cause: the app sends the UTF-8 bytes, which matches a proxy configured through its own web interface, but not a `htpasswd` file created on a system using a legacy encoding. An ASCII password avoids the question.
+
+**The test says the proxy answered but the solver behind it is down.**
+The reverse proxy is up and forwarding, and nothing is listening on the other side. A solver that is still starting does this for its first twenty seconds or so, so wait and test again before changing anything.
+
+**You once put the password in the address field.**
+Reikai moves it into the password field on upgrade, and does the same to an address restored from a backup, so nothing is left to do in the app. It cannot reach backups you already made: those hold the address as you typed it, password included. Rotate that password if any of them left your machine.
 
 **`FlareSolverr error: Captcha detected.`**
 The proxy hit a CAPTCHA it cannot solve.

@@ -1052,6 +1052,11 @@
     <string name="pref_enable_flaresolverr_summary">Route Cloudflare challenges through a FlareSolverr proxy instead of the in-app WebView</string>
     <string name="pref_flaresolverr_url">FlareSolverr URL</string>
     <string name="pref_flaresolverr_url_summary">Address of your FlareSolverr server, for example http://192.168.1.10:8191</string>
+    <string name="pref_flaresolverr_username">FlareSolverr username</string>
+    <string name="pref_flaresolverr_username_summary">Only needed if a proxy guards the server</string>
+    <string name="pref_flaresolverr_password">FlareSolverr password</string>
+    <string name="pref_flaresolverr_password_set">Saved</string>
+    <string name="pref_flaresolverr_password_unset">Not set</string>
     <!-- RK: in-WebView solver for interactive Cloudflare challenges -->
     <string name="pref_enable_turnstile_solver">Solve interactive Cloudflare challenges</string>
     <string name="pref_enable_turnstile_solver_summary">Tick the verification box for you instead of giving up on the challenge</string>
@@ -1061,14 +1066,16 @@
     <string name="pref_test_flaresolverr_summary">Fetch a test page through the server to check it is reachable and solving</string>
     <string name="flaresolverr_test_running">Testing…</string>
     <string name="flaresolverr_test_success">The server is working</string>
-    <string name="flaresolverr_test_error_auth">The server wants a password, which Reikai cannot send yet</string>
+    <string name="flaresolverr_test_error_auth">The server rejected the username and password</string>
     <string name="flaresolverr_test_error_forbidden">The server refused the request</string>
     <string name="flaresolverr_test_error_not_found">Nothing is listening at that address</string>
+    <string name="flaresolverr_test_error_solver_down">The proxy answered, but the solver behind it is down</string>
     <string name="flaresolverr_test_error_http">The server returned an error</string>
     <string name="flaresolverr_test_error_unreachable">Could not reach the server</string>
     <string name="flaresolverr_test_error_not_solver">Something answered, but it is not a solver</string>
     <string name="flaresolverr_test_error_solve">The server could not fetch the test page</string>
     <string name="error_flaresolverr_invalid_url">Invalid URL, must start with http:// or https://</string>
+    <string name="error_flaresolverr_url_credentials">Put the username and password in their own fields below</string>
     <string name="requires_app_restart">Requires app restart to take effect</string>
     <string name="cookies_cleared">Cookies cleared</string>
     <string name="pref_invalidate_download_cache">Reindex downloads</string>

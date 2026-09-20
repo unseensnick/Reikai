@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.network
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import eu.kanade.tachiyomi.network.interceptor.FLARESOLVERR_URL_KEY
 import mihon.core.metro.IsDebugBuild
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -29,7 +30,15 @@ class NetworkPreferences(
     // RK -->
     val enableFlareSolverr: Preference<Boolean> = preferenceStore.getBoolean("enable_flaresolverr", false)
 
-    val flareSolverrUrl: Preference<String> = preferenceStore.getString("flaresolverr_url", "")
+    val flareSolverrUrl: Preference<String> = preferenceStore.getString(FLARESOLVERR_URL_KEY, "")
+
+    // A proxy in front of the server may want basic auth. Both keys are private, as the tracker
+    // logins are, so a backup does not carry them unless the reader opts into private settings.
+    val flareSolverrUsername: Preference<String> =
+        preferenceStore.getString(Preference.privateKey("flaresolverr_username"), "")
+
+    val flareSolverrPassword: Preference<String> =
+        preferenceStore.getString(Preference.privateKey("flaresolverr_password"), "")
 
     val enableTurnstileSolver: Preference<Boolean> = preferenceStore.getBoolean("enable_turnstile_solver", false)
 

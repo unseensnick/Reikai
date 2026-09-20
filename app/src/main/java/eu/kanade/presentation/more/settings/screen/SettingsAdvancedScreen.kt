@@ -49,6 +49,7 @@ import eu.kanade.tachiyomi.network.PREF_DOH_SHECAN
 import eu.kanade.tachiyomi.network.interceptor.FlareSolverrTestFailure
 import eu.kanade.tachiyomi.network.interceptor.FlareSolverrTestResult
 import eu.kanade.tachiyomi.network.interceptor.TurnstileSolver
+import eu.kanade.tachiyomi.network.interceptor.splitFlareSolverrUserInfo
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
@@ -64,6 +65,7 @@ import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.RepairNovelDetails
+import reikai.presentation.settings.FlareSolverrPasswordDialog
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
@@ -230,9 +232,12 @@ object SettingsAdvancedScreen : SearchableSettings {
         val scope = rememberCoroutineScope()
         val flareSolverrEnabled by networkPreferences.enableFlareSolverr.collectAsState()
         val flareSolverrUrl by networkPreferences.flareSolverrUrl.collectAsState()
+        val flareSolverrUsername by networkPreferences.flareSolverrUsername.collectAsState()
+        val flareSolverrPassword by networkPreferences.flareSolverrPassword.collectAsState()
         var flareSolverrTesting by remember { mutableStateOf(false) }
         var flareSolverrTestResult by remember { mutableStateOf<FlareSolverrTestResult?>(null) }
         var flareSolverrTestFailure by remember { mutableStateOf<FlareSolverrTestResult.Failure?>(null) }
+        var showFlareSolverrPassword by remember { mutableStateOf(false) }
         val turnstileSolverEnabled by networkPreferences.enableTurnstileSolver.collectAsState()
         // Spike state, debug only: mirrors the solver's own flag so the row can show it.
         var forceHeadlessSolver by remember { mutableStateOf(TurnstileSolver.forceHeadless) }
@@ -240,6 +245,17 @@ object SettingsAdvancedScreen : SearchableSettings {
 
         // A local copy, so the row below can tell the two outcomes apart.
         val lastTest = flareSolverrTestResult
+
+        if (showFlareSolverrPassword) {
+            FlareSolverrPasswordDialog(
+                currentPassword = networkPreferences.flareSolverrPassword.get(),
+                onConfirm = {
+                    networkPreferences.flareSolverrPassword.set(it)
+                    showFlareSolverrPassword = false
+                },
+                onDismissRequest = { showFlareSolverrPassword = false },
+            )
+        }
 
         flareSolverrTestFailure?.let { failure ->
             val dismiss = { flareSolverrTestFailure = null }
@@ -408,13 +424,43 @@ object SettingsAdvancedScreen : SearchableSettings {
                     },
                     enabled = flareSolverrEnabled,
                     onValueChanged = {
-                        if (it.isBlank() || it.trim().toHttpUrlOrNull() != null) {
-                            true
-                        } else {
-                            context.toast(MR.strings.error_flaresolverr_invalid_url)
-                            false
+                        when {
+                            it.isBlank() -> true
+                            it.trim().toHttpUrlOrNull() == null -> {
+                                context.toast(MR.strings.error_flaresolverr_invalid_url)
+                                false
+                            }
+                            // Credentials in the address authenticate nothing and would travel in
+                            // every backup, since this key is not private. The fields below are.
+                            splitFlareSolverrUserInfo(it) != null -> {
+                                context.toast(MR.strings.error_flaresolverr_url_credentials)
+                                false
+                            }
+                            else -> true
                         }
                     },
+                ),
+                Preference.PreferenceItem.EditTextPreference(
+                    preference = networkPreferences.flareSolverrUsername,
+                    title = stringResource(MR.strings.pref_flaresolverr_username),
+                    subtitle = if (flareSolverrUsername.isBlank()) {
+                        stringResource(MR.strings.pref_flaresolverr_username_summary)
+                    } else {
+                        "%s"
+                    },
+                    enabled = flareSolverrEnabled,
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_flaresolverr_password),
+                    // Never "%s": a preference row renders its value as the subtitle, so an
+                    // EditTextPreference here would print the password on the screen.
+                    subtitle = if (flareSolverrPassword.isBlank()) {
+                        stringResource(MR.strings.pref_flaresolverr_password_unset)
+                    } else {
+                        stringResource(MR.strings.pref_flaresolverr_password_set)
+                    },
+                    enabled = flareSolverrEnabled,
+                    onClick = { showFlareSolverrPassword = true },
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_test_flaresolverr),
@@ -653,6 +699,7 @@ private fun FlareSolverrTestFailure.stringRes(): StringResource = when (this) {
     FlareSolverrTestFailure.AUTH_REQUIRED -> MR.strings.flaresolverr_test_error_auth
     FlareSolverrTestFailure.FORBIDDEN -> MR.strings.flaresolverr_test_error_forbidden
     FlareSolverrTestFailure.NOT_FOUND -> MR.strings.flaresolverr_test_error_not_found
+    FlareSolverrTestFailure.SOLVER_DOWN -> MR.strings.flaresolverr_test_error_solver_down
     FlareSolverrTestFailure.HTTP_ERROR -> MR.strings.flaresolverr_test_error_http
     FlareSolverrTestFailure.UNREACHABLE -> MR.strings.flaresolverr_test_error_unreachable
     FlareSolverrTestFailure.NOT_A_SOLVER -> MR.strings.flaresolverr_test_error_not_solver

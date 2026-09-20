@@ -25,7 +25,6 @@ Opportunistic polish:
 
 ### Network & bypass
 
-- **Sign in to a bypass server that sits behind basic auth** `[M]` - a username and password beside the server address, so a proxy on a public domain is reachable at all. Reported in `unseensnick/Reikai` discussion 70, where the reporter offered the PR; waiting on their setup answers. [Plan](docs/dev/plans/flaresolverr-integration.md).
 
 ### Data & backup
 

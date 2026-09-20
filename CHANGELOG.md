@@ -362,6 +362,7 @@ every release now also ships a foss build with neither in it.
 ### Browse & sources
 
 #### Added
+- **A FlareSolverr server behind a password now works: enter its username and password under Settings -> Advanced.** Credentials already typed into the address move across on upgrade, and neither field is included in a backup unless you turn on private settings.
 
 - **A chapter in the local manga source now takes its date from the Year, Month and Day in its ComicInfo.xml (synced from Mihon, mihonapp/mihon#3967).** Only the file's last-modified date could set it before.
 - **Any source's filters can now be saved as a named search and re-applied from a chip while you browse that source (ported from Komikku).** Long-press the chip to delete the search.
@@ -392,6 +393,7 @@ every release now also ships a foss build with neither in it.
 - **The Browse sources filter now covers manga and light novels from one screen, whichever chip you opened it from.** A Manga / Novels chip switches halves; the All and Manga chips used to reach only the manga sources.
 
 #### Fixed
+- **Testing FlareSolverr now tells a solver that is still starting apart from a broken one.** A reverse proxy answers for the solver's first twenty seconds or so, which read as a plain server error before.
 
 - **The seven sources whose metadata the app enhances now open their settings, from the extension list and from their own catalogue.** The extension list gave an empty page and the catalogue had no settings button; they include a large mainstream source and several adult ones.
 - **Light-novel sources and plugins now group under their language, beside the manga sources of that language.** Plugin repos name a language in that language ("Español"), which the app read as a language of its own and could not put a heading on.

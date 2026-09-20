@@ -10,6 +10,8 @@ import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.network.NetworkPreferences
+import eu.kanade.tachiyomi.network.interceptor.FLARESOLVERR_URL_KEY
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -49,6 +51,7 @@ class PreferenceRestorerTest {
     private val store = EmittingPreferenceStore()
     private val novelPreferences = NovelPreferences(store)
     private val sourcePreferences = SourcePreferences(store)
+    private val networkPreferences = NetworkPreferences(store, isDebugBuild = false)
     private val context = mockk<Context>()
 
     private val restorer = PreferenceRestorer(
@@ -58,6 +61,7 @@ class PreferenceRestorerTest {
         categoryIdPreferences = mockk<CategoryIdPreferences>(relaxed = true),
         novelPreferences = novelPreferences,
         extensionSourcePreferences = sourcePreferences,
+        networkPreferences = networkPreferences,
     )
 
     /** Both are WorkManager scheduling the restore does on its way out, which needs a real app. */
@@ -81,6 +85,35 @@ class PreferenceRestorerTest {
 
     private suspend fun restore(key: String, value: Int) =
         restorer.restoreApp(listOf(BackupPreference(key, IntPreferenceValue(value))), backupCategories = null)
+
+    private suspend fun restoreString(key: String, value: String) =
+        restorer.restoreApp(listOf(BackupPreference(key, StringPreferenceValue(value))), backupCategories = null)
+
+    @Test
+    @DisplayName("a restored bypass address does not keep the password that was buried in it")
+    fun restoredAddressIsCleaned() = runTest {
+        restoreString(FLARESOLVERR_URL_KEY, "https://user:secret@solverr.example.com")
+
+        networkPreferences.flareSolverrUrl.get() shouldBe "https://solverr.example.com"
+    }
+
+    @Test
+    @DisplayName("credentials buried in a restored address reach the fields that use them")
+    fun restoredAddressCredentialsAreKept() = runTest {
+        restoreString(FLARESOLVERR_URL_KEY, "https://user:secret@solverr.example.com")
+
+        networkPreferences.flareSolverrUsername.get() shouldBe "user"
+        networkPreferences.flareSolverrPassword.get() shouldBe "secret"
+    }
+
+    @Test
+    @DisplayName("an ordinary bypass address is restored unchanged")
+    fun restoredPlainAddressIsUntouched() = runTest {
+        restoreString(FLARESOLVERR_URL_KEY, "http://192.168.1.10:8191")
+
+        networkPreferences.flareSolverrUrl.get() shouldBe "http://192.168.1.10:8191"
+        networkPreferences.flareSolverrUsername.get() shouldBe ""
+    }
 
     @Test
     @DisplayName("a backup taken before the margins existed keeps its page padding")

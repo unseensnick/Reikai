@@ -25,7 +25,7 @@ class NetworkHelper(
     val cookieJar = AndroidCookieJar()
 
     // RK -->
-    val flareSolverr = FlareSolverrClient(cookieJar)
+    val flareSolverr = FlareSolverrClient(cookieJar, preferences)
     // RK <--
 
     private val clientBuilder: OkHttpClient.Builder = run {

@@ -57,7 +57,7 @@ android {
         // allowed content warnings. All sit above 0.3.2's 185, so a 0.3.2 install still runs them.
         // Further migrations take 196+.
         // versionName tracks the last shipped release until this cycle is cut.
-        versionCode = 195
+        versionCode = 196
         versionName = "0.3.2"
         // RK <--
 

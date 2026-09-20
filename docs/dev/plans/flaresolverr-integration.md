@@ -36,23 +36,41 @@ Shipped (Roadmap P4, on-device verified). Light-novel sources ride the same netw
 - **Internals extracted to `FlareSolverrClient`.** Mihon's `CloudflareInterceptor` keeps only detection and the delegate decision inside a `// RK` island; every proxy mechanic lives in the net-new class, keeping the upstream patch minimal and the surface greppable.
 - **WebView stays primary.** The proxy is only a fallback, so sources the WebView can clear never pay the proxy round-trip, and a per-host "needed the proxy" memory (in-RAM only) skips the WebView pre-attempt on repeat hosts within a session.
 
-## Open: a server behind basic auth
+## Basic auth in front of the server
 
-A reader running the proxy on a public domain has to put auth in front of it, and basic auth is the
-only one of the three the docs suggest (basic auth, an IP allowlist, mTLS) that a phone can use.
-Typing credentials into the address does nothing: OkHttp parses `user:pass@` into the URL and never
-derives an `Authorization` header from it, so the server answers 401 and the app reports only that
-the test failed. Diagnosed in `unseensnick/Reikai` discussion 70, where the reporter offered the PR.
+Shipped. A reader running the proxy on a public domain has to put auth in front of it, and basic auth
+is the only one of the three the user docs suggest (basic auth, an IP allowlist, mTLS) that a phone
+can use. Diagnosed in `unseensnick/Reikai` discussion 70; the shape below was settled against a local
+stack that reproduced the reporter's setup, Solverr 1.7.0 with no published ports behind nginx with
+an htpasswd access list.
 
-The shape agreed there, waiting on their setup answers before someone writes it:
-
-- Separate username and password fields, the password on a `Preference.privateKey` so a preference
-  backup cannot carry it in clear text, which `flaresolverr_url` would.
-- The header sent preemptively on all four calls the client makes, the root banner probe included: a
-  401 there makes the client decide the server is sessionless, and that decision sticks for the run.
-- The password entered through the tracker sign-in dialog's shape, hidden by default with a reveal,
-  since a settings row prints its value as the subtitle.
-- Userinfo typed into the address moved into the new fields on save, plus a preference migration for
-  the addresses already stored that way, whose credentials are already sitting in old backups.
-- Userinfo never reaches the wire today (OkHttp sends the path and a Host header), so stripping it is
-  about keeping it out of a logged URL rather than stopping a second copy in flight.
+- **Separate username and password preferences, both on `Preference.privateKey`**, matching
+  `TrackPreferences`. A default backup then carries neither, since the private-settings option is off
+  by default. `flaresolverr_url` has no such prefix, which is why credentials typed into the address
+  reached every backup in clear text.
+- **The header is added by an interceptor on the client, not at each call site.** Four calls need it
+  and the easiest to forget is the root banner probe, whose 401 makes the client decide the server is
+  sessionless and keeps that decision for the run. Measured against the stack: with the interceptor,
+  `sessions.create` runs and the following `request.get` carries the session id.
+- **UTF-8, not OkHttp's default.** `Credentials.basic` defaults to ISO-8859-1, and for a non-ASCII
+  password the two encodings produce different bytes, so only one matches what the server hashed.
+  Measured both ways against htpasswd entries built from each encoding: each one rejects the other.
+  UTF-8 matches a proxy configured through a web interface, which is how the reported setup was built
+  and what a browser submits. A legacy-encoded htpasswd will reject such a password, and the user docs
+  say so rather than the app guessing.
+- **A gateway status is its own failure case.** A cold solver behind a live proxy answers 502 for
+  about twenty seconds, which reads as "the proxy is up, the solver is not" rather than a generic
+  server error.
+- **Credentials typed into the address are rejected, not silently moved.** The preference DSL's
+  `onValueChanged` returns accept or reject and cannot rewrite the value, so moving it would mean
+  writing the preference by hand and rejecting the widget's own write, which leaves the dialog open.
+  Existing setups are carried by the migration instead, and the field points at the new rows.
+- **The migration is paired with the backup restorer**, as `ContentWarningMigration` is: a fresh
+  install marks every migration done without running it, so a restored address would otherwise keep
+  its password where nothing reads it and every later backup would copy it forward. Neither path can
+  fix a backup already taken, so the docs say to rotate the password.
+- **Still open, from the same investigation:** the client reads for 60 seconds while asking the server
+  for a 60-second `maxTimeout`, so a solve that runs long is lost at the app end with a socket timeout
+  and reported as unreachable. Measured against a server answering at 75 seconds: the call dies at
+  exactly 60.0. The reporter having to raise their proxy's read timeout to 180 seconds says their
+  solves do run that long. Tracked separately, since it is not an auth defect.
