@@ -933,4 +933,7 @@
     <string name="download_bookmarked">Preferida</string>
     <string name="considering">Considerant</string>
     <string name="pref_filter_upcoming_categories_details">Els elements de les categories excloses no es mostren, fins i tot si són també en qualsevol categoria inclosa.</string>
+    <string name="refresh_tracker_profile">Actualitza el perfil del servei de seguiment</string>
+    <string name="refresh_tracker_success">S’ha actualitzat el perfil de %s</string>
+    <string name="refresh_tracker_error">S’ha produït un error en actualitzar %1$s: %2$s</string>
 </resources>
