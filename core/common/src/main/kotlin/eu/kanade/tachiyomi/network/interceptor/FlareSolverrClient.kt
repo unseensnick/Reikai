@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -101,37 +102,65 @@ class FlareSolverrClient(
 
     /**
      * Connectivity check for the settings "Test" button: a sessionless solve of google.com.
-     * Returns the User-Agent FlareSolverr reports on success so the caller can pin it as the
-     * app default. Runs off the main thread.
+     * Reports the failure as a case rather than a sentence, so the settings screen can name it in
+     * the reader's own language and still show the technical text. Runs off the main thread.
      */
-    suspend fun test(flareSolverrUrl: String): Result<String> = withContext(Dispatchers.IO) {
-        runCatching {
-            val command = buildJsonObject {
-                put("cmd", "request.get")
-                put("url", "https://www.google.com/")
-                put("maxTimeout", 60000)
-            }
-            val body = json.encodeToString(JsonObject.serializer(), command)
-                .toRequestBody(JSON_MEDIA_TYPE)
-            val req = Request.Builder()
-                .url("${flareSolverrUrl.trimEnd('/')}/v1")
-                .post(body)
-                .build()
-            val text = flareSolverrClient.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) throw IOException("FlareSolverr returned HTTP ${resp.code}")
+    suspend fun test(flareSolverrUrl: String): FlareSolverrTestResult = withContext(Dispatchers.IO) {
+        val command = buildJsonObject {
+            put("cmd", "request.get")
+            put("url", "https://www.google.com/")
+            put("maxTimeout", 60000)
+        }
+        val body = json.encodeToString(JsonObject.serializer(), command)
+            .toRequestBody(JSON_MEDIA_TYPE)
+        val req = Request.Builder()
+            .url("${flareSolverrUrl.trimEnd('/')}/v1")
+            .post(body)
+            .build()
+        val text = try {
+            flareSolverrClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    return@withContext FlareSolverrTestResult.Failure(
+                        FlareSolverrTestFailure.ofStatus(resp.code),
+                        "HTTP ${resp.code} ${resp.message}".trim(),
+                    )
+                }
                 resp.body.string()
             }
-            val result = json.decodeFromString(FlareSolverrResponse.serializer(), text)
-            if (result.status != "ok") {
-                throw IOException(result.message.ifBlank { "FlareSolverr error" })
-            }
-            val solution = result.solution
-                ?: throw IOException("FlareSolverr returned no solution")
-            if (solution.status !in 200..299) {
-                throw IOException("FlareSolverr solution status: ${solution.status}")
-            }
-            solution.userAgent
+        } catch (e: IOException) {
+            return@withContext FlareSolverrTestResult.Failure(
+                FlareSolverrTestFailure.UNREACHABLE,
+                e.message ?: e.toString(),
+            )
         }
+        val result = try {
+            json.decodeFromString(FlareSolverrResponse.serializer(), text)
+        } catch (e: SerializationException) {
+            // Something served that address, but not the FlareSolverr API: a proxy error page, a
+            // sign-in page, or an unrelated service.
+            return@withContext FlareSolverrTestResult.Failure(
+                FlareSolverrTestFailure.NOT_A_SOLVER,
+                e.message ?: e.toString(),
+            )
+        }
+        if (result.status != "ok") {
+            return@withContext FlareSolverrTestResult.Failure(
+                FlareSolverrTestFailure.SOLVE_FAILED,
+                result.message.ifBlank { "status: ${result.status}" },
+            )
+        }
+        val solution = result.solution
+            ?: return@withContext FlareSolverrTestResult.Failure(
+                FlareSolverrTestFailure.SOLVE_FAILED,
+                "no solution in the response",
+            )
+        if (solution.status !in 200..299) {
+            return@withContext FlareSolverrTestResult.Failure(
+                FlareSolverrTestFailure.SOLVE_FAILED,
+                "solution status: ${solution.status}",
+            )
+        }
+        FlareSolverrTestResult.Success(solution.userAgent)
     }
 
     private fun resolveWithFlareSolverrDedup(flareSolverrUrl: String, request: Request): Response? {
@@ -346,6 +375,36 @@ class FlareSolverrClient(
             .headers(headersBuilder.build())
             .body(body)
             .build()
+    }
+}
+
+/** What the settings "Test" button learned about the configured server. */
+sealed interface FlareSolverrTestResult {
+    data class Success(val userAgent: String) : FlareSolverrTestResult
+
+    /** [detail] is the untranslated technical text: the status line, or the exception's message. */
+    data class Failure(val reason: FlareSolverrTestFailure, val detail: String) : FlareSolverrTestResult
+}
+
+enum class FlareSolverrTestFailure {
+    AUTH_REQUIRED,
+    FORBIDDEN,
+    NOT_FOUND,
+    HTTP_ERROR,
+    UNREACHABLE,
+    NOT_A_SOLVER,
+    SOLVE_FAILED,
+    ;
+
+    companion object {
+        /** A proxy in front of the server answers before it does, so these statuses are about the
+         *  proxy rather than the solve: 407 is a proxy's own challenge, 401 a password on the path. */
+        fun ofStatus(code: Int): FlareSolverrTestFailure = when (code) {
+            401, 407 -> AUTH_REQUIRED
+            403 -> FORBIDDEN
+            404 -> NOT_FOUND
+            else -> HTTP_ERROR
+        }
     }
 }
 

@@ -1059,8 +1059,15 @@
     <string name="pref_enable_turnstile_background_solver_summary">Lets library updates get past a challenge when the app is not open</string>
     <string name="pref_test_flaresolverr">Test FlareSolverr</string>
     <string name="pref_test_flaresolverr_summary">Fetch a test page through the server to check it is reachable and solving</string>
-    <string name="flaresolverr_test_success">FlareSolverr is working.</string>
-    <string name="flaresolverr_test_failure">FlareSolverr test failed. Check the URL and that the server is running.</string>
+    <string name="flaresolverr_test_running">Testing…</string>
+    <string name="flaresolverr_test_success">The server is working</string>
+    <string name="flaresolverr_test_error_auth">The server wants a password, which Reikai cannot send yet</string>
+    <string name="flaresolverr_test_error_forbidden">The server refused the request</string>
+    <string name="flaresolverr_test_error_not_found">Nothing is listening at that address</string>
+    <string name="flaresolverr_test_error_http">The server returned an error</string>
+    <string name="flaresolverr_test_error_unreachable">Could not reach the server</string>
+    <string name="flaresolverr_test_error_not_solver">Something answered, but it is not a solver</string>
+    <string name="flaresolverr_test_error_solve">The server could not fetch the test page</string>
     <string name="error_flaresolverr_invalid_url">Invalid URL, must start with http:// or https://</string>
     <string name="requires_app_restart">Requires app restart to take effect</string>
     <string name="cookies_cleared">Cookies cleared</string>

@@ -6,7 +6,8 @@ import android.content.Intent
 import android.provider.Settings
 import android.webkit.WebStorage
 import android.webkit.WebView
-import android.widget.Toast
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -18,11 +19,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.core.net.toUri
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.advanced.ClearDatabaseScreen
@@ -43,8 +46,11 @@ import eu.kanade.tachiyomi.network.PREF_DOH_NJALLA
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD101
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD9
 import eu.kanade.tachiyomi.network.PREF_DOH_SHECAN
+import eu.kanade.tachiyomi.network.interceptor.FlareSolverrTestFailure
+import eu.kanade.tachiyomi.network.interceptor.FlareSolverrTestResult
 import eu.kanade.tachiyomi.network.interceptor.TurnstileSolver
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
+import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import eu.kanade.tachiyomi.util.system.isShizukuInstalled
 import eu.kanade.tachiyomi.util.system.powerManager
@@ -224,11 +230,45 @@ object SettingsAdvancedScreen : SearchableSettings {
         val scope = rememberCoroutineScope()
         val flareSolverrEnabled by networkPreferences.enableFlareSolverr.collectAsState()
         val flareSolverrUrl by networkPreferences.flareSolverrUrl.collectAsState()
-        val flareSolverrTestFailure = stringResource(MR.strings.flaresolverr_test_failure)
+        var flareSolverrTesting by remember { mutableStateOf(false) }
+        var flareSolverrTestResult by remember { mutableStateOf<FlareSolverrTestResult?>(null) }
+        var flareSolverrTestFailure by remember { mutableStateOf<FlareSolverrTestResult.Failure?>(null) }
         val turnstileSolverEnabled by networkPreferences.enableTurnstileSolver.collectAsState()
         // Spike state, debug only: mirrors the solver's own flag so the row can show it.
         var forceHeadlessSolver by remember { mutableStateOf(TurnstileSolver.forceHeadless) }
         var forceNoWatchSolver by remember { mutableStateOf(TurnstileSolver.forceNoWatch) }
+
+        // A local copy, so the row below can tell the two outcomes apart.
+        val lastTest = flareSolverrTestResult
+
+        flareSolverrTestFailure?.let { failure ->
+            val dismiss = { flareSolverrTestFailure = null }
+            val reason = stringResource(failure.reason.stringRes())
+            AlertDialog(
+                onDismissRequest = dismiss,
+                title = { Text(text = stringResource(MR.strings.pref_test_flaresolverr)) },
+                text = {
+                    // The server's own words go with the plain reason: they are what a reader pastes
+                    // into a bug report, and they are the only part naming an unforeseen failure.
+                    Text(
+                        text = "$reason\n\n${failure.detail}",
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                    )
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { context.copyToClipboard(reason, "$reason\n${failure.detail}") },
+                    ) {
+                        Text(text = stringResource(MR.strings.action_copy_to_clipboard))
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = dismiss) {
+                        Text(text = stringResource(MR.strings.action_close))
+                    }
+                },
+            )
+        }
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_network),
@@ -378,8 +418,17 @@ object SettingsAdvancedScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_test_flaresolverr),
-                    subtitle = stringResource(MR.strings.pref_test_flaresolverr_summary),
-                    enabled = flareSolverrEnabled,
+                    // The row carries the outcome, because a toast is gone in a second and cuts a
+                    // long message off; this one holds up to ten lines until the screen is left.
+                    subtitle = when {
+                        flareSolverrTesting -> stringResource(MR.strings.flaresolverr_test_running)
+                        lastTest is FlareSolverrTestResult.Success ->
+                            stringResource(MR.strings.flaresolverr_test_success)
+                        lastTest is FlareSolverrTestResult.Failure ->
+                            stringResource(lastTest.reason.stringRes())
+                        else -> stringResource(MR.strings.pref_test_flaresolverr_summary)
+                    },
+                    enabled = flareSolverrEnabled && !flareSolverrTesting,
                     onClick = {
                         val url = networkPreferences.flareSolverrUrl.get().trim()
                         if (url.isBlank()) {
@@ -391,19 +440,11 @@ object SettingsAdvancedScreen : SearchableSettings {
                                 // while running as Android WebView, and Cloudflare re-challenged that
                                 // mismatch endlessly. UserAgentInterceptor already pins the agent per
                                 // solved host, which is what cf_clearance is actually bound to.
-                                networkHelper.flareSolverr.test(url)
-                                    .onSuccess {
-                                        context.toast(MR.strings.flaresolverr_test_success)
-                                    }
-                                    .onFailure {
-                                        // The status or host error is the whole diagnosis: a 401 from
-                                        // an auth proxy in front of the server reads nothing like an
-                                        // unreachable one, and the fixed sentence hid both.
-                                        context.toast(
-                                            it.message.orEmpty().ifBlank { flareSolverrTestFailure },
-                                            Toast.LENGTH_LONG,
-                                        )
-                                    }
+                                flareSolverrTesting = true
+                                val result = networkHelper.flareSolverr.test(url)
+                                flareSolverrTesting = false
+                                flareSolverrTestResult = result
+                                flareSolverrTestFailure = result as? FlareSolverrTestResult.Failure
                             }
                         }
                     },
@@ -604,4 +645,16 @@ object SettingsAdvancedScreen : SearchableSettings {
             ),
         )
     }
+}
+
+// RK: the solver reports a case rather than a sentence, so the screen names it in the reader's
+// language. The server's own text still reaches them through the failure dialog.
+private fun FlareSolverrTestFailure.stringRes(): StringResource = when (this) {
+    FlareSolverrTestFailure.AUTH_REQUIRED -> MR.strings.flaresolverr_test_error_auth
+    FlareSolverrTestFailure.FORBIDDEN -> MR.strings.flaresolverr_test_error_forbidden
+    FlareSolverrTestFailure.NOT_FOUND -> MR.strings.flaresolverr_test_error_not_found
+    FlareSolverrTestFailure.HTTP_ERROR -> MR.strings.flaresolverr_test_error_http
+    FlareSolverrTestFailure.UNREACHABLE -> MR.strings.flaresolverr_test_error_unreachable
+    FlareSolverrTestFailure.NOT_A_SOLVER -> MR.strings.flaresolverr_test_error_not_solver
+    FlareSolverrTestFailure.SOLVE_FAILED -> MR.strings.flaresolverr_test_error_solve
 }
