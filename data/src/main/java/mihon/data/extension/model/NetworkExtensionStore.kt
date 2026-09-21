@@ -39,6 +39,9 @@ data class NetworkExtensionStore(
         @ProtoNumber(6) val versionName: String,
         @ProtoNumber(7) val contentWarning: ContentWarning,
         @ProtoNumber(8) val sources: List<Source>,
+        // RK --> the novel stores' field (NovelSourcery, tsundoku), set on each extension, not the store
+        @ProtoNumber(8000) val isNovel: Boolean = false,
+        // RK <--
     )
 
     @Serializable
@@ -111,6 +114,9 @@ fun ExtensionList.toAvailableExtensions(store: ExtensionStore): List<TachiyomiEx
                 ContentWarning.NSFW -> DomainContentWarning.NSFW
                 else -> DomainContentWarning.SAFE
             },
+            // RK -->
+            kind = TachiyomiExtension.Kind.fromIndex(extension.packageName, extension.isNovel),
+            // RK <--
             sources = extension.sources.map { source ->
                 TachiyomiExtension.Available.Source(
                     id = source.id,

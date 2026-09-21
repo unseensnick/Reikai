@@ -16,15 +16,15 @@ sealed interface Extension {
     val lang: String?
     val contentWarning: ContentWarning
 
+    // RK -->
+    val kind: Kind
+    // RK <--
+
     /**
      * An extension whose apk is on the device, whether or not it ended up being loaded.
      */
     sealed interface Installed : Extension {
         val isShared: Boolean
-
-        // RK -->
-        val kind: Kind
-        // RK <--
     }
 
     // RK -->
@@ -43,6 +43,17 @@ sealed interface Extension {
         companion object {
             /** Declaration order settles an apk declaring several, so a manga apk loads as it always did. */
             fun fromFeatures(features: Collection<String?>): Kind? = entries.firstOrNull { it.manifestKey in features }
+
+            /**
+             * The kind of a store index entry. [isNovel] is the index's field 8000; an old-format index
+             * has no such field, so the novel package namespace answers there.
+             */
+            fun fromIndex(pkgName: String, isNovel: Boolean = false): Kind {
+                val novel = isNovel || pkgName.startsWith(NOVEL_PACKAGE_NAMESPACE)
+                return if (novel) TACHIYOMI_NOVEL else MANGA
+            }
+
+            private const val NOVEL_PACKAGE_NAMESPACE = "eu.kanade.tachiyomi.novelextension."
         }
     }
     // RK <--
@@ -58,6 +69,9 @@ sealed interface Extension {
         override val libVersion: Double,
         override val lang: String,
         override val contentWarning: ContentWarning,
+        // RK -->
+        override val kind: Kind,
+        // RK <--
         val sources: List<Source>,
         val apkUrl: String,
         val iconUrl: String,

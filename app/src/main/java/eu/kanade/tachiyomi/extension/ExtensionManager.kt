@@ -84,6 +84,9 @@ class ExtensionManager(
 
     // RK --> novel apks are split off where they arrive, so the maps above, and every manga reader
     // of them (source registration, stub rows, lists, update counts, backups), stay manga only.
+    private val availableNovelExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Available>())
+    val availableNovelExtensionsFlow = availableNovelExtensionMapFlow.mapExtensions(scope)
+
     private val loadedNovelExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Loaded>())
     val loadedNovelExtensionsFlow = loadedNovelExtensionMapFlow.mapExtensionsWhenInitialized()
 
@@ -230,13 +233,18 @@ class ExtensionManager(
      * Finds the available extensions in the [api] and updates [availableExtensionMapFlow].
      */
     suspend fun findAvailableExtensions() {
-        val extensions: List<Extension.Available> = try {
+        // RK: named for the split below
+        val fetched: List<Extension.Available> = try {
             api.findExtensions()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             withUIContext { context.toast(MR.strings.extension_api_error) }
             return
         }
+        // RK --> novel entries leave here, so languages, statuses and stub data below see manga only
+        val (extensions, novelExtensions) = fetched.partition { it.kind == Extension.Kind.MANGA }
+        availableNovelExtensionMapFlow.value = novelExtensions.associateBy { it.pkgName }
+        // RK <--
 
         enableAdditionalSubLanguages(extensions)
 

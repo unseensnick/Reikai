@@ -37,6 +37,9 @@ data class NetworkLegacyExtension(
             versionName = version,
             lang = lang,
             contentWarning = if (nsfw == 1) ContentWarning.NSFW else ContentWarning.SAFE,
+            // RK -->
+            kind = Extension.Kind.fromIndex(pkg),
+            // RK <--
             sources = if (sources.isNullOrEmpty()) {
                 listOf(
                     Extension.Available.Source(
