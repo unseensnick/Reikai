@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.getAndUpdate
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -29,6 +30,7 @@ import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRepoRegistries
 import reikai.novel.registry.LnRepoResult
+import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.update.LnPluginUpdate
@@ -57,9 +59,10 @@ class LnPluginManagerViewModel(
     /** Canonical URLs with an install in flight, and the last error per URL. */
     private val installs = MutableStateFlow(Installs())
 
+    // The registry holds the extension apps' catalogues too, which are installed and removed as apps.
     private val installed: Flow<List<NovelSource>> = flow {
         installer.ensureLoaded()
-        emitAll(manager.sources)
+        emitAll(manager.sources.map { sources -> sources.filterIsInstance<LnPluginSource>() })
     }
 
     /** Null until the registries first load. */

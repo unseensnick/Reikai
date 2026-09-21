@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.debouncedBrowseQuery
 import kotlin.time.Duration.Companion.seconds
 
@@ -68,8 +69,7 @@ class ExtensionsEngine(
                 snapshots[i].needsInstallPermission &&
                     snapshots[i].rows.orEmpty().any { it.key.contentType.shownUnder(contentType) }
             },
-            // Named only when it tells rows apart, so a list of one kind stays as it always looked.
-            showsFormat = shown.mapNotNullTo(mutableSetOf()) { it.key.format }.size > 1,
+            showsFormat = NovelExtensionFormat.tellsApart(shown.map { it.key.format }),
             items = sectionExtensions(shown),
         )
     }

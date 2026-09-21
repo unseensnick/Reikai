@@ -76,7 +76,7 @@ class NovelGlobalSearchViewModel(
     }
 
     suspend fun searchSource(source: NovelSource, query: String): List<NovelItem> =
-        source.search(query, 1, filters = null)
+        source.search(query, 1, filters = null).items
 
     // --- Long-press add-to-library, via the shared [NovelLibraryAdder]. The source id comes from the
     // tapped result's row since results span sources. ---

@@ -104,6 +104,7 @@ class NovelSourcesProvider(private val model: NovelSourcesViewModel) : SourcesPr
                 supportsLatest = source.supportsLatest,
                 extensionName = source.name,
                 source = source,
+                format = source.format,
             )
         }
     }

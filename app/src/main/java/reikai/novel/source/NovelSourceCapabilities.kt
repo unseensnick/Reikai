@@ -1,9 +1,23 @@
 package reikai.novel.source
 
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import tachiyomi.i18n.MR
+
+/** How a novel source is packaged: an LNReader plugin, or an app built on the extension library. */
+enum class NovelExtensionFormat(val label: StringResource) {
+    JS(MR.strings.extension_format_js),
+    APK(MR.strings.extension_format_apk),
+    ;
+
+    companion object {
+        /** Whether a list holding these rows names each one's format: only when it tells them apart. */
+        fun tellsApart(formats: Iterable<NovelExtensionFormat?>): Boolean = formats.filterNotNull().toSet().size > 1
+    }
+}
 
 /** A source's own settings, in the shape its format declares them; a source with none has none of these. */
 sealed interface NovelSettings {

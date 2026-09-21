@@ -13,7 +13,9 @@ import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
+import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelFilterState
+import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -186,6 +188,7 @@ class NovelRefreshTest {
         override val site = "https://src.example"
         override val lang = "en"
         override val iconUrl: String? = null
+        override val format = NovelExtensionFormat.JS
 
         override suspend fun parseNovel(novelPath: String) =
             SourceNovel(path = novelPath, name = "Novel", chapters = firstPage, totalPages = otherPages.size + 1)
@@ -195,10 +198,10 @@ class NovelRefreshTest {
 
         override suspend fun parseChapter(chapterPath: String): String = unused()
 
-        override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): List<NovelItem> =
+        override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage =
             unused()
 
-        override suspend fun search(query: String, page: Int, filters: NovelFilterState?): List<NovelItem> = unused()
+        override suspend fun search(query: String, page: Int, filters: NovelFilterState?): NovelItemsPage = unused()
 
         private fun unused(): Nothing = throw UnsupportedOperationException("Not part of a refresh")
     }

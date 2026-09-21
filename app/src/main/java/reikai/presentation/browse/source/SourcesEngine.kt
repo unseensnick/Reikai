@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.debouncedBrowseQuery
 import tachiyomi.core.common.util.lang.launchIO
 import kotlin.time.Duration.Companion.seconds
@@ -56,6 +57,7 @@ class SourcesEngine(
         query.debouncedBrowseQuery(),
     ) { rowsPerProvider, contentType, query ->
         val active = providers.indices.filter { providers[it].shows(contentType) }
+        val shown = active.flatMap { rowsPerProvider[it].orEmpty() }.filter { matchesSourceQuery(it, query) }
         State(
             contentType = contentType,
             // One loading state over the active providers: a chip must never be gated on a list it
@@ -63,9 +65,8 @@ class SourcesEngine(
             // longer holds back the half that is ready.
             isLoading = active.all { rowsPerProvider[it] == null },
             hasPending = active.any { rowsPerProvider[it] == null },
-            items = sectionSources(
-                active.flatMap { rowsPerProvider[it].orEmpty() }.filter { matchesSourceQuery(it, query) },
-            ),
+            showsFormat = NovelExtensionFormat.tellsApart(shown.map { it.format }),
+            items = sectionSources(shown),
         )
     }
         // Off the main thread: sectioning sorts and groups every enabled source of both types.
@@ -123,6 +124,8 @@ class SourcesEngine(
         val isLoading: Boolean = true,
         /** A content type that has not answered yet, so the list is showing part of itself. */
         val hasPending: Boolean = true,
+        /** Novel sources of more than one packaging are on screen, so each row names its own. */
+        val showsFormat: Boolean = false,
         val items: List<SourcesListItem> = emptyList(),
         val dialog: SourceOptionsDialog? = null,
         /** Whether a row that supports Latest shows its button. */

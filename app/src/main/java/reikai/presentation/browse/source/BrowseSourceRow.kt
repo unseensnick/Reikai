@@ -3,6 +3,7 @@ package reikai.presentation.browse.source
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import reikai.domain.source.SourceKey
+import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.compareBrowseLanguages
 import reikai.presentation.browse.matchesBrowseQuery
 import java.util.TreeMap
@@ -24,6 +25,8 @@ data class BrowseSourceRow(
     /** What installed this source; a plugin is its own extension, so for one this is [name]. */
     val extensionName: String,
     val source: Any,
+    /** How a novel source is packaged; null for manga, whose sources come one way only. */
+    val format: NovelExtensionFormat? = null,
 ) {
     /** The row's heading: the extension is named too when it differs, as a multi-source one does. */
     val title: String get() = if (extensionName == name) name else "$name ($extensionName)"

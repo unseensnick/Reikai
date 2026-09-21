@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onStart
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
+import reikai.domain.source.ToggleNovelSource
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -31,6 +32,7 @@ class NovelSourcesViewModel(
     manager: NovelSourceManager,
     private val installer: LnPluginInstaller,
     private val sourcePreferences: ReikaiSourcePreferences,
+    private val toggleNovelSource: ToggleNovelSource,
 ) : ViewModel() {
 
     /** Enabled sources, ungrouped. Null until the plugin host has answered once. */
@@ -57,11 +59,7 @@ class NovelSourcesViewModel(
         pref.set(if (sourceId in current) current - sourceId else current + sourceId)
     }
 
-    fun toggleDisable(sourceId: String) {
-        val pref = sourcePreferences.disabledNovelSources
-        val current = pref.get()
-        pref.set(if (sourceId in current) current - sourceId else current + sourceId)
-    }
+    fun toggleDisable(sourceId: String) = toggleNovelSource.await(sourceId)
 
     /**
      * Disabled sources and languages drop out entirely, as on the manga side; they are re-enabled

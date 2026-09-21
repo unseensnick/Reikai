@@ -115,6 +115,7 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
                     else -> SourcesList(
                         items = state.items,
                         showContentType = state.contentType == ContentType.ALL,
+                        showsFormat = state.showsFormat,
                         showLatest = state.showLatest,
                         contentPadding = contentPadding,
                         onClickItem = { row, latest ->
@@ -164,6 +165,8 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
 private fun SourcesList(
     items: List<SourcesListItem>,
     showContentType: Boolean,
+    /** Novel sources of more than one packaging are listed, so each row names its own. */
+    showsFormat: Boolean,
     showLatest: Boolean,
     contentPadding: PaddingValues,
     /** The row that was tapped, and whether it was its Latest button rather than the row. */
@@ -197,6 +200,7 @@ private fun SourcesList(
                     modifier = Modifier.animateItem(),
                     row = item.row,
                     showContentType = showContentType,
+                    showsFormat = showsFormat,
                     showLatest = showLatest,
                     onClickItem = onClickItem,
                     onClickPin = onClickPin,
@@ -212,6 +216,7 @@ private fun SourcesList(
 private fun SourceRow(
     row: BrowseSourceRow,
     showContentType: Boolean,
+    showsFormat: Boolean,
     /** Whether a row that supports Latest shows its button. */
     showLatest: Boolean,
     /** The row that was tapped, and whether it was its Latest button rather than the row. */
@@ -249,7 +254,10 @@ private fun SourceRow(
                 modifier = modifier,
                 name = row.title,
                 // The row hides a language it has none of, so the flagged line is dropped the same way.
-                subtitle = languageLabel.takeIf { row.lang.isNotEmpty() },
+                subtitle = listOfNotNull(
+                    languageLabel.takeIf { row.lang.isNotEmpty() },
+                    row.format?.takeIf { showsFormat }?.let { stringResource(it.label) },
+                ).joinToString(" • ").ifEmpty { null },
                 iconUrl = source.iconUrl,
                 onClickItem = { onClickItem(row, false) },
                 onLongClickItem = { onLongClickItem(row) },

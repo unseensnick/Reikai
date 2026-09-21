@@ -14,6 +14,7 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import reikai.data.merge.MergeGroupRepositoryImpl
@@ -41,7 +42,9 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelFilterState
+import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -112,7 +115,11 @@ class NovelReaderViewModelHarness private constructor(
     // Plugins are fetched and evaluated by the installer, which is the network; a registered fake
     // source stands in for what it would have loaded.
     private val installer = mockk<LnPluginInstaller>(relaxed = true)
-    private val sourceManager = NovelSourceManager { installer }
+    private val sourceManager = NovelSourceManager(
+        installer = { installer },
+        extensionManager = mockk { every { loadedNovelExtensionsFlow } returns flowOf(emptyList()) },
+        prefs = mockk(relaxed = true),
+    )
 
     /** Chapter id to the text its downloaded copy holds. */
     private val downloaded = mutableMapOf<Long, String>()
@@ -265,16 +272,17 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
     override val site = "https://$id.example"
     override val lang = "en"
     override val iconUrl: String? = null
+    override val format = NovelExtensionFormat.JS
 
     override suspend fun parseChapter(chapterPath: String): String {
         if (chapterPath in failing) throw IOException("no connection")
         return "<p>From the source: $chapterPath</p>"
     }
 
-    override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): List<NovelItem> =
+    override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage =
         unused()
 
-    override suspend fun search(query: String, page: Int, filters: NovelFilterState?): List<NovelItem> = unused()
+    override suspend fun search(query: String, page: Int, filters: NovelFilterState?): NovelItemsPage = unused()
 
     override suspend fun parseNovel(novelPath: String): SourceNovel = unused()
 

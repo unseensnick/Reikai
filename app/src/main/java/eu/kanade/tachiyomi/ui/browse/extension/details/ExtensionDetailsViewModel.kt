@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import logcat.LogPriority
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import reikai.domain.source.ToggleNovelSource // RK
+import reikai.novel.source.TACHIYOMI_NOVEL_SOURCE_PREFIX // RK
 import tachiyomi.core.common.util.system.logcat
 import kotlin.time.Duration.Companion.seconds
 
@@ -45,6 +47,7 @@ class ExtensionDetailsViewModel(
     private val extensionManager: ExtensionManager,
     private val getExtensionSources: GetExtensionSources,
     private val toggleSource: ToggleSource,
+    private val toggleNovelSource: ToggleNovelSource, // RK
     private val toggleIncognito: ToggleIncognito,
     private val preferences: SourcePreferences,
 ) : ViewModel() {
@@ -77,8 +80,6 @@ class ExtensionDetailsViewModel(
         get() = state.value as? State.Success
 
     private fun subscribeToSources(extension: Extension.Loaded): Flow<List<ExtensionSourceItem>> {
-        // RK: the source switches write manga source ids, so a novel apk lists none yet
-        if (extension.kind != Extension.Kind.MANGA) return flowOf(emptyList())
         return getExtensionSources.subscribe(extension)
             .map {
                 it.sortedWith(
@@ -124,10 +125,23 @@ class ExtensionDetailsViewModel(
     }
 
     fun toggleSource(sourceId: Long) {
+        // RK --> a novel app's source is switched on the novel list
+        if (successState?.extension?.kind == Extension.Kind.TACHIYOMI_NOVEL) {
+            toggleNovelSource.await(TACHIYOMI_NOVEL_SOURCE_PREFIX + sourceId)
+            return
+        }
+        // RK <--
         toggleSource.await(sourceId)
     }
 
     fun toggleSources(enable: Boolean) {
+        // RK -->
+        val extension = successState?.extension
+        if (extension?.kind == Extension.Kind.TACHIYOMI_NOVEL) {
+            toggleNovelSource.await(extension.sources.map { TACHIYOMI_NOVEL_SOURCE_PREFIX + it.id }, enable)
+            return
+        }
+        // RK <--
         successState?.extension?.sources
             ?.map { it.id }
             ?.let { toggleSource.await(it, enable) }

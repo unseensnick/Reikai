@@ -40,17 +40,18 @@ class LnPluginSource(
         )
     }
     override val supportsLatest: Boolean = info.supportsLatest
+    override val format = NovelExtensionFormat.JS
 
     // Latest is a flag in the same options as the filters, and a plugin with no filters still needs it.
-    override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): List<NovelItem> {
+    override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage {
         val values = (filters as? NovelFilterState.LnValues)?.values.orEmpty()
         val options = buildOptions(info.filters, values, showLatest = listing == NovelListing.Latest)
-        return host.popularNovels(info.id, page, options)
+        return host.popularNovels(info.id, page, options).toPage()
     }
 
     // The plugin's search takes only a query, so filters narrow the listings and never reach here.
-    override suspend fun search(query: String, page: Int, filters: NovelFilterState?): List<NovelItem> =
-        host.searchNovels(info.id, query, page)
+    override suspend fun search(query: String, page: Int, filters: NovelFilterState?): NovelItemsPage =
+        host.searchNovels(info.id, query, page).toPage()
 
     override suspend fun parseNovel(novelPath: String): SourceNovel =
         host.parseNovel(info.id, novelPath)
@@ -65,4 +66,7 @@ class LnPluginSource(
 
     override suspend fun resolveUrl(path: String, isNovel: Boolean): String? =
         host.resolveUrl(info.id, path, isNovel)
+
+    // The format reports no next page, so a plugin's catalogue ends at its first empty one.
+    private fun List<NovelItem>.toPage() = NovelItemsPage(this, hasNextPage = isNotEmpty())
 }

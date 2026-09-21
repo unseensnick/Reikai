@@ -18,8 +18,9 @@ class ExtensionBackupCreator(
     // unbounded wait would hang the backup if that scan failed. An expired wait backs up no
     // extensions, which is what reading it early used to do anyway.
     suspend operator fun invoke(): List<BackupExtension> {
+        // RK: novel extension apps too, which the manager keeps apart from the manga ones
         val installed = withTimeoutOrNull(INSTALLED_WAIT_MS) {
-            extensionManager.loadedExtensionsFlow.first()
+            extensionManager.loadedExtensionsFlow.first() + extensionManager.loadedNovelExtensionsFlow.first()
         }.orEmpty()
         return installed.map { extension ->
             BackupExtension(

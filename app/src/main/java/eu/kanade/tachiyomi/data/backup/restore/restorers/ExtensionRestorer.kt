@@ -1,4 +1,4 @@
-// RK: installed-extensions backup. Net-new Reikai file: reinstalls the manga
+// RK: installed-extensions backup. Net-new Reikai file: reinstalls the manga and novel
 // extensions a backup recorded. Must run after the extension repos are restored, since the available
 // list is fetched from them. Installs go through the standard installer (respecting the user's
 // installer mode). Every extension that does not come back is returned with its reason for the
@@ -35,9 +35,16 @@ class ExtensionRestorer(
         // (no repos / fetch failed) still falls through to the unmatched log.
         val available: List<Extension.Available> = withTimeoutOrNull(AVAILABLE_WAIT_MS) {
             extensionManager.availableExtensionsFlow.first { it.isNotEmpty() }
-        }.orEmpty()
+        }.orEmpty() +
+            // Novel apps too, which the manager keeps apart. Read off the map rather than a second lazy
+            // flow, which could still be empty when the first answers.
+            extensionManager.getAvailableNovelExtensions()
         val availableByPkg = available.associateBy { it.pkgName }
-        val installedPkgs = extensionManager.loadedExtensionsFlow.first().mapTo(HashSet()) { it.pkgName }
+        val installedPkgs = (
+            extensionManager.loadedExtensionsFlow.first() +
+                extensionManager.loadedNovelExtensionsFlow.first()
+            )
+            .mapTo(HashSet()) { it.pkgName }
 
         backupExtensions
             .filterNot { it.pkgName in installedPkgs }

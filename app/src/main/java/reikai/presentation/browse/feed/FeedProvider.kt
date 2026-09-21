@@ -143,11 +143,11 @@ class NovelFeedProvider(
         // Mihon filter list travels with the search, the manga feed's rule.
         val query = savedSearch?.query
         return when {
-            !query.isNullOrBlank() -> source.search(query, page = 1, stored)
-            savedSearch != null && source.filters?.applyToSearch == true -> source.search("", page = 1, stored)
+            !query.isNullOrBlank() -> source.search(query, page = 1, stored).items
+            savedSearch != null && source.filters?.applyToSearch == true -> source.search("", page = 1, stored).items
             else -> {
                 val listing = if (source.supportsLatest) NovelListing.Latest else NovelListing.Popular
-                source.browse(listing, page = 1, stored)
+                source.browse(listing, page = 1, stored).items
             }
         }
     }

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.source.ToggleNovelSource
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -37,6 +38,7 @@ class NovelSourcesFilterViewModel(
     manager: NovelSourceManager,
     private val installer: LnPluginInstaller,
     private val sourcePreferences: ReikaiSourcePreferences,
+    private val toggleNovelSource: ToggleNovelSource,
 ) : ViewModel() {
 
     val state: StateFlow<State> = combine(
@@ -60,11 +62,7 @@ class NovelSourcesFilterViewModel(
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State.Loading)
 
-    fun toggleSource(sourceId: String) {
-        val pref = sourcePreferences.disabledNovelSources
-        val current = pref.get()
-        pref.set(if (sourceId in current) current - sourceId else current + sourceId)
-    }
+    fun toggleSource(sourceId: String) = toggleNovelSource.await(sourceId)
 
     fun toggleLanguage(language: String) {
         val pref = sourcePreferences.disabledNovelLanguages

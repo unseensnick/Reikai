@@ -54,10 +54,11 @@ class LnPluginInstaller(
     // down repo) ensureLoaded; those serialize their own writes on registryMutex instead.
     private val loadMutex = Mutex()
 
-    // Guards every read-modify-write of the three persisted registries (installed urls, installed
-    // metadata, seen sources). Update-all fans installs out in parallel, so without this two of them
-    // read the same map, and the slower write drops the other plugin's record. Never held across
-    // network work: a repo fetch happens outside it and the map is re-read inside.
+    // Guards every read-modify-write of the two persisted registries (installed urls, installed
+    // metadata); the seen sources are the manager's, which both kinds write. Update-all fans installs
+    // out in parallel, so without this two of them read the same map, and the slower write drops the
+    // other plugin's record. Never held across network work: a repo fetch happens outside it and the
+    // map is re-read inside.
     private val registryMutex = Mutex()
 
     // Canonical URLs already loaded + registered this process. ensureLoaded retries only the installed
@@ -262,10 +263,8 @@ class LnPluginInstaller(
      * survive removal.
      */
     private suspend fun rememberSeenSources(sources: List<LnPluginSource>) {
-        if (sources.isEmpty()) return
-        registryMutex.withLock {
-            val current = prefs.seenNovelSources().get()
-            val updated = current + sources.associate {
+        manager.rememberSeen(
+            sources.associate {
                 it.id to LnSourceIdentity(
                     name = it.name,
                     iconUrl = it.iconUrl,
@@ -273,9 +272,8 @@ class LnPluginInstaller(
                     site = it.site,
                     imageHeaders = it.imageHeaders,
                 )
-            }
-            if (updated != current) prefs.seenNovelSources().set(updated)
-        }
+            },
+        )
     }
 
     /**

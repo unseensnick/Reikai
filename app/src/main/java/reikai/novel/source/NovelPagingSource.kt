@@ -12,7 +12,7 @@ class NovelListingPagingSource(
     private val listing: NovelListing,
     private val filters: NovelFilterState?,
 ) : BaseNovelPagingSource(source) {
-    override suspend fun requestNextPage(page: Int): List<NovelItem> = source.browse(listing, page, filters)
+    override suspend fun requestNextPage(page: Int): NovelItemsPage = source.browse(listing, page, filters)
 }
 
 /** Pages a source's search results. */
@@ -21,16 +21,15 @@ class NovelSearchPagingSource(
     private val query: String,
     private val filters: NovelFilterState?,
 ) : BaseNovelPagingSource(source) {
-    override suspend fun requestNextPage(page: Int): List<NovelItem> = source.search(query, page, filters)
+    override suspend fun requestNextPage(page: Int): NovelItemsPage = source.search(query, page, filters)
 }
 
 /**
- * Paging 3 over a light-novel plugin, the novel twin of `BaseSourcePagingSource`.
+ * Paging 3 over a novel source, the novel twin of `BaseSourcePagingSource`.
  *
- * Two things differ from that twin, both forced by the plugin format. lnreader plugins report no
- * `hasNextPage`, so an empty page is what ends a catalogue. And a plugin that answers an out-of-range
- * page by repeating the last one would page forever, since Paging keeps requesting while the key is
- * non-null, so a page whose every entry has already been seen ends the catalogue too.
+ * A catalogue ends where the source says it does, and also at a page whose every entry has already been
+ * seen: a plugin that answers an out-of-range page by repeating the last one would otherwise page
+ * forever, since Paging keeps requesting while the key is non-null.
  */
 abstract class BaseNovelPagingSource(
     protected val source: NovelSource,
@@ -38,7 +37,7 @@ abstract class BaseNovelPagingSource(
 
     private val seenPaths = hashSetOf<String>()
 
-    abstract suspend fun requestNextPage(page: Int): List<NovelItem>
+    abstract suspend fun requestNextPage(page: Int): NovelItemsPage
 
     override suspend fun load(params: LoadParams<Long>): LoadResult<Long, NovelItem> {
         val page = params.key ?: 1
@@ -47,11 +46,11 @@ abstract class BaseNovelPagingSource(
             val fetched = withIOContext { requestNextPage(page.toInt()) }
             // Dedupe by path so a source repeating entries across a page boundary cannot produce
             // duplicate keys in the grid.
-            val fresh = fetched.filter { seenPaths.add(it.path) }
+            val fresh = fetched.items.filter { seenPaths.add(it.path) }
             LoadResult.Page(
                 data = fresh,
                 prevKey = null,
-                nextKey = if (fetched.isEmpty() || fresh.isEmpty()) null else page + 1,
+                nextKey = if (!fetched.hasNextPage || fresh.isEmpty()) null else page + 1,
             )
         } catch (e: CancellationException) {
             throw e

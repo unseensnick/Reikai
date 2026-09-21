@@ -65,6 +65,7 @@ import mihon.core.metro.GraphProvider
 import mihon.core.migration.Migrator
 import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
+import reikai.data.coil.ExtensionIconFetcher
 import reikai.data.coil.NovelCoverFetcher
 import reikai.data.coil.NovelCoverKeyer
 import reikai.data.coil.NovelImageFetcher
@@ -290,6 +291,7 @@ class App :
                 val novelImageRequests = lazy { graph.novelImageRequests }
                 add(NovelCoverFetcher.Factory(novelImageRequests, coverCache))
                 add(NovelImageFetcher.Factory(novelImageRequests))
+                add(ExtensionIconFetcher.Factory()) // RK: a novel extension app's icon, named as an address
                 // RK: adult-source gallery page-preview thumbnails
                 add(PagePreviewFetcher.Factory(callFactoryLazy, lazy { graph.pagePreviewCache }, sourceManager))
                 // RK: MDList tracker-search covers, fetched via the MangaDex source client so the

@@ -7,10 +7,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.novel.host.NovelItem
 
-/**
- * lnreader plugins report no `hasNextPage`, so where a catalogue ends is inferred here rather than
- * read off the response. These pin what that inference does.
- */
+/** A catalogue ends where its source says it does, or where a page brings nothing new. */
 class NovelPagingSourceTest {
 
     @Test
@@ -23,6 +20,14 @@ class NovelPagingSourceTest {
     @Test
     fun `an empty page ends the catalogue`() = runTest {
         val source = FakePagingSource(listOf(emptyList()))
+
+        source.load(refresh()).nextKey() shouldBe null
+    }
+
+    @Test
+    fun `a page the source calls the last ends the catalogue`() = runTest {
+        // A tachiyomi source may answer a page past the end with an error, so it is never asked for one.
+        val source = FakePagingSource(listOf(page("a", "b")), lastPage = 1)
 
         source.load(refresh()).nextKey() shouldBe null
     }
@@ -77,10 +82,12 @@ class NovelPagingSourceTest {
 private class FakePagingSource(
     private val pages: List<List<NovelItem>>,
     private val failOnPage: Int? = null,
+    private val lastPage: Int? = null,
 ) : BaseNovelPagingSource(mockk(relaxed = true)) {
 
-    override suspend fun requestNextPage(page: Int): List<NovelItem> {
+    override suspend fun requestNextPage(page: Int): NovelItemsPage {
         if (page == failOnPage) error("network")
-        return pages.getOrElse(page - 1) { emptyList() }
+        val items = pages.getOrElse(page - 1) { emptyList() }
+        return NovelItemsPage(items, hasNextPage = items.isNotEmpty() && page != lastPage)
     }
 }

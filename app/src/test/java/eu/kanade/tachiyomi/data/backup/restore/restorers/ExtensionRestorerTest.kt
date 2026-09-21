@@ -31,10 +31,16 @@ class ExtensionRestorerTest {
         every { pkgName } returns "ext.foo"
     }
 
+    private val novelApp = mockk<Extension.Available> {
+        every { pkgName } returns "novel.bar"
+    }
+
     private val extensionManager = mockk<ExtensionManager> {
         coEvery { findAvailableExtensions() } just runs
         every { availableExtensionsFlow } returns MutableStateFlow(listOf(available))
+        every { getAvailableNovelExtensions() } returns listOf(novelApp)
         every { loadedExtensionsFlow } returns MutableStateFlow(emptyList())
+        every { loadedNovelExtensionsFlow } returns MutableStateFlow(emptyList())
     }
 
     private val restorer = ExtensionRestorer(extensionManager)
@@ -74,6 +80,13 @@ class ExtensionRestorerTest {
         val orphan = BackupExtension(pkgName = "ext.orphan", name = "Orphan")
 
         restorer.restore(listOf(orphan)) shouldBe listOf(NotRestored("Orphan", Reason.RepoMissing))
+    }
+
+    @Test
+    fun `a novel extension app a repo offers is reinstalled`() = runTest {
+        every { extensionManager.installExtension(novelApp) } returns flowOf(InstallStep.Installed)
+
+        restorer.restore(listOf(BackupExtension(pkgName = "novel.bar", name = "Bar"))).shouldBeEmpty()
     }
 
     @Test

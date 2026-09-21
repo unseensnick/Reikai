@@ -1,11 +1,10 @@
 package reikai.presentation.browse.extension
 
 import androidx.compose.runtime.Immutable
-import dev.icerock.moko.resources.StringResource
 import reikai.domain.library.ContentType
+import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.compareBrowseLanguages
 import reikai.presentation.browse.matchesBrowseQuery
-import tachiyomi.i18n.MR
 
 /** Identity for an installable source, whichever kind it is: a package name or a plugin id. */
 sealed interface ExtensionKey {
@@ -28,12 +27,6 @@ sealed interface ExtensionKey {
         override val contentType: ContentType get() = ContentType.NOVELS
         override val format: NovelExtensionFormat get() = NovelExtensionFormat.APK
     }
-}
-
-/** The ways a novel extension is packaged: an LNReader plugin, or an app built on the extension library. */
-enum class NovelExtensionFormat(val label: StringResource) {
-    JS(MR.strings.extension_format_js),
-    APK(MR.strings.extension_format_apk),
 }
 
 /**

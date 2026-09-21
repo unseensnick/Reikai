@@ -34,6 +34,9 @@ interface NovelSource {
      */
     val iconUrl: String?
 
+    /** How the source is packaged, which lists name once more than one kind is shown. */
+    val format: NovelExtensionFormat
+
     /** The source's filters and where they apply; null when it declares none. */
     val filters: NovelFilters? get() = null
 
@@ -52,13 +55,13 @@ interface NovelSource {
      * A page of [listing]. Null [filters] means the source's defaults; a format whose filters apply to
      * search ignores them here, as a manga source's Popular and Latest take none.
      */
-    suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): List<NovelItem>
+    suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage
 
     /**
      * A page of search results. Null [filters] means the source's defaults; a format whose search takes
      * no filters ignores them.
      */
-    suspend fun search(query: String, page: Int, filters: NovelFilterState?): List<NovelItem>
+    suspend fun search(query: String, page: Int, filters: NovelFilterState?): NovelItemsPage
 
     /** Fetch a novel's details + chapter list. `novelPath` is the source-relative path returned
      *  inside a [NovelItem]. */
@@ -91,3 +94,10 @@ interface NovelSource {
      */
     fun webUrl(path: String): String = if (path.startsWith("http")) path else site + path
 }
+
+/**
+ * One page of a listing or search, and whether the source says another follows. A format that cannot
+ * say ends at its first empty page, so asking past the end costs nothing there; a tachiyomi source may
+ * answer that with an error instead.
+ */
+data class NovelItemsPage(val items: List<NovelItem>, val hasNextPage: Boolean)

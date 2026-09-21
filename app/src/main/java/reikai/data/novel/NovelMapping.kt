@@ -24,15 +24,21 @@ object NovelStatusCode {
     const val CANCELLED = 5
     const val ON_HIATUS = 6
 
-    fun fromString(status: String?): Int = when (status?.trim()) {
-        "Ongoing" -> ONGOING
-        "Completed" -> COMPLETED
-        "Licensed" -> LICENSED
-        "Publishing Finished" -> PUBLISHING_FINISHED
-        "Cancelled" -> CANCELLED
-        "On Hiatus" -> ON_HIATUS
-        else -> UNKNOWN
-    }
+    // The words an LNReader plugin states a status in, which is the form a source hands novels over in.
+    private val names = mapOf(
+        ONGOING to "Ongoing",
+        COMPLETED to "Completed",
+        LICENSED to "Licensed",
+        PUBLISHING_FINISHED to "Publishing Finished",
+        CANCELLED to "Cancelled",
+        ON_HIATUS to "On Hiatus",
+    )
+
+    fun fromString(status: String?): Int =
+        names.entries.firstOrNull { it.value == status?.trim() }?.key ?: UNKNOWN
+
+    /** [code] in a source's words, for a source that states it as a number; null when unknown. */
+    fun toSourceString(code: Int): String? = names[code]
 
     /** Display label resource for a `novels.status` code; unknown/unrecognized falls back to `unknown`. */
     fun toStringRes(status: Long): StringResource = when (status.toInt()) {

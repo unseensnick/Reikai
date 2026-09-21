@@ -184,7 +184,7 @@ class NovelMigrationFlowAdapter(
         // altogether when a source returns a single candidate, so a plugin repeating one wrong
         // listing would dedupe down to that one hit and have it accepted unscored.
         val match = SmartNovelSearchEngine(tuning.extraQuery).bestMatch(entry.title) { query ->
-            source.search(query, 1, filters = null)
+            source.search(query, 1, filters = null).items
         } ?: return null
         val currentPath = (entry.payload as? Novel)?.url.takeIf { sourceKey == entry.sourceKey }
         if (match.path == currentPath) return null
@@ -197,7 +197,7 @@ class NovelMigrationFlowAdapter(
         sourceKey: String,
     ): List<MigrationCandidate> {
         val source = sourceManager.get(sourceKey) ?: return emptyList()
-        return source.search(query, 1, filters = null)
+        return source.search(query, 1, filters = null).items
             .usableHits(entry, sourceKey)
             .map { it.toCandidate(sourceKey) }
     }
