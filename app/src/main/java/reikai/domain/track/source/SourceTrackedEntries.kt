@@ -51,6 +51,7 @@ class SourceTrackedEntries(
             tracker = tracker,
             trackerName = source.name,
             manga = manga.toSManga(),
+            favorite = manga.favorite,
             chapters = chapterRepository.getChapterByMangaId(id).map {
                 TrackedChapter(it.id, it.toSChapter(), it.read, it.chapterNumber)
             },
@@ -78,6 +79,7 @@ class SourceTrackedEntries(
             tracker = tracker,
             trackerName = source.name,
             manga = manga,
+            favorite = novel.favorite,
             chapters = novelChapterRepository.getByNovelId(id).map {
                 val chapter = SChapter.create().apply {
                     url = it.url

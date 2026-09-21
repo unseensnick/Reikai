@@ -40,7 +40,8 @@ class SourceTrackerKernelTest {
             categories: List<String>,
         ) = record("unread ${manga.url} ${changedChapters.map { it.url }}")
 
-        override suspend fun onFavorited(manga: SManga, categories: List<String>) = record("favorited ${manga.url}")
+        override suspend fun onFavorited(manga: SManga, categories: List<String>) =
+            record("favorited ${manga.url} $categories")
 
         override suspend fun onUnfavorited(manga: SManga, categories: List<String>) =
             record("unfavorited ${manga.url}")
@@ -51,17 +52,20 @@ class SourceTrackerKernelTest {
 
     /** The library as the loader reads it when a call fires; tests change it after queueing an event. */
     private val readIds = mutableMapOf<EntryId, Set<Long>>()
+    private val inLibrary = mutableSetOf<EntryId>()
+    private val categories = mutableMapOf<EntryId, List<String>>()
     private val failures = mutableListOf<String>()
 
     private fun tracked(id: EntryId, tracker: SourceTracker) = TrackedEntry(
         tracker = tracker,
         trackerName = "Site",
         manga = SManga.create().apply { url = "e${id.rawId}" },
+        favorite = id in inLibrary,
         chapters = (1L..3L).map { chapterId ->
             val chapter = SChapter.create().apply { url = "c$chapterId" }
             TrackedChapter(chapterId, chapter, read = chapterId in readIds[id].orEmpty(), number = chapterId.toDouble())
         },
-        categories = emptyList(),
+        categories = categories[id].orEmpty(),
     )
 
     private fun TestScope.kernel(tracker: SourceTracker = this@SourceTrackerKernelTest.tracker) =
@@ -152,20 +156,54 @@ class SourceTrackerKernelTest {
     }
 
     @Test
-    fun `a favorite goes at once`() = runTest {
+    fun `an add goes after the wait with the categories filed during it`() = runTest {
+        inLibrary += entry
+        kernel().favoriteChanged(entry, favorite = true)
+        categories[entry] = listOf("Reading")
+
+        pastDebounce()
+
+        tracker.calls shouldBe listOf("favorited e1 [Reading]")
+    }
+
+    @Test
+    fun `nothing of an add reaches the site before the wait ends`() = runTest {
+        inLibrary += entry
         kernel().favoriteChanged(entry, favorite = true)
 
+        advanceTimeBy(SourceTrackerKernel.DEBOUNCE_MS - 1)
         runCurrent()
 
-        tracker.calls shouldBe listOf("favorited e1")
+        tracker.calls.shouldBeEmpty()
+    }
+
+    @Test
+    fun `an add that did not stick tells the site nothing`() = runTest {
+        kernel().favoriteChanged(entry, favorite = true)
+
+        pastDebounce()
+
+        tracker.calls.shouldBeEmpty()
+    }
+
+    @Test
+    fun `an add and a remove inside the wait cancel out`() = runTest {
+        val kernel = kernel()
+        kernel.favoriteChanged(entry, favorite = true)
+        kernel.favoriteChanged(entry, favorite = false)
+
+        pastDebounce()
+
+        tracker.calls.shouldBeEmpty()
     }
 
     @Test
     fun `a source without favorites tracking is not told about favorites`() = runTest {
         val tracker = RecordingTracker(supportsFavoritesTracking = false)
+        inLibrary += entry
         kernel(tracker).favoriteChanged(entry, favorite = true)
 
-        runCurrent()
+        pastDebounce()
 
         tracker.calls.shouldBeEmpty()
     }
@@ -173,6 +211,7 @@ class SourceTrackerKernelTest {
     @Test
     fun `a failing site is reported and stops no later call`() = runTest {
         val kernel = kernel(RecordingTracker(failing = true))
+        inLibrary += entry
         kernel.favoriteChanged(entry, favorite = true)
         kernel.chaptersChanged(entry, listOf(1L), read = true)
 
@@ -185,21 +224,23 @@ class SourceTrackerKernelTest {
     fun `a replace migration unfavorites the old entry and passes the target's reads`() = runTest {
         val target = EntryId.Novel(2)
         readIds[target] = setOf(1L, 2L)
+        inLibrary += target
 
         kernel().migrated(entry, target, replace = true, carriedChapters = true)
         pastDebounce()
 
-        tracker.calls shouldBe listOf("unfavorited e1", "favorited e2", "read e2 [c1, c2]")
+        tracker.calls shouldBe listOf("unfavorited e1", "favorited e2 []", "read e2 [c1, c2]")
     }
 
     @Test
     fun `a migration that carried no read state passes no reads`() = runTest {
         val target = EntryId.Novel(2)
         readIds[target] = setOf(1L)
+        inLibrary += target
 
         kernel().migrated(entry, target, replace = false, carriedChapters = false)
         pastDebounce()
 
-        tracker.calls shouldBe listOf("favorited e2")
+        tracker.calls shouldBe listOf("favorited e2 []")
     }
 }

@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -17,6 +18,8 @@ class TrackedEntry(
     val tracker: SourceTracker,
     val trackerName: String,
     val manga: SManga,
+    /** Whether the entry is in the library now, which an add or remove is checked against. */
+    val favorite: Boolean,
     val chapters: List<TrackedChapter>,
     /** The entry's category names, without the uncategorized one. */
     val categories: List<String>,
@@ -36,7 +39,9 @@ fun interface TrackedEntryLoader {
  * Tells an extension that tracks reading on its own site what the user did, for both content types.
  * Ported from tsundoku's `SourceTrackerDispatcher`, whose behaviour extensions are written against:
  * chapter events wait [DEBOUNCE_MS] per entry and merge while they agree, an event of the other kind
- * starts over, and favourites go at once. Each call's failure is reported and stops nothing else.
+ * starts over. Unlike tsundoku, an add or remove waits too and goes only if the library still agrees,
+ * so a rolled-back add sends nothing and categories filed just after it go with it; an add and a remove
+ * inside the wait cancel out. Each call's failure is reported and stops nothing else.
  */
 class SourceTrackerKernel(
     private val scope: CoroutineScope,
@@ -47,6 +52,10 @@ class SourceTrackerKernel(
     private class Pending(val read: Boolean, val chapterIds: Set<Long>, val job: Job)
 
     private val pending = HashMap<EntryId, Pending>()
+
+    private class PendingFavorite(val favorite: Boolean, val job: Job)
+
+    private val pendingFavorites = HashMap<EntryId, PendingFavorite>()
 
     /** Both content types' read writes land here, so which chapters count is decided once. */
     fun readStateWritten(read: Boolean, chapters: List<ChapterWrite>) {
@@ -76,16 +85,36 @@ class SourceTrackerKernel(
     }
 
     fun favoriteChanged(entry: EntryId, favorite: Boolean) {
-        scope.launch {
-            val tracked = loadOrNull(entry) ?: return@launch
-            // The gates are the extension's code too, so they run inside the guard.
-            reporting(tracked) {
-                if (!tracker.supportsFavoritesTracking) return@reporting
-                if (favorite) {
-                    tracker.onFavorited(manga, categories)
-                } else {
-                    tracker.onUnfavorited(manga, categories)
+        synchronized(pendingFavorites) {
+            val previous = pendingFavorites.remove(entry)
+            previous?.job?.cancel()
+            // An add and a remove inside the wait: the site never heard the first, and the library is back.
+            if (previous != null && previous.favorite != favorite) return
+            lateinit var mine: PendingFavorite
+            val job = scope.launch(start = CoroutineStart.LAZY) {
+                delay(DEBOUNCE_MS)
+                synchronized(pendingFavorites) {
+                    if (pendingFavorites[entry] !== mine) return@launch
+                    pendingFavorites.remove(entry)
                 }
+                dispatchFavorite(entry, favorite)
+            }
+            mine = PendingFavorite(favorite, job)
+            pendingFavorites[entry] = mine
+            job.start()
+        }
+    }
+
+    private suspend fun dispatchFavorite(entry: EntryId, favorite: Boolean) {
+        val tracked = loadOrNull(entry) ?: return
+        if (tracked.favorite != favorite) return
+        // The gates are the extension's code too, so they run inside the guard.
+        reporting(tracked) {
+            if (!tracker.supportsFavoritesTracking) return@reporting
+            if (favorite) {
+                tracker.onFavorited(manga, categories)
+            } else {
+                tracker.onUnfavorited(manga, categories)
             }
         }
     }

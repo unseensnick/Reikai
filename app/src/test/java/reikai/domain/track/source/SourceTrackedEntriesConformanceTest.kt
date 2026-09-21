@@ -43,6 +43,12 @@ class SourceTrackedEntriesConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `whether the entry is in the library is read from its row`(probe: LoaderProbe) = runTest {
+        probe.loader(favorite = true).load(probe.entry)!!.favorite shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `an entry whose source does not track loads as nothing`(probe: LoaderProbe) = runTest {
         probe.loader(tracking = false).load(probe.entry).shouldBeNull()
     }
@@ -61,6 +67,7 @@ class SourceTrackedEntriesConformanceTest {
         fun loader(
             tracking: Boolean = true,
             exists: Boolean = true,
+            favorite: Boolean = false,
             chapters: List<ChapterRow> = emptyList(),
             categories: List<Category> = emptyList(),
         ): TrackedEntryLoader
@@ -83,6 +90,7 @@ class MangaProbe : SourceTrackedEntriesConformanceTest.LoaderProbe {
     override fun loader(
         tracking: Boolean,
         exists: Boolean,
+        favorite: Boolean,
         chapters: List<SourceTrackedEntriesConformanceTest.ChapterRow>,
         categories: List<Category>,
     ): TrackedEntryLoader {
@@ -97,7 +105,8 @@ class MangaProbe : SourceTrackedEntriesConformanceTest.LoaderProbe {
         return SourceTrackedEntries(
             mangaRepository = mockk {
                 if (exists) {
-                    coEvery { getMangaById(1) } returns Manga.create().copy(id = 1, source = 7, url = "/1")
+                    coEvery { getMangaById(1) } returns
+                        Manga.create().copy(id = 1, source = 7, url = "/1", favorite = favorite)
                 } else {
                     coEvery { getMangaById(1) } throws IllegalStateException("gone")
                 }
@@ -126,6 +135,7 @@ class NovelProbe : SourceTrackedEntriesConformanceTest.LoaderProbe {
     override fun loader(
         tracking: Boolean,
         exists: Boolean,
+        favorite: Boolean,
         chapters: List<SourceTrackedEntriesConformanceTest.ChapterRow>,
         categories: List<Category>,
     ): TrackedEntryLoader {
@@ -140,7 +150,7 @@ class NovelProbe : SourceTrackedEntriesConformanceTest.LoaderProbe {
             sourceManager = mockk(),
             novelRepository = mockk {
                 coEvery { getById(1) } returns
-                    if (exists) Novel.create().copy(id = 1, source = "s", url = "/1") else null
+                    if (exists) Novel.create().copy(id = 1, source = "s", url = "/1", favorite = favorite) else null
             },
             novelChapterRepository = mockk {
                 coEvery { getByNovelId(1) } returns chapters.map {
