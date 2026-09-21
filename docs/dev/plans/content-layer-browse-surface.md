@@ -398,6 +398,8 @@ shared body started reading the column preference itself.
 
 ## Decisions & tradeoffs
 
+- **The filter split is per source kind from 2026-09-21.** The ruling above keeps its mechanism, a typed `FilterList` against a plugin JSON schema, but not its premise that the mechanism follows the content type: novels from compiled-APK sources filter with a `FilterList` and render Mihon's `SourceFilterDialog`. The typed capability lives in the novel source contract. Record: [content-layer-sources-surface.md](content-layer-sources-surface.md).
+
 - **Superseded 2026-08-27: "No takeover, no reopened parks."** It read: the 2c body/toolbar shell
   and the generic search orchestrator stay declined; pagination (Paging 3 vs the manual probe pager),
   the filter dispatch (typed `FilterList` vs plugin JSON schema), `SearchViewModel` and everything

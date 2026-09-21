@@ -21,7 +21,7 @@ Opportunistic polish:
 
 ### Novel sources & LN plugins
 
-- **Compiled-APK novel extensions (tsundoku / IReader repos)** `[XL]` - load the two APK novel-extension ecosystems alongside LN plugins: tsundoku's novel-extension type (a `tachiyomi.novelextension` feature flag on Mihon's extension format plus extra methods like `fetchPageText`) and IReader's extension repo. Requested in `unseensnick/Reikai#31`; starts with its own scout (the 2026-08-02 tsundoku source-system research is the groundwork).
+- **Compiled-APK novel extensions (tsundoku / IReader repos)** `[XL]` - load both APK novel-extension ecosystems beside the LN plugins, with source-side tracking and tracker auto-binding for both content types. Requested in `unseensnick/Reikai#31`; holds the 0.4.0 cut. [Plan](docs/dev/plans/content-layer-sources-surface.md).
 
 ### Data & backup
 
