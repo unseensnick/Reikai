@@ -32,7 +32,7 @@ import tachiyomi.core.common.util.lang.launchIO
 private const val SEARCH_CONCURRENCY = 5
 
 /**
- * Cross-source light-novel search. Fans [NovelSource.searchNovels] out across every installed source
+ * Cross-source light-novel search. Fans [NovelSource.search] out across every installed source
  * under a [Semaphore], updating each source's row independently as it completes so results fill in
  * progressively (mirrors Mihon's `SearchViewModel`).
  */
@@ -76,7 +76,7 @@ class NovelGlobalSearchViewModel(
     }
 
     suspend fun searchSource(source: NovelSource, query: String): List<NovelItem> =
-        source.searchNovels(query, 1)
+        source.search(query, 1, filters = null)
 
     // --- Long-press add-to-library, via the shared [NovelLibraryAdder]. The source id comes from the
     // tapped result's row since results span sources. ---

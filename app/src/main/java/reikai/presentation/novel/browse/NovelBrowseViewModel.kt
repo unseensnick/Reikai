@@ -16,6 +16,7 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.tachiyomi.source.model.FilterList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,9 +28,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelWithChapterCount
@@ -37,6 +35,8 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.source.NovelFilterState
+import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelListingPagingSource
 import reikai.novel.source.NovelSearchPagingSource
 import reikai.novel.source.NovelSource
@@ -97,10 +97,10 @@ class NovelBrowseViewModel(
                 emptyFlow()
             } else {
                 Pager(PagingConfig(pageSize = PAGE_SIZE)) {
-                    if (input.query.isBlank()) {
-                        NovelListingPagingSource(input.source, input.optionsJson)
+                    if (input.isSearch) {
+                        NovelSearchPagingSource(input.source, input.query, input.filters)
                     } else {
-                        NovelSearchPagingSource(input.source, input.query)
+                        NovelListingPagingSource(input.source, input.listing, input.filters)
                     }
                 }.flow
                     // Drop already-favorited results when Hide-entries-already-in-library is on,
@@ -145,45 +145,23 @@ class NovelBrowseViewModel(
         if (!getIncognitoState.await(SourceKey.Novel(sourceId))) {
             reikaiSourcePreferences.lastUsedSource.set(SourceKey.Novel(sourceId))
         }
-        val filterValues = defaultFilterValues(source.filters)
         // Seeded here rather than switched once the screen is up: the Sources row's Latest button
         // would otherwise page Popular first and throw that fetch away.
-        val listing = if (startLatest && source.supportsLatest) {
-            NovelBrowseState.Listing.Latest
-        } else {
-            NovelBrowseState.Listing.Popular
-        }
+        val listing = if (startLatest && source.supportsLatest) NovelListing.Latest else NovelListing.Popular
         state.update {
             it.copy(
                 source = source,
                 sourceError = null,
-                filterValues = filterValues,
+                filterDraft = source.filters?.defaultState(),
                 query = initialQuery,
                 listing = listing,
-                appliedOptions = buildOptions(
-                    source.filters,
-                    filterValues,
-                    showLatest = listing == NovelBrowseState.Listing.Latest,
-                ),
             )
         }
     }
 
-    /** Switch the Popular / Latest listing, clearing any active search, and page from the start. */
-    fun setListing(listing: NovelBrowseState.Listing) {
-        val source = state.value.source ?: return
-        state.update {
-            it.copy(
-                listing = listing,
-                query = "",
-                appliedOptions = buildOptions(
-                    source.filters,
-                    it.filterValues,
-                    listing == NovelBrowseState.Listing.Latest,
-                ),
-                filtersApplied = false,
-            )
-        }
+    /** Switch the Popular / Latest listing, clearing any active search and filters, and page from the start. */
+    fun setListing(listing: NovelListing) {
+        state.update { it.copy(listing = listing, query = "", appliedFilters = null, filtersApplied = false) }
     }
 
     /** Run a search; a blank query falls back to the current Popular / Latest listing. */
@@ -191,27 +169,41 @@ class NovelBrowseViewModel(
         state.update { it.copy(query = query) }
     }
 
-    /** Re-page the current Popular / Latest listing with the filter draft applied. */
+    /**
+     * Apply the filter draft where the source's filters apply: to the listing for an LNReader plugin,
+     * whose search takes none, and to a search that keeps the query for a Mihon filter list.
+     */
     fun applyFilters() {
         val source = state.value.source ?: return
+        val toSearch = source.filters?.applyToSearch == true
         state.update {
             it.copy(
-                query = "",
-                appliedOptions = buildOptions(source.filters, it.filterValues, it.showLatest),
+                query = if (toSearch) it.query else "",
+                appliedFilters = it.filterDraft?.freshlyApplied(),
                 filtersApplied = true,
             )
         }
     }
 
-    fun setFilterValue(key: String, value: JsonElement) =
-        state.update { it.copy(filterValues = it.filterValues + (key to value)) }
+    /** A saved search's query with its filters, for a source whose filters travel with the search. */
+    fun searchWithFilters(query: String) {
+        state.update {
+            it.copy(query = query, appliedFilters = it.filterDraft?.freshlyApplied(), filtersApplied = true)
+        }
+    }
+
+    fun setFilterValue(key: String, value: JsonElement) = state.update {
+        val draft = it.filterDraft as? NovelFilterState.LnValues ?: return@update it
+        it.copy(filterDraft = draft.copy(values = draft.values + (key to value)))
+    }
+
+    /** The Mihon filter dialog edits its list in place and hands it back here. */
+    fun setFilters(filters: FilterList) = state.update { it.copy(filterDraft = NovelFilterState.Filters(filters)) }
 
     /** Replace the whole draft at once, which restoring a saved search does before applying it. */
-    fun setFilterValues(values: Map<String, JsonElement>) =
-        state.update { it.copy(filterValues = values) }
+    fun setFilterState(filters: NovelFilterState?) = state.update { it.copy(filterDraft = filters) }
 
-    fun resetFilters() =
-        state.update { it.copy(filterValues = defaultFilterValues(it.source?.filters)) }
+    fun resetFilters() = state.update { it.copy(filterDraft = it.source?.filters?.defaultState()) }
 
     fun openFilterSheet() = state.update { it.copy(filterSheetOpen = true) }
     fun closeFilterSheet() = state.update { it.copy(filterSheetOpen = false) }
@@ -310,17 +302,17 @@ class NovelBrowseViewModel(
 
 /**
  * Per-source browse state. The source is always pre-picked; the results themselves live in the
- * pager rather than here. [filterValues] is the filter-sheet draft, seeded from the plugin's declared
- * defaults and applied on demand.
+ * pager rather than here. [filterDraft] is the filter-sheet draft, seeded from the source's defaults
+ * and applied on demand.
  */
 data class NovelBrowseState(
     val source: NovelSource? = null,
-    val listing: Listing = Listing.Popular,
+    val listing: NovelListing = NovelListing.Popular,
     /** Empty for the popular/latest listing, non-empty when a search is active. */
     val query: String = "",
-    val filterValues: Map<String, JsonElement> = emptyMap(),
-    /** The filter draft as the pager last received it, written by Apply and by a listing switch. */
-    val appliedOptions: String = "",
+    val filterDraft: NovelFilterState? = null,
+    /** The filters the pager last received, written by Apply; null means the source's defaults. */
+    val appliedFilters: NovelFilterState? = null,
     /** Whether Apply has run since the last listing switch, which drives the Filter chip.
      *  Deliberately on upstream's terms rather than on whether the values differ from the
      *  defaults: manga lights the chip for any search-shaped listing, so a reset-then-apply keeps
@@ -338,23 +330,30 @@ data class NovelBrowseState(
      *  screen renders from this flow, so a value it cannot observe never reaches the grid. */
     val displayMode: LibraryDisplayMode = LibraryDisplayMode.default,
 ) {
-    val showLatest: Boolean get() = listing == Listing.Latest
-
-    /** What the pager pages, or null until the plugin resolves. The filter draft is deliberately
-     *  absent: only [appliedOptions] reaches the pager, so editing filters refetches nothing. */
+    /** What the pager pages, or null until the source resolves. The filter draft is deliberately
+     *  absent: only [appliedFilters] reaches the pager, so editing filters refetches nothing. */
     internal val pagerInput: NovelPagerInput?
-        get() = source?.let { NovelPagerInput(it, query, appliedOptions) }
-
-    enum class Listing { Popular, Latest }
+        get() = source?.let { NovelPagerInput(it, listing, query, appliedFilters) }
 }
 
 /** The pager's inputs. Equality decides when paging restarts, so a [NovelSource] compares by identity,
  *  which is what we want: it is resolved once per screen. */
 internal data class NovelPagerInput(
     val source: NovelSource,
+    val listing: NovelListing,
     val query: String,
-    val optionsJson: String,
-)
+    val filters: NovelFilterState?,
+) {
+    /** A query searches; so do applied filters whose format sends them with the search. */
+    val isSearch: Boolean
+        get() = query.isNotBlank() || (filters != null && source.filters?.applyToSearch == true)
+}
+
+/** A new wrapper for a list edited in place, so the pager sees an Apply; LNReader values compare by value. */
+private fun NovelFilterState.freshlyApplied(): NovelFilterState = when (this) {
+    is NovelFilterState.Filters -> NovelFilterState.Filters(list)
+    is NovelFilterState.LnValues -> this
+}
 
 /** Long-press dialogs for the novel browse grid, the novel twin of `BrowseSourceViewModel.Dialog`. */
 sealed interface NovelBrowseDialog {
@@ -391,45 +390,4 @@ sealed interface NovelBrowseDialog {
 sealed interface NovelCategoryTarget {
     data class Stored(val novelId: Long) : NovelCategoryTarget
     data class Pending(val item: NovelItem, val sourceId: String) : NovelCategoryTarget
-}
-
-/**
- * Current value for each filter, seeded from the plugin's declared `value`. Drives the filter sheet's
- * initial state and the options sent to [NovelSource.popularNovels] before the user touches anything.
- */
-internal fun defaultFilterValues(filters: JsonObject?): Map<String, JsonElement> {
-    if (filters == null) return emptyMap()
-    return buildMap {
-        filters.forEach { (key, schema) ->
-            if (schema is JsonObject) schema["value"]?.let { put(key, it) }
-        }
-    }
-}
-
-/**
- * Builds a `popularNovels` options JSON from the plugin's filter schema and the user's current
- * [values]. Each filter is wrapped as `{key: {value: <current-or-default>}}` inside the top-level
- * `filters` object so the plugin body can read `options.filters.X.value`. [showLatest] maps to
- * lnreader's `showLatestNovels`. Sources without filters get `{filters: {}}` plus the toggle.
- */
-internal fun buildOptions(
-    filters: JsonObject?,
-    values: Map<String, JsonElement>,
-    showLatest: Boolean,
-): String {
-    val opts = buildJsonObject {
-        put(
-            "filters",
-            buildJsonObject {
-                filters?.forEach { (key, schema) ->
-                    if (schema is JsonObject) {
-                        val value = values[key] ?: schema["value"]
-                        if (value != null) put(key, buildJsonObject { put("value", value) })
-                    }
-                }
-            },
-        )
-        put("showLatestNovels", showLatest)
-    }
-    return opts.toString()
 }

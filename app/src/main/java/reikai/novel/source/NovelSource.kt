@@ -6,12 +6,12 @@ import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 
 /**
- * Contract for a light-novel source. Method names track lnreader's `Plugin` interface for
- * grep-ability across the two codebases; everything is suspending and content-shaped (`NovelItem`,
- * `SourceNovel`, chapter text as `String`) rather than the `SManga` / `SChapter` / `Page` the manga
- * side uses.
+ * Contract for a light-novel source, whatever format it comes in. Everything is suspending and
+ * content-shaped (`NovelItem`, `SourceNovel`, chapter text as `String`) rather than the `SManga` /
+ * `SChapter` / `Page` the manga side uses. Where the formats differ, the difference is a typed
+ * capability such as [filters], never a check for which format a source is.
  *
- * The only implementation is [LnPluginSource] (a JS plugin running in an [reikai.novel.host.LnPluginHost]).
+ * [LnPluginSource] is the LNReader plugin adapter (a JS plugin running in an [reikai.novel.host.LnPluginHost]).
  */
 interface NovelSource {
 
@@ -33,12 +33,8 @@ interface NovelSource {
      */
     val iconUrl: String?
 
-    /**
-     * Raw `plugin.filters` schema. The host does not interpret this; `NovelSourceFilterSheet` reads
-     * the shape (Picker, Switch, XCheckbox, Checkbox, ExcludableCheckboxGroup, TextInput, Text) and
-     * `buildOptions` turns the reader's choices into [popularNovels]'s `optionsJson`.
-     */
-    val filters: JsonObject?
+    /** The source's filters and where they apply; null when it declares none. */
+    val filters: NovelFilters? get() = null
 
     /**
      * Raw `plugin.pluginSettings` schema (per-plugin config: login, base URL, content toggles). Null
@@ -62,13 +58,16 @@ interface NovelSource {
     fun setSetting(key: String, value: JsonElement?) {}
 
     /**
-     * @param optionsJson lnreader `PopularNovelsOptions` shape, JSON-encoded. Built by
-     * `buildOptions` from the plugin's declared filters and whatever the reader has chosen; the
-     * `"{}"` default is for a caller with no schema to build from.
+     * A page of [listing]. Null [filters] means the source's defaults; a format whose filters apply to
+     * search ignores them here, as a manga source's Popular and Latest take none.
      */
-    suspend fun popularNovels(page: Int, optionsJson: String = "{}"): List<NovelItem>
+    suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): List<NovelItem>
 
-    suspend fun searchNovels(query: String, page: Int): List<NovelItem>
+    /**
+     * A page of search results. Null [filters] means the source's defaults; a format whose search takes
+     * no filters ignores them.
+     */
+    suspend fun search(query: String, page: Int, filters: NovelFilterState?): List<NovelItem>
 
     /** Fetch a novel's details + chapter list. `novelPath` is the source-relative path returned
      *  inside a [NovelItem]. */

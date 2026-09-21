@@ -6,20 +6,22 @@ import kotlinx.coroutines.CancellationException
 import reikai.novel.host.NovelItem
 import tachiyomi.core.common.util.lang.withIOContext
 
-/** Pages a source's Popular / Latest listing, with the filter values already encoded in [optionsJson]. */
+/** Pages a source's Popular / Latest listing. */
 class NovelListingPagingSource(
     source: NovelSource,
-    private val optionsJson: String,
+    private val listing: NovelListing,
+    private val filters: NovelFilterState?,
 ) : BaseNovelPagingSource(source) {
-    override suspend fun requestNextPage(page: Int): List<NovelItem> = source.popularNovels(page, optionsJson)
+    override suspend fun requestNextPage(page: Int): List<NovelItem> = source.browse(listing, page, filters)
 }
 
-/** Pages a source's search results. lnreader search takes no filters, hence no options here. */
+/** Pages a source's search results. */
 class NovelSearchPagingSource(
     source: NovelSource,
     private val query: String,
+    private val filters: NovelFilterState?,
 ) : BaseNovelPagingSource(source) {
-    override suspend fun requestNextPage(page: Int): List<NovelItem> = source.searchNovels(query, page)
+    override suspend fun requestNextPage(page: Int): List<NovelItem> = source.search(query, page, filters)
 }
 
 /**

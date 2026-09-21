@@ -27,7 +27,7 @@ class LnPluginSource(
     override val site: String = info.site.orEmpty()
     override val lang: String = info.lang.orEmpty()
     override val iconUrl: String? = info.iconUrl
-    override val filters: JsonObject? = info.filters
+    override val filters: NovelFilters? = info.filters?.takeIf { it.isNotEmpty() }?.let(NovelFilters::LnSchema)
     override val pluginSettings: JsonObject? = info.pluginSettings
     override val supportsLatest: Boolean = info.supportsLatest
 
@@ -35,10 +35,15 @@ class LnPluginSource(
 
     override fun setSetting(key: String, value: JsonElement?) = host.setSetting(info.id, key, value)
 
-    override suspend fun popularNovels(page: Int, optionsJson: String): List<NovelItem> =
-        host.popularNovels(info.id, page, optionsJson)
+    // Latest is a flag in the same options as the filters, and a plugin with no filters still needs it.
+    override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): List<NovelItem> {
+        val values = (filters as? NovelFilterState.LnValues)?.values.orEmpty()
+        val options = buildOptions(info.filters, values, showLatest = listing == NovelListing.Latest)
+        return host.popularNovels(info.id, page, options)
+    }
 
-    override suspend fun searchNovels(query: String, page: Int): List<NovelItem> =
+    // The plugin's search takes only a query, so filters narrow the listings and never reach here.
+    override suspend fun search(query: String, page: Int, filters: NovelFilterState?): List<NovelItem> =
         host.searchNovels(info.id, query, page)
 
     override suspend fun parseNovel(novelPath: String): SourceNovel =

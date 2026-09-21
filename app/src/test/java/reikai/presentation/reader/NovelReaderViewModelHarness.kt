@@ -16,7 +16,6 @@ import io.mockk.unmockkStatic
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
-import kotlinx.serialization.json.JsonObject
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.merge.MergedChapterUnitRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
@@ -42,6 +41,8 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.source.NovelFilterState
+import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -264,16 +265,16 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
     override val site = "https://$id.example"
     override val lang = "en"
     override val iconUrl: String? = null
-    override val filters: JsonObject? = null
 
     override suspend fun parseChapter(chapterPath: String): String {
         if (chapterPath in failing) throw IOException("no connection")
         return "<p>From the source: $chapterPath</p>"
     }
 
-    override suspend fun popularNovels(page: Int, optionsJson: String): List<NovelItem> = unused()
+    override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): List<NovelItem> =
+        unused()
 
-    override suspend fun searchNovels(query: String, page: Int): List<NovelItem> = unused()
+    override suspend fun search(query: String, page: Int, filters: NovelFilterState?): List<NovelItem> = unused()
 
     override suspend fun parseNovel(novelPath: String): SourceNovel = unused()
 

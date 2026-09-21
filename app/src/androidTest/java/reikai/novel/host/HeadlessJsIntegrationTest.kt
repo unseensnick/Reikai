@@ -14,8 +14,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.novel.registry.LnRegistry
-import reikai.presentation.novel.browse.buildOptions
-import reikai.presentation.novel.browse.defaultFilterValues
+import reikai.novel.source.buildOptions
+import reikai.novel.source.defaultFilterValues
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 

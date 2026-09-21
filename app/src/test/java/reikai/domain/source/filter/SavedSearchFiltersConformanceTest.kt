@@ -7,7 +7,6 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -17,6 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.novel.source.NovelFilterState
 
 /**
  * The rule both content types owe a saved search: what the reader picked comes back, an unreadable
@@ -171,7 +171,11 @@ class SavedSearchFiltersConformanceTest {
 
     companion object {
         @JvmStatic
-        fun probes() = listOf(MangaSavedSearchFiltersProbe(), NovelSavedSearchFiltersProbe())
+        fun probes() = listOf(
+            MangaSavedSearchFiltersProbe(),
+            NovelSavedSearchFiltersProbe(),
+            NovelFilterListSavedSearchFiltersProbe(),
+        )
     }
 }
 
@@ -212,16 +216,35 @@ class NovelSavedSearchFiltersProbe : SavedSearchFiltersProbe {
     override fun save(names: List<String>, chosen: String?): String? = filters.encode(state(names, chosen))
 
     override fun restore(json: String, names: List<String>, preset: String?): List<String> {
-        val decoded = filters.decode(json, state(names, preset))
+        val decoded = filters.decode(json, state(names, preset)) as NovelFilterState.LnValues
         // Only the filters the source still declares, since the plugin's schema is what the options
         // are built from; a value left over from a filter that is gone never reaches a request.
-        return names.filter { decoded[it]?.jsonPrimitive?.boolean == true }
+        return names.filter { decoded.values[it]?.jsonPrimitive?.boolean == true }
     }
 
-    private fun state(names: List<String>, chosen: String?): Map<String, JsonElement> =
-        names.associateWith { JsonPrimitive(it == chosen) }
+    private fun state(names: List<String>, chosen: String?) =
+        NovelFilterState.LnValues(names.associateWith { JsonPrimitive(it == chosen) })
 
     override fun toString() = "novel"
+}
+
+/** A novel source whose filters are a Mihon list, which an APK source declares. */
+class NovelFilterListSavedSearchFiltersProbe : SavedSearchFiltersProbe {
+
+    private val filters = NovelSavedSearchFilters()
+
+    override fun save(names: List<String>, chosen: String?): String? = filters.encode(state(names, chosen))
+
+    override fun restore(json: String, names: List<String>, preset: String?): List<String> =
+        (filters.decode(json, state(names, preset)) as NovelFilterState.Filters).list
+            .filterIsInstance<Filter.CheckBox>()
+            .filter { it.state }
+            .map { it.name }
+
+    private fun state(names: List<String>, chosen: String?) =
+        NovelFilterState.Filters(FilterList(names.map { TestCheckBox(it, it == chosen) }))
+
+    override fun toString() = "novel with a Mihon filter list"
 }
 
 private class TestCheckBox(name: String, state: Boolean) : Filter.CheckBox(name, state)

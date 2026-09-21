@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.source.filter.NovelSavedSearchFilters
 import reikai.novel.host.NovelItem
+import reikai.novel.source.NovelListing
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.toEntryBrowseUi
@@ -21,7 +22,6 @@ import reikai.presentation.novel.browse.NovelBrowseState
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.SelectedNovel
-import reikai.presentation.novel.browse.defaultFilterValues
 import reikai.presentation.novel.browse.toNeutral
 import tachiyomi.domain.library.model.LibraryDisplayMode
 
@@ -124,7 +124,7 @@ class NovelBrowseAdapter(
             sourceName = source.name,
             listing = when {
                 searching -> EntryBrowseListing.Search(state.query)
-                state.listing == NovelBrowseState.Listing.Latest -> EntryBrowseListing.Latest
+                state.listing == NovelListing.Latest -> EntryBrowseListing.Latest
                 else -> EntryBrowseListing.Popular
             },
             query = when (toolbar) {
@@ -133,7 +133,7 @@ class NovelBrowseAdapter(
             },
             isUserQuery = searching,
             supportsLatest = source.supportsLatest,
-            hasFilters = source.filters?.isNotEmpty() == true,
+            hasFilters = source.filters != null,
             filtersActive = state.filterChipActive(),
             hasSettings = source.pluginSettings != null,
             webUrl = source.site.takeIf { it.isNotBlank() },
@@ -162,8 +162,8 @@ class NovelBrowseAdapter(
         toolbarText.value = ToolbarText.Typed(null)
         model.resetFilters()
         when (listing) {
-            EntryBrowseListing.Latest -> model.setListing(NovelBrowseState.Listing.Latest)
-            EntryBrowseListing.Popular -> model.setListing(NovelBrowseState.Listing.Popular)
+            EntryBrowseListing.Latest -> model.setListing(NovelListing.Latest)
+            EntryBrowseListing.Popular -> model.setListing(NovelListing.Popular)
             is EntryBrowseListing.Search -> model.search(listing.query.orEmpty())
         }
     }
@@ -190,19 +190,25 @@ class NovelBrowseAdapter(
         val state = model.state.value
         return SavedSearchDraft(
             query = state.query.takeIf { it.isNotBlank() },
-            filtersJson = savedSearchFilters.encode(state.filterValues),
+            filtersJson = state.filterDraft?.let(savedSearchFilters::encode),
         )
     }
 
     override fun applySearch(query: String?, filtersJson: String?) {
-        val defaults = defaultFilterValues(model.state.value.source?.filters)
-        model.setFilterValues(filtersJson?.let { savedSearchFilters.decode(it, defaults) } ?: defaults)
-        // A plugin's search endpoint takes no options, so a query and filters cannot both reach one
-        // request. A saved search carrying a query is a search; otherwise the filters are what runs.
-        if (query.isNullOrBlank()) {
-            model.applyFilters()
-        } else {
-            search(query)
+        val filters = model.state.value.source?.filters
+        val defaults = filters?.defaultState()
+        model.setFilterState(
+            filtersJson?.let { json -> defaults?.let { savedSearchFilters.decode(json, it) } } ?: defaults,
+        )
+        // An LNReader plugin's search takes no options, so a saved query runs as a plain search and
+        // saved filters as a listing. A Mihon filter list travels with the query, as manga's does.
+        when {
+            query.isNullOrBlank() -> model.applyFilters()
+            filters?.applyToSearch == true -> {
+                toolbarText.value = ToolbarText.Typed(query)
+                model.searchWithFilters(query)
+            }
+            else -> search(query)
         }
     }
 

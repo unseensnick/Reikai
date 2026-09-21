@@ -3,7 +3,6 @@ package reikai.data.novel
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.JsonObject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -14,6 +13,8 @@ import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
+import reikai.novel.source.NovelFilterState
+import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
@@ -185,7 +186,6 @@ class NovelRefreshTest {
         override val site = "https://src.example"
         override val lang = "en"
         override val iconUrl: String? = null
-        override val filters: JsonObject? = null
 
         override suspend fun parseNovel(novelPath: String) =
             SourceNovel(path = novelPath, name = "Novel", chapters = firstPage, totalPages = otherPages.size + 1)
@@ -195,9 +195,10 @@ class NovelRefreshTest {
 
         override suspend fun parseChapter(chapterPath: String): String = unused()
 
-        override suspend fun popularNovels(page: Int, optionsJson: String): List<NovelItem> = unused()
+        override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): List<NovelItem> =
+            unused()
 
-        override suspend fun searchNovels(query: String, page: Int): List<NovelItem> = unused()
+        override suspend fun search(query: String, page: Int, filters: NovelFilterState?): List<NovelItem> = unused()
 
         private fun unused(): Nothing = throw UnsupportedOperationException("Not part of a refresh")
     }

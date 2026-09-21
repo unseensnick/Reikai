@@ -10,13 +10,12 @@ import reikai.domain.source.filter.MangaSavedSearchFilters
 import reikai.domain.source.filter.NovelSavedSearchFilters
 import reikai.domain.source.model.SavedSearch
 import reikai.novel.host.NovelItem
+import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.langCode
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
-import reikai.presentation.novel.browse.buildOptions
-import reikai.presentation.novel.browse.defaultFilterValues
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -135,17 +134,22 @@ class NovelFeedProvider(
 
     override suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<Any> {
         val source = row.source as NovelSource
-        // A plugin's search endpoint takes no options, so a saved search carrying a query is a
-        // search and everything else runs as a listing. The catalogue applies the same rule.
+        val defaults = source.filters?.defaultState()
+        val stored = savedSearch?.filtersJson
+            ?.let { json -> defaults?.let { filters.decode(json, it) } }
+            ?: defaults
+        // Where the filters go follows their format, as in the catalogue: an LNReader plugin's search
+        // takes no options, so a saved query is a plain search and saved filters narrow the listing; a
+        // Mihon filter list travels with the search, the manga feed's rule.
         val query = savedSearch?.query
-        if (!query.isNullOrBlank()) return source.searchNovels(query, page = 1)
-
-        val defaults = defaultFilterValues(source.filters)
-        val values = savedSearch?.filtersJson?.let { filters.decode(it, defaults) } ?: defaults
-        return source.popularNovels(
-            page = 1,
-            optionsJson = buildOptions(source.filters, values, showLatest = source.supportsLatest),
-        )
+        return when {
+            !query.isNullOrBlank() -> source.search(query, page = 1, stored)
+            savedSearch != null && source.filters?.applyToSearch == true -> source.search("", page = 1, stored)
+            else -> {
+                val listing = if (source.supportsLatest) NovelListing.Latest else NovelListing.Popular
+                source.browse(listing, page = 1, stored)
+            }
+        }
     }
 
     override fun isInLibrary(

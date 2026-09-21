@@ -64,6 +64,8 @@ import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.domain.source.model.SavedSearch
+import reikai.novel.source.NovelFilterState
+import reikai.novel.source.NovelFilters
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
@@ -219,14 +221,25 @@ class EntryCatalogueScreen(
                 }
             },
         ) { onDismiss ->
-            NovelSourceFilterSheet(
-                filters = source?.filters,
-                values = modelState.filterValues,
-                onValueChange = viewModel::setFilterValue,
-                onApply = viewModel::applyFilters,
-                onReset = viewModel::resetFilters,
-                onDismiss = onDismiss,
-            )
+            // The sheet follows the source's filter format, never which kind of source it is.
+            when (val draft = modelState.filterDraft) {
+                is NovelFilterState.LnValues -> NovelSourceFilterSheet(
+                    filters = (source?.filters as? NovelFilters.LnSchema)?.schema,
+                    values = draft.values,
+                    onValueChange = viewModel::setFilterValue,
+                    onApply = viewModel::applyFilters,
+                    onReset = viewModel::resetFilters,
+                    onDismiss = onDismiss,
+                )
+                is NovelFilterState.Filters -> SourceFilterDialog(
+                    onDismissRequest = onDismiss,
+                    filters = draft.list,
+                    onReset = viewModel::resetFilters,
+                    onFilter = viewModel::applyFilters,
+                    onUpdate = viewModel::setFilters,
+                )
+                null -> {}
+            }
         }
     }
 

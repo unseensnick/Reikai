@@ -2,10 +2,10 @@ package reikai.domain.source.filter
 
 import eu.kanade.tachiyomi.source.model.FilterList
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import reikai.novel.source.NovelFilterState
 
 /**
  * How one content type turns its browse filter state into the string a saved search stores, and back.
@@ -53,19 +53,28 @@ class MangaSavedSearchFilters : SavedSearchFilters<FilterList> {
 }
 
 /**
- * The light-novel half, over the filter-value map the plugin's schema is read into.
+ * The light-novel half, in the shape of the source's filters. A Mihon filter list uses the manga
+ * encoding, since it is the same model.
  *
- * Values are keyed by filter, so a source that adds, removes or reorders a filter cannot misapply a
- * saved one the way the positional manga encoding can. A value whose filter is gone stays in the map
- * and is dropped downstream, where the options are built from the schema rather than from this.
+ * LNReader values are keyed by filter, so a source that adds, removes or reorders a filter cannot
+ * misapply a saved one the way the positional encoding can. A value whose filter is gone stays in the
+ * map and is dropped downstream, where the options are built from the schema rather than from this.
  */
-class NovelSavedSearchFilters : SavedSearchFilters<Map<String, JsonElement>> {
+class NovelSavedSearchFilters : SavedSearchFilters<NovelFilterState> {
 
-    override fun encode(state: Map<String, JsonElement>): String? =
-        state.takeIf { it.isNotEmpty() }?.let { Json.encodeToString(JsonObject(it)) }
+    private val filterList = MangaSavedSearchFilters()
 
-    override fun decode(json: String, current: Map<String, JsonElement>): Map<String, JsonElement> {
-        val stored = runCatching { Json.parseToJsonElement(json).jsonObject }.getOrNull() ?: return current
-        return current + stored
+    override fun encode(state: NovelFilterState): String? = when (state) {
+        is NovelFilterState.LnValues ->
+            state.values.takeIf { it.isNotEmpty() }?.let { Json.encodeToString(JsonObject(it)) }
+        is NovelFilterState.Filters -> filterList.encode(state.list)
+    }
+
+    override fun decode(json: String, current: NovelFilterState): NovelFilterState = when (current) {
+        is NovelFilterState.LnValues -> {
+            val stored = runCatching { Json.parseToJsonElement(json).jsonObject }.getOrNull()
+            stored?.let { NovelFilterState.LnValues(current.values + it) } ?: current
+        }
+        is NovelFilterState.Filters -> NovelFilterState.Filters(filterList.decode(json, current.list))
     }
 }

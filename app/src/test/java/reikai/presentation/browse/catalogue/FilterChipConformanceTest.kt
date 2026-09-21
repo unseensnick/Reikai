@@ -2,6 +2,7 @@ package reikai.presentation.browse.catalogue
 
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import io.kotest.matchers.shouldBe
@@ -21,10 +22,11 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.source.NovelFilters
+import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.migrate.flow.MigrationPickHandoff
-import reikai.presentation.novel.browse.NovelBrowseState
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.recents.EmittingPreferenceStore
 
@@ -102,7 +104,15 @@ class FilterChipConformanceTest {
 
     companion object {
         @JvmStatic
-        fun probes() = listOf(MangaFilterChipProbe(), NovelFilterChipProbe())
+        fun probes() = listOf(
+            MangaFilterChipProbe(),
+            NovelFilterChipProbe("novels", filters = null),
+            // A novel source whose filters travel with the search, as an APK source's Mihon list does.
+            NovelFilterChipProbe(
+                "novels with a Mihon filter list",
+                NovelFilters.FilterListSchema { FilterList(object : Filter.Text("Author") {}) },
+            ),
+        )
     }
 }
 
@@ -189,13 +199,16 @@ private class MangaFilterChipProbe : FilterChipProbe {
     }
 }
 
-private class NovelFilterChipProbe : FilterChipProbe {
+private class NovelFilterChipProbe(
+    private val label: String,
+    private val filters: NovelFilters?,
+) : FilterChipProbe {
 
-    override fun toString() = "novels"
+    override fun toString() = label
 
     private val source = mockk<NovelSource>(relaxed = true) {
         every { id } returns SOURCE_ID
-        every { filters } returns null
+        every { filters } returns this@NovelFilterChipProbe.filters
         every { supportsLatest } returns true
     }
 
@@ -233,7 +246,7 @@ private class NovelFilterChipProbe : FilterChipProbe {
 
     override fun resetFilters() = model.resetFilters()
 
-    override fun switchListing() = model.setListing(NovelBrowseState.Listing.Popular)
+    override fun switchListing() = model.setListing(NovelListing.Popular)
 
     override fun chipActive() = model.state.value.filterChipActive()
 
