@@ -95,6 +95,17 @@ interface Source {
      */
     suspend fun getPageList(chapter: SChapter): List<Page>
 
+    // RK -->
+
+    /**
+     * A novel chapter's text. Novel APKs declare this on their own `NovelSource` copy, which the host
+     * cannot name across class loaders, so the host calls it here and the JVM dispatches by signature
+     * to the extension's method. Never add `isNovelSource` beside it: that copy gives it a default
+     * body too, and two defaults on one class fail at the call.
+     */
+    suspend fun fetchPageText(page: Page): String = throw UnsupportedOperationException("Not a novel source")
+    // RK <--
+
     @Deprecated("Use the combined suspend API instead", ReplaceWith("getMangaUpdate"))
     fun fetchMangaDetails(manga: SManga): Observable<SManga> = throw UnsupportedOperationException()
 
