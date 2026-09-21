@@ -8,13 +8,7 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,9 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.getAndUpdate
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -35,6 +27,8 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
+import reikai.novel.registry.LnRepoRegistries
+import reikai.novel.registry.LnRepoResult
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.update.LnPluginUpdate
@@ -45,25 +39,20 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Drives the light-novel plugin manager on the Browse → Extensions tab (Novels chip). Mirrors
  * Mihon's [eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel] sections (Updates /
- * Installed / Available) over the plugin host: [NovelSourceManager] for what's installed,
- * [LnPluginInstaller.fetchRepo] across the added repos for what's available, and a version diff for
- * what has updates. One fetch feeds both Available and Updates, and runs only while the screen
- * watches [state]; a change to the added repos or a [refresh] cancels a fetch still running.
+ * Installed / Available) over the plugin host: [NovelSourceManager] for what's installed, the
+ * shared [LnRepoRegistries] for what's available, and a version diff for what has updates. Both
+ * lists are derived from the registries already fetched and the installed plugins' records, so an
+ * install, an uninstall or a return to the tab downloads nothing.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
 @Inject
 @ViewModelKey
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class LnPluginManagerViewModel(
     manager: NovelSourceManager,
     private val installer: LnPluginInstaller,
+    private val registries: LnRepoRegistries,
     private val prefs: NovelPreferences,
 ) : ViewModel() {
-
-    private val refreshRequests =
-        MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-
-    private val isRefreshing = MutableStateFlow(false)
 
     /** Canonical URLs with an install in flight, and the last error per URL. */
     private val installs = MutableStateFlow(Installs())
@@ -73,18 +62,22 @@ class LnPluginManagerViewModel(
         emitAll(manager.sources)
     }
 
-    private val repos: Flow<Set<String>> = prefs.addedRepoUrls().changes()
-
-    /** Null until the first fetch lands. The pref replays its value on subscribe, which is the first fetch. */
-    private val fetched: Flow<RepoFetch?> = merge(repos, refreshRequests.map { prefs.addedRepoUrls().get() })
-        .mapLatest<Set<String>, RepoFetch?> { fetch(it) }
-        .onStart { emit(null) }
+    /** Null until the registries first load. */
+    private val fetched: Flow<RepoFetch?> = combine(
+        registries.results,
+        prefs.installedPluginUrls().changes(),
+        prefs.installedPluginMetadata().changes(),
+        ::repoFetch,
+    )
+        // Keep the Browse badge in sync with what the user is looking at.
+        .onEach { prefs.pluginUpdatesCount().set(it.updates.size) }
+        .onStart<RepoFetch?> { emit(null) }
 
     val state: StateFlow<State> = combine(
         installed,
         installer.failures,
         fetched,
-        isRefreshing,
+        registries.isRefreshing,
         installs,
     ) { installed, failures, fetched, refreshing, installs ->
         State(
@@ -102,45 +95,31 @@ class LnPluginManagerViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
     fun refresh() {
-        refreshRequests.tryEmit(Unit)
+        viewModelScope.launchIO { registries.refresh() }
     }
 
-    private suspend fun fetch(repos: Set<String>): RepoFetch {
-        isRefreshing.value = true
-        try {
-            val installedUrls = prefs.installedPluginUrls().get()
-            val metadata = prefs.installedPluginMetadata().get()
-
-            // Fetch every repo registry in parallel (network-bound), then merge in repo order so the
-            // first-write-wins on URL collisions still matches the install/check surfaces. awaitAll
-            // preserves the input order, so the merge order equals the repo order.
-            val fetched = coroutineScope {
-                repos.map { repo ->
-                    async { runCatching { installer.fetchRepo(repo) }.getOrElse { emptyList() } }
-                }.awaitAll()
+    private fun repoFetch(
+        results: Map<String, LnRepoResult>,
+        installedUrls: Set<String>,
+        metadata: Map<String, LnInstalledPluginMetadata>,
+    ): RepoFetch {
+        // Merge in repo order, so first-write-wins on URL collisions matches the install/check surfaces.
+        val registries = results.values.map { (it as? LnRepoResult.Reached)?.entries.orEmpty() }
+        val byUrl = LinkedHashMap<String, LnRegistryEntry>()
+        registries.forEach { entries ->
+            entries.forEach { entry ->
+                val key = canonicalizePluginUrl(entry.url)
+                if (key !in byUrl) byUrl[key] = entry
             }
-            val byUrl = LinkedHashMap<String, LnRegistryEntry>()
-            fetched.forEach { entries ->
-                entries.forEach { entry ->
-                    val key = canonicalizePluginUrl(entry.url)
-                    if (key !in byUrl) byUrl[key] = entry
-                }
-            }
-            val updates = findPluginUpdates(installedUrls, metadata, fetched.flatten())
-
-            // Keep the Browse badge in sync with what the user is looking at.
-            prefs.pluginUpdatesCount().set(updates.size)
-            return RepoFetch(
-                hasRepos = repos.isNotEmpty(),
-                available = byUrl.filterKeys { it !in installedUrls }.values.toList(),
-                updates = updates,
-                installedVersions = metadata.values
-                    .mapNotNull { meta -> meta.version?.let { meta.pluginId to it } }
-                    .toMap(),
-            )
-        } finally {
-            isRefreshing.value = false
         }
+        return RepoFetch(
+            hasRepos = results.isNotEmpty(),
+            available = byUrl.filterKeys { it !in installedUrls }.values.toList(),
+            updates = findPluginUpdates(installedUrls, metadata, registries.flatten()),
+            installedVersions = metadata.values
+                .mapNotNull { meta -> meta.version?.let { meta.pluginId to it } }
+                .toMap(),
+        )
     }
 
     /**
@@ -176,7 +155,6 @@ class LnPluginManagerViewModel(
         viewModelScope.launchIO {
             try {
                 installer.installFromUrl(url, metadata)
-                refresh()
             } catch (e: Throwable) {
                 installs.update { it.copy(errors = it.errors + (key to (e.message ?: "Install failed"))) }
             } finally {
@@ -198,7 +176,6 @@ class LnPluginManagerViewModel(
             // id->url map lags a same-session install (install registers the source before persisting
             // metadata), which silently no-op'd the trash button until an app restart.
             installer.uninstall(source.id)
-            refresh()
         }
     }
 
@@ -206,7 +183,6 @@ class LnPluginManagerViewModel(
     fun uninstall(failure: LnPluginLoadFailure) {
         viewModelScope.launchIO {
             installer.uninstall(failure.pluginId.orEmpty(), failure.url)
-            refresh()
         }
     }
 

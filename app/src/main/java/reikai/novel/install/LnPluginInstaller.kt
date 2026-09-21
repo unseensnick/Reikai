@@ -1,6 +1,7 @@
 package reikai.novel.install
 
 import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -24,6 +25,7 @@ import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginLoader
 import reikai.novel.registry.LnRegistry
 import reikai.novel.registry.LnRegistryEntry
+import reikai.novel.registry.LnRegistryFetcher
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
@@ -38,13 +40,14 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Inject
 @SingleIn(AppScope::class)
+@ContributesBinding(AppScope::class)
 class LnPluginInstaller(
     private val networkHelper: NetworkHelper,
     private val loader: LnPluginLoader,
     private val manager: NovelSourceManager,
     private val prefs: NovelPreferences,
     private val host: LnPluginHost,
-) {
+) : LnRegistryFetcher {
 
     // Serializes the bulk load so two ensureLoaded calls don't double-load. Deliberately NOT held by
     // install/uninstall, so a tap-to-install never blocks behind an in-progress (possibly slow, e.g. a
@@ -343,7 +346,7 @@ class LnPluginInstaller(
      * Fetch + parse an lnreader plugin registry's JSON index. Caller decides what to do with the
      * entries (typically: present a list and call [installFromUrl] for each chosen entry's `url`).
      */
-    suspend fun fetchRepo(repoJsonUrl: String): List<LnRegistryEntry> = withContext(Dispatchers.IO) {
+    override suspend fun fetchRepo(repoJsonUrl: String): List<LnRegistryEntry> = withContext(Dispatchers.IO) {
         val req = Request.Builder().url(repoJsonUrl).build()
         networkHelper.client.newCall(req).execute().use { res ->
             if (!res.isSuccessful) {

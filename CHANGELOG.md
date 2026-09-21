@@ -500,6 +500,7 @@ every release now also ships a foss build with neither in it.
 - **Download queue cards show the chapter downloading now, and their counts no longer reset when you reopen the queue.**
 - **Novel downloads left in the queue no longer restart on their own when the app opens; tap Resume, as with manga.** Downloads cut off by closing the app still pick up again.
 - **Downloaded novel chapters show as downloaded as soon as the app opens.** The novel download folder is no longer rescanned on every launch, only hourly, as manga's is.
+- **Novel plugins in Browse -> Extensions no longer re-download their repos each time you come back or install a plugin.** Pull down to refresh them.
 
 #### Fixed
 

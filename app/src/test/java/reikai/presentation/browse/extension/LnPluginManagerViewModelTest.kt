@@ -25,11 +25,12 @@ import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.registry.LnRegistryEntry
+import reikai.novel.registry.LnRepoRegistries
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
 import java.util.concurrent.atomic.AtomicInteger
 
-/** The plugin manager fetches the repos only while the screen watches it, and once per reason to. */
+/** The plugin manager downloads the repos only while a screen watches it, and once per reason to. */
 class LnPluginManagerViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
@@ -40,6 +41,9 @@ class LnPluginManagerViewModelTest {
         coEvery { fetchRepo(OTHER_REPO) } returns emptyList()
     }
     private val manager = mockk<NovelSourceManager> { every { sources } returns flowOf(emptyList()) }
+    private val registries = LnRepoRegistries(installer, prefs)
+
+    private fun model() = LnPluginManagerViewModel(manager, installer, registries, prefs)
 
     @BeforeEach
     fun setUp() {
@@ -54,7 +58,7 @@ class LnPluginManagerViewModelTest {
 
     @Test
     fun `nothing is fetched while no screen watches the model`() = runTest(dispatcher) {
-        LnPluginManagerViewModel(manager, installer, prefs)
+        model()
 
         advanceUntilIdle()
 
@@ -63,7 +67,7 @@ class LnPluginManagerViewModelTest {
 
     @Test
     fun `a screen watching the model fetches each repo once`() = runTest(dispatcher) {
-        val model = LnPluginManagerViewModel(manager, installer, prefs)
+        val model = model()
 
         val watching = launch { model.state.collect {} }
         advanceUntilIdle()
@@ -74,7 +78,7 @@ class LnPluginManagerViewModelTest {
 
     @Test
     fun `the fetched plugins reach the state`() = runTest(dispatcher) {
-        val model = LnPluginManagerViewModel(manager, installer, prefs)
+        val model = model()
 
         val watching = launch { model.state.collect {} }
         advanceUntilIdle()
@@ -85,7 +89,7 @@ class LnPluginManagerViewModelTest {
 
     @Test
     fun `changing the added repos fetches the new set`() = runTest(dispatcher) {
-        val model = LnPluginManagerViewModel(manager, installer, prefs)
+        val model = model()
         val watching = launch { model.state.collect {} }
         advanceUntilIdle()
 
@@ -94,6 +98,47 @@ class LnPluginManagerViewModelTest {
         watching.cancel()
 
         coVerify(exactly = 1) { installer.fetchRepo(OTHER_REPO) }
+    }
+
+    @Test
+    fun `a screen watching the model again downloads nothing more`() = runTest(dispatcher) {
+        val model = model()
+        launch { model.state.collect {} }.also { advanceUntilIdle() }.cancel()
+
+        val again = launch { model().state.collect {} }
+        advanceUntilIdle()
+        again.cancel()
+
+        coVerify(exactly = 1) { installer.fetchRepo(REPO) }
+    }
+
+    /** The install runs on the IO dispatcher, so the test joins the jobs it started (see below). */
+    @Test
+    fun `an install downloads no registry`() = runTest(dispatcher) {
+        val model = model()
+        val watching = launch { model.state.collect {} }
+        advanceUntilIdle()
+        val before = model.viewModelScope.coroutineContext.job.children.toSet()
+
+        model.install(ENTRY)
+        (model.viewModelScope.coroutineContext.job.children.toSet() - before).joinAll()
+        advanceUntilIdle()
+        watching.cancel()
+
+        coVerify(exactly = 1) { installer.fetchRepo(REPO) }
+    }
+
+    @Test
+    fun `an installed plugin leaves Available without a download`() = runTest(dispatcher) {
+        val model = model()
+        val watching = launch { model.state.collect {} }
+        advanceUntilIdle()
+
+        prefs.installedPluginUrls().set(setOf(ENTRY.url))
+        advanceUntilIdle()
+        watching.cancel()
+
+        model.state.value.available shouldBe emptyList()
     }
 
     /**
@@ -110,7 +155,7 @@ class LnPluginManagerViewModelTest {
             installing.await()
             mockk()
         }
-        val model = LnPluginManagerViewModel(manager, installer, prefs)
+        val model = model()
         val before = model.viewModelScope.coroutineContext.job.children.toSet()
 
         model.reinstall(FAILURE)
