@@ -180,7 +180,7 @@ class NovelWebViewport(
                 }
             }
         }
-        webViewClient = NovelChapterNavigationClient(context, { loadedBaseUrl }, webImages) { image ->
+        webViewClient = NovelChapterNavigationClient(context, { loadedBaseUrl }, webImages, scope) { image ->
             // The text renderer's fetch and cache, so switching modes downloads nothing again.
             fetchNovelImage(
                 image,

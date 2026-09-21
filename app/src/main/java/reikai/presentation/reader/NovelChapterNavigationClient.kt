@@ -9,6 +9,9 @@ import android.webkit.WebViewClient
 import coil3.fetch.SourceFetchResult
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.util.system.openInBrowser
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import reikai.data.coil.NovelImage
@@ -30,6 +33,9 @@ class NovelChapterNavigationClient(
     private val baseUrl: () -> String?,
     /** The pictures this document's chapters were routed through. */
     private val images: NovelWebImages,
+    /** A supervisor scope the reader cancels on close, which cancels a fetch still in flight rather than
+     *  leaving a WebView thread waiting on it until the network times out. */
+    private val scope: CoroutineScope,
     private val fetchImage: suspend (NovelImage) -> SourceFetchResult,
 ) : WebViewClient() {
 
@@ -38,7 +44,7 @@ class NovelChapterNavigationClient(
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         val image = images.imageFor(request.url.toString()) ?: return null
         return try {
-            val result = runBlocking { fetchImage(image) }
+            val result = runBlocking { scope.async(Dispatchers.IO) { fetchImage(image) }.await() }
             val bytes = result.source.use { it.source().readByteArray() }
             // Chromium sniffs a picture's format, so a type the disk cache did not keep costs nothing.
             WebResourceResponse(result.mimeType ?: "image/*", null, ByteArrayInputStream(bytes))

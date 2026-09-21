@@ -8,6 +8,9 @@ import coil3.decode.DataSource
 import coil3.decode.ImageSource
 import coil3.fetch.SourceFetchResult
 import eu.kanade.tachiyomi.network.HttpException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import okio.Buffer
 import okio.FileSystem
 import org.junit.After
@@ -33,6 +36,7 @@ class NovelWebImagesInterceptTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>
     private val fetched = CopyOnWriteArrayList<NovelImage>()
+    private val scope = CoroutineScope(SupervisorJob())
 
     /** A 2 by 1 picture, so a drawn one is told apart from a broken one by its width. */
     private val png: ByteArray = ByteArrayOutputStream().also {
@@ -50,7 +54,7 @@ class NovelWebImagesInterceptTest {
         scenario.onActivity { activity ->
             activity.webView.settings.javaScriptEnabled = true
             val images = NovelWebImages()
-            activity.webView.webViewClient = NovelChapterNavigationClient(activity, { BASE }, images) { image ->
+            activity.webView.webViewClient = NovelChapterNavigationClient(activity, { BASE }, images, scope) { image ->
                 fetched += image
                 if (!image.url.endsWith("ok.png")) throw HttpException(404)
                 SourceFetchResult(ImageSource(Buffer().write(png), FileSystem.SYSTEM), null, DataSource.DISK)
@@ -66,6 +70,7 @@ class NovelWebImagesInterceptTest {
 
     @After
     fun tearDown() {
+        scope.cancel()
         if (::scenario.isInitialized) scenario.close()
     }
 
