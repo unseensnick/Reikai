@@ -50,6 +50,7 @@ class ExtensionsEngine(
         val active = providers.indices.filter { providers[it].shows(contentType) }
         // A provider serving both types is active under either chip, so its rows are filtered too.
         val rows = active.flatMap { snapshots[it].rows.orEmpty() }.filter { it.key.contentType.shownUnder(contentType) }
+        val shown = rows.filter { matchesExtensionQuery(it, query) }
         State(
             contentType = contentType,
             query = query,
@@ -67,7 +68,9 @@ class ExtensionsEngine(
                 snapshots[i].needsInstallPermission &&
                     snapshots[i].rows.orEmpty().any { it.key.contentType.shownUnder(contentType) }
             },
-            items = sectionExtensions(rows.filter { matchesExtensionQuery(it, query) }),
+            // Named only when it tells rows apart, so a list of one kind stays as it always looked.
+            showsFormat = shown.mapNotNullTo(mutableSetOf()) { it.key.format }.size > 1,
+            items = sectionExtensions(shown),
         )
     }
         // Off the main thread: building, filtering and sorting the list is proportional to every
@@ -124,6 +127,8 @@ class ExtensionsEngine(
         val isRefreshing: Boolean = false,
         val hasRepos: Boolean = true,
         val needsInstallPermission: Boolean = false,
+        /** Novel rows of more than one packaging are on screen, so each row names its own. */
+        val showsFormat: Boolean = false,
         val items: List<ExtensionsListItem> = emptyList(),
     ) {
         // A half still on its way must not read as "nothing found".

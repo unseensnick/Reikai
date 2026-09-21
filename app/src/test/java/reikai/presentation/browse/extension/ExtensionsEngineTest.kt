@@ -61,6 +61,28 @@ class ExtensionsEngineTest {
         state.needsInstallPermission shouldBe false
     }
 
+    @Test
+    fun `novel rows packaged two ways name their format`() = runTest(dispatcher) {
+        val state = settledState(
+            ContentType.NOVELS,
+            FakeProvider(apks, listOf(row(ExtensionKey.NovelApk("n")))),
+            FakeProvider(setOf(ContentType.NOVELS), listOf(row(ExtensionKey.Novel("plugin")))),
+        )
+
+        state.showsFormat shouldBe true
+    }
+
+    @Test
+    fun `novel rows packaged one way stay as they always looked`() = runTest(dispatcher) {
+        val state = settledState(
+            ContentType.ALL,
+            FakeProvider(apks, listOf(row(ExtensionKey.Manga("m")))),
+            FakeProvider(setOf(ContentType.NOVELS), listOf(row(ExtensionKey.Novel("plugin")))),
+        )
+
+        state.showsFormat shouldBe false
+    }
+
     private suspend fun TestScope.settledState(
         chip: ContentType,
         vararg providers: ExtensionsProvider,

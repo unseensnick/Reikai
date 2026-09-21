@@ -67,6 +67,7 @@ import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.browse.repos.RepositoriesScreen
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.components.TypeBadge
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
@@ -266,7 +267,19 @@ private fun ExtensionsList(
                     ExtensionsSectionHeader(item.section, onUpdateAll, Modifier.animateItem())
                 is ExtensionsListItem.Row -> {
                     val badge: @Composable () -> Unit = {
-                        if (showContentType) ContentTypeBadge(item.row.key.contentType)
+                        // One pill at most: a phone row has no room for a type and a format side by side.
+                        val format = item.row.key.format?.takeIf { state.showsFormat }?.let { stringResource(it.label) }
+                        when {
+                            format == null -> if (showContentType) ContentTypeBadge(item.row.key.contentType)
+                            showContentType -> TypeBadge(
+                                stringResource(
+                                    MR.strings.content_type_with_format,
+                                    stringResource(MR.strings.content_type_novels),
+                                    format,
+                                ),
+                            )
+                            else -> TypeBadge(format)
+                        }
                     }
                     when (item.row.key) {
                         is ExtensionKey.Manga, is ExtensionKey.NovelApk -> ApkExtensionRow(

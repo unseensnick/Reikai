@@ -27,8 +27,17 @@ fun ContentTypeBadge(
         ContentType.NOVELS -> MR.strings.content_type_novels
         ContentType.ALL -> return
     }
+    TypeBadge(stringResource(label), modifier)
+}
+
+/** The badge's pill around any label, for a row that names more than its content type. */
+@Composable
+fun TypeBadge(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
     Text(
-        text = stringResource(label),
+        text = text,
         modifier = modifier
             .background(
                 color = MaterialTheme.colorScheme.surfaceVariant,
