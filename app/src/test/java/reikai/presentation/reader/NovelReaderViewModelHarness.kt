@@ -212,6 +212,7 @@ class NovelReaderViewModelHarness private constructor(
             setNovelReadStatus = SetNovelReadStatus(
                 chapterRepo,
                 DeleteNovelChaptersAfterRead(novelPreferences, categories, { downloadManager }, novelRepo),
+                mockk(relaxed = true),
             ),
             mergeManager = mergeManager,
             mergedChapterProvider = NovelMergedChapterProvider(

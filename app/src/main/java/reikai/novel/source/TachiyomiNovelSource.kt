@@ -3,6 +3,7 @@ package reikai.novel.source
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.SourceTracker
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
@@ -39,6 +40,7 @@ class TachiyomiNovelSource(
         ?.let { NovelFilters.FilterListSchema { source.getFilterList() } }
     override val settings: NovelSettings? = (source as? ConfigurableSource)?.let(NovelSettings::PreferenceScreen)
     override val supportsLatest: Boolean = source.supportsLatest
+    override val tracker: SourceTracker? = source as? SourceTracker
 
     // A listing takes no filters here, as a manga source's Popular and Latest take none.
     override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage =

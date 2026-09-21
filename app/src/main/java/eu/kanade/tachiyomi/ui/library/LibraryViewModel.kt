@@ -49,6 +49,7 @@ import mihon.core.common.utils.mutate
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
+import reikai.domain.entry.EntryId // RK
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.librarySortComparator
@@ -65,6 +66,7 @@ import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.merge.stitchInputChanges
+import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.MangaMergeCollapse
@@ -130,6 +132,7 @@ class LibraryViewModel(
     private val getBookmarkedChaptersByMangaId: GetBookmarkedChaptersByMangaId,
     private val setReadStatus: SetReadStatus,
     private val updateManga: UpdateManga,
+    private val sourceTracker: SourceTrackerDispatcher, // RK
     private val setMangaCategories: SetMangaCategories,
     private val preferences: BasePreferences,
     private val libraryPreferences: LibraryPreferences,
@@ -774,7 +777,11 @@ class LibraryViewModel(
                         id = it.id,
                     )
                 }
-                updateManga.awaitAll(toDelete)
+                // RK --> a removal written in bulk, so the source's own tracker is told here, once it landed
+                if (updateManga.awaitAll(toDelete)) {
+                    targets.forEach { sourceTracker.favoriteChanged(EntryId.Manga(it.id), favorite = false) }
+                }
+                // RK <--
             }
 
             if (deleteChapters) {

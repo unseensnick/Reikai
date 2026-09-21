@@ -3,6 +3,9 @@ package eu.kanade.domain.chapter.interactor
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.download.interactor.DeleteDownload
 import logcat.LogPriority
+import reikai.domain.entry.EntryId // RK
+import reikai.domain.track.source.ChapterWrite // RK
+import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
@@ -18,6 +21,7 @@ class SetReadStatus(
     private val deleteDownload: DeleteDownload,
     private val mangaRepository: MangaRepository,
     private val chapterRepository: ChapterRepository,
+    private val sourceTracker: SourceTrackerDispatcher, // RK
 ) {
 
     private val mapper = { chapter: Chapter, read: Boolean ->
@@ -47,6 +51,14 @@ class SetReadStatus(
             logcat(LogPriority.ERROR, e)
             return@withNonCancellableContext Result.InternalError(e)
         }
+
+        // RK: an extension that syncs to its own site hears which chapters changed
+        sourceTracker.readStateWritten(
+            read,
+            chaptersToUpdate.map {
+                ChapterWrite(EntryId.Manga(it.mangaId), it.id, it.read)
+            },
+        )
 
         if (read && downloadPreferences.removeAfterMarkedAsRead.get()) {
             chaptersToUpdate

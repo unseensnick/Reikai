@@ -87,6 +87,7 @@ import reikai.domain.novel.model.sortedAndFiltered
 import reikai.domain.novel.novelMissingChapterCount
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
+import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -140,6 +141,7 @@ class NovelDetailsViewModel(
     @Assisted private val novelUrl: String,
     private val novelRepo: NovelRepository,
     private val updateNovel: UpdateNovel,
+    private val sourceTracker: SourceTrackerDispatcher,
     // "Reset all" clears the cached custom cover too, not just the custom-info row.
     private val coverCache: CoverCache,
     private val setNovelChapterFlags: SetNovelChapterFlags,
@@ -789,7 +791,15 @@ class NovelDetailsViewModel(
         anchorId = { anchorNovelId },
         mergeManager = mergeManager,
         dismissDialog = ::dismissDialog,
-        setFavorite = { ids, favorite -> ids.forEach { updateNovel.await(NovelUpdate(id = it, favorite = favorite)) } },
+        // Written directly to keep the original date added, so the source's own tracker is told here, as the
+        // manga twin's awaitUpdateFavorite tells it.
+        setFavorite = { ids, favorite ->
+            ids.forEach {
+                if (updateNovel.await(NovelUpdate(id = it, favorite = favorite))) {
+                    sourceTracker.favoriteChanged(EntryId.Novel(it), favorite)
+                }
+            }
+        },
     )
 
     /** Switch the chapter view between the unified list (null) and a single grouped source's list. */

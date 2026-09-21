@@ -1,5 +1,6 @@
 package reikai.novel.source
 
+import eu.kanade.tachiyomi.source.SourceTracker
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 
@@ -42,6 +43,9 @@ interface NovelSource {
 
     /** The source's own settings, in the shape its format declares; null when it has none. */
     val settings: NovelSettings? get() = null
+
+    /** The hooks through which the source syncs reading to its own site; null when it has none. */
+    val tracker: SourceTracker? get() = null
 
     /**
      * This source can serve a Latest listing, which is why browse offers the chip. The lnreader

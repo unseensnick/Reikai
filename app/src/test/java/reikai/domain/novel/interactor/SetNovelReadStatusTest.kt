@@ -3,10 +3,14 @@ package reikai.domain.novel.interactor
 import io.kotest.matchers.shouldBe
 import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.track.source.ChapterWrite
+import reikai.domain.track.source.SourceTrackerDispatcher
 
 class SetNovelReadStatusTest {
 
@@ -19,7 +23,36 @@ class SetNovelReadStatusTest {
     private fun interactor(
         chapterRepository: NovelChapterRepository = mockk(relaxed = true),
         deleteAfterRead: DeleteNovelChaptersAfterRead = mockk(relaxed = true),
-    ) = SetNovelReadStatus(chapterRepository, deleteAfterRead)
+        sourceTracker: SourceTrackerDispatcher = mockk(relaxed = true),
+    ) = SetNovelReadStatus(chapterRepository, deleteAfterRead, sourceTracker)
+
+    @Test
+    fun `marking read tells the source's own tracker which chapters changed`() = runTest {
+        val tracker = mockk<SourceTrackerDispatcher>(relaxed = true)
+
+        interactor(sourceTracker = tracker)
+            .await(read = true, chapters = listOf(chapter(1, read = false), chapter(2, read = true)))
+
+        verify { tracker.readStateWritten(true, listOf(ChapterWrite(EntryId.Novel(1L), 1L, wasRead = false))) }
+    }
+
+    @Test
+    fun `an unread hands the tracker each chapter with the state it had`() = runTest {
+        val tracker = mockk<SourceTrackerDispatcher>(relaxed = true)
+
+        interactor(sourceTracker = tracker)
+            .await(read = false, chapters = listOf(chapter(1, read = true), chapter(2, read = false, progress = 5L)))
+
+        verify {
+            tracker.readStateWritten(
+                false,
+                listOf(
+                    ChapterWrite(EntryId.Novel(1L), 1L, wasRead = true),
+                    ChapterWrite(EntryId.Novel(1L), 2L, wasRead = false),
+                ),
+            )
+        }
+    }
 
     @Test
     fun `marking read updates only the chapters that are not already read`() = runTest {

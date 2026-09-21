@@ -25,6 +25,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -64,6 +65,7 @@ class MigrateNovelUseCaseTest {
         novelRepository: NovelRepository = defaultNovelRepo(),
         sourceManager: NovelSourceManager = mockk(relaxed = true),
         transactions: Transactions = PassThroughTransactions,
+        sourceTracker: SourceTrackerDispatcher = mockk(relaxed = true),
     ) = MigrateNovelUseCase(
         novelChapterRepository = novelChapterRepository,
         getNovelCategories = mockk(relaxed = true),
@@ -81,6 +83,7 @@ class MigrateNovelUseCaseTest {
         database = mockk(relaxed = true),
         libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
         transactions = transactions,
+        sourceTracker = sourceTracker,
     )
 
     // The twins of the manga suite's two engine guards. Both guards existed here already; neither was
@@ -523,5 +526,41 @@ class MigrateNovelUseCaseTest {
 
         // Only the matched chapter changes (gains the bookmark); chapter 2 stays untouched.
         result.single().id shouldBe 10L
+    }
+
+    @Test
+    fun `a committed migration is passed to the source tracker`() = runTest {
+        val tracker = mockk<SourceTrackerDispatcher>(relaxed = true)
+        val chapters = mockk<NovelChapterRepository>(relaxed = true) {
+            coEvery { getByNovelId(any()) } returns emptyList()
+        }
+
+        useCase(novelChapterRepository = chapters, sourceTracker = tracker)(
+            novel(1),
+            novel(2),
+            setOf(NovelMigrationFlag.CHAPTER),
+            replace = true,
+            skipTargetRefresh = true,
+        )
+
+        verify { tracker.migrated(EntryId.Novel(1), EntryId.Novel(2), replace = true, carriedChapters = true) }
+    }
+
+    @Test
+    fun `a failed swap tells the source tracker nothing`() = runTest {
+        val tracker = mockk<SourceTrackerDispatcher>(relaxed = true)
+        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(any()) } returns false }
+
+        shouldThrow<IllegalStateException> {
+            useCase(novelRepository = repo, sourceTracker = tracker)(
+                novel(1),
+                novel(2),
+                emptySet(),
+                replace = true,
+                skipTargetRefresh = true,
+            )
+        }
+
+        verify(exactly = 0) { tracker.migrated(any(), any(), any(), any()) }
     }
 }

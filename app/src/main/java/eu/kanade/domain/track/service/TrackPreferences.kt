@@ -79,4 +79,8 @@ class TrackPreferences(
         "pref_auto_update_manga_on_mark_read",
         AutoTrackState.ALWAYS,
     )
+
+    // RK: whether a migration is passed to extensions that sync to their own site; tsundoku's key and default
+    val sourceTrackerOnMigration: Preference<Boolean> =
+        preferenceStore.getBoolean("source_tracker_run_on_migration", true)
 }

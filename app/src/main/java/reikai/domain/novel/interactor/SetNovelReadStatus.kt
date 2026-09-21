@@ -2,8 +2,11 @@ package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
 import logcat.LogPriority
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.track.source.ChapterWrite
+import reikai.domain.track.source.SourceTrackerDispatcher
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
 
@@ -19,6 +22,7 @@ import tachiyomi.core.common.util.system.logcat
 class SetNovelReadStatus(
     private val chapterRepository: NovelChapterRepository,
     private val deleteAfterRead: DeleteNovelChaptersAfterRead,
+    private val sourceTracker: SourceTrackerDispatcher,
 ) {
 
     suspend fun await(read: Boolean, chapters: List<NovelChapter>): Result = withNonCancellableContext {
@@ -36,6 +40,8 @@ class SetNovelReadStatus(
             logcat(LogPriority.ERROR, e)
             return@withNonCancellableContext Result.InternalError(e)
         }
+
+        sourceTracker.readStateWritten(read, toUpdate.map { ChapterWrite(EntryId.Novel(it.novelId), it.id, it.read) })
 
         if (read) {
             toUpdate.groupBy { it.novelId }.forEach { (novelId, chs) ->

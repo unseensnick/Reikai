@@ -15,13 +15,16 @@ import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import org.junit.jupiter.api.Test
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.db.Transactions
+import reikai.domain.entry.EntryId
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.track.source.SourceTrackerDispatcher
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -64,6 +67,7 @@ class MigrateMangaUseCaseTest {
         downloadManager: DownloadManager = mockk(relaxed = true),
         getTracks: GetTracks = mockk { coEvery { await(any<Long>()) } returns emptyList() },
         insertTrack: InsertTrack = mockk(relaxed = true),
+        sourceTracker: SourceTrackerDispatcher = mockk(relaxed = true),
     ) = MigrateMangaUseCase(
         sourcePreferences = mockk(relaxed = true),
         trackerManager = mockk(relaxed = true) { every { trackers } returns emptyList() },
@@ -81,6 +85,7 @@ class MigrateMangaUseCaseTest {
         mangaMergeManager = mangaMergeManager,
         chapterRepository = chapterRepository,
         transactions = transactions,
+        sourceTracker = sourceTracker,
     )
 
     /** Observes where the engine put its writes: a pass-through fake cannot tell the difference
@@ -437,5 +442,38 @@ class MigrateMangaUseCaseTest {
                 skipTargetRefresh = true,
             )
         }
+    }
+
+    @Test
+    fun `a committed migration is passed to the source tracker`() = runTest {
+        val tracker = mockk<SourceTrackerDispatcher>(relaxed = true)
+
+        useCase(sourceTracker = tracker)(
+            manga(1),
+            manga(2),
+            flags = setOf(MigrationFlag.CHAPTER),
+            replace = true,
+            skipTargetRefresh = true,
+        )
+
+        verify { tracker.migrated(EntryId.Manga(1), EntryId.Manga(2), replace = true, carriedChapters = true) }
+    }
+
+    @Test
+    fun `a failed swap tells the source tracker nothing`() = runTest {
+        val tracker = mockk<SourceTrackerDispatcher>(relaxed = true)
+        val update = mockk<UpdateManga>(relaxed = true) { coEvery { awaitAll(any<List<MangaUpdate>>()) } returns false }
+
+        shouldThrow<IllegalStateException> {
+            useCase(updateManga = update, sourceTracker = tracker)(
+                manga(1),
+                manga(2),
+                flags = emptySet(),
+                replace = true,
+                skipTargetRefresh = true,
+            )
+        }
+
+        verify(exactly = 0) { tracker.migrated(any(), any(), any(), any()) }
     }
 }

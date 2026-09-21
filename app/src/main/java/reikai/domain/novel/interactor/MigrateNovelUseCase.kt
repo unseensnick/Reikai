@@ -16,6 +16,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.hasCustomCover
+import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
@@ -50,6 +51,7 @@ class MigrateNovelUseCase(
     private val libraryPreferences: LibraryPreferences,
     // So the favorite swap and the merge-group rewrite can share one transaction; see below.
     private val transactions: Transactions,
+    private val sourceTracker: SourceTrackerDispatcher,
 ) {
 
     private val novelDownloadManager: NovelDownloadManager get() = novelDownloadManagerProvider()
@@ -181,6 +183,12 @@ class MigrateNovelUseCase(
                     "Migration favorite swap failed (${current.id} -> ${target.id})"
                 }
             }
+            sourceTracker.migrated(
+                EntryId.Novel(current.id),
+                EntryId.Novel(target.id),
+                replace,
+                carriedChapters = NovelMigrationFlag.CHAPTER in flags,
+            )
         } catch (e: Throwable) {
             if (e is CancellationException) throw e
             // Rethrown after logging, matching manga migration: a caller that shows per-row outcomes

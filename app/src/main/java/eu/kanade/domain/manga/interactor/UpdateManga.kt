@@ -4,6 +4,8 @@ import dev.zacsweers.metro.Inject
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import reikai.domain.entry.EntryId // RK
+import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
@@ -14,6 +16,7 @@ import kotlin.time.Clock
 class UpdateManga(
     private val mangaRepository: MangaRepository,
     private val fetchInterval: FetchInterval,
+    private val sourceTracker: SourceTrackerDispatcher, // RK
 ) {
 
     suspend fun await(mangaUpdate: MangaUpdate): Boolean {
@@ -56,5 +59,7 @@ class UpdateManga(
         return mangaRepository.update(
             MangaUpdate(id = mangaId, favorite = favorite, dateAdded = dateAdded),
         )
+            // RK: an extension syncing to its own site hears of an add or remove made through here
+            .also { updated -> if (updated) sourceTracker.favoriteChanged(EntryId.Manga(mangaId), favorite) }
     }
 }

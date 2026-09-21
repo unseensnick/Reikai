@@ -13,7 +13,9 @@ import logcat.LogPriority
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.db.Transactions
+import reikai.domain.entry.EntryId // RK
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
@@ -50,6 +52,8 @@ class MigrateMangaUseCase(
     private val chapterRepository: ChapterRepository,
     // RK: so the favorite swap and the merge-group rewrite can share one transaction; see below.
     private val transactions: Transactions,
+    // RK: tells an extension that syncs to its own site about the migration.
+    private val sourceTracker: SourceTrackerDispatcher,
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
@@ -196,6 +200,12 @@ class MigrateMangaUseCase(
                     "Migration favorite swap failed (${current.id} -> ${target.id})"
                 }
             }
+            sourceTracker.migrated(
+                EntryId.Manga(current.id),
+                EntryId.Manga(target.id),
+                replace,
+                carriedChapters = MigrationFlag.CHAPTER in flags,
+            )
             // RK <--
         } catch (e: Throwable) {
             if (e is CancellationException) {

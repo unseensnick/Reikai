@@ -186,6 +186,12 @@ object SettingsTrackingScreen : SearchableSettings {
                     .associateWith { stringResource(it.titleRes) },
                 title = stringResource(MR.strings.pref_auto_update_manga_on_mark_read),
             ),
+            // RK: extensions that sync reading to their own site hear about a migration only if asked
+            Preference.PreferenceItem.SwitchPreference(
+                preference = trackPreferences.sourceTrackerOnMigration,
+                title = stringResource(MR.strings.pref_source_tracker_on_migration),
+                subtitle = stringResource(MR.strings.pref_source_tracker_on_migration_summary),
+            ),
             // RK: share a tracker added to one source across the rest of a merged group
             Preference.PreferenceItem.SwitchPreference(
                 preference = reikaiLibraryPreferences.syncTrackerLinksGrouped,

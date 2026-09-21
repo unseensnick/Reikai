@@ -73,6 +73,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
+import reikai.domain.entry.EntryId // RK
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
@@ -90,6 +91,8 @@ import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
+import reikai.domain.track.source.ChapterWrite // RK
+import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.presentation.components.mergeSourceLabels
 import reikai.presentation.reader.ChapterSwitches
 import reikai.presentation.reader.ReaderLoadState
@@ -138,6 +141,7 @@ class ReaderViewModel(
     private val downloadPreferences: DownloadPreferences,
     private val trackPreferences: TrackPreferences,
     private val trackChapter: TrackChapter,
+    private val sourceTracker: SourceTrackerDispatcher, // RK
     private val getManga: GetManga,
     // RK: Edit info overrides, so auto-webtoon can classify from edited genres.
     private val getCustomMangaInfo: GetCustomMangaInfo,
@@ -863,13 +867,18 @@ class ReaderViewModel(
     }
 
     private suspend fun updateChapterProgressOnComplete(readerChapter: ReaderChapter) {
+        // RK --> taken before the flag flips: a finish of a chapter already read, which every save on its
+        // last page is, tells the source's own site nothing, as a novel finish does
+        val newlyRead = readerChapter.chapter.toDomainChapter()?.takeUnless { it.read }
+            ?.let { ChapterWrite(EntryId.Manga(it.mangaId), it.id, wasRead = false) }
+        // RK <--
         readerChapter.chapter.read = true
         updateTrackChapterRead(readerChapter)
         deleteChapterIfNeeded(readerChapter)
 
         val markDuplicateAsRead = libraryPreferences.markDuplicateReadChapterAsRead.get()
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
-        if (!markDuplicateAsRead) return
+        if (!markDuplicateAsRead) return sourceTracker.readStateWritten(true, listOfNotNull(newlyRead)) // RK
 
         // RK: upstream's same-number match, kept inside the chapter's own entry, plus the group's copies
         // the stored stitch places with it. A number match across sources marked a chapter several
@@ -884,8 +893,14 @@ class ReaderViewModel(
                 ownerOf = { it.mangaId },
             )
             .filterNot { it.read }
-            .map { ChapterUpdate(id = it.id, read = true) }
-        updateChapter.awaitAll(duplicateUnreadChapters)
+        // RK --> kept as chapters until written, so the source's own tracker hears which entry each is in
+        updateChapter.awaitAll(duplicateUnreadChapters.map { ChapterUpdate(id = it.id, read = true) })
+        sourceTracker.readStateWritten(
+            true,
+            listOfNotNull(newlyRead) +
+                duplicateUnreadChapters.map { ChapterWrite(EntryId.Manga(it.mangaId), it.id, wasRead = false) },
+        )
+        // RK <--
     }
 
     // RK --> R12: mark the chapter the user skipped past (forward only) as read, opt-in.

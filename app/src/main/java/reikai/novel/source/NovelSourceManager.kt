@@ -95,6 +95,12 @@ class NovelSourceManager(
         return sourcesFlow.value[id]
     }
 
+    /** A registered source without loading the plugins first: for a caller only an app's source serves. */
+    suspend fun getWithoutPlugins(id: String): NovelSource? {
+        appsRegistered.await()
+        return sourcesFlow.value[id]
+    }
+
     suspend fun getAll(): List<NovelSource> {
         ensureLoaded()
         return sourcesFlow.value.values.toList()

@@ -1,8 +1,10 @@
 package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.track.source.SourceTrackerDispatcher
 import kotlin.time.Clock
 
 /**
@@ -13,6 +15,7 @@ import kotlin.time.Clock
 @Inject
 class UpdateNovel(
     private val novelRepository: NovelRepository,
+    private val sourceTracker: SourceTrackerDispatcher,
 ) {
 
     suspend fun await(update: NovelUpdate): Boolean {
@@ -40,5 +43,7 @@ class UpdateNovel(
         return novelRepository.update(
             NovelUpdate(id = novelId, favorite = favorite, dateAdded = dateAdded),
         )
+            // An extension syncing to its own site hears of an add or remove made through here.
+            .also { updated -> if (updated) sourceTracker.favoriteChanged(EntryId.Novel(novelId), favorite) }
     }
 }

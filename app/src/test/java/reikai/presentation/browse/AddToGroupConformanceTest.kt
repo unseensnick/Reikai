@@ -210,6 +210,7 @@ class MangaGroupAddProbe : GroupAddProbe {
         reikaiLibraryPreferences = mockk {
             every { categorySortOrder } returns mockk { every { get() } returns 0 }
         },
+        sourceTracker = mockk(relaxed = true),
     )
 
     private fun reset() {

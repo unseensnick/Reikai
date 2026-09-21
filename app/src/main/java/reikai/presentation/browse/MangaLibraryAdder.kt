@@ -8,8 +8,10 @@ import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.flow.firstOrNull
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.db.Transactions
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.preference.CheckboxState
@@ -52,6 +54,7 @@ class MangaLibraryAdder(
     private val mergeManager: MangaMergeManager,
     private val transactions: Transactions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val sourceTracker: SourceTrackerDispatcher,
 ) {
 
     /** Whether to offer add-time grouping in the duplicate dialog (see [MangaMergeManager]). */
@@ -131,7 +134,9 @@ class MangaLibraryAdder(
             setMangaDefaultChapterFlags.await(manga)
             addTracks.bindEnhancedTrackers(manga, sourceManager.getOrStub(manga.source))
         }
+        // Written in full rather than through awaitUpdateFavorite, so the source's own tracker is told here.
         return updateManga.await(new.toMangaUpdate())
+            .also { updated -> if (updated) sourceTracker.favoriteChanged(EntryId.Manga(manga.id), new.favorite) }
     }
 
     suspend fun getDuplicates(manga: Manga): List<MangaWithChapterCount> =

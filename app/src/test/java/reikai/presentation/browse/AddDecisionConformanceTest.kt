@@ -156,6 +156,7 @@ class MangaAddDecisionProbe : AddDecisionProbe {
             reikaiLibraryPreferences = mockk {
                 every { categorySortOrder } returns mockk { every { get() } returns sortOrder }
             },
+            sourceTracker = mockk(relaxed = true),
         )
 
     override suspend fun resolve(userCategories: List<Category>, defaultId: Int): Resolution {

@@ -977,6 +977,10 @@
     <string name="tracking_guide">Tracking guide</string>
     <string name="pref_auto_update_manga_sync">Update progress after reading</string>
     <string name="pref_auto_update_manga_on_mark_read">Update progress when marked as read</string>
+    <!-- RK: extensions that sync reading to their own site -->
+    <string name="pref_source_tracker_on_migration">Tell source sites about migrations</string>
+    <string name="pref_source_tracker_on_migration_summary">For extensions that sync reading to their own site</string>
+    <string name="source_tracker_failed">%1$s couldn&apos;t sync to its site: %2$s</string>
     <string name="services">Trackers</string>
     <string name="tracking_info">One-way sync to update the chapter progress in external tracker services. Set up tracking for individual entries from their tracking button.</string>
     <string name="pref_ranobedb_sync_while_reading">Update RanobeDB while you read</string>

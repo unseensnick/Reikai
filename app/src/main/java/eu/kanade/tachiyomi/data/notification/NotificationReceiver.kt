@@ -21,9 +21,12 @@ import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import reikai.data.novel.update.NovelUpdateJob
+import reikai.domain.entry.EntryId // RK
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.Novel
+import reikai.domain.track.source.ChapterWrite // RK
+import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.Constants
@@ -68,6 +71,9 @@ class NotificationReceiver : BroadcastReceiver() {
     @Inject private lateinit var novelChapterRepository: NovelChapterRepository
 
     @Inject private lateinit var setNovelReadStatus: SetNovelReadStatus
+
+    // RK: marking a manga chapter read here writes the row itself, so the source's own tracker is told here.
+    @Inject private lateinit var sourceTracker: SourceTrackerDispatcher
 
     override fun onReceive(context: Context, intent: Intent) {
         context.appGraph.inject(this)
@@ -269,6 +275,8 @@ class NotificationReceiver : BroadcastReceiver() {
                     chapter.toChapterUpdate()
                 }
             updateChapter.awaitAll(toUpdate)
+            // RK: marking read here writes the rows itself, so the source's own tracker is told here
+            sourceTracker.readStateWritten(true, toUpdate.map { ChapterWrite(EntryId.Manga(mangaId), it.id, false) })
         }
     }
 
