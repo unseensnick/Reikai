@@ -21,7 +21,31 @@ sealed interface Extension {
      */
     sealed interface Installed : Extension {
         val isShared: Boolean
+
+        // RK -->
+        val kind: Kind
+        // RK <--
     }
+
+    // RK -->
+
+    /**
+     * Which manifest format an installed apk declares, and so what its sources serve. [manifestKey]
+     * is both the `uses-feature` name and the prefix of the kind's metadata keys.
+     */
+    enum class Kind(val manifestKey: String) {
+        MANGA("tachiyomi.extension"),
+
+        /** A novel apk built on the tachiyomi extension library (NovelSourcery). */
+        TACHIYOMI_NOVEL("tachiyomi.novelextension"),
+        ;
+
+        companion object {
+            /** Declaration order settles an apk declaring several, so a manga apk loads as it always did. */
+            fun fromFeatures(features: Collection<String?>): Kind? = entries.firstOrNull { it.manifestKey in features }
+        }
+    }
+    // RK <--
 
     /**
      * An extension that isn't on the device yet, as listed by an [ExtensionStore].
@@ -68,6 +92,9 @@ sealed interface Extension {
         override val lang: String,
         override val contentWarning: ContentWarning,
         override val isShared: Boolean,
+        // RK -->
+        override val kind: Kind,
+        // RK <--
         val pkgFactory: String?,
         val sources: List<Source>,
         val icon: Drawable?,
@@ -87,6 +114,9 @@ sealed interface Extension {
         override val versionCode: Long,
         override val isShared: Boolean,
         override val contentWarning: ContentWarning,
+        // RK -->
+        override val kind: Kind,
+        // RK <--
         override val libVersion: Double? = null,
         override val lang: String? = null,
         val reason: Reason,

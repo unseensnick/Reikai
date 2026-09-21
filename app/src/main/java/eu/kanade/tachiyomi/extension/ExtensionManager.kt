@@ -82,6 +82,15 @@ class ExtensionManager(
     private val notLoadedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.NotLoaded>())
     val notLoadedExtensionsFlow = notLoadedExtensionMapFlow.mapExtensionsWhenInitialized()
 
+    // RK --> novel apks are split off where they arrive, so the maps above, and every manga reader
+    // of them (source registration, stub rows, lists, update counts, backups), stay manga only.
+    private val loadedNovelExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Loaded>())
+    val loadedNovelExtensionsFlow = loadedNovelExtensionMapFlow.mapExtensionsWhenInitialized()
+
+    private val notLoadedNovelExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.NotLoaded>())
+    val notLoadedNovelExtensionsFlow = notLoadedNovelExtensionMapFlow.mapExtensionsWhenInitialized()
+    // RK <--
+
     // RK --> one scan at a time. It runs from three places on this scope, and each pass assigns
     // both maps wholesale from a store list it read when it started, so a slow startup scan landing
     // after a re-trust would put every extension back to Untrusted until the next launch.
@@ -170,7 +179,20 @@ class ExtensionManager(
             // RK --> read before the loader reads them, so a write in between costs only a spare scan
             scannedContentWarnings = preferences.contentWarningScan()
             // RK <--
-            val extensions = ExtensionLoader.loadExtensions(context, loadedExtensionMapFlow.value)
+            // RK --> novel extensions go back in too, so a reload keeps their source instances
+            val (extensions, novelExtensions) = ExtensionLoader.loadExtensions(
+                context,
+                loadedExtensionMapFlow.value + loadedNovelExtensionMapFlow.value,
+            ).partition { it.kind == Extension.Kind.MANGA }
+
+            loadedNovelExtensionMapFlow.value = novelExtensions
+                .filterIsInstance<Extension.Loaded>()
+                .associateBy { it.pkgName }
+
+            notLoadedNovelExtensionMapFlow.value = novelExtensions
+                .filterIsInstance<Extension.NotLoaded>()
+                .associateBy { it.pkgName }
+            // RK <--
 
             loadedExtensionMapFlow.value = extensions
                 .filterIsInstance<Extension.Loaded>()
@@ -375,6 +397,10 @@ class ExtensionManager(
     private fun unregisterExtension(pkgName: String) {
         loadedExtensionMapFlow.value -= pkgName
         notLoadedExtensionMapFlow.value -= pkgName
+        // RK -->
+        loadedNovelExtensionMapFlow.value -= pkgName
+        notLoadedNovelExtensionMapFlow.value -= pkgName
+        // RK <--
     }
 
     /**
@@ -383,12 +409,26 @@ class ExtensionManager(
     private inner class InstallationListener : ExtensionInstallReceiver.Listener {
 
         override fun onExtensionLoaded(extension: Extension.Loaded) {
+            // RK -->
+            if (extension.kind != Extension.Kind.MANGA) {
+                loadedNovelExtensionMapFlow.value += extension
+                notLoadedNovelExtensionMapFlow.value -= extension.pkgName
+                return
+            }
+            // RK <--
             registerExtension(extension.withUpdateCheck())
             notLoadedExtensionMapFlow.value -= extension.pkgName
             updatePendingUpdatesCount()
         }
 
         override fun onExtensionNotLoaded(extension: Extension.NotLoaded) {
+            // RK -->
+            if (extension.kind != Extension.Kind.MANGA) {
+                loadedNovelExtensionMapFlow.value -= extension.pkgName
+                notLoadedNovelExtensionMapFlow.value += extension
+                return
+            }
+            // RK <--
             loadedExtensionMapFlow.value -= extension.pkgName
             notLoadedExtensionMapFlow.value += extension
             updatePendingUpdatesCount()

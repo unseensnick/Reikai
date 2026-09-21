@@ -38,10 +38,11 @@ import java.io.File
  */
 internal object ExtensionLoader {
 
-    private const val EXTENSION_FEATURE = "tachiyomi.extension"
-    private const val METADATA_SOURCE_CLASS = "tachiyomi.extension.class"
-    private const val METADATA_SOURCE_FACTORY = "tachiyomi.extension.factory"
-    private const val METADATA_NSFW = "tachiyomi.extension.nsfw"
+    // RK --> the feature and these keys differ per kind: each key follows Extension.Kind.manifestKey
+    private const val METADATA_SOURCE_CLASS = "class"
+    private const val METADATA_SOURCE_FACTORY = "factory"
+    private const val METADATA_NSFW = "nsfw"
+    // RK <--
 
     private const val METADATA_NAME = "tachiyomix.name"
     private const val METADATA_EXTENSION_LIB = "tachiyomix.extensionLib"
@@ -132,8 +133,8 @@ internal object ExtensionLoader {
 
         val sharedExtPkgs = installedPkgs
             .asSequence()
-            .filter { isPackageAnExtension(it) }
-            .map { ExtensionInfo(packageInfo = it, isShared = true) }
+            // RK: carries the kind
+            .mapNotNull { it.toExtensionInfo(isShared = true) }
 
         val privateExtPkgs = getPrivateExtensionDir(context)
             .listFiles()
@@ -149,8 +150,8 @@ internal object ExtensionLoader {
                 pkgManager.getPackageArchiveInfo(path, PACKAGE_FLAGS)
                     ?.also { pkg -> pkg.applicationInfo?.fixBasePaths(path) }
             }
-            ?.filter { isPackageAnExtension(it) }
-            ?.map { ExtensionInfo(packageInfo = it, isShared = false) }
+            // RK: carries the kind
+            ?.mapNotNull { it.toExtensionInfo(isShared = false) }
             ?: emptySequence()
 
         val extPkgs = (sharedExtPkgs + privateExtPkgs)
@@ -214,27 +215,17 @@ internal object ExtensionLoader {
         val privateExtensionFile = File(getPrivateExtensionDir(context), "$pkgName.$PRIVATE_EXTENSION_EXTENSION")
         val privatePkg = if (privateExtensionFile.isFile) {
             context.packageManager.getPackageArchiveInfo(privateExtensionFile.absolutePath, PACKAGE_FLAGS)
-                ?.takeIf { isPackageAnExtension(it) }
-                ?.let {
-                    it.applicationInfo?.fixBasePaths(privateExtensionFile.absolutePath)
-                    ExtensionInfo(
-                        packageInfo = it,
-                        isShared = false,
-                    )
-                }
+                // RK: carries the kind
+                ?.toExtensionInfo(isShared = false)
+                ?.also { it.packageInfo.applicationInfo?.fixBasePaths(privateExtensionFile.absolutePath) }
         } else {
             null
         }
 
         val sharedPkg = try {
             context.packageManager.getPackageInfo(pkgName, PACKAGE_FLAGS)
-                .takeIf { isPackageAnExtension(it) }
-                ?.let {
-                    ExtensionInfo(
-                        packageInfo = it,
-                        isShared = true,
-                    )
-                }
+                // RK: carries the kind
+                .toExtensionInfo(isShared = true)
         } catch (_: PackageManager.NameNotFoundException) {
             null
         }
@@ -274,6 +265,9 @@ internal object ExtensionLoader {
                 versionCode = PackageInfoCompat.getLongVersionCode(pkgInfo),
                 isShared = extensionInfo.isShared,
                 contentWarning = ContentWarning.SAFE,
+                // RK -->
+                kind = extensionInfo.kind,
+                // RK <--
                 reason = Extension.NotLoaded.Reason.Failed(e.rootMessage, e.stackTraceToString()),
             )
         }
@@ -298,6 +292,9 @@ internal object ExtensionLoader {
         val appInfo = pkgInfo.applicationInfo
         val metaData = appInfo?.metaData
         val pkgName = pkgInfo.packageName
+        // RK -->
+        val kind = extensionInfo.kind
+        // RK <--
 
         val extName = metaData?.getString(METADATA_NAME)
             ?: appInfo?.let { pkgManager.getApplicationLabel(it).toString().substringAfter("Tachiyomi: ") }
@@ -313,7 +310,8 @@ internal object ExtensionLoader {
                     else -> ContentWarning.SAFE
                 }
             }
-            metaData.getInt(METADATA_NSFW) == 1 -> ContentWarning.NSFW
+            // RK: kind-keyed
+            metaData.getInt(kind.metadataKey(METADATA_NSFW)) == 1 -> ContentWarning.NSFW
             else -> ContentWarning.SAFE
         }
 
@@ -327,6 +325,9 @@ internal object ExtensionLoader {
             versionCode = versionCode,
             isShared = extensionInfo.isShared,
             contentWarning = contentWarning,
+            // RK -->
+            kind = kind,
+            // RK <--
             libVersion = libVersion,
             reason = reason,
         )
@@ -384,7 +385,8 @@ internal object ExtensionLoader {
             return notLoaded(Extension.NotLoaded.Reason.Failed(e.rootMessage, e.stackTraceToString()), libVersion)
         }
 
-        val sourceClasses = metaData.getString(METADATA_SOURCE_CLASS)
+        // RK: kind-keyed
+        val sourceClasses = metaData.getString(kind.metadataKey(METADATA_SOURCE_CLASS))
         if (sourceClasses.isNullOrBlank()) {
             logcat(LogPriority.WARN) { "Missing source class for extension $extName" }
             return notLoaded(Extension.NotLoaded.Reason.Malformed, libVersion)
@@ -432,9 +434,13 @@ internal object ExtensionLoader {
             lang = lang,
             contentWarning = contentWarning,
             sources = sources,
-            pkgFactory = metaData.getString(METADATA_SOURCE_FACTORY),
+            // RK: kind-keyed
+            pkgFactory = metaData.getString(kind.metadataKey(METADATA_SOURCE_FACTORY)),
             icon = runCatching { appInfo.loadIcon(pkgManager) }.getOrNull(),
             isShared = extensionInfo.isShared,
+            // RK -->
+            kind = kind,
+            // RK <--
         )
     }
 
@@ -466,8 +472,21 @@ internal object ExtensionLoader {
      * @param pkgInfo The package info of the application.
      */
     private fun isPackageAnExtension(pkgInfo: PackageInfo): Boolean {
-        return pkgInfo.reqFeatures.orEmpty().any { it.name == EXTENSION_FEATURE }
+        // RK: any kind
+        return extensionKind(pkgInfo) != null
     }
+
+    // RK -->
+    private fun extensionKind(pkgInfo: PackageInfo): Extension.Kind? {
+        return Extension.Kind.fromFeatures(pkgInfo.reqFeatures.orEmpty().map { it.name })
+    }
+
+    private fun PackageInfo.toExtensionInfo(isShared: Boolean): ExtensionInfo? {
+        return extensionKind(this)?.let { ExtensionInfo(packageInfo = this, isShared = isShared, kind = it) }
+    }
+
+    private fun Extension.Kind.metadataKey(name: String) = "$manifestKey.$name"
+    // RK <--
 
     /**
      * Returns the signatures of the package or null if it's not signed.
@@ -507,6 +526,9 @@ internal object ExtensionLoader {
     private data class ExtensionInfo(
         val packageInfo: PackageInfo,
         val isShared: Boolean,
+        // RK -->
+        val kind: Extension.Kind,
+        // RK <--
     )
 }
 
