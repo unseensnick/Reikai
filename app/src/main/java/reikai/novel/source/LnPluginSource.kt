@@ -1,7 +1,5 @@
 package reikai.novel.source
 
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginInfo
 import reikai.novel.host.NovelItem
@@ -28,12 +26,14 @@ class LnPluginSource(
     override val lang: String = info.lang.orEmpty()
     override val iconUrl: String? = info.iconUrl
     override val filters: NovelFilters? = info.filters?.takeIf { it.isNotEmpty() }?.let(NovelFilters::LnSchema)
-    override val pluginSettings: JsonObject? = info.pluginSettings
+    override val settings: NovelSettings? = info.pluginSettings?.let { schema ->
+        NovelSettings.LnSchema(
+            schema,
+            read = { key -> host.getSetting(info.id, key) },
+            write = { key, value -> host.setSetting(info.id, key, value) },
+        )
+    }
     override val supportsLatest: Boolean = info.supportsLatest
-
-    override suspend fun getSetting(key: String): JsonElement? = host.getSetting(info.id, key)
-
-    override fun setSetting(key: String, value: JsonElement?) = host.setSetting(info.id, key, value)
 
     // Latest is a flag in the same options as the filters, and a plugin with no filters still needs it.
     override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): List<NovelItem> {

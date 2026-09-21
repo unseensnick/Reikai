@@ -135,7 +135,7 @@ class NovelBrowseAdapter(
             supportsLatest = source.supportsLatest,
             hasFilters = source.filters != null,
             filtersActive = state.filterChipActive(),
-            hasSettings = source.pluginSettings != null,
+            hasSettings = source.settings != null,
             webUrl = source.site.takeIf { it.isNotBlank() },
             rowStyle = EntryBrowseRowStyle.Standard(state.displayMode),
             selectionMode = bulkState.selectionMode,

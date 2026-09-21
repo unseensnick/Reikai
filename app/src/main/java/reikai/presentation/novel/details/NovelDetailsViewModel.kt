@@ -340,7 +340,7 @@ class NovelDetailsViewModel(
                         l.copy(
                             sourceName = resolved.name,
                             sourceUrl = resolved.site,
-                            sourceHasSettings = resolved.pluginSettings != null,
+                            sourceHasSettings = resolved.settings != null,
                             browsableSourceId = resolved.id,
                             novelWebUrl = resolved.webUrl(l.displayNovel.url),
                         )
@@ -604,7 +604,7 @@ class NovelDetailsViewModel(
                 sourceName = viewSource?.name ?: viewNovel.source,
                 sourceUrl = viewSource?.site,
                 novelWebUrl = viewSource?.webUrl(viewNovel.url),
-                sourceHasSettings = viewSource?.pluginSettings != null,
+                sourceHasSettings = viewSource?.settings != null,
                 browsableSourceId = viewSource?.id,
                 sorting = anchor.effectiveSorting(novelPreferences),
                 sortDescending = sortDescending,
@@ -776,7 +776,7 @@ class NovelDetailsViewModel(
     fun showSourceSettings() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         val viewed = viewedNovelSource(loaded.displayNovel.id, loaded.novel.id, siblingSources.value, source) ?: return
-        if (viewed.pluginSettings == null) return
+        if (viewed.settings == null) return
         updateLoaded { it.copy(dialog = NovelDetailsDialog.SourceSettings(viewed)) }
     }
 

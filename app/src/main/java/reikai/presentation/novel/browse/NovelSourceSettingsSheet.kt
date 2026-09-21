@@ -28,7 +28,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
-import reikai.novel.source.NovelSource
+import reikai.novel.source.NovelSettings
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
@@ -40,25 +40,25 @@ import tachiyomi.presentation.core.i18n.stringResource
 /**
  * Renders a light-novel source's `plugin.pluginSettings` schema (login fields, base-URL pickers,
  * content toggles) through the same Mihon settings-item primitives as [NovelSourceFilterSheet], and
- * persists values via [NovelSource.setSetting] so the plugin reads them at runtime. Current values
+ * persists values through [NovelSettings.LnSchema.set] so the plugin reads them at runtime. Current values
  * load from storage on open, falling back to each setting's declared default. Setting types track
  * lnreader's: Switch / Select / CheckboxGroup / Text (default). Required for sources like Komga and
  * Linovelib that are non-functional without user-provided settings.
  */
 @Composable
 internal fun NovelSourceSettingsSheet(
-    source: NovelSource,
+    settings: NovelSettings.LnSchema,
     onDismiss: () -> Unit,
 ) {
-    val schema = source.pluginSettings ?: return
+    val schema = settings.schema
     var draft by remember { mutableStateOf<Map<String, JsonElement>>(emptyMap()) }
     var loaded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(source.id) {
+    LaunchedEffect(settings) {
         val map = mutableMapOf<String, JsonElement>()
         schema.forEach { (key, schemaEl) ->
             val s = schemaEl as? JsonObject ?: return@forEach
-            (source.getSetting(key) ?: s["value"])?.let { map[key] = it }
+            (settings.get(key) ?: s["value"])?.let { map[key] = it }
         }
         draft = map
         loaded = true
@@ -81,7 +81,7 @@ internal fun NovelSourceSettingsSheet(
                     )
                     Button(
                         onClick = {
-                            draft.forEach { (k, v) -> source.setSetting(k, v) }
+                            draft.forEach { (k, v) -> settings.set(k, v) }
                             onDismiss()
                         },
                     ) { Text(text = stringResource(MR.strings.action_save)) }

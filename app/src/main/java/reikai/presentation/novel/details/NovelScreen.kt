@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -19,6 +20,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
+import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -33,6 +35,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.source.SourceKey
+import reikai.novel.source.NovelSettings
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
@@ -245,10 +248,15 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
             onSetAsDefault = viewModel::setChapterSettingsAsDefault,
             onReset = viewModel::resetChapterSettings,
         )
-        is NovelDetailsDialog.SourceSettings -> NovelSourceSettingsSheet(
-            source = dialog.source,
-            onDismiss = viewModel::dismissDialog,
-        )
+        is NovelDetailsDialog.SourceSettings -> when (val settings = dialog.source.settings) {
+            is NovelSettings.LnSchema -> NovelSourceSettingsSheet(settings, onDismiss = viewModel::dismissDialog)
+            // A screen of its own rather than a sheet, so the dialog only hands over to it.
+            is NovelSettings.PreferenceScreen -> LaunchedEffect(dialog) {
+                viewModel.dismissDialog()
+                navigator.push(SourcePreferencesScreen.forNovel(dialog.source.id))
+            }
+            null -> {}
+        }
         NovelDetailsDialog.PageSelector -> NovelPageSelectorSheet(
             pages = state.pages,
             selectedIndex = state.pageIndex,

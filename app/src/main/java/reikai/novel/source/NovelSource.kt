@@ -1,7 +1,5 @@
 package reikai.novel.source
 
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 
@@ -36,12 +34,8 @@ interface NovelSource {
     /** The source's filters and where they apply; null when it declares none. */
     val filters: NovelFilters? get() = null
 
-    /**
-     * Raw `plugin.pluginSettings` schema (per-plugin config: login, base URL, content toggles). Null
-     * when the source declares none. The settings UI renders it and persists values through
-     * [setSetting]; the plugin reads them back via `@libs/storage`.
-     */
-    val pluginSettings: JsonObject? get() = null
+    /** The source's own settings, in the shape its format declares; null when it has none. */
+    val settings: NovelSettings? get() = null
 
     /**
      * This source can serve a Latest listing, which is why browse offers the chip. The lnreader
@@ -50,12 +44,6 @@ interface NovelSource {
      * answer a Latest request with the Popular list, so browse hides the chip instead.
      */
     val supportsLatest: Boolean get() = false
-
-    /** Read a saved per-plugin setting value (the `storage:` scope plugins use). Null if unset. */
-    suspend fun getSetting(key: String): JsonElement? = null
-
-    /** Persist a per-plugin setting value (null clears it). No-op for sources without settings. */
-    fun setSetting(key: String, value: JsonElement?) {}
 
     /**
      * A page of [listing]. Null [filters] means the source's defaults; a format whose filters apply to

@@ -75,6 +75,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.font.NovelFontManager
+import reikai.novel.source.NovelSourceManager
 import reikai.novel.update.LnPluginUpdateChecker
 import reikai.presentation.details.MangaEntryCoverViewModel
 import reikai.presentation.library.MangaLibraryAdapter
@@ -174,6 +175,7 @@ interface AppGraph : ViewModelGraph {
     // at construction, so every read has to build a fresh one.
     val galleryAdder: GalleryAdder
     val novelPreferences: NovelPreferences
+    val novelSourceManager: NovelSourceManager
     val reikaiRecommendationPreferences: ReikaiRecommendationPreferences
     val lnPluginUpdateChecker: LnPluginUpdateChecker
     val refreshTrackerLibrary: RefreshTrackerLibrary

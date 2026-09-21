@@ -1,8 +1,27 @@
 package reikai.novel.source
 
+import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+
+/** A source's own settings, in the shape its format declares them; a source with none has none of these. */
+sealed interface NovelSettings {
+
+    /** An LNReader plugin's `pluginSettings` schema, whose values live in the plugin's own storage. */
+    class LnSchema(
+        val schema: JsonObject,
+        private val read: suspend (key: String) -> JsonElement?,
+        private val write: (key: String, value: JsonElement?) -> Unit,
+    ) : NovelSettings {
+        suspend fun get(key: String): JsonElement? = read(key)
+
+        fun set(key: String, value: JsonElement?) = write(key, value)
+    }
+
+    /** A preference screen the source builds itself, as a Mihon `ConfigurableSource` does. */
+    class PreferenceScreen(val source: ConfigurableSource) : NovelSettings
+}
 
 /** The listings a novel source pages without a query. */
 enum class NovelListing { Popular, Latest }

@@ -36,25 +36,33 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.preference.SharedPreferencesDataStore
 import eu.kanade.tachiyomi.source.ConfigurableSource
-import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.sourcePreferences
 import eu.kanade.tachiyomi.widget.TachiyomiTextInputEditText.Companion.setIncognito
 import exh.source.configurableSource
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
+import reikai.novel.source.NovelSettings
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.LoadingScreen
 
-class SourcePreferencesScreen(val sourceId: Long) : Screen() {
+class SourcePreferencesScreen(
+    val sourceId: Long,
+    // RK --> a novel source's id is text, which the manga source manager cannot name
+    private val novelSourceId: String? = null,
+    // RK <--
+) : Screen() {
 
     @Composable
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
 
-        val source by produceState<Source?>(initialValue = null) {
-            value = context.appGraph.sourceManager.getOrStub(sourceId)
+        // RK --> only the title is read here, so a novel source contributes just its name
+        val source by produceState<Any?>(initialValue = null) {
+            value = novelSourceId?.let { context.appGraph.novelSourceManager.get(it)?.name ?: it }
+                ?: context.appGraph.sourceManager.getOrStub(sourceId)
         }
+        // RK <--
 
         if (source == null) {
             LoadingScreen()
@@ -82,7 +90,7 @@ class SourcePreferencesScreen(val sourceId: Long) : Screen() {
                     .fillMaxSize()
                     .padding(contentPadding),
             ) {
-                add(it, SourcePreferencesFragment.getInstance(sourceId), null)
+                add(it, SourcePreferencesFragment.getInstance(sourceId, novelSourceId), null) // RK
             }
         }
     }
@@ -126,6 +134,12 @@ class SourcePreferencesScreen(val sourceId: Long) : Screen() {
         method.isAccessible = true
         method.invoke(this, view)
     }
+
+    // RK -->
+    companion object {
+        fun forNovel(novelSourceId: String) = SourcePreferencesScreen(0L, novelSourceId)
+    }
+    // RK <--
 }
 
 class SourcePreferencesFragment : PreferenceFragmentCompat() {
@@ -146,10 +160,15 @@ class SourcePreferencesFragment : PreferenceFragmentCompat() {
 
     private suspend fun populateScreen(): PreferenceScreen {
         val sourceId = requireArguments().getLong(SOURCE_ID)
+        // RK --> a novel source packaged as a tachiyomi-format apk hands over its own ConfigurableSource
+        val novelSource = requireArguments().getString(NOVEL_SOURCE_ID)?.let {
+            (requireContext().appGraph.novelSourceManager.get(it)?.settings as? NovelSettings.PreferenceScreen)?.source
+        }
+        // RK <--
         // RK --> a delegated source arrives wrapped, and the wrapper is not a ConfigurableSource, so
         // without unwrapping it the check below fails and the screen renders empty. Ported from
         // Komikku; the rule now lives in configurableSource, which the entry points gate on too.
-        val source = requireContext().appGraph.sourceManager.getOrStub(sourceId).configurableSource()
+        val source = novelSource ?: requireContext().appGraph.sourceManager.getOrStub(sourceId).configurableSource()
         // RK <--
         val sourceScreen = preferenceManager.createPreferenceScreen(requireContext())
 
@@ -181,11 +200,13 @@ class SourcePreferencesFragment : PreferenceFragmentCompat() {
 
     companion object {
         private const val SOURCE_ID = "source_id"
+        private const val NOVEL_SOURCE_ID = "novel_source_id" // RK
 
-        fun getInstance(sourceId: Long): SourcePreferencesFragment {
+        fun getInstance(sourceId: Long, novelSourceId: String? = null): SourcePreferencesFragment { // RK
             return SourcePreferencesFragment().apply {
                 arguments = Bundle().apply {
                     putLong(SOURCE_ID, sourceId)
+                    novelSourceId?.let { putString(NOVEL_SOURCE_ID, it) } // RK
                 }
             }
         }

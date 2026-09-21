@@ -66,6 +66,7 @@ import reikai.domain.source.SourceKey
 import reikai.domain.source.model.SavedSearch
 import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelFilters
+import reikai.novel.source.NovelSettings
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
@@ -213,11 +214,18 @@ class EntryCatalogueScreen(
                     ?.firstOrNull { it.novel.id == id }
                     ?.let { navigator.push(NovelScreen(it.novel.source, it.novel.url)) }
             },
-            onOpenSettings = viewModel::openSettingsSheet,
+            // A preference screen is a screen of its own; the LNReader schema is a sheet over this one.
+            onOpenSettings = {
+                when (source?.settings) {
+                    is NovelSettings.PreferenceScreen -> navigator.push(SourcePreferencesScreen.forNovel(sourceId))
+                    else -> viewModel.openSettingsSheet()
+                }
+            },
             onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
             extraSheets = {
-                if (modelState.settingsSheetOpen && source != null) {
-                    NovelSourceSettingsSheet(source = source, onDismiss = viewModel::closeSettingsSheet)
+                val settings = source?.settings as? NovelSettings.LnSchema
+                if (modelState.settingsSheetOpen && settings != null) {
+                    NovelSourceSettingsSheet(settings, onDismiss = viewModel::closeSettingsSheet)
                 }
             },
         ) { onDismiss ->
