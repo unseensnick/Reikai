@@ -456,7 +456,8 @@ every release now also ships a foss build with neither in it.
 - **Filling a novel's details from a tracker now works with RanobeDB, NovelList and NovelUpdates, which know novels better than the manga services do.** It fills the description, author, artist and genres.
 - **Every tracker search except NovelUpdates can now take an id, written as `id:12345` (synced from Mihon, mihonapp/mihon#3776).** AniList, Bangumi, Hikka, Kitsu, MangaUpdates and Shikimori join MyAnimeList and MangaBaka, and RanobeDB and NovelList take one too.
 - **A Kitsu search can now take a title's web-address name too, written as `id:shadow-slave` (synced from Mihon, mihonapp/mihon#3792).** Handy when you have the Kitsu link but not the number, and it works on manga and novels alike.
-- **Extensions that sync reading to their own site are now told what you read, add and remove, on manga and novels alike.** A switch in Settings -> Tracking decides whether migrations count, and a failed sync shows a message.
+- **Extensions that sync reading to their own site now hear what you read, add and remove, on manga and novels, once their own tracking setting is on.** A failed sync shows a message.
+- **Settings -> Tracking can pass migrations on to extensions that sync reading to their own site.** It is on by default.
 
 #### Changed
 
