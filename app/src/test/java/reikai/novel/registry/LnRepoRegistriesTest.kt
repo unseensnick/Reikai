@@ -71,6 +71,23 @@ class LnRepoRegistriesTest {
         fetched.toSet() shouldBe setOf(REPO, OTHER_REPO)
     }
 
+    @Test
+    fun `an added repo is downloaded once, by the add`() = runTest {
+        registries.results.first()
+
+        registries.add(REPO)
+        registries.results.first()
+
+        fetched shouldBe listOf(REPO)
+    }
+
+    @Test
+    fun `an address that does not read as a registry is not added`() = runTest {
+        registries.add(DOWN_REPO)
+
+        prefs.addedRepoUrls().get() shouldBe emptySet()
+    }
+
     private companion object {
         const val REPO = "https://example.org/plugins.json"
         const val OTHER_REPO = "https://example.net/plugins.json"

@@ -60,6 +60,24 @@ class LnRepoRegistries(
 
     suspend fun refresh() = load(prefs.addedRepoUrls().get(), force = true)
 
+    /** Adds [repoUrl] only if it reads as a registry, keeping what it fetched so it is not downloaded twice. */
+    suspend fun add(repoUrl: String): Result<Unit> = mutex.withLock {
+        val entries = try {
+            fetcher.fetchRepo(repoUrl)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withLock Result.failure(e)
+        }
+        loaded.value = loaded.value.orEmpty() + (repoUrl to LnRepoResult.Reached(entries))
+        prefs.addedRepoUrls().set(prefs.addedRepoUrls().get() + repoUrl)
+        Result.success(Unit)
+    }
+
+    fun remove(repoUrl: String) {
+        prefs.addedRepoUrls().set(prefs.addedRepoUrls().get() - repoUrl)
+    }
+
     private suspend fun load(repos: Set<String>, force: Boolean) = mutex.withLock {
         val kept = if (force) emptyMap() else loaded.value.orEmpty().filterKeys { it in repos }
         val missing = repos.filterNot { it in kept }

@@ -203,4 +203,17 @@
         <item quantity="one">%1$d minute left</item>
         <item quantity="other">%1$d minutes left</item>
     </plurals>
+    <!-- RK: the Repos screen's cards and its Settings row -->
+    <plurals name="repo_extensions">
+        <item quantity="one">%d extension</item>
+        <item quantity="other">%d extensions</item>
+    </plurals>
+    <plurals name="repo_plugins">
+        <item quantity="one">%d plugin</item>
+        <item quantity="other">%d plugins</item>
+    </plurals>
+    <plurals name="repo_count">
+        <item quantity="one">%d repo</item>
+        <item quantity="other">%d repos</item>
+    </plurals>
 </resources>

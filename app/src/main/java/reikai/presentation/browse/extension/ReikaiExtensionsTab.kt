@@ -38,7 +38,6 @@ import eu.kanade.presentation.browse.NotLoadedDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.presentation.components.WarningBanner
-import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.presentation.util.rememberRequestPackageInstallsPermissionState
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionFilterScreen
@@ -65,6 +64,7 @@ import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.NovelSourceRow
+import reikai.presentation.browse.repos.RepositoriesScreen
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
 import tachiyomi.i18n.MR
@@ -105,7 +105,7 @@ fun Screen.reikaiExtensionsTab(
     // WhileSubscribed conversion exists to stop (mihonapp/mihon#3729).
     val updatesCount by extensionsViewModel.updatesCount.collectAsStateWithLifecycle()
     val lnCount by browseViewModel.lnUpdatesCount.collectAsStateWithLifecycle()
-    val openRepos = { navigator.push(ExtensionStoresScreen()) }
+    val openRepos = { navigator.push(RepositoriesScreen()) }
 
     return TabContent(
         titleRes = MR.strings.label_extensions,

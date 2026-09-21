@@ -62,7 +62,6 @@ import eu.kanade.presentation.components.AppStateBanners
 import eu.kanade.presentation.components.DownloadedOnlyBannerBackgroundColor
 import eu.kanade.presentation.components.IncognitoModeBannerBackgroundColor
 import eu.kanade.presentation.components.IndexingBannerBackgroundColor
-import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.presentation.more.settings.screen.data.RestoreBackupScreen
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.DefaultNavigatorScreenTransition
@@ -103,6 +102,7 @@ import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownloadCache
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.browse.repos.RepositoriesScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.core.common.Constants
@@ -498,7 +498,8 @@ class MainActivity : BaseActivity() {
                 else if (intent.isAddExtensionStoreIntent()) {
                     intent.data?.getQueryParameter("url")?.let { repoUrl ->
                         navigator.popUntilRoot()
-                        navigator.push(ExtensionStoresScreen(repoUrl))
+                        // RK: the Repos screen, which reads the address as either kind of repo
+                        navigator.push(RepositoriesScreen(repoUrl))
                     }
                 }
                 null

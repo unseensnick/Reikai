@@ -308,12 +308,25 @@
     <string name="updating_both_libraries">Updating both libraries</string>
     <!-- RK: light-novel browse (P5 S3a) -->
     <string name="repos">Repos</string>
-    <string name="ln_repos">Light novel repos</string>
     <string name="bulk_selected_types">%1$s, %2$s</string>
     <string name="categories_for_type">Categories for %1$s</string>
     <string name="all_sources">All sources</string>
     <string name="ext_no_repos">No repos yet. Add one to install extensions.</string>
     <string name="ext_repos_empty">Couldn\'t load anything from your repos. Check the repos and your connection, then retry.</string>
+    <!-- RK: the Repos screen, one list of extension stores and LN plugin repos -->
+    <string name="repo_kind_store">Extension store</string>
+    <string name="repo_kind_plugins">Plugin repo</string>
+    <string name="repo_checking">Checking…</string>
+    <string name="repo_unreachable">Couldn\'t reach this repo</string>
+    <string name="action_add_repo">Add repo</string>
+    <string name="repo_address">Address</string>
+    <string name="repo_signing_key">Signing key</string>
+    <string name="repo_add_input">Repo address</string>
+    <string name="repo_add_failed">Couldn\'t read a repo at this address</string>
+    <string name="repo_already_added">This repo is already added</string>
+    <string name="repo_add_deeplink">Add the repo below?</string>
+    <string name="repo_remove_title">Remove repo</string>
+    <string name="repo_remove_body">Remove %1$s?</string>
     <string name="ln_no_sources">No light novel sources installed. Install one from the Extensions tab.</string>
     <string name="channel_ln_plugin_updates">Light novel plugin updates</string>
     <string name="channel_novel_tts">Novel read aloud</string>
@@ -583,8 +596,6 @@
     <string name="extensionStores">Extension stores</string>
     <!-- RK: overflow action to re-scan installed extensions and re-evaluate trust against current repos -->
     <string name="action_recheck_extensions">Re-check extensions</string>
-    <!-- RK: the Repos screen counts manga + light-novel repositories -->
-    <string name="extension_repos_subtitle">%1$d manga, %2$d light novel</string>
     <string name="action.addExtensionStore">Add extension store</string>
     <string name="extensionStoresScreen.emptyLabel">You haven\'t added an extension store yet</string>
     <string name="extensionStoresScreen.addStore.title">Add extension store</string>

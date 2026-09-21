@@ -20,6 +20,12 @@ class ExtensionApi(
         return withIOContext { repository.fetchExtensions() }
     }
 
+    // RK --> each store's own outcome, so a store that could not be read is not mistaken for an empty one
+    suspend fun findExtensionsByStore(): Map<String, Result<List<Extension.Available>>> {
+        return withIOContext { repository.fetchExtensionsByStore() }
+    }
+    // RK <--
+
     /**
      * @param loadedExtensions Extensions already loaded by [eu.kanade.tachiyomi.extension.ExtensionManager].
      * Only their versions are read, so there's nothing to gain from loading them a second time.

@@ -119,6 +119,11 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/res/menu/download_single.xml | mihon | reikai/presentation/download/EntryDownloadSeriesSheet.kt |
 | app/src/main/res/drawable/ic_drag_handle_24dp.xml | mihon | reikai/presentation/download/EntryDownloadCardList.kt |
 | app/src/main/res/drawable/ic_overflow_24dp.xml | mihon | reikai/presentation/download/EntryDownloadSeriesSheet.kt |
+| app/src/main/java/eu/kanade/presentation/more/settings/screen/browse/ExtensionStoresScreen.kt | mihon | reikai/presentation/browse/repos/RepositoriesScreen.kt |
+| app/src/main/java/eu/kanade/presentation/more/settings/screen/browse/ExtensionStoresViewModel.kt | mihon | reikai/presentation/browse/repos/RepositoriesViewModel.kt |
+| app/src/main/java/eu/kanade/presentation/more/settings/screen/browse/components/ExtensionStoresScreen.kt | mihon | reikai/presentation/browse/repos/RepositoriesScreen.kt |
+| app/src/main/java/eu/kanade/presentation/more/settings/screen/browse/components/ExtensionStoresContent.kt | mihon | reikai/presentation/browse/repos/RepositoriesScreen.kt |
+| app/src/main/java/eu/kanade/presentation/more/settings/screen/browse/components/ExtensionStoresDialogs.kt | mihon | reikai/presentation/browse/repos/RepositoriesScreen.kt |
 
 **A row tracks the file's CURRENT upstream path, not the name Reikai deleted.** When upstream renames a
 manifested file, repoint the row at the new path, because the check `cat-file`s the path at upstream HEAD and,

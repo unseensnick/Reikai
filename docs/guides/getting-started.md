@@ -27,14 +27,14 @@ Read content stored locally on your device.
 See the [Local source guide](/docs/guides/local-source/) for instructions.
 == External repositories
 External repositories add additional sources to **Reikai**:
-* Add one by going to <nav to="browse"> and tapping **Extension stores**.
-* Paste the store's index URL, as the store gives it to you. It usually ends in `index.min.json`, and for an older array-format store it has to, because the app derives that store's real address from it.
+* Add one by going to <nav to="browse"> and tapping **Repos**, then **Add repo**.
+* Paste the address as the repo gives it to you. An extension store's usually ends in `repo.json` or `index.min.json`, and for an older array-format store it has to end in `index.min.json`, because the app derives that store's real address from it.
 
-Light novel repos are added on the same screen, in their own section further down. **Reikai** reads
-[LNReader](https://github.com/LNReader/lnreader)-style plugins rather than manga extensions, so novel
-sources come from their own repos, and the **Extension stores** entry shows both counts. A novel repo URL points at a
-`plugins.min.json` registry instead, and nothing checks it as you type, so a wrong address is accepted
-and simply lists no plugins.
+Novel plugin repos are added the same way. **Reikai** also reads
+[LNReader](https://github.com/LNReader/lnreader)-style plugins, whose repo address points at a
+`plugins.min.json` registry. **Add repo** works out which kind an address is, and turns down one it
+cannot read as either. Each repo's card shows how many extensions or plugins it lists, or that it
+could not be reached.
 
 ::: danger Caution
 Reikai will not provide resources for any unofficial repositories. Beware that any third-party repositories or extensions will have full access to the app and may contain malware.

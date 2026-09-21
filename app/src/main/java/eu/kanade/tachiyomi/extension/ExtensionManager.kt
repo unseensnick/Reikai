@@ -36,6 +36,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
+import reikai.domain.extension.RepoStatus
+import reikai.domain.extension.toRepoStatus
 import reikai.domain.source.ContentWarningScan
 import reikai.domain.source.contentWarningScan
 import reikai.domain.source.contentWarningScanChanges
@@ -92,6 +94,10 @@ class ExtensionManager(
 
     private val notLoadedNovelExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.NotLoaded>())
     val notLoadedNovelExtensionsFlow = notLoadedNovelExtensionMapFlow.mapExtensionsWhenInitialized()
+
+    /** Each store's outcome from the last [findAvailableExtensions], keyed by index URL; null before one. */
+    val storeStatuses: StateFlow<Map<String, RepoStatus>?>
+        field = MutableStateFlow<Map<String, RepoStatus>?>(null)
     // RK <--
 
     // RK --> one scan at a time. It runs from three places on this scope, and each pass assigns
@@ -233,9 +239,11 @@ class ExtensionManager(
      * Finds the available extensions in the [api] and updates [availableExtensionMapFlow].
      */
     suspend fun findAvailableExtensions() {
-        // RK: named for the split below
+        // RK: named for the split below; fetched per store so each store's outcome is kept
         val fetched: List<Extension.Available> = try {
-            api.findExtensions()
+            val byStore = api.findExtensionsByStore()
+            storeStatuses.value = byStore.mapValues { (_, result) -> result.toRepoStatus() }
+            byStore.values.flatMap { it.getOrDefault(emptyList()) }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             withUIContext { context.toast(MR.strings.extension_api_error) }

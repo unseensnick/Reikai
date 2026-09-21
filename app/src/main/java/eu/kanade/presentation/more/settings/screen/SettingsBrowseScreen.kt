@@ -12,13 +12,14 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
-import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
 import exh.md.utils.MdUtil
 import mihon.app.di.appGraph
 import mihon.domain.extension.model.ContentWarning
+import reikai.presentation.browse.repos.RepositoriesScreen
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 
 object SettingsBrowseScreen : SearchableSettings {
@@ -37,7 +38,7 @@ object SettingsBrowseScreen : SearchableSettings {
         // reveals rather than making one appear on a screen the user is not looking at.
         val exhPreferences = remember { context.appGraph.exhPreferences }
         val getExtensionStoreCountAsFlow = remember { context.appGraph.getExtensionStoreCountAsFlow }
-        // RK: the Repos screen is unified (manga + light novel), so count both.
+        // RK: the Repos screen holds LN plugin repos too, so its row counts them.
         val novelPreferences = remember { context.appGraph.novelPreferences }
         // RK --> the Feed tab's own switches, which the rest of its group hangs off
         val reikaiSourcePreferences = remember { context.appGraph.reikaiSourcePreferences }
@@ -86,18 +87,17 @@ object SettingsBrowseScreen : SearchableSettings {
                         onValueChanged = { uiPreferences.previewsRowCount.set(it) },
                     ),
                     // RK <--
+                    // RK --> one Repos screen for extension stores and LN plugin repos, so one count of both
                     Preference.PreferenceItem.TextPreference(
-                        title = stringResource(MR.strings.extensionStores),
-                        // RK: show manga + light-novel repo counts (the Repos screen holds both).
-                        subtitle = stringResource(
-                            MR.strings.extension_repos_subtitle,
-                            reposCount.toInt(),
-                            novelRepoUrls.size,
-                        ),
+                        title = stringResource(MR.strings.repos),
+                        subtitle = (reposCount.toInt() + novelRepoUrls.size).let {
+                            pluralStringResource(MR.plurals.repo_count, it, it)
+                        },
                         onClick = {
-                            navigator.push(ExtensionStoresScreen())
+                            navigator.push(RepositoriesScreen())
                         },
                     ),
+                    // RK <--
                 ),
             ),
             // RK --> the Feed tab is Reikai's, and every switch here is off by default

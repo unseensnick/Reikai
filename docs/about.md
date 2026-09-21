@@ -83,7 +83,7 @@ novels at all, does not recognize).
 
 The upside: the LNReader plugin format is shared across Reikai, tsundoku, and IReader,
 so any novel source that exists as an LNReader plugin you can add today, add its repo
-under **Light novel repos** in **Extension stores**, in <nav to="browse">. Supporting the compiled-APK side is a much bigger piece
+with **Add repo** under **Repos**, in <nav to="browse">. Supporting the compiled-APK side is a much bigger piece
 of work: on the backlog, but no timeline.
 
 ## Where do I report a bug, request a feature, or ask a question?

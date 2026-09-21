@@ -13,6 +13,10 @@ interface ExtensionStoreRepository {
 
     suspend fun fetchExtensions(): List<Extension.Available>
 
+    // RK --> each store's own outcome, keyed by index URL, which fetchExtensions flattens away
+    suspend fun fetchExtensionsByStore(): Map<String, Result<List<Extension.Available>>>
+    // RK <--
+
     suspend fun getAll(): List<ExtensionStore>
 
     fun getAllAsFlow(): Flow<List<ExtensionStore>>

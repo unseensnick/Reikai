@@ -376,6 +376,7 @@ every release now also ships a foss build with neither in it.
 
 #### Changed
 
+- **The Repos screen is now one list of cards, each showing how many extensions or plugins a repo lists, or that it couldn't be reached.** Add repo works out whether an address is an extension store or a novel plugin repo, and turns down one it can't read.
 - **Rows in Browse -> Sources now show a flag beside the language, the extension name when a source is named differently, and an 18+ or Mixed label from the extension's content warning.** Light-novel plugins carry no content warning, so their rows never show one.
 - **Settings -> Browse and sources now picks which extensions load by content warning, Safe, Mixed or 18+, instead of one NSFW switch (synced from Mihon, mihonapp/mihon#3951, mihonapp/mihon#3952).** Your NSFW choice carries over, changes apply without a restart, and the filter can leave installed extensions alone.
 - **Installed extensions and light-novel plugins that fail to load now appear under Not loaded in Browse -> Extensions (synced from Mihon, mihonapp/mihon#3953).** Tap one to see why, copy the error, or uninstall it.

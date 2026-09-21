@@ -81,24 +81,31 @@ class ExtensionStoreRepositoryImpl(
 
     override suspend fun fetchExtensions(): List<Extension.Available> {
         return try {
-            supervisorScope {
-                database.extension_storeQueries.getAll(::extensionStoreMapper).awaitAsList().map { store ->
-                    async {
-                        service.getExtensions(store).onFailure {
-                            this@ExtensionStoreRepositoryImpl.logcat(LogPriority.ERROR, it) {
-                                "Failed to fetch extensions for store '${store.name} (${store.indexUrl})'"
-                            }
-                        }
-                    }
-                }
-                    .awaitAll()
-                    .flatMap { it.getOrDefault(emptyList()) }
-            }
+            // RK: the per-store fetch below, flattened as before
+            fetchExtensionsByStore().values.flatMap { it.getOrDefault(emptyList()) }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             emptyList()
         }
     }
+
+    // RK -->
+    override suspend fun fetchExtensionsByStore(): Map<String, Result<List<Extension.Available>>> {
+        return supervisorScope {
+            database.extension_storeQueries.getAll(::extensionStoreMapper).awaitAsList().map { store ->
+                async {
+                    store.indexUrl to service.getExtensions(store).onFailure {
+                        this@ExtensionStoreRepositoryImpl.logcat(LogPriority.ERROR, it) {
+                            "Failed to fetch extensions for store '${store.name} (${store.indexUrl})'"
+                        }
+                    }
+                }
+            }
+                .awaitAll()
+                .toMap()
+        }
+    }
+    // RK <--
 
     override suspend fun getAll(): List<ExtensionStore> {
         return database.extension_storeQueries.getAll(::extensionStoreMapper).awaitAsList()
