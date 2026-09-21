@@ -11,6 +11,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import tachiyomi.core.common.preference.Preference
@@ -44,12 +45,22 @@ class SourceIncognitoConformanceTest {
         incognitoState(stored = setOf(OTHER_PACKAGE, SourceKey.Novel("other").serialize())).await(source) shouldBe false
     }
 
+    /** A novel apk's sources go with the apk, as a manga extension's do: switching one switches all. */
+    @Test
+    fun `a novel apk's other source is incognito with it`() = runTest {
+        val key = incognitoState().incognitoKey(SourceKey.Novel("tachiyomi:$NOVEL_APK_SOURCE_ID"))!!
+
+        incognitoState(stored = setOf(key)).await(SourceKey.Novel("tachiyomi:$NOVEL_APK_OTHER_SOURCE_ID")) shouldBe true
+    }
+
     // The preferences are stubbed rather than in-memory: that store's changes() never emits, and building
     // BasePreferences reaches Android's installer checks, which the JVM does not have.
     private fun incognitoState(stored: Set<String> = emptySet()): GetIncognitoState {
         val extensionManager = mockk<ExtensionManager> {
             coEvery { getExtensionPackage(MANGA_SOURCE_ID) } returns MANGA_PACKAGE
             every { getExtensionPackageAsFlow(MANGA_SOURCE_ID) } returns flowOf(MANGA_PACKAGE)
+            every { getNovelExtensionPackageAsFlow(NOVEL_APK_SOURCE_ID) } returns flowOf(NOVEL_APK_PACKAGE)
+            every { getNovelExtensionPackageAsFlow(NOVEL_APK_OTHER_SOURCE_ID) } returns flowOf(NOVEL_APK_PACKAGE)
         }
         val basePreferences = mockk<BasePreferences> { every { incognitoMode } returns preference(false) }
         val sourcePreferences = mockk<SourcePreferences> { every { incognitoExtensions } returns preference(stored) }
@@ -65,8 +76,15 @@ class SourceIncognitoConformanceTest {
         private const val MANGA_SOURCE_ID = 42L
         private const val MANGA_PACKAGE = "eu.kanade.tachiyomi.extension.en.example"
         private const val OTHER_PACKAGE = "eu.kanade.tachiyomi.extension.en.other"
+        private const val NOVEL_APK_SOURCE_ID = 7L
+        private const val NOVEL_APK_OTHER_SOURCE_ID = 8L
+        private const val NOVEL_APK_PACKAGE = "eu.kanade.tachiyomi.novelextension.en.example"
 
         @JvmStatic
-        fun sources() = listOf(SourceKey.Manga(MANGA_SOURCE_ID), SourceKey.Novel("example"))
+        fun sources() = listOf(
+            SourceKey.Manga(MANGA_SOURCE_ID),
+            SourceKey.Novel("example"),
+            SourceKey.Novel("tachiyomi:$NOVEL_APK_SOURCE_ID"),
+        )
     }
 }

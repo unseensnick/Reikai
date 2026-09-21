@@ -264,7 +264,8 @@ object HomeScreen : Screen() {
                 }
 
                 is BrowseTab -> {
-                    graph.sourcePreferences.extensionUpdatesCount.changes()
+                    // RK: every extension kind, as the Extensions tab's own badge counts
+                    graph.extensionUpdateCounts.total
                         .collectLatest { value = it }
                 }
 

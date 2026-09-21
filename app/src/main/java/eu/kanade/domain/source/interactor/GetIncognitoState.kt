@@ -9,8 +9,10 @@ import exh.source.eHentaiSourceIds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import reikai.domain.source.SourceKey // RK
+import reikai.novel.source.TACHIYOMI_NOVEL_SOURCE_PREFIX // RK
 
 @Inject
 class GetIncognitoState(
@@ -30,7 +32,7 @@ class GetIncognitoState(
     // RK --> incognito per source for both content types, keyed by SourceKey
     suspend fun await(source: SourceKey?): Boolean = when (source) {
         is SourceKey.Novel ->
-            basePreferences.incognitoMode.get() || source.serialize() in sourcePreferences.incognitoExtensions.get()
+            basePreferences.incognitoMode.get() || incognitoKey(source) in sourcePreferences.incognitoExtensions.get()
         is SourceKey.Manga -> await(source.id)
         null -> await(null as Long?)
     }
@@ -39,7 +41,8 @@ class GetIncognitoState(
         is SourceKey.Novel -> combine(
             basePreferences.incognitoMode.changes(),
             sourcePreferences.incognitoExtensions.changes(),
-        ) { incognito, incognitoExtensions -> incognito || source.serialize() in incognitoExtensions }
+            novelIncognitoKey(source),
+        ) { incognito, incognitoExtensions, key -> incognito || key in incognitoExtensions }
             .distinctUntilChanged()
         is SourceKey.Manga -> subscribe(source.id)
         null -> subscribe(null as Long?)
@@ -48,12 +51,21 @@ class GetIncognitoState(
     /**
      * The entry [source] is stored under in the incognito set, or null when nothing can be: a manga
      * source is switched with its whole extension, as upstream does, so one without an installed
-     * extension (local, stub) has none. A plugin is its own extension and has no package, so it is
-     * stored in its SourceKey form, which no package name can take.
+     * extension (local, stub) has none. A novel apk's source goes with its apk the same way. A plugin
+     * is its own extension and has no package, so it is stored in its SourceKey form, which no package
+     * name can take.
      */
     suspend fun incognitoKey(source: SourceKey): String? = when (source) {
         is SourceKey.Manga -> extensionPackage(source.id)
-        is SourceKey.Novel -> source.serialize()
+        is SourceKey.Novel -> novelIncognitoKey(source).first()
+    }
+
+    private fun novelIncognitoKey(source: SourceKey.Novel): Flow<String?> {
+        val apkSourceId = source.id.removePrefix(TACHIYOMI_NOVEL_SOURCE_PREFIX)
+            .takeIf { it != source.id }
+            ?.toLongOrNull()
+            ?: return flowOf(source.serialize())
+        return extensionManager.getNovelExtensionPackageAsFlow(apkSourceId)
     }
 
     // The built-in E-Hentai sources have no installed extension, so they map to EH_PACKAGE.

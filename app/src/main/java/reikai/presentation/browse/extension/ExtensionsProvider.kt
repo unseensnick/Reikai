@@ -19,19 +19,20 @@ import reikai.novel.source.toLangCode
 import reikai.novel.update.LnPluginUpdate
 
 /**
- * One content type's half of the Extensions list. A provider answers about its own extensions and
+ * One install pipeline's part of the Extensions list. A provider answers about its own extensions and
  * acts on them; it never sections, applies the chip or the search box, or decides what the list
- * looks like, because those describe the whole list and the engine owns them.
+ * looks like, because those describe the whole list and the engine owns them. A pipeline can serve
+ * more than one content type, which each row's key names.
  */
 interface ExtensionsProvider {
 
-    val contentType: ContentType
+    val contentTypes: Set<ContentType>
 
     /** Rows this provider contributes, unsectioned. Null until its first list has been produced. */
     val rows: Flow<List<BrowseExtensionRow>?>
 
-    /** Whether any repo is added, so an empty list can say which kind of empty it is. */
-    val hasRepos: Flow<Boolean>
+    /** The content types it has a repo for, so an empty list can say which kind of empty it is. */
+    val reposFor: Flow<Set<ContentType>>
 
     /** Whether a refresh is in flight, so pull-to-refresh keeps its spinner up. */
     val isRefreshing: Flow<Boolean>
@@ -45,15 +46,30 @@ interface ExtensionsProvider {
     fun updateAll(rows: List<BrowseExtensionRow>)
 }
 
-/** The manga half, over Mihon's live [ExtensionsViewModel]. */
-class MangaExtensionsProvider(private val model: ExtensionsViewModel) : ExtensionsProvider {
+/**
+ * The apk extensions, manga and novel, over Mihon's live [ExtensionsViewModel]. One provider, because
+ * one store index lists both kinds, so a refresh per kind would download every store twice.
+ */
+class ApkExtensionsProvider(private val model: ExtensionsViewModel) : ExtensionsProvider {
 
-    override val contentType = ContentType.MANGA
+    override val contentTypes = setOf(ContentType.MANGA, ContentType.NOVELS)
 
     override val rows: Flow<List<BrowseExtensionRow>?> =
-        combine(model.extensions, model.currentDownloads, ::mangaExtensionRows)
+        combine(model.extensions, model.novelExtensions, model.currentDownloads) { manga, novel, downloads ->
+            val mangaRows = apkExtensionRows(manga, downloads) { ExtensionKey.Manga(it) }
+            val novelRows = apkExtensionRows(novel, downloads) { ExtensionKey.NovelApk(it) }
+            if (mangaRows == null || novelRows == null) null else mangaRows + novelRows
+        }
 
-    override val hasRepos: Flow<Boolean> = model.hasRepos
+    // A store counts toward novels only once it lists one, so a manga-only store leaves the Novels
+    // chip telling someone with no plugin repo to add one.
+    override val reposFor: Flow<Set<ContentType>> =
+        combine(model.hasRepos, model.novelExtensions) { hasStores, novel ->
+            buildSet {
+                if (hasStores) add(ContentType.MANGA)
+                if (novel != null && novel.isNotEmpty()) add(ContentType.NOVELS)
+            }
+        }
 
     override val isRefreshing: Flow<Boolean> = model.isRefreshing
 
@@ -68,23 +84,31 @@ class MangaExtensionsProvider(private val model: ExtensionsViewModel) : Extensio
 }
 
 /**
- * The manga extensions as rows, keeping the interactor's own partition: an extension with an update
- * is under Updates and nowhere else, one that did not load sits under Not loaded as upstream shows it,
- * and what is available splits by language. Null while the first list is still being produced.
+ * One apk kind's extensions as rows, keeping the interactor's own partition: an extension with an
+ * update is under Updates and nowhere else, one that did not load sits under Not loaded as upstream
+ * shows it, and what is available splits by language. Null while the first list is still being produced.
  */
-fun mangaExtensionRows(
+fun apkExtensionRows(
     extensions: Extensions?,
     downloads: Map<String, InstallStep>,
+    key: (pkgName: String) -> ExtensionKey,
 ): List<BrowseExtensionRow>? = extensions?.run {
-    updates.map { it.toRow(ExtensionSection.Updates, downloads) } +
-        notLoaded.map { it.toRow(ExtensionSection.NotLoaded, downloads) } +
-        loaded.map { it.toRow(ExtensionSection.Installed, downloads) } +
-        available.map { it.toRow(ExtensionSection.Available(it.lang), downloads) }
+    updates.map { it.toRow(ExtensionSection.Updates, downloads, key) } +
+        notLoaded.map { it.toRow(ExtensionSection.NotLoaded, downloads, key) } +
+        loaded.map { it.toRow(ExtensionSection.Installed, downloads, key) } +
+        available.map { it.toRow(ExtensionSection.Available(it.lang), downloads, key) }
 }
 
-private fun Extension.toRow(section: ExtensionSection, downloads: Map<String, InstallStep>) =
+private fun Extensions.isNotEmpty() =
+    updates.isNotEmpty() || loaded.isNotEmpty() || available.isNotEmpty() || notLoaded.isNotEmpty()
+
+private fun Extension.toRow(
+    section: ExtensionSection,
+    downloads: Map<String, InstallStep>,
+    key: (pkgName: String) -> ExtensionKey,
+) =
     BrowseExtensionRow(
-        key = ExtensionKey.Manga(pkgName),
+        key = key(pkgName),
         name = name,
         lang = lang.orEmpty(),
         section = section,
@@ -120,14 +144,15 @@ private fun Extension.searchIds(): List<String> = when (this) {
 /** The light-novel half, over [LnPluginManagerViewModel]. */
 class NovelExtensionsProvider(private val model: LnPluginManagerViewModel) : ExtensionsProvider {
 
-    override val contentType = ContentType.NOVELS
+    override val contentTypes = setOf(ContentType.NOVELS)
 
     override val rows: Flow<List<BrowseExtensionRow>?> = model.state.map { state ->
         if (!state.hasLoaded) return@map null
         novelExtensionRows(state.updates, state.notLoaded, state.installed, state.available)
     }
 
-    override val hasRepos: Flow<Boolean> = model.state.map { it.hasRepos }
+    override val reposFor: Flow<Set<ContentType>> =
+        model.state.map { if (it.hasRepos) setOf(ContentType.NOVELS) else emptySet() }
 
     override val isRefreshing: Flow<Boolean> = model.state.map { it.isRefreshing }
 

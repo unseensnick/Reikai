@@ -56,8 +56,11 @@ class ExtensionDetailsViewModel(
         fun create(pkgName: String): ExtensionDetailsViewModel
     }
 
-    val state: StateFlow<State> = extensionManager.loadedExtensionsFlow
-        .map { it.firstOrNull { extension -> extension.pkgName == pkgName } }
+    // RK: a novel apk opens here too
+    val state: StateFlow<State> = combine(
+        extensionManager.loadedExtensionsFlow,
+        extensionManager.loadedNovelExtensionsFlow,
+    ) { manga, novel -> (manga + novel).firstOrNull { extension -> extension.pkgName == pkgName } }
         .distinctUntilChanged()
         .flatMapLatest { extension ->
             if (extension == null) return@flatMapLatest flowOf(State.Uninstalled)
@@ -74,6 +77,8 @@ class ExtensionDetailsViewModel(
         get() = state.value as? State.Success
 
     private fun subscribeToSources(extension: Extension.Loaded): Flow<List<ExtensionSourceItem>> {
+        // RK: the source switches write manga source ids, so a novel apk lists none yet
+        if (extension.kind != Extension.Kind.MANGA) return flowOf(emptyList())
         return getExtensionSources.subscribe(extension)
             .map {
                 it.sortedWith(

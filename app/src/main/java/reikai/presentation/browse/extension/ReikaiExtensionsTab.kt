@@ -94,7 +94,7 @@ fun Screen.reikaiExtensionsTab(
     val navigator = LocalNavigator.currentOrThrow
     val lnModel = metroViewModel<LnPluginManagerViewModel>()
     val providers = remember(extensionsViewModel, lnModel) {
-        listOf(MangaExtensionsProvider(extensionsViewModel), NovelExtensionsProvider(lnModel))
+        listOf(ApkExtensionsProvider(extensionsViewModel), NovelExtensionsProvider(lnModel))
     }
     val engine = assistedMetroViewModel<ExtensionsEngine, ExtensionsEngine.Factory> {
         create(providers, browseViewModel.searchQuery)
@@ -104,12 +104,13 @@ fun Screen.reikaiExtensionsTab(
     // here would hold the extension subscription open for the tab strip, which is what upstream's
     // WhileSubscribed conversion exists to stop (mihonapp/mihon#3729).
     val updatesCount by extensionsViewModel.updatesCount.collectAsStateWithLifecycle()
-    val lnCount by browseViewModel.lnUpdatesCount.collectAsStateWithLifecycle()
+    val novelCount by browseViewModel.novelUpdatesCount.collectAsStateWithLifecycle()
+    val totalCount by browseViewModel.totalUpdatesCount.collectAsStateWithLifecycle()
     val openRepos = { navigator.push(RepositoriesScreen()) }
 
     return TabContent(
         titleRes = MR.strings.label_extensions,
-        badgeNumber = (updatesCount + lnCount).takeIf { it > 0 },
+        badgeNumber = totalCount.takeIf { it > 0 },
         searchEnabled = true,
         actions = listOfNotNull(
             // Mihon's manga extension-language filter; it does nothing for novel plugins, so hide it
@@ -146,7 +147,7 @@ fun Screen.reikaiExtensionsTab(
                     // chip stays clean; the tab badge already carries the combined total.
                     badges = mapOf(
                         ContentType.MANGA to updatesCount,
-                        ContentType.NOVELS to lnCount,
+                        ContentType.NOVELS to novelCount,
                     ),
                 )
                 PullRefresh(
@@ -268,7 +269,7 @@ private fun ExtensionsList(
                         if (showContentType) ContentTypeBadge(item.row.key.contentType)
                     }
                     when (item.row.key) {
-                        is ExtensionKey.Manga -> MangaExtensionRow(
+                        is ExtensionKey.Manga, is ExtensionKey.NovelApk -> ApkExtensionRow(
                             modifier = Modifier.animateItem(),
                             item = item.row.payload as ExtensionUiModel.Item,
                             model = extensionsViewModel,
@@ -393,7 +394,7 @@ private fun ExtensionsSectionHeader(
 }
 
 @Composable
-private fun MangaExtensionRow(
+private fun ApkExtensionRow(
     item: ExtensionUiModel.Item,
     model: ExtensionsViewModel,
     badge: @Composable () -> Unit,
@@ -442,9 +443,9 @@ private fun MangaExtensionRow(
         onClickItemSecondaryAction = {
             when (it) {
                 is Extension.Available -> it.sources.getOrNull(0)?.let { source ->
-                    navigator.push(
-                        WebViewScreen(url = source.baseUrl, initialTitle = source.name, sourceId = source.id),
-                    )
+                    // The id picks a manga source's client, which a novel apk's number can name wrongly.
+                    val sourceId = if (it.kind == Extension.Kind.MANGA) source.id else null
+                    navigator.push(WebViewScreen(url = source.baseUrl, initialTitle = source.name, sourceId = sourceId))
                 }
                 is Extension.Loaded -> navigator.push(ExtensionDetailsScreen(it.pkgName))
                 else -> {}

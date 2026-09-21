@@ -494,6 +494,7 @@ every release now also ships a foss build with neither in it.
 - **Tap a series in the download queue to see its chapters, cancel one, start one now, move one to the bottom, or read why it failed.** A downloading manga chapter shows its page count.
 - **Settings -> Downloads -> Pacing sets the wait between novel chapters, for every source or one source at a time.** Manga sources pace themselves.
 - **The novel download notification now has Pause and Show entry, as manga's does.** A paused queue leaves a notification with Resume and Cancel all.
+- **Novel extension apps from an extension store now show under Novels in Browse -> Extensions, and install, update, trust and uninstall like manga extensions.** Their updates join the extension update notice and badges.
 
 #### Changed
 
@@ -507,6 +508,7 @@ every release now also ships a foss build with neither in it.
 #### Fixed
 
 - **Installing an extension through Shizuku works again.**
+- **The Browse badge on the home screen now counts novel plugin updates, as the Extensions tab's own badge does.**
 - **Updating a privately installed extension no longer switches it to a shared install.**
 - **Trusting an extension now works from Browse's All chip.** The prompt only appeared with the Manga chip selected; under All, tapping the shield or the row did nothing at all.
 - **Removing a privately installed extension from Browse's All chip now asks for confirmation.** A long press removed it outright, where the Manga chip has always confirmed first.

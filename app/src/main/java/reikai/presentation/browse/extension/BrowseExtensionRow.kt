@@ -16,6 +16,11 @@ sealed interface ExtensionKey {
     data class Novel(val pluginId: String) : ExtensionKey {
         override val contentType: ContentType get() = ContentType.NOVELS
     }
+
+    /** A novel extension shipped as an apk, which installs and updates the way a manga one does. */
+    data class NovelApk(val pkgName: String) : ExtensionKey {
+        override val contentType: ContentType get() = ContentType.NOVELS
+    }
 }
 
 /**
@@ -37,7 +42,7 @@ sealed interface ExtensionSection {
  * [payload] is the provider's own object, unwrapped only by the leaf that renders its type. The two
  * search fields match differently: a term on containment, an id only as the whole query, which is
  * the rule the manga list already had. [needsAttention] lifts a row to the top of its section
- * because something is wrong with it, today only a manga extension gone obsolete.
+ * because something is wrong with it, today only an apk extension gone obsolete.
  */
 @Immutable
 data class BrowseExtensionRow(

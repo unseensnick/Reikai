@@ -48,7 +48,8 @@ class ExtensionsEngine(
         query.debouncedBrowseQuery(),
     ) { snapshots, contentType, query ->
         val active = providers.indices.filter { providers[it].shows(contentType) }
-        val rows = active.flatMap { snapshots[it].rows.orEmpty() }
+        // A provider serving both types is active under either chip, so its rows are filtered too.
+        val rows = active.flatMap { snapshots[it].rows.orEmpty() }.filter { it.key.contentType.shownUnder(contentType) }
         State(
             contentType = contentType,
             query = query,
@@ -59,8 +60,13 @@ class ExtensionsEngine(
             isLoading = active.all { snapshots[it].rows == null },
             hasPending = active.any { snapshots[it].rows == null },
             isRefreshing = active.any { snapshots[it].isRefreshing },
-            hasRepos = active.any { snapshots[it].hasRepos },
-            needsInstallPermission = active.any { snapshots[it].needsInstallPermission },
+            hasRepos = active.any { i -> snapshots[i].reposFor.any { it.shownUnder(contentType) } },
+            // Only where a row on screen installs through the system, so a plugin-only Novels list
+            // does not ask for a permission nothing it shows would use.
+            needsInstallPermission = active.any { i ->
+                snapshots[i].needsInstallPermission &&
+                    snapshots[i].rows.orEmpty().any { it.key.contentType.shownUnder(contentType) }
+            },
             items = sectionExtensions(rows.filter { matchesExtensionQuery(it, query) }),
         )
     }
@@ -88,21 +94,22 @@ class ExtensionsEngine(
             .map { it.row }
             .filter { it.section == ExtensionSection.Updates }
         activeProviders().forEach { provider ->
-            provider.updateAll(pending.filter { it.key.contentType == provider.contentType })
+            provider.updateAll(pending.filter { it.key.contentType in provider.contentTypes })
         }
     }
 
     private fun activeProviders() = providers.filter { it.shows(state.value.contentType) }
 
-    private fun ExtensionsProvider.shows(contentType: ContentType) =
-        contentType == ContentType.ALL || contentType == this.contentType
+    private fun ExtensionsProvider.shows(contentType: ContentType) = contentTypes.any { it.shownUnder(contentType) }
+
+    private fun ContentType.shownUnder(chip: ContentType) = chip == ContentType.ALL || chip == this
 
     private fun ExtensionsProvider.snapshot(): Flow<Snapshot> =
-        combine(rows, hasRepos, isRefreshing, needsInstallPermission, ::Snapshot)
+        combine(rows, reposFor, isRefreshing, needsInstallPermission, ::Snapshot)
 
     private data class Snapshot(
         val rows: List<BrowseExtensionRow>?,
-        val hasRepos: Boolean,
+        val reposFor: Set<ContentType>,
         val isRefreshing: Boolean,
         val needsInstallPermission: Boolean,
     )

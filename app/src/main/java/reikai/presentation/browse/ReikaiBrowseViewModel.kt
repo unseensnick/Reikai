@@ -8,18 +8,22 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import reikai.domain.extension.ExtensionUpdateCounts
 import reikai.domain.library.ContentType
-import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.update.LnPluginUpdateChecker
 import tachiyomi.core.common.util.lang.launchIO
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Browse-level state shared by the Reikai Sources and Extensions tab wrappers: the sticky
  * content-type filter (one key, so both tabs stay in sync), the Browse search query, and the
- * light-novel plugin update count that feeds the Extensions tab badge. Kicks the cache-gated update
+ * extension update counts that feed the Extensions tab badges. Kicks the cache-gated plugin update
  * check on Browse open so the badge is fresh without the user opening the Novels chip.
  */
 @Inject
@@ -27,13 +31,17 @@ import tachiyomi.core.common.util.lang.launchIO
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class ReikaiBrowseViewModel(
     private val sourcePreferences: ReikaiSourcePreferences,
-    private val novelPreferences: NovelPreferences,
+    updateCounts: ExtensionUpdateCounts,
     updateChecker: LnPluginUpdateChecker,
 ) : ViewModel() {
 
     val contentType: StateFlow<ContentType> = sourcePreferences.browseContentType.stateIn(viewModelScope)
 
-    val lnUpdatesCount: StateFlow<Int> = novelPreferences.pluginUpdatesCount().stateIn(viewModelScope)
+    val novelUpdatesCount: StateFlow<Int> = updateCounts.novel
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), 0)
+
+    val totalUpdatesCount: StateFlow<Int> = updateCounts.total
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), 0)
 
     /**
      * The Browse search bar's query. It lives here rather than on either content type's model

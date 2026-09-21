@@ -95,6 +95,11 @@ class ExtensionManager(
     private val notLoadedNovelExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.NotLoaded>())
     val notLoadedNovelExtensionsFlow = notLoadedNovelExtensionMapFlow.mapExtensionsWhenInitialized()
 
+    /** Installed novel apks with an update pending, derived where manga's is a stored count. */
+    val novelUpdatesCount: StateFlow<Int> = loadedNovelExtensionMapFlow
+        .map { extensions -> extensions.values.count { it.hasUpdate } }
+        .stateIn(scope, SharingStarted.Eagerly, 0)
+
     /** Each store's outcome from the last [findAvailableExtensions], keyed by index URL; null before one. */
     val storeStatuses: StateFlow<Map<String, RepoStatus>?>
         field = MutableStateFlow<Map<String, RepoStatus>?>(null)
@@ -140,6 +145,19 @@ class ExtensionManager(
         initialized.await()
         return notLoadedExtensionMapFlow.value.values.toList()
     }
+
+    // RK -->
+    suspend fun getLoadedNovelExtensions(): List<Extension.Loaded> {
+        initialized.await()
+        return loadedNovelExtensionMapFlow.value.values.toList()
+    }
+
+    /** The novel apk providing [sourceId], the number inside its `tachiyomi:` source id. */
+    fun getNovelExtensionPackageAsFlow(sourceId: Long): Flow<String?> =
+        loadedNovelExtensionsFlow.map { extensions ->
+            extensions.find { extension -> extension.sources.any { it.id == sourceId } }?.pkgName
+        }
+    // RK <--
 
     suspend fun getExtensionPackage(sourceId: Long): String? {
         return getLoadedExtensions().find { extension ->
@@ -213,6 +231,10 @@ class ExtensionManager(
 
             // Newly loaded extensions have no status derived from the store index yet
             updatedInstalledExtensionsStatuses(availableExtensionMapFlow.value.values.toList())
+            // RK --> novel apks too, only against a novel list: an empty one would zero manga's count
+            availableNovelExtensionMapFlow.value.values.toList().takeIf { it.isNotEmpty() }
+                ?.let { updatedInstalledExtensionsStatuses(it, loadedNovelExtensionMapFlow) }
+            // RK <--
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e) { "Failed to load extensions" }
         } finally {
@@ -258,6 +280,13 @@ class ExtensionManager(
 
         availableExtensionMapFlow.value = extensions.associateBy { it.pkgName }
         updatedInstalledExtensionsStatuses(extensions)
+        // RK: see loadExtensions for why only a non-empty novel list is applied
+        if (novelExtensions.isNotEmpty()) {
+            updatedInstalledExtensionsStatuses(
+                novelExtensions,
+                loadedNovelExtensionMapFlow,
+            )
+        }
         setupAvailableExtensionsSourcesDataMap(extensions)
     }
 
@@ -296,13 +325,17 @@ class ExtensionManager(
      *
      * @param availableExtensions The list of extensions given by the [api].
      */
-    private fun updatedInstalledExtensionsStatuses(availableExtensions: List<Extension.Available>) {
+    private fun updatedInstalledExtensionsStatuses(
+        availableExtensions: List<Extension.Available>,
+        // RK: the novel apks' map, for the same statuses
+        loaded: MutableStateFlow<Map<String, Extension.Loaded>> = loadedExtensionMapFlow,
+    ) {
         if (availableExtensions.isEmpty()) {
             preferences.extensionUpdatesCount.set(0)
             return
         }
 
-        val loadedExtensionsMap = loadedExtensionMapFlow.value.toMutableMap()
+        val loadedExtensionsMap = loaded.value.toMutableMap() // RK
         var changed = false
         for ((pkgName, extension) in loadedExtensionsMap) {
             val availableExt = availableExtensions.find { it.pkgName == pkgName }
@@ -326,7 +359,7 @@ class ExtensionManager(
             }
         }
         if (changed) {
-            loadedExtensionMapFlow.value = loadedExtensionsMap
+            loaded.value = loadedExtensionsMap // RK
         }
         updatePendingUpdatesCount()
     }
@@ -350,7 +383,9 @@ class ExtensionManager(
      * @param extension The extension to be updated.
      */
     fun updateExtension(extension: Extension.Loaded): Flow<InstallStep> {
-        val availableExt = availableExtensionMapFlow.value[extension.pkgName] ?: return emptyFlow()
+        val availableExt = availableExtensionMapFlow.value[extension.pkgName]
+            ?: availableNovelExtensionMapFlow.value[extension.pkgName] // RK
+            ?: return emptyFlow()
         val isUpdateForPrivatelyInstalled = !extension.isShared
         return installer.downloadAndInstall(availableExt.apkUrl, availableExt, isUpdateForPrivatelyInstalled)
     }
@@ -389,7 +424,9 @@ class ExtensionManager(
      */
     fun trust(extension: Extension.NotLoaded) {
         val reason = extension.reason as? Extension.NotLoaded.Reason.Untrusted ?: return
-        notLoadedExtensionMapFlow.value[extension.pkgName] ?: return
+        notLoadedExtensionMapFlow.value[extension.pkgName]
+            ?: notLoadedNovelExtensionMapFlow.value[extension.pkgName] // RK
+            ?: return
 
         // Loading it again is left to the reload triggered by the trust change
         trustExtension.trust(extension.pkgName, extension.versionCode, reason.signatureHash)
@@ -427,8 +464,9 @@ class ExtensionManager(
         override fun onExtensionLoaded(extension: Extension.Loaded) {
             // RK -->
             if (extension.kind != Extension.Kind.MANGA) {
-                loadedNovelExtensionMapFlow.value += extension
+                loadedNovelExtensionMapFlow.value += extension.withUpdateCheck()
                 notLoadedNovelExtensionMapFlow.value -= extension.pkgName
+                updatePendingUpdatesCount()
                 return
             }
             // RK <--
@@ -442,6 +480,7 @@ class ExtensionManager(
             if (extension.kind != Extension.Kind.MANGA) {
                 loadedNovelExtensionMapFlow.value -= extension.pkgName
                 notLoadedNovelExtensionMapFlow.value += extension
+                updatePendingUpdatesCount()
                 return
             }
             // RK <--
@@ -471,6 +510,7 @@ class ExtensionManager(
     private fun Extension.Loaded.updateExists(availableExtension: Extension.Available? = null): Boolean {
         val availableExt = availableExtension
             ?: availableExtensionMapFlow.value[pkgName]
+            ?: availableNovelExtensionMapFlow.value[pkgName] // RK
             ?: return false
 
         return (availableExt.versionCode > versionCode || availableExt.libVersion > libVersion)
@@ -479,7 +519,9 @@ class ExtensionManager(
     private fun updatePendingUpdatesCount() {
         val pendingUpdateCount = loadedExtensionMapFlow.value.values.count { it.hasUpdate }
         preferences.extensionUpdatesCount.set(pendingUpdateCount)
-        if (pendingUpdateCount == 0) {
+        // RK: the notice lists novel apks too, so it stays while either has one pending
+        val novelPending = loadedNovelExtensionMapFlow.value.values.count { it.hasUpdate }
+        if (pendingUpdateCount == 0 && novelPending == 0) {
             extensionUpdateNotifier.dismiss()
         }
     }

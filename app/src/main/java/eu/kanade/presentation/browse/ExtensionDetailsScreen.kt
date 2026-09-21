@@ -107,15 +107,16 @@ fun ExtensionDetailsScreen(
                                 )
                             }
                             addAll(
-                                listOf(
+                                listOfNotNull(
+                                    // RK: a novel apk lists no source switches yet, so these act on nothing
                                     AppBar.OverflowAction(
                                         title = stringResource(MR.strings.action_enable_all),
                                         onClick = onClickEnableAll,
-                                    ),
+                                    ).takeIf { state.extension.kind == Extension.Kind.MANGA },
                                     AppBar.OverflowAction(
                                         title = stringResource(MR.strings.action_disable_all),
                                         onClick = onClickDisableAll,
-                                    ),
+                                    ).takeIf { state.extension.kind == Extension.Kind.MANGA },
                                     AppBar.OverflowAction(
                                         title = stringResource(MR.strings.pref_clear_cookies),
                                         onClick = onClickClearCookies,

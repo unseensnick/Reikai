@@ -48,10 +48,15 @@ class ExtensionsViewModel(
 
     // RK -->
     // Stripped to a provider for the shared Extensions engine, which sections, searches and filters
-    // the one list both content types render into. What is left is the manga data and the verbs.
+    // the one list both content types render into. What is left is the apk data and the verbs.
     // The four lists stay as the interactor partitioned them, so the provider reads a row's section
     // off which list it came from rather than deriving that split a second time.
     val extensions: StateFlow<Extensions?> = getExtensions.subscribe()
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
+
+    /** The novel apks, partitioned the same way; the verbs below serve both kinds. */
+    val novelExtensions: StateFlow<Extensions?> = getExtensions.subscribe(Extension.Kind.TACHIYOMI_NOVEL)
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 

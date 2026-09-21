@@ -61,6 +61,7 @@ import nl.adaptivity.xmlutil.serialization.XML
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.track.TrackerRefreshJob
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.extension.ExtensionUpdateCounts
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelMergeManager
@@ -178,6 +179,7 @@ interface AppGraph : ViewModelGraph {
     val novelPreferences: NovelPreferences
     val novelSourceManager: NovelSourceManager
     val novelImageRequests: NovelImageRequests
+    val extensionUpdateCounts: ExtensionUpdateCounts
     val reikaiRecommendationPreferences: ReikaiRecommendationPreferences
     val lnPluginUpdateChecker: LnPluginUpdateChecker
     val refreshTrackerLibrary: RefreshTrackerLibrary

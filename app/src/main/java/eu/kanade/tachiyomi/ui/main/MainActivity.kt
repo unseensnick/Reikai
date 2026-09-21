@@ -347,7 +347,10 @@ class MainActivity : BaseActivity() {
         // Extensions updates
         LaunchedEffect(Unit) {
             try {
-                extensionApi.checkForUpdates(extensionManager.getLoadedExtensions())
+                // RK: novel apks share the manga notice, since one store index lists both
+                extensionApi.checkForUpdates(
+                    extensionManager.getLoadedExtensions() + extensionManager.getLoadedNovelExtensions(),
+                )
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e)
             }
