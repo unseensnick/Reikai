@@ -423,7 +423,6 @@ class NovelLibraryViewModel(
                 settings.badges.language,
                 lang,
                 sourceBadge = settings.badges.source,
-                sourceSite = source?.site,
                 sourceIconUrl = source?.iconUrl,
                 sourceName = novelSourceName(rep.novel.source),
             )

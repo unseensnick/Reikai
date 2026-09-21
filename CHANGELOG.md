@@ -358,6 +358,7 @@ every release now also ships a foss build with neither in it.
 - **Resuming a novel, and its next-chapter downloads, now follow the order you sorted its chapter list into.** Continue reading, the Resume button, Download next and Mark previous as read all walked the source's own order, so on a novel sorted by name or date they picked a chapter the reader reaches much later.
 - **A new novel chapter numbered like one you have already read now arrives read, when the duplicate-chapter setting asks for it, and is no longer announced or downloaded as new.** The setting only reached manga before.
 - **A novel chapter its source moved to a new address no longer comes back as new in update notifications, or downloads again.**
+- **Covers and chapter pictures from light-novel sources that ask for their own image headers now load, in both reading modes and in downloads.** The WebView reading mode also reuses the pictures the text mode already downloaded.
 
 ### Browse & sources
 

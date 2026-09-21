@@ -296,7 +296,7 @@ class NovelRecentsAdapter(
                     duplicates = found.duplicates.map {
                         RecentsDuplicate(
                             EntryId.Novel(it.novel.id),
-                            it.toDuplicateCard(found.sourceLabels, found.sourceSites),
+                            it.toDuplicateCard(found.sourceLabels),
                         )
                     },
                     groupIdByRawId = novelLibraryAdder.getDuplicateGroupIds(found.duplicates),

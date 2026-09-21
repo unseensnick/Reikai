@@ -15,7 +15,7 @@ fun NovelBrowseDialog.toNeutral(): EntryBrowseDialog = when (this) {
     is NovelBrowseDialog.RemoveNovel -> EntryBrowseDialog.Remove(item.name)
     is NovelBrowseDialog.ChangeCategory -> EntryBrowseDialog.ChangeCategory(initialSelection)
     is NovelBrowseDialog.AddDuplicate -> EntryBrowseDialog.AddDuplicate(
-        duplicates = duplicates.map { it.toDuplicateCard(sourceLabels, sourceSites) },
+        duplicates = duplicates.map { it.toDuplicateCard(sourceLabels) },
         groupIdByEntryId = groupIdByNovelId,
         suggestGroup = suggestGroup,
     )

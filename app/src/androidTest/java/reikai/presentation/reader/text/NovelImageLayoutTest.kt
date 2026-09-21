@@ -79,6 +79,7 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
                 bionic = false,
                 contentWidth = COLUMN_PX,
                 baseUrl = null,
+                sourceId = null,
                 holdAcross = { it() },
                 onTextSet = {},
             ).join()
@@ -132,6 +133,7 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
                 bionic = false,
                 contentWidth = COLUMN_PX,
                 baseUrl = null,
+                sourceId = null,
                 holdAcross = { it() },
                 onTextSet = { watch() },
             ).join()
@@ -167,6 +169,7 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
                 bionic = false,
                 contentWidth = COLUMN_PX,
                 baseUrl = null,
+                sourceId = null,
                 holdAcross = { it() },
                 onTextSet = {},
             ).join()

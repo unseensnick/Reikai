@@ -1,12 +1,12 @@
 package reikai.novel.download
 
 import android.util.Base64
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.Jsoup
 import org.jsoup.internal.StringUtil
 import org.jsoup.nodes.Element
 import reikai.novel.content.NovelImageSources
+import reikai.novel.network.NovelImageClient
 
 /**
  * Inlines a downloaded chapter's images as `data:` URIs so the saved HTML is self-contained and reads
@@ -18,7 +18,7 @@ import reikai.novel.content.NovelImageSources
  */
 private const val MAX_INLINE_BYTES = 5L * 1024 * 1024
 
-suspend fun inlineChapterImages(html: String, baseSite: String, client: OkHttpClient): String {
+suspend fun inlineChapterImages(html: String, baseSite: String, images: NovelImageClient): String {
     val document = Jsoup.parse(html, baseSite)
     if (document.select("img, picture").isEmpty()) return html
     // Pretty-printing reflows the markup, which folds the line breaks inside a paragraph the source
@@ -38,7 +38,8 @@ suspend fun inlineChapterImages(html: String, baseSite: String, client: OkHttpCl
         if (src.isBlank()) continue
         val absolute = StringUtil.resolve(img.baseUri(), src).ifBlank { src }
         runCatching {
-            client.newCall(Request.Builder().url(absolute).build()).execute().use { response ->
+            val request = Request.Builder().url(absolute).headers(images.headers).build()
+            images.client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@use
                 val body = response.body
                 // Bound the read itself, not just the post-read size: a lying or unknown (-1)

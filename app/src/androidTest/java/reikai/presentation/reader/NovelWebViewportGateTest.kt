@@ -244,6 +244,7 @@ class NovelWebViewportGateTest {
         progressPercent = 0,
         chapterNumber = id.toDouble(),
         novelId = 1L,
+        sourceId = null,
         downloaded = false,
         isLast = false,
     )

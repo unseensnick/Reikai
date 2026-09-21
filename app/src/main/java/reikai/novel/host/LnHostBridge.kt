@@ -57,8 +57,7 @@ class LnHostBridge(
                 ?: ByteArray(0).toRequestBody().takeIf { method == "POST" || method == "PUT" || method == "PATCH" }
             builder.method(method, body)
             opts.headers?.forEach { (k, v) -> builder.header(k, v) }
-            // Default the device WebView UA unless the plugin set one (the Referer is left to the
-            // plugin for host fetches); shared with the cover fetcher via [applyNovelDefaults].
+            // Default the device WebView UA unless the plugin set one; the Referer is left to the plugin.
             val pluginSetUa = opts.headers?.keys?.any { it.equals("User-Agent", ignoreCase = true) } == true
             builder.applyNovelDefaults(userAgent(), pluginSetUserAgent = pluginSetUa)
             // Laravel / Inertia sources expect the XSRF-TOKEN cookie echoed back as the X-XSRF-TOKEN

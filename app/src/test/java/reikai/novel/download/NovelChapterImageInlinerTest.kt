@@ -6,6 +6,7 @@ import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.test.runTest
+import okhttp3.Headers.Companion.headersOf
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
@@ -14,15 +15,18 @@ import org.jsoup.Jsoup
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.novel.network.NovelImageClient
 
 /** A downloaded chapter's copy must not send either reader back to the network for an image. */
 class NovelChapterImageInlinerTest {
 
     /** The image host, answering every address with a few bytes of image. */
     private val fetched = mutableListOf<String>()
+    private val referers = mutableListOf<String?>()
     private val client = OkHttpClient.Builder()
         .addInterceptor { chain ->
             fetched += chain.request().url.toString()
+            referers += chain.request().header("Referer")
             Response.Builder()
                 .request(chain.request())
                 .protocol(Protocol.HTTP_1_1)
@@ -44,7 +48,9 @@ class NovelChapterImageInlinerTest {
     fun tearDown() = unmockkStatic(Base64::class)
 
     private suspend fun inlined(html: String) =
-        Jsoup.parse(inlineChapterImages(html, "https://site.example/chapter/1", client)).selectFirst("img")!!
+        Jsoup.parse(inlineChapterImages(html, "https://site.example/chapter/1", images)).selectFirst("img")!!
+
+    private val images get() = NovelImageClient(client, headersOf("Referer", "https://site.example/"))
 
     @Test
     fun `an image with a srcset is stored with no remote candidate left`() = runTest {
@@ -58,6 +64,13 @@ class NovelChapterImageInlinerTest {
         inlined("""<p><img srcset="/a-800.jpg 800w, /a-1600.jpg 1600w"></p>""")
 
         fetched shouldBe listOf("https://site.example/a-1600.jpg")
+    }
+
+    @Test
+    fun `a stored image is fetched with its source's image headers`() = runTest {
+        inlined("""<img src="/a.jpg">""")
+
+        referers shouldBe listOf("https://site.example/")
     }
 
     @Test
@@ -77,7 +90,9 @@ class NovelChapterImageInlinerTest {
             .build()
         val html = """<p><img src="/a.jpg" srcset="/a-800.jpg 800w"></p>"""
 
-        val img = Jsoup.parse(inlineChapterImages(html, "https://site.example/chapter/1", failing)).selectFirst("img")!!
+        val img = Jsoup.parse(
+            inlineChapterImages(html, "https://site.example/chapter/1", NovelImageClient(failing, headersOf())),
+        ).selectFirst("img")!!
 
         (img.attr("src") to img.attr("srcset")) shouldBe ("/a.jpg" to "/a-800.jpg 800w")
     }

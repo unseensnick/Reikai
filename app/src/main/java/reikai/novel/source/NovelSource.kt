@@ -3,6 +3,9 @@ package reikai.novel.source
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 
+/** The id prefix of a novel source packaged as a tachiyomi-format APK, whose own id is a number. */
+const val TACHIYOMI_NOVEL_SOURCE_PREFIX = "tachiyomi:"
+
 /**
  * Contract for a light-novel source, whatever format it comes in. Everything is suspending and
  * content-shaped (`NovelItem`, `SourceNovel`, chapter text as `String`) rather than the `SManga` /

@@ -25,7 +25,6 @@ class NovelLibraryItemTest {
         languageBadge = false,
         sourceLanguage = "en",
         sourceBadge = false,
-        sourceSite = null,
         sourceIconUrl = null,
         sourceName = "Novel Arrow",
     )

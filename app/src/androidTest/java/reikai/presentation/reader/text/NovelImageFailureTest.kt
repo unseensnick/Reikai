@@ -42,7 +42,7 @@ class NovelImageFailureTest {
         context = context,
         scope = scope,
         contentWidthPx = 600,
-        refererUrl = null,
+        sourceId = null,
         textSizePx = 18f,
         textColor = { 0xFF000000.toInt() },
         resolveView = { null },
@@ -113,6 +113,7 @@ class NovelImageFailureTest {
                 bionic = false,
                 contentWidth = 600,
                 baseUrl = null,
+                sourceId = null,
                 holdAcross = { it() },
                 onTextSet = {},
             ).join()

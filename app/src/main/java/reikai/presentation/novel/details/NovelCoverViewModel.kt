@@ -26,7 +26,6 @@ import java.io.InputStream
 class NovelCoverViewModel(
     @Assisted private val novelUrl: String,
     @Assisted private val novelSource: String,
-    @Assisted private val site: String?,
     private val novelRepo: NovelRepository,
     private val getCustomNovelInfo: GetCustomNovelInfo,
     private val updateNovel: UpdateNovel,
@@ -36,7 +35,7 @@ class NovelCoverViewModel(
 
     @AssistedFactory
     fun interface Factory {
-        fun create(novelUrl: String, novelSource: String, site: String?): NovelCoverViewModel
+        fun create(novelUrl: String, novelSource: String): NovelCoverViewModel
     }
 
     // Overlaid with the edit-info cover URL, matching the manga twin: the header renders it, so
@@ -69,7 +68,7 @@ class NovelCoverViewModel(
 
     private fun Novel.toNovelCover() = NovelCover(
         url = thumbnailUrl,
-        site = site,
+        sourceId = source,
         isNovelFavorite = favorite,
         lastModified = coverLastModified,
         novelId = id,

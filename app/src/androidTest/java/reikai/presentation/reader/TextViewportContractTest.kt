@@ -2698,6 +2698,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         progressPercent = progressPercent,
         chapterNumber = number,
         novelId = 1L,
+        sourceId = null,
         downloaded = downloaded,
         isLast = isLast,
     )

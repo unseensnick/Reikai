@@ -12,6 +12,7 @@ import android.webkit.ConsoleMessage
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
+import coil3.imageLoader
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineScope
@@ -22,8 +23,10 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.json.JSONObject
+import reikai.data.coil.fetchNovelImage
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
 import reikai.novel.content.NovelCodeSnippet
@@ -33,6 +36,7 @@ import reikai.presentation.reader.web.NovelDocumentGate
 import reikai.presentation.reader.web.NovelWebBridge
 import reikai.presentation.reader.web.NovelWebDocument
 import reikai.presentation.reader.web.NovelWebFonts
+import reikai.presentation.reader.web.NovelWebImages
 import reikai.presentation.reader.web.NovelWebSnippets
 import reikai.util.isDebugInspectorBuild
 import reikai.util.webContentsDebugging
@@ -98,6 +102,9 @@ class NovelWebViewport(
     /** The document URL the chapter was loaded as, so the navigation policy can tell a footnote jump
      *  from the chapter trying to leave. */
     private var loadedBaseUrl: String? = null
+
+    /** Above the WebView, whose client is built with it. */
+    private val webImages = NovelWebImages()
 
     /** The last auto-scroll state the host asked for, so a freshly built document can be given it. */
     private var autoScrollRunning = false
@@ -173,7 +180,16 @@ class NovelWebViewport(
                 }
             }
         }
-        webViewClient = NovelChapterNavigationClient(context) { loadedBaseUrl }
+        webViewClient = NovelChapterNavigationClient(context, { loadedBaseUrl }, webImages) { image ->
+            // The text renderer's fetch and cache, so switching modes downloads nothing again.
+            fetchNovelImage(
+                image,
+                context.appGraph.novelImageRequests,
+                context.imageLoader.diskCache,
+                readCache = true,
+                writeCache = true,
+            )
+        }
         // The stylesheet and engine are inlined into the document, so this mode needs no file origin at
         // all and the flag stays off.
         settings.allowFileAccess = false
@@ -297,7 +313,7 @@ class NovelWebViewport(
                 context = context,
                 chapterId = chapter.chapterId,
                 documentToken = token,
-                chapterHtml = chapter.html,
+                chapterHtml = webImages.rewrite(chapter.html, safeBaseUrl(chapter), chapter.sourceId),
                 // Carried into the document rather than scrolled to afterwards, because the page has
                 // to exist before it has anywhere to scroll and the load is asynchronous.
                 initialFraction = chapter.progressPercent / 100f,
@@ -454,7 +470,7 @@ class NovelWebViewport(
         val js = withContext(Dispatchers.Default) {
             "rkReader.$verb(" +
                 "${JSONObject.quote(chapter.chapterId.toString())}, " +
-                "${JSONObject.quote(chapter.html)}, " +
+                "${JSONObject.quote(webImages.rewrite(chapter.html, safeBaseUrl(chapter), chapter.sourceId))}, " +
                 "$baseUrl, " +
                 "$seamJs);"
         }

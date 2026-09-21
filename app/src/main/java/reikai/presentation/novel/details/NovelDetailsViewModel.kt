@@ -339,7 +339,6 @@ class NovelDetailsViewModel(
                     (it as? NovelDetailsState.Loaded)?.takeIf { l -> l.displayNovel.id == l.novel.id }?.let { l ->
                         l.copy(
                             sourceName = resolved.name,
-                            sourceUrl = resolved.site,
                             sourceHasSettings = resolved.settings != null,
                             browsableSourceId = resolved.id,
                             novelWebUrl = resolved.webUrl(l.displayNovel.url),
@@ -602,7 +601,6 @@ class NovelDetailsViewModel(
                 seedColor = loaded?.seedColor,
                 // An uninstalled plugin shows its own id, as its chip does.
                 sourceName = viewSource?.name ?: viewNovel.source,
-                sourceUrl = viewSource?.site,
                 novelWebUrl = viewSource?.webUrl(viewNovel.url),
                 sourceHasSettings = viewSource?.settings != null,
                 browsableSourceId = viewSource?.id,
@@ -638,7 +636,7 @@ class NovelDetailsViewModel(
         seedExtracted = true
         val cover = NovelCover(
             url = url,
-            site = source?.site,
+            sourceId = novel.source,
             isNovelFavorite = novel.favorite,
             lastModified = novel.coverLastModified,
             novelId = novel.id,
@@ -934,7 +932,6 @@ class NovelDetailsViewModel(
                             dialog = NovelDetailsDialog.DuplicateNovel(
                                 dup.duplicates,
                                 dup.sourceLabels,
-                                dup.sourceSites,
                                 mergeManager.suggestGroupingOnAdd,
                                 groupIdByNovelId,
                             ),
@@ -1468,10 +1465,9 @@ sealed interface NovelDetailsState {
         val hasPromptedToAddBefore: Boolean = false,
         /** Cover-derived header tint; null when off or not yet extracted. */
         val seedColor: Color? = null,
-        /** Resolved source name + homepage. [sourceUrl] is the source SITE (used as the cover-load
-         *  Referer); [novelWebUrl] is this novel's own page (site + path), for WebView and Share. */
+        /** Resolved source name, and [novelWebUrl], this novel's own page (site + path), for WebView
+         *  and Share. */
         val sourceName: String = "",
-        val sourceUrl: String? = null,
         val novelWebUrl: String? = null,
         /** Whether the viewed source exposes settings; gates the overflow item that opens them. */
         val sourceHasSettings: Boolean = false,
@@ -1516,7 +1512,6 @@ sealed interface NovelDetailsDialog {
     data class DuplicateNovel(
         val duplicates: List<NovelWithChapterCount>,
         val sourceLabels: Map<String, EntrySourceLabel>,
-        val sourceSites: Map<String, String?>,
         /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */
         val suggestGroup: Boolean,
         /** Novel id -> group id, so same-group duplicates collapse into one card. */

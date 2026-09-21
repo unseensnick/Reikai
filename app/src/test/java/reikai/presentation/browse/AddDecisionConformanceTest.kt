@@ -221,7 +221,7 @@ class NovelAddDecisionProbe : AddDecisionProbe {
 
     /** Novels hand the dialog resolved source names beside the rows, so "none" is a null payload. */
     override fun duplicatePayload(): Any =
-        NovelDuplicateInfo(listOf(mockk()), sourceLabels = emptyMap(), sourceSites = emptyMap())
+        NovelDuplicateInfo(listOf(mockk()), sourceLabels = emptyMap())
 
     override fun noDuplicates(): Any? = null
 }

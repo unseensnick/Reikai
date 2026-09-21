@@ -211,8 +211,7 @@ fun NovelSourceIconBadge(iconUrl: String?) {
 }
 
 /**
- * Cover data for a library row: a [NovelCover] (carries the source site as a Referer, loaded through
- * the novel cover pipeline) for a novel, else the manga [MangaCover]. Returns [Any] because the shared
+ * Cover data for a library row: a [NovelCover] for a novel, else the manga [MangaCover]. Returns [Any] because the shared
  * grid cells accept either model as coil data.
  */
 fun libraryCoverModel(item: LibraryItem): Any {
@@ -221,7 +220,7 @@ fun libraryCoverModel(item: LibraryItem): Any {
     return if (entryId is EntryId.Novel) {
         NovelCover(
             url = manga.thumbnailUrl,
-            site = item.badges.coverSite,
+            sourceId = item.badges.coverSourceId,
             isNovelFavorite = manga.favorite,
             lastModified = manga.coverLastModified,
             novelId = entryId.rawId,

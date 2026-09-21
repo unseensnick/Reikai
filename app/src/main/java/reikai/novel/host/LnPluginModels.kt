@@ -23,6 +23,9 @@ data class LnPluginInfo(
     val filters: JsonObject? = null,
     /** Raw plugin.pluginSettings schema (per-plugin config). Pass-through; rendered by the settings UI. */
     val pluginSettings: JsonObject? = null,
+    /** The headers the plugin asks its images be fetched with (lnreader's `imageRequestInit`). Raw, so a
+     *  malformed value drops that header rather than failing the whole load. */
+    val imageHeaders: JsonObject? = null,
     /**
      * The plugin reads lnreader's `showLatestNovels` option, so it can serve a Latest listing. Not a
      * field the plugin declares: the format has none, so the host derives it from the plugin source

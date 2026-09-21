@@ -33,13 +33,12 @@ import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
- * The adapter-owned novel candidate: the raw search hit, the source's site (the cover Referer), and
- * the stored row once [NovelMigrationFlowAdapter.resolve] has materialised it. A hit is only a
- * plugin's search-result entry until then, which is why novel candidates start unresolved.
+ * The adapter-owned novel candidate: the raw search hit, and the stored row once
+ * [NovelMigrationFlowAdapter.resolve] has materialised it. A hit is only a plugin's search-result
+ * entry until then, which is why novel candidates start unresolved.
  */
 data class NovelCandidateHandle(
     val item: NovelItem,
-    val site: String?,
     val stored: Novel? = null,
 )
 
@@ -109,7 +108,7 @@ class NovelMigrationFlowAdapter(
                 PickMember(
                     id = novel.id,
                     title = novel.title,
-                    coverData = novel.toCover(sourceManager.get(novel.source)?.site),
+                    coverData = novel.toCover(),
                     payload = novel,
                     subtitle = memberSubtitle(
                         sourceName = sourceDisplayName(novel.source),
@@ -138,7 +137,6 @@ class NovelMigrationFlowAdapter(
 
     override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> {
         return novelRepository.getLibraryNovelAsFlow().map { list ->
-            val site = sourceManager.get(sourceKey)?.site
             list.asSequence()
                 .map { it.novel }
                 .filter { it.source == sourceKey }
@@ -147,7 +145,7 @@ class NovelMigrationFlowAdapter(
                     MigrationFavorite(
                         id = EntryId.Novel(novel.id),
                         title = novel.title,
-                        cover = novel.toCover(site),
+                        cover = novel.toCover(),
                         payload = novel,
                     )
                 }
@@ -167,7 +165,7 @@ class NovelMigrationFlowAdapter(
                 sourceName = source?.name,
                 chapterCount = chapters.size,
                 latestChapter = chapters.latestChapterNumber { it.chapterNumber },
-                cover = novel.toCover(source?.site),
+                cover = novel.toCover(),
                 payload = novel,
             )
         }
@@ -190,7 +188,7 @@ class NovelMigrationFlowAdapter(
         } ?: return null
         val currentPath = (entry.payload as? Novel)?.url.takeIf { sourceKey == entry.sourceKey }
         if (match.path == currentPath) return null
-        return match.toCandidate(sourceKey, source.site)
+        return match.toCandidate(sourceKey)
     }
 
     override suspend fun candidates(
@@ -201,7 +199,7 @@ class NovelMigrationFlowAdapter(
         val source = sourceManager.get(sourceKey) ?: return emptyList()
         return source.search(query, 1, filters = null)
             .usableHits(entry, sourceKey)
-            .map { it.toCandidate(sourceKey, source.site) }
+            .map { it.toCandidate(sourceKey) }
     }
 
     /**
@@ -218,7 +216,7 @@ class NovelMigrationFlowAdapter(
      * for the marker only and deliberately does NOT populate the handle's `stored`: that field is
      * what decides whether a commit still owes this candidate a materialising [resolve].
      */
-    private suspend fun NovelItem.toCandidate(sourceKey: String, site: String?): MigrationCandidate {
+    private suspend fun NovelItem.toCandidate(sourceKey: String): MigrationCandidate {
         val stored = novelRepository.getByUrlAndSource(path, sourceKey)
         return MigrationCandidate(
             sourceKey = sourceKey,
@@ -230,10 +228,10 @@ class NovelMigrationFlowAdapter(
             // and the cache on the favorite flag, so a search-shaped cover showed the source's stock
             // image instead, and no refresh could ever bust its Coil key. Manga candidates are stored
             // rows by the time they reach here, which is why only this side was wrong.
-            cover = stored?.toCover(site)
-                ?: NovelCover(url = cover, site = site, isNovelFavorite = false, lastModified = 0L),
+            cover = stored?.toCover()
+                ?: NovelCover(url = cover, sourceId = sourceKey, isNovelFavorite = false, lastModified = 0L),
             inLibrary = stored?.favorite == true,
-            handle = NovelCandidateHandle(this, site),
+            handle = NovelCandidateHandle(this),
         )
     }
 
@@ -269,7 +267,7 @@ class NovelMigrationFlowAdapter(
                 // Null, not 0, for an empty list, matching every other candidate builder.
                 chapterCount = chapters.size.takeIf { it > 0 },
                 latestChapter = chapters.latestChapterNumber { it.chapterNumber },
-                cover = resolved.toCover(source.site),
+                cover = resolved.toCover(),
                 handle = handle.copy(stored = resolved),
             ),
             // A refresh that stored nothing is not a sync (a soft-error page can parse as an empty
@@ -300,7 +298,6 @@ class NovelMigrationFlowAdapter(
     override suspend fun storedCandidate(id: Long): MigrationCandidate? {
         val novel = novelRepository.getById(id) ?: return null
         val chapters = chapterRepository.getByNovelId(id)
-        val site = sourceManager.get(novel.source)?.site
         return MigrationCandidate(
             sourceKey = novel.source,
             title = novel.title,
@@ -309,11 +306,10 @@ class NovelMigrationFlowAdapter(
             chapterCount = chapters.size.takeIf { it > 0 },
             latestChapter = chapters.latestChapterNumber { it.chapterNumber },
             key = "${novel.source}:${novel.url}",
-            cover = novel.toCover(site),
+            cover = novel.toCover(),
             inLibrary = novel.favorite,
             handle = NovelCandidateHandle(
                 item = NovelItem(name = novel.title, path = novel.url, cover = novel.thumbnailUrl),
-                site = site,
                 stored = novel,
             ),
         )
@@ -373,9 +369,9 @@ class NovelMigrationFlowAdapter(
 
     /** The row's own cover identity. The favorite flag is read off the row rather than passed in:
      *  callers guessed it, and a guess of false sends the fetcher past the library cover cache. */
-    private fun Novel.toCover(site: String?) = NovelCover(
+    private fun Novel.toCover() = NovelCover(
         url = thumbnailUrl,
-        site = site,
+        sourceId = source,
         isNovelFavorite = favorite,
         lastModified = coverLastModified,
         novelId = id,

@@ -103,7 +103,7 @@ class NovelBrowseAdapter(
     private fun NovelBrowseState.rowContent(item: NovelItem) = EntryBrowseRowContent(
         ui = item.toEntryBrowseUi(
             inLibrary = (sourceId to item.path) in favoritedKeys,
-            site = source?.site,
+            sourceId = sourceId,
         ),
         payload = item,
     )

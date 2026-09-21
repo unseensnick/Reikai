@@ -204,7 +204,7 @@ private fun UpdateErrorRow(
         )
         is UpdateErrorEntry.Novel -> NovelCover(
             url = entry.error.thumbnailUrl,
-            site = null,
+            sourceId = entry.error.source,
             isNovelFavorite = true,
             lastModified = entry.error.coverLastModified,
             novelId = entry.error.novelId,

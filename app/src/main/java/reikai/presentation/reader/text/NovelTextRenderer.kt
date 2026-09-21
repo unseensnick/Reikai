@@ -66,10 +66,11 @@ class NovelTextRenderer(
         contentWidth: Int,
         /**
          * The chapter's own URL. Relative image sources and links are resolved against it, since
-         * `Html.fromHtml` has no base of its own and the link policy blocks anything not http(s), and
-         * it is sent as the Referer for an image some hosts would otherwise refuse.
+         * `Html.fromHtml` has no base of its own and the link policy blocks anything not http(s).
          */
         baseUrl: String?,
+        /** The chapter's source, whose client and headers its pictures are fetched with. */
+        sourceId: String?,
         /** Runs a change that moves text, holding the reader's line across it. */
         holdAcross: (change: () -> Unit) -> Unit,
         onTextSet: () -> Unit,
@@ -89,7 +90,7 @@ class NovelTextRenderer(
                 context = context,
                 scope = scope,
                 contentWidthPx = contentWidth,
-                refererUrl = baseUrl?.let { it.trimEnd('/') + "/" },
+                sourceId = sourceId,
                 textSizePx = textSizePx,
                 textColor = { block.chunkViews.firstOrNull()?.currentTextColor ?: Color.GRAY },
                 resolveView = block::chunkViewFor,

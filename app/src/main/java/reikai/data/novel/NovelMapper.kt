@@ -210,8 +210,7 @@ fun mapNovelWithChapterCount(
 
 /**
  * Maps a `novelUpdatesView` row to [NovelUpdateWithRelations]. Param order matches the view's SELECT.
- * The feed sorts/groups/filters on `dateFetch` (date_upload is unreliable for LN sources). The cover
- * carries no source site (favorites load from the library cover cache).
+ * The feed sorts/groups/filters on `dateFetch` (date_upload is unreliable for LN sources).
  */
 fun mapNovelUpdate(
     novelId: Long,
@@ -242,7 +241,7 @@ fun mapNovelUpdate(
     novelUrl = novelUrl,
     coverData = NovelCover(
         url = thumbnailUrl,
-        site = null,
+        sourceId = source,
         isNovelFavorite = favorite,
         lastModified = coverLastModified,
         novelId = novelId,
@@ -251,8 +250,7 @@ fun mapNovelUpdate(
 
 /**
  * Maps a `novelHistoryView` row to [NovelHistoryWithRelations]. Param order matches the `novelHistory`
- * / `getLatestNovelHistory` SELECT. The cover carries no source site (favorites load from the library
- * cover cache), mirroring [mapNovelUpdate].
+ * / `getLatestNovelHistory` SELECT.
  */
 fun mapNovelHistoryWithRelations(
     id: Long,
@@ -288,7 +286,7 @@ fun mapNovelHistoryWithRelations(
     storedTitle = title,
     coverData = NovelCover(
         url = thumbnailUrl,
-        site = null,
+        sourceId = source,
         isNovelFavorite = favorite,
         lastModified = coverLastModified,
         novelId = novelId,

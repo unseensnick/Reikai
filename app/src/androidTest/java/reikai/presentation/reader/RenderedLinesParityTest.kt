@@ -100,6 +100,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                 bionic = false,
                 contentWidth = COLUMN_PX,
                 baseUrl = null,
+                sourceId = null,
                 holdAcross = { it() },
                 onTextSet = {},
             ).join()
@@ -158,6 +159,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
         progressPercent = 0,
         chapterNumber = 1.0,
         novelId = 1L,
+        sourceId = null,
         downloaded = false,
         isLast = false,
     )

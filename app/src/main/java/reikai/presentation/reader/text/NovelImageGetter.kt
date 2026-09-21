@@ -20,8 +20,6 @@ import android.widget.TextView
 import androidx.core.graphics.drawable.toDrawable
 import coil3.asDrawable
 import coil3.imageLoader
-import coil3.network.NetworkHeaders
-import coil3.network.httpHeaders
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Precision
@@ -31,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
+import reikai.data.coil.NovelImage
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
@@ -65,16 +64,15 @@ class DrawableWrapper : Drawable() {
  * Resolves the images in a chapter for `Html.fromHtml`.
  *
  * Ported from tsundoku (`textview/NovelImageGetter.kt`), with their host Activity replaced by a
- * [Context] and the Referer taken from the chapter's own base URL, which the session already
- * resolved. Their page-loader scheme is not taken: it serves images out of a local archive, which
- * our content never produces (a downloaded chapter carries its images inline as data URLs).
+ * [Context] and each picture fetched with its source's own client and headers ([NovelImage]). Their
+ * page-loader scheme is not taken: it serves images out of a local archive, which our content never
+ * produces (a downloaded chapter carries its images inline as data URLs).
  */
 class NovelImageGetter(
     private val context: Context,
     private val scope: CoroutineScope,
     contentWidthPx: Int,
-    /** Some hosts refuse an image without one, so the chapter's own site is sent. */
-    private val refererUrl: String?,
+    private val sourceId: String?,
     /** The text size in pixels and colour, which a failed picture's box is drawn in. */
     private val textSizePx: Float,
     private val textColor: () -> Int,
@@ -175,19 +173,13 @@ class NovelImageGetter(
     }
 
     /**
-     * The picture, or null when it could not be had. A [retry] reads no cache: the HTTP cache keeps the
-     * failed answer, which the manga reader's page retry skips the same way by forcing a download.
+     * The picture, or null when it could not be had. A [retry] reads no cache, as the manga reader's page
+     * retry forces a download.
      */
     private suspend fun fetch(imageUrl: String, retry: Boolean = false): Drawable? = try {
-        val headers = NetworkHeaders.Builder().apply {
-            set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-            refererUrl?.let { set("Referer", it) }
-            if (retry) set("Cache-Control", "no-cache")
-        }.build()
         val cache = if (retry) CachePolicy.WRITE_ONLY else CachePolicy.ENABLED
         val request = ImageRequest.Builder(context)
-            .data(imageUrl)
-            .httpHeaders(headers)
+            .data(NovelImage(imageUrl, sourceId))
             .memoryCachePolicy(cache)
             .diskCachePolicy(cache)
             .size(CoilSize(CoilDimension.Pixels(contentWidth), CoilDimension.Undefined))

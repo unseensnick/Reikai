@@ -364,8 +364,6 @@ sealed interface NovelBrowseDialog {
         val duplicates: List<NovelWithChapterCount>,
         /** Source id -> its label for each duplicate (resolved in the model, so the dialog is DI-free). */
         val sourceLabels: Map<String, EntrySourceLabel>,
-        /** Source id -> site, for the cover's Referer; null when the source didn't resolve. */
-        val sourceSites: Map<String, String?>,
         /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */
         val suggestGroup: Boolean,
         /** Novel id -> group id, so same-group duplicates collapse into one card. */

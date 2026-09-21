@@ -54,7 +54,7 @@ class NovelEntryAdapter(
         return EntryDetailsScreenState.Loaded(
             entryId = EntryId.Novel(novel.id),
             details = EntryDetailsUiState(
-                header = display.toEntryHeader(sourceName = model.headerSourceName(this), sourceSite = sourceUrl),
+                header = display.toEntryHeader(sourceName = model.headerSourceName(this)),
                 favorite = novel.favorite,
                 trackingCount = trackingCount,
                 nextUpdate = novel.expectedNextUpdate(),
@@ -200,21 +200,17 @@ class NovelEntryAdapter(
     override fun showCoverDialog() {
         model.showCoverDialog()
     }
-    override fun createCoverViewModel(): EntryCoverViewModel<*> = coverArgs().let { (url, source, site) ->
-        coverViewModelFactory.create(novelUrl = url, novelSource = source, site = site)
+    override fun createCoverViewModel(): EntryCoverViewModel<*> = coverArgs().let { (url, source) ->
+        coverViewModelFactory.create(novelUrl = url, novelSource = source)
     }
 
-    // The key has to cover everything the model captures, not just the entry: `site` is the cover
-    // request's referer and resolves after the source registry warms, so keying on the id alone let a
-    // dialog opened before that cache a model with no referer for the life of the screen.
-    override fun coverKey(): String = coverArgs().let { (url, source, site) -> "$url|$source|$site" }
+    override fun coverKey(): String = coverArgs().let { (url, source) -> "$url|$source" }
 
     /** Follows the source chip like manga, so the cover matches the page. Editing is gated by
      *  isCoverAnchored instead, since a custom cover must land on the entry the library renders. */
-    private fun coverArgs(): Triple<String, String, String?> {
-        val loaded = loadedState()
-        val shown = loaded?.displayNovel ?: loaded?.novel
-        return Triple(shown?.url.orEmpty(), shown?.source.orEmpty(), loaded?.sourceUrl)
+    private fun coverArgs(): Pair<String, String> {
+        val shown = loadedState()?.let { it.displayNovel ?: it.novel }
+        return shown?.url.orEmpty() to shown?.source.orEmpty()
     }
     override fun isCoverAnchored(): Boolean =
         loadedState()?.let { it.selectedSourceNovelId == null || it.selectedSourceNovelId == it.novel.id } != false

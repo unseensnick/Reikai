@@ -124,6 +124,7 @@ class NovelSeamTest {
         progressPercent = 0,
         chapterNumber = number,
         novelId = novelId,
+        sourceId = null,
         downloaded = downloaded,
         isLast = isLast,
     )

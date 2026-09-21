@@ -296,7 +296,7 @@ class NovelRecentsMappingProbe : RecentsMappingProbe {
 
     override fun toString() = "novel"
 
-    private val cover = NovelCover(url = null, site = null, isNovelFavorite = true, lastModified = 0, novelId = 7)
+    private val cover = NovelCover(url = null, sourceId = null, isNovelFavorite = true, lastModified = 0, novelId = 7)
 
     override fun update(read: Boolean, bookmark: Boolean, started: Boolean) = NovelUpdatesItem(
         update = NovelUpdateWithRelations(

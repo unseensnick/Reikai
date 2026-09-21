@@ -36,11 +36,10 @@ fun Manga.toEntryBrowseUi() = EntryBrowseItemUi(
     favorite = favorite,
 )
 
-/** [NovelItem] carries no favorite/source, so the caller supplies whether it's [inLibrary] and the
- *  source [site] (the novel cover's Referer). */
-fun NovelItem.toEntryBrowseUi(inLibrary: Boolean, site: String?) = EntryBrowseItemUi(
+/** [NovelItem] carries no favorite/source, so the caller supplies whether it's [inLibrary] and its [sourceId]. */
+fun NovelItem.toEntryBrowseUi(inLibrary: Boolean, sourceId: String) = EntryBrowseItemUi(
     title = name,
-    cover = NovelCover(url = cover, site = site, isNovelFavorite = inLibrary, lastModified = 0L),
+    cover = NovelCover(url = cover, sourceId = sourceId, isNovelFavorite = inLibrary, lastModified = 0L),
     favorite = inLibrary,
 )
 

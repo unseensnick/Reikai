@@ -72,7 +72,6 @@ class NovelLibrarySortComparatorTest {
                     languageBadge = false,
                     sourceLanguage = "",
                     sourceBadge = false,
-                    sourceSite = null,
                     sourceIconUrl = null,
                     sourceName = "",
                 )

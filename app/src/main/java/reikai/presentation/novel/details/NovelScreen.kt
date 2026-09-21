@@ -223,7 +223,7 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
         )
         is NovelDetailsDialog.DuplicateNovel -> EntryDuplicateDialog(
             duplicates = dialog.duplicates,
-            toUi = { it.toDuplicateCard(dialog.sourceLabels, dialog.sourceSites) },
+            toUi = { it.toDuplicateCard(dialog.sourceLabels) },
             onDismissRequest = viewModel::dismissDialog,
             onConfirm = viewModel::addFavoriteAnyway,
             onOpen = { navigator.push(NovelScreen(it.novel.source, it.novel.url)) },
@@ -292,7 +292,7 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabl
             coverModel = { url ->
                 NovelCover(
                     url = url.ifBlank { null },
-                    site = sourceUrl,
+                    sourceId = novel.source,
                     isNovelFavorite = novel.favorite,
                     lastModified = novel.coverLastModified,
                     novelId = novel.id,

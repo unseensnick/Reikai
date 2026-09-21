@@ -427,6 +427,8 @@ class NovelReaderViewModel(
         val chapterNumber: Double,
         /** The library row this copy belongs to, which differs between a merged novel's sources. */
         val novelId: Long,
+        /** That row's source, which its pictures are fetched with; null when the row is gone. */
+        val sourceId: String?,
         val downloaded: Boolean,
         /** No chapter follows it to step forward to, the answer `chapterAfter` gives, so the end marker
          *  (`NovelSeam.end`) is drawn below it. */
@@ -760,7 +762,7 @@ class NovelReaderViewModel(
                 cover.value = it.thumbnailUrl?.takeIf(String::isNotBlank)?.let { url ->
                     NovelCover(
                         url = url,
-                        site = sourceManager.get(it.source)?.site,
+                        sourceId = it.source,
                         isNovelFavorite = it.favorite,
                         lastModified = it.coverLastModified,
                         novelId = it.id,
@@ -988,24 +990,28 @@ class NovelReaderViewModel(
         windowState.value = window
     }
 
-    private suspend fun NovelChapter.toLoadedChapter(html: String, baseUrl: String?) = LoadedChapter(
-        chapterId = id,
-        title = name,
-        url = url,
-        html = html,
-        baseUrl = baseUrl,
-        progressPercent = NovelResume.percent(
-            read,
-            lastTextProgress,
-            novelPreferences.readerPreserveReadingPosition().get(),
-        ),
-        chapterNumber = chapterNumber,
-        novelId = novelId,
-        // This copy's own, as manga's transition reads the chapter it will load rather than the group's.
-        downloaded = novelRepo.getById(novelId)?.let { novelDownloadCache.isChapterDownloaded(it, this) } == true,
-        // Outside the order, chapterAfter has no index to step from and would call anything the last.
-        isLast = id in orderedIds && chapterAfter(id) == null,
-    )
+    private suspend fun NovelChapter.toLoadedChapter(html: String, baseUrl: String?): LoadedChapter {
+        val novel = novelRepo.getById(novelId)
+        return LoadedChapter(
+            chapterId = id,
+            title = name,
+            url = url,
+            html = html,
+            baseUrl = baseUrl,
+            progressPercent = NovelResume.percent(
+                read,
+                lastTextProgress,
+                novelPreferences.readerPreserveReadingPosition().get(),
+            ),
+            chapterNumber = chapterNumber,
+            novelId = novelId,
+            sourceId = novel?.source,
+            // This copy's own, as manga's transition reads the chapter it will load rather than the group's.
+            downloaded = novel?.let { novelDownloadCache.isChapterDownloaded(it, this) } == true,
+            // Outside the order, chapterAfter has no index to step from and would call anything the last.
+            isLast = id in orderedIds && chapterAfter(id) == null,
+        )
+    }
 
     /**
      * Persist the reader's scroll position for [id]. The renderers report a whole percent (0..100);

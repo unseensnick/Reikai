@@ -87,7 +87,7 @@ fun SearchResultSection(
                         toUi = {
                             it.toEntryBrowseUi(
                                 inLibrary = (source.id to it.path) in favoritedKeys,
-                                site = source.site,
+                                sourceId = source.id,
                             )
                         },
                         onClick = { onClickNovel(source.id, it) },

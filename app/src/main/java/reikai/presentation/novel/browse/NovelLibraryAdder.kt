@@ -65,7 +65,6 @@ class NovelLibraryAdder(
                 sourceId = sourceId,
                 duplicates = decision.duplicates.duplicates,
                 sourceLabels = decision.duplicates.sourceLabels,
-                sourceSites = decision.duplicates.sourceSites,
                 suggestGroup = suggestGrouping,
                 groupIdByNovelId = getDuplicateGroupIds(decision.duplicates.duplicates),
             )
@@ -75,14 +74,14 @@ class NovelLibraryAdder(
 
     /**
      * Shared duplicate lookup for every novel add-path (browse long-press, details favorite, history
-     * add). Returns the possible library duplicates with their source names + sites resolved, or null
+     * add). Returns the possible library duplicates with their source names resolved, or null
      * when there is none. One source of truth so the three add-paths can't drift. [id] is the row to
      * exclude from its own match (-1 when the item has no library row yet).
      */
     suspend fun findDuplicates(id: Long, title: String): NovelDuplicateInfo? {
         val duplicates = novelRepository.getDuplicateLibraryNovel(id, title)
         if (duplicates.isEmpty()) return null
-        // Resolve names + sites here so each dialog host stays DI-free. A source the manager cannot
+        // Resolve names here so each dialog host stays DI-free. A source the manager cannot
         // answer for is not installed, so only its stored key is known and the card warns about it.
         val resolved = duplicates.associate { it.novel.source to manager.get(it.novel.source) }
         return NovelDuplicateInfo(
@@ -90,7 +89,6 @@ class NovelLibraryAdder(
             sourceLabels = resolved.mapValues { (key, src) ->
                 src?.let { EntrySourceLabel.Installed(it.name) } ?: EntrySourceLabel.Missing(key)
             },
-            sourceSites = resolved.mapValues { (_, src) -> src?.site },
         )
     }
 
@@ -338,5 +336,4 @@ class NovelLibraryAdder(
 data class NovelDuplicateInfo(
     val duplicates: List<NovelWithChapterCount>,
     val sourceLabels: Map<String, EntrySourceLabel>,
-    val sourceSites: Map<String, String?>,
 )

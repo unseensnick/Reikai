@@ -67,6 +67,8 @@ import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
 import reikai.data.coil.NovelCoverFetcher
 import reikai.data.coil.NovelCoverKeyer
+import reikai.data.coil.NovelImageFetcher
+import reikai.data.coil.NovelImageKeyer
 import reikai.data.work.WorkerStartFailures
 import reikai.presentation.widget.UnifiedUpdatesWidgetManager
 import tachiyomi.core.common.i18n.stringResource
@@ -284,9 +286,10 @@ class App :
                 // RK: the last argument is Reikai's cover-colour extraction (Y11)
                 add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy, coverCache, sourceManager, mangaCoverMetadata))
                 add(MangaCoverFetcher.MangaFactory(callFactoryLazy, coverCache, sourceManager, mangaCoverMetadata))
-                // RK: light-novel cover pipeline (carries the source site as Referer; shares the
-                // network client, so it inherits Cloudflare + FlareSolverr)
-                add(NovelCoverFetcher.Factory(callFactoryLazy, coverCache))
+                // RK: light-novel covers and chapter pictures, each with its source's image headers
+                val novelImageRequests = lazy { graph.novelImageRequests }
+                add(NovelCoverFetcher.Factory(novelImageRequests, coverCache))
+                add(NovelImageFetcher.Factory(novelImageRequests))
                 // RK: adult-source gallery page-preview thumbnails
                 add(PagePreviewFetcher.Factory(callFactoryLazy, lazy { graph.pagePreviewCache }, sourceManager))
                 // RK: MDList tracker-search covers, fetched via the MangaDex source client so the
@@ -302,6 +305,7 @@ class App :
                 add(MangaCoverKeyer(coverCache))
                 add(MangaKeyer())
                 add(NovelCoverKeyer()) // RK
+                add(NovelImageKeyer()) // RK
                 add(PagePreviewKeyer()) // RK
                 add(MangaDexTrackCoverKeyer()) // RK
             }

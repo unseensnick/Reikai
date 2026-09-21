@@ -266,7 +266,13 @@ class LnPluginInstaller(
         registryMutex.withLock {
             val current = prefs.seenNovelSources().get()
             val updated = current + sources.associate {
-                it.id to LnSourceIdentity(name = it.name, iconUrl = it.iconUrl, lang = it.lang)
+                it.id to LnSourceIdentity(
+                    name = it.name,
+                    iconUrl = it.iconUrl,
+                    lang = it.lang,
+                    site = it.site,
+                    imageHeaders = it.imageHeaders,
+                )
             }
             if (updated != current) prefs.seenNovelSources().set(updated)
         }

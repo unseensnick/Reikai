@@ -5,7 +5,6 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.system.activeNetworkState
 import eu.kanade.tachiyomi.util.system.notificationManager
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +28,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.network.NovelImageRequests
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -55,7 +55,7 @@ class NovelDownloadManager(
     private val novelRepo: NovelRepository,
     private val sourceManager: NovelSourceManager,
     private val installer: LnPluginInstaller,
-    private val networkHelper: NetworkHelper,
+    private val imageRequests: NovelImageRequests,
     private val downloadPreferences: DownloadPreferences,
     private val sourcePreferences: ReikaiSourcePreferences,
     private val novelPreferences: NovelPreferences,
@@ -359,7 +359,7 @@ class NovelDownloadManager(
                         val html = source.parseChapter(next.url)
                         if (html.isBlank()) return@runCatching false
                         // Embed inline images so the saved file reads offline (see inlineChapterImages).
-                        val selfContained = inlineChapterImages(html, source.site, networkHelper.client)
+                        val selfContained = inlineChapterImages(html, source.site, imageRequests.forSource(source.id))
                         provider.writeChapter(novel, chapter, selfContained)
                     }.getOrElse {
                         lastError = it

@@ -49,15 +49,12 @@ fun MangaWithChapterCount.toDuplicateCard(sourceLabels: Map<Long, EntrySourceLab
     chapterCount = chapterCount,
 )
 
-fun NovelWithChapterCount.toDuplicateCard(
-    sourceLabels: Map<String, EntrySourceLabel>,
-    sourceSites: Map<String, String?>,
-) = EntryDuplicateCardUi(
+fun NovelWithChapterCount.toDuplicateCard(sourceLabels: Map<String, EntrySourceLabel>) = EntryDuplicateCardUi(
     id = novel.id,
     // Duplicates are library rows by definition, so the cover fetcher can take the favorite path.
     coverModel = NovelCover(
         url = novel.thumbnailUrl,
-        site = sourceSites[novel.source],
+        sourceId = novel.source,
         isNovelFavorite = true,
         lastModified = novel.coverLastModified,
         novelId = novel.id,

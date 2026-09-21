@@ -1,5 +1,6 @@
 package reikai.novel.source
 
+import kotlinx.serialization.json.JsonPrimitive
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginInfo
 import reikai.novel.host.NovelItem
@@ -24,6 +25,11 @@ class LnPluginSource(
     override val version: String = info.version.orEmpty()
     override val site: String = info.site.orEmpty()
     override val lang: String = info.lang.orEmpty()
+
+    /** The plugin's image headers, keeping only the string values a header can carry. */
+    val imageHeaders: Map<String, String> = info.imageHeaders.orEmpty().mapNotNull { (name, value) ->
+        (value as? JsonPrimitive)?.takeIf { it.isString }?.let { name to it.content }
+    }.toMap()
     override val iconUrl: String? = info.iconUrl
     override val filters: NovelFilters? = info.filters?.takeIf { it.isNotEmpty() }?.let(NovelFilters::LnSchema)
     override val settings: NovelSettings? = info.pluginSettings?.let { schema ->

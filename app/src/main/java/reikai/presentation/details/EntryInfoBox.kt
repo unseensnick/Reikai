@@ -90,10 +90,10 @@ fun Manga.toEntryHeader(sourceName: String, isStubSource: Boolean) = EntryHeader
     isStubSource = isStubSource,
 )
 
-fun Novel.toEntryHeader(sourceName: String, sourceSite: String?) = EntryHeaderUi(
+fun Novel.toEntryHeader(sourceName: String) = EntryHeaderUi(
     coverModel = NovelCover(
         url = thumbnailUrl,
-        site = sourceSite,
+        sourceId = source,
         isNovelFavorite = favorite,
         lastModified = coverLastModified,
         novelId = id,

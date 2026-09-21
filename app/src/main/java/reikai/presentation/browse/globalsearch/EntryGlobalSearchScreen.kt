@@ -313,7 +313,7 @@ private fun Screen.NovelLongPressDialogs(model: NovelGlobalSearchViewModel, dial
     when (dialog) {
         is NovelBrowseDialog.AddDuplicate -> EntryDuplicateDialog(
             duplicates = dialog.duplicates,
-            toUi = { it.toDuplicateCard(dialog.sourceLabels, dialog.sourceSites) },
+            toUi = { it.toDuplicateCard(dialog.sourceLabels) },
             onDismissRequest = model::dismissDialog,
             onConfirm = { model.addFromDuplicate(dialog.item, dialog.sourceId) },
             onOpen = { navigator.push(NovelScreen(it.novel.source, it.novel.url)) },

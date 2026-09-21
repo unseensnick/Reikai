@@ -951,6 +951,8 @@
         // Per-plugin settings schema (login/base-url/toggles). Plugins read the saved values via
         // @libs/storage; the Kotlin side renders this and writes values back into that scope.
         pluginSettings: plugin.pluginSettings || null,
+        // Only the headers: the one plugin that sets a method sets GET, and none sends a body.
+        imageHeaders: (plugin.imageRequestInit && plugin.imageRequestInit.headers) || null,
       };
     } catch (e) {
       log("error", "loadPlugin failed: " + (e && e.stack ? e.stack : e));

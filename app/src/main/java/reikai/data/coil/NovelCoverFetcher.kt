@@ -12,7 +12,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.network.await
 import logcat.LogPriority
 import okhttp3.CacheControl
-import okhttp3.Call
+import okhttp3.Headers
 import okhttp3.Request
 import okhttp3.Response
 import okio.FileSystem
@@ -21,28 +21,25 @@ import okio.Source
 import okio.buffer
 import okio.sink
 import reikai.domain.entry.EntryId
-import reikai.novel.network.applyNovelDefaults
-import reikai.novel.network.deviceWebViewUserAgent
+import reikai.novel.network.NovelImageRequests
 import tachiyomi.core.common.util.system.logcat
 import java.io.File
 import java.io.IOException
 
 /**
  * Coil [Fetcher] for [NovelCover], the novel twin of
- * [eu.kanade.tachiyomi.data.coil.MangaCoverFetcher]. Leaner than the manga one: no custom-cover
- * override and no per-source OkHttp client. It always uses the shared network client (so it inherits
- * the Cloudflare + FlareSolverr interceptors) and attaches the device WebView User-Agent plus the
- * source [NovelCover.site] as a Referer, which is what some LN cover hosts gate full-image delivery on.
+ * [eu.kanade.tachiyomi.data.coil.MangaCoverFetcher]. The client and headers are the source's own
+ * image ones, the same every novel picture is fetched with ([NovelImageRequests]).
  */
 class NovelCoverFetcher(
     private val url: String?,
-    private val site: String?,
+    private val sourceId: String?,
     private val isLibraryNovel: Boolean,
     private val options: Options,
     private val coverFileLazy: Lazy<File?>,
     private val customCoverFileLazy: Lazy<File>,
     private val diskCacheKeyLazy: Lazy<String>,
-    private val callFactoryLazy: Lazy<Call.Factory>,
+    private val requests: NovelImageRequests,
     private val imageLoader: ImageLoader,
 ) : Fetcher {
 
@@ -118,7 +115,8 @@ class NovelCoverFetcher(
     }
 
     private suspend fun executeNetworkRequest(): Response {
-        val response = callFactoryLazy.value.newCall(newRequest()).await()
+        val client = requests.forSource(sourceId)
+        val response = client.client.newCall(newRequest(client.headers)).await()
         if (!response.isSuccessful && response.code != HTTP_NOT_MODIFIED) {
             response.close()
             throw IOException(response.message)
@@ -126,11 +124,10 @@ class NovelCoverFetcher(
         return response
     }
 
-    private fun newRequest(): Request {
+    private fun newRequest(headers: Headers): Request {
         val request = Request.Builder()
             .url(url!!)
-            // Device UA + source site Referer, shared with the host bridge via [applyNovelDefaults].
-            .applyNovelDefaults(deviceWebViewUserAgent(options.context), referer = site)
+            .headers(headers)
 
         when {
             options.networkCachePolicy.readEnabled -> request.cacheControl(CACHE_CONTROL_NO_STORE)
@@ -201,14 +198,14 @@ class NovelCoverFetcher(
     )
 
     class Factory(
-        private val callFactoryLazy: Lazy<Call.Factory>,
+        private val requests: Lazy<NovelImageRequests>,
         private val coverCache: CoverCache,
     ) : Fetcher.Factory<NovelCover> {
 
         override fun create(data: NovelCover, options: Options, imageLoader: ImageLoader): Fetcher =
             NovelCoverFetcher(
                 url = data.url,
-                site = data.site,
+                sourceId = data.sourceId,
                 isLibraryNovel = data.isNovelFavorite,
                 options = options,
                 coverFileLazy = lazy { coverCache.getCoverFile(data.url) },
@@ -217,7 +214,7 @@ class NovelCoverFetcher(
                     coverCache.getCustomCoverFile(EntryId.Novel(data.novelId))
                 },
                 diskCacheKeyLazy = lazy { imageLoader.components.key(data, options)!! },
-                callFactoryLazy = callFactoryLazy,
+                requests = requests.value,
                 imageLoader = imageLoader,
             )
     }

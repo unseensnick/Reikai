@@ -77,6 +77,7 @@ private fun mapRecentlyAddedManga(
 private fun mapRecentlyAddedNovel(
     novelId: Long,
     title: String,
+    source: String,
     thumbnailUrl: String?,
     coverLastModified: Long,
     dateAdded: Long,
@@ -86,7 +87,7 @@ private fun mapRecentlyAddedNovel(
     dateAdded = dateAdded,
     coverData = NovelCover(
         url = thumbnailUrl,
-        site = null,
+        sourceId = source,
         isNovelFavorite = true,
         lastModified = coverLastModified,
         novelId = novelId,
