@@ -2,10 +2,14 @@ package eu.kanade.tachiyomi.network.interceptor
 
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldStartWith
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Cookie
+import okhttp3.FormBody
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -67,6 +71,37 @@ class FlareSolverrCommandTest {
 
         cookiesToKeep(listOf(echoed, earned), listOf(cookie("wordpress_logged_in_abc", "session"))) shouldBe
             listOf(earned)
+    }
+
+    @Test
+    fun `a plugin's FormData post reaches the solver as the form fields it holds`() {
+        val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("action", "nd_getchapters")
+            .addFormDataPart("mypostid", "197357")
+            .build()
+
+        flareSolverrPostData(body) shouldBe "action=nd_getchapters&mypostid=197357"
+    }
+
+    @Test
+    fun `a space reaches the solver as a space, since it keeps a plus literal`() {
+        val body = FormBody.Builder().add("q", "bald guy+").build()
+
+        flareSolverrPostData(body) shouldBe "q=bald%20guy%2B"
+    }
+
+    @Test
+    fun `a multipart post with a file goes as its raw text`() {
+        val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("f", "a.txt", "x".toRequestBody())
+            .build()
+
+        flareSolverrPostData(body) shouldStartWith "--"
+    }
+
+    @Test
+    fun `a string body goes to the solver unchanged`() {
+        flareSolverrPostData("a=1&b=2".toRequestBody()) shouldBe "a=1&b=2"
     }
 
     @Test

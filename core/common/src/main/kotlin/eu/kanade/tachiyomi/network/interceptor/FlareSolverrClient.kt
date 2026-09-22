@@ -14,13 +14,16 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import okhttp3.Cookie
+import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -28,6 +31,7 @@ import okio.Buffer
 import org.jsoup.Jsoup
 import java.io.IOException
 import java.io.InterruptedIOException
+import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -290,13 +294,11 @@ class FlareSolverrClient(
         // session keeps cleared cookies in-memory so follow-up calls skip the JS challenge.
         //
         // A Cloudflare-gated POST must be replayed as a POST with the original body, otherwise FS
-        // would GET the URL and return the wrong page. FS sends postData as
-        // application/x-www-form-urlencoded, which is what these bodies already are. Build the
-        // command via the JSON DSL so the body can't break the envelope.
+        // would GET the URL and return the wrong page. FS can only send postData as
+        // application/x-www-form-urlencoded, so [flareSolverrPostData] re-encodes the body's
+        // fields. Build the command via the JSON DSL so the body can't break the envelope.
         val isPost = request.method.equals("POST", ignoreCase = true)
-        val postData = request.body
-            ?.takeIf { isPost }
-            ?.let { rb -> Buffer().also { rb.writeTo(it) }.readUtf8() }
+        val postData = request.body?.takeIf { isPost }?.let(::flareSolverrPostData)
         val forwarded = if (mayForwardCookies(flareSolverrUrl)) cookieManager.get(request.url) else emptyList()
         val command = flareSolverrCommand(targetUrl, isPost, postData, sessionId, forwarded)
         val body = json.encodeToString(JsonObject.serializer(), command)
@@ -467,6 +469,32 @@ private val LOCAL_SUFFIXES = listOf(".local", ".lan", ".home.arpa", ".internal")
  */
 internal fun cookiesToKeep(solved: List<FlareSolverrCookie>, forwarded: List<Cookie>): List<FlareSolverrCookie> =
     solved.filterNot { fs -> forwarded.any { it.name == fs.name && it.value == fs.value } }
+
+/**
+ * A POST body as the url-encoded form FlareSolverr posts. A form body, or a multipart one of plain
+ * text fields (an LN plugin's FormData), is re-encoded field by field: sent raw, a multipart body
+ * reaches the site as one mangled field. Spaces go as `%20`, since the solver keeps a `+` literal.
+ * Anything else, a file part included, is sent as its raw text, which is all the solver can carry.
+ */
+internal fun flareSolverrPostData(body: RequestBody): String {
+    val fields = when (body) {
+        is FormBody -> (0 until body.size).map { body.name(it) to body.value(it) }
+        is MultipartBody -> body.parts.map { part ->
+            val disposition = part.headers?.get("Content-Disposition").orEmpty()
+            val name = FORM_FIELD_NAME.find(disposition)?.groupValues?.get(1)
+            if (name == null || "filename=" in disposition) return rawText(body)
+            name.replace("%22", "\"") to rawText(part.body)
+        }
+        else -> return rawText(body)
+    }
+    return fields.joinToString("&") { (name, value) -> "${formEncode(name)}=${formEncode(value)}" }
+}
+
+private val FORM_FIELD_NAME = Regex("""name="([^"]*)"""")
+
+private fun rawText(body: RequestBody): String = Buffer().also { body.writeTo(it) }.readUtf8()
+
+private fun formEncode(text: String): String = URLEncoder.encode(text, "UTF-8").replace("+", "%20")
 
 /**
  * The command for one FlareSolverr request. The site's cookies from the app's jar go along, since
