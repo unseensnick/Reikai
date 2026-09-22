@@ -81,6 +81,8 @@ class NovelTextRenderer(
             fontSize.toFloat(),
             context.resources.displayMetrics,
         )
+        // Whatever the last render left open, since this one builds the chapter's pictures again.
+        block.closeTiledPictures()
         val token = ++block.renderToken
         val spacingPx = (paragraphSpacing * textSizePx).toInt()
         val indentPx = (paragraphIndent * textSizePx).toInt()
@@ -96,6 +98,8 @@ class NovelTextRenderer(
                 resolveView = block::chunkViewFor,
                 onImagesLanded = { views, swapIn, allLanded ->
                     remeasureForImages(views, selectable, block, holdAcross, swapIn)
+                    // After the text is set: a re-measure sets a copy of it, which is where the pictures are.
+                    block.collectTiledPictures()
                     // Only once all have, since a saved position is landed as soon as this clears, and the
                     // chapter is still growing while any picture waits. A superseded render's images
                     // finishing says nothing about this render's.
@@ -170,6 +174,8 @@ class NovelTextRenderer(
             }
             // After the text is set, so every image span has a view to find and re-measure.
             block.imagesLoading = imageGetter.startLoading()
+            // A chapter read offline has its pictures already, so its tall ones are collected here.
+            block.collectTiledPictures()
             onTextSet()
         }
     }

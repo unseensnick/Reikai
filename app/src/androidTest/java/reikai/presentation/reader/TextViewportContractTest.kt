@@ -13,6 +13,7 @@ import android.text.Spanned
 import android.text.style.ClickableSpan
 import android.text.style.ImageSpan
 import android.text.style.ParagraphStyle
+import android.util.Base64
 import android.util.Log
 import android.util.TypedValue
 import android.view.InputDevice
@@ -57,6 +58,7 @@ import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.PngServer
 import reikai.presentation.reader.text.ReadAloudMark
 import reikai.presentation.reader.text.RubySpan
+import reikai.presentation.reader.text.TiledPicture
 import reikai.presentation.reader.text.pngOf
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -1233,6 +1235,48 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(SMALL_IMAGE_PX * density, firstImageWidth(), TYPE_SLACK_PX)
     }
 
+    /** A strip taller than a decode's size cap is drawn at the width the page gives it, as the page draws it. */
+    @Test
+    fun aPictureTallerThanTheDecodeCapKeepsItsOwnWidth() {
+        val picture = PngServer(pngOf(TALL_IMAGE_PX, TALL_IMAGE_HEIGHT_PX)).also { server = it }
+        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${picture.url}\">"))
+        awaitWhile { firstImageWidth() <= 0f }
+        val density = instrumentation.targetContext.resources.displayMetrics.density
+        assertEquals(TALL_IMAGE_PX * density, firstImageWidth(), TYPE_SLACK_PX)
+    }
+
+    /** Sharpness comes from the slices: drawn from the shrunken copy alone, a strip is a blur at this width. */
+    @Test
+    fun aTallPictureIsDrawnFromItsOwnSlices() {
+        assumeTrue(renderer == Renderer.NATIVE)
+        val picture = PngServer(pngOf(TALL_IMAGE_PX, TALL_IMAGE_HEIGHT_PX)).also { server = it }
+        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${picture.url}\">"))
+        awaitWhile { firstImageWidth() <= 0f }
+
+        awaitWhile { slicesHeld() == 0 }
+        assertTrue("slices held: ${slicesHeld()}", slicesHeld() > 0)
+    }
+
+    /** A chapter read offline is drawn from the slices of the picture it carries, as a fetched one is. */
+    @Test
+    fun aStoredTallPictureIsDrawnFromItsOwnSlices() {
+        assumeTrue(renderer == Renderer.NATIVE)
+        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${storedTallPicture()}\">"))
+        awaitWhile { firstImageWidth() <= 0f }
+
+        awaitWhile { slicesHeld() == 0 }
+        assertTrue("slices held: ${slicesHeld()}", slicesHeld() > 0)
+    }
+
+    /** A chapter read offline carries its pictures inside it, and a tall one is drawn as the page draws it. */
+    @Test
+    fun aStoredPictureTallerThanTheDecodeCapKeepsItsOwnWidth() {
+        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${storedTallPicture()}\">"))
+        awaitWhile { firstImageWidth() <= 0f }
+        val density = instrumentation.targetContext.resources.displayMetrics.density
+        assertEquals(TALL_IMAGE_PX * density, firstImageWidth(), TYPE_SLACK_PX)
+    }
+
     /** The manga reader's failed page, in the picture's place: a box saying so, with Retry. */
     @Test
     fun aPictureThatFailsIsShownAsAFailureWithRetry() {
@@ -2043,6 +2087,20 @@ class TextViewportContractTest(private val renderer: Renderer) {
         open(illustratedChapter(percent))
         awaitIllustratedLanding()
     }
+
+    /** How many slices the first picture is holding, and 0 when it is not drawn from slices at all. */
+    private fun slicesHeld(): Int {
+        var held = 0
+        instrumentation.runOnMainSync {
+            val wrapper = imageSpans().firstOrNull()?.drawable as? DrawableWrapper
+            held = (wrapper?.innerDrawable as? TiledPicture)?.heldTiles?.size ?: 0
+        }
+        return held
+    }
+
+    /** A picture inside the chapter, as a downloaded one carries it. */
+    private fun storedTallPicture(): String = "data:image/png;base64," +
+        Base64.encodeToString(pngOf(TALL_IMAGE_PX, TALL_IMAGE_HEIGHT_PX), Base64.NO_WRAP)
 
     private fun illustratedChapter(
         percent: Int,
@@ -2905,6 +2963,10 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val RUBY_REFERENCE = "WWWW"
         const val HEADING_RUN = "MMMMMMMM"
         const val SMALL_IMAGE_PX = 40
+
+        /** Narrow enough to keep its own width in the column, and past the 4096px a decode is capped at. */
+        const val TALL_IMAGE_PX = 300
+        const val TALL_IMAGE_HEIGHT_PX = 9_000
 
         /** A glyph's width rounds per size, which at a heading's size is a few percent of a run. */
         const val SIZE_SLACK = 0.03f

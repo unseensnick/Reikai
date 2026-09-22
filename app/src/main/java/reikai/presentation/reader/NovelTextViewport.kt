@@ -296,6 +296,7 @@ class NovelTextViewport(
         addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(view: RecyclerView, dx: Int, dy: Int) {
                 scrolled += dy
+                showTallPictures()
                 reportVisibleChapter()
                 report(onProgressChanged)
                 reportEnds()
@@ -575,6 +576,7 @@ class NovelTextViewport(
         if (index < 0) return
         val slot = slots.removeAt(index)
         slot.block.discarded = true
+        slot.block.closeTiledPictures()
         cancelImageWait(slot)
         adapter.show(joined())
     }
@@ -796,6 +798,20 @@ class NovelTextViewport(
         return top + view.totalPaddingTop + layout.getLineTop(layout.getLineForOffset(offset))
     }
 
+    /**
+     * Tells each tall picture in the window which of its rows are on screen, so it holds the slices it is
+     * drawing and no more. A picture cannot tell on its own: a chunk is drawn once into a display list and
+     * a scroll moves that list rather than drawing it again, so its clip is the chunk, not the screen.
+     */
+    private fun showTallPictures() {
+        slots.forEach { slot ->
+            slot.block.tiledPictures.forEach { anchor ->
+                val top = lineTopOf(anchor.view, anchor.offset)?.plus(anchor.topPx) ?: return@forEach
+                anchor.picture.onVisible(-top, recycler.height - top)
+            }
+        }
+    }
+
     /** Null once [view] is not in the recycler's layout, which a chapter scrolled out of it is not. */
     private fun topInRecycler(view: View): Int? {
         var top = 0
@@ -915,8 +931,16 @@ class NovelTextViewport(
             sourceId = chapter.sourceId,
             // A landing still waiting on the pictures is re-applied once they land, and a correction for the
             // line on top of it would overshoot.
-            holdAcross = { change -> if (slots.none { it.landing != null }) holdingReader(change) else change() },
-            onTextSet = { join(slot) },
+            holdAcross = { change ->
+                if (slots.none { it.landing != null }) holdingReader(change) else change()
+                // Once the change has laid out, so each picture is told where it now sits.
+                beforeNextDraw { showTallPictures() }
+            },
+            onTextSet = {
+                join(slot)
+                // Once it has laid out, which is when a picture already in the text can be told where it sits.
+                beforeNextDraw { showTallPictures() }
+            },
         ).join()
     }
 
@@ -928,6 +952,7 @@ class NovelTextViewport(
     private fun evictAll() {
         slots.forEach {
             it.block.discarded = true
+            it.block.closeTiledPictures()
             cancelImageWait(it)
         }
         slots.clear()

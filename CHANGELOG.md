@@ -240,6 +240,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **A tall picture in the novel reader's native text mode now fills the column and stays sharp, as the web page mode draws it.** It is read in the slices around what you are looking at, online or downloaded.
 - **The reader's chapter list no longer shows a stray dot with nothing after it on a merged series.** It appeared when a chapter had no scanlator name or its source could not be resolved.
 - **A merged series now opens in webtoon mode when any of its sources calls it a manhwa, manhua or webtoon.** Before, only the source the chapter came from was consulted, and that is usually not the one carrying the tag.
 - **Chapters you have read no longer disappear from the reader's chapter list.**

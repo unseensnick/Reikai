@@ -38,9 +38,9 @@ import reikai.data.coil.NovelImage
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
+import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.min
-import kotlin.math.roundToInt
 import coil3.size.Dimension as CoilDimension
 import coil3.size.Size as CoilSize
 
@@ -92,6 +92,8 @@ class NovelImageGetter(
     private val contentWidth: Int =
         contentWidthPx.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
 
+    private val density: Float = context.resources.displayMetrics.density
+
     private data class PendingLoad(val source: String, val wrapper: DrawableWrapper)
 
     private val pendingLoads = mutableListOf<PendingLoad>()
@@ -101,6 +103,9 @@ class NovelImageGetter(
     private val swaps = mutableListOf<() -> Unit>()
     private val dirtyViews = mutableSetOf<TextView>()
     private val arrivals = Channel<Unit>(Channel.CONFLATED)
+
+    /** Main thread: the line each picture sits in, so redrawing it costs one span search per picture. */
+    private val lines = mutableMapOf<DrawableWrapper, PulseLine>()
 
     /**
      * Called by the parser, off the main thread. A network image only gets queued here: starting it
@@ -170,22 +175,27 @@ class NovelImageGetter(
         if (!ValueAnimator.areAnimatorsEnabled()) return
         scope.launch(Dispatchers.Main) {
             val start = SystemClock.uptimeMillis()
-            // Found once: finding a picture's line searches every span of its view, too much for each frame.
-            val marks = HashMap<DrawableWrapper, PulseLine>()
             try {
                 while (outstandingLoads.get() > 0) {
                     val strength = imageLoadingPulse(SystemClock.uptimeMillis() - start)
                     wrappers.forEach { wrapper ->
                         val box = wrapper.innerDrawable as? ImageLoadingDrawable ?: return@forEach
                         box.pulse = strength
-                        (marks[wrapper] ?: markLine(wrapper)?.also { marks[wrapper] = it })?.redraw()
+                        redraw(wrapper)
                     }
                     delay(PULSE_FRAME_MS)
                 }
             } finally {
-                marks.values.forEach(PulseLine::clear)
+                lines.values.forEach(PulseLine::clear)
+                lines.clear()
             }
         }
+    }
+
+    /** Redraws the line [wrapper] sits in, for a pulse or a slice landing. Found once: finding a picture's
+     *  line searches every span of its view, too much for each frame of a pulse. */
+    private fun redraw(wrapper: DrawableWrapper) {
+        (lines[wrapper] ?: markLine(wrapper)?.also { lines[wrapper] = it })?.redraw()
     }
 
     private fun markLine(wrapper: DrawableWrapper): PulseLine? {
@@ -228,33 +238,52 @@ class NovelImageGetter(
     /** A downloaded chapter stores its images inline, so this is the offline path. Anything short of a
      *  picture drawn is the failure box, never the placeholder left standing. */
     private fun decodeInlineImage(source: String, wrapper: DrawableWrapper) {
-        val bitmap = try {
+        val picture = try {
             decodeInline(source)
         } catch (e: Exception) {
             logcat(LogPriority.DEBUG, e) { "Failed to decode an inline chapter image" }
             null
         }
-        if (bitmap == null || !fitToWidth(bitmap.toDrawable(context.resources), wrapper)) {
+        val box = picture?.let { pictureBox(it.sourceWidth, it.sourceHeight, contentWidth, density) }
+        val drawn = picture?.let { fitted(it.bitmap.toDrawable(context.resources), box) }
+        if (picture == null || drawn == null) {
             showFailure(wrapper, retryable = false)
+            return
         }
+        // Read in slices like a fetched one, so a stored strip is as sharp offline as it is online.
+        val replacement = sliced(TileReader.of(picture.bytes), drawn, box, wrapper) ?: drawn
+        wrapper.innerDrawable = replacement
+        wrapper.bounds = replacement.bounds
     }
 
+    /** A decoded picture beside its own bytes and the size it is at the source, which the decode samples down. */
+    private class InlinePicture(
+        val bitmap: Bitmap,
+        val bytes: ByteArray,
+        val sourceWidth: Int,
+        val sourceHeight: Int,
+    )
+
     /** The picture a `data:` address carries, or null when it carries none. */
-    private fun decodeInline(source: String): Bitmap? {
+    private fun decodeInline(source: String): InlinePicture? {
         val commaIndex = source.indexOf(',')
         if (commaIndex <= 0) return null
         val bytes = Base64.decode(source.substring(commaIndex + 1), Base64.DEFAULT)
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        val options = BitmapFactory.Options().apply { inSampleSize = sampleSizeFor(bounds.outWidth) }
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = inlineSampleSize(bounds.outWidth, bounds.outHeight, contentWidth, MAX_DECODE_SIDE_PX)
+        }
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return null
+        return InlinePicture(bitmap, bytes, bounds.outWidth, bounds.outHeight)
     }
 
     private fun loadFromNetwork(imageUrl: String, wrapper: DrawableWrapper) {
         scope.launch {
             try {
                 val drawable = fetch(imageUrl)
-                withContext(Dispatchers.Main) { arrive(imageUrl, wrapper, drawable) }
+                val source = drawable?.let { sourceSizeOf(imageUrl) }
+                withContext(Dispatchers.Main) { arrive(imageUrl, wrapper, drawable, source) }
             } finally {
                 withContext(Dispatchers.Main) { onLoadFinished() }
             }
@@ -265,12 +294,36 @@ class NovelImageGetter(
      * Sizes the picture's span now, for the re-measure to read, and queues the picture itself for when the
      * re-measured text is set: drawn before, it spills over a line still the stand-in's height.
      */
-    private fun arrive(imageUrl: String, wrapper: DrawableWrapper, drawable: Drawable?) {
-        val picture = drawable?.let(::fitted)
-        val replacement = picture ?: failureBox(retryable = true)
+    private fun arrive(imageUrl: String, wrapper: DrawableWrapper, drawable: Drawable?, source: PictureBox?) {
+        val picture = drawable?.let { fitted(it, source) }
+        val replacement = picture?.let { sliced(readerFor(imageUrl), it, source, wrapper) ?: it }
+            ?: failureBox(retryable = true)
         queueSwap(wrapper, replacement)
         if (picture == null) offerRetry(imageUrl, wrapper)
     }
+
+    /**
+     * The picture drawn from slices, for one the loader had to shrink below the box it is drawn in, or null
+     * when it decoded whole or its format cannot be read in parts. A slice landing redraws its line.
+     */
+    private fun sliced(
+        reader: TileReader?,
+        picture: Drawable,
+        box: PictureBox?,
+        wrapper: DrawableWrapper,
+    ): TiledPicture? {
+        if (box == null || reader == null) return null
+        if (!worthSlicing(reader.sourceWidth, picture.intrinsicWidth, box.width)) {
+            reader.close()
+            return null
+        }
+        return TiledPicture(reader, box, picture, scope, onTileReady = { redraw(wrapper) })
+    }
+
+    /** Slices read from the file the fetch cached, which outlives the fetch itself. */
+    private fun readerFor(imageUrl: String): TileReader? = runCatching {
+        context.imageLoader.diskCache?.openSnapshot(imageUrl)?.use { it.data.toFile() }
+    }.getOrNull()?.takeIf { it.exists() }?.let(TileReader::of)
 
     private fun queueSwap(wrapper: DrawableWrapper, replacement: Drawable) {
         wrapper.bounds = replacement.bounds
@@ -289,8 +342,8 @@ class NovelImageGetter(
             .memoryCachePolicy(cache)
             .diskCachePolicy(cache)
             .size(CoilSize(CoilDimension.Pixels(contentWidth), CoilDimension.Undefined))
-            // Only ever scaled down: an exact size enlarges a small picture to the column, and its
-            // own width is what fitToWidth needs to draw it at the size a page does.
+            // Only ever scaled down: an exact size enlarges a small picture to the column, while the
+            // box it is drawn in comes from the picture's own size (pictureBox).
             .precision(Precision.INEXACT)
             .build()
         context.imageLoader.execute(request).image?.asDrawable(context.resources)
@@ -343,7 +396,8 @@ class NovelImageGetter(
             box.retrying = true
             widget.invalidate()
             scope.launch {
-                val picture = fetch(imageUrl, retry = true)?.let(::fitted)
+                val fetched = fetch(imageUrl, retry = true)
+                val picture = fetched?.let { fitted(it, sourceSizeOf(imageUrl)) }
                 box.retrying = false
                 if (picture == null) {
                     widget.invalidate()
@@ -365,38 +419,43 @@ class NovelImageGetter(
         arrivals.trySend(Unit)
     }
 
-    /** Put in place at once, for a picture no re-measure has to wait on: one decoded while the text is built. */
-    private fun fitToWidth(drawable: Drawable, wrapper: DrawableWrapper): Boolean {
-        val picture = fitted(drawable) ?: return false
-        wrapper.innerDrawable = picture
-        wrapper.bounds = picture.bounds
-        return true
-    }
-
-    /** Its own width in density-independent pixels, as the page's `max-width: 100%` draws it, up to the column.
-     *  Null for a drawable with no size of its own, which has nothing to draw at. */
-    private fun fitted(drawable: Drawable): Drawable? {
-        val imgWidth = drawable.intrinsicWidth
-        val imgHeight = drawable.intrinsicHeight
-        if (imgWidth <= 0 || imgHeight <= 0) return null
-        val width = min(contentWidth, (imgWidth * context.resources.displayMetrics.density).roundToInt())
-            .coerceAtLeast(1)
-        val height = (imgHeight * (width.toFloat() / imgWidth)).toInt().coerceAtLeast(1)
-        drawable.setBounds(0, 0, width, height)
+    /**
+     * Drawn in the box the page gives it ([pictureBox]), measured from [source] when the picture's own size
+     * is known and from the decoded copy when it is not. Null for a drawable with nothing to draw.
+     */
+    private fun fitted(drawable: Drawable, source: PictureBox?): Drawable? {
+        val box = source
+            ?: pictureBox(drawable.intrinsicWidth, drawable.intrinsicHeight, contentWidth, density)
+            ?: return null
+        drawable.setBounds(0, 0, box.width, box.height)
         return drawable
     }
 
-    /** Decodes no larger than the column it will be drawn in, which is what keeps a big scan cheap. */
-    private fun sampleSizeFor(sourceWidth: Int): Int {
-        if (sourceWidth <= 0 || contentWidth <= 0) return 1
-        var sample = 1
-        while (sourceWidth / (sample * 2) >= contentWidth) sample *= 2
-        return sample
+    private fun fitted(drawable: Drawable, sourceWidth: Int, sourceHeight: Int): Drawable? =
+        fitted(drawable, pictureBox(sourceWidth, sourceHeight, contentWidth, density))
+
+    /**
+     * The box for the picture as the source has it, read from the bytes the fetch cached: Coil caps a decode
+     * at 4096px a side, so a strip taller than that decodes narrower than the page draws it. Null when the
+     * cache cannot answer, leaving the decoded copy's own size to stand in.
+     */
+    private fun sourceSizeOf(imageUrl: String): PictureBox? {
+        val snapshot = runCatching { context.imageLoader.diskCache?.openSnapshot(imageUrl) }.getOrNull() ?: return null
+        val bounds = snapshot.use {
+            BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+                BitmapFactory.decodeFile(it.data.toFile().path, this)
+            }
+        }
+        return pictureBox(bounds.outWidth, bounds.outHeight, contentWidth, density)
     }
 
     private companion object {
         const val PLACEHOLDER_HEIGHT_DP = 200
         const val PLACEHOLDER_CORNER_DP = 4
         const val PULSE_FRAME_MS = 32L
+
+        /** What the loader caps a fetched picture at (coil3 `maxBitmapSize`), so a stored one matches. */
+        const val MAX_DECODE_SIDE_PX = 4_096
     }
 }

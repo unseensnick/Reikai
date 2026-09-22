@@ -61,6 +61,30 @@ class ChapterTextBlock(
         }
     }
 
+    /**
+     * The tall pictures in this chapter's text, which the viewport tells what of them is on screen so they
+     * hold only the slices they are drawing. Collected from the text rather than kept as they are made,
+     * since a re-measure sets a copy of it, and a picture landing or a restyle makes one.
+     */
+    internal val tiledPictures = mutableListOf<TiledAnchor>()
+
+    internal fun collectTiledPictures() {
+        tiledPictures.clear()
+        chunkViews.forEach { view ->
+            val text = view.text as? Spanned ?: return@forEach
+            text.getSpans(0, text.length, ChapterImageSpan::class.java).forEach { span ->
+                val picture = (span.drawable as? DrawableWrapper)?.innerDrawable as? TiledPicture ?: return@forEach
+                tiledPictures += TiledAnchor(view, text.getSpanStart(span), span.topPx, picture)
+            }
+        }
+    }
+
+    /** Lets every picture's slices and its open source go, for a chapter leaving the window. */
+    internal fun closeTiledPictures() {
+        tiledPictures.forEach { it.picture.close() }
+        tiledPictures.clear()
+    }
+
     /** The chunk whose text holds the span backed by [drawable], so a finished image knows which
      *  view to re-measure. */
     fun chunkViewFor(drawable: Drawable): TextView? = chunkViews.firstOrNull { view ->
