@@ -23,6 +23,7 @@ Opportunistic polish:
 - Browse: map a tapped genre onto a novel plugin's filters; the shared catalogue passes the genre-search hook on the manga branch only, so a novel source falls back to a plain text query.
 - Global search: opening on Pinned-only with nothing pinned shows a bare empty screen, on both content types since the shared screen took over. Default to All, or say the list is empty because nothing is pinned.
 - Details: the scanlator filter on a merged manga lists and excludes only the anchor entry's scanlators, while the unified list shows siblings' chapters, so the dialog and the query disagree about what can be hidden.
+- Novel reader: a tall picture keeps the shrunken stand-in copy it was drawn from once its slices cover it, about 4MB a picture; dropping it is the obvious memory saving. [Record](docs/dev/plans/content-layer-reader-surface.md).
 
 ### Novel sources & LN plugins
 
