@@ -230,6 +230,7 @@ every release now also ships a foss build with neither in it.
 - **With Theme based on cover on, the novel reader's bars now take the novel's cover colours, as manga's do.**
 - **Novels now keep their own brightness, colour filter, grayscale and inverted colours, set from the novel reader's Filters tab.** A brightness or colour filter set in the old novel reader comes back.
 - **The novel reader's settings sheet now groups its options under headings, and adds rendering mode, long-press text selection and the chapter text options.** Changing the rendering mode or text selection there reloads the chapter where you are.
+- **A picture loading in the novel reader now shows a pulsing placeholder in the page's colours, in both text modes.** Native text mode showed a flat grey block, and the web page mode nothing until the picture arrived.
 - **The novel reader's button bar now starts with text size and theme buttons, unless you have already chosen its buttons.** They are the quickest way to change either while reading.
 - **Reader settings are now two entries, Manga reader and Novel reader, each holding only that reader's options.** The single Reader screen had grown to 68 rows with the novel options scattered through it under "· Novels" labels.
 - **The reader's quick reading-mode menu now highlights the mode you are actually reading in.** A series following your default used to show an empty grid, and opening the menu for a look no longer pins that mode to the series.

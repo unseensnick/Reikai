@@ -182,6 +182,30 @@ img {
   margin: 1em auto;
 }
 
+/* A picture's place while it loads, as the text renderer draws it (ImageLoadingDrawable): its strength
+   and period are that drawable's, and reader.js drops the box when the picture lands. */
+img[src]:not(.rk-loaded) {
+  width: 100%;
+  height: 200px;
+  border-radius: 4px;
+  /* Important to outrank the chapter's reset, which clears every background a site sets. */
+  background-color: var(--rk-text) !important;
+  opacity: 0.18;
+  animation: rk-pulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes rk-pulse {
+  from {
+    opacity: 0.09;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  img[src]:not(.rk-loaded) {
+    animation: none;
+  }
+}
+
 hr {
   border: none;
   border-top: 1px solid var(--rk-text);

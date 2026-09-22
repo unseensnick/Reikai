@@ -1,19 +1,22 @@
 package reikai.presentation.reader.text
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
+import android.os.SystemClock
 import android.text.Html
 import android.text.Spannable
 import android.text.Spanned
 import android.text.TextPaint
+import android.text.style.CharacterStyle
 import android.text.style.ClickableSpan
 import android.text.style.ImageSpan
+import android.text.style.UpdateAppearance
 import android.util.Base64
 import android.view.View
 import android.widget.TextView
@@ -26,6 +29,7 @@ import coil3.size.Precision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
@@ -98,11 +102,15 @@ class NovelImageGetter(
      */
     override fun getDrawable(source: String?): Drawable {
         val wrapper = DrawableWrapper()
-        val placeholderHeight = (PLACEHOLDER_HEIGHT_DP * context.resources.displayMetrics.density).toInt()
-        val placeholder = Color.LTGRAY.toDrawable()
-        placeholder.setBounds(0, 0, contentWidth, placeholderHeight)
+        val density = context.resources.displayMetrics.density
+        val placeholder = ImageLoadingDrawable(
+            width = contentWidth,
+            height = (PLACEHOLDER_HEIGHT_DP * density).toInt(),
+            cornerPx = PLACEHOLDER_CORNER_DP * density,
+            textColor = textColor,
+        )
         wrapper.innerDrawable = placeholder
-        wrapper.setBounds(0, 0, contentWidth, placeholderHeight)
+        wrapper.bounds = placeholder.bounds
 
         when {
             source.isNullOrBlank() -> showFailure(wrapper, retryable = false)
@@ -124,8 +132,64 @@ class NovelImageGetter(
         val started = pendingLoads.isNotEmpty()
         outstandingLoads.set(pendingLoads.size)
         pendingLoads.forEach { (source, wrapper) -> loadFromNetwork(source, wrapper) }
+        if (started) pulse(pendingLoads.map { it.wrapper })
         pendingLoads.clear()
         return started
+    }
+
+    /** Main thread, until the last picture lands; the renderer's scope ends it with the viewport. Still when
+     *  the device's animations are off, as the rest of the app is. */
+    private fun pulse(wrappers: List<DrawableWrapper>) {
+        if (!ValueAnimator.areAnimatorsEnabled()) return
+        scope.launch(Dispatchers.Main) {
+            val start = SystemClock.uptimeMillis()
+            // Found once: finding a picture's line searches every span of its view, too much for each frame.
+            val marks = HashMap<DrawableWrapper, PulseLine>()
+            try {
+                while (outstandingLoads.get() > 0) {
+                    val strength = imageLoadingPulse(SystemClock.uptimeMillis() - start)
+                    wrappers.forEach { wrapper ->
+                        val box = wrapper.innerDrawable as? ImageLoadingDrawable ?: return@forEach
+                        box.pulse = strength
+                        (marks[wrapper] ?: markLine(wrapper)?.also { marks[wrapper] = it })?.redraw()
+                    }
+                    delay(PULSE_FRAME_MS)
+                }
+            } finally {
+                marks.values.forEach { it.text.removeSpan(it.mark) }
+            }
+        }
+    }
+
+    private fun markLine(wrapper: DrawableWrapper): PulseLine? {
+        val view = resolveView(wrapper) ?: return null
+        val text = view.text as? Spannable ?: return null
+        val image = text.getSpans(0, text.length, ImageSpan::class.java).firstOrNull { it.drawable === wrapper }
+            ?: return null
+        val mark = RedrawMark()
+        text.setSpan(mark, text.getSpanStart(image), text.getSpanEnd(image), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        return PulseLine(view, text, mark)
+    }
+
+    /**
+     * A loading picture's line. A selectable view's editor keeps each block of text drawn and replays it on
+     * an invalidate, so the line is redrawn by re-setting a span over it, which marks its block dirty.
+     */
+    private class PulseLine(val view: TextView, val text: Spannable, val mark: RedrawMark) {
+        fun redraw() {
+            val start = text.getSpanStart(mark)
+            // Gone once a re-render replaced the text.
+            if (start < 0) return
+            text.setSpan(mark, start, text.getSpanEnd(mark), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            view.invalidate()
+        }
+    }
+
+    /** Draws nothing: it exists to be re-set, a change a selectable view redraws the text under. */
+    private class RedrawMark :
+        CharacterStyle(),
+        UpdateAppearance {
+        override fun updateDrawState(tp: TextPaint) = Unit
     }
 
     /** A downloaded chapter stores its images inline, so this is the offline path. Anything short of a
@@ -285,5 +349,7 @@ class NovelImageGetter(
 
     private companion object {
         const val PLACEHOLDER_HEIGHT_DP = 200
+        const val PLACEHOLDER_CORNER_DP = 4
+        const val PULSE_FRAME_MS = 32L
     }
 }

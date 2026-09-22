@@ -1382,6 +1382,11 @@
     }, true);
   });
 
+  // Drops the loading box reader.css draws in a picture's place. A failed one gets its failure box instead.
+  document.addEventListener('load', function (e) {
+    if (e.target.tagName === 'IMG') e.target.classList.add('rk-loaded');
+  }, true);
+
   /*
    * A chapter picture that fails is shown as the manga reader shows a failed page: a box saying so, with
    * Retry when its address can be asked again, which an inline one cannot. The text renderer draws the
