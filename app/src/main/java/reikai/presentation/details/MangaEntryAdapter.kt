@@ -238,10 +238,6 @@ class MangaEntryAdapter(
     override fun showChangeCategoryDialog() {
         model.showChangeCategoryDialog()
     }
-    override fun applyCategories(categoryIds: List<Long>) {
-        val manga = successState()?.manga ?: return
-        model.moveMangaToCategoriesAndAddToLibrary(manga, categoryIds)
-    }
 
     override fun showCoverDialog() {
         model.showCoverDialog()

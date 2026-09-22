@@ -62,7 +62,6 @@ interface EntryDetailsBehavior {
 
     // Categories.
     fun showChangeCategoryDialog()
-    fun applyCategories(categoryIds: List<Long>)
 
     // Cover and custom-info edit.
     fun showCoverDialog()

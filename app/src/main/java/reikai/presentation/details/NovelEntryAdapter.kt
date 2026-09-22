@@ -194,9 +194,6 @@ class NovelEntryAdapter(
     override fun showChangeCategoryDialog() {
         model.showChangeCategoryDialog()
     }
-    override fun applyCategories(categoryIds: List<Long>) {
-        model.applyCategories(categoryIds)
-    }
     override fun showCoverDialog() {
         model.showCoverDialog()
     }
