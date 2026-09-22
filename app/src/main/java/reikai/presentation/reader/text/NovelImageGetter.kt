@@ -29,6 +29,7 @@ import coil3.size.Precision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,7 +38,6 @@ import reikai.data.coil.NovelImage
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -81,10 +81,12 @@ class NovelImageGetter(
     private val textSizePx: Float,
     private val textColor: () -> Int,
     private val resolveView: (Drawable) -> TextView?,
-    /** Every load has finished, with the views whose images arrived, empty when none did. Re-measuring
-     *  is the renderer's job, because only it knows whether the text is precomputed, and a precomputed
-     *  layout ignores a bounds change. */
-    private val onImagesReady: (List<TextView>) -> Unit,
+    /**
+     * Pictures arrived, in the [views] they sit in: re-measure those, running [swapIn] as their text is set.
+     * [allLanded] once no load is outstanding. Re-measuring is the renderer's job, because only it knows
+     * whether the text is precomputed, and a precomputed layout ignores a bounds change.
+     */
+    private val onImagesLanded: suspend (views: List<TextView>, swapIn: () -> Unit, allLanded: Boolean) -> Unit,
 ) : Html.ImageGetter {
 
     private val contentWidth: Int =
@@ -93,11 +95,12 @@ class NovelImageGetter(
     private data class PendingLoad(val source: String, val wrapper: DrawableWrapper)
 
     private val pendingLoads = mutableListOf<PendingLoad>()
-    private val dirtyViews = ConcurrentHashMap.newKeySet<TextView>()
     private val outstandingLoads = AtomicInteger(0)
 
-    /** Main thread: the pictures that arrived, each put in place once all have. */
-    private val landed = mutableListOf<() -> Unit>()
+    // Main thread: the pictures arrived since the last re-measure, and the views they sit in.
+    private val swaps = mutableListOf<() -> Unit>()
+    private val dirtyViews = mutableSetOf<TextView>()
+    private val arrivals = Channel<Unit>(Channel.CONFLATED)
 
     /**
      * Called by the parser, off the main thread. A network image only gets queued here: starting it
@@ -130,14 +133,35 @@ class NovelImageGetter(
     }
 
     /** Main thread: the queued images load once the views they measure against exist. False when
-     *  there were none, so [onImagesReady] will not be called. */
+     *  there were none, so [onImagesLanded] will not be called. */
     fun startLoading(): Boolean {
         val started = pendingLoads.isNotEmpty()
         outstandingLoads.set(pendingLoads.size)
         pendingLoads.forEach { (source, wrapper) -> loadFromNetwork(source, wrapper) }
-        if (started) pulse(pendingLoads.map { it.wrapper })
+        if (started) {
+            pulse(pendingLoads.map { it.wrapper })
+            landArrivals()
+        }
         pendingLoads.clear()
         return started
+    }
+
+    /**
+     * Main thread: puts the pictures in as they arrive, each batch in one re-measure, and the next batch only
+     * once that re-measure has finished, so the pictures that arrive during one land in the following one.
+     * Lives with the renderer's scope, so a retry after the last load still lands.
+     */
+    private fun landArrivals() {
+        scope.launch(Dispatchers.Main) {
+            while (true) {
+                arrivals.receive()
+                val batch = swaps.toList()
+                swaps.clear()
+                val views = dirtyViews.toList()
+                dirtyViews.clear()
+                onImagesLanded(views, { batch.forEach { it() } }, outstandingLoads.get() == 0)
+            }
+        }
     }
 
     /** Main thread, until the last picture lands; the renderer's scope ends it with the viewport. Still when
@@ -159,7 +183,7 @@ class NovelImageGetter(
                     delay(PULSE_FRAME_MS)
                 }
             } finally {
-                marks.values.forEach { it.text.removeSpan(it.mark) }
+                marks.values.forEach(PulseLine::clear)
             }
         }
     }
@@ -171,20 +195,26 @@ class NovelImageGetter(
             ?: return null
         val mark = RedrawMark()
         text.setSpan(mark, text.getSpanStart(image), text.getSpanEnd(image), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        return PulseLine(view, text, mark)
+        return PulseLine(view, mark)
     }
 
     /**
      * A loading picture's line. A selectable view's editor keeps each block of text drawn and replays it on
-     * an invalidate, so the line is redrawn by re-setting a span over it, which marks its block dirty.
+     * an invalidate, so the line is redrawn by re-setting a span over it, which marks its block dirty. Read
+     * off the view each time: a re-measure sets a copy of the text, which carries the mark across.
      */
-    private class PulseLine(val view: TextView, val text: Spannable, val mark: RedrawMark) {
+    private class PulseLine(val view: TextView, val mark: RedrawMark) {
         fun redraw() {
+            val text = view.text as? Spannable ?: return
             val start = text.getSpanStart(mark)
             // Gone once a re-render replaced the text.
             if (start < 0) return
             text.setSpan(mark, start, text.getSpanEnd(mark), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             view.invalidate()
+        }
+
+        fun clear() {
+            (view.text as? Spannable)?.removeSpan(mark)
         }
     }
 
@@ -224,23 +254,28 @@ class NovelImageGetter(
         scope.launch {
             try {
                 val drawable = fetch(imageUrl)
-                // Held until the last one lands: drawn now, a picture spills over its line, which keeps the
-                // stand-in's height until the one re-measure that follows (onLoadFinished).
-                withContext(Dispatchers.Main) { landed += { land(imageUrl, wrapper, drawable) } }
+                withContext(Dispatchers.Main) { arrive(imageUrl, wrapper, drawable) }
             } finally {
                 withContext(Dispatchers.Main) { onLoadFinished() }
             }
         }
     }
 
-    private fun land(imageUrl: String, wrapper: DrawableWrapper, drawable: Drawable?) {
-        val loaded = drawable != null && fitToWidth(drawable, wrapper)
-        if (!loaded) showFailure(wrapper, retryable = true)
-        resolveView(wrapper)?.let { view ->
-            view.invalidate()
-            dirtyViews.add(view)
-        }
-        if (!loaded) offerRetry(imageUrl, wrapper)
+    /**
+     * Sizes the picture's span now, for the re-measure to read, and queues the picture itself for when the
+     * re-measured text is set: drawn before, it spills over a line still the stand-in's height.
+     */
+    private fun arrive(imageUrl: String, wrapper: DrawableWrapper, drawable: Drawable?) {
+        val picture = drawable?.let(::fitted)
+        val replacement = picture ?: failureBox(retryable = true)
+        queueSwap(wrapper, replacement)
+        if (picture == null) offerRetry(imageUrl, wrapper)
+    }
+
+    private fun queueSwap(wrapper: DrawableWrapper, replacement: Drawable) {
+        wrapper.bounds = replacement.bounds
+        swaps += { wrapper.innerDrawable = replacement }
+        resolveView(wrapper)?.let(dirtyViews::add)
     }
 
     /**
@@ -273,16 +308,18 @@ class NovelImageGetter(
      * a picture already laid out owes its view a re-measure, which the caller arranges.
      */
     private fun showFailure(wrapper: DrawableWrapper, retryable: Boolean) {
-        val box = ImageFailureDrawable(
-            width = contentWidth,
-            em = textSizePx,
-            heading = context.stringResource(MR.strings.decode_image_error),
-            retryLabel = if (retryable) context.stringResource(MR.strings.action_retry) else null,
-            textColor = textColor,
-        )
+        val box = failureBox(retryable)
         wrapper.innerDrawable = box
         wrapper.bounds = box.bounds
     }
+
+    private fun failureBox(retryable: Boolean) = ImageFailureDrawable(
+        width = contentWidth,
+        em = textSizePx,
+        heading = context.stringResource(MR.strings.decode_image_error),
+        retryLabel = if (retryable) context.stringResource(MR.strings.action_retry) else null,
+        textColor = textColor,
+    )
 
     /** Main thread, once the text holds the picture: a tap on its box asks for it again. */
     private fun offerRetry(imageUrl: String, wrapper: DrawableWrapper) {
@@ -306,16 +343,15 @@ class NovelImageGetter(
             box.retrying = true
             widget.invalidate()
             scope.launch {
-                val drawable = fetch(imageUrl, retry = true)
+                val picture = fetch(imageUrl, retry = true)?.let(::fitted)
                 box.retrying = false
-                if (drawable == null || !fitToWidth(drawable, wrapper)) {
+                if (picture == null) {
                     widget.invalidate()
                     return@launch
                 }
-                val view = widget as TextView
-                (view.text as? Spannable)?.removeSpan(this@RetryImageSpan)
-                view.invalidate()
-                onImagesReady(listOf(view))
+                ((widget as TextView).text as? Spannable)?.removeSpan(this@RetryImageSpan)
+                queueSwap(wrapper, picture)
+                arrivals.trySend(Unit)
             }
         }
 
@@ -323,29 +359,31 @@ class NovelImageGetter(
         override fun updateDrawState(ds: TextPaint) = Unit
     }
 
-    /** Re-measuring once at the end, rather than per image, so a chapter of pictures reflows once. */
+    // Signalled after the count drops, so the batch that sees it reach zero is the one told all have landed.
     private fun onLoadFinished() {
-        if (outstandingLoads.decrementAndGet() > 0) return
-        landed.forEach { it() }
-        landed.clear()
-        val views = dirtyViews.toList()
-        dirtyViews.clear()
-        onImagesReady(views)
+        outstandingLoads.decrementAndGet()
+        arrivals.trySend(Unit)
+    }
+
+    /** Put in place at once, for a picture no re-measure has to wait on: one decoded while the text is built. */
+    private fun fitToWidth(drawable: Drawable, wrapper: DrawableWrapper): Boolean {
+        val picture = fitted(drawable) ?: return false
+        wrapper.innerDrawable = picture
+        wrapper.bounds = picture.bounds
+        return true
     }
 
     /** Its own width in density-independent pixels, as the page's `max-width: 100%` draws it, up to the column.
-     *  False for a drawable with no size of its own, which has nothing to draw at. */
-    private fun fitToWidth(drawable: Drawable, wrapper: DrawableWrapper): Boolean {
+     *  Null for a drawable with no size of its own, which has nothing to draw at. */
+    private fun fitted(drawable: Drawable): Drawable? {
         val imgWidth = drawable.intrinsicWidth
         val imgHeight = drawable.intrinsicHeight
-        if (imgWidth <= 0 || imgHeight <= 0) return false
+        if (imgWidth <= 0 || imgHeight <= 0) return null
         val width = min(contentWidth, (imgWidth * context.resources.displayMetrics.density).roundToInt())
             .coerceAtLeast(1)
         val height = (imgHeight * (width.toFloat() / imgWidth)).toInt().coerceAtLeast(1)
         drawable.setBounds(0, 0, width, height)
-        wrapper.innerDrawable = drawable
-        wrapper.setBounds(0, 0, width, height)
-        return true
+        return drawable
     }
 
     /** Decodes no larger than the column it will be drawn in, which is what keeps a big scan cheap. */

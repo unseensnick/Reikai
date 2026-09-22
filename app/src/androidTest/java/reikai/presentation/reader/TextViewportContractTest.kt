@@ -1847,6 +1847,27 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals("the line at ${before.paragraph} +${before.offset}", before.y, after, HOLD_SLACK_PX)
     }
 
+    /** A picture shows once it arrives, as the page shows it, rather than once the slowest one has. */
+    @Test
+    fun aPictureThatHasArrivedIsDrawnWhileASlowerOneIsStillLoading() {
+        runBlocking(Dispatchers.Main) {
+            viewport.load(illustratedChapter(0, delaysMs = ONE_SLOW_PICTURE_DELAYS_MS), readerTestSettings)
+        }
+        awaitWhile { firstImageWidth() == 0f }
+        assertTrue("the first picture waited for the slowest", !imagesArrived())
+    }
+
+    /** Drawn before its line was measured for it, an arrived picture spilled over the boxes still loading. */
+    @Test
+    fun aPictureThatHasArrivedTakesItsOwnHeightWhileASlowerOneIsStillLoading() {
+        runBlocking(Dispatchers.Main) {
+            viewport.load(illustratedChapter(0, delaysMs = ONE_SLOW_PICTURE_DELAYS_MS), readerTestSettings)
+        }
+        awaitWhile { firstImageWidth() == 0f }
+        settle()
+        assertTrue("the first picture's line is not its own height", firstPictureHasItsOwnHeight())
+    }
+
     @Test
     fun aChapterArrivingAboveLeavesTheOpenedChaptersFirstLineInPlaceWithTextSelectable() {
         useSelectableText()
@@ -2197,6 +2218,32 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 at[1] + (rect.getDouble(1) + rect.getDouble(3)).toFloat() / 2 * density,
             )
         }
+    }
+
+    /** Whether the first picture has arrived and the chapter is laid out with room for all of it. */
+    private fun firstPictureHasItsOwnHeight(): Boolean = when (renderer) {
+        Renderer.NATIVE -> {
+            var fits = false
+            instrumentation.runOnMainSync {
+                textViews().forEach { chunk ->
+                    val text = chunk.text as? Spanned ?: return@forEach
+                    val span =
+                        text.getSpans(0, text.length, ChapterImageSpan::class.java).minByOrNull(text::getSpanStart)
+                            ?: return@forEach
+                    val picture = span.drawable as DrawableWrapper
+                    val line = chunk.layout.getLineForOffset(text.getSpanStart(span))
+                    val lineHeight = chunk.layout.getLineBottom(line) - chunk.layout.getLineTop(line)
+                    fits = picture.innerDrawable !is ImageLoadingDrawable && lineHeight >= picture.bounds.height()
+                    return@runOnMainSync
+                }
+            }
+            fits
+        }
+        Renderer.WEB -> eval(
+            "(function () { var m = document.images[0], r = m && m.getBoundingClientRect();" +
+                " return !!m && m.complete && m.naturalWidth > 0 &&" +
+                " Math.abs(r.height - r.width * m.naturalHeight / m.naturalWidth) < 2; })()",
+        ) == "true"
     }
 
     /** The first picture's drawn width in screen pixels, once it has arrived, else 0. */
@@ -2943,6 +2990,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
         /** Arriving apart, so a landing applied at the first arrival measures the chapter short. */
         val IMAGE_DELAYS_MS = listOf(300L, 900L, 1_500L, 2_100L)
+
+        /** The last picture still loading long after the others, and inside the ten seconds a wait allows. */
+        val ONE_SLOW_PICTURE_DELAYS_MS = listOf(0L, 0L, 0L, 8_000L)
 
         /** Past the page's three-second image cap, and inside the ten seconds a wait here allows. */
         val STALLED_IMAGE_DELAYS_MS = List(IMAGE_DELAYS_MS.size) { 6_000L }

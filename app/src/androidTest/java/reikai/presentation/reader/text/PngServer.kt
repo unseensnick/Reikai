@@ -36,7 +36,7 @@ internal class PngServer(
     /** Pictures written out in full, which is all a renderer that never lays a chapter out can be waited on by. */
     val served = AtomicInteger()
 
-    /** A distinct address per [name], so no cache answers one for another, served after [delayMs]. */
+    /** A distinct address per [name], so no cache answers one for another, served [delayMs] after [release]. */
     fun url(name: String, delayMs: Long = 0) = "http://127.0.0.1:${socket.localPort}/$name.png?delay=$delayMs"
 
     init {
@@ -55,8 +55,9 @@ internal class PngServer(
             val line = reader.readLine() ?: break
             if (line.isEmpty()) break
         }
-        Regex("delay=(\\d+)").find(request)?.groupValues?.get(1)?.toLong()?.let(Thread::sleep)
+        // After the gate, so a held chapter's pictures still arrive one by one once released.
         gate.await()
+        Regex("delay=(\\d+)").find(request)?.groupValues?.get(1)?.toLong()?.let(Thread::sleep)
         if (failuresLeft.getAndDecrement() > 0) {
             client.getOutputStream().apply {
                 write(

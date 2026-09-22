@@ -46,7 +46,7 @@ class NovelImageFailureTest {
         textSizePx = 18f,
         textColor = { 0xFF000000.toInt() },
         resolveView = { null },
-        onImagesReady = {},
+        onImagesLanded = { _, _, _ -> },
     )
 
     /** Every other way a picture fails draws the box, so a data address with no payload does too. */

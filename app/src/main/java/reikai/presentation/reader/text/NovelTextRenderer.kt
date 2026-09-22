@@ -94,17 +94,15 @@ class NovelTextRenderer(
                 textSizePx = textSizePx,
                 textColor = { block.chunkViews.firstOrNull()?.currentTextColor ?: Color.GRAY },
                 resolveView = block::chunkViewFor,
-                onImagesReady = { views ->
-                    scope.launch {
-                        remeasureForImages(views, selectable, block, holdAcross)
-                        // Only now, since a saved position is landed as soon as this clears, and the chapter
-                        // is still growing while any picture's chunk waits on its re-measure. A superseded
-                        // render's images finishing says nothing about this render's.
-                        if (token == block.renderToken) block.imagesLoading = false
-                        // A layout is what re-checks the chapter, and none may follow: nothing arrived, or a
-                        // re-set text kept its height, which a TextView only redraws.
-                        block.container.requestLayout()
-                    }
+                onImagesLanded = { views, swapIn, allLanded ->
+                    remeasureForImages(views, selectable, block, holdAcross, swapIn)
+                    // Only once all have, since a saved position is landed as soon as this clears, and the
+                    // chapter is still growing while any picture waits. A superseded render's images
+                    // finishing says nothing about this render's.
+                    if (allLanded && token == block.renderToken) block.imagesLoading = false
+                    // A layout is what re-checks the chapter, and none may follow: nothing arrived, or a
+                    // re-set text kept its height, which a TextView only redraws.
+                    block.container.requestLayout()
                 },
             )
 
@@ -179,8 +177,9 @@ class NovelTextRenderer(
     /**
      * An image changes its span's height after layout, and neither layout re-reads a drawable's bounds
      * (`PrecomputedText` caches its measure, a selectable `DynamicLayout` reflows only on an edit), so
-     * the text is set again. Every view is measured first and all set in one [holdAcross]: the pictures
-     * grow the chapter above the line, and a second hold is refused while the first's correction waits.
+     * the text is set again. A batch's views are measured first and all set in one [holdAcross], with
+     * [swapIn] putting its pictures in as the text is set: the pictures grow the chapter above the line,
+     * and a batch landing before the previous hold's correction is drawn is carried by that correction.
      * Gated on the block, not the view being attached, as the render is. Details in the reader record.
      */
     private suspend fun remeasureForImages(
@@ -188,6 +187,7 @@ class NovelTextRenderer(
         selectable: Boolean,
         block: ChapterTextBlock,
         holdAcross: (() -> Unit) -> Unit,
+        swapIn: () -> Unit,
     ) {
         if (block.discarded) return
         val snapshots = views.mapNotNull { view -> view.text?.let { view to it } }
@@ -206,6 +206,8 @@ class NovelTextRenderer(
         }
         if (block.discarded) return
         holdAcross {
+            // With the text, so no frame draws a picture in a line still measured for the stand-in.
+            swapIn()
             remeasured.forEach { (view, text) ->
                 if (text is PrecomputedTextCompat) {
                     try {
