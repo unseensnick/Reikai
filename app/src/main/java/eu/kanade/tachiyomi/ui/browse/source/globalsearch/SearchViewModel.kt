@@ -27,7 +27,6 @@ import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
-import reikai.presentation.browse.finishAdd
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
@@ -186,7 +185,7 @@ abstract class SearchViewModel(
                             dialog = Dialog.ChangeMangaCategory(
                                 manga,
                                 result.initialSelection,
-                                alreadyFavorited = true,
+                                joinGroup = selectedIds,
                             ),
                         )
                     }
@@ -198,17 +197,9 @@ abstract class SearchViewModel(
         viewModelScope.launchIO { mangaLibraryAdder.moveToCategories(manga, categoryIds) }
     }
 
-    /** RK: apply the category picker's choice, favoriting first unless the caller already did. Twin of
-     *  [eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.confirmCategories]; the
-     *  reason the guard lives in the model is recorded there. */
-    fun confirmCategories(manga: Manga, categoryIds: List<Long>, alreadyFavorited: Boolean) {
-        viewModelScope.launchIO {
-            finishAdd(
-                categoryIds = categoryIds,
-                favorite = { manga.id.takeIf { alreadyFavorited || mangaLibraryAdder.changeFavorite(manga) } },
-                fileCategories = { _, ids -> mangaLibraryAdder.moveToCategories(manga, ids) },
-            )
-        }
+    /** RK: apply the category picker's choice; the adder owes the favorite, and the merge on a group add. */
+    fun confirmCategories(manga: Manga, categoryIds: List<Long>, joinGroup: List<Long>) {
+        viewModelScope.launchIO { mangaLibraryAdder.confirmPicker(manga, categoryIds, joinGroup) }
     }
     // RK <--
 
@@ -238,9 +229,9 @@ abstract class SearchViewModel(
         data class ChangeMangaCategory(
             val manga: Manga,
             val initialSelection: List<CheckboxState.State<Category>>,
-            // RK: true when the add-to-group path already favorited up front, so the confirm files
-            // categories without re-toggling the favorite.
-            val alreadyFavorited: Boolean = false,
+            // RK: the group of the duplicate dialog's picks, when the add joins one; its confirm then
+            // favorites and merges as one unit.
+            val joinGroup: List<Long> = emptyList(),
         ) : Dialog
         // RK <--
     }

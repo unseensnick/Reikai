@@ -175,7 +175,7 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                     onDismissRequest = onDismissRequest,
                     onEditCategories = { navigator.push(CategoryScreen()) },
                     onConfirm = { include, _ ->
-                        viewModel.confirmCategories(dialog.manga, include, dialog.alreadyFavorited)
+                        viewModel.confirmCategories(dialog.manga, include, dialog.joinGroup)
                     },
                 )
             }

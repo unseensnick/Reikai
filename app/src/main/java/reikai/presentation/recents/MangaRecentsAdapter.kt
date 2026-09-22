@@ -323,9 +323,13 @@ class MangaRecentsAdapter(
         return mangaLibraryAdder.resolveAddFavorite(manga)
     }
 
-    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
+    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>, joinGroup: List<EntryId>) {
         val manga = mangaOf(entry) ?: return
-        mangaLibraryAdder.confirmAddCategories(manga.id, categoryIds)
+        if (joinGroup.isEmpty()) {
+            mangaLibraryAdder.confirmAddCategories(manga.id, categoryIds)
+        } else {
+            mangaLibraryAdder.confirmGroupCategories(manga, joinGroup.map { it.rawId }, categoryIds)
+        }
     }
 
     override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {

@@ -28,10 +28,14 @@ sealed interface RecentsDialog {
     /** Ask before adding [entry], which looks like something the library already holds. */
     data class Duplicate(val entry: EntryId, val duplicates: RecentsDuplicates) : RecentsDialog
 
-    /** Where a new add should be filed, when there is no usable default to file it into. */
+    /**
+     * Where a new add should be filed, when there is no usable default to file it into. [joinGroup] is
+     * the group of the duplicate dialog's picks when the add joins one, so the confirm merges too.
+     */
     data class ChangeCategory(
         val entry: EntryId,
         val initialSelection: List<CheckboxState.State<Category>>,
+        val joinGroup: List<EntryId> = emptyList(),
     ) : RecentsDialog
 
     /** Migrate [current], a duplicate already in the library, onto the [target] being added. */

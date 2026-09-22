@@ -56,7 +56,7 @@ the work that preceded the takeover, not the forward plan; the takeover section 
   screens, and `resolveDefaultCategoryIds` (`reikai/domain/category/`) is the one
   default-category decision tree, used by both adders and the bulk-favorite engine. Declined while
   their premises hold: the sealed-dialog-type collapse (needs a generic carrier for payloads that
-  differ by construction) and extracting `seedCategoriesFromGroup` (~8 identical lines against a
+  differ by construction) and extracting `groupOrDefaultCategories` (~8 identical lines against a
   category-port interface). **The polymorphic adder decline has expired**: it rested on no shared
   caller existing, and the recents engine is one, so the add sequence is being collapsed in
   [content-layer-add-flow.md](content-layer-add-flow.md).
@@ -84,8 +84,8 @@ the work that preceded the takeover, not the forward plan; the takeover section 
   had nine statements: one tested kernel (`resolveDefaultCategoryIds`), three helpers reading it,
   and five inline copies. The novel details screen was the copy that got it wrong, favoriting and
   then prompting whenever any category existed, so a configured default novel category never
-  applied there; it now calls `NovelLibraryAdder.applyDefaultCategoryOrPrompt` like its own history
-  sibling. The four surviving copies (both details screens' add and add-to-group paths, both
+  applied there; it now runs the shared add sequence over `resolveDefaultCategories`, like its own
+  history sibling. The four surviving copies (both details screens' add and add-to-group paths, both
   history screens') now read the kernel. Each keeps its own write ordering, because manga's two
   favorite first and abandon the add when that write fails, where the adder favorites after
   resolving categories; only the rule moved, not the sequence. The add-to-group pair was inventoried

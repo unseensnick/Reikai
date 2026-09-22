@@ -222,7 +222,7 @@ class MangaBrowseAdapter(
 
     override fun confirmCategories(categoryIds: List<Long>) {
         val dialog = raisedDialog as? BrowseSourceViewModel.Dialog.ChangeMangaCategory ?: return
-        model.confirmCategories(dialog.manga, categoryIds, dialog.alreadyFavorited)
+        model.confirmCategories(dialog.manga, categoryIds, dialog.joinGroup)
     }
 
     override fun confirmAddDuplicate() {

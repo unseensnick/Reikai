@@ -219,7 +219,7 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
             initialSelection = dialog.initialSelection,
             onDismissRequest = viewModel::dismissDialog,
             onEditCategories = { navigator.push(CategoryScreen()) },
-            onConfirm = { include, _ -> viewModel.applyCategories(include) },
+            onConfirm = { include, _ -> viewModel.applyCategories(include, dialog.joinGroup) },
         )
         is NovelDetailsDialog.DuplicateNovel -> EntryDuplicateDialog(
             duplicates = dialog.duplicates,

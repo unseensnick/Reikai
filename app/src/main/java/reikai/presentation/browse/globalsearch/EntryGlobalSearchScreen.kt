@@ -300,7 +300,7 @@ private fun Screen.MangaLongPressDialogs(model: GlobalSearchViewModel, dialog: S
             onDismissRequest = onDismissRequest,
             onEditCategories = { navigator.push(CategoryScreen()) },
             onConfirm = { include, _ ->
-                model.confirmCategories(dialog.manga, include, dialog.alreadyFavorited)
+                model.confirmCategories(dialog.manga, include, dialog.joinGroup)
             },
         )
         null -> {}

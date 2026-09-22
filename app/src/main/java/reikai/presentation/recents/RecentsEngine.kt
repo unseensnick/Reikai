@@ -473,9 +473,9 @@ class RecentsEngine(
     }
 
     /** The category picker's confirm, which owes both writes the add deferred. */
-    fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
+    fun applyAddCategories(entry: EntryId, categoryIds: List<Long>, joinGroup: List<EntryId>) {
         dismissDialog()
-        viewModelScope.launchIO { fileAddCategories(entry, categoryIds) }
+        viewModelScope.launchIO { fileAddCategories(entry, categoryIds, joinGroup) }
     }
 
     /** Migrates a duplicate already in the library onto the entry being added, from the prompt. */
@@ -498,21 +498,21 @@ class RecentsEngine(
 
     internal suspend fun runAdd(entry: EntryId) {
         val provider = providersByType[entry.contentType] ?: return
-        promptForCategories(entry, provider.addToLibrary(entry))
+        promptForCategories(entry, provider.addToLibrary(entry), joinGroup = emptyList())
     }
 
     internal suspend fun groupAdd(entry: EntryId, duplicates: List<EntryId>) {
         val provider = providersByType[entry.contentType] ?: return
-        promptForCategories(entry, provider.addToGroup(entry, duplicates))
+        promptForCategories(entry, provider.addToGroup(entry, duplicates), joinGroup = duplicates)
     }
 
-    internal suspend fun fileAddCategories(entry: EntryId, categoryIds: List<Long>) {
-        providersByType[entry.contentType]?.applyAddCategories(entry, categoryIds)
+    internal suspend fun fileAddCategories(entry: EntryId, categoryIds: List<Long>, joinGroup: List<EntryId>) {
+        providersByType[entry.contentType]?.applyAddCategories(entry, categoryIds, joinGroup)
     }
 
-    private fun promptForCategories(entry: EntryId, result: AddFavoriteResult) {
+    private fun promptForCategories(entry: EntryId, result: AddFavoriteResult, joinGroup: List<EntryId>) {
         if (result is AddFavoriteResult.NeedsCategoryChoice) {
-            openDialog(RecentsDialog.ChangeCategory(entry, result.initialSelection))
+            openDialog(RecentsDialog.ChangeCategory(entry, result.initialSelection, joinGroup))
         }
     }
 

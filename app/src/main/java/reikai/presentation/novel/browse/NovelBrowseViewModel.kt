@@ -381,11 +381,11 @@ sealed interface NovelBrowseDialog {
 }
 
 /**
- * What a category picker's confirm has left to write. A browse add reaches the picker before anything
- * is written, so backing out of it adds nothing and confirming owes the whole add; add-time grouping
- * favorites up front by design and owes only the filing.
+ * What a category picker's confirm has left to write. Both adds reach the picker before anything is
+ * written, so backing out of it adds nothing and confirming owes the whole add; a group add's favorite
+ * also merges its already inserted row into the group of [JoinGroup.selectedIds], as one unit.
  */
 sealed interface NovelCategoryTarget {
-    data class Stored(val novelId: Long) : NovelCategoryTarget
+    data class JoinGroup(val novelId: Long, val selectedIds: List<Long>) : NovelCategoryTarget
     data class Pending(val item: NovelItem, val sourceId: String) : NovelCategoryTarget
 }

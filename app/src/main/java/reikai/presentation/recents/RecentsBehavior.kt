@@ -73,8 +73,11 @@ interface RecentsBehavior {
      */
     suspend fun addToLibrary(entry: EntryId): AddFavoriteResult
 
-    /** The writes a category picker's confirm owes, in the shared order, once the user has chosen. */
-    suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>)
+    /**
+     * The writes a category picker's confirm owes, in the shared order, once the user has chosen: the
+     * favorite, joining [joinGroup]'s group as one unit when the add came from [addToGroup], then filing.
+     */
+    suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>, joinGroup: List<EntryId>)
 
     /** Adds [entry] and merges it into the group of the [duplicates] the user picked. */
     suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult

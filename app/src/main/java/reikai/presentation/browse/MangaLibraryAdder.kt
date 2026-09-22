@@ -65,54 +65,74 @@ class MangaLibraryAdder(
         mergeManager.groupIdsFor(duplicates.map { it.manga.id })
 
     /**
-     * File [mangaId] into the categories its new group already uses, so a new source lands where the
-     * rest of the series lives. Returns whether it filed any (false when the group is uncategorized).
+     * Where an entry joining [selectedIds]'s group lands: the categories that group already uses, so a
+     * new source sits with the rest of the series, else the default, else null to ask. Reads only.
      */
-    suspend fun seedCategoriesFromGroup(mangaId: Long, memberIds: List<Long>): Boolean {
-        val categoryIds = memberIds.flatMap { getCategories.await(it) }
+    suspend fun groupOrDefaultCategories(selectedIds: List<Long>): List<Long>? =
+        selectedIds.flatMap { getCategories.await(it) }
             .map { it.id }
             .filter { it != Category.UNCATEGORIZED_ID }
             .distinct()
-        if (categoryIds.isEmpty()) return false
-        setMangaCategories.await(mangaId, categoryIds)
-        return true
-    }
+            .ifEmpty { null }
+            ?: resolveDefaultCategories()
 
     /**
-     * Merge [manga] with the user's picked duplicates, then favorite it. Only the picks: the duplicate
-     * list is fuzzy, and one member is enough since the merge absorbs that member's whole group.
-     * Favorites up front (before any category choice) so an abandoned choice can't leave a merged-but-
-     * unfavorited copy feeding chapters into the group while invisible in the library. The new source
-     * joins the group's own categories when it has any; only an uncategorized group falls back to the
-     * default (or the picker, shown with `alreadyFavorited` so its confirm doesn't re-toggle the favorite).
+     * Add [manga] to the library in the group of the user's picked duplicates, through the shared
+     * sequence: decide the categories, then write, so a picker it has to raise writes nothing until
+     * its confirm reaches [confirmGroupCategories]. Only the picks: the duplicate list is fuzzy, and
+     * one member is enough since the merge absorbs that member's whole group.
      */
-    suspend fun addToExistingGroup(manga: Manga, selectedIds: List<Long>): AddFavoriteResult {
-        // Null means the row was gone or the favorite write failed, so nothing was written at all, not
-        // even the merge. No category prompt then: there is no library entry to file.
-        val seeded = addToGroup(manga, selectedIds) ?: return AddFavoriteResult.Failed
-        setMangaDefaultChapterFlags.await(manga)
-        addTracks.bindEnhancedTrackers(manga, sourceManager.getOrStub(manga.source))
-        if (seeded) return AddFavoriteResult.Added
-        return applyDefaultCategoryOrPrompt(manga)
-    }
+    suspend fun addToExistingGroup(manga: Manga, selectedIds: List<Long>): AddFavoriteResult = addEntryOrPrompt(
+        resolveCategories = { groupOrDefaultCategories(selectedIds) },
+        favorite = { joinGroupForAdd(manga, selectedIds) },
+        fileCategories = { _, categoryIds -> moveToCategories(manga, categoryIds) },
+        categoryPicker = { categoryPickerSelection(manga.id) },
+    )
+
+    /** The writes a group add's picker confirm owes, so backing out of the picker adds nothing. */
+    suspend fun confirmGroupCategories(manga: Manga, selectedIds: List<Long>, categoryIds: List<Long>): AddOutcome =
+        finishAdd(
+            categoryIds = categoryIds,
+            favorite = { joinGroupForAdd(manga, selectedIds) },
+            fileCategories = { _, ids -> moveToCategories(manga, ids) },
+        )
 
     /**
-     * Favorite [manga] and merge it into [selectedIds]'s group as ONE unit, then file it into that
-     * group's categories. Null when the row is gone or the write failed. Atomic because membership is
-     * not favorite-filtered: a merged copy that never got favorited feeds the group while invisible in
-     * the library, with nothing able to unmerge it. The row is re-read rather than trusted from a
-     * snapshot, which would skip the write and still merge. Twin of `NovelLibraryAdder.addToGroup`,
-     * pinned by `AddToGroupConformanceTest`.
+     * A browse picker's confirm: neither add wrote anything before asking, so this owes the favorite,
+     * joining [joinGroup]'s group as one unit when the add came from the duplicate dialog's grouping.
      */
-    suspend fun addToGroup(manga: Manga, selectedIds: List<Long>): Boolean? {
+    suspend fun confirmPicker(manga: Manga, categoryIds: List<Long>, joinGroup: List<Long>): AddOutcome =
+        if (joinGroup.isNotEmpty()) {
+            confirmGroupCategories(manga, joinGroup, categoryIds)
+        } else {
+            finishAdd(
+                categoryIds = categoryIds,
+                favorite = { manga.id.takeIf { changeFavorite(manga) } },
+                fileCategories = { _, ids -> moveToCategories(manga, ids) },
+            )
+        }
+
+    private suspend fun joinGroupForAdd(manga: Manga, selectedIds: List<Long>): Long? =
+        joinGroup(manga, selectedIds)?.also {
+            setMangaDefaultChapterFlags.await(manga)
+            addTracks.bindEnhancedTrackers(manga, sourceManager.getOrStub(manga.source))
+        }
+
+    /**
+     * Favorite [manga] and merge it into [selectedIds]'s group as ONE unit, answering its id, or null
+     * when the row is gone or the write failed. Atomic because membership is not favorite-filtered: a
+     * merged copy that never got favorited feeds the group while invisible in the library, with nothing
+     * able to unmerge it. The row is re-read rather than trusted from a snapshot, which would skip the
+     * write and still merge. Twin of `NovelLibraryAdder.joinGroup`, pinned by `AddToGroupConformanceTest`.
+     */
+    suspend fun joinGroup(manga: Manga, selectedIds: List<Long>): Long? {
         val stored = getManga.await(manga.id) ?: return null
         val favorited = transactions.run {
             val ok = stored.favorite || updateManga.awaitUpdateFavorite(manga.id, true)
             if (ok) mergeManager.merge(listOf(manga.id) + selectedIds)
             ok
         }
-        if (!favorited) return null
-        return seedCategoriesFromGroup(manga.id, selectedIds)
+        return manga.id.takeIf { favorited }
     }
 
     /**
@@ -197,8 +217,7 @@ class MangaLibraryAdder(
 
     /**
      * Where a new favorite should land, or null when the user has to be asked. Reads only, so a
-     * caller can favorite between this and [moveToCategories]; the two cannot be split apart once
-     * [applyDefaultCategoryOrPrompt] has joined them. Twin of `NovelLibraryAdder.resolveDefaultCategories`;
+     * caller can favorite between this and [moveToCategories]. Twin of `NovelLibraryAdder.resolveDefaultCategories`;
      * both call the `resolveDefaultCategoryIds` kernel, pinned by `AddDecisionConformanceTest`.
      */
     suspend fun resolveDefaultCategories(): List<Long>? =
@@ -208,21 +227,6 @@ class MangaLibraryAdder(
     suspend fun categoryPickerSelection(mangaId: Long): List<CheckboxState.State<Category>> {
         val preselectedIds = getCategories.await(mangaId).map { it.id }
         return getUserCategories().mapAsCheckboxState { it.id in preselectedIds }
-    }
-
-    /**
-     * File [manga] into its default category (or none), or return the picker data when the user must
-     * choose. Never toggles favorite: the two add-paths favorite at different points ([resolveAddFavorite]
-     * after, [addToExistingGroup] up front), so favoriting is the caller's job.
-     */
-    private suspend fun applyDefaultCategoryOrPrompt(manga: Manga): AddFavoriteResult {
-        val directIds = resolveDefaultCategories()
-        return if (directIds != null) {
-            moveToCategories(manga, directIds)
-            AddFavoriteResult.Added
-        } else {
-            AddFavoriteResult.NeedsCategoryChoice(categoryPickerSelection(manga.id))
-        }
     }
 
     /**

@@ -16,6 +16,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.NovelItem
 import reikai.presentation.novel.browse.NovelBrowseDialog
+import reikai.presentation.novel.browse.NovelCategoryTarget
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
@@ -24,59 +25,82 @@ import tachiyomi.domain.manga.model.Manga
 /**
  * Add-time grouping, pinned once for both content types. Membership is not favorite-filtered, so a
  * merge that lands without its favorite leaves an entry feeding chapters into the group while
- * invisible in the library, which no screen can then reach to unmerge. That is why the pair is atomic
- * and why every case below runs for manga and for novels rather than being maintained twice.
+ * invisible in the library, which no screen can then reach to unmerge. That is why the pair is atomic,
+ * why a group add that has to ask writes neither until its confirm, and why every case below runs for
+ * manga and for novels rather than being maintained twice.
  */
 class AddToGroupConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `a failed favorite write leaves the entry out of the group`(probe: GroupAddProbe) = runTest {
-        probe.addToGroup(favoriteWriteSucceeds = false) shouldBe
-            GroupAddEffects(seeded = null, merged = false, favoriteWritten = true, filedCategories = null)
+        probe.joinGroup(favoriteWriteSucceeds = false) shouldBe
+            GroupAddEffects(joined = false, merged = false, favoriteWritten = true, filedCategories = null)
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `an already-favorited row is merged without rewriting its favorite`(probe: GroupAddProbe) = runTest {
-        probe.addToGroup(alreadyFavorite = true) shouldBe
-            GroupAddEffects(seeded = false, merged = true, favoriteWritten = false, filedCategories = null)
+        probe.joinGroup(alreadyFavorite = true) shouldBe
+            GroupAddEffects(joined = true, merged = true, favoriteWritten = false, filedCategories = null)
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `a row that is gone is not merged`(probe: GroupAddProbe) = runTest {
-        probe.addToGroup(rowExists = false) shouldBe
-            GroupAddEffects(seeded = null, merged = false, favoriteWritten = false, filedCategories = null)
+        probe.joinGroup(rowExists = false) shouldBe
+            GroupAddEffects(joined = false, merged = false, favoriteWritten = false, filedCategories = null)
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
-    fun `the group's categories are seeded onto the new member`(probe: GroupAddProbe) = runTest {
-        probe.addToGroup(groupCategories = listOf(category(3L))) shouldBe
-            GroupAddEffects(seeded = true, merged = true, favoriteWritten = true, filedCategories = listOf(3L))
+    fun `the group's categories are filed onto the new member`(probe: GroupAddProbe) = runTest {
+        probe.addToExistingGroup(groupCategories = listOf(category(3L))) shouldBe GroupAddResult(
+            prompt = null,
+            effects = GroupAddEffects(
+                joined = null,
+                merged = true,
+                favoriteWritten = true,
+                filedCategories = listOf(3L),
+            ),
+        )
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
-    fun `an uncategorized group reports back so the caller can fall back to its own prompt`(
+    fun `an uncategorized group files into a configured default category without prompting`(
         probe: GroupAddProbe,
     ) = runTest {
-        probe.addToGroup().seeded shouldBe false
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("probes")
-    fun `a configured default category files the entry without prompting`(probe: GroupAddProbe) = runTest {
-        probe.addToExistingGroup(userCategories = listOf(category(3L)), defaultCategoryId = 3) shouldBe
-            GroupAddOutcome.Added(filedCategories = listOf(3L))
+        probe.addToExistingGroup(userCategories = listOf(category(3L)), defaultCategoryId = 3)
+            .effects.filedCategories shouldBe listOf(3L)
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `no usable default hands the picker back to the caller`(probe: GroupAddProbe) = runTest {
-        probe.addToExistingGroup(userCategories = listOf(category(3L)), defaultCategoryId = -1) shouldBe
-            GroupAddOutcome.Prompt(listOf(category(3L)))
+        probe.addToExistingGroup(userCategories = listOf(category(3L)), defaultCategoryId = -1)
+            .prompt shouldBe listOf(category(3L))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a group add that asks writes nothing before its confirm`(probe: GroupAddProbe) = runTest {
+        probe.addToExistingGroup(userCategories = listOf(category(3L)), defaultCategoryId = -1).effects shouldBe
+            GroupAddEffects(joined = null, merged = false, favoriteWritten = false, filedCategories = null)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a stored row's group confirm favorites, merges and files`(probe: GroupAddProbe) = runTest {
+        probe.confirmStoredGroupCategories(listOf(3L)) shouldBe
+            GroupAddEffects(joined = null, merged = true, favoriteWritten = true, filedCategories = listOf(3L))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a group add's confirm favorites, merges and files`(probe: GroupAddProbe) = runTest {
+        probe.confirmGroupCategories(listOf(3L)) shouldBe
+            GroupAddEffects(joined = null, merged = true, favoriteWritten = true, filedCategories = listOf(3L))
     }
 
     companion object {
@@ -125,29 +149,35 @@ class ConfirmAddCategoriesConformanceTest {
 
 /** What one add-to-group attempt wrote, in terms both content types answer the same way. */
 data class GroupAddEffects(
-    /** True when the group's categories were seeded, false when it had none, null when nothing ran. */
-    val seeded: Boolean?,
+    /** Whether the join answered the entry's id; null where the case does not read it. */
+    val joined: Boolean?,
     val merged: Boolean,
     val favoriteWritten: Boolean,
     val filedCategories: List<Long>?,
 )
 
-/** How an add-to-group with an uncategorized group ended. */
-sealed interface GroupAddOutcome {
-    data class Added(val filedCategories: List<Long>?) : GroupAddOutcome
-    data class Prompt(val categories: List<Category>) : GroupAddOutcome
-}
+/** How a group add ended: the picker it asked with, if any, and what it wrote. */
+data class GroupAddResult(val prompt: List<Category>?, val effects: GroupAddEffects)
 
 /** One content type's half of the shared cases. */
 interface GroupAddProbe {
-    suspend fun addToGroup(
+    suspend fun joinGroup(
         favoriteWriteSucceeds: Boolean = true,
         alreadyFavorite: Boolean = false,
         rowExists: Boolean = true,
-        groupCategories: List<Category> = emptyList(),
     ): GroupAddEffects
 
-    suspend fun addToExistingGroup(userCategories: List<Category>, defaultCategoryId: Int): GroupAddOutcome
+    suspend fun addToExistingGroup(
+        userCategories: List<Category> = emptyList(),
+        defaultCategoryId: Int = -1,
+        groupCategories: List<Category> = emptyList(),
+    ): GroupAddResult
+
+    /** What a group add's picker confirm wrote. */
+    suspend fun confirmGroupCategories(categoryIds: List<Long>): GroupAddEffects
+
+    /** The same for the other confirm each type has: manga's browse picker, novels' stored row. */
+    suspend fun confirmStoredGroupCategories(categoryIds: List<Long>): GroupAddEffects
 
     /** What a stored row's picker confirm wrote. Both types favorite here, then file. */
     suspend fun confirmAddCategories(
@@ -219,29 +249,41 @@ class MangaGroupAddProbe : GroupAddProbe {
         filed = null
     }
 
-    override suspend fun addToGroup(
+    override suspend fun joinGroup(
         favoriteWriteSucceeds: Boolean,
         alreadyFavorite: Boolean,
         rowExists: Boolean,
-        groupCategories: List<Category>,
     ): GroupAddEffects {
         reset()
-        val seeded = adder(favoriteWriteSucceeds, alreadyFavorite, rowExists, groupCategories, emptyList(), -1)
-            .addToGroup(manga, listOf(2L))
-        return GroupAddEffects(seeded, merged, favoriteWritten, filed)
+        val id = adder(favoriteWriteSucceeds, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
+            .joinGroup(manga, listOf(2L))
+        return GroupAddEffects(id != null, merged, favoriteWritten, filed)
     }
 
     override suspend fun addToExistingGroup(
         userCategories: List<Category>,
         defaultCategoryId: Int,
-    ): GroupAddOutcome {
+        groupCategories: List<Category>,
+    ): GroupAddResult {
         reset()
-        val result = adder(true, false, true, emptyList(), userCategories, defaultCategoryId)
+        val result = adder(true, false, true, groupCategories, userCategories, defaultCategoryId)
             .addToExistingGroup(manga, listOf(2L))
-        return when (result) {
-            is AddFavoriteResult.NeedsCategoryChoice -> GroupAddOutcome.Prompt(result.initialSelection.map { it.value })
-            else -> GroupAddOutcome.Added(filed)
-        }
+        val prompt = (result as? AddFavoriteResult.NeedsCategoryChoice)?.initialSelection?.map { it.value }
+        return GroupAddResult(prompt, GroupAddEffects(null, merged, favoriteWritten, filed))
+    }
+
+    override suspend fun confirmGroupCategories(categoryIds: List<Long>): GroupAddEffects {
+        reset()
+        adder(true, false, true, emptyList(), emptyList(), -1)
+            .confirmGroupCategories(manga, listOf(2L), categoryIds)
+        return GroupAddEffects(null, merged, favoriteWritten, filed)
+    }
+
+    override suspend fun confirmStoredGroupCategories(categoryIds: List<Long>): GroupAddEffects {
+        reset()
+        adder(true, false, true, emptyList(), emptyList(), -1)
+            .confirmPicker(manga, categoryIds, joinGroup = listOf(2L))
+        return GroupAddEffects(null, merged, favoriteWritten, filed)
     }
 
     override suspend fun confirmAddCategories(
@@ -253,7 +295,7 @@ class MangaGroupAddProbe : GroupAddProbe {
         adder(true, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
             .confirmAddCategories(mangaId = 1L, categoryIds = categoryIds)
         return GroupAddEffects(
-            seeded = null,
+            joined = null,
             merged = merged,
             favoriteWritten = favoriteWritten,
             filedCategories = filed,
@@ -320,29 +362,41 @@ class NovelGroupAddProbe : GroupAddProbe {
         filed = null
     }
 
-    override suspend fun addToGroup(
+    override suspend fun joinGroup(
         favoriteWriteSucceeds: Boolean,
         alreadyFavorite: Boolean,
         rowExists: Boolean,
-        groupCategories: List<Category>,
     ): GroupAddEffects {
         reset()
-        val seeded = adder(favoriteWriteSucceeds, alreadyFavorite, rowExists, groupCategories, emptyList(), -1)
-            .addToGroup(1L, listOf(2L))
-        return GroupAddEffects(seeded, merged, favoriteWritten, filed)
+        val id = adder(favoriteWriteSucceeds, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
+            .joinGroup(1L, listOf(2L))
+        return GroupAddEffects(id != null, merged, favoriteWritten, filed)
     }
 
     override suspend fun addToExistingGroup(
         userCategories: List<Category>,
         defaultCategoryId: Int,
-    ): GroupAddOutcome {
+        groupCategories: List<Category>,
+    ): GroupAddResult {
         reset()
-        val dialog = adder(true, false, true, emptyList(), userCategories, defaultCategoryId)
+        val result = adder(true, false, true, groupCategories, userCategories, defaultCategoryId)
             .addToExistingGroup(item, sourceId = "src", selectedIds = listOf(2L))
-        return when (dialog) {
-            is NovelBrowseDialog.ChangeCategory -> GroupAddOutcome.Prompt(dialog.initialSelection.map { it.value })
-            else -> GroupAddOutcome.Added(filed)
-        }
+        val prompt = (result as? NovelBrowseDialog.ChangeCategory)?.initialSelection?.map { it.value }
+        return GroupAddResult(prompt, GroupAddEffects(null, merged, favoriteWritten, filed))
+    }
+
+    override suspend fun confirmGroupCategories(categoryIds: List<Long>): GroupAddEffects {
+        reset()
+        adder(true, false, true, emptyList(), emptyList(), -1)
+            .confirmCategories(NovelCategoryTarget.JoinGroup(1L, listOf(2L)), categoryIds)
+        return GroupAddEffects(null, merged, favoriteWritten, filed)
+    }
+
+    override suspend fun confirmStoredGroupCategories(categoryIds: List<Long>): GroupAddEffects {
+        reset()
+        adder(true, false, true, emptyList(), emptyList(), -1)
+            .confirmGroupCategories(1L, listOf(2L), categoryIds)
+        return GroupAddEffects(null, merged, favoriteWritten, filed)
     }
 
     override suspend fun confirmAddCategories(
@@ -354,7 +408,7 @@ class NovelGroupAddProbe : GroupAddProbe {
         adder(true, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
             .confirmAddCategories(novelId = 1L, categoryIds = categoryIds)
         return GroupAddEffects(
-            seeded = null,
+            joined = null,
             merged = merged,
             favoriteWritten = favoriteWritten,
             filedCategories = filed,

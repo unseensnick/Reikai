@@ -129,16 +129,6 @@ class NovelLibraryAdderTest {
     }
 
     @Test
-    fun `confirming after add-time grouping only files, since it favorited up front`() = runTest {
-        val updateNovel = mockk<UpdateNovel>(relaxed = true)
-
-        adder(updateNovel = updateNovel)
-            .confirmCategories(NovelCategoryTarget.Stored(9L), listOf(3L))
-
-        coVerify(exactly = 0) { updateNovel.awaitUpdateFavorite(any(), any()) }
-    }
-
-    @Test
     fun `an already favorited row is not re-favorited, which would reset its add date`() = runTest {
         val updateNovel = mockk<UpdateNovel>(relaxed = true)
 

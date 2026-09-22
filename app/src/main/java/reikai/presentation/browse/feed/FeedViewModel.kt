@@ -247,11 +247,15 @@ class FeedViewModel(
 
     @Volatile private var raisedManga: Manga? = null
 
+    /** The group a raised manga picker joins, empty when the add is not a group add. */
+    @Volatile private var raisedMangaGroup: List<Long> = emptyList()
+
     @Volatile private var raisedNovel: NovelBrowseDialog? = null
 
     fun onLongPressManga(manga: Manga) {
         viewModelScope.launchIO {
             raisedManga = manga
+            raisedMangaGroup = emptyList()
             raisedNovel = null
             val decision = decideAdd(inLibrary = manga.favorite) {
                 mangaAdder.getDuplicates(manga).takeIf { it.isNotEmpty() }
@@ -310,6 +314,8 @@ class FeedViewModel(
         val novel = raisedNovel as? NovelBrowseDialog.ChangeCategory
         viewModelScope.launchIO {
             when {
+                manga != null && raisedMangaGroup.isNotEmpty() ->
+                    mangaAdder.confirmGroupCategories(manga, raisedMangaGroup, categoryIds)
                 manga != null -> mangaAdder.confirmAddCategories(manga.id, categoryIds)
                 novel != null -> novelAdder.confirmCategories(novel.target, categoryIds)
             }
@@ -341,8 +347,11 @@ class FeedViewModel(
         viewModelScope.launchIO {
             when {
                 manga != null -> {
-                    mangaAdder.addToExistingGroup(manga, entryIds)
-                    dismissAddDialog()
+                    val result = mangaAdder.addToExistingGroup(manga, entryIds)
+                    raisedMangaGroup = entryIds
+                    val dialog = (result as? AddFavoriteResult.NeedsCategoryChoice)
+                        ?.let { EntryBrowseDialog.ChangeCategory(it.initialSelection) }
+                    state.update { it.copy(addDialog = dialog) }
                 }
                 novel != null ->
                     raiseNovel(novelAdder.addToExistingGroup(novel.item, novel.sourceId, entryIds))

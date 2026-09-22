@@ -724,25 +724,27 @@ class MangaViewModel(
         }
     }
 
-    // RK: add-time grouping. Only the picks the user chose: the duplicate list is fuzzy, so merging
-    // every match would fuse distinct series. The favorite-and-merge pair and the reason it has to be
-    // atomic live in MangaLibraryAdder.addToGroup; null means it wrote nothing.
+    // RK: add-time grouping, through the shared add sequence: the group's categories win, then the
+    // default, and a picker it has to raise writes nothing until its confirm. Only the picks the user
+    // chose: the duplicate list is fuzzy, so merging every match would fuse distinct series.
     fun addToExistingGroup(selectedIds: List<Long>) {
-        val state = successState ?: return
-        val manga = state.manga
+        val manga = successState?.manga ?: return
         viewModelScope.launchIO {
-            val seeded = mangaLibraryAdder.addToGroup(manga, selectedIds) ?: return@launchIO
-            addTracks.bindEnhancedTrackers(manga, state.source)
-            maybeBackupFavoriteToAccount(manga)
-
-            // The group's categories win: only fall back to the default (or the picker) when the group
-            // is uncategorized, so the new source lands where the rest of the series lives.
-            if (!seeded) {
-                val directIds = resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
-                if (directIds != null) moveMangaToCategory(directIds) else showChangeCategoryDialog()
-            }
+            val outcome = addEntry(
+                resolveCategories = { mangaLibraryAdder.groupOrDefaultCategories(selectedIds) },
+                favorite = { joinGroup(manga, selectedIds) },
+                fileCategories = { id, categoryIds -> setMangaCategories.await(id, categoryIds) },
+            )
+            if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog(joinGroup = selectedIds)
         }
     }
+
+    // RK: the favorite-and-merge pair and why it is atomic live in MangaLibraryAdder.joinGroup.
+    private suspend fun joinGroup(manga: Manga, selectedIds: List<Long>): Long? =
+        mangaLibraryAdder.joinGroup(manga, selectedIds)?.also {
+            successState?.let { addTracks.bindEnhancedTrackers(manga, it.source) }
+            maybeBackupFavoriteToAccount(manga)
+        }
 
     // RK -->
 
@@ -790,7 +792,7 @@ class MangaViewModel(
     }
     // RK <--
 
-    fun showChangeCategoryDialog() {
+    fun showChangeCategoryDialog(joinGroup: List<Long> = emptyList()) { // RK: joinGroup
         val manga = successState?.manga ?: return
         viewModelScope.launch {
             // RK: order the picker by the category sort-order pref, matching the library and its pickers.
@@ -801,6 +803,7 @@ class MangaViewModel(
                     dialog = Dialog.ChangeCategory(
                         manga = manga,
                         initialSelection = categories.mapAsCheckboxState { it.id in selection },
+                        joinGroup = joinGroup, // RK
                     ),
                 )
             }
@@ -903,22 +906,25 @@ class MangaViewModel(
     }
 
     // RK: the picker's confirm owes both writes the add deferred, in the shared order, so backing out
-    // of the picker adds nothing and a failed favorite leaves no categories behind.
-    fun moveMangaToCategoriesAndAddToLibrary(manga: Manga, categories: List<Long>) {
+    // of the picker adds nothing and a failed favorite leaves no categories behind. A group add's
+    // favorite joins [joinGroup]'s group as one unit.
+    fun moveMangaToCategoriesAndAddToLibrary(
+        manga: Manga,
+        categories: List<Long>,
+        joinGroup: List<Long> = emptyList(),
+    ) {
         viewModelScope.launchIO {
             finishAdd(
                 categoryIds = categories,
-                favorite = { manga.id.takeIf { manga.favorite || updateManga.awaitUpdateFavorite(manga.id, true) } },
+                favorite = {
+                    if (joinGroup.isNotEmpty()) {
+                        joinGroup(manga, joinGroup)
+                    } else {
+                        manga.id.takeIf { manga.favorite || updateManga.awaitUpdateFavorite(manga.id, true) }
+                    }
+                },
                 fileCategories = { id, categoryIds -> setMangaCategories.await(id, categoryIds) },
             )
-        }
-    }
-
-    // RK: upstream's Category and Category? overloads went with the add paths that needed them; the
-    // shared default-category rule already hands back the id list this takes.
-    private fun moveMangaToCategory(categoryIds: List<Long>) {
-        viewModelScope.launchIO {
-            setMangaCategories.await(mangaId, categoryIds)
         }
     }
 
@@ -1655,6 +1661,8 @@ class MangaViewModel(
         data class ChangeCategory(
             val manga: Manga,
             val initialSelection: List<CheckboxState<Category>>,
+            // RK: the group of the duplicate dialog's picks, when the add joins one.
+            val joinGroup: List<Long> = emptyList(),
         ) : Dialog
         data class DeleteChapters(val chapters: List<Chapter>) : Dialog
 

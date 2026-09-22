@@ -54,16 +54,17 @@ as a pure read, then favorite, then file the categories. A picker defers both wr
 so backing out of it adds nothing. Favorite-before-file is what makes the abort meaningful: a failed
 write leaves nothing behind, rather than categories on a row that is not in the library.
 
-**The one carve-out is add-time grouping**, which keeps favoriting up front on both types. Its
-atomicity ruling depends on that: membership is not favorite-filtered, so a merged copy that never got
+**Add-time grouping runs the same sequence**, with two steps of its own: the categories are the
+group's own, else the default, else the picker, and the favorite step is `joinGroup`, which favorites
+and merges as one transaction. Membership is not favorite-filtered, so a merged copy that never got
 favorited feeds chapters into the group while staying invisible in the library, with nothing able to
-unmerge it. `addToGroup` already reads that way on both sides and is not reopened here.
+unmerge it; the two writes therefore land together, and a picker the add has to raise writes neither
+until its confirm. Every picker a group add raises carries the group, so its confirm can join it.
 
 **The seam is four verbs, sequenced by the caller, not by the adder.** Resolving the categories,
 favoriting, filing and building the picker payload become separate steps, so the engine (or any
-screen) owns the order and the abort while each type owns only its own writes. This is what the
-existing adders cannot express today: `applyDefaultCategoryOrPrompt` both decides and writes, so a
-caller cannot favorite between the two halves.
+screen) owns the order and the abort while each type owns only its own writes. A helper that both
+decides and writes cannot express this, since a caller could not favorite between the two halves.
 
 **The sequence owns the duplicate check (owner, 2026-08-09), on the novel shape.** The two checks are
 the same query, an id and a title answering with entries plus their chapter counts, so what actually
@@ -88,7 +89,7 @@ one. A neutral row lands with the shared dialog.
 Sequenced so each step is independently shippable and device-verifiable:
 
 1. **The pure kernel.** Split deciding from writing on both adders: a pure `resolveDefaultCategories`
-   and a pure picker-payload builder beside the existing writer, which survives for the grouping path.
+   and a pure picker-payload builder beside the existing writer.
    `RelatedMangasBrowseViewModel` folds onto `resolveDefaultCategoryIds` in the same commit, since it
    restates that kernel's semantics inline and the swap is a pure read. No behaviour change, so this
    ships on compile plus unit tests.
@@ -115,7 +116,7 @@ Sequenced so each step is independently shippable and device-verifiable:
 
 **Tests.** The order is a pure sequence over the four verbs, so it can be pinned without a device:
 abort on a failed favorite, no writes at all when the picker is dismissed, the direct branch writing
-favorite before categories, and the grouping carve-out still favoriting up front. This is the
+favorite before categories, and a group add writing nothing until its picker confirms. This is the
 surface's first conformance suite: one parameterized case set run against both adders rather than a
 hand-written twin pair, per the pin-once ladder, each verified by mutation. `MangaLibraryAdderTest`
 and `NovelLibraryAdderTest` are that twin pair today, seven matching cases each, all about grouping
@@ -216,7 +217,12 @@ two orders would have baked the divergence into the engine.
   those copies and the convention violation with them; the alternative, starting the sequence after
   the check, would have left three copies of one decision that the write-once rule cannot see because
   they read as UI.
-- **The grouping path is not reopened.** It favorites up front by design; see the carve-out above.
+- **The grouping path asks before it writes** (owner, 2026-09-22). It used to favorite and merge up
+  front and then ask, so a dismissed picker left the entry added and uncategorized, and an extension
+  syncing to its own site heard of the add before its categories existed. Keeping the two writes in
+  one transaction is what the membership rule needs, not writing them before the picker, so both now
+  wait for the confirm and a dismissed picker adds nothing, as every other add does. The manga Feed,
+  which discarded the group add's result and never asked, asks now.
 - **The two adders are still not twins**, and this plan does not make them one class. The manga adder
   returns neutral results and leaves orchestration to callers; the novel one carries the insert a
   browse item needs before it has a row. What becomes shared is the sequence and the verbs it calls,

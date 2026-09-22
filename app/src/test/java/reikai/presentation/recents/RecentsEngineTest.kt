@@ -935,7 +935,7 @@ class RecentsEngineTest {
         engine.groupAdd(manga1, listOf(manga2))
 
         manga.groupedWith shouldBe listOf(manga2)
-        engine.dialog.value shouldBe RecentsDialog.ChangeCategory(manga1, selection)
+        engine.dialog.value shouldBe RecentsDialog.ChangeCategory(manga1, selection, joinGroup = listOf(manga2))
     }
 
     @Test
@@ -1015,11 +1015,20 @@ class RecentsEngineTest {
     }
 
     @Test
+    fun `a group add's confirm hands the provider the group to join`() = runTest {
+        val manga = provider(ContentType.MANGA)
+
+        engine(listOf(manga)).fileAddCategories(manga1, listOf(3L), joinGroup = listOf(manga2))
+
+        manga.filedJoiningGroup shouldBe listOf(manga2)
+    }
+
+    @Test
     fun `the picker's confirm files through the provider that owns the entry`() = runTest {
         val manga = provider(ContentType.MANGA)
         val novel = provider(ContentType.NOVELS)
 
-        engine(listOf(manga, novel)).fileAddCategories(novel1, listOf(3L))
+        engine(listOf(manga, novel)).fileAddCategories(novel1, listOf(3L), joinGroup = emptyList())
 
         (manga.filedCategories to novel.filedCategories) shouldBe (null to (novel1 to listOf(3L)))
     }
@@ -1425,6 +1434,8 @@ private class FakeRecentsProvider(
         private set
     var filedCategories: Pair<EntryId, List<Long>>? = null
         private set
+    var filedJoiningGroup: List<EntryId>? = null
+        private set
     var groupedWith: List<EntryId>? = null
         private set
 
@@ -1537,8 +1548,9 @@ private class FakeRecentsProvider(
         return addResult
     }
 
-    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
+    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>, joinGroup: List<EntryId>) {
         filedCategories = entry to categoryIds
+        filedJoiningGroup = joinGroup
     }
 
     override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {

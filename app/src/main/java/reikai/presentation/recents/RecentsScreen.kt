@@ -1010,7 +1010,7 @@ private fun Screen.RecentsDialogs(
             initialSelection = open.initialSelection,
             onDismissRequest = onDismiss,
             onEditCategories = { navigator.push(CategoryScreen()) },
-            onConfirm = { include, _ -> engine.applyAddCategories(open.entry, include) },
+            onConfirm = { include, _ -> engine.applyAddCategories(open.entry, include, open.joinGroup) },
         )
         is RecentsDialog.Migrate -> EntryMigrateFor(
             contentType = open.current.contentType,

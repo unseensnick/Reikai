@@ -968,19 +968,20 @@ class NovelDetailsViewModel(
     }
 
     /**
-     * Add-time grouping. Only the picks the user chose: the duplicate list is fuzzy, so merging every
-     * match would fuse distinct series. The atomic pair lives in NovelLibraryAdder.addToGroup; null
-     * means it wrote nothing. The group's categories win, so the picker opens only for a group that
-     * has none, matching every other add path.
+     * Add-time grouping, through the shared add sequence: the group's categories win, then the default,
+     * and a picker it has to raise writes nothing until its confirm. Only the picks the user chose: the
+     * duplicate list is fuzzy, so merging every match would fuse distinct series. The atomic pair lives
+     * in NovelLibraryAdder.joinGroup.
      */
     fun addToExistingGroup(selectedIds: List<Long>) {
         viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            val seeded = novelLibraryAdder.addToGroup(novel.id, selectedIds) ?: return@launchIO
-            if (seeded) return@launchIO
-            novelLibraryAdder.applyDefaultCategoryOrPrompt(novel.id)?.let { selection ->
-                updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(selection)) }
-            }
+            val outcome = addEntry(
+                resolveCategories = { novelLibraryAdder.groupOrDefaultCategories(selectedIds) },
+                favorite = { novelLibraryAdder.joinGroup(novel.id, selectedIds) },
+                fileCategories = { id, categoryIds -> setNovelCategories.await(id, categoryIds) },
+            )
+            if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog(joinGroup = selectedIds)
         }
     }
 
@@ -995,7 +996,7 @@ class NovelDetailsViewModel(
         if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog()
     }
 
-    fun showChangeCategoryDialog() {
+    fun showChangeCategoryDialog(joinGroup: List<Long> = emptyList()) {
         viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             // Order the picker by the category sort-order pref, matching the library and its pickers.
@@ -1009,21 +1010,27 @@ class NovelDetailsViewModel(
             // go and make one, where bailing here left the action doing nothing at all.
             val current = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.toSet()
             val selection = categories.mapAsCheckboxState { it.id in current }
-            updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(selection)) }
+            updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(selection, joinGroup)) }
         }
     }
 
     /**
      * The picker's confirm. It owes the favorite when the add deferred it here, and the same dialog
      * also serves an in-library novel changing its categories, which [NovelLibraryAdder.favoriteForAdd]
-     * leaves alone rather than re-writing.
+     * leaves alone rather than re-writing. A group add's favorite joins [joinGroup]'s group as one unit.
      */
-    fun applyCategories(categoryIds: List<Long>) {
+    fun applyCategories(categoryIds: List<Long>, joinGroup: List<Long> = emptyList()) {
         viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             finishAdd(
                 categoryIds = categoryIds,
-                favorite = { novelLibraryAdder.favoriteForAdd(novel.id) },
+                favorite = {
+                    if (joinGroup.isNotEmpty()) {
+                        novelLibraryAdder.joinGroup(novel.id, joinGroup)
+                    } else {
+                        novelLibraryAdder.favoriteForAdd(novel.id)
+                    }
+                },
                 fileCategories = { id, ids -> setNovelCategories.await(id, ids) },
             )
             dismissDialog()
@@ -1515,6 +1522,8 @@ sealed interface NovelDetailsState {
 sealed interface NovelDetailsDialog {
     data class ChangeCategory(
         val initialSelection: List<CheckboxState.State<Category>>,
+        /** The group of the duplicate dialog's picks, when the add joins one. */
+        val joinGroup: List<Long> = emptyList(),
     ) : NovelDetailsDialog
 
     data object EditInfo : NovelDetailsDialog
