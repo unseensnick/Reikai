@@ -282,6 +282,7 @@
     <!-- How a novel extension is packaged, shown once more than one kind is listed -->
     <string name="extension_format_js">JS</string>
     <string name="extension_format_apk">APK</string>
+    <string name="extension_format_ireader">IReader</string>
     <string name="content_type_with_format">%1$s · %2$s</string>
     <!-- RK: backup toggle for the non-destructive custom-info overlay (title/author/cover edits) -->
     <string name="custom_entry_info">Custom entry info</string>

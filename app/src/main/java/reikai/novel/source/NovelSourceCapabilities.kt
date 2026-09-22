@@ -7,10 +7,11 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import tachiyomi.i18n.MR
 
-/** How a novel source is packaged: an LNReader plugin, or an app built on the extension library. */
+/** How a novel source is packaged: an LNReader plugin, or an app built on tachiyomi's or IReader's library. */
 enum class NovelExtensionFormat(val label: StringResource) {
     JS(MR.strings.extension_format_js),
     APK(MR.strings.extension_format_apk),
+    IREADER(MR.strings.extension_format_ireader),
     ;
 
     companion object {

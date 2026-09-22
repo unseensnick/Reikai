@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.source.NovelExtensionFormat
 
 /** One install pipeline can serve both content types, and the chip still shows only its own. */
 class ExtensionsEngineTest {
@@ -39,10 +40,13 @@ class ExtensionsEngineTest {
     fun `the Novels chip shows only the novel rows of a pipeline serving both`() = runTest(dispatcher) {
         val state = settledState(
             ContentType.NOVELS,
-            FakeProvider(apks, listOf(row(ExtensionKey.Manga("m")), row(ExtensionKey.NovelApk("n")))),
+            FakeProvider(
+                apks,
+                listOf(row(ExtensionKey.Manga("m")), row(ExtensionKey.NovelApk("n", NovelExtensionFormat.APK))),
+            ),
         )
 
-        state.rows().map { it.key } shouldBe listOf(ExtensionKey.NovelApk("n"))
+        state.rows().map { it.key } shouldBe listOf(ExtensionKey.NovelApk("n", NovelExtensionFormat.APK))
     }
 
     @Test
@@ -68,7 +72,7 @@ class ExtensionsEngineTest {
     fun `novel rows packaged two ways name their format`() = runTest(dispatcher) {
         val state = settledState(
             ContentType.NOVELS,
-            FakeProvider(apks, listOf(row(ExtensionKey.NovelApk("n")))),
+            FakeProvider(apks, listOf(row(ExtensionKey.NovelApk("n", NovelExtensionFormat.APK)))),
             FakeProvider(setOf(ContentType.NOVELS), listOf(row(ExtensionKey.Novel("plugin")))),
         )
 

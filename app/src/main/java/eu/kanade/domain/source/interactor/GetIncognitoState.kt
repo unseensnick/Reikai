@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import reikai.domain.source.SourceKey // RK
-import reikai.novel.source.TACHIYOMI_NOVEL_SOURCE_PREFIX // RK
+import reikai.novel.source.isNovelAppSourceId // RK
 
 @Inject
 class GetIncognitoState(
@@ -61,11 +61,8 @@ class GetIncognitoState(
     }
 
     private fun novelIncognitoKey(source: SourceKey.Novel): Flow<String?> {
-        val apkSourceId = source.id.removePrefix(TACHIYOMI_NOVEL_SOURCE_PREFIX)
-            .takeIf { it != source.id }
-            ?.toLongOrNull()
-            ?: return flowOf(source.serialize())
-        return extensionManager.getNovelExtensionPackageAsFlow(apkSourceId)
+        if (!isNovelAppSourceId(source.id)) return flowOf(source.serialize())
+        return extensionManager.getNovelExtensionPackageAsFlow(source.id)
     }
 
     // The built-in E-Hentai sources have no installed extension, so they map to EH_PACKAGE.

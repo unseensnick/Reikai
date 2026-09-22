@@ -42,6 +42,7 @@ import reikai.domain.source.ContentWarningScan
 import reikai.domain.source.contentWarningScan
 import reikai.domain.source.contentWarningScanChanges
 import reikai.domain.source.reloadWhenScanStale
+import reikai.novel.source.novelSourceId
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -156,10 +157,15 @@ class ExtensionManager(
         return loadedNovelExtensionMapFlow.value.values.toList()
     }
 
-    /** The novel apk providing [sourceId], the number inside its `tachiyomi:` source id. */
-    fun getNovelExtensionPackageAsFlow(sourceId: Long): Flow<String?> =
+    /**
+     * The novel apk providing the source [novelSourceId], matched by its whole text id, since the two
+     * apk formats share numbers.
+     */
+    fun getNovelExtensionPackageAsFlow(novelSourceId: String): Flow<String?> =
         loadedNovelExtensionsFlow.map { extensions ->
-            extensions.find { extension -> extension.sources.any { it.id == sourceId } }?.pkgName
+            extensions.find { extension ->
+                extension.sources.any { extension.kind.novelSourceId(it.id) == novelSourceId }
+            }?.pkgName
         }
     // RK <--
 

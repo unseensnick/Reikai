@@ -10,7 +10,7 @@ import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.browse.ExtensionDetailsScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.extension.model.Extension // RK
-import reikai.novel.source.TACHIYOMI_NOVEL_SOURCE_PREFIX // RK
+import reikai.novel.source.novelSourceId // RK
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
@@ -40,12 +40,12 @@ data class ExtensionDetailsScreen(
                     state = state,
                     onClickSourcePreferences = {
                         // RK --> a novel app's source is looked up by its text id
-                        val novel = state.extension.kind == Extension.Kind.TACHIYOMI_NOVEL
+                        val novelId = state.extension.kind.novelSourceId(it)
                         navigator.push(
-                            if (novel) {
-                                SourcePreferencesScreen.forNovel(
-                                    TACHIYOMI_NOVEL_SOURCE_PREFIX + it,
-                                )
+                            if (novelId !=
+                                null
+                            ) {
+                                SourcePreferencesScreen.forNovel(novelId)
                             } else {
                                 SourcePreferencesScreen(it)
                             },

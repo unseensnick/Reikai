@@ -79,6 +79,7 @@ import reikai.novel.download.NovelDownloadJob
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.ireader.IReaderHostServices
 import reikai.novel.update.LnPluginUpdateChecker
 import reikai.presentation.details.MangaEntryCoverViewModel
 import reikai.presentation.library.MangaLibraryAdapter
@@ -179,6 +180,7 @@ interface AppGraph : ViewModelGraph {
     val galleryAdder: GalleryAdder
     val novelPreferences: NovelPreferences
     val novelSourceManager: NovelSourceManager
+    val iReaderHostServices: IReaderHostServices // RK: the extension loader builds IReader sources with it
     val novelImageRequests: NovelImageRequests
     val extensionUpdateCounts: ExtensionUpdateCounts
     val reikaiRecommendationPreferences: ReikaiRecommendationPreferences

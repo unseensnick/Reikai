@@ -13,8 +13,11 @@ import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.registry.LnRegistryEntry
+import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSource
+import reikai.novel.source.ireader.IReaderSourceHolder
 import reikai.novel.source.langCode
+import reikai.novel.source.novelFormat
 import reikai.novel.source.toLangCode
 import reikai.novel.update.LnPluginUpdate
 
@@ -56,8 +59,10 @@ class ApkExtensionsProvider(private val model: ExtensionsViewModel) : Extensions
 
     override val rows: Flow<List<BrowseExtensionRow>?> =
         combine(model.extensions, model.novelExtensions, model.currentDownloads) { manga, novel, downloads ->
-            val mangaRows = apkExtensionRows(manga, downloads) { ExtensionKey.Manga(it) }
-            val novelRows = apkExtensionRows(novel, downloads) { ExtensionKey.NovelApk(it) }
+            val mangaRows = apkExtensionRows(manga, downloads) { ExtensionKey.Manga(it.pkgName) }
+            val novelRows = apkExtensionRows(novel, downloads) {
+                ExtensionKey.NovelApk(it.pkgName, it.kind.novelFormat ?: NovelExtensionFormat.APK)
+            }
             if (mangaRows == null || novelRows == null) null else mangaRows + novelRows
         }
 
@@ -91,7 +96,7 @@ class ApkExtensionsProvider(private val model: ExtensionsViewModel) : Extensions
 fun apkExtensionRows(
     extensions: Extensions?,
     downloads: Map<String, InstallStep>,
-    key: (pkgName: String) -> ExtensionKey,
+    key: (Extension) -> ExtensionKey,
 ): List<BrowseExtensionRow>? = extensions?.run {
     updates.map { it.toRow(ExtensionSection.Updates, downloads, key) } +
         notLoaded.map { it.toRow(ExtensionSection.NotLoaded, downloads, key) } +
@@ -105,10 +110,10 @@ private fun Extensions.isNotEmpty() =
 private fun Extension.toRow(
     section: ExtensionSection,
     downloads: Map<String, InstallStep>,
-    key: (pkgName: String) -> ExtensionKey,
+    key: (Extension) -> ExtensionKey,
 ) =
     BrowseExtensionRow(
-        key = key(pkgName),
+        key = key(this),
         name = name,
         lang = lang.orEmpty(),
         section = section,
@@ -126,6 +131,7 @@ private fun Extension.searchTerms(): List<String> = buildList {
         is Extension.Loaded -> sources.forEach { source ->
             add(source.name)
             (source as? HttpSource)?.getHomeUrl()?.let(::add)
+            (source as? IReaderSourceHolder)?.baseUrl?.let(::add)
         }
         is Extension.Available -> sources.forEach {
             add(it.name)

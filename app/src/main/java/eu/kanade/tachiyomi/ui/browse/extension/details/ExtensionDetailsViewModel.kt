@@ -35,7 +35,8 @@ import kotlinx.coroutines.flow.stateIn
 import logcat.LogPriority
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import reikai.domain.source.ToggleNovelSource // RK
-import reikai.novel.source.TACHIYOMI_NOVEL_SOURCE_PREFIX // RK
+import reikai.novel.source.ireader.IReaderSourceHolder // RK
+import reikai.novel.source.novelSourceId // RK
 import tachiyomi.core.common.util.system.logcat
 import kotlin.time.Duration.Companion.seconds
 
@@ -102,8 +103,14 @@ class ExtensionDetailsViewModel(
         val extension = successState?.extension ?: return
 
         val urls = extension.sources
-            .filterIsInstance<HttpSource>()
-            .flatMap { listOf(it.baseUrl, it.getHomeUrl()) }
+            .flatMap {
+                when (it) {
+                    is HttpSource -> listOf(it.baseUrl, it.getHomeUrl())
+                    // RK: an IReader catalogue is not a tachiyomi HttpSource, but has a site all the same
+                    is IReaderSourceHolder -> listOfNotNull(it.baseUrl)
+                    else -> emptyList()
+                }
+            }
             .filter { it.isNotEmpty() }
             .distinct()
 
@@ -126,8 +133,8 @@ class ExtensionDetailsViewModel(
 
     fun toggleSource(sourceId: Long) {
         // RK --> a novel app's source is switched on the novel list
-        if (successState?.extension?.kind == Extension.Kind.TACHIYOMI_NOVEL) {
-            toggleNovelSource.await(TACHIYOMI_NOVEL_SOURCE_PREFIX + sourceId)
+        successState?.extension?.kind?.novelSourceId(sourceId)?.let {
+            toggleNovelSource.await(it)
             return
         }
         // RK <--
@@ -137,8 +144,8 @@ class ExtensionDetailsViewModel(
     fun toggleSources(enable: Boolean) {
         // RK -->
         val extension = successState?.extension
-        if (extension?.kind == Extension.Kind.TACHIYOMI_NOVEL) {
-            toggleNovelSource.await(extension.sources.map { TACHIYOMI_NOVEL_SOURCE_PREFIX + it.id }, enable)
+        if (extension != null && extension.kind != Extension.Kind.MANGA) {
+            toggleNovelSource.await(extension.sources.mapNotNull { extension.kind.novelSourceId(it.id) }, enable)
             return
         }
         // RK <--

@@ -31,13 +31,16 @@ sealed interface Extension {
 
     /**
      * Which manifest format an installed apk declares, and so what its sources serve. [manifestKey]
-     * is both the `uses-feature` name and the prefix of the kind's metadata keys.
+     * is the `uses-feature` name, and [metadataPrefix] the prefix of the kind's metadata keys.
      */
-    enum class Kind(val manifestKey: String) {
+    enum class Kind(val manifestKey: String, val metadataPrefix: String = manifestKey) {
         MANGA("tachiyomi.extension"),
 
         /** A novel apk built on the tachiyomi extension library (NovelSourcery). */
         TACHIYOMI_NOVEL("tachiyomi.novelextension"),
+
+        /** A novel apk built on IReader's source API, whose metadata keys are `source.*`. */
+        IREADER("ireader", metadataPrefix = "source"),
         ;
 
         companion object {

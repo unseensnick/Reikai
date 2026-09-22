@@ -7,7 +7,7 @@ import eu.kanade.tachiyomi.source.Source
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import reikai.domain.source.ReikaiSourcePreferences // RK
-import reikai.novel.source.TACHIYOMI_NOVEL_SOURCE_PREFIX // RK
+import reikai.novel.source.novelSourceId // RK
 
 @Inject
 class GetExtensionSources(
@@ -25,7 +25,7 @@ class GetExtensionSources(
         val disabled = if (isManga) preferences.disabledSources else reikaiSourcePreferences.disabledNovelSources
         return disabled.changes().map { disabledSources ->
             fun Source.isEnabled() =
-                (if (isManga) id.toString() else TACHIYOMI_NOVEL_SOURCE_PREFIX + id) !in disabledSources
+                (extension.kind.novelSourceId(id) ?: id.toString()) !in disabledSources
             // RK <--
 
             extension.sources

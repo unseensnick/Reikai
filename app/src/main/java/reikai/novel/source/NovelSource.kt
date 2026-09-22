@@ -1,11 +1,37 @@
 package reikai.novel.source
 
+import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.SourceTracker
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 
 /** The id prefix of a novel source packaged as a tachiyomi-format APK, whose own id is a number. */
 const val TACHIYOMI_NOVEL_SOURCE_PREFIX = "tachiyomi:"
+
+/** The id prefix of a novel source packaged as an IReader APK, whose own id is a number. */
+const val IREADER_NOVEL_SOURCE_PREFIX = "ireader:"
+
+/**
+ * The text id of the catalogue numbered [sourceId] in an app of this kind, or null for a manga app,
+ * whose sources keep their numbers. The prefix is what keeps two formats' equal numbers apart.
+ */
+fun Extension.Kind.novelSourceId(sourceId: Long): String? = when (this) {
+    Extension.Kind.MANGA -> null
+    Extension.Kind.TACHIYOMI_NOVEL -> TACHIYOMI_NOVEL_SOURCE_PREFIX + sourceId
+    Extension.Kind.IREADER -> IREADER_NOVEL_SOURCE_PREFIX + sourceId
+}
+
+/** Whether [id] names a catalogue of an installed app, rather than an LNReader plugin. */
+fun isNovelAppSourceId(id: String): Boolean =
+    id.startsWith(TACHIYOMI_NOVEL_SOURCE_PREFIX) || id.startsWith(IREADER_NOVEL_SOURCE_PREFIX)
+
+/** How an app of this kind is packaged, or null for a manga app. */
+val Extension.Kind.novelFormat: NovelExtensionFormat?
+    get() = when (this) {
+        Extension.Kind.MANGA -> null
+        Extension.Kind.TACHIYOMI_NOVEL -> NovelExtensionFormat.APK
+        Extension.Kind.IREADER -> NovelExtensionFormat.IREADER
+    }
 
 /**
  * Contract for a light-novel source, whatever format it comes in. Everything is suspending and

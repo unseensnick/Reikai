@@ -12,12 +12,15 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceFactory
 import eu.kanade.tachiyomi.util.lang.Hash
 import eu.kanade.tachiyomi.util.storage.copyAndSetReadOnlyTo
+import ireader.core.source.CatalogSource
+import ireader.core.source.Dependencies
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import mihon.data.dalvik.DelegateLastClassLoaderCompat
 import mihon.domain.extension.model.ContentWarning
+import reikai.novel.source.ireader.IReaderSourceHolder
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import java.io.File
@@ -297,6 +300,8 @@ internal object ExtensionLoader {
         // RK <--
 
         val extName = metaData?.getString(METADATA_NAME)
+            // RK: an IReader app names itself in its source metadata; its label reads "IReader: X (en)"
+            ?: metaData?.getString(kind.metadataKey("name"))
             ?: appInfo?.let { pkgManager.getApplicationLabel(it).toString().substringAfter("Tachiyomi: ") }
             ?: pkgName
         val versionName = pkgInfo.versionName
@@ -348,9 +353,11 @@ internal object ExtensionLoader {
             ?.toString()
             ?.toDouble()
             ?: versionName.substringBeforeLast('.').toDoubleOrNull()
-        if (libVersion == null || libVersion !in SUPPORTED_LIB_VERSIONS) {
+        // RK: per kind
+        val supportedLibVersions = kind.supportedLibVersions()
+        if (libVersion == null || libVersion !in supportedLibVersions) {
             logcat(LogPriority.WARN) {
-                "Lib version is $libVersion, while only version(s) ${SUPPORTED_LIB_VERSIONS.joinToString()} are supported"
+                "Lib version is $libVersion, while only version(s) ${supportedLibVersions.joinToString()} are supported"
             }
             return notLoaded(Extension.NotLoaded.Reason.UnsupportedLibVersion, libVersion)
         }
@@ -404,6 +411,11 @@ internal object ExtensionLoader {
             }
             .flatMap {
                 try {
+                    // RK -->
+                    if (kind == Extension.Kind.IREADER) {
+                        return@flatMap listOf(loadIReaderSource(context, it, classLoader, pkgName))
+                    }
+                    // RK <--
                     when (val obj = Class.forName(it, false, classLoader).getDeclaredConstructor().newInstance()) {
                         is Source -> listOf(obj)
                         is SourceFactory -> obj.createSources()
@@ -485,7 +497,30 @@ internal object ExtensionLoader {
         return extensionKind(this)?.let { ExtensionInfo(packageInfo = this, isShared = isShared, kind = it) }
     }
 
-    private fun Extension.Kind.metadataKey(name: String) = "$manifestKey.$name"
+    private fun Extension.Kind.metadataKey(name: String) = "$metadataPrefix.$name"
+
+    /** IReader's own loader accepts library 2 only; its version name is the library, then the build. */
+    private fun Extension.Kind.supportedLibVersions(): List<Double> =
+        if (this == Extension.Kind.IREADER) listOf(2.0) else SUPPORTED_LIB_VERSIONS
+
+    /**
+     * An IReader class takes the host services it runs on in its constructor, as IReader's own loader
+     * builds it, and one apk is one catalogue.
+     */
+    private fun loadIReaderSource(
+        context: Context,
+        className: String,
+        classLoader: ClassLoader,
+        pkgName: String,
+    ): Source {
+        val dependencies = context.appGraph.iReaderHostServices.dependenciesFor(pkgName)
+        val obj = Class.forName(className, false, classLoader)
+            .getConstructor(Dependencies::class.java)
+            .newInstance(dependencies)
+        return IReaderSourceHolder(
+            obj as? CatalogSource ?: throw Exception("Not an IReader catalogue: ${obj.javaClass}"),
+        )
+    }
     // RK <--
 
     /**

@@ -22,10 +22,12 @@ sealed interface ExtensionKey {
         override val format: NovelExtensionFormat get() = NovelExtensionFormat.JS
     }
 
-    /** A novel extension shipped as an apk, which installs and updates the way a manga one does. */
-    data class NovelApk(val pkgName: String) : ExtensionKey {
+    /**
+     * A novel extension shipped as an apk, which installs and updates the way a manga one does. Its
+     * [format] tells a tachiyomi-format apk from an IReader one.
+     */
+    data class NovelApk(val pkgName: String, override val format: NovelExtensionFormat) : ExtensionKey {
         override val contentType: ContentType get() = ContentType.NOVELS
-        override val format: NovelExtensionFormat get() = NovelExtensionFormat.APK
     }
 }
 

@@ -53,14 +53,21 @@ class SourceIncognitoConformanceTest {
         incognitoState(stored = setOf(key)).await(SourceKey.Novel("tachiyomi:$NOVEL_APK_OTHER_SOURCE_ID")) shouldBe true
     }
 
+    @Test
+    fun `an IReader app's source is incognito by its app, not as a plugin`() = runTest {
+        incognitoState().incognitoKey(SourceKey.Novel("ireader:$NOVEL_APK_SOURCE_ID")) shouldBe IREADER_PACKAGE
+    }
+
     // The preferences are stubbed rather than in-memory: that store's changes() never emits, and building
     // BasePreferences reaches Android's installer checks, which the JVM does not have.
     private fun incognitoState(stored: Set<String> = emptySet()): GetIncognitoState {
         val extensionManager = mockk<ExtensionManager> {
             coEvery { getExtensionPackage(MANGA_SOURCE_ID) } returns MANGA_PACKAGE
             every { getExtensionPackageAsFlow(MANGA_SOURCE_ID) } returns flowOf(MANGA_PACKAGE)
-            every { getNovelExtensionPackageAsFlow(NOVEL_APK_SOURCE_ID) } returns flowOf(NOVEL_APK_PACKAGE)
-            every { getNovelExtensionPackageAsFlow(NOVEL_APK_OTHER_SOURCE_ID) } returns flowOf(NOVEL_APK_PACKAGE)
+            every { getNovelExtensionPackageAsFlow("tachiyomi:$NOVEL_APK_SOURCE_ID") } returns flowOf(NOVEL_APK_PACKAGE)
+            every { getNovelExtensionPackageAsFlow("tachiyomi:$NOVEL_APK_OTHER_SOURCE_ID") } returns
+                flowOf(NOVEL_APK_PACKAGE)
+            every { getNovelExtensionPackageAsFlow("ireader:$NOVEL_APK_SOURCE_ID") } returns flowOf(IREADER_PACKAGE)
         }
         val basePreferences = mockk<BasePreferences> { every { incognitoMode } returns preference(false) }
         val sourcePreferences = mockk<SourcePreferences> { every { incognitoExtensions } returns preference(stored) }
@@ -77,6 +84,7 @@ class SourceIncognitoConformanceTest {
         private const val MANGA_PACKAGE = "eu.kanade.tachiyomi.extension.en.example"
         private const val OTHER_PACKAGE = "eu.kanade.tachiyomi.extension.en.other"
         private const val NOVEL_APK_SOURCE_ID = 7L
+        private const val IREADER_PACKAGE = "ireader.freewebnovel.en"
         private const val NOVEL_APK_OTHER_SOURCE_ID = 8L
         private const val NOVEL_APK_PACKAGE = "eu.kanade.tachiyomi.novelextension.en.example"
 

@@ -23,6 +23,21 @@ class ExtensionKindTest {
     }
 
     @Test
+    fun `an IReader feature is an IReader extension`() {
+        Extension.Kind.fromFeatures(listOf("ireader", "ireader.extension")) shouldBe Extension.Kind.IREADER
+    }
+
+    @Test
+    fun `an IReader extension's metadata keys are its source keys`() {
+        Extension.Kind.IREADER.metadataPrefix shouldBe "source"
+    }
+
+    @Test
+    fun `a tachiyomi-format kind's metadata keys follow its feature`() {
+        Extension.Kind.TACHIYOMI_NOVEL.metadataPrefix shouldBe "tachiyomi.novelextension"
+    }
+
+    @Test
     fun `an apk declaring neither is not an extension`() {
         Extension.Kind.fromFeatures(listOf(null, "tachiyomi.extensions")) shouldBe null
     }
