@@ -96,6 +96,9 @@ class NovelImageGetter(
     private val dirtyViews = ConcurrentHashMap.newKeySet<TextView>()
     private val outstandingLoads = AtomicInteger(0)
 
+    /** Main thread: the pictures that arrived, each put in place once all have. */
+    private val landed = mutableListOf<() -> Unit>()
+
     /**
      * Called by the parser, off the main thread. A network image only gets queued here: starting it
      * now would race the views it has to measure against, so [startLoading] does that.
@@ -221,19 +224,23 @@ class NovelImageGetter(
         scope.launch {
             try {
                 val drawable = fetch(imageUrl)
-                withContext(Dispatchers.Main) {
-                    val loaded = drawable != null && fitToWidth(drawable, wrapper)
-                    if (!loaded) showFailure(wrapper, retryable = true)
-                    resolveView(wrapper)?.let { view ->
-                        view.invalidate()
-                        dirtyViews.add(view)
-                    }
-                    if (!loaded) offerRetry(imageUrl, wrapper)
-                }
+                // Held until the last one lands: drawn now, a picture spills over its line, which keeps the
+                // stand-in's height until the one re-measure that follows (onLoadFinished).
+                withContext(Dispatchers.Main) { landed += { land(imageUrl, wrapper, drawable) } }
             } finally {
                 withContext(Dispatchers.Main) { onLoadFinished() }
             }
         }
+    }
+
+    private fun land(imageUrl: String, wrapper: DrawableWrapper, drawable: Drawable?) {
+        val loaded = drawable != null && fitToWidth(drawable, wrapper)
+        if (!loaded) showFailure(wrapper, retryable = true)
+        resolveView(wrapper)?.let { view ->
+            view.invalidate()
+            dirtyViews.add(view)
+        }
+        if (!loaded) offerRetry(imageUrl, wrapper)
     }
 
     /**
@@ -319,6 +326,8 @@ class NovelImageGetter(
     /** Re-measuring once at the end, rather than per image, so a chapter of pictures reflows once. */
     private fun onLoadFinished() {
         if (outstandingLoads.decrementAndGet() > 0) return
+        landed.forEach { it() }
+        landed.clear()
         val views = dirtyViews.toList()
         dirtyViews.clear()
         onImagesReady(views)
