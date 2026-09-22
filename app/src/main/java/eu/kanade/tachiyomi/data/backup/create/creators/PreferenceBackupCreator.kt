@@ -9,9 +9,13 @@ import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.LongPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
+import eu.kanade.tachiyomi.extension.ExtensionManager
+import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.preferenceKey
 import eu.kanade.tachiyomi.source.sourcePreferences
+import kotlinx.coroutines.flow.first
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.source.service.SourceManager
@@ -20,6 +24,9 @@ import tachiyomi.domain.source.service.SourceManager
 class PreferenceBackupCreator(
     private val sourceManager: SourceManager,
     private val preferenceStore: PreferenceStore,
+    // RK -->
+    private val extensionManager: ExtensionManager,
+    // RK <--
 ) {
 
     fun createApp(includePrivatePreferences: Boolean): List<BackupPreference> {
@@ -28,8 +35,8 @@ class PreferenceBackupCreator(
     }
 
     suspend fun createSource(includePrivatePreferences: Boolean): List<BackupSourcePreferences> {
-        return sourceManager.getAll()
-            .filterIsInstance<ConfigurableSource>()
+        // RK: a novel app's settings too, which the manga source manager never holds
+        return configurableSources(sourceManager.getAll(), extensionManager.loadedNovelExtensionsFlow.first())
             .map {
                 BackupSourcePreferences(
                     it.preferenceKey(),
@@ -66,3 +73,18 @@ class PreferenceBackupCreator(
             this.filter { !Preference.isPrivate(it.key) }
         }
 }
+
+// RK -->
+
+/**
+ * Every source whose settings a backup carries: the manga sources and the novel apps' catalogues. A
+ * manga and a novel source with the same number share one settings file, which is written once.
+ */
+internal fun configurableSources(
+    mangaSources: List<Source>,
+    novelApps: List<Extension.Loaded>,
+): List<ConfigurableSource> =
+    (mangaSources + novelApps.flatMap { it.sources })
+        .filterIsInstance<ConfigurableSource>()
+        .distinctBy { it.preferenceKey() }
+// RK <--
