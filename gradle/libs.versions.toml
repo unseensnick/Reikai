@@ -43,6 +43,7 @@ google-services = "4.5.0"
 image-decoder = "14"
 injekt = "1.16.1"
 ireader-sourceApi = "1.5.1"
+ireader-ktor = "3.3.2"
 jsoup = "1.23.2"
 junit = "6.1.3"
 kotest-assertions = "6.2.5"
@@ -142,6 +143,9 @@ firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
 image-decoder = { module = "ca.mpreg:imagedecoder", version.ref = "image-decoder" }
 injekt = { module = "uy.kohesive.injekt:injekt-core", version.ref = "injekt" }
 ireader-sourceApi = { module = "io.github.ireaderorg:source-api-android", version.ref = "ireader-sourceApi" }
+ireader-ktor-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ireader-ktor" }
+ireader-ktor-contentNegotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ireader-ktor" }
+ireader-ktor-gson = { module = "io.ktor:ktor-serialization-gson", version.ref = "ireader-ktor" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
