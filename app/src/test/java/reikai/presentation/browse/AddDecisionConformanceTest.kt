@@ -150,7 +150,7 @@ class MangaAddDecisionProbe : AddDecisionProbe {
             },
             setMangaDefaultChapterFlags = mockk(relaxed = true),
             updateManga = mockk(relaxed = true),
-            addTracks = mockk(relaxed = true),
+            autoBindOnAdd = mockk(relaxed = true),
             mergeManager = mockk(relaxed = true),
             transactions = PassThroughTransactions,
             reikaiLibraryPreferences = mockk {
@@ -207,6 +207,7 @@ class NovelAddDecisionProbe : AddDecisionProbe {
             reikaiLibraryPreferences = mockk {
                 every { categorySortOrder } returns mockk { every { get() } returns sortOrder }
             },
+            autoBindOnAdd = mockk(relaxed = true),
         )
 
     override suspend fun resolve(userCategories: List<Category>, defaultId: Int): Resolution {

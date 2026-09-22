@@ -30,7 +30,6 @@ import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.manga.model.PagePreview
 import eu.kanade.domain.manga.model.chaptersFiltered
 import eu.kanade.domain.manga.model.toSManga
-import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.domain.track.service.TrackPreferences
@@ -109,6 +108,7 @@ import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
+import reikai.domain.track.autobind.AutoBindOnAdd // RK
 import reikai.domain.track.supportingContent
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
@@ -201,7 +201,7 @@ class MangaViewModel(
     // here goes through GetTracksInGroup instead of Mihon's per-manga GetTracks.
     private val getTracksInGroup: GetTracksInGroup,
     // RK <--
-    private val addTracks: AddTracks,
+    private val autoBindOnAdd: AutoBindOnAdd, // RK: binds off the add, which Mihon awaited through AddTracks
     private val setMangaCategories: SetMangaCategories,
     private val mangaRepository: MangaRepository,
     private val filterChaptersForDownload: FilterChaptersForDownload,
@@ -707,19 +707,11 @@ class MangaViewModel(
                     resolveCategories = {
                         resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
                     },
-                    favorite = { manga.id.takeIf { updateManga.awaitUpdateFavorite(manga.id, true) } },
+                    favorite = { favoriteForAdd(manga) },
                     fileCategories = { id, categoryIds -> setMangaCategories.await(id, categoryIds) },
                 )
-                when (outcome) {
-                    AddOutcome.Failed -> return@launchIO
-                    AddOutcome.NeedsCategoryChoice -> showChangeCategoryDialog()
-                    AddOutcome.Added -> {}
-                }
-
-                // Finally match with enhanced tracking when available
-                addTracks.bindEnhancedTrackers(manga, state.source)
-                // RK: back up newly-favorited E-Hentai galleries to the account.
-                maybeBackupFavoriteToAccount(manga)
+                // RK: tracker matching and the account backup moved into the favorite step, see onAdded
+                if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog()
             }
         }
     }
@@ -741,10 +733,19 @@ class MangaViewModel(
 
     // RK: the favorite-and-merge pair and why it is atomic live in MangaLibraryAdder.joinGroup.
     private suspend fun joinGroup(manga: Manga, selectedIds: List<Long>): Long? =
-        mangaLibraryAdder.joinGroup(manga, selectedIds)?.also {
-            successState?.let { addTracks.bindEnhancedTrackers(manga, it.source) }
-            maybeBackupFavoriteToAccount(manga)
-        }
+        mangaLibraryAdder.joinGroup(manga, selectedIds)?.also { onAdded(manga) }
+
+    // RK: an add's favorite write, then onAdded; a picker the add raised runs it only on its confirm.
+    private suspend fun favoriteForAdd(manga: Manga): Long? =
+        manga.id.takeIf { updateManga.awaitUpdateFavorite(manga.id, true) }?.also { onAdded(manga) }
+
+    // RK: what an entry gets once it is in the library, never before, so a dismissed picker binds nothing:
+    // its server trackers matched and, for an E-Hentai gallery, the account backup. Both run off the add,
+    // which files its categories straight after the favorite write.
+    private fun onAdded(manga: Manga) {
+        successState?.let { autoBindOnAdd.manga(manga, it.source) }
+        viewModelScope.launchIO { maybeBackupFavoriteToAccount(manga) }
+    }
 
     // RK -->
 
@@ -920,7 +921,7 @@ class MangaViewModel(
                     if (joinGroup.isNotEmpty()) {
                         joinGroup(manga, joinGroup)
                     } else {
-                        manga.id.takeIf { manga.favorite || updateManga.awaitUpdateFavorite(manga.id, true) }
+                        if (manga.favorite) manga.id else favoriteForAdd(manga)
                     }
                 },
                 fileCategories = { id, categoryIds -> setMangaCategories.await(id, categoryIds) },

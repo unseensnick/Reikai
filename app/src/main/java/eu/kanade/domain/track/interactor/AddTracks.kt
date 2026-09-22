@@ -4,17 +4,16 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.track.model.toDomainTrack
 import eu.kanade.tachiyomi.data.database.models.Track
-import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
-import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.Source
 import kotlinx.datetime.TimeZone
-import logcat.LogPriority
 import reikai.domain.track.BindChapter
+import reikai.domain.track.autobind.AutoBindEntry // RK
+import reikai.domain.track.autobind.AutoBindTrackers // RK
+import reikai.domain.track.autobind.bindOnAdd // RK
 import reikai.domain.track.bindBackfill
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withNonCancellableContext
-import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.manga.model.Manga
@@ -25,8 +24,8 @@ class AddTracks(
     private val insertTrack: InsertTrack,
     private val syncChapterProgressWithTrack: SyncChapterProgressWithTrack,
     private val getChaptersByMangaId: GetChaptersByMangaId,
-    private val trackerManager: TrackerManager,
     private val getHistory: GetHistory,
+    private val autoBindTrackers: AutoBindTrackers, // RK
 ) {
 
     // TODO: update all trackers based on common data
@@ -65,29 +64,19 @@ class AddTracks(
 
     suspend fun bindEnhancedTrackers(manga: Manga, source: Source) = withNonCancellableContext {
         withIOContext {
-            trackerManager.loggedInTrackers()
-                .filterIsInstance<EnhancedTracker>()
-                .filter { it.accept(source) }
-                .forEach { service ->
-                    try {
-                        service.match(manga)?.let { track ->
-                            track.manga_id = manga.id
-                            (service as Tracker).bind(track)
-                            insertTrack.await(track.toDomainTrack(idRequired = false)!!)
+            // RK --> the routine novels bind through too; which trackers take part is the capability's call
+            bindOnAdd(AutoBindEntry.Manga(manga, source), autoBindTrackers.loggedIn()) { candidate, track ->
+                track.manga_id = manga.id
+                candidate.tracker.bind(track)
+                insertTrack.await(track.toDomainTrack(idRequired = false)!!)
 
-                            syncChapterProgressWithTrack.await(
-                                manga.id,
-                                track.toDomainTrack(idRequired = false)!!,
-                                service,
-                            )
-                        }
-                    } catch (e: Exception) {
-                        logcat(
-                            LogPriority.WARN,
-                            e,
-                        ) { "Could not match manga: ${manga.title} with service $service" }
-                    }
-                }
+                syncChapterProgressWithTrack.await(
+                    manga.id,
+                    track.toDomainTrack(idRequired = false)!!,
+                    candidate.tracker,
+                )
+            }
+            // RK <--
         }
     }
 }

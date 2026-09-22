@@ -12,6 +12,7 @@ import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelWithChapterCount
+import reikai.domain.track.autobind.AutoBindOnAdd
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddDecision
@@ -44,6 +45,7 @@ class NovelLibraryAdder(
     private val mergeManager: NovelMergeManager,
     private val transactions: Transactions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val autoBindOnAdd: AutoBindOnAdd,
 ) {
 
     /** Decide the long-press outcome: remove (already saved), confirm a possible duplicate, or add. */
@@ -147,7 +149,9 @@ class NovelLibraryAdder(
     suspend fun favoriteForAdd(novelId: Long): Long? {
         val novel = novelRepository.getById(novelId) ?: return null
         if (novel.favorite) return novelId
-        return novelId.takeIf { updateNovel.awaitUpdateFavorite(novelId, favorite = true) }
+        if (!updateNovel.awaitUpdateFavorite(novelId, favorite = true)) return null
+        autoBindOnAdd.novel(novel)
+        return novelId
     }
 
     /** Whether to offer add-time grouping in the duplicate dialog (see [NovelMergeManager]). */
@@ -233,7 +237,9 @@ class NovelLibraryAdder(
             if (ok) mergeManager.merge(listOf(novelId) + selectedIds)
             ok
         }
-        return novelId.takeIf { favorited }
+        if (!favorited) return null
+        autoBindOnAdd.novel(novel)
+        return novelId
     }
 
     /** Insert + favorite the item, returning its stored novel id and skipping the category prompt. The
@@ -247,8 +253,8 @@ class NovelLibraryAdder(
             thumbnailUrl = item.cover,
         )
         val stored = novelRepository.insertOrGet(base) ?: return null
-        if (!stored.favorite) {
-            updateNovel.awaitUpdateFavorite(stored.id, favorite = true)
+        if (!stored.favorite && updateNovel.awaitUpdateFavorite(stored.id, favorite = true)) {
+            autoBindOnAdd.novel(stored)
         }
         return stored.id
     }

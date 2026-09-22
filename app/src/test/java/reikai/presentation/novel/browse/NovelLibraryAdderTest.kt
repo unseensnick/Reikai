@@ -78,6 +78,7 @@ class NovelLibraryAdderTest {
         reikaiLibraryPreferences = mockk {
             every { categorySortOrder } returns mockk { every { get() } returns 0 }
         },
+        autoBindOnAdd = mockk(relaxed = true),
     )
 
     @Test

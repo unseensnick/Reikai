@@ -468,6 +468,7 @@ every release now also ships a foss build with neither in it.
 - **Marking a chapter read now updates the tracker status on the entry straight away, on manga and novels.** It kept showing the status from before the push, so an entry could sit on "plan to read" while the service already said reading.
 
 #### Fixed
+- **Backing out of the category choice when adding a manga from its page no longer binds its server tracker.** A source that backs favorites up to your account on the site now waits for the add too.
 
 - **Fill from tracker now says "No entry found" when the tracker has no such entry.** A failure with no reason says "Unknown error" instead of ending in a blank.
 - **Start and finish dates pulled from MangaBaka no longer land a day early in timezones behind UTC (synced from Mihon, mihonapp/mihon#3711).**

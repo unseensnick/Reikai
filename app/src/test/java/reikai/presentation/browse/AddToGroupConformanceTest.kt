@@ -125,6 +125,23 @@ class ConfirmAddCategoriesConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a confirm binds the new entry's source trackers once it is in the library`(probe: GroupAddProbe) =
+        runTest {
+            probe.confirmAddCategories(listOf(3L))
+
+            probe.trackersBound shouldBe true
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a confirm whose favorite write fails binds nothing`(probe: GroupAddProbe) = runTest {
+        probe.confirmAddCategories(listOf(3L), favoriteWriteSucceeds = false)
+
+        probe.trackersBound shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `a confirm on a row already in the library does not re-favorite it`(probe: GroupAddProbe) = runTest {
         probe.confirmAddCategories(listOf(3L), alreadyFavorite = true).favoriteWritten shouldBe false
     }
@@ -179,11 +196,15 @@ interface GroupAddProbe {
     /** The same for the other confirm each type has: manga's browse picker, novels' stored row. */
     suspend fun confirmStoredGroupCategories(categoryIds: List<Long>): GroupAddEffects
 
+    /** Whether the last call bound the entry's source trackers. */
+    val trackersBound: Boolean
+
     /** What a stored row's picker confirm wrote. Both types favorite here, then file. */
     suspend fun confirmAddCategories(
         categoryIds: List<Long>,
         rowExists: Boolean = true,
         alreadyFavorite: Boolean = false,
+        favoriteWriteSucceeds: Boolean = true,
     ): GroupAddEffects
 }
 
@@ -192,6 +213,7 @@ class MangaGroupAddProbe : GroupAddProbe {
     private var merged = false
     private var favoriteWritten = false
     private var filed: List<Long>? = null
+    override var trackersBound = false
 
     override fun toString() = "manga"
 
@@ -220,7 +242,14 @@ class MangaGroupAddProbe : GroupAddProbe {
         getDuplicateLibraryManga = mockk(relaxed = true),
         getManga = mockk {
             coEvery { await(any()) } returns
-                if (rowExists) mockk<Manga> { every { favorite } returns alreadyFavorite } else null
+                if (rowExists) {
+                    mockk<Manga> {
+                        every { favorite } returns alreadyFavorite
+                        every { source } returns 99L
+                    }
+                } else {
+                    null
+                }
         },
         setMangaCategories = mockk<SetMangaCategories> {
             coEvery { await(any(), any()) } answers { filed = secondArg() }
@@ -232,7 +261,9 @@ class MangaGroupAddProbe : GroupAddProbe {
                 favoriteWriteSucceeds
             }
         },
-        addTracks = mockk(relaxed = true),
+        autoBindOnAdd = mockk {
+            every { manga(any(), any()) } answers { trackersBound = true }
+        },
         mergeManager = mockk<MangaMergeManager>(relaxed = true) {
             coEvery { merge(any()) } answers { merged = true }
         },
@@ -247,6 +278,7 @@ class MangaGroupAddProbe : GroupAddProbe {
         merged = false
         favoriteWritten = false
         filed = null
+        trackersBound = false
     }
 
     override suspend fun joinGroup(
@@ -290,9 +322,10 @@ class MangaGroupAddProbe : GroupAddProbe {
         categoryIds: List<Long>,
         rowExists: Boolean,
         alreadyFavorite: Boolean,
+        favoriteWriteSucceeds: Boolean,
     ): GroupAddEffects {
         reset()
-        adder(true, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
+        adder(favoriteWriteSucceeds, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
             .confirmAddCategories(mangaId = 1L, categoryIds = categoryIds)
         return GroupAddEffects(
             joined = null,
@@ -308,6 +341,7 @@ class NovelGroupAddProbe : GroupAddProbe {
     private var merged = false
     private var favoriteWritten = false
     private var filed: List<Long>? = null
+    override var trackersBound = false
 
     override fun toString() = "novel"
 
@@ -354,12 +388,16 @@ class NovelGroupAddProbe : GroupAddProbe {
         reikaiLibraryPreferences = mockk {
             every { categorySortOrder } returns mockk { every { get() } returns 0 }
         },
+        autoBindOnAdd = mockk {
+            every { novel(any()) } answers { trackersBound = true }
+        },
     )
 
     private fun reset() {
         merged = false
         favoriteWritten = false
         filed = null
+        trackersBound = false
     }
 
     override suspend fun joinGroup(
@@ -403,9 +441,10 @@ class NovelGroupAddProbe : GroupAddProbe {
         categoryIds: List<Long>,
         rowExists: Boolean,
         alreadyFavorite: Boolean,
+        favoriteWriteSucceeds: Boolean,
     ): GroupAddEffects {
         reset()
-        adder(true, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
+        adder(favoriteWriteSucceeds, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
             .confirmAddCategories(novelId = 1L, categoryIds = categoryIds)
         return GroupAddEffects(
             joined = null,

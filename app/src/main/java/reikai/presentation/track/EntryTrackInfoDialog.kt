@@ -52,7 +52,6 @@ import eu.kanade.presentation.track.TrackStatusSelector
 import eu.kanade.presentation.track.TrackerSearch
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.track.DeletableTracker
-import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.ui.manga.track.TrackItem
@@ -77,6 +76,7 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
 import reikai.domain.manga.DeleteTrackInGroup
 import reikai.domain.manga.GetTracksInGroup
+import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.AddNovelTrack
 import reikai.domain.novel.interactor.DeleteNovelTrack
 import reikai.domain.novel.interactor.GetNovelTracks
@@ -84,8 +84,12 @@ import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.track.NovelTrackUpdater
 import reikai.domain.novel.track.toUiTrack
+import reikai.domain.track.autobind.AutoBindEntry
+import reikai.domain.track.autobind.AutoBindTracker
+import reikai.domain.track.autobind.AutoBindTrackers
 import reikai.domain.track.supportingContent
 import reikai.domain.track.trackWriterFor
+import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
@@ -105,10 +109,9 @@ import kotlin.time.Instant
 /**
  * The single track-info dialog stack for both manga and novels: the same domain [Track] (novels adapt
  * via [reikai.domain.novel.track.toUiTrack]) written through a [TrackWriter], so the two cannot drift.
- * Five things branch on [isNovel]: the track subscription, the manga-only source-accept filter, the
- * search endpoint, the bind target and the delete scope. Only manga narrows by source, because
- * [EnhancedTracker] is a manga-only slot; a tracker serving novels from one source would need that
- * gate before it could declare supportsNovels, or it would be offered on every novel.
+ * Five things branch on [isNovel]: the track subscription, the entry lookup, the search endpoint, the bind
+ * target and the delete scope. A tracker that binds entries from a source it knows ([AutoBindTracker]) is offered only
+ * for entries from those sources, and matches on a tap instead of searching, for both types.
  */
 data class EntryTrackInfoDialogHomeScreen(
     private val entryId: Long,
@@ -147,8 +150,8 @@ data class EntryTrackInfoDialogHomeScreen(
                 navigator.push(EntryTrackDateSelectorScreen(it.track!!, it.tracker.id, start = false, isNovel))
             },
             onNewSearch = {
-                if (!isNovel && it.tracker is EnhancedTracker) {
-                    viewModel.registerEnhancedTracking(it)
+                if (it.tracker.id in state.autoMatchTrackerIds) {
+                    viewModel.registerAutoBind(it)
                 } else {
                     navigator.push(
                         EntryTrackerSearchScreen(
@@ -192,6 +195,10 @@ data class EntryTrackInfoDialogHomeScreen(
         private val getManga: GetManga,
         private val trackerManager: TrackerManager,
         private val sourceManager: SourceManager,
+        private val novelRepository: NovelRepository,
+        private val novelSourceManager: NovelSourceManager,
+        private val autoBindTrackers: AutoBindTrackers,
+        private val addNovelTrack: AddNovelTrack,
         private val refreshTracks: RefreshTracks,
         private val refreshNovelTracks: RefreshNovelTracks,
         novelTrackUpdater: NovelTrackUpdater,
@@ -217,7 +224,12 @@ data class EntryTrackInfoDialogHomeScreen(
                     .catch { logcat(LogPriority.ERROR, it) }
                     .distinctUntilChanged()
                     .map { it.mapToTrackItem() }
-                    .collectLatest { trackItems -> state.update { it.copy(trackItems = trackItems) } }
+                    .collectLatest { trackItems ->
+                        val autoMatch = trackItems.mapNotNullTo(HashSet()) { item ->
+                            item.tracker.id.takeIf { autoBindTrackers.of(item.tracker) != null }
+                        }
+                        state.update { it.copy(trackItems = trackItems, autoMatchTrackerIds = autoMatch) }
+                    }
             }
         }
 
@@ -229,18 +241,34 @@ data class EntryTrackInfoDialogHomeScreen(
                 getTracksInGroup.subscribe(entryId)
             }
 
-        // Manga-only: EnhancedTracker matches a manga to its same-id remote entry with no manual search.
-        fun registerEnhancedTracking(item: TrackItem) {
-            item.tracker as EnhancedTracker
+        /** A tracker that knows the entry's source binds it to its match with no manual search. */
+        fun registerAutoBind(item: TrackItem) {
+            val candidate = autoBindTrackers.of(item.tracker) ?: return
             viewModelScope.launchNonCancellable {
-                val manga = getManga.await(entryId) ?: return@launchNonCancellable
+                val entry = autoBindEntry() ?: return@launchNonCancellable
                 try {
-                    val matchResult = item.tracker.match(manga) ?: throw Exception()
-                    item.tracker.register(matchResult, entryId)
+                    val match = candidate.match(entry) ?: throw Exception()
+                    if (isNovel) {
+                        addNovelTrack.bind(
+                            item.tracker,
+                            match,
+                            entryId,
+                        )
+                    } else {
+                        item.tracker.register(match, entryId)
+                    }
                 } catch (_: Exception) {
                     withUIContext { context.toast(MR.strings.error_no_match) }
                 }
             }
+        }
+
+        private suspend fun autoBindEntry(): AutoBindEntry? = if (isNovel) {
+            novelRepository.getById(entryId)?.let { novel ->
+                novelSourceManager.get(novel.source)?.let { AutoBindEntry.Novel(novel, it) }
+            }
+        } else {
+            getManga.await(entryId)?.let { AutoBindEntry.Manga(it, sourceManager.getOrStub(sourceId!!)) }
         }
 
         private suspend fun refreshTrackers() {
@@ -270,20 +298,22 @@ data class EntryTrackInfoDialogHomeScreen(
         private suspend fun List<Track>.mapToTrackItem(): List<TrackItem> {
             // Only trackers whose catalogue holds this type; the rest would silently bind the other's hit.
             val loggedInTrackers = trackerManager.loggedInTrackers().supportingContent(isNovel)
-            return if (isNovel) {
-                loggedInTrackers.map { service -> TrackItem(find { it.trackerId == service.id }, service) }
-            } else {
-                val source = sourceManager.getOrStub(sourceId!!)
-                loggedInTrackers
-                    .map { service -> TrackItem(find { it.trackerId == service.id }, service) }
-                    // Show only if the service supports this manga's source
-                    .filter { (it.tracker as? EnhancedTracker)?.accept(source) ?: true }
-            }
+            // Resolved only when a tracker asks: for a novel it loads the plugins.
+            val entry = if (loggedInTrackers.any { autoBindTrackers.of(it) != null }) autoBindEntry() else null
+            return loggedInTrackers
+                .map { service -> TrackItem(find { it.trackerId == service.id }, service) }
+                // A tracker that knows only some sources is offered only for entries from them; an entry that
+                // cannot be looked up keeps every row, as the source-only check before this did.
+                .filter { item ->
+                    autoBindTrackers.of(item.tracker)?.let { entry == null || it.accepts(entry) } ?: true
+                }
         }
 
         @Immutable
         data class State(
             val trackItems: List<TrackItem> = emptyList(),
+            /** Trackers a tap binds by matching the entry's source, rather than opening a search. */
+            val autoMatchTrackerIds: Set<Long> = emptySet(),
         )
     }
 }

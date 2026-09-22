@@ -2,7 +2,6 @@ package reikai.presentation.browse
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.flow.firstOrNull
@@ -11,6 +10,7 @@ import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.track.autobind.AutoBindOnAdd
 import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.library.reikaiSortCategories
@@ -49,7 +49,7 @@ class MangaLibraryAdder(
     private val setMangaCategories: SetMangaCategories,
     private val setMangaDefaultChapterFlags: SetMangaDefaultChapterFlags,
     private val updateManga: UpdateManga,
-    private val addTracks: AddTracks,
+    private val autoBindOnAdd: AutoBindOnAdd,
     // Add-time grouping (the suggestion gate + the merge into the duplicate's group).
     private val mergeManager: MangaMergeManager,
     private val transactions: Transactions,
@@ -115,7 +115,7 @@ class MangaLibraryAdder(
     private suspend fun joinGroupForAdd(manga: Manga, selectedIds: List<Long>): Long? =
         joinGroup(manga, selectedIds)?.also {
             setMangaDefaultChapterFlags.await(manga)
-            addTracks.bindEnhancedTrackers(manga, sourceManager.getOrStub(manga.source))
+            autoBindOnAdd.manga(manga, sourceManager.getOrStub(manga.source))
         }
 
     /**
@@ -152,11 +152,14 @@ class MangaLibraryAdder(
             new = new.removeCovers(coverCache)
         } else {
             setMangaDefaultChapterFlags.await(manga)
-            addTracks.bindEnhancedTrackers(manga, sourceManager.getOrStub(manga.source))
         }
         // Written in full rather than through awaitUpdateFavorite, so the source's own tracker is told here.
-        return updateManga.await(new.toMangaUpdate())
-            .also { updated -> if (updated) sourceTracker.favoriteChanged(EntryId.Manga(manga.id), new.favorite) }
+        // Trackers bind once the write lands, never for an add that failed.
+        return updateManga.await(new.toMangaUpdate()).also { updated ->
+            if (!updated) return@also
+            sourceTracker.favoriteChanged(EntryId.Manga(manga.id), new.favorite)
+            if (new.favorite) autoBindOnAdd.manga(manga, sourceManager.getOrStub(manga.source))
+        }
     }
 
     suspend fun getDuplicates(manga: Manga): List<MangaWithChapterCount> =
@@ -212,7 +215,9 @@ class MangaLibraryAdder(
     suspend fun favoriteForAdd(mangaId: Long): Long? {
         val stored = getManga.await(mangaId) ?: return null
         if (stored.favorite) return mangaId
-        return mangaId.takeIf { updateManga.awaitUpdateFavorite(mangaId, true) }
+        if (!updateManga.awaitUpdateFavorite(mangaId, true)) return null
+        autoBindOnAdd.manga(stored, sourceManager.getOrStub(stored.source))
+        return mangaId
     }
 
     /**
