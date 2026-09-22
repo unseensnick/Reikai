@@ -86,6 +86,24 @@ class NovelUpdatesApi(client: OkHttpClient) {
             .close()
     }
 
+    /** Every group's release of the series, as the series page's chapter list asks for them. */
+    suspend fun releases(novelId: String): List<NovelUpdatesRelease> {
+        val body = FormBody.Builder()
+            .add("action", "nd_getchapters")
+            .add("mygrr", "0")
+            .add("mypostid", novelId)
+            .build()
+        return parseReleases(client.newCall(POST(AJAX_URL, headers, body)).awaitSuccess().asJsoup())
+    }
+
+    /** Ticks or unticks one release in the reading list, as the release list's own checkbox does. */
+    suspend fun markRelease(novelId: String, releaseId: String, read: Boolean) {
+        val checked = if (read) "yes" else "no"
+        client.newCall(GET("$BASE_URL/readinglist_update.php?rid=$releaseId&sid=$novelId&checked=$checked", headers))
+            .awaitSuccess()
+            .close()
+    }
+
     private suspend fun get(url: String) = client.newCall(GET(url, headers)).awaitSuccess().asJsoup()
 
     companion object {

@@ -5,6 +5,7 @@ import logcat.LogPriority
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.track.PushNovelUnread
 import reikai.domain.track.source.ChapterWrite
 import reikai.domain.track.source.SourceTrackerDispatcher
 import tachiyomi.core.common.util.lang.withNonCancellableContext
@@ -15,14 +16,15 @@ import tachiyomi.core.common.util.system.logcat
  * [eu.kanade.domain.chapter.interactor.SetReadStatus]. Flips the read flag and, when marking read,
  * deletes the downloaded copies per novel when "delete after marked as read" is on (reusing
  * [DeleteNovelChaptersAfterRead], which owns the pref, excluded-category and bookmark guards). Every
- * novel mark-read site routes through this, so read and delete-after-read cannot drift. Tracker sync
- * stays a separate concern the screens call themselves, as the manga twin does.
+ * novel mark-read site routes through this, so read and delete-after-read cannot drift. Trackers
+ * other than a source's own sync a read from the screens; an unread reaches [PushNovelUnread] here.
  */
 @Inject
 class SetNovelReadStatus(
     private val chapterRepository: NovelChapterRepository,
     private val deleteAfterRead: DeleteNovelChaptersAfterRead,
     private val sourceTracker: SourceTrackerDispatcher,
+    private val pushNovelUnread: PushNovelUnread,
 ) {
 
     suspend fun await(read: Boolean, chapters: List<NovelChapter>): Result = withNonCancellableContext {
@@ -47,6 +49,9 @@ class SetNovelReadStatus(
             toUpdate.groupBy { it.novelId }.forEach { (novelId, chs) ->
                 deleteAfterRead.await(novelId, chs)
             }
+        } else {
+            // A chapter merely started was never marked on a site, so only one that was read moves it back.
+            pushNovelUnread.launch(toUpdate.filter { it.read })
         }
 
         Result.Success

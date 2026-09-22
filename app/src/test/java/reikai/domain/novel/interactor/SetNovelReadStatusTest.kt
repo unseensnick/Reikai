@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.track.PushNovelUnread
 import reikai.domain.track.source.ChapterWrite
 import reikai.domain.track.source.SourceTrackerDispatcher
 
@@ -24,7 +25,8 @@ class SetNovelReadStatusTest {
         chapterRepository: NovelChapterRepository = mockk(relaxed = true),
         deleteAfterRead: DeleteNovelChaptersAfterRead = mockk(relaxed = true),
         sourceTracker: SourceTrackerDispatcher = mockk(relaxed = true),
-    ) = SetNovelReadStatus(chapterRepository, deleteAfterRead, sourceTracker)
+        pushNovelUnread: PushNovelUnread = mockk(relaxed = true),
+    ) = SetNovelReadStatus(chapterRepository, deleteAfterRead, sourceTracker, pushNovelUnread)
 
     @Test
     fun `marking read tells the source's own tracker which chapters changed`() = runTest {
@@ -52,6 +54,26 @@ class SetNovelReadStatusTest {
                 ),
             )
         }
+    }
+
+    @Test
+    fun `an unread hands the trackers only the chapters that were read`() = runTest {
+        val push = mockk<PushNovelUnread>(relaxed = true)
+        val read = chapter(1, read = true)
+
+        interactor(pushNovelUnread = push)
+            .await(read = false, chapters = listOf(read, chapter(2, read = false, progress = 5L)))
+
+        verify { push.launch(listOf(read)) }
+    }
+
+    @Test
+    fun `a read hands the unread push nothing`() = runTest {
+        val push = mockk<PushNovelUnread>(relaxed = true)
+
+        interactor(pushNovelUnread = push).await(read = true, chapters = listOf(chapter(1, read = false)))
+
+        verify(exactly = 0) { push.launch(any()) }
     }
 
     @Test

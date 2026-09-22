@@ -8,6 +8,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.entry.EntryId
@@ -59,6 +60,11 @@ class SourceTrackedEntriesConformanceTest {
         probe.loader(exists = false).load(probe.entry).shouldBeNull()
     }
 
+    @Test
+    fun `a novel from a site Reikai's own tracker owns is not handed to the extension`() = runTest {
+        NovelProbe().loader(site = "https://www.novelupdates.com").load(EntryId.Novel(1)).shouldBeNull()
+    }
+
     data class ChapterRow(val id: Long, val read: Boolean, val number: Double)
 
     interface LoaderProbe {
@@ -70,6 +76,7 @@ class SourceTrackedEntriesConformanceTest {
             favorite: Boolean = false,
             chapters: List<ChapterRow> = emptyList(),
             categories: List<Category> = emptyList(),
+            site: String = "https://example.org",
         ): TrackedEntryLoader
     }
 
@@ -93,6 +100,7 @@ class MangaProbe : SourceTrackedEntriesConformanceTest.LoaderProbe {
         favorite: Boolean,
         chapters: List<SourceTrackedEntriesConformanceTest.ChapterRow>,
         categories: List<Category>,
+        site: String,
     ): TrackedEntryLoader {
         val source = if (tracking) {
             mockk<Source>(moreInterfaces = arrayOf(SourceTracker::class), relaxed = true)
@@ -138,9 +146,11 @@ class NovelProbe : SourceTrackedEntriesConformanceTest.LoaderProbe {
         favorite: Boolean,
         chapters: List<SourceTrackedEntriesConformanceTest.ChapterRow>,
         categories: List<Category>,
+        site: String,
     ): TrackedEntryLoader {
         val source = mockk<NovelSource> {
             every { name } returns "Site"
+            every { this@mockk.site } returns site
             every { tracker } returns if (tracking) siteTracker else null
         }
         return SourceTrackedEntries(

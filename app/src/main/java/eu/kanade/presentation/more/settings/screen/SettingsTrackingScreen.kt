@@ -491,6 +491,16 @@ object SettingsTrackingScreen : SearchableSettings {
                 subtitle = stringResource(MR.strings.pref_novelupdates_configure_lists_summary),
                 onClick = { onShowDialog(NovelUpdatesListMappingDialog) },
             ).takeIf { useCustom },
+            Preference.PreferenceItem.SwitchPreference(
+                preference = trackPreferences.novelUpdatesNeverBackwards,
+                title = stringResource(MR.strings.pref_novelupdates_never_backwards),
+                subtitle = stringResource(MR.strings.pref_novelupdates_never_backwards_summary),
+            ),
+            Preference.PreferenceItem.SwitchPreference(
+                preference = trackPreferences.novelUpdatesUnreadPush,
+                title = stringResource(MR.strings.pref_novelupdates_unread_push),
+                subtitle = stringResource(MR.strings.pref_novelupdates_unread_push_summary),
+            ),
         )
     }
 

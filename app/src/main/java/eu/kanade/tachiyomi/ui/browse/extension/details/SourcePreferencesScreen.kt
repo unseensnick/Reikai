@@ -25,6 +25,7 @@ import androidx.fragment.app.commit
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.DialogPreference
 import androidx.preference.EditTextPreference
+import androidx.preference.Preference // RK
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceScreen
 import androidx.preference.R
@@ -41,6 +42,7 @@ import eu.kanade.tachiyomi.widget.TachiyomiTextInputEditText.Companion.setIncogn
 import exh.source.configurableSource
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
+import reikai.domain.track.site.OwnedSites // RK
 import reikai.novel.source.NovelSettings
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.LoadingScreen
@@ -161,9 +163,10 @@ class SourcePreferencesFragment : PreferenceFragmentCompat() {
     private suspend fun populateScreen(): PreferenceScreen {
         val sourceId = requireArguments().getLong(SOURCE_ID)
         // RK --> a novel source packaged as a tachiyomi-format apk hands over its own ConfigurableSource
-        val novelSource = requireArguments().getString(NOVEL_SOURCE_ID)?.let {
-            (requireContext().appGraph.novelSourceManager.get(it)?.settings as? NovelSettings.PreferenceScreen)?.source
+        val novelEntrySource = requireArguments().getString(NOVEL_SOURCE_ID)?.let {
+            requireContext().appGraph.novelSourceManager.get(it)
         }
+        val novelSource = (novelEntrySource?.settings as? NovelSettings.PreferenceScreen)?.source
         // RK <--
         // RK --> a delegated source arrives wrapped, and the wrapper is not a ConfigurableSource, so
         // without unwrapping it the check below fails and the screen renders empty. Ported from
@@ -177,6 +180,12 @@ class SourcePreferencesFragment : PreferenceFragmentCompat() {
             preferenceManager.preferenceDataStore = dataStore
 
             source.setupPreferenceScreen(sourceScreen)
+            // RK --> the settings a Reikai tracker took over along with the site; its parent, since an
+            // extension may nest them in a category
+            novelEntrySource?.let { OwnedSites.ownerOf(it) }?.hiddenSourceKeys?.forEach { key ->
+                sourceScreen.findPreference<Preference>(key)?.let { it.parent?.removePreference(it) }
+            }
+            // RK <--
             sourceScreen.forEach { pref ->
                 pref.isIconSpaceReserved = false
                 pref.isSingleLineTitle = false

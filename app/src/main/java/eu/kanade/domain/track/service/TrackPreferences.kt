@@ -80,6 +80,14 @@ class TrackPreferences(
         AutoTrackState.ALWAYS,
     )
 
+    // RK --> NovelUpdates: a read of an earlier chapter leaves the site's progress alone, and an unread
+    // moves it back only when asked
+    val novelUpdatesNeverBackwards: Preference<Boolean> =
+        preferenceStore.getBoolean("novelupdates_never_backwards", true)
+
+    val novelUpdatesUnreadPush: Preference<Boolean> = preferenceStore.getBoolean("novelupdates_unread_push", false)
+    // RK <--
+
     // RK: whether a migration is passed to extensions that sync to their own site; tsundoku's key and default
     val sourceTrackerOnMigration: Preference<Boolean> =
         preferenceStore.getBoolean("source_tracker_run_on_migration", true)

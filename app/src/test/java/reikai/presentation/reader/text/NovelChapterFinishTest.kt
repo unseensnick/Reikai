@@ -44,7 +44,12 @@ class NovelChapterFinishTest {
         trackStore: InMemoryPreferenceStore = InMemoryPreferenceStore(),
     ) = NovelChapterFinish(
         chapterRepo = repo,
-        setNovelReadStatus = SetNovelReadStatus(repo, mockk(relaxed = true), mockk(relaxed = true)),
+        setNovelReadStatus = SetNovelReadStatus(
+            repo,
+            mockk(relaxed = true),
+            mockk(relaxed = true),
+            mockk(relaxed = true),
+        ),
         libraryPreferences = LibraryPreferences(libraryStore),
         trackPreferences = TrackPreferences(trackStore),
         trackNovelChapter = trackNovelChapter,

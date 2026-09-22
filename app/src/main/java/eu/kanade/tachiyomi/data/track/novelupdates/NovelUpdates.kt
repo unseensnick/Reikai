@@ -6,9 +6,19 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.CookieLoginTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
+import logcat.LogPriority
+import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.track.UnreadPushTracker
+import reikai.domain.track.autobind.AutoBindEntry
+import reikai.domain.track.autobind.AutoBindTracker
+import reikai.domain.track.site.OwnedSites
+import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 import java.io.IOException
@@ -21,7 +31,12 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  * read-modify-write over their text. It has no score and no reading dates either, so both rows stay
  * hidden rather than doing nothing.
  */
-class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates"), DeletableTracker, CookieLoginTracker {
+class NovelUpdates(id: Long) :
+    BaseTracker(id, "NovelUpdates"),
+    DeletableTracker,
+    CookieLoginTracker,
+    AutoBindTracker,
+    UnreadPushTracker {
 
     companion object {
         const val READING = 1L
@@ -98,8 +113,44 @@ class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates"), DeletableTracker
         if (didReadChapter && track.status != COMPLETED) {
             track.status = READING
         }
+        push(track, readChapter = didReadChapter)
+        return track
+    }
+
+    override suspend fun pushUnread(track: Track, unread: List<NovelChapter>): Track? {
+        if (!trackPreferences.novelUpdatesUnreadPush.get()) return null
+        val novelId = track.remote_id.toString()
+        val target = unreadTarget(unread) { it.chapterNumber } ?: return null
+        val onSite = api.readNotes(novelId)?.let { progressFrom(it.notes) }
+        // Called after the unread is written, so this is what is still read.
+        val stillRead = groupChapters(track.manga_id)
+            .filter { it.read && it.chapterNumber > 0 }
+            .maxOfOrNull { it.chapterNumber }
+        val progress = progressAfterUnread(target.chapterNumber, stillRead, onSite) ?: return null
+        markRelease(track, novelId, target.chapterNumber, setOfNotNull(releaseIdOf(target.url)), read = false)
+        track.last_chapter_read = progress
         push(track)
         return track
+    }
+
+    override val tracker: Tracker get() = this
+
+    // The site's own sources: its extension, and the LNReader plugin reading the same pages.
+    override fun accepts(entry: AutoBindEntry): Boolean =
+        entry is AutoBindEntry.Novel && OwnedSites.ownerOf(entry.source)?.trackerId == id
+
+    override suspend fun match(entry: AutoBindEntry): TrackSearch? {
+        val novel = entry as? AutoBindEntry.Novel ?: return null
+        val link = novel.source.resolveUrl(novel.novel.url, isNovel = true) ?: novel.novel.url
+        val seriesUrl = NovelUpdatesApi.seriesUrl(seriesSlugOf(link) ?: return null)
+        val details = api.details(seriesUrl)
+        // The post id is left for bind, which resolves it from the series page.
+        return TrackSearch.create(id).also {
+            it.tracking_url = seriesUrl
+            it.title = details.title ?: novel.novel.title
+            it.cover_url = details.coverUrl.orEmpty()
+            it.summary = details.description.orEmpty()
+        }
     }
 
     override suspend fun refresh(track: Track): Track {
@@ -172,17 +223,59 @@ class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates"), DeletableTracker
      * Status moves the entry between lists; progress is written into the note. The note is read back
      * first and left alone when it does not parse, so a bad response cannot blank what the user
      * wrote. Nothing here catches: a failed write must reach the caller rather than read as success.
+     * A [readChapter] also ticks its release, and never moves the site back unless the user allows it.
      */
-    private suspend fun push(track: Track) {
+    private suspend fun push(track: Track, readChapter: Boolean = false) {
         val novelId = track.remote_id.toString()
         api.moveToList(novelId, mapping().listIdFor(track.status))
 
         val existing = api.readNotes(novelId) ?: return
+        val onSite = progressFrom(existing.notes)
+        val neverBackwards = trackPreferences.novelUpdatesNeverBackwards.get()
+        if (holdsBack(readChapter, neverBackwards, track.last_chapter_read, onSite)) {
+            // The caller stores what this returns, so the app keeps the site's later chapter too.
+            track.last_chapter_read = onSite!!.toDouble()
+            return
+        }
+        if (readChapter) {
+            val readIds = groupChapters(track.manga_id)
+                .filter { it.read && it.chapterNumber == track.last_chapter_read }
+                .mapNotNullTo(HashSet()) { releaseIdOf(it.url) }
+            markRelease(track, novelId, track.last_chapter_read, readIds, read = true)
+        }
         val updated = notesWithProgress(existing.notes, track.last_chapter_read.toInt())
         if (updated != existing.notes) {
             api.writeNotes(novelId, updated, existing.tags)
         }
     }
+
+    /**
+     * Ticks or unticks the release for chapter [number]. One that cannot be resolved or written is
+     * skipped rather than failing the push, since the note still carries the progress.
+     */
+    private suspend fun markRelease(
+        track: Track,
+        novelId: String,
+        number: Double,
+        readIds: Set<String>,
+        read: Boolean,
+    ) {
+        try {
+            val releaseId = pickRelease(number, readIds, { api.releases(novelId) }) {
+                ChapterRecognition.parseChapterNumber(track.title, it)
+            } ?: return
+            api.markRelease(novelId, releaseId, read)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logcat(LogPriority.WARN, e) { "Could not mark a NovelUpdates release" }
+        }
+    }
+
+    /** The novel's chapters and those of the sources merged with it, since a track spans the group. */
+    private suspend fun groupChapters(novelId: Long): List<NovelChapter> =
+        appGraph.novelMergeManager.computeRelatedIds(novelId)
+            .flatMap { appGraph.novelChapterRepository.getByNovelId(it) }
 
     private fun mapping(): NovelUpdatesListMapping =
         if (trackPreferences.novelUpdatesUseCustomListMapping.get()) {

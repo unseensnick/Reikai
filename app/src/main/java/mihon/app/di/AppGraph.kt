@@ -64,6 +64,7 @@ import reikai.domain.category.GetNovelCategories
 import reikai.domain.extension.ExtensionUpdateCounts
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.RepairNovelDetails
@@ -202,6 +203,7 @@ interface AppGraph : ViewModelGraph {
     val novelDownloadCache: NovelDownloadCache // RK: Settings invalidates both download indexes
     val mangaMergeManager: MangaMergeManager
     val novelMergeManager: NovelMergeManager
+    val novelChapterRepository: NovelChapterRepository // RK: NovelUpdates finds the release a read links to
     val novelFontManager: NovelFontManager
     val migrationPickHandoff: MigrationPickHandoff
 

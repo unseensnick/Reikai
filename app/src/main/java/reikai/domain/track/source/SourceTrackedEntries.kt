@@ -11,6 +11,7 @@ import reikai.domain.category.GetNovelCategories
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
+import reikai.domain.track.site.OwnedSites
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
@@ -63,6 +64,8 @@ class SourceTrackedEntries(
         val novel = novelRepository.getById(id) ?: return null
         // Only an app's source can track, so the plugins are never loaded for this.
         val source = novelSourceManager.getWithoutPlugins(novel.source) ?: return null
+        // A site a Reikai tracker owns is tracked by that tracker alone, never by the extension too.
+        if (OwnedSites.ownerOf(source) != null) return null
         val tracker = source.tracker ?: return null
         val manga = SManga.create().apply {
             url = novel.url
