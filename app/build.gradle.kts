@@ -292,6 +292,14 @@ dependencies {
 
     implementation(libs.kotlinx.datetime)
 
+    // RK --> IReader novel extensions compile against IReader's own API. Pinned: later versions add
+    // copies of eu.kanade.tachiyomi classes that clash with source-api. Koin is excluded, since
+    // Reikai uses Metro and only an unused IReader bypass module needs it.
+    implementation(libs.ireader.sourceApi) {
+        exclude(group = "io.insert-koin")
+    }
+    // RK <--
+
     // AndroidX libraries
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.appCompat)

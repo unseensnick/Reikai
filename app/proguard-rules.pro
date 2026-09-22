@@ -111,6 +111,16 @@
 # KotlinX Datetime
 -keep,allowoptimization class kotlinx.datetime.** { public protected *; }
 
+# RK: IReader novel extensions are compiled against IReader's API and the libraries it exposes, and
+#     call them by name from another class loader, so R8 must not rename or drop them. Koin is left
+#     out of the build, and only IReader's unused bypass module refers to it.
+-keep,allowoptimization class ireader.** { public protected *; }
+-keep,allowoptimization class io.ktor.** { public protected *; }
+-keep,allowoptimization class kotlinx.io.** { public protected *; }
+-keep,allowoptimization class com.fleeksoft.ksoup.** { public protected *; }
+-keep,allowoptimization class co.touchlab.kermit.** { public protected *; }
+-dontwarn org.koin.**
+
 # Methods called by Shizuku only
 -keepclassmembers class mihon.app.shizuku.ShellInterface {
     public <init>();
