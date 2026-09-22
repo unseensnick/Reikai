@@ -129,6 +129,14 @@ interface NovelSource {
 }
 
 /**
+ * A novel source that is a catalogue of an installed app rather than a plugin. [appSource] is the
+ * catalogue object the app loaded, so a reload that kept it keeps its adapter too.
+ */
+interface AppNovelSource : NovelSource {
+    val appSource: Any
+}
+
+/**
  * One page of a listing or search, and whether the source says another follows. A format that cannot
  * say ends at its first empty page, so asking past the end costs nothing there; a tachiyomi source may
  * answer that with an error instead.

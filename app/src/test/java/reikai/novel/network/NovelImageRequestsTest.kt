@@ -6,6 +6,8 @@ import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.online.HttpSource
 import io.kotest.matchers.shouldBe
+import io.ktor.client.HttpClient
+import io.ktor.client.request.HttpRequestBuilder
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
@@ -15,8 +17,10 @@ import okhttp3.OkHttpClient
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
+import reikai.novel.source.ireader.IReaderSourceHolder
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
+import ireader.core.source.HttpSource as IReaderHttpSource
 
 /** Every novel picture is fetched with its own source's client and headers, whatever format it comes in. */
 class NovelImageRequestsTest {
@@ -67,6 +71,36 @@ class NovelImageRequestsTest {
         val headers = requests(loaded = listOf(extension)).forSource("tachiyomi:42").headers
 
         headers["Referer"] shouldBe "https://apk.example/"
+    }
+
+    @Test
+    fun `an IReader source uses the headers its cover request carries`() = runTest {
+        val catalogue = mockk<IReaderHttpSource> {
+            every { id } returns 42L
+            every { baseUrl } returns "https://ir.example"
+            every { getCoverRequest(any()) } answers {
+                HttpClient() to HttpRequestBuilder().apply { headers.append("Referer", "https://ir.example/") }
+            }
+        }
+        val extension = mockk<Extension.Loaded> { every { sources } returns listOf(IReaderSourceHolder(catalogue)) }
+
+        val headers = requests(loaded = listOf(extension)).forSource("ireader:42").headers
+
+        headers["Referer"] shouldBe "https://ir.example/"
+    }
+
+    @Test
+    fun `an IReader source is not taken for a tachiyomi one with the same number`() = runTest {
+        val catalogue = mockk<IReaderHttpSource> {
+            every { id } returns 42L
+            every { baseUrl } returns "https://ir.example"
+            every { getCoverRequest(any()) } answers {
+                HttpClient() to HttpRequestBuilder().apply { headers.append("Referer", "https://ir.example/") }
+            }
+        }
+        val extension = mockk<Extension.Loaded> { every { sources } returns listOf(IReaderSourceHolder(catalogue)) }
+
+        requests(loaded = listOf(extension)).forSource("tachiyomi:42").headers["Referer"] shouldBe null
     }
 
     private fun requests(

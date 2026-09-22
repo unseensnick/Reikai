@@ -28,7 +28,9 @@ import java.time.Instant
 class TachiyomiNovelSource(
     val source: CatalogueSource,
     extension: Extension.Loaded,
-) : NovelSource {
+) : AppNovelSource {
+
+    override val appSource: Any get() = source
 
     override val id: String = TACHIYOMI_NOVEL_SOURCE_PREFIX + source.id
     override val name: String = source.name

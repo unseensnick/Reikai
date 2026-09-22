@@ -6,6 +6,7 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.Source
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +23,8 @@ import logcat.LogPriority
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.source.ireader.IReaderNovelSource
+import reikai.novel.source.ireader.IReaderSourceHolder
 import tachiyomi.core.common.util.system.logcat
 
 /**
@@ -121,20 +124,29 @@ class NovelSourceManager(
 
     /** The loaded apps' catalogues replace the ones registered before, keeping any that did not change. */
     private suspend fun registerApps(extensions: List<Extension.Loaded>) {
-        val registered = sourcesFlow.value.values.filterIsInstance<TachiyomiNovelSource>().associateBy { it.id }
+        val registered = sourcesFlow.value.values.filterIsInstance<AppNovelSource>().associateBy { it.id }
         val adapters = extensions.flatMap { extension ->
-            extension.sources.filterIsInstance<CatalogueSource>().mapNotNull { catalogue ->
-                registered[TACHIYOMI_NOVEL_SOURCE_PREFIX + catalogue.id]?.takeIf { it.source === catalogue }
+            extension.sources.mapNotNull { source ->
+                val id = extension.kind.novelSourceId(source.id) ?: return@mapNotNull null
+                val catalogue = (source as? IReaderSourceHolder)?.source ?: source
+                registered[id]?.takeIf { it.appSource === catalogue }
                     // One catalogue failing to build must not keep the app's others out.
-                    ?: runCatching { TachiyomiNovelSource(catalogue, extension) }
+                    ?: runCatching { adapterFor(source, extension) }
                         .onFailure { logcat(LogPriority.ERROR, it) { "Could not load ${extension.pkgName}" } }
                         .getOrNull()
             }
         }
         sourcesFlow.update { current ->
-            current.filterValues { it !is TachiyomiNovelSource } + adapters.associateBy { it.id }
+            current.filterValues { it !is AppNovelSource } + adapters.associateBy { it.id }
         }
         // The icon is left out: its address names the app, and dies with it.
         rememberSeen(adapters.associate { it.id to LnSourceIdentity(name = it.name, lang = it.lang, site = it.site) })
+    }
+
+    // Each app kind's catalogue in its own adapter; anything else in an app's list is not a novel catalogue.
+    private fun adapterFor(source: Source, extension: Extension.Loaded): AppNovelSource? = when (source) {
+        is IReaderSourceHolder -> IReaderNovelSource(source.source, extension)
+        is CatalogueSource -> TachiyomiNovelSource(source, extension)
+        else -> null
     }
 }

@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -17,7 +18,9 @@ import org.junit.jupiter.api.Test
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.source.ireader.IReaderSourceHolder
 import tachiyomi.core.common.preference.Preference
+import ireader.core.source.CatalogSource as IReaderCatalogSource
 
 /** The registry follows the installed novel extension apps as the manga registry follows its extensions. */
 class NovelSourceManagerTest {
@@ -67,6 +70,40 @@ class NovelSourceManagerTest {
         verify(timeout = 5_000) { seen.set(capture(written)) }
         written.captured["tachiyomi:7"]?.name shouldBe "App 7"
     }
+
+    @Test
+    fun `an IReader app's catalogue is registered under its own id beside a tachiyomi one's`() = runTest {
+        loaded.value = listOf(app(catalogue(7L)), iReaderApp(7L))
+
+        manager.sources.first { it.size == 2 }.map { it.id }.toSet() shouldBe setOf("tachiyomi:7", "ireader:7")
+    }
+
+    @Test
+    fun `an IReader catalogue that did not change keeps its adapter when another app arrives`() = runTest {
+        val iReader = iReaderApp(7L)
+        loaded.value = listOf(iReader)
+        val before = manager.sources.first { it.isNotEmpty() }.single()
+
+        loaded.value = listOf(iReader, app(catalogue(8L)))
+
+        manager.sources.first { it.size == 2 }.first { it.id == "ireader:7" } shouldBeSameInstanceAs before
+    }
+
+    private fun iReaderApp(sourceId: Long) = app().copy(
+        pkgName = "ireader.app.en",
+        kind = Extension.Kind.IREADER,
+        sources = listOf(
+            IReaderSourceHolder(
+                mockk<IReaderCatalogSource> {
+                    every { id } returns sourceId
+                    every { name } returns "IReader $sourceId"
+                    every { lang } returns "en"
+                    every { getFilters() } returns emptyList()
+                    every { getListings() } returns emptyList()
+                },
+            ),
+        ),
+    )
 
     private fun catalogue(sourceId: Long) = mockk<CatalogueSource> {
         every { id } returns sourceId
