@@ -364,6 +364,7 @@ every release now also ships a foss build with neither in it.
 ### Browse & sources
 
 #### Added
+- **Sites that block the app but let its built-in browser in now load without a FlareSolverr server.**
 - **A FlareSolverr server behind a password now works: sign in to it under Settings -> Advanced.** Credentials already typed into the address move across on upgrade, and neither field is included in a backup unless you turn on private settings.
 
 - **A chapter in the local manga source now takes its date from the Year, Month and Day in its ComicInfo.xml (synced from Mihon, mihonapp/mihon#3967).** Only the file's last-modified date could set it before.

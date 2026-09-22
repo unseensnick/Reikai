@@ -577,7 +577,9 @@ Two are already narrowed by the bisect runs:
   renders, but layout is not attachment and input still goes nowhere.
 - **Serving the WebView's own page as the response**, the way the FlareSolverr path does. Built,
   including the JSON-viewer unwrap, then reverted: the clearance from a real solve replays through
-  OkHttp on every host measured, so the ordinary retry is correct and simpler.
+  OkHttp on every host measured, so the ordinary retry is correct and simpler. This holds only where a
+  clearance is issued; a site that lets the WebView in without one is served by
+  [webview-fetch.md](webview-fetch.md).
 - **One solve at a time.** See the decision above; the concurrency failure it was built for was
   really the wasted-press bug.
 - **Waiting for `document.readyState === 'complete'`** before judging the page. Left over from the

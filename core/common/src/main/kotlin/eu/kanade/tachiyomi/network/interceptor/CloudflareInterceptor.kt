@@ -38,6 +38,9 @@ class CloudflareInterceptor(
 
     private val executor = ContextCompat.getMainExecutor(context)
 
+    // RK: answers requests from inside a WebView where Cloudflare lets it in but issues no clearance.
+    private val webViewFetcher = WebViewFetcher(context)
+
     override fun shouldIntercept(response: Response): Boolean {
         // Check if Cloudflare anti-bot is on
         // Checking the cf-mitigated header is the official way to detect a Cloudflare challenge:
@@ -71,6 +74,9 @@ class CloudflareInterceptor(
             val flareSolverrUrl = networkPreferences.flareSolverrUrl.get().trim()
             val fsActive = networkPreferences.enableFlareSolverr.get() && flareSolverrUrl.isNotBlank()
 
+            // The challenged request as it left the application interceptors, auth headers included.
+            val fetchRequest = response.request
+
             // FlareSolverr returns a fully-fetched response, so serve it directly. Replaying its
             // cookies through OkHttp doesn't work for hosts on Cloudflare's stricter bot-management
             // tier (cf_clearance is bound to a TLS / __cf_bm fingerprint OkHttp can't reproduce).
@@ -79,12 +85,28 @@ class CloudflareInterceptor(
             if (fsActive && flareSolverr.shouldSkipWebView(host)) {
                 flareSolverr.resolve(flareSolverrUrl, request)?.let { return it }
             } else {
+                if (!fsActive && webViewFetcher.serves(fetchRequest)) {
+                    when (val outcome = webViewFetcher.fetch(chain, fetchRequest)) {
+                        is WebViewFetcher.Outcome.Served -> return outcome.response
+                        // As a failed solve, so the caller can still offer the blocked page to open.
+                        is WebViewFetcher.Outcome.Failed -> throw CloudflareBypassException()
+                        // The WebView is challenged now too, so a solve may issue a clearance again.
+                        WebViewFetcher.Outcome.Challenged -> webViewFetcher.forget(fetchRequest)
+                    }
+                }
                 try {
                     // One solve per host is the base class's job now; a sibling that queued behind
                     // this one re-checks the jar and never reaches here.
                     resolveWithWebView(request, challengeUrl, oldCookie)
                 } catch (e: CloudflareBypassException) {
-                    if (!fsActive) throw e
+                    if (!fsActive) {
+                        // Cloudflare may let the WebView in without a challenge, which issues no
+                        // clearance to retry with, so the WebView answers the request itself.
+                        val outcome = webViewFetcher.fetch(chain, fetchRequest)
+                        if (outcome !is WebViewFetcher.Outcome.Served) throw e
+                        webViewFetcher.markServed(fetchRequest)
+                        return outcome.response
+                    }
                     // Don't re-pay the 30s WebView timeout on later requests to a host the WebView
                     // can't clear: mark it so subsequent requests go straight to FlareSolverr.
                     flareSolverr.markWebViewUnsolvable(host)
