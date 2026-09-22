@@ -9,9 +9,13 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import okhttp3.Cookie
 import okhttp3.Headers
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -293,13 +297,8 @@ class FlareSolverrClient(
         val postData = request.body
             ?.takeIf { isPost }
             ?.let { rb -> Buffer().also { rb.writeTo(it) }.readUtf8() }
-        val command = buildJsonObject {
-            put("cmd", if (isPost) "request.post" else "request.get")
-            put("url", targetUrl)
-            if (isPost) put("postData", postData ?: "")
-            if (sessionId != null) put("session", sessionId)
-            put("maxTimeout", 60000)
-        }
+        val forwarded = if (mayForwardCookies(flareSolverrUrl)) cookieManager.get(request.url) else emptyList()
+        val command = flareSolverrCommand(targetUrl, isPost, postData, sessionId, forwarded)
         val body = json.encodeToString(JsonObject.serializer(), command)
             .toRequestBody(JSON_MEDIA_TYPE)
 
@@ -343,7 +342,7 @@ class FlareSolverrClient(
         // Best-effort: stash cookies + UA so unrelated future requests to this host can succeed
         // without re-invoking FS. The current request's correctness comes from the synthetic
         // response we build below, not from these.
-        solution.cookies.forEach { fsCookie ->
+        cookiesToKeep(solution.cookies, forwarded).forEach { fsCookie ->
             cookieManager.saveCookieString(request.url, fsCookie.toRawCookieString(request.url.host))
         }
         if (solution.userAgent.isNotBlank()) {
@@ -441,6 +440,64 @@ enum class FlareSolverrTestFailure {
 private val JSON_MEDIA_TYPE = "application/json".toMediaType()
 private const val JSON_CONTENT_TYPE = "application/json; charset=UTF-8"
 private val COOKIE_NAMES = listOf("cf_clearance")
+
+/**
+ * Whether the site's cookies may travel to the FlareSolverr at [flareSolverrUrl]: over https, or in
+ * the clear only to the user's own network, since a login cookie is worth more than the page it gets.
+ */
+internal fun mayForwardCookies(flareSolverrUrl: String): Boolean {
+    val url = flareSolverrUrl.trim().toHttpUrlOrNull() ?: return false
+    if (url.isHttps) return true
+    val host = url.host.lowercase()
+    if (host == "localhost" || ('.' !in host && ':' !in host)) return true
+    if (LOCAL_SUFFIXES.any { host.endsWith(it) }) return true
+    if (':' in host) return host == "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80")
+    val octets = host.split('.').map { it.toIntOrNull() ?: return false }
+    if (octets.size != 4) return false
+    val (a, b) = octets
+    return a == 10 || a == 127 || (a == 172 && b in 16..31) || (a == 192 && b == 168) ||
+        (a == 169 && b == 254) || (a == 100 && b in 64..127)
+}
+
+private val LOCAL_SUFFIXES = listOf(".local", ".lan", ".home.arpa", ".internal")
+
+/**
+ * The solver's cookies worth storing: not one it only echoed back from [forwarded], which returns
+ * without the flags the app's copy has and would be saved beside it, wider and without Secure.
+ */
+internal fun cookiesToKeep(solved: List<FlareSolverrCookie>, forwarded: List<Cookie>): List<FlareSolverrCookie> =
+    solved.filterNot { fs -> forwarded.any { it.name == fs.name && it.value == fs.value } }
+
+/**
+ * The command for one FlareSolverr request. The site's cookies from the app's jar go along, since
+ * the solver's browser holds none of them and a page behind a login would otherwise come back signed
+ * out. Cloudflare's own stay behind: the solver earns its own, and an app-side one is bound to a
+ * fingerprint its browser does not have. Internal so which cookies travel is unit-testable.
+ */
+internal fun flareSolverrCommand(
+    targetUrl: String,
+    isPost: Boolean,
+    postData: String?,
+    sessionId: String?,
+    cookies: List<Cookie>,
+): JsonObject = buildJsonObject {
+    put("cmd", if (isPost) "request.post" else "request.get")
+    put("url", targetUrl)
+    if (isPost) put("postData", postData ?: "")
+    if (sessionId != null) put("session", sessionId)
+    put("maxTimeout", 60000)
+    val forwarded = cookies.filterNot { it.name.startsWith("cf_") || it.name.startsWith("__cf") }
+    if (forwarded.isNotEmpty()) {
+        putJsonArray("cookies") {
+            forwarded.forEach { cookie ->
+                addJsonObject {
+                    put("name", cookie.name)
+                    put("value", cookie.value)
+                }
+            }
+        }
+    }
+}
 
 /**
  * A browser-based Cloudflare solver renders a JSON-API response inside the browser's built-in
