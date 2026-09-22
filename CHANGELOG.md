@@ -468,6 +468,7 @@ every release now also ships a foss build with neither in it.
 - **Marking a chapter read now updates the tracker status on the entry straight away, on manga and novels.** It kept showing the status from before the push, so an entry could sit on "plan to read" while the service already said reading.
 
 #### Fixed
+- **Binding a series from your own manga server when you have not started it no longer marks its Chapter 0 read, in Reikai or on the server.** Reading progress of 0 was taken as "read up to chapter 0".
 - **Backing out of the category choice when adding a manga from its page no longer binds its server tracker.** A source that backs favorites up to your account on the site now waits for the add too.
 
 - **Fill from tracker now says "No entry found" when the tracker has no such entry.** A failure with no reason says "Unknown error" instead of ending in a blank.
