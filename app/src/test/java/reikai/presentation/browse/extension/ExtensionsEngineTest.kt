@@ -1,12 +1,15 @@
 package reikai.presentation.browse.extension
 
+import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -92,7 +95,11 @@ class ExtensionsEngineTest {
         }
         val engine = ExtensionsEngine(providers.toList(), MutableStateFlow<String?>(null), preferences)
         backgroundScope.launch { engine.state.collect {} }
-        return engine.state.first { !it.isLoading && it.contentType == chip }
+        val state = engine.state.first { !it.isLoading && it.contentType == chip }
+        // Cleared as a screen would clear it, while the test dispatcher is still Main: its scope works on
+        // IO and resumes on Main, so anything left running lands on the real Main after this test.
+        engine.viewModelScope.coroutineContext.job.cancelAndJoin()
+        return state
     }
 
     private fun ExtensionsEngine.State.rows() = items.filterIsInstance<ExtensionsListItem.Row>().map { it.row }
