@@ -22,6 +22,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.domain.reader.ChapterProgress
@@ -38,6 +39,9 @@ import java.util.concurrent.TimeUnit
  */
 @RunWith(AndroidJUnit4::class)
 class NovelTextViewportWindowTest {
+
+    @get:Rule
+    val animationsOff = AnimationsOffRule()
 
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>

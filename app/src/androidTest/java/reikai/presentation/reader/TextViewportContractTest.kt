@@ -42,6 +42,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -51,6 +52,7 @@ import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
 import reikai.presentation.reader.text.ChapterImageSpan
 import reikai.presentation.reader.text.DrawableWrapper
 import reikai.presentation.reader.text.ImageFailureDrawable
+import reikai.presentation.reader.text.ImageLoadingDrawable
 import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.PngServer
 import reikai.presentation.reader.text.ReadAloudMark
@@ -74,6 +76,9 @@ import kotlin.math.roundToInt
 class TextViewportContractTest(private val renderer: Renderer) {
 
     enum class Renderer { NATIVE, WEB }
+
+    @get:Rule
+    val animationsOff = AnimationsOffRule()
 
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>
@@ -2053,7 +2058,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
             var arrived = false
             instrumentation.runOnMainSync {
                 val pictures = imageSpans().map { it.drawable as DrawableWrapper }
-                arrived = pictures.size == IMAGE_DELAYS_MS.size && pictures.none { it.innerDrawable is ColorDrawable }
+                arrived =
+                    pictures.size == IMAGE_DELAYS_MS.size && pictures.none { it.innerDrawable is ImageLoadingDrawable }
             }
             arrived
         }
@@ -2149,7 +2155,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
         if (holder == null) return firstImageWidth() > 0f
         var loaded = false
         instrumentation.runOnMainSync {
-            loaded = holder.innerDrawable.let { it != null && it !is ImageFailureDrawable && it !is ColorDrawable }
+            loaded =
+                holder.innerDrawable.let { it != null && it !is ImageFailureDrawable && it !is ImageLoadingDrawable }
         }
         return loaded
     }
@@ -2198,7 +2205,11 @@ class TextViewportContractTest(private val renderer: Renderer) {
             var width = 0f
             instrumentation.runOnMainSync {
                 val picture = imageSpans().firstOrNull()?.drawable as? DrawableWrapper
-                if (picture != null && picture.innerDrawable !is ColorDrawable) width = picture.bounds.width().toFloat()
+                if (picture != null &&
+                    picture.innerDrawable !is ImageLoadingDrawable
+                ) {
+                    width = picture.bounds.width().toFloat()
+                }
             }
             width
         }
