@@ -2,6 +2,7 @@ package reikai.novel.source
 
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.RateLimited
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SChapter
@@ -54,12 +55,28 @@ class TachiyomiNovelSourceTest {
         source(filters = FilterList(Filter.Header("h"))).filters?.applyToSearch shouldBe true
     }
 
+    @Test
+    fun `an app's declared least delay reaches the novel side`() {
+        source(minimumDelay = { 1_000L }).minimumRequestDelayMs shouldBe 1_000L
+    }
+
+    @Test
+    fun `an app that declares no pacing asks for no delay`() {
+        source().minimumRequestDelayMs shouldBe 0L
+    }
+
+    @Test
+    fun `an app whose declared delay throws asks for none rather than failing`() {
+        source(minimumDelay = { error("broken") }).minimumRequestDelayMs shouldBe 0L
+    }
+
     private fun source(
         details: SManga.() -> Unit = {},
         chapter: SChapter.() -> Unit = {},
         filters: FilterList = FilterList(),
+        minimumDelay: (() -> Long)? = null,
     ) = TachiyomiNovelSource(
-        mockk<CatalogueSource> {
+        catalogue(minimumDelay).apply {
             every { id } returns 7L
             every { name } returns "App"
             every { lang } returns "en"
@@ -96,4 +113,13 @@ class TachiyomiNovelSourceTest {
             icon = null,
         ),
     )
+
+    /** A catalogue that declares a least delay when [minimumDelay] is given, as a library 1.6 app can. */
+    private fun catalogue(minimumDelay: (() -> Long)?): CatalogueSource = if (minimumDelay == null) {
+        mockk()
+    } else {
+        mockk<CatalogueSource>(moreInterfaces = arrayOf(RateLimited::class)).also {
+            every { (it as RateLimited).minimumDelayMillis } answers { minimumDelay() }
+        }
+    }
 }

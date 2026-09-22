@@ -104,10 +104,24 @@ private fun SourceDelayRow(source: NovelSourceDelaysViewModel.SourceDelay, globa
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (source.minimumMs > 0L) {
+                Text(
+                    text = stringResource(
+                        MR.strings.pref_novel_source_delay_minimum,
+                        downloadDelayLabel(source.minimumMs),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
+        val shownMs = NovelDownloadPacing.effectiveDelay(source.delayMs, globalMs, source.minimumMs)
         Text(
-            text = source.delayMs?.let { downloadDelayLabel(it) }
-                ?: stringResource(MR.strings.pref_novel_source_delay_default, downloadDelayLabel(globalMs)),
+            text = if (source.delayMs != null) {
+                downloadDelayLabel(shownMs)
+            } else {
+                stringResource(MR.strings.pref_novel_source_delay_default, downloadDelayLabel(shownMs))
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = if (source.delayMs == null) {
                 MaterialTheme.colorScheme.onSurfaceVariant
@@ -126,7 +140,8 @@ private fun SourceDelayDialog(
     onDismiss: () -> Unit,
 ) {
     // Null is the source following the global delay rather than keeping one of its own.
-    val options: List<Long?> = listOf(null) + NovelDownloadPacing.DELAY_OPTIONS_MS
+    val options: List<Long?> = listOf(null) + NovelDownloadPacing.delayOptions(source.minimumMs)
+    val defaultMs = NovelDownloadPacing.effectiveDelay(null, globalMs, source.minimumMs)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = source.name) },
@@ -139,12 +154,18 @@ private fun SourceDelayDialog(
                             .fillMaxWidth()
                             .clickable { onPick(option) },
                     ) {
-                        RadioButton(selected = option == source.delayMs, onClick = { onPick(option) })
+                        // A delay saved below the source's minimum shows as the minimum it is kept at.
+                        val selected = if (source.delayMs == null) {
+                            option == null
+                        } else {
+                            option == NovelDownloadPacing.effectiveDelay(source.delayMs, globalMs, source.minimumMs)
+                        }
+                        RadioButton(selected = selected, onClick = { onPick(option) })
                         Text(
                             text = option?.let { downloadDelayLabel(it) }
                                 ?: stringResource(
                                     MR.strings.pref_novel_source_delay_default,
-                                    downloadDelayLabel(globalMs),
+                                    downloadDelayLabel(defaultMs),
                                 ),
                         )
                     }

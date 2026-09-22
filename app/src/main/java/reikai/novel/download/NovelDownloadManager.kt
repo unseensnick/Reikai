@@ -352,6 +352,8 @@ class NovelDownloadManager(
                 var attempt = 0
                 var lastError: Throwable? = null
                 var connectionLost = false
+                // The least delay the source declares binds its retries as well as its pacing.
+                val minimumMs = novel?.let { sourceManager.get(it.source) }?.minimumRequestDelayMs ?: 0L
                 while (true) {
                     ok = runCatching {
                         val source = novel?.let { sourceManager.get(it.source) } ?: return@runCatching false
@@ -378,7 +380,7 @@ class NovelDownloadManager(
                     if (attempt >= MAX_RETRIES) break
                     attempt++
                     // Exponential backoff: 2s, 4s, 8s.
-                    delay((1L shl attempt) * 1000L)
+                    delay(maxOf((1L shl attempt) * 1000L, minimumMs))
                 }
                 if (connectionLost) {
                     // Requeue so it's re-picked when the connection returns (not left DOWNLOADING or ERROR).
@@ -406,6 +408,7 @@ class NovelDownloadManager(
                     novel?.source.orEmpty(),
                     novelPreferences.downloadChapterDelayMs().get(),
                     NovelDownloadPacing.parse(novelPreferences.downloadSourceDelays().get()),
+                    minimumMs = minimumMs,
                 )
                 val paceMs = NovelDownloadPacing.next(sourceDelays[novel?.source] ?: floorMs, ok, floorMs)
                 novel?.source?.let { sourceDelays[it] = paceMs }

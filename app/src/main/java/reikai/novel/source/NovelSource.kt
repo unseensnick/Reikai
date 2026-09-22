@@ -47,6 +47,9 @@ interface NovelSource {
     /** The hooks through which the source syncs reading to its own site; null when it has none. */
     val tracker: SourceTracker? get() = null
 
+    /** The least delay the source asks for between requests to its site; 0 when it asks for none. */
+    val minimumRequestDelayMs: Long get() = 0L
+
     /**
      * This source can serve a Latest listing, which is why browse offers the chip. The lnreader
      * format declares no such flag, so it is derived rather than read, by looking for

@@ -7,12 +7,62 @@ class NovelDownloadPacingTest {
 
     @Test
     fun `a source with its own delay uses it`() {
-        NovelDownloadPacing.floorFor("slow", globalMs = 500, perSourceMs = mapOf("slow" to 3_000L)) shouldBe 3_000L
+        NovelDownloadPacing.floorFor(
+            "slow",
+            globalMs = 500,
+            perSourceMs = mapOf("slow" to 3_000L),
+            minimumMs = 0,
+        ) shouldBe
+            3_000L
     }
 
     @Test
     fun `a source without one uses the global delay`() {
-        NovelDownloadPacing.floorFor("other", globalMs = 500, perSourceMs = mapOf("slow" to 3_000L)) shouldBe 500L
+        NovelDownloadPacing.floorFor(
+            "other",
+            globalMs = 500,
+            perSourceMs = mapOf("slow" to 3_000L),
+            minimumMs = 0,
+        ) shouldBe
+            500L
+    }
+
+    @Test
+    fun `a source's own delay below the least it declares is lifted to it`() {
+        NovelDownloadPacing.floorFor(
+            "fast",
+            globalMs = 500,
+            perSourceMs = mapOf("fast" to 500L),
+            minimumMs = 1_000,
+        ) shouldBe
+            1_000L
+    }
+
+    @Test
+    fun `the global delay below a source's declared least is lifted to it`() {
+        NovelDownloadPacing.floorFor("other", globalMs = 500, perSourceMs = emptyMap(), minimumMs = 1_000) shouldBe
+            1_000L
+    }
+
+    @Test
+    fun `a delay above a source's declared least is kept`() {
+        NovelDownloadPacing.floorFor(
+            "slow",
+            globalMs = 500,
+            perSourceMs = mapOf("slow" to 3_000L),
+            minimumMs = 1_000,
+        ) shouldBe
+            3_000L
+    }
+
+    @Test
+    fun `a source is offered no delay below the least it declares`() {
+        NovelDownloadPacing.delayOptions(minimumMs = 1_000) shouldBe listOf(1_000L, 2_000L, 3_000L, 5_000L, 10_000L)
+    }
+
+    @Test
+    fun `a source that declares nothing is offered every delay`() {
+        NovelDownloadPacing.delayOptions(minimumMs = 0) shouldBe NovelDownloadPacing.DELAY_OPTIONS_MS
     }
 
     @Test

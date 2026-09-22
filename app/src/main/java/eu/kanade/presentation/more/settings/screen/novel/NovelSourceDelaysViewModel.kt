@@ -49,7 +49,7 @@ class NovelSourceDelaysViewModel(
         State(
             sources = sources
                 .sortedBy { it.name.lowercase() }
-                .map { SourceDelay(it.id, it.name, it.lang, delays[it.id]) }
+                .map { SourceDelay(it.id, it.name, it.lang, delays[it.id], it.minimumRequestDelayMs) }
                 .takeIf { isLoaded },
             globalMs = globalMs,
         )
@@ -63,8 +63,15 @@ class NovelSourceDelaysViewModel(
         preference.set(NovelDownloadPacing.format(updated))
     }
 
+    /** [delayMs] is the source's own delay as stored; the downloader lifts it to [minimumMs]. */
     @Immutable
-    data class SourceDelay(val id: String, val name: String, val lang: String, val delayMs: Long?)
+    data class SourceDelay(
+        val id: String,
+        val name: String,
+        val lang: String,
+        val delayMs: Long?,
+        val minimumMs: Long,
+    )
 
     /** [sources] is null until the plugins have loaded. */
     @Immutable

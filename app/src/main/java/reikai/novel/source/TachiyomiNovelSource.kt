@@ -3,6 +3,7 @@ package reikai.novel.source
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.RateLimited
 import eu.kanade.tachiyomi.source.SourceTracker
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SChapter
@@ -41,6 +42,12 @@ class TachiyomiNovelSource(
     override val settings: NovelSettings? = (source as? ConfigurableSource)?.let(NovelSettings::PreferenceScreen)
     override val supportsLatest: Boolean = source.supportsLatest
     override val tracker: SourceTracker? = source as? SourceTracker
+
+    // The extension's own code answers this, so a failure reads as no minimum rather than a crash.
+    override val minimumRequestDelayMs: Long = (source as? RateLimited)
+        ?.let { runCatching { it.minimumDelayMillis }.getOrNull() }
+        ?.coerceAtLeast(0L)
+        ?: 0L
 
     // A listing takes no filters here, as a manga source's Popular and Latest take none.
     override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage =
