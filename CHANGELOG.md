@@ -104,6 +104,7 @@ every release now also ships a foss build with neither in it.
 
 #### Changed
 
+- **Backing out of the category choice when adding a series to an existing group now adds nothing, as any other add does.**
 - **Source grouping is now optional, via "Group series across sources" in the library display menu or Settings -> Library.** Off shows each source as its own library entry.
 - **On a merged series, your library, its page and History open the whole group, while Updates, source chips and new-chapter notifications open just that one source.** The reader follows whichever you came from.
 - **Reading a chapter now marks its duplicates read by default, whether a second listing of it in the same series or its copy on a merged series' other sources; change it under Settings -> Library.** The setting is "Mark duplicate read chapter as read".
@@ -395,7 +396,7 @@ every release now also ships a foss build with neither in it.
 - **The Browse sources filter now covers manga and light novels from one screen, whichever chip you opened it from.** A Manga / Novels chip switches halves; the All and Manga chips used to reach only the manga sources.
 
 #### Fixed
-- **Pages fetched through FlareSolverr now come back signed in to the site.** Your cookies go only to a solver on your own network or over HTTPS.
+- **Pages fetched through a FlareSolverr server on your own network or over HTTPS now come back signed in to the site.** Your cookies are never sent to a solver reached in the clear over the internet.
 - **A Cloudflare bypass that takes over a minute now finishes instead of failing for no visible reason.** Reikai gave up at the very moment it had asked the server to answer by, and the test button called such a server unreachable rather than slow.
 - **Testing FlareSolverr now tells a solver that is still starting apart from a broken one.** A reverse proxy answers for the solver's first twenty seconds or so, which read as a plain server error before.
 
@@ -459,7 +460,10 @@ every release now also ships a foss build with neither in it.
 - **A Kitsu search can now take a title's web-address name too, written as `id:shadow-slave` (synced from Mihon, mihonapp/mihon#3792).** Handy when you have the Kitsu link but not the number, and it works on manga and novels alike.
 - **Extensions that sync reading to their own site now hear what you read, add and remove, on manga and novels, once their own tracking setting is on.** A failed sync shows a message.
 - **Settings -> Tracking can pass migrations on to extensions that sync reading to their own site.** It is on by default.
-- **NovelUpdates now ticks the release you read, and novels added from its app or plugin track there on their own.** Settings -> Tracking can keep rereads from moving it back, on by default, and let unreads move it back.
+- **NovelUpdates now ticks the release you read, for novels from its app or plugin and for other sources' chapters whose number matches a release.**
+- **Novels added from the NovelUpdates app or plugin now track there on their own once you sign in to NovelUpdates.**
+- **Rereading an earlier chapter leaves NovelUpdates where it is, unless you turn off Settings -> Tracking -> Never move progress back.**
+- **Settings -> Tracking -> Untick releases on unread moves NovelUpdates back when you mark chapters unread.** It is off by default.
 
 #### Changed
 
@@ -471,7 +475,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 - **Binding a series from your own manga server when you have not started it no longer marks its Chapter 0 read, in Reikai or on the server.** Reading progress of 0 was taken as "read up to chapter 0".
-- **Backing out of the category choice when adding a manga from its page no longer binds its server tracker.** A source that backs favorites up to your account on the site now waits for the add too.
+- **Backing out of the category choice when adding a manga from its page no longer binds its server tracker.**
 
 - **Fill from tracker now says "No entry found" when the tracker has no such entry.** A failure with no reason says "Unknown error" instead of ending in a blank.
 - **Start and finish dates pulled from MangaBaka no longer land a day early in timezones behind UTC (synced from Mihon, mihonapp/mihon#3711).**
@@ -498,7 +502,7 @@ every release now also ships a foss build with neither in it.
 #### Added
 
 - **Tap a series in the download queue to see its chapters, cancel one, start one now, move one to the bottom, or read why it failed.** A downloading manga chapter shows its page count.
-- **Settings -> Downloads -> Pacing sets the wait between novel chapters, for every source or one source at a time.** Manga sources pace themselves.
+- **Settings -> Downloads -> Pacing sets the wait between novel chapters, for every source or one source at a time, never below what the source asks for.** Manga sources pace themselves.
 - **The novel download notification now has Pause and Show entry, as manga's does.** A paused queue leaves a notification with Resume and Cancel all.
 - **Novels from novel extension apps now browse, search, read, download and update like plugin novels, and the apps install and update in Browse -> Extensions like manga extensions.** Beside plugins, each extension and source says JS or APK.
 
