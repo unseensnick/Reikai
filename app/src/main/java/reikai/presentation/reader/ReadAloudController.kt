@@ -364,9 +364,8 @@ class ReadAloudController(
             .minByOrNull { abs(it - at.paragraph) }
             ?: at.paragraph.coerceIn(0, laidOut.lastIndex)
         paragraphs = laidOut
-        position = ReadAloudPosition(id, index)
-        // The sentence's offsets hold only in the text they were taken from, which a different match is not.
-        if (laidOut[index] != spokenText) sentence = null
+        // The sentence state holds only in the text it was taken from, which a different match is not.
+        if (laidOut[index] == spokenText) position = ReadAloudPosition(id, index) else moveTo(id, index)
         surface?.highlight(position, sentence)
         publish()
     }

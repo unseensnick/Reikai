@@ -17,6 +17,7 @@ import androidx.core.widget.TextViewCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -82,7 +83,9 @@ class NovelTextRenderer(
             context.resources.displayMetrics,
         )
         // Whatever the last render left open, since this one builds the chapter's pictures again.
-        block.closeTiledPictures()
+        block.releasePictures()
+        val pictureScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
+        block.pictureScope = pictureScope
         val token = ++block.renderToken
         val spacingPx = (paragraphSpacing * textSizePx).toInt()
         val indentPx = (paragraphIndent * textSizePx).toInt()
@@ -90,7 +93,7 @@ class NovelTextRenderer(
         return scope.launch {
             val imageGetter = NovelImageGetter(
                 context = context,
-                scope = scope,
+                scope = pictureScope,
                 contentWidthPx = contentWidth,
                 sourceId = sourceId,
                 textSizePx = textSizePx,

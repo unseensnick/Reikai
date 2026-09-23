@@ -27,6 +27,7 @@ class ReaderDisplayFiltersTest {
         viewModel = mockk(relaxed = true),
         novelPreferences = NovelPreferences(store),
         fontManager = mockk(),
+        imageRequests = mockk(),
         titleWords = EnglishChapterTitleWords,
     ).displayFilters
 

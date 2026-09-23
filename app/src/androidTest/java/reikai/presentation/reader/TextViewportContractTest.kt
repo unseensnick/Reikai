@@ -151,6 +151,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
             Renderer.WEB -> NovelWebViewport(
                 context = activity,
                 fontManager = activity.appGraph.novelFontManager,
+                imageRequests = activity.appGraph.novelImageRequests,
                 textSelectable = textSelectable,
                 volumeKeysActive = { volumeKeysOn },
                 useOriginalFonts = false,
@@ -1898,7 +1899,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
             viewport.load(illustratedChapter(0, delaysMs = ONE_SLOW_PICTURE_DELAYS_MS), readerTestSettings)
         }
         awaitWhile { firstImageWidth() == 0f }
-        assertTrue("the first picture waited for the slowest", !imagesArrived())
+        // Drawn, and drawn before the slowest one: a picture never drawn would pass the second half alone.
+        assertTrue("the first picture waited for the slowest", firstImageWidth() > 0f && !imagesArrived())
     }
 
     /** Drawn before its line was measured for it, an arrived picture spilled over the boxes still loading. */

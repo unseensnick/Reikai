@@ -576,7 +576,7 @@ class NovelTextViewport(
         if (index < 0) return
         val slot = slots.removeAt(index)
         slot.block.discarded = true
-        slot.block.closeTiledPictures()
+        slot.block.releasePictures()
         cancelImageWait(slot)
         adapter.show(joined())
     }
@@ -806,8 +806,15 @@ class NovelTextViewport(
     private fun showTallPictures() {
         slots.forEach { slot ->
             slot.block.tiledPictures.forEach { anchor ->
-                val top = lineTopOf(anchor.view, anchor.offset)?.plus(anchor.topPx) ?: return@forEach
-                anchor.picture.onVisible(-top, recycler.height - top)
+                // A chapter scrolled out of the recycler draws nothing, so its pictures let their slices go.
+                val top = lineTopOf(anchor.view, anchor.offset)?.plus(anchor.topPx)
+                if (top ==
+                    null
+                ) {
+                    anchor.picture.onVisible(0, 0)
+                } else {
+                    anchor.picture.onVisible(-top, recycler.height - top)
+                }
             }
         }
     }
@@ -952,7 +959,7 @@ class NovelTextViewport(
     private fun evictAll() {
         slots.forEach {
             it.block.discarded = true
-            it.block.closeTiledPictures()
+            it.block.releasePictures()
             cancelImageWait(it)
         }
         slots.clear()

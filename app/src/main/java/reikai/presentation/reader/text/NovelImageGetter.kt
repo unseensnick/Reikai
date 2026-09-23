@@ -154,7 +154,7 @@ class NovelImageGetter(
     /**
      * Main thread: puts the pictures in as they arrive, each batch in one re-measure, and the next batch only
      * once that re-measure has finished, so the pictures that arrive during one land in the following one.
-     * Lives with the renderer's scope, so a retry after the last load still lands.
+     * Lives with this render's scope, which the chapter ends, so a retry after the last load still lands.
      */
     private fun landArrivals() {
         scope.launch(Dispatchers.Main) {
@@ -281,25 +281,48 @@ class NovelImageGetter(
     private fun loadFromNetwork(imageUrl: String, wrapper: DrawableWrapper) {
         scope.launch {
             try {
-                val drawable = fetch(imageUrl)
-                val source = drawable?.let { sourceSizeOf(imageUrl) }
-                withContext(Dispatchers.Main) { arrive(imageUrl, wrapper, drawable, source) }
+                val landed = fetch(imageUrl)?.let { prepare(imageUrl, it) }
+                try {
+                    withContext(Dispatchers.Main) { arrive(imageUrl, wrapper, landed) }
+                } catch (e: CancellationException) {
+                    landed?.reader?.close()
+                    throw e
+                }
             } finally {
                 withContext(Dispatchers.Main) { onLoadFinished() }
             }
         }
     }
 
+    /** A fetched picture sized for its box, with the reader for its slices when it is worth reading in parts. */
+    private class Landed(val picture: Drawable, val box: PictureBox?, val reader: TileReader?)
+
+    /**
+     * Off the main thread, since both read the cached file: the picture's size at the source, and the
+     * reader for its slices, opened only for a picture the loader had to shrink. Null for nothing to draw.
+     */
+    private suspend fun prepare(imageUrl: String, drawable: Drawable): Landed? = withContext(Dispatchers.IO) {
+        val bounds = sourceBoundsOf(imageUrl)
+        val box = bounds?.let { (width, height) -> pictureBox(width, height, contentWidth, density) }
+        val picture = fitted(drawable, box) ?: return@withContext null
+        val slice = box != null && bounds != null && worthSlicing(bounds.first, picture.intrinsicWidth, box.width)
+        Landed(picture, box, if (slice) readerFor(imageUrl) else null)
+    }
+
     /**
      * Sizes the picture's span now, for the re-measure to read, and queues the picture itself for when the
      * re-measured text is set: drawn before, it spills over a line still the stand-in's height.
      */
-    private fun arrive(imageUrl: String, wrapper: DrawableWrapper, drawable: Drawable?, source: PictureBox?) {
-        val picture = drawable?.let { fitted(it, source) }
-        val replacement = picture?.let { sliced(readerFor(imageUrl), it, source, wrapper) ?: it }
-            ?: failureBox(retryable = true)
-        queueSwap(wrapper, replacement)
-        if (picture == null) offerRetry(imageUrl, wrapper)
+    private fun arrive(imageUrl: String, wrapper: DrawableWrapper, landed: Landed?) {
+        queueSwap(wrapper, landed?.let { drawnFrom(it, wrapper) } ?: failureBox(retryable = true))
+        if (landed == null) offerRetry(imageUrl, wrapper)
+    }
+
+    /** The picture from its slices when it was worth reading in parts, else the decoded copy. */
+    private fun drawnFrom(landed: Landed, wrapper: DrawableWrapper): Drawable {
+        val reader = landed.reader ?: return landed.picture
+        val box = landed.box ?: return landed.picture.also { reader.close() }
+        return TiledPicture(reader, box, landed.picture, scope, onTileReady = { redraw(wrapper) })
     }
 
     /**
@@ -396,15 +419,15 @@ class NovelImageGetter(
             box.retrying = true
             widget.invalidate()
             scope.launch {
-                val fetched = fetch(imageUrl, retry = true)
-                val picture = fetched?.let { fitted(it, sourceSizeOf(imageUrl)) }
+                // Through the same path as a first load, so a tall strip loaded by Retry is sliced too.
+                val landed = fetch(imageUrl, retry = true)?.let { prepare(imageUrl, it) }
                 box.retrying = false
-                if (picture == null) {
+                if (landed == null) {
                     widget.invalidate()
                     return@launch
                 }
                 ((widget as TextView).text as? Spannable)?.removeSpan(this@RetryImageSpan)
-                queueSwap(wrapper, picture)
+                queueSwap(wrapper, drawnFrom(landed, wrapper))
                 arrivals.trySend(Unit)
             }
         }
@@ -431,15 +454,12 @@ class NovelImageGetter(
         return drawable
     }
 
-    private fun fitted(drawable: Drawable, sourceWidth: Int, sourceHeight: Int): Drawable? =
-        fitted(drawable, pictureBox(sourceWidth, sourceHeight, contentWidth, density))
-
     /**
-     * The box for the picture as the source has it, read from the bytes the fetch cached: Coil caps a decode
-     * at 4096px a side, so a strip taller than that decodes narrower than the page draws it. Null when the
-     * cache cannot answer, leaving the decoded copy's own size to stand in.
+     * The picture's width and height as the source has it, read from the bytes the fetch cached: Coil caps a
+     * decode at 4096px a side, so a strip taller than that decodes narrower than the page draws it. Null when
+     * the cache cannot answer, leaving the decoded copy's own size to stand in.
      */
-    private fun sourceSizeOf(imageUrl: String): PictureBox? {
+    private fun sourceBoundsOf(imageUrl: String): Pair<Int, Int>? {
         val snapshot = runCatching { context.imageLoader.diskCache?.openSnapshot(imageUrl) }.getOrNull() ?: return null
         val bounds = snapshot.use {
             BitmapFactory.Options().apply {
@@ -447,7 +467,7 @@ class NovelImageGetter(
                 BitmapFactory.decodeFile(it.data.toFile().path, this)
             }
         }
-        return pictureBox(bounds.outWidth, bounds.outHeight, contentWidth, density)
+        return (bounds.outWidth to bounds.outHeight).takeIf { (width, height) -> width > 0 && height > 0 }
     }
 
     private companion object {

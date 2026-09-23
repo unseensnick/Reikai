@@ -31,6 +31,7 @@ import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.font.NovelFontManager
+import reikai.novel.network.NovelImageRequests
 import reikai.presentation.reader.text.NovelWindowDiff
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.system.logcat
@@ -44,6 +45,7 @@ class NovelReaderProvider(
     val viewModel: NovelReaderViewModel,
     private val novelPreferences: NovelPreferences,
     private val fontManager: NovelFontManager,
+    private val imageRequests: NovelImageRequests,
     private val titleWords: ChapterTitleWords,
 ) : ReaderProvider {
 
@@ -294,6 +296,7 @@ class NovelReaderProvider(
         return NovelWebViewport(
             context = host,
             fontManager = fontManager,
+            imageRequests = imageRequests,
             textSelectable = textSelectable,
             volumeKeysActive = volumeKeysActive,
             useOriginalFonts = novelPreferences.readerUseOriginalFonts().get(),

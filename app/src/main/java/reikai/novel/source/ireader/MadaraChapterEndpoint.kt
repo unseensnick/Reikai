@@ -63,7 +63,8 @@ internal object MadaraChapterEndpoint : Interceptor {
     fun chapterListPostId(request: Request): String? {
         if (request.method != "POST") return null
         val path = request.url.encodedPath
-        if (!path.endsWith("/wp-admin/admin-ajax.php") && path != "/ajax/chapters/") return null
+        // At any depth, as the root below is found, so a site in a subfolder is repaired too.
+        if (!path.endsWith("/wp-admin/admin-ajax.php") && !path.endsWith("/ajax/chapters/")) return null
         val body = request.body?.takeUnless { it.isOneShot() }?.let { Buffer().also(it::writeTo).readUtf8() }
             ?: return null
         val form = body.split('&').associate { it.substringBefore('=') to it.substringAfter('=', "") }

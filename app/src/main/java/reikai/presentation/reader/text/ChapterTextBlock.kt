@@ -8,6 +8,8 @@ import android.text.Spanned
 import android.text.style.ImageSpan
 import android.widget.LinearLayout
 import android.widget.TextView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 
 /**
  * A chapter's text as a column of chunk TextViews rather than one long view.
@@ -79,8 +81,16 @@ class ChapterTextBlock(
         }
     }
 
-    /** Lets every picture's slices and its open source go, for a chapter leaving the window. */
-    internal fun closeTiledPictures() {
+    /**
+     * The current render's picture loads and slice reads. Each render gets its own, ended by [releasePictures],
+     * so a chapter that leaves the window takes its pictures and its text with it.
+     */
+    internal var pictureScope: CoroutineScope? = null
+
+    /** Lets every picture's loads, slices and open source go, for a new render or a chapter leaving the window. */
+    internal fun releasePictures() {
+        pictureScope?.cancel()
+        pictureScope = null
         tiledPictures.forEach { it.picture.close() }
         tiledPictures.clear()
     }

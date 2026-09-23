@@ -52,9 +52,9 @@ class PictureTilesTest {
     }
 
     @Test
-    @DisplayName("a picture scrolled past holds no slices")
+    @DisplayName("a picture just scrolled past holds no slices")
     fun scrolledPastHoldsNothing() {
-        tilesFor(visibleTopPx = 25_000, visibleBottomPx = 27_992, drawnHeightPx = 19_733, tileCount = 10, ahead = 1)
+        tilesFor(visibleTopPx = 19_733, visibleBottomPx = 22_725, drawnHeightPx = 19_733, tileCount = 10, ahead = 1)
             .shouldBe(IntRange.EMPTY)
     }
 

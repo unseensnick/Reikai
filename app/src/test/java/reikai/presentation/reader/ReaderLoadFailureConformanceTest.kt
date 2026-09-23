@@ -124,6 +124,7 @@ class NovelLoadFailureProbe : ReaderLoadFailureProbe {
             viewModel = model,
             novelPreferences = harness.novelPreferences,
             fontManager = mockk(),
+            imageRequests = mockk(),
             titleWords = EnglishChapterTitleWords,
         )
 

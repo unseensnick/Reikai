@@ -17,7 +17,6 @@ import reikai.novel.host.NovelItem
 import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
 import tachiyomi.core.common.util.lang.withIOContext
-import java.time.Instant
 
 /**
  * [NovelSource] over one catalogue of a novel extension app, a class the app loaded from the apk rather
@@ -126,8 +125,7 @@ class TachiyomiNovelSource(
     private fun SChapter.toChapterItem() = ChapterItem(
         name = name,
         path = url,
-        // An ISO instant, the one form the novel date parser keeps to the millisecond; 0 means unknown.
-        releaseTime = date_upload.takeIf { it > 0L }?.let { Instant.ofEpochMilli(it).toString() },
-        chapterNumber = chapter_number.takeIf { it >= 0f }?.toDouble(),
+        releaseTime = releaseTimeOf(date_upload),
+        chapterNumber = chapterNumberOf(chapter_number),
     )
 }

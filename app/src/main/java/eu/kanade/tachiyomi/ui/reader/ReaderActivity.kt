@@ -263,6 +263,7 @@ class ReaderActivity : BaseActivity() {
                 novelViewModel,
                 novelPreferences,
                 appGraph.novelFontManager,
+                appGraph.novelImageRequests,
                 applicationContext.chapterTitleWords(),
             )
         }

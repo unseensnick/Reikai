@@ -955,7 +955,6 @@ class NovelReaderViewModel(
                 loadState.value = ReaderLoadState.Failed(
                     e.message,
                     canKeepReading = loadedChapter.value != null,
-                    attempt = ReaderLoadState.Failed.nextAttempt(),
                 )
                 readAloud.onChapterLoadFailed()
             }

@@ -218,6 +218,20 @@ class ReadAloudControllerTest {
     }
 
     @Test
+    fun `a paused paragraph laid out again as other text resumes from its start`() = runTest {
+        sentenceChapter()
+        val controller = playing()
+        act { engine.pieceStarts.last()(2) }
+        act { controller.pause() }
+        surface.chapters[1L] = listOf("One. Two.", "Three, split. Four. Five.", "Six. Seven.")
+        act { controller.onRendererLanded(1L) }
+
+        act { controller.play() }
+
+        engine.spoken.last() shouldBe "Three, split. Four. Five."
+    }
+
+    @Test
     fun `resuming a paragraph spoken by sentence carries on from the sentence paused in`() = runTest {
         sentenceChapter()
         val controller = playing()

@@ -3,6 +3,7 @@ package reikai.novel.source.ireader
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.EmptySerializersModule
 import org.junit.jupiter.api.Test
@@ -34,16 +35,41 @@ class IReaderPreferenceStoreTest {
         IReaderPreferenceStore(store, "ireader.a").getString("lang", "").key() shouldBe "lang"
     }
 
-    @Test
-    fun `a JSON setting decodes through the extension's serializer`() {
-        val raw = mockk<PreferenceStore> {
-            every { getObjectFromString<Filter>(any(), any(), any(), any()) } answers {
-                InMemoryPreference(firstArg(), arg<(String) -> Filter>(3)("""{"sort":"new"}"""), secondArg())
-            }
-        }
+    private val encoder = slot<(Filter) -> String>()
 
-        IReaderPreferenceStore(raw, "ireader.a")
-            .getJsonObject("filter", Filter("old"), Filter.serializer(), EmptySerializersModule())
-            .get() shouldBe Filter("new")
+    /** Answers only under the extension's own key, so a setting read under another is no answer at all. */
+    private val raw = mockk<PreferenceStore> {
+        every {
+            getObjectFromString(
+                "ireader_storage::ireader.a::filter",
+                any(),
+                capture(encoder),
+                any<
+                    (
+                        String,
+                    ) -> Filter,
+                    >(),
+            )
+        } answers {
+            InMemoryPreference(firstArg(), arg<(String) -> Filter>(3)("""{"sort":"new"}"""), secondArg())
+        }
+    }
+
+    private fun filter() =
+        IReaderPreferenceStore(
+            raw,
+            "ireader.a",
+        ).getJsonObject("filter", Filter("old"), Filter.serializer(), EmptySerializersModule())
+
+    @Test
+    fun `a JSON setting decodes through the extension's serializer, under its own package`() {
+        filter().get() shouldBe Filter("new")
+    }
+
+    @Test
+    fun `a JSON setting encodes through the extension's serializer`() {
+        filter()
+
+        encoder.captured(Filter("top")) shouldBe """{"sort":"top"}"""
     }
 }

@@ -118,6 +118,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
             viewport = NovelWebViewport(
                 context = activity,
                 fontManager = activity.appGraph.novelFontManager,
+                imageRequests = activity.appGraph.novelImageRequests,
                 textSelectable = false,
                 volumeKeysActive = { false },
                 useOriginalFonts = false,

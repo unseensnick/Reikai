@@ -59,6 +59,22 @@ class ChapterTitleTest {
             "Ch. 12: Chapter 12.5: Interlude"
     }
 
+    @Test
+    fun `a name that opens with a volume before its number is shown as it is`() {
+        ChapterTitleFormat.NUMBER_AND_NAME.of("Vol.1 Ch.3 - The Duel", 3.0) shouldBe "Vol.1 Ch.3 - The Duel"
+    }
+
+    @Test
+    fun `a part chapter's number comes off its own name`() {
+        ChapterTitleFormat.NUMBER_AND_NAME.of("Chapter 1.5: Interlude", 1.5) shouldBe "Ch. 1.5: Interlude"
+    }
+
+    /** The dot in a part number is a dot, so chapter 1.5 keeps a name that opens with 125. */
+    @Test
+    fun `a part number matches only itself`() {
+        ChapterTitleFormat.NUMBER_AND_NAME.of("125 Days", 1.5) shouldBe "Ch. 1.5: 125 Days"
+    }
+
     /** Only the number being shown comes off, so chapter 1 keeps a name that opens with 12. */
     @Test
     fun `a name that opens with another number keeps it`() {

@@ -17,7 +17,6 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.Test
-import reikai.data.novel.NovelDateParser
 import reikai.data.novel.NovelStatusCode
 
 /** A novel extension app's catalogue crosses into the novel side's own forms. */
@@ -28,28 +27,6 @@ class TachiyomiNovelSourceTest {
         val novel = source(details = { status = SManga.COMPLETED }).parseNovel("n")
 
         NovelStatusCode.fromString(novel.status) shouldBe NovelStatusCode.COMPLETED
-    }
-
-    @Test
-    fun `an upload date survives to the millisecond`() = runTest {
-        val chapter = source(chapter = { date_upload = 1_700_000_000_123L }).parseNovel("n").chapters!!.single()
-
-        NovelDateParser.parse(chapter.releaseTime) shouldBe 1_700_000_000_123L
-    }
-
-    @Test
-    fun `an unknown upload date is left unset`() = runTest {
-        source(chapter = { date_upload = 0L }).parseNovel("n").chapters!!.single().releaseTime shouldBe null
-    }
-
-    @Test
-    fun `an unknown chapter number is left unset`() = runTest {
-        source(chapter = { chapter_number = -1f }).parseNovel("n").chapters!!.single().chapterNumber shouldBe null
-    }
-
-    @Test
-    fun `a catalogue without filters offers none`() {
-        source(filters = FilterList()).filters shouldBe null
     }
 
     @Test

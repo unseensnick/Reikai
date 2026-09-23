@@ -45,6 +45,15 @@ class ReaderChapterReloadTest {
     }
 
     @Test
+    fun `a reload from the source drops the cached page list`() {
+        val chapter = loadedChapter()
+
+        chapter.unloadForReload(fromSource = true, cache)
+
+        verify { cache.removePageList(match { it.url == "/1" }) }
+    }
+
+    @Test
     fun `a reload from a downloaded copy leaves the cached images alone`() {
         val chapter = loadedChapter()
 

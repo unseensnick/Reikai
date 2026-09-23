@@ -59,6 +59,18 @@ class MadaraChapterEndpointTest {
         site.asked[1] shouldBe "HEAD https://site.example/blog/?p=42"
     }
 
+    @Test
+    fun `a refused ask of the root chapters route is repaired too`() {
+        val site = Site()
+        call(site, ask(url = "https://site.example/ajax/chapters/")).body.string() shouldBe CHAPTERS
+    }
+
+    @Test
+    fun `a refused ask of the chapters route in a subfolder is repaired too`() {
+        val site = Site(root = "/blog/")
+        call(site, ask(url = "https://site.example/blog/ajax/chapters/")).body.string() shouldBe CHAPTERS
+    }
+
     private fun call(site: Site, request: Request): Response =
         OkHttpClient.Builder().addInterceptor(MadaraChapterEndpoint).addInterceptor(site).build()
             .newCall(request).execute()

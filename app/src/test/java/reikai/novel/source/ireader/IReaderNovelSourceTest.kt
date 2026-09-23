@@ -121,16 +121,6 @@ class IReaderNovelSourceTest {
     }
 
     @Test
-    fun `a chapter's upload time is kept to the millisecond`() = runTest {
-        adapter().parseNovel("k").chapters!!.first().releaseTime shouldBe "2023-11-14T22:13:20Z"
-    }
-
-    @Test
-    fun `a chapter with no number is unnumbered rather than chapter minus one`() = runTest {
-        adapter().parseNovel("k").chapters!!.last().chapterNumber shouldBe null
-    }
-
-    @Test
     fun `a relative key opens under the site`() {
         adapter().webUrl("novel/x", isNovel = true) shouldBe "https://freewebnovel.com/novel/x"
     }

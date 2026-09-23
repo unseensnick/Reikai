@@ -131,6 +131,7 @@ class NovelOrientationProbe : ReaderOrientationProbe {
             },
             novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
             fontManager = mockk(),
+            imageRequests = mockk(),
             titleWords = EnglishChapterTitleWords,
         )
 }
@@ -177,6 +178,7 @@ class NovelChapterTitleProbe : ReaderChapterTitleProbe {
             },
             novelPreferences = preferences,
             fontManager = mockk(),
+            imageRequests = mockk(),
             titleWords = EnglishChapterTitleWords,
         )
     }

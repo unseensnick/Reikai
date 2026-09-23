@@ -62,11 +62,12 @@ class NovelWebImagesCancelTest {
             client.shouldInterceptRequest(webView, request(address))
             answered.countDown()
         }
-        fetchStarted.await(TIMEOUT_S, TimeUnit.SECONDS)
+        // Refused before any fetch, the intercept answers at once and the release below tests nothing.
+        val fetching = fetchStarted.await(TIMEOUT_S, TimeUnit.SECONDS)
 
         scope.cancel()
 
-        assertTrue(answered.await(TIMEOUT_S, TimeUnit.SECONDS))
+        assertTrue(fetching && answered.await(TIMEOUT_S, TimeUnit.SECONDS))
     }
 
     private fun request(url: String) = object : WebResourceRequest {

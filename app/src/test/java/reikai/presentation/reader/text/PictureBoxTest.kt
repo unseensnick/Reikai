@@ -28,6 +28,12 @@ class PictureBoxTest {
     }
 
     @Test
+    @DisplayName("a picture with no height of its own has no box")
+    fun noHeightNoBox() {
+        pictureBox(sourceWidth = 300, sourceHeight = 0, columnPx = 1242, density = 3f) shouldBe null
+    }
+
+    @Test
     @DisplayName("a column with no width has no box")
     fun noColumnNoBox() {
         pictureBox(sourceWidth = 300, sourceHeight = 600, columnPx = 0, density = 3f) shouldBe null

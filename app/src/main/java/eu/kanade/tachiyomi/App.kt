@@ -291,7 +291,8 @@ class App :
                 val novelImageRequests = lazy { graph.novelImageRequests }
                 add(NovelCoverFetcher.Factory(novelImageRequests, coverCache))
                 add(NovelImageFetcher.Factory(novelImageRequests))
-                add(ExtensionIconFetcher.Factory()) // RK: a novel extension app's icon, named as an address
+                // RK: a novel extension app's icon, named as an address
+                add(ExtensionIconFetcher.Factory(lazy { graph.extensionManager }, lazy { graph.novelPreferences }))
                 // RK: adult-source gallery page-preview thumbnails
                 add(PagePreviewFetcher.Factory(callFactoryLazy, lazy { graph.pagePreviewCache }, sourceManager))
                 // RK: MDList tracker-search covers, fetched via the MangaDex source client so the

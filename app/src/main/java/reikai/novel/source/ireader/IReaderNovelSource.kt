@@ -8,6 +8,7 @@ import ireader.core.source.model.Command
 import ireader.core.source.model.Listing
 import ireader.core.source.model.MangaInfo
 import ireader.core.source.model.MangasPageInfo
+import kotlinx.coroutines.CancellationException
 import reikai.data.coil.extensionIconUrl
 import reikai.data.novel.NovelStatusCode
 import reikai.novel.host.ChapterItem
@@ -23,8 +24,9 @@ import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelPageFetch
 import reikai.novel.source.NovelPageKind
+import reikai.novel.source.chapterNumberOf
+import reikai.novel.source.releaseTimeOf
 import tachiyomi.core.common.util.lang.withIOContext
-import java.time.Instant
 
 /**
  * [reikai.novel.source.NovelSource] over the catalogue of an IReader extension. IReader lists chapters
@@ -113,7 +115,15 @@ class IReaderNovelSource(
     private suspend fun chapterHtml(chapterPath: String, commands: List<Command<*>>): String {
         val pages = source.getPageList(ChapterInfo(key = chapterPath, name = ""), commands)
         val html = pages.toChapterHtml { page ->
-            (source as? HttpSource)?.let { runCatching { it.getPage(page) }.getOrNull() }
+            (source as? HttpSource)?.let {
+                try {
+                    it.getPage(page)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    null
+                }
+            }
         }
         return NovelTextSanitizer.stripInvalidChars(html)
     }
@@ -149,8 +159,7 @@ class IReaderNovelSource(
     private fun ChapterInfo.toChapterItem() = ChapterItem(
         name = name,
         path = key,
-        // An ISO instant, the one form the novel date parser keeps to the millisecond; 0 means unknown.
-        releaseTime = dateUpload.takeIf { it > 0L }?.let { Instant.ofEpochMilli(it).toString() },
-        chapterNumber = number.takeIf { it >= 0f }?.toDouble(),
+        releaseTime = releaseTimeOf(dateUpload),
+        chapterNumber = chapterNumberOf(number),
     )
 }

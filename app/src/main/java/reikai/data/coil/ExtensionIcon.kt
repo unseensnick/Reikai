@@ -12,9 +12,11 @@ import coil3.fetch.ImageFetchResult
 import coil3.request.ImageRequest
 import coil3.request.Options
 import coil3.request.SuccessResult
+import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import eu.kanade.tachiyomi.source.online.HttpSource
-import mihon.app.di.appGraph
+import reikai.domain.novel.NovelPreferences
+import reikai.domain.source.NovelIconHints
 import reikai.novel.source.ireader.IReaderSourceHolder
 
 private const val EXTENSION_ICON_SCHEME = "reikai-extension-icon"
@@ -32,6 +34,13 @@ fun Bitmap.isInvisible(): Boolean {
 }
 
 /**
+ * The icons an app with a blank one may borrow. A listing can name an address in this fetcher's own
+ * scheme, which would only come back here, so none is taken.
+ */
+internal fun borrowableIcons(hints: NovelIconHints, pkgName: String, siteUrls: List<String?>): List<String> =
+    hints.candidatesFor(pkgName, siteUrls).filterNot { it.startsWith("$EXTENSION_ICON_SCHEME:") }
+
+/**
  * Draws the icon an [extensionIconUrl] names, from the app installed privately or on the system. One that
  * shows nothing is replaced by an icon its store or another listing gives for its site, if any loads.
  */
@@ -39,6 +48,8 @@ class ExtensionIconFetcher(
     private val pkgName: String,
     private val options: Options,
     private val imageLoader: ImageLoader,
+    private val extensionManager: Lazy<ExtensionManager>,
+    private val novelPreferences: Lazy<NovelPreferences>,
 ) : Fetcher {
 
     override suspend fun fetch(): FetchResult {
@@ -54,12 +65,11 @@ class ExtensionIconFetcher(
     }
 
     private suspend fun borrowedIcon(): FetchResult? {
-        val graph = options.context.appGraph
-        val sites = graph.extensionManager.getLoadedNovelExtensions()
+        val sites = extensionManager.value.getLoadedNovelExtensions()
             .firstOrNull { it.pkgName == pkgName }
             ?.sources.orEmpty()
             .map { (it as? HttpSource)?.baseUrl ?: (it as? IReaderSourceHolder)?.baseUrl }
-        for (url in graph.novelPreferences.novelIconHints().get().candidatesFor(pkgName, sites)) {
+        for (url in borrowableIcons(novelPreferences.value.novelIconHints().get(), pkgName, sites)) {
             val result = imageLoader.execute(ImageRequest.Builder(options.context).data(url).build())
             if (result is SuccessResult) {
                 return ImageFetchResult(result.image, isSampled = false, dataSource = DataSource.NETWORK)
@@ -68,9 +78,12 @@ class ExtensionIconFetcher(
         return null
     }
 
-    class Factory : Fetcher.Factory<Uri> {
+    class Factory(
+        private val extensionManager: Lazy<ExtensionManager>,
+        private val novelPreferences: Lazy<NovelPreferences>,
+    ) : Fetcher.Factory<Uri> {
         override fun create(data: Uri, options: Options, imageLoader: ImageLoader): Fetcher? =
             data.authority?.takeIf { data.scheme == EXTENSION_ICON_SCHEME }
-                ?.let { ExtensionIconFetcher(it, options, imageLoader) }
+                ?.let { ExtensionIconFetcher(it, options, imageLoader, extensionManager, novelPreferences) }
     }
 }

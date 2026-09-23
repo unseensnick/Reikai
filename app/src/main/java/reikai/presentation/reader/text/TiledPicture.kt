@@ -27,7 +27,6 @@ internal class TiledPicture(
     private val scope: CoroutineScope,
     private val onTileReady: () -> Unit,
     tileDrawnPx: Int = TILE_DRAWN_PX,
-    private val ahead: Int = 1,
 ) : Drawable(), Closeable {
 
     private val tileSourceHeight = tileSourceHeight(reader.sourceHeight, box.height, tileDrawnPx)
@@ -52,7 +51,7 @@ internal class TiledPicture(
 
     /** Main thread: the rows of this picture on screen, in the pixels it is drawn at. */
     fun onVisible(topPx: Int, bottomPx: Int) {
-        val next = tilesFor(topPx, bottomPx, box.height, tileCount, ahead)
+        val next = tilesFor(topPx, bottomPx, box.height, tileCount, TILES_AHEAD)
         if (next == wanted) return
         wanted = next
         // Scrolled away, so its slices are let go of before the ones now wanted are asked for.
@@ -110,6 +109,7 @@ internal class TiledPicture(
     private companion object {
         /** About a screen's worth of the picture per slice, so a scroll crosses one at a time. */
         const val TILE_DRAWN_PX = 2_000
+        const val TILES_AHEAD = 1
     }
 }
 

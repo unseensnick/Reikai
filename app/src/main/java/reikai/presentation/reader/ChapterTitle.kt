@@ -30,7 +30,12 @@ fun ChapterTitleFormat.chapterTitle(name: String, number: Double, words: Chapter
     val shown = formatChapterNumber(number)
     if (this == ChapterTitleFormat.NUMBER) return words.numbered(shown)
     val rest = name.withoutLeadingNumber(shown)
-    return if (rest.isEmpty()) words.numbered(shown) else words.numberedWithName(shown, rest)
+    return when {
+        rest.isEmpty() -> words.numbered(shown)
+        // "Vol.1 Ch.3 - The Duel" already reads numbered, and its volume is worth keeping in place.
+        name.hasNumberAfterVolume(shown) -> name
+        else -> words.numberedWithName(shown, rest)
+    }
 }
 
 /**
@@ -45,3 +50,11 @@ private fun String.withoutLeadingNumber(number: String): String {
         )
     return replaceFirst(prefix, "").replaceFirst(prefix, "")
 }
+
+private fun String.hasNumberAfterVolume(number: String): Boolean =
+    Regex(
+        """^\s*vol(?:ume)?\.?\s*\d+(?:\.\d+)?[\s:.,\-–—]*(?:ch(?:apter)?\.?\s*)?#?0*${Regex.escape(
+            number,
+        )}(?!\d|\.\d)""",
+        RegexOption.IGNORE_CASE,
+    ).containsMatchIn(this)

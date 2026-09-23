@@ -18,9 +18,14 @@ sealed interface ReaderLoadState {
      * carried nothing worth showing. [canKeepReading] is false when nothing reached the screen, so
      * giving up closes the reader, as manga does, instead of leaving it blank with no way back.
      * [attempt] tells one failure from the next: the state is conflated, so a repeat of the same
-     * failure, with the Loading between them missed, would otherwise read as nothing new at all.
+     * failure, with the Loading between them missed, would otherwise read as nothing new at all. Stamped
+     * by default, so no site can report a failure that equals the last one.
      */
-    data class Failed(val message: String?, val canKeepReading: Boolean, val attempt: Long) : ReaderLoadState {
+    data class Failed(
+        val message: String?,
+        val canKeepReading: Boolean,
+        val attempt: Long = nextAttempt(),
+    ) : ReaderLoadState {
         companion object {
             private val attempts = AtomicLong()
 

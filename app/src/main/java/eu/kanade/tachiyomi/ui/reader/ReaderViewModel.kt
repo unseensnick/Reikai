@@ -646,7 +646,7 @@ class ReaderViewModel(
                 throw e
             }
             logcat(LogPriority.ERROR, e)
-            val failure = AdjacentLoadFailure(chapterId, e.message, fromSource, ReaderLoadState.Failed.nextAttempt())
+            val failure = AdjacentLoadFailure(chapterId, e.message, fromSource)
             mutableState.update { it.copy(adjacentLoadFailure = failure) }
         } finally {
             mutableState.update { it.copy(isLoadingAdjacentChapter = false) }
@@ -1191,7 +1191,7 @@ class ReaderViewModel(
             // instead of silently doing nothing when skip-read has removed it from the navigation list.
             val newChapter = fullChapterList.firstOrNull { it.chapter.id == chapter.id }
                 ?: return@launchIO mutableState.update {
-                    val failure = AdjacentLoadFailure(chapter.id, null, false, ReaderLoadState.Failed.nextAttempt())
+                    val failure = AdjacentLoadFailure(chapter.id, null, false)
                     it.copy(adjacentLoadFailure = failure)
                 }
             loadAdjacent(newChapter)
@@ -1462,7 +1462,8 @@ class ReaderViewModel(
         val chapterId: Long,
         val message: String?,
         val fromSource: Boolean,
-        val attempt: Long,
+        // RK: stamped here, so two identical failures still read as two
+        val attempt: Long = ReaderLoadState.Failed.nextAttempt(),
     )
 
     @Immutable

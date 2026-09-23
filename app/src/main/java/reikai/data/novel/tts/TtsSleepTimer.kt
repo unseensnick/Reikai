@@ -30,7 +30,7 @@ class TtsSleepTimer(private val clock: () -> Long) {
         timer.value = SleepTimer.At(clock() + minutes * MINUTE_MS, minutes)
     }
 
-    /** Only for an owner that calls [takeEndOfChapter] at chapter ends; nothing clears it for one that does not. */
+    /** Only for an owner that calls [takeEndOfChapter] at chapter ends: for any other it waits until playback stops. */
     fun setEndOfChapter() {
         timer.value = SleepTimer.EndOfChapter
     }

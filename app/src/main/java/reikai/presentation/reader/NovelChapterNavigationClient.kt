@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.runInterruptible
 import logcat.LogPriority
 import reikai.data.coil.NovelImage
 import reikai.presentation.reader.web.NovelWebImages
@@ -44,10 +45,14 @@ class NovelChapterNavigationClient(
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         val image = images.imageFor(request.url.toString()) ?: return null
         return try {
-            val result = runBlocking { scope.async(Dispatchers.IO) { fetchImage(image) }.await() }
-            val bytes = result.source.use { it.source().readByteArray() }
-            // Chromium sniffs a picture's format, so a type the disk cache did not keep costs nothing.
-            WebResourceResponse(result.mimeType ?: "image/*", null, ByteArrayInputStream(bytes))
+            // The body is read inside the scope too, interruptibly, so closing the reader stops it mid-transfer.
+            val (bytes, mimeType) = runBlocking {
+                scope.async(Dispatchers.IO) {
+                    val result = fetchImage(image)
+                    runInterruptible { result.source.use { it.source().readByteArray() } } to result.mimeType
+                }.await()
+            }
+            WebResourceResponse(imageResponseType(mimeType, bytes), null, ByteArrayInputStream(bytes))
         } catch (e: Exception) {
             logcat(LogPriority.DEBUG, e) { "Failed to load a chapter image" }
             // Only an error status is accepted here; a redirect or an unknown code throws.
@@ -86,3 +91,20 @@ class NovelChapterNavigationClient(
         }
     }
 }
+
+/**
+ * The type a picture is served under. The disk cache keeps none, and Chromium sniffs a raster format but
+ * never SVG, which it draws only when named so: a cached SVG served untyped failed on every open after the first.
+ */
+internal fun imageResponseType(mimeType: String?, bytes: ByteArray): String {
+    if (mimeType != null) return mimeType
+    val head = String(
+        bytes,
+        0,
+        minOf(bytes.size, SNIFF_BYTES),
+        Charsets.UTF_8,
+    ).trimStart('\uFEFF', ' ', '\n', '\r', '\t')
+    return if (head.startsWith("<svg") || (head.startsWith("<?xml") && "<svg" in head)) "image/svg+xml" else "image/*"
+}
+
+private const val SNIFF_BYTES = 512

@@ -23,7 +23,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.json.JSONObject
 import reikai.data.coil.fetchNovelImage
@@ -31,6 +30,7 @@ import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.font.NovelFontManager
+import reikai.novel.network.NovelImageRequests
 import reikai.presentation.reader.text.NovelSeam
 import reikai.presentation.reader.web.NovelDocumentGate
 import reikai.presentation.reader.web.NovelWebBridge
@@ -59,6 +59,8 @@ class NovelWebViewport(
     private val context: Context,
     /** The user's added fonts, which the page embeds when one is chosen. */
     private val fontManager: NovelFontManager,
+    /** Each picture's fetch with its source's client and headers, the text renderer's own. */
+    private val imageRequests: NovelImageRequests,
     /** Long press selects text, the same setting the native viewport reads. Links keep working here,
      *  which the native one cannot offer alongside selection. */
     private val textSelectable: Boolean,
@@ -184,7 +186,7 @@ class NovelWebViewport(
             // The text renderer's fetch and cache, so switching modes downloads nothing again.
             fetchNovelImage(
                 image,
-                context.appGraph.novelImageRequests,
+                imageRequests,
                 context.imageLoader.diskCache,
                 readCache = true,
                 writeCache = true,

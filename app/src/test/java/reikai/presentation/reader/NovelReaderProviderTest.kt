@@ -36,7 +36,7 @@ class NovelReaderProviderTest {
         val novel = harness.novel(harness.source("src"))
         val model = harness.open(novel, harness.chapter(novel, 1.0).id)
         advanceUntilIdle()
-        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), EnglishChapterTitleWords)
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
         val viewport = FakeTextViewport()
         model.readAloud.attach(viewport.readAloud)
 

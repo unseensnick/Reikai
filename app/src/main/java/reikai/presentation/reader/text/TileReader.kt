@@ -30,7 +30,8 @@ internal class TileReader private constructor(private val decoder: BitmapRegionD
     }
 
     companion object {
-        fun of(file: File): TileReader? = open { BitmapRegionDecoder.newInstance(file.inputStream(), false) }
+        // The decoder copies the stream in whole, so it can be closed at once.
+        fun of(file: File): TileReader? = open { file.inputStream().use { BitmapRegionDecoder.newInstance(it, false) } }
 
         fun of(bytes: ByteArray): TileReader? = open {
             BitmapRegionDecoder.newInstance(bytes, 0, bytes.size, false)
