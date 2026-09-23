@@ -433,7 +433,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                                 false
                             }
                             // Credentials in the address authenticate nothing and would travel in
-                            // every backup, since this key is not private. The fields below are.
+                            // every backup, since this key is not private. The sign-in row keeps them private.
                             splitFlareSolverrUserInfo(it) != null -> {
                                 context.toast(MR.strings.error_flaresolverr_url_credentials)
                                 false

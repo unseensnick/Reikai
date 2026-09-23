@@ -463,7 +463,6 @@
     <string name="pref_grayscale">Nível de cinza</string>
     <string name="notification_incognito_text">Desabilitar o modo anônimo</string>
     <string name="automatic_background">Auto</string>
-    <string name="cancel_all_for_series">Cancelar todos para esta série</string>
     <string name="error_no_match">Nenhum resultado encontrado</string>
     <string name="source_unsupported">Fonte não suportada</string>
     <string name="unread">Não lido</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_not_started">Pulado porque nenhum capítulo foi lido</string>
     <string name="learn_more">Toque para saber mais</string>
     <string name="rotation_reverse_portrait">Retrato invertido</string>
-    <string name="action_move_to_top_all_for_series">Mover série para o começo</string>
     <string name="disabled_nav">Desativado</string>
     <string name="error_saving_picture">Erro ao salvar a imagem</string>
     <string name="empty_backup_error">Nenhuma entrada na biblioteca para fazer backup</string>
@@ -695,7 +693,6 @@
     <string name="exception_offline">Sem conexão de internet</string>
     <string name="exception_unknown_host">Não foi possível resolver %s</string>
     <string name="unlock_app_title">Desbloquear o %s</string>
-    <string name="action_move_to_bottom_all_for_series">Mover série para o final</string>
     <string name="pref_relative_format">Datas relativas</string>
     <string name="pref_relative_format_summary">\"%1$s\" ao invés de \"%2$s\"</string>
     <string name="app_settings">Configurações do aplicativo</string>
@@ -869,15 +866,8 @@
     <string name="pref_download_concurrent_sources">Download simultâneo de fontes</string>
     <string name="extensionStores">Loja de extensões</string>
     <string name="action.addExtensionStore">Adicionar loja de extensões</string>
-    <string name="extensionStoresScreen.emptyLabel">Você não adicionou uma loja de extensões ainda</string>
-    <string name="extensionStoresScreen.addStore.title">Adicionar loja de extensões</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Essa loja de extensões já existe</string>
     <string name="extensionStoresScreen.addStore.processing">Processando…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">URL do índice de loja</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Você deseja adicionar essa loja de extensões abaixo?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Remover loja de extensões</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Coloque o navegador vertical no lado esquerdo</string>
-    <string name="extensionStoresScreen.deleteStore.body">Deseja remover a loja de extensões \"%1$s\" (%2$s)?</string>
     <string name="pref_vertical_navigator">Usar o navegador de capítulos vertical em</string>
     <string name="pref_vertical_navigator_height">Altura do navegador vertical</string>
     <string name="considering">Considerando</string>

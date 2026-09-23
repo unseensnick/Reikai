@@ -92,7 +92,6 @@
     <string name="action_order_by_chapter_number">Efter kapitelnummer</string>
     <string name="action_oldest">Ældste</string>
     <string name="action_move_to_top">Flyt til toppen</string>
-    <string name="action_move_to_top_all_for_series">Flyt serie til toppen</string>
     <string name="action_move_to_bottom">Flyt til bunden</string>
     <string name="action_install">Installer</string>
     <string name="action_share">Del</string>
@@ -100,7 +99,6 @@
     <string name="action_reset">Nulstil</string>
     <string name="action_undo">Fortryd</string>
     <string name="action_open_log">Åben log</string>
-    <string name="cancel_all_for_series">Afbryd alle for denne serie</string>
     <string name="action_sort">Sorter</string>
     <string name="action_cancel_all">Afbryd alle</string>
     <string name="action_cancel">Afbryd</string>
@@ -229,7 +227,6 @@
     <string name="ext_updates_pending">Opdateringer venter</string>
     <string name="off">Fra</string>
     <string name="pref_backup_summary">Manuel og automatisk sikkerhedskopiering, lagerplads</string>
-    <string name="action_move_to_bottom_all_for_series">Flyt serie til bunden</string>
     <string name="scanlator">Scanlator</string>
     <string name="ext_update">Opdater</string>
     <string name="tapping_inverted_both">Begge</string>

@@ -462,7 +462,6 @@
     <string name="notification_incognito_text">Zakázat anonymní režim</string>
     <string name="automatic_background">Auto</string>
     <string name="pref_grayscale">Odstíny šedé</string>
-    <string name="cancel_all_for_series">Zrušit vše pro tuto sérii</string>
     <string name="error_no_match">Žádná shoda nenalezena</string>
     <string name="source_unsupported">Zdroj není podporován</string>
     <string name="unread">Nepřečteno</string>
@@ -545,7 +544,6 @@
     <string name="pref_update_only_started">Přeskočit nerozečtené položky</string>
     <string name="on_hiatus">Má pauzu</string>
     <string name="skipped_reason_not_caught_up">Přeskočeno, protože obsahuje nepřečtené kapitoly</string>
-    <string name="action_move_to_top_all_for_series">Přesunout sérii na začátek</string>
     <string name="learn_more">Klepnutím se dozvíte více</string>
     <string name="skipped_reason_not_started">Přeskočeno, protože nebyly přečteny žádné kapitoly</string>
     <string name="skipped_reason_completed">Přeskočeno, protože série je dokončena</string>
@@ -695,7 +693,6 @@
     <string name="exception_unknown_host">Nelze dosáhnout %s</string>
     <string name="exception_http">HTTP %d, zkontrolovat web v WebView</string>
     <string name="unlock_app_title">Odemknout %s</string>
-    <string name="action_move_to_bottom_all_for_series">Přesunout sérii na konec</string>
     <string name="pref_relative_format">Relativní časová razítka</string>
     <string name="pref_relative_format_summary">\"%1$s\" namísto \"%2$s\"</string>
     <string name="app_settings">Nastavení aplikace</string>
@@ -869,14 +866,7 @@
     <string name="clear_database_history_warning">Přečtené kapitoly a postup u položek mimo knihovnu bude ztracen</string>
     <string name="extensionStores">Obchody s doplňky</string>
     <string name="action.addExtensionStore">Přidat obchod s doplňky</string>
-    <string name="extensionStoresScreen.emptyLabel">Ještě jste nepřidali obchod s doplňky</string>
-    <string name="extensionStoresScreen.addStore.title">Přidat obchod s doplňky</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Tento obchod s doplňky již existuje</string>
     <string name="extensionStoresScreen.addStore.processing">Zpracovává se…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">URL adresa indexu obchodu</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Chcete přidat níže uvedený obchod s doplňky?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Odstranit obchod doplňků</string>
-    <string name="extensionStoresScreen.deleteStore.body">Chcete odstranit obchod s doplňky „%1$s“ (%2$s)?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Umístěte svislý navigační panel na levou stranu</string>
     <string name="considering">S ohledem na</string>
     <string name="pref_vertical_navigator">Použijte svislý navigační panel kapitol v</string>

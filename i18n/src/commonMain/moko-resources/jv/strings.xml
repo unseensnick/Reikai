@@ -141,7 +141,6 @@
     <string name="action_order_by_upload_date">Miturut tanggal unggah</string>
     <string name="action_order_by_chapter_number">Miturut nomer bab</string>
     <string name="action_sort">Urutke</string>
-    <string name="cancel_all_for_series">Batalke kabeh seri iki</string>
     <string name="action_cancel_all">Batalke kabeh</string>
     <string name="action_cancel">Batalke</string>
     <string name="action_unpin">Copot pin</string>
@@ -181,7 +180,6 @@
     <string name="secure_screen_summary">Amanaken layar sembunikan konten aplikasi wektu ngaleh aplikasi lan blokir tangkapan layar</string>
     <string name="theme_midnightdusk">Surup wengi</string>
     <string name="lock_when_idle">Kunci wektu meneng</string>
-    <string name="action_move_to_top_all_for_series">Pindah seri mendhuwur</string>
     <string name="theme_strawberrydaiquiri">Stroberi Daiquiri</string>
     <string name="theme_tako">Tako</string>
     <string name="theme_yinyang">Yin lan Yang</string>
@@ -316,7 +314,6 @@
     <string name="action_display_show_continue_reading_button">Tombol lajengaken maos</string>
     <string name="action_apply">Terapaken</string>
     <string name="action_ok">OK</string>
-    <string name="action_move_to_bottom_all_for_series">Pindhah seri ka ngisor</string>
     <string name="action_notes">Cathetan</string>
     <string name="action_edit_notes">Ganti cathetan</string>
     <string name="action_revert_to_default">Mbalikake marang default</string>

@@ -115,7 +115,6 @@
     <string name="action_cancel">Betal bike</string>
     <string name="action_ok">Temam</string>
     <string name="action_cancel_all">Hemûyan betal bike</string>
-    <string name="cancel_all_for_series">Hemûyên vê berhemê betal bike</string>
     <string name="action_sort">Rêz bike</string>
     <string name="action_order_by_upload_date">Li gorî dîroka barkirinê</string>
     <string name="action_order_by_chapter_number">Li gorî jimara beşê</string>
@@ -124,9 +123,7 @@
     <string name="action_asc">Zêdebarî</string>
     <string name="action_desc">Kêmbarî</string>
     <string name="action_move_to_top">Bibe serî</string>
-    <string name="action_move_to_top_all_for_series">Berhemê bibe serî</string>
     <string name="action_move_to_bottom">Bibe binî</string>
-    <string name="action_move_to_bottom_all_for_series">Berhemê bibe binî</string>
     <string name="action_notes">Nîşe</string>
     <string name="action_edit_notes">Notan serast bike</string>
     <string name="action_install">Daxîne</string>

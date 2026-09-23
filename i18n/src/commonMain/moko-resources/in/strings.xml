@@ -444,7 +444,6 @@
     <string name="exclude">Kecuali: %s</string>
     <string name="include">Termasuk: %s</string>
     <string name="pref_dual_page_split">Membagi halaman lebar</string>
-    <string name="cancel_all_for_series">Batal semua untuk seri ini</string>
     <string name="update_check_eol">Versi Android ini tidak lagi didukung</string>
     <string name="clipboard_copy_error">Gagal menyalin ke papan klip</string>
     <string name="pref_dns_over_https">DNS melalui HTTPS (DoH)</string>
@@ -551,7 +550,6 @@
     <string name="pref_navigate_pan">Geser gambar lebar</string>
     <string name="learn_more">Pelajari lebih lanjut</string>
     <string name="rotation_reverse_portrait">Layar tegak terbalik</string>
-    <string name="action_move_to_top_all_for_series">Pindahkan seri ke atas</string>
     <string name="disabled_nav">Dinonaktifkan</string>
     <string name="error_saving_picture">Gagal menyimpan gambar</string>
     <string name="empty_backup_error">Tidak ada entri perpustakaan untuk dicadangkan</string>
@@ -695,7 +693,6 @@
     <string name="exception_offline">Tidak ada koneksi Internet</string>
     <string name="exception_http">HTTP %d, periksa situs web di WebView</string>
     <string name="exception_unknown_host">Tidak dapat mencapai %s</string>
-    <string name="action_move_to_bottom_all_for_series">Pindahkan seri ke bawah</string>
     <string name="pref_relative_format">Penanda waktu</string>
     <string name="pref_relative_format_summary">\"%1$s\" seharusnya \"%2$s\"</string>
     <string name="notification_updating_progress">Memperbarui pustaka... (%s)</string>
@@ -868,14 +865,7 @@
     <string name="action_filter_excluded_scanlators">Filter yang mengecualikan pemindai</string>
     <string name="extensionStores">Tempat ekstensi</string>
     <string name="action.addExtensionStore">Tambah ekstensi</string>
-    <string name="extensionStoresScreen.emptyLabel">Anda belum menambahkan ekstensi</string>
-    <string name="extensionStoresScreen.addStore.title">Tambah ekstensi</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Ekstensi ini sudah ditambahkan</string>
     <string name="extensionStoresScreen.addStore.processing">Memproses…</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Apakah Anda ingin menambahkan ekstensi di bawah ini?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Hapus ekstensi</string>
-    <string name="extensionStoresScreen.deleteStore.body">Apakah Anda ingin menghapus ekstensi \"%1$s\" (%2$s)?</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">Menyimpan indeks URL</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Tempatkan navigator vertikal di sisi kiri</string>
     <string name="download_bookmarked">Ditandai</string>
     <string name="considering">Mempertimbangkan</string>

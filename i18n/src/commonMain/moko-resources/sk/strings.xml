@@ -321,7 +321,6 @@
     <string name="action_display_local_badge">Lokálny zdroj</string>
     <string name="action_display_language_badge">Jazyk</string>
     <string name="action_pin">Pripnúť</string>
-    <string name="cancel_all_for_series">Zrušiť všetko pre túto sériu</string>
     <string name="action_order_by_chapter_number">Podľa čísla kapitoly</string>
     <string name="action_start_downloading_now">Začať sťahovať teraz</string>
     <string name="secure_screen_summary">Skryť obsah aplikácie pri prepínaní aplikácie a blokovať tvorbu snímkov obrazovky</string>
@@ -587,7 +586,6 @@
     <string name="website">Webová stránka</string>
     <string name="pref_reader_actions">Akcie</string>
     <string name="custom_cover">Vlastný obal</string>
-    <string name="action_move_to_top_all_for_series">Presunúť sériu na začiatok</string>
     <string name="privacy_policy">Zásady ochrany osobných údajov</string>
     <string name="are_you_sure">Ste si istí?</string>
     <string name="rotation_portrait">Na výšku</string>
@@ -616,7 +614,6 @@
     <string name="action_update_category">Aktualizovať kategóriu</string>
     <string name="action_copy_to_clipboard">Kopírovať do schránky</string>
     <string name="action_ok">OK</string>
-    <string name="action_move_to_bottom_all_for_series">Presunúť sériu na spodok</string>
     <string name="onboarding_action_next">Ďalej</string>
     <string name="onboarding_action_skip">Preskočiť</string>
     <string name="onboarding_permission_install_apps">Povolenie na inštalovanie ľubovoľných aplikácii</string>

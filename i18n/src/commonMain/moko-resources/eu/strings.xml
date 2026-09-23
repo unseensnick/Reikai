@@ -348,7 +348,6 @@
     <string name="action_mark_previous_as_read">Markatu aurrekoak irakurriak bezala</string>
     <string name="action_download">Deskargatu</string>
     <string name="action_bookmark">Jarri laster-marka kapituluari</string>
-    <string name="cancel_all_for_series">Utzi alde batera argitalpen honetako guztiak</string>
     <string name="action_remove_bookmark">Kendu laster-marka kapituluari</string>
     <string name="action_delete">Ezabatu</string>
     <string name="action_update_library">Eguneratu liburutegia</string>

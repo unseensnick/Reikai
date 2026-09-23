@@ -463,7 +463,6 @@
     <string name="pref_create_folder_per_manga_summary">Stvara mape na osnovi naslova unosa</string>
     <string name="pref_create_folder_per_manga">Spremi stranice u zasebne mape</string>
     <string name="pref_reader_actions">Radnje</string>
-    <string name="cancel_all_for_series">Prekini sve za ovu seriju</string>
     <string name="chapter_not_found">Poglavlje nije pronađeno</string>
     <string name="unread">Nepročitano</string>
     <string name="action_display_local_badge">Lokalni izvor</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_not_caught_up">Preskočeno, jer postoje nepročitana poglavlja</string>
     <string name="learn_more">Dodirni za daljnje informacije</string>
     <string name="rotation_reverse_portrait">Preokreni uspravni format</string>
-    <string name="action_move_to_top_all_for_series">Premjesti seriju na vrh</string>
     <string name="disabled_nav">Deaktivirano</string>
     <string name="empty_backup_error">Nema unosa u biblioteci za spremanje u sigurnosnu kopiju</string>
     <string name="split_tall_images_summary">Poboljšava performanse čitača</string>
@@ -695,7 +693,6 @@
     <string name="exception_offline">Ne postoji veza s internetom</string>
     <string name="exception_http">HTTP %d, provjeri web stranicu u WebView</string>
     <string name="exception_unknown_host">Nije bilo moguće povezati se s računalom %s</string>
-    <string name="action_move_to_bottom_all_for_series">Premjesti seriju na kraj</string>
     <string name="pref_relative_format">Relativne vremenske oznake</string>
     <string name="pref_relative_format_summary">„%1$s” umjesto „%2$s”</string>
     <string name="notification_updating_progress">Aktualiziranje biblioteke … (%s)</string>

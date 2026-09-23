@@ -461,7 +461,6 @@
     <string name="action_order_by_upload_date">Theo ngày đăng</string>
     <string name="action_sort_chapter_fetch_date">Ngày nhập chương</string>
     <string name="action_filter_tracked">Đã theo dõi</string>
-    <string name="cancel_all_for_series">Hủy bỏ tất cả cho phần truyền này</string>
     <string name="action_display_local_badge">Truyện cục bộ</string>
     <string name="error_no_match">Không tìm thấy</string>
     <string name="source_unsupported">Nguồn không được hỗ trợ</string>
@@ -549,7 +548,6 @@
     <string name="skipped_reason_completed">Đã bỏ qua vì bộ truyện đã hoàn thành</string>
     <string name="skipped_reason_not_caught_up">Đã bỏ qua vì vẫn còn chương chưa đọc</string>
     <string name="skipped_reason_not_started">Đã bỏ qua vì chưa chương nào được đọc</string>
-    <string name="action_move_to_top_all_for_series">Di chuyển bộ truyện lên đầu</string>
     <string name="disabled_nav">Tắt</string>
     <string name="error_saving_picture">Lỗi khi lưu ảnh</string>
     <string name="action_close">Đóng</string>
@@ -705,7 +703,6 @@
     <string name="selected">Đã chọn</string>
     <string name="no_scanlators_found">Không tìm thấy nhóm dịch nào</string>
     <string name="not_selected">Chưa chọn</string>
-    <string name="action_move_to_bottom_all_for_series">Di chuyển bộ truyện xuống cuối</string>
     <string name="scanlator">Nhóm dịch</string>
     <string name="onboarding_action_skip">Bỏ qua</string>
     <string name="pref_flash_page">Làm mới màn hình khi đổi trang</string>
@@ -866,16 +863,9 @@
     <string name="action_filter_excluded_scanlators">Lọc nhóm dịch bị loại trừ</string>
     <string name="download_bookmarked">Đã đánh dấu</string>
     <string name="action.addExtensionStore">Thêm cửa hành tiện ích mở rộng</string>
-    <string name="extensionStoresScreen.emptyLabel">Bạn chưa thêm cửa hàng tiện ích mở rộng</string>
-    <string name="extensionStoresScreen.addStore.title">Thêm cửa hàng tiện ích mở rộng</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Cửa hàng tiện ích mở rộng này đã tồn tại</string>
     <string name="extensionStoresScreen.addStore.processing">Đang xử lý…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">Lưu URL chỉ mục</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Bạn có muốn thêm cửa hàng tiên ích mở rộng bên dưới không ?</string>
     <string name="ext_obsolete">Bỏ hoang</string>
     <string name="extensionStores">Cửa hàng tiện ích mở rộng</string>
-    <string name="extensionStoresScreen.deleteStore.title">Xóa cửa hàng tiện ích mở rộng</string>
-    <string name="extensionStoresScreen.deleteStore.body">Bạn có muốn xóa cửa hàng phần mở rộng \"%1$s\" (%2$s) không?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Đặt thanh điều hướng dọc ở phía bên trái</string>
     <string name="information_webview_required">Cần có WebView để ứng dụng hoạt động</string>
     <string name="crash_screen_description">%s đã có lỗi. Bạn nên chia sẻ ghi chép sự cố vào trong kênh hỗ trợ của chúng tôi trên Discord.</string>

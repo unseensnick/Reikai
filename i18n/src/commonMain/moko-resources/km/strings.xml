@@ -59,7 +59,6 @@
     <string name="action_unpin">ឈប់ខ្ទាស់</string>
     <string name="action_cancel">ឈប់ធ្វើ</string>
     <string name="action_cancel_all">ឈប់ធ្វើទាំងអស់</string>
-    <string name="cancel_all_for_series">Cancelទាំងអស់ចំពោះម៊េងហ្គាមួយនេះ</string>
     <string name="action_sort">តម្រៀប</string>
     <string name="action_order_by_upload_date">តម្រៀបតាមកាលបរិច្ឆេទ</string>
     <string name="action_order_by_chapter_number">តម្រៀបតាមភាគ</string>

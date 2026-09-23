@@ -473,7 +473,6 @@
     <string name="theme_monet">Dinámico</string>
     <string name="pref_app_theme">Esquema de colores</string>
     <string name="action_start_downloading_now">Empezar la descarga</string>
-    <string name="cancel_all_for_series">Cancelar todo para esta serie</string>
     <string name="action_display_local_badge">Contenido local</string>
     <string name="about_dont_kill_my_app">Algunos fabricantes restringen aún más ciertas aplicaciones y detienen sus servicios en segundo plano. Esta página web tiene más información sobre cómo solucionarlo.</string>
     <string name="information_empty_category_dialog">Todavía no existen categorías.</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_not_started">Omitido porque no hay capítulos leídos</string>
     <string name="learn_more">Ver más detalles</string>
     <string name="rotation_reverse_portrait">En vertical, al revés</string>
-    <string name="action_move_to_top_all_for_series">Mover al primer puesto</string>
     <string name="disabled_nav">Desactivado</string>
     <string name="error_saving_picture">No se ha podido guardar la imagen</string>
     <string name="empty_backup_error">No hay ningún elemento en la biblioteca que respaldar</string>
@@ -695,7 +693,6 @@
     <string name="exception_http">HTTP %d, prueba abriendo la página web en WebView</string>
     <string name="exception_offline">Sin conexión a Internet</string>
     <string name="unlock_app_title">Desbloquear %s</string>
-    <string name="action_move_to_bottom_all_for_series">Mover al último puesto</string>
     <string name="pref_relative_format">Marcas de tiempo relativas</string>
     <string name="pref_relative_format_summary">«%1$s» en vez de «%2$s»</string>
     <string name="notification_updating_progress">Actualizando biblioteca... (%s)</string>
@@ -869,13 +866,6 @@
     <string name="download_bookmarked">Favoritos</string>
     <string name="extensionStores">Listados de extensiones</string>
     <string name="action.addExtensionStore">Añadir listado de extensiones</string>
-    <string name="extensionStoresScreen.emptyLabel">Todavía no has configurado ningún listado de extensiones</string>
-    <string name="extensionStoresScreen.addStore.title">Añadir listado de extensiones</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Ya estás usando este listado de extensiones</string>
     <string name="extensionStoresScreen.addStore.processing">Procesando…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">Dirección URL del listado</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">¿Seguro que quieres añadir este listado de extensiones?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Quitar listado de extensiones</string>
-    <string name="extensionStoresScreen.deleteStore.body">¿Seguro que quieres quitar el listado de extensiones «%1$s» (%2$s)?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Ubicar la interfaz de navegación en el margen izquierdo</string>
 </resources>

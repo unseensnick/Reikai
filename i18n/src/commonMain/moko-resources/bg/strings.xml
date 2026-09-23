@@ -448,7 +448,6 @@
     <string name="manga_cover">Корица</string>
     <string name="label_warning">Предупреждение</string>
     <string name="confirm_lock_change">Удостоверете, за да потвърдите промяната</string>
-    <string name="cancel_all_for_series">Премахни всичко от тази серия</string>
     <string name="action_show_errors">Вижте пълните подробности за грешката</string>
     <string name="pref_app_theme">Тема</string>
     <string name="theme_monet">Динамично</string>
@@ -583,7 +582,6 @@
     <string name="theme_tidalwave">Приливна вълна</string>
     <string name="action_sort_unread_count">Брой непрочетени</string>
     <string name="network_not_metered">Само през неограничена мрежа</string>
-    <string name="action_move_to_top_all_for_series">Премести поредицата най-горе</string>
     <string name="theme_lavender">Лавандула</string>
     <string name="pref_app_language">Език на приложението</string>
     <string name="delete_category">Изтрий категория</string>
@@ -700,7 +698,6 @@
     <string name="label_total_chapters">Общо</string>
     <string name="action_view_upcoming">Преглед на предстоящите обновления</string>
     <string name="label_titles_section">Манги</string>
-    <string name="action_move_to_bottom_all_for_series">Премести най-долу</string>
     <string name="label_started">Започнати</string>
     <string name="author">Автор</string>
     <string name="pref_chapter_swipe_end">Глава на дясно плъзгане</string>

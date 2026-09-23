@@ -316,7 +316,6 @@
     <string name="action_display_show_number_of_items">הצגת כמות פריטי הקטגוריה</string>
     <string name="action_disable">השבתה</string>
     <string name="action_unpin">הסר נעיצה</string>
-    <string name="cancel_all_for_series">בטל הכל לסדרה זו</string>
     <string name="action_order_by_upload_date">לפי תאריך ההעלאה</string>
     <string name="action_order_by_chapter_number">לפי מספר הפרק</string>
     <string name="action_asc">עולה</string>
@@ -352,7 +351,6 @@
     <string name="pref_library_update_categories_details">פריט הנמצא בקטגוריית מנועי העדכונים לא יעודכן גם אם הוא נכלל בקטגורייה אחרת שכן מתעדכנת.</string>
     <string name="action_show_manga">הצגת הפריט</string>
     <string name="pref_update_only_completely_read">עם פרק(ים) שלא נקרא(ו)</string>
-    <string name="action_move_to_top_all_for_series">העבר סדרה לראש</string>
     <string name="ext_obsolete">מיושן</string>
     <string name="pref_update_only_started">זה עוד לא התחיל</string>
     <string name="ext_update_all">עדכן הכל</string>
@@ -695,7 +693,6 @@
     <string name="minute_short">%d דקות</string>
     <string name="action_copy_link">העתקת הקישור</string>
     <string name="action_revert_to_default">אפס לברירת מחדל</string>
-    <string name="action_move_to_bottom_all_for_series">העבר סדרה לתחתית</string>
     <string name="label_auto">אוטומטי</string>
     <string name="action_sort_tracker_score">ציון אישי במעקב</string>
     <string name="action_add_anyway">הוסף בכל זאת</string>
@@ -743,7 +740,6 @@
     <string name="migrationListScreen.copyNowActionLabel">הוספה כעותק כעת</string>
     <string name="migrationListScreen.migrateDialog.copyLabel">הוספה כעותק</string>
     <string name="migrationListScreen.copyActionLabel">הוספה כעותק</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">מאגר תוספים זה כבר קיים במערכת</string>
     <string name="pref_mark_duplicate_read_chapter_read_new">בעת שליפת פרק כפול מהמקור</string>
     <string name="pref_mark_duplicate_read_chapter_read">סימון פרקים כפולים כ\'נקרא\'</string>
     <string name="clear_database_text">פעולה זו תסיר פריטים ממסד הנתונים</string>

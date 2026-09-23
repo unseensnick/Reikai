@@ -465,7 +465,6 @@
     <string name="exclude">Exclou: %s</string>
     <string name="none">Cap</string>
     <string name="action_show_errors">Premeu per a veure’n els detalls</string>
-    <string name="cancel_all_for_series">Cancel·la-ho tot per a aquesta sèrie</string>
     <string name="action_sort_chapter_fetch_date">Data d’obtenció dels capítols</string>
     <string name="date">Data</string>
     <string name="local_filter_order_by">Ordena per</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_not_caught_up">S’ha omès perquè hi ha capítols no llegits</string>
     <string name="learn_more">Premeu per a obtenir més informació</string>
     <string name="rotation_reverse_portrait">Vertical inversa</string>
-    <string name="action_move_to_top_all_for_series">Mou la sèrie a dalt de tot</string>
     <string name="disabled_nav">Desactivat</string>
     <string name="update_check_open">Obre al GitHub</string>
     <string name="error_saving_picture">S’ha produït un error en desar la imatge</string>
@@ -695,7 +693,6 @@
     <string name="exception_offline">No hi ha connexió a Internet</string>
     <string name="exception_http">HTTP %d, comproveu el lloc web en una WebView</string>
     <string name="exception_unknown_host">No s’ha pogut accedir a %s</string>
-    <string name="action_move_to_bottom_all_for_series">Mou la sèrie a baix de tot</string>
     <string name="pref_relative_format">Marques de temps relatives</string>
     <string name="pref_relative_format_summary">«%1$s» en comptes de «%2$s»</string>
     <string name="notification_updating_progress">S’està actualitzant la biblioteca… (%s)</string>
@@ -890,14 +887,7 @@
     <string name="downloading_with_progress">S’està baixant… (%d%%)</string>
     <string name="extensionStores">Magatzems d’extensions</string>
     <string name="action.addExtensionStore">Afegeix un magatzem d’extensions</string>
-    <string name="extensionStoresScreen.emptyLabel">Encara no heu afegit cap magatzem d’extensions</string>
-    <string name="extensionStoresScreen.addStore.title">Afegeix un magatzem d’extensions</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Aquest magatzem d’extensions ja existeix</string>
     <string name="extensionStoresScreen.addStore.processing">S’està processant…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">URL de l’índex del magatzem</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Voleu afegir el magatzem d’extensions següent?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Suprimeix el magatzem d’extensions</string>
-    <string name="extensionStoresScreen.deleteStore.body">Voleu suprimir el magatzem d’extensions «%1$s» (%2$s)?</string>
     <string name="pref_vertical_navigator">Utilitza el navegador de capítols vertical a</string>
     <string name="pref_vertical_navigator_height">Alçada del navegador vertical</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Posa el navegador vertical al costat esquerre</string>

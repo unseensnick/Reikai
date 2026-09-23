@@ -134,10 +134,8 @@
     <string name="action_pause">Pauza</string>
     <string name="action_search_hint">Qidirish…</string>
     <string name="action_unpin">Bo\'shatish</string>
-    <string name="cancel_all_for_series">Ushbu qism uchun barchasini bekor qilish</string>
     <string name="action_order_by_chapter_number">Bob soni</string>
     <string name="action_move_to_top">Boshiga</string>
-    <string name="action_move_to_top_all_for_series">Qismni boshiga ko\'chirish</string>
     <string name="pref_category_appearance">Ko\'rsatish</string>
     <string name="pref_category_downloads">Yuklamalar</string>
     <string name="pref_category_tracking">Kuzatilayotgan</string>

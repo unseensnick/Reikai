@@ -91,7 +91,6 @@
     <string name="action_unpin">పిన్నును తీయుము</string>
     <string name="action_cancel">రద్దు చెయ్యుము</string>
     <string name="action_cancel_all">అన్నిటి రద్దు చెయ్యుము</string>
-    <string name="cancel_all_for_series">ఈ ధారావాహిక కొరకు అన్నిటిని రద్దు చెయ్యుము</string>
     <string name="action_sort">సర్దుము</string>
     <string name="action_order_by_chapter_number">అధ్యాయము సంఖ్యను బట్టి</string>
     <string name="action_oldest">అన్నిటికన్నా పురాతనమైనది</string>
@@ -157,7 +156,6 @@
     <string name="action_remove_everything">మొత్తం తీసేయండి</string>
     <string name="delete_category_confirmation">మీరు \"%s\" క్యాటగిరీ తీసివేయాలి అనుకుంటున్నారా?</string>
     <string name="delete_category">క్యాటగిరీ తీసేయండి</string>
-    <string name="action_move_to_top_all_for_series">సిరీస్ పైన పెట్టండి</string>
     <string name="action_search_hint">అన్వేషించండి…</string>
     <string name="action_not_now">ఇప్పుడు కాదు</string>
     <string name="action_open_random_manga">ఏదైనా తెరవండి</string>

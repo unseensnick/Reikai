@@ -276,7 +276,6 @@
     <string name="action_asc">Növekvő</string>
     <string name="action_order_by_chapter_number">Fejezet száma szerint</string>
     <string name="action_order_by_upload_date">Feltöltési idő szerint</string>
-    <string name="cancel_all_for_series">Mégse az összesre a sorozatból</string>
     <string name="action_cancel_all">Mégse az összesre</string>
     <string name="action_unpin">Tűzés visszavonása</string>
     <string name="action_pin">Kitűzés</string>
@@ -404,7 +403,6 @@
     <string name="unread">Olvasatlan</string>
     <string name="set_chapter_settings_as_default">Beállítás alapértelmezettként</string>
     <string name="pref_tablet_ui_mode">Tablet mód</string>
-    <string name="action_move_to_top_all_for_series">Lista elejére</string>
     <string name="action_global_search_query">Globális keresés erre: \"%1$s\"</string>
     <string name="no_more_results">Nincs több találat</string>
     <string name="no_results_found">Nincs találat</string>
@@ -684,7 +682,6 @@
     <string name="selected">Kiválasztott</string>
     <string name="no_scanlators_found">Nincsenek szkennelő-fordítók</string>
     <string name="not_selected">Nem kiválasztott</string>
-    <string name="action_move_to_bottom_all_for_series">Sorozat alulra küldése</string>
     <string name="scanlator">Szkennelő-fordító</string>
     <string name="pref_flash_page">Villantson fehéren lap változtatáskor</string>
     <string name="exception_offline">Nincs internet kapcsolat</string>

@@ -463,7 +463,6 @@
     <string name="pref_grayscale">灰度</string>
     <string name="notification_incognito_text">关闭无痕模式</string>
     <string name="automatic_background">自动</string>
-    <string name="cancel_all_for_series">取消此作品</string>
     <string name="error_no_match">没有匹配项</string>
     <string name="source_unsupported">图源不受支持</string>
     <string name="unread">未读</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_not_started">已跳过，因为尚未开始阅读</string>
     <string name="learn_more">点击了解详情</string>
     <string name="rotation_reverse_portrait">反向竖屏</string>
-    <string name="action_move_to_top_all_for_series">将作品移到顶部</string>
     <string name="disabled_nav">关闭</string>
     <string name="error_saving_picture">保存图片出错</string>
     <string name="empty_backup_error">书架没有可备份的作品</string>
@@ -697,7 +695,6 @@
     <string name="source_settings">图源设置</string>
     <string name="app_settings">应用设置</string>
     <string name="unlock_app_title">解锁 %s</string>
-    <string name="action_move_to_bottom_all_for_series">将作品移到底部</string>
     <string name="notification_updating_progress">正在更新书架… (%s)</string>
     <string name="file_null_uri_error">未选择文件</string>
     <string name="pref_relative_format">相对时间戳</string>
@@ -869,14 +866,7 @@
     <string name="download_bookmarked">已添加书签</string>
     <string name="extensionStores">插件商店</string>
     <string name="action.addExtensionStore">添加插件商店</string>
-    <string name="extensionStoresScreen.emptyLabel">尚未添加插件商店</string>
-    <string name="extensionStoresScreen.addStore.title">添加插件商店</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">此插件商店已存在</string>
     <string name="extensionStoresScreen.addStore.processing">处理中…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">商店索引 URL</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">是否添加以下插件商店？</string>
-    <string name="extensionStoresScreen.deleteStore.title">移除插件商店</string>
-    <string name="extensionStoresScreen.deleteStore.body">是否移除插件商店 \"%1$s\" (%2$s)？</string>
     <string name="pref_webtoon_vertical_navigator_on_left">将垂直导航栏放在左侧</string>
     <string name="pref_vertical_navigator">使用垂直章节导航</string>
     <string name="pref_vertical_navigator_height">垂直导航栏高度</string>

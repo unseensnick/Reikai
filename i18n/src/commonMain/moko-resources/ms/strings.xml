@@ -463,7 +463,6 @@
     <string name="pref_grayscale">Skala kelabu</string>
     <string name="notification_incognito_text">Nyahdaya mod inkognito</string>
     <string name="automatic_background">Auto</string>
-    <string name="cancel_all_for_series">Batalkan semua untuk siri ini</string>
     <string name="error_no_match">Tiada padanan dijumpai</string>
     <string name="source_unsupported">Sumber tidak disokong</string>
     <string name="unread">Belum dibaca</string>
@@ -551,7 +550,6 @@
     <string name="pref_navigate_pan">Panorama imej lebar</string>
     <string name="learn_more">Ketik untuk ketahui selebihnya</string>
     <string name="rotation_reverse_portrait">Potret terbalik</string>
-    <string name="action_move_to_top_all_for_series">Alih siri ke atas</string>
     <string name="disabled_nav">Dilumpuhkan</string>
     <string name="error_saving_picture">Ralat menyimpan gambar</string>
     <string name="empty_backup_error">Tiada entri pustaka untuk disandarkan</string>
@@ -696,7 +694,6 @@
     <string name="exception_http">HTTP %d, semak laman web dalam WebView</string>
     <string name="unlock_app_title">Buka kunci %s</string>
     <string name="pref_library_update_smart_update">Kemaskini pintar</string>
-    <string name="action_move_to_bottom_all_for_series">Gerak siri ke bawah</string>
     <string name="theme_nord">Nord</string>
     <string name="action_apply">Gunakan</string>
     <string name="action_revert_to_default">Kembali ke lalai</string>
@@ -869,14 +866,7 @@
     <string name="downloading_with_progress">Memuat turun... (%d%%)</string>
     <string name="extensionStores">Gudang sambungan</string>
     <string name="action.addExtensionStore">Tambah gudang sambungan</string>
-    <string name="extensionStoresScreen.emptyLabel">Anda belum menambah gudang sambungan lagi</string>
-    <string name="extensionStoresScreen.addStore.title">Tambah gudang sambungan</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Gudang sambungan ini sudah wujud</string>
     <string name="extensionStoresScreen.addStore.processing">Memproses…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">URL indeks gudang</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Adakah anda ingin menambah gudang sambungan berikut?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Buang gudang sambungan</string>
-    <string name="extensionStoresScreen.deleteStore.body">Adakah anda ingin membuang gudang sambungan \"%1$s\" (%2$s)?</string>
     <string name="pref_vertical_navigator">Guna pengemudi bab menegak dalam</string>
     <string name="pref_vertical_navigator_height">Tinggi pengemudi menegak</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Letak pengemudi menegak pada sebelah kiri</string>

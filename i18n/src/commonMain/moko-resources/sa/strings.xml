@@ -91,7 +91,6 @@
     <string name="action_display_comfortable_grid">सुसुखा ग्रिड्-शैली</string>
     <string name="action_display_language_badge">भाषा</string>
     <string name="action_display_show_number_of_items">वस्तूनां सङ्ख्यां दर्शयतु</string>
-    <string name="cancel_all_for_series">अस्य धारावाहिकस्य कृते सर्वाणि लुम्पतु</string>
     <string name="action_order_by_upload_date">उपारोपणदिनाङ्केन</string>
     <string name="action_oldest">ज्येष्ठतमम्</string>
     <string name="action_asc">आरोहयतु</string>
@@ -546,7 +545,6 @@
     <string name="migration_selection_prompt">यस्मात् स्थानान्तरगमनं करणीयं तत् चिनोतु</string>
     <string name="notification_size_warning">पूर्वसूचना -- मूलेभ्यः महद्नवीकरणानि हानिकारकाणि भवन्ति तस्मात् नवीकरणानि मन्दानि भवेयुः अपि च विद्युत्कोषोपयोगः अधिकं भवेत्</string>
     <string name="learn_more">अधिकं जानातु</string>
-    <string name="action_move_to_top_all_for_series">धारावाहिकम् अग्रस्थानं चालयतु</string>
     <string name="rotation_reverse_portrait">विपरीतं लम्बदर्शनम्</string>
     <string name="label_local">स्थानीयम्</string>
     <string name="label_stats">साङ्ख्यिकी</string>

@@ -462,7 +462,6 @@
     <string name="pref_grayscale">Harmaasävy</string>
     <string name="notification_incognito_text">Poista incognito-tila käytöstä</string>
     <string name="automatic_background">Automaattinen</string>
-    <string name="cancel_all_for_series">Peruuta kaikki tälle sarjalle</string>
     <string name="error_no_match">Yhtään osumaa ei löytynyt</string>
     <string name="source_unsupported">Lähdettä ei tueta</string>
     <string name="unread">Lukemattomat</string>
@@ -496,7 +495,6 @@
     <string name="label_warning">Varoitus</string>
     <string name="confirm_lock_change">Tunnistaudu vahvistaaksesi muutokset</string>
     <string name="action_display_language_badge">Kieli</string>
-    <string name="action_move_to_top_all_for_series">Siirrä sarja päällimmäiseksi</string>
     <string name="theme_tako">Tako</string>
     <string name="update_72hour">Joka 3. Päivä</string>
     <string name="connected_to_wifi">Ainoastaan WiFillä</string>
@@ -612,7 +610,6 @@
     <string name="label_started">Aloitettu</string>
     <string name="action_open_random_manga">Avaa satunnainen merkintä</string>
     <string name="action_copy_to_clipboard">Kopioi leikepöydälle</string>
-    <string name="action_move_to_bottom_all_for_series">Siirrä sarja pohjimmaiseksi</string>
     <string name="action_not_now">Ei nyt</string>
     <string name="internal_error">Sisäinen virhe: Lisätietoja saat kaatumisen lokitiedoista</string>
     <string name="onboarding_permission_ignore_battery_opts">Akun käyttö taustalla</string>

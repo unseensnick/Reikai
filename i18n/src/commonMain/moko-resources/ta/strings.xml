@@ -166,7 +166,6 @@
     <string name="action_ok">சரி</string>
     <string name="action_display_show_number_of_items">பொருட்களின் எண்ணிக்கையைக் காட்டு</string>
     <string name="action_cancel_all">அனைத்தையும் ரத்துசெய்</string>
-    <string name="cancel_all_for_series">இந்த தொடருக்கு அனைத்தையும் ரத்துசெய்</string>
     <string name="action_sort">வரிசைப்படுத்து</string>
     <string name="action_order_by_upload_date">பதிவேற்றுவதன் மூலம்</string>
     <string name="action_order_by_chapter_number">அத்தியாய எண் மூலம்</string>
@@ -175,9 +174,7 @@
     <string name="action_asc">ஏறுதல்</string>
     <string name="action_desc">இறங்கு</string>
     <string name="action_move_to_top">மேலே செல்லுங்கள்</string>
-    <string name="action_move_to_top_all_for_series">தொடரை மேலே நகர்த்தவும்</string>
     <string name="action_move_to_bottom">கீழே செல்லுங்கள்</string>
-    <string name="action_move_to_bottom_all_for_series">தொடரை கீழே நகர்த்தவும்</string>
     <string name="action_install">நிறுவவும்</string>
     <string name="action_share">பங்கு</string>
     <string name="action_save">சேமி</string>

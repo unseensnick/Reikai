@@ -8,7 +8,6 @@
     <string name="action_order_by_chapter_number">Па нумары раздзела</string>
     <string name="action_order_by_upload_date">Па даце запампоўкі</string>
     <string name="action_sort">Сартаваць</string>
-    <string name="cancel_all_for_series">Скасаваць усе для гэтай серыі</string>
     <string name="action_cancel_all">Скасаваць усе</string>
     <string name="action_cancel">Скасаваць</string>
     <string name="action_unpin">Адмацаваць</string>
@@ -320,7 +319,6 @@
     <string name="ext_installer_shizuku_stopped">Shizuku не запушчаны</string>
     <string name="action_close">Закрыць</string>
     <string name="ext_install_service_notif">Усталёўка пашырэння…</string>
-    <string name="action_move_to_top_all_for_series">Перамясціць серыю ў пачатак</string>
     <string name="ext_installer_pref">Усталёўнік</string>
     <string name="ext_installer_legacy">Састарэлы</string>
     <string name="action_remove_everything">Прыбраць усё</string>
@@ -355,7 +353,6 @@
     <string name="action_apply">Ужыць</string>
     <string name="action_ok">ОК</string>
     <string name="action_notes">Нататкі</string>
-    <string name="action_move_to_bottom_all_for_series">Перамясціць серыю ў канец</string>
     <string name="action_edit_notes">Рэдагаваць нататкі</string>
     <string name="action_revert_to_default">Скінуць налады</string>
     <string name="action_webview_close_tab">Закрыць укладку</string>
@@ -869,7 +866,6 @@
     <string name="migrationListScreen.matchWithoutChapterToast">Няма раздзелаў, твор не падыходзіць для міграцыі</string>
     <string name="transition_animation_flip_right">Гартанне управа</string>
     <string name="webgpu_viewer">WebGPU</string>
-    <string name="extensionStoresScreen.deleteStore.body">Ці выдаліць краму пашырэнняў «%1$s» (%2$s)?</string>
     <string name="transition_animation_cube_inside">Куб (унутры)</string>
     <string name="transition_animation_cube_outside">Куб (звонку)</string>
     <string name="pref_vertical_navigator">Ужыць вертыкальную навігацыю па раздзелах у</string>
@@ -888,7 +884,6 @@
     <string name="transition_animation_stack_right">Накладанне ўправа</string>
     <string name="transition_animation_fade">Згасанне</string>
     <string name="transition_animation_none">Няма</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">URL маніфеста крамы</string>
     <string name="dual_page_view_never">Ніколі</string>
     <string name="transition_animation_stack_up">Накладанне ўверх</string>
     <string name="pref_filter_upcoming_categories_details">Творы з выключаных катэгорый хаваюцца, нават калі яны ўваходзяць у дазволеныя катэгорыі.</string>
@@ -896,21 +891,16 @@
     <string name="pref_transition_animation_dual">Анімацыя пераходу (падвойная)</string>
     <string name="transition_animation_flip">Гартанне</string>
     <string name="dual_page_view_always">Заўсёды</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Ці дадаць краму пашырэнняў ніжэй?</string>
     <string name="action.addExtensionStore">Дадаць краму пашырэнняў</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Размясціць вертыкальную навігацыю злева</string>
-    <string name="extensionStoresScreen.deleteStore.title">Выдаліць краму пашырэнняў</string>
     <string name="theme_tokyonight">Tokyo Night</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Гэтая крама пашырэнняў ужо дададзена</string>
     <string name="transition_animation_fade_white">Згасанне праз белы</string>
     <string name="pref_high_quality_renderer">Ужыць высокаякасны рэндэрар</string>
     <string name="pref_dual_page_view">Двухстаронкавы прагляд</string>
     <string name="pref_transition_animation">Анімацыя пераходу</string>
     <string name="pref_vertical_navigator_height">Вышыня вертыкальнай навігацыі</string>
-    <string name="extensionStoresScreen.addStore.title">Дадаць краму пашырэнняў</string>
     <string name="pref_cutout_mode">Рэжым выразу экрана</string>
     <string name="transition_animation_stack_left">Накладанне ўлева</string>
     <string name="pref_cutout_mode_dual">Рэжым выразу экрана (падвойны)</string>
     <string name="cutout_mode_shift">Ссоўваць</string>
-    <string name="extensionStoresScreen.emptyLabel">Вы яшчэ не дадавалі крам пашырэнняў</string>
 </resources>

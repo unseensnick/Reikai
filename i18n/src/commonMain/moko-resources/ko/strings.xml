@@ -533,11 +533,9 @@
     <string name="action_pin">고정</string>
     <string name="action_unpin">고정 해제</string>
     <string name="action_cancel_all">모두 취소</string>
-    <string name="cancel_all_for_series">이 만화의 항목을 모두 취소</string>
     <string name="action_webview_forward">앞으로</string>
     <string name="pref_create_folder_per_manga">각각의 폴더에 페이지 저장</string>
     <string name="pref_update_only_started">읽지 않은 항목 건너뛰기</string>
-    <string name="action_move_to_top_all_for_series">이 시리즈를 맨 위로 이동</string>
     <string name="action_webview_refresh">새로고침</string>
     <string name="theme_greenapple">청사과</string>
     <string name="theme_tako">문어</string>
@@ -689,7 +687,6 @@
     <string name="syncing_library">서재를 동기화합니다</string>
     <string name="create_backup_file_error">백업 파일을 생성할 수 없습니다</string>
     <string name="library_sync_complete">서재가 동기화되었습니다</string>
-    <string name="action_move_to_bottom_all_for_series">이 시리즈를 맨 아래로 이동</string>
     <string name="exception_offline">인터넷에 연결되지 않음</string>
     <string name="manga_display_interval_title">항상 평가하기</string>
     <string name="track_activity_name">트래킹 서비스 로그인</string>
@@ -868,14 +865,7 @@
     <string name="download_bookmarked">북마크됨</string>
     <string name="extensionStores">확장 앱 스토어</string>
     <string name="action.addExtensionStore">확장 앱 스토어 추가</string>
-    <string name="extensionStoresScreen.emptyLabel">확장 앱 스토어를 아직 추가하지 않았습니다</string>
-    <string name="extensionStoresScreen.addStore.title">확장 앱 스토어 추가</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">이 확장 앱 스토어는 이미 존재합니다</string>
     <string name="extensionStoresScreen.addStore.processing">진행 중…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">스토어 인덱스 URL</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">아래 확장 앱 스토어를 추가하시겠습니까?</string>
-    <string name="extensionStoresScreen.deleteStore.title">확장 앱 스토어 제거</string>
-    <string name="extensionStoresScreen.deleteStore.body">확장 앱 스토어 \"%1$s\"(%2$s)을(를) 제거하시겠습니까?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">왼쪽에 세로 네비게이터 배치</string>
     <string name="pref_vertical_navigator">세로 챕터 탐색기 사용</string>
     <string name="pref_vertical_navigator_height">세로 탐색기 높이</string>

@@ -133,7 +133,6 @@
     <string name="action_display_cover_only_grid">အကဲဖြတ်စာမျက်နှာသာပြသသောဂရစ်</string>
     <string name="action_display_download_badge">ဒေါင်းလုဒ်ဘေ့ခ််ပြသမည်</string>
     <string name="action_cancel_all">အားလုံးဖျက်မည်</string>
-    <string name="cancel_all_for_series">ဤအကြောင်းအရာအားလုံးကိုဖျက်မည်</string>
     <string name="action_sort">စီမည်။</string>
     <string name="action_display_local_badge">ဒေသခံဘေ့ခ််ပြသမည်</string>
     <string name="action_order_by_upload_date">ရက် အလိုက်</string>
@@ -143,11 +142,9 @@
     <string name="action_asc">Ascending</string>
     <string name="action_desc">Descending</string>
     <string name="action_move_to_bottom">အောက်ဆုံးသို့ရွှေ့မည်</string>
-    <string name="action_move_to_bottom_all_for_series">ဤအကြောင်းအရာအားလုံးကိုအောက်ဆုံးသို့ရွှေ့မည်</string>
     <string name="action_install">ထည့်သွင်းရန်</string>
     <string name="action_share">မျှဝေမည်</string>
     <string name="action_move_to_top">အပေါ်ဆုံးသို့ရွှေ့မည်</string>
-    <string name="action_move_to_top_all_for_series">စီးရီးများကို အပေါ်သို့သို့ရွှေ့မည်</string>
     <string name="action_save">သိမ်းမည်</string>
     <string name="action_reset">ပြန်လည်သတ်မှတ်မည်</string>
     <string name="action_revert_to_default">ပုံမှန်ပြန်အလွဲမပြင်</string>

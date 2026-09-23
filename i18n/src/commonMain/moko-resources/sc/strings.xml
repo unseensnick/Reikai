@@ -463,7 +463,6 @@
     <string name="pref_grayscale">Iscala de murros</string>
     <string name="notification_incognito_text">Disabìlita sa modalidade anònima</string>
     <string name="automatic_background">Automàticu</string>
-    <string name="cancel_all_for_series">Annulla totu pro custa sèrie</string>
     <string name="error_no_match">Peruna currispondèntzia agatada</string>
     <string name="source_unsupported">Fonte non suportada</string>
     <string name="unread">Non lèghidos</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_not_started">Brincadu ca non bi sunt capìtulos lèghidos</string>
     <string name="learn_more">Toca pro àteras informatziones</string>
     <string name="rotation_reverse_portrait">Verticale a s\'imbesse</string>
-    <string name="action_move_to_top_all_for_series">Move sa sèrie cara a pitzos</string>
     <string name="disabled_nav">Disabilitadu</string>
     <string name="error_saving_picture">Errore in su sarvamentu de s\'immàgine</string>
     <string name="update_check_open">Aberi in GitHub</string>
@@ -689,7 +687,6 @@
     <string name="syncing_library">Sincronizende sa biblioteca</string>
     <string name="create_backup_file_error">Non at s\'est pòdidu creare un\'archìviu de còpia de seguresa</string>
     <string name="library_sync_complete">Sincronizatzione de sa biblioteca acabada</string>
-    <string name="action_move_to_bottom_all_for_series">Moe sa sèrie a fundu</string>
     <string name="exception_offline">Peruna connessione a ìnternet</string>
     <string name="download_cache_invalidated">Ìnditze de sos iscarrigamentos invalidadu</string>
     <string name="has_results">Tenet resurtados</string>

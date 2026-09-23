@@ -502,7 +502,6 @@
     <string name="pref_category_appearance">দৃশ্য</string>
     <string name="action_start_downloading_now">এখনই ডাউনলোড শুরু করুন</string>
     <string name="action_show_errors">সকল ত্রুটি দেখুন</string>
-    <string name="cancel_all_for_series">এই সিরিজের সব বাতিল করুন</string>
     <string name="action_display_local_badge">লোকাল সোর্স</string>
     <string name="information_empty_category_dialog">আপনার এখনও কোন বিভাগ নেই |</string>
     <string name="update_check_eol">এই অ্যান্ড্রয়েড সংস্করণটি আর সমর্থিত নয়</string>
@@ -550,7 +549,6 @@
     <string name="theme_lavender">ল্যাভেণ্ডার</string>
     <string name="action_search_hint">খুঁজুন…</string>
     <string name="action_display_cover_only_grid">শুধু প্রচ্ছদসহ গ্রিড</string>
-    <string name="action_move_to_top_all_for_series">সিরিজ কে উপরে তুলুন</string>
     <string name="action_close">বন্ধ</string>
     <string name="complete_list">লিস্ট সম্পূর্ন করুন</string>
     <string name="unfinished_list">অসম্পূর্ণ তালিকা</string>
@@ -604,7 +602,6 @@
     <string name="action_revert_to_default">সকল সেটিং ডিফল্ট করুন</string>
     <string name="onboarding_permission_install_apps">অ্যাপের ইন্সটল করার পারমিশন</string>
     <string name="onboarding_heading">স্বাগতম!</string>
-    <string name="action_move_to_bottom_all_for_series">নিচের দিকে সরান</string>
     <string name="onboarding_action_skip">বাদ দিন</string>
     <string name="onboarding_action_next">পরবর্তী</string>
     <string name="onboarding_permission_install_apps_description">সোর্স এক্সটেনশন ইনস্টল করার জন্য।</string>

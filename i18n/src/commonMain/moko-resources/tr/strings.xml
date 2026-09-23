@@ -463,7 +463,6 @@
     <string name="pref_grayscale">Gri tonlama</string>
     <string name="notification_incognito_text">Gizli modu devre dışı bırak</string>
     <string name="automatic_background">Otomatik</string>
-    <string name="cancel_all_for_series">Bu seri için tümünü iptal et</string>
     <string name="error_no_match">Eşleşme bulunamadı</string>
     <string name="source_unsupported">Kaynak desteklenmiyor</string>
     <string name="unread">Okunmamış</string>
@@ -551,7 +550,6 @@
     <string name="pref_landscape_zoom">Geniş görsellere otomatik yakınlaştır</string>
     <string name="learn_more">Daha fazla bilgi için dokunun</string>
     <string name="rotation_reverse_portrait">Ters portre</string>
-    <string name="action_move_to_top_all_for_series">Seriyi en üste taşı</string>
     <string name="disabled_nav">Devre dışı</string>
     <string name="error_saving_picture">Görsel kaydedilirken hata oluştu</string>
     <string name="empty_backup_error">Yedeklenecek kitaplık girdisi yok</string>
@@ -695,7 +693,6 @@
     <string name="exception_offline">Ağ bağlantısı yok</string>
     <string name="syncing_library">Kitaplık eşitleniyor</string>
     <string name="unlock_app_title">%s Kilidini Aç</string>
-    <string name="action_move_to_bottom_all_for_series">Seriyi en alta taşı</string>
     <string name="notification_updating_progress">Kitaplık güncelleniyor… (%s)</string>
     <string name="file_null_uri_error">Dosya seçilmedi</string>
     <string name="source_settings">Kaynak ayarları</string>
@@ -869,14 +866,7 @@
     <string name="download_bookmarked">Yer imli</string>
     <string name="extensionStores">Uzantı mağazaları</string>
     <string name="action.addExtensionStore">Uzantı mağazası ekle</string>
-    <string name="extensionStoresScreen.emptyLabel">Henüz uzantı mağazası eklemediniz</string>
-    <string name="extensionStoresScreen.addStore.title">Uzantı mağazası ekle</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Bu uzantı mağazası zaten mevcut</string>
     <string name="extensionStoresScreen.addStore.processing">İşleniyor…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">Mağaza dizini bağlantısı</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Aşağıdaki uzantı mağazasını eklemek istiyor musunuz?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Uzantı mağazasını kaldır</string>
-    <string name="extensionStoresScreen.deleteStore.body">%1$s (%2$s) uzantı mağazasını kaldırmak istiyor musunuz?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Dikey gezinti bölmesini sol tarafa yerleştir</string>
     <string name="pref_vertical_navigator">Dikey bölüm gezintisi kullan</string>
     <string name="pref_vertical_navigator_height">Dikey gezinti göstergesi yüksekliği</string>

@@ -460,7 +460,6 @@
     <string name="pref_show_navigation_mode_summary">開始閱讀時，短暫浮現輕觸區域</string>
     <string name="pref_show_navigation_mode">輕觸區域提示</string>
     <string name="pref_library_update_categories_details">類別同時屬於「排除」及「包含」的作品將不會自動更新</string>
-    <string name="cancel_all_for_series">取消此作品</string>
     <string name="automatic_background">自動</string>
     <string name="pref_grayscale">灰階</string>
     <string name="notification_incognito_text">停用無痕模式</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_not_started">由於無已讀章節，因此略過</string>
     <string name="rotation_reverse_portrait">顛倒直向</string>
     <string name="learn_more">瞭解詳情</string>
-    <string name="action_move_to_top_all_for_series">置頂此作品</string>
     <string name="disabled_nav">停用</string>
     <string name="empty_backup_error">書櫃中尚無作品可供備份</string>
     <string name="update_check_open">在 GitHub 上檢視</string>
@@ -695,7 +693,6 @@
     <string name="exception_offline">沒有網路連線</string>
     <string name="exception_unknown_host">無法連上 %s</string>
     <string name="unlock_app_title">解鎖 %s</string>
-    <string name="action_move_to_bottom_all_for_series">置底此作品</string>
     <string name="pref_relative_format">相對時間戳記</string>
     <string name="pref_relative_format_summary">以「%1$s」表示「%2$s」</string>
     <string name="app_settings">應用程式設定</string>
@@ -869,14 +866,7 @@
     <string name="download_bookmarked">已新增書籤</string>
     <string name="extensionStores">擴充套件商店</string>
     <string name="action.addExtensionStore">新增擴充套件商店</string>
-    <string name="extensionStoresScreen.emptyLabel">你尚未新增任何擴充套件商店</string>
-    <string name="extensionStoresScreen.addStore.title">新增擴充套件商店</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">此擴充套件商店已存在</string>
     <string name="extensionStoresScreen.addStore.processing">正在處理…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">商店索引網址</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">你是否要新增下方的擴充套件商店？</string>
-    <string name="extensionStoresScreen.deleteStore.title">刪除擴充套件商店</string>
-    <string name="extensionStoresScreen.deleteStore.body">你是否要刪除擴充套件商店「%1$s」(%2$s)？</string>
     <string name="pref_webtoon_vertical_navigator_on_left">將垂直導航器設於左側</string>
     <string name="pref_filter_upcoming_categories_details">類別同時屬於「排除」及「包含」的作品將不會顯示。</string>
     <string name="dual_page_view_wide">寬螢幕時</string>

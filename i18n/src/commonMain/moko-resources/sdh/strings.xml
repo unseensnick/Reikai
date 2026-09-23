@@ -72,7 +72,6 @@
     <string name="action_unpin">لابردنی جێگیری</string>
     <string name="action_cancel">هەڵوەشاندنەوە</string>
     <string name="action_cancel_all">هەڵوەشاندنەوەی هەموو</string>
-    <string name="cancel_all_for_series">هەڵوەشاندنەوەی هەموو بۆ ئەم زنجیرەیە</string>
     <string name="action_sort">ڕیزکردن</string>
     <string name="action_move_to_bottom">گواستنەوە بۆ خوارەوە</string>
     <string name="action_install">دامەزراندن</string>

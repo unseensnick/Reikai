@@ -381,7 +381,6 @@
     <string name="theme_tako">Tako</string>
     <string name="theme_midnightdusk">Meznokta krepusko</string>
     <string name="loading">Ŝargado…</string>
-    <string name="cancel_all_for_series">Nuligi ĉiujn por ĉi tiu serio</string>
     <string name="confirm_lock_change">Aŭtentigi por konfirmi ŝanĝon</string>
     <string name="restoring_backup_canceled">Restaŭro nuligita</string>
     <string name="restoring_backup_error">Savkopia restaŭro fiaskis</string>
@@ -507,8 +506,6 @@
     <string name="onboarding_guides_returning_user">Ĉu vi reinstalas %s?</string>
     <string name="action_sort_random">Hazarde</string>
     <string name="action_open_random_manga">Malfermi hazardan elementon</string>
-    <string name="action_move_to_top_all_for_series">Movi serion al supro</string>
-    <string name="action_move_to_bottom_all_for_series">Movi serion al malsupro</string>
     <string name="onboarding_storage_help_action">Konserveja gvidilo</string>
     <string name="onboarding_permission_install_apps">Permeso por instali apojn</string>
     <string name="onboarding_permission_ignore_battery_opts">Fona bateria uzado</string>
@@ -869,14 +866,7 @@
     <string name="download_bookmarked">Legosignita</string>
     <string name="extensionStores">Etendaĵejoj</string>
     <string name="action.addExtensionStore">Aldoni etendaĵejon</string>
-    <string name="extensionStoresScreen.emptyLabel">Vi ankoraŭ aldonis neniun etendaĵejon</string>
-    <string name="extensionStoresScreen.addStore.title">Aldoni etendaĵejon</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Ĉi tiu etendaĵejo jam ekzistas</string>
     <string name="extensionStoresScreen.addStore.processing">Traktado…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">Indeksa URL de etendaĵejo</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Ĉu vi volas aldoni la jenan etendaĵejon?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Forigi etendaĵejon</string>
-    <string name="extensionStoresScreen.deleteStore.body">Ĉu vi volas forigi la etendaĵejon \"%1$s\" (%2$s)?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Loki vertikalan navigilon ĉe la maldekstra flanko</string>
     <string name="pref_filter_upcoming_categories_details">Titoloj en ekskluzivitaj kategorioj ne estos montrotaj, eĉ se ili estas ankaŭ en inkluzivitaj kategorioj.</string>
     <string name="considering">Konsiderataj</string>

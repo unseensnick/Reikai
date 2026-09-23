@@ -229,7 +229,6 @@
     <string name="ongoing">En curso</string>
     <string name="unknown">Descoñecido</string>
     <string name="no_chapters_error">Non se atoparon capítulos</string>
-    <string name="action_move_to_top_all_for_series">Mover a serie ao primeiro posto</string>
     <string name="action_start_downloading_now">Comezar a descarga agora</string>
     <string name="pref_app_theme">Tema da aplicación</string>
     <string name="pref_tracking_summary">Sincronización unidireccional do progreso de lectura; sincronización mellorada</string>
@@ -459,7 +458,6 @@
     <string name="pref_category_appearance">Aparencia</string>
     <string name="action_display_show_continue_reading_button">Botón de seguir lendo</string>
     <string name="action_display_show_number_of_items">Mostrar o número de elementos</string>
-    <string name="cancel_all_for_series">Cancelar todo para esta serie</string>
     <string name="action_order_by_upload_date">Por data de subida</string>
     <string name="action_show_errors">Preme para ver os detalles do erro</string>
     <string name="restrictions">Restricións: %s</string>
@@ -695,7 +693,6 @@
     <string name="action_sort_next_updated">Próxima actualización prevista</string>
     <string name="action_apply">Aplicar</string>
     <string name="action_ok">Aceptar</string>
-    <string name="action_move_to_bottom_all_for_series">Mover ao último posto</string>
     <string name="action_revert_to_default">Restablecer os axustes por defecto</string>
     <string name="pref_onboarding_guide">Guía de benvida</string>
     <string name="onboarding_heading">Dámosche a benvida!</string>

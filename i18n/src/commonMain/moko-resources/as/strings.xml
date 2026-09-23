@@ -172,7 +172,6 @@
     <string name="action_cancel">বাতিল কৰক</string>
     <string name="action_ok">ঠিক আছে</string>
     <string name="action_cancel_all">সকলো বাতিল কৰক</string>
-    <string name="cancel_all_for_series">এই শৃংখলাৰ বাবে সকলো বাতিল কৰক</string>
     <string name="action_sort">সজাওক</string>
     <string name="action_order_by_upload_date">আপলোড তাৰিখ অনুসৰি</string>
     <string name="action_order_by_chapter_number">অধ্যায় নম্বৰ অনুসৰি</string>
@@ -181,9 +180,7 @@
     <string name="action_asc">ঊর্ধ্বমুখী</string>
     <string name="action_desc">নিম্নমুখী</string>
     <string name="action_move_to_top">শীৰ্ষলৈ লৈ যাওক</string>
-    <string name="action_move_to_top_all_for_series">শৃংখলা শীৰ্ষলৈ লৈ যাওক</string>
     <string name="action_move_to_bottom">তললৈ লৈ যাওক</string>
-    <string name="action_move_to_bottom_all_for_series">শৃংখলা তললৈ লৈ যাওক</string>
     <string name="action_install">ইন্সটল কৰক</string>
     <string name="action_share">শ্বেয়াৰ কৰক</string>
     <string name="action_save">সাঁচক</string>

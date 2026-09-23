@@ -493,7 +493,6 @@
     <string name="pref_app_theme">Programdrakt</string>
     <string name="pref_category_appearance">Utseende</string>
     <string name="action_start_downloading_now">Start nedlasting nå</string>
-    <string name="cancel_all_for_series">Avbryt alle for denne serien</string>
     <string name="confirm_lock_change">Identitetsbekreft for å endre</string>
     <string name="label_default">Standard</string>
     <string name="about_dont_kill_my_app">Noen produsenter har ytterligere appbegrensninger som dreper bakgrunnstjenester. Denne nettsiden har mer info om hvordan det kan fikses.</string>
@@ -546,7 +545,6 @@
     <string name="pref_landscape_zoom">Zoom automatisk inn for brede bilder</string>
     <string name="pref_navigate_pan">Panorer brede bilder</string>
     <string name="clear_database_source_item_count">%1$d ikke-bibliotek oppføringer i databasen</string>
-    <string name="action_move_to_top_all_for_series">Flytt serien til toppen</string>
     <string name="extension_api_error">Klarte ikke å hente tilgjengelige utvidelser</string>
     <string name="rotation_reverse_portrait">Omvendt portrett</string>
     <string name="pref_auto_clear_chapter_cache">Tøm kapittel hurtigbufferen ved oppstart av appen</string>
@@ -692,7 +690,6 @@
     <string name="create_backup_file_error">Kunne ikke opprette en backup-fil</string>
     <string name="track_activity_name">Sporerinnlogging</string>
     <string name="unlock_app_title">Lås opp %s</string>
-    <string name="action_move_to_bottom_all_for_series">Flytt serien til bunnen</string>
     <string name="exception_offline">Ingen internettforbindelse</string>
     <string name="exception_http">HTTP %d, sjekk nettsiden i WebView</string>
     <string name="exception_unknown_host">Kunne ikke nå %s</string>

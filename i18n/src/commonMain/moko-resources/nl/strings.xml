@@ -462,7 +462,6 @@
     <string name="pref_create_folder_per_manga">Pagina\'s opslaan in aparte mappen</string>
     <string name="pref_reader_actions">Acties</string>
     <string name="pref_grayscale">Grijstinten</string>
-    <string name="cancel_all_for_series">Alles annuleren voor deze serie</string>
     <string name="error_no_match">Geen overeenkomst gevonden</string>
     <string name="source_unsupported">Bron wordt niet ondersteund</string>
     <string name="unread">Ongelezen</string>
@@ -548,7 +547,6 @@
     <string name="action_show_manga">Laat item zien</string>
     <string name="action_display_cover_only_grid">Alleen-cover rooster</string>
     <string name="rotation_reverse_portrait">Omgedraaid portret-modus</string>
-    <string name="action_move_to_top_all_for_series">Breng serie naar boven</string>
     <string name="pref_update_only_started">Geen gelezen hoofdstukken</string>
     <string name="skipped_reason_completed">Overgeslagen want de serie is af</string>
     <string name="split_tall_images_summary">Verbetert de prestaties van de lezer</string>
@@ -697,7 +695,6 @@
     <string name="relative_time_span_never">Nooit</string>
     <string name="pref_flash_page_summ">Vermindert ghosting bij e-ink schermen</string>
     <string name="last_auto_backup_info">Voor het laatst een automatische back-up gemaakt op: %s</string>
-    <string name="action_move_to_bottom_all_for_series">Breng serie naar beneden</string>
     <string name="pref_flash_page">Scherm wit flitsen bij het wisselen van pagina\'s</string>
     <string name="pref_storage_usage">Opslaggebruik</string>
     <string name="notification_updating_progress">Bibliotheek bijwerken... (%s)</string>
@@ -868,14 +865,7 @@
     <string name="onboarding_action_finish">Beginnen</string>
     <string name="extensionStores">Extensiewinkels</string>
     <string name="action.addExtensionStore">Extensiewinkel toevoegen</string>
-    <string name="extensionStoresScreen.emptyLabel">Je hebt nog geen extensiewinkel toegevoegd</string>
-    <string name="extensionStoresScreen.addStore.title">Extensiewinkel toevoegen</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Deze extensiewinkel bestaat al</string>
     <string name="extensionStoresScreen.addStore.processing">Aan het verwerken…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">Winkelindex-URL</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Wil je onderstaande extensiewinkel toevoegen?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Extensiewinkel verwijderen</string>
-    <string name="extensionStoresScreen.deleteStore.body">Wil je de extensiewinkel \"%1$s\" (%2$s) verwijderen?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Plaats verticale navigator aan de linkerkant</string>
     <string name="considering">Aan het overwegen</string>
 </resources>

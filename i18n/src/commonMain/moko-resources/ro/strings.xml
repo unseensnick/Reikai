@@ -468,7 +468,6 @@
     <string name="pref_category_appearance">Aspect</string>
     <string name="pref_app_theme">Tematică Aplicație</string>
     <string name="theme_greenapple">Măr Verde</string>
-    <string name="cancel_all_for_series">Anulează totul pentru această serie</string>
     <string name="action_display_language_badge">Limbă</string>
     <string name="confirm_lock_change">Autentifică-te pentru a confirma schimbările</string>
     <string name="label_warning">Avertizare</string>
@@ -514,7 +513,6 @@
     <string name="wish_list">Lista de dorințe</string>
     <string name="complete_list">Lista completă</string>
     <string name="action_display_cover_only_grid">Acoperire tip grilaj</string>
-    <string name="action_move_to_top_all_for_series">Mutați seria pe prima poziție</string>
     <string name="pref_update_only_started">Care nu au fost începute</string>
     <string name="ext_installer_shizuku_stopped">Shizuku nu rulează</string>
     <string name="pref_app_language">Limba aplicației</string>
@@ -687,7 +685,6 @@
     <string name="selected">Selectat</string>
     <string name="no_scanlators_found">Nici un scanlator nu a fost găsit</string>
     <string name="not_selected">Nu a fost selectat</string>
-    <string name="action_move_to_bottom_all_for_series">Mutați seria pe ultima poziție</string>
     <string name="pref_chapter_swipe_end">Glisare către dreapta a unui capitol</string>
     <string name="exception_offline">Fără conexiune la internet</string>
     <string name="pref_storage_usage">Utilizarea spațiului de stocare</string>

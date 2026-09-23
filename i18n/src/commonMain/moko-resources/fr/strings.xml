@@ -471,7 +471,6 @@
     <string name="rotation_type">Rotation</string>
     <string name="automatic_background">Auto</string>
     <string name="restrictions">Restrictions : %s</string>
-    <string name="cancel_all_for_series">Tout annuler pour cette série</string>
     <string name="action_display_local_badge">Source locale</string>
     <string name="error_sharing_cover">Erreur de partage de couverture</string>
     <string name="error_saving_cover">Erreur lors de l\'enregistrement de la couverture</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_not_caught_up">Sauté car il y a des chapitres non lus</string>
     <string name="learn_more">Appuyez pour en savoir plus</string>
     <string name="rotation_reverse_portrait">Portrait inversé</string>
-    <string name="action_move_to_top_all_for_series">Déplacer la série vers le haut</string>
     <string name="disabled_nav">Désactivé</string>
     <string name="error_saving_picture">Erreur d\'enregistrement de l\'image</string>
     <string name="empty_backup_error">Aucune série à sauvegarder dans votre bibliothèque</string>
@@ -688,7 +686,6 @@
     <string name="manga_display_interval_title">Estimer chaque</string>
     <string name="exception_http">HTTP %d, consulter le site Web dans WebView</string>
     <string name="manga_display_modified_interval_title">Configurer pour mettre à jour tous les</string>
-    <string name="action_move_to_bottom_all_for_series">Déplacer la série vers le bas</string>
     <string name="track_delete_remote_text">Supprimez également de %s</string>
     <string name="exception_unknown_host">Impossible de joindre %s</string>
     <string name="app_settings">Paramètres de l\'application</string>
@@ -868,14 +865,7 @@
     <string name="action_filter_excluded_scanlators">Filtrer les scantrads exclus</string>
     <string name="extensionStores">Magasin d\'extensions</string>
     <string name="action.addExtensionStore">Ajouter un magasin d\'extension</string>
-    <string name="extensionStoresScreen.emptyLabel">Vous n\'avez pas encore ajouté de magasin d\'extension</string>
-    <string name="extensionStoresScreen.addStore.title">Ajouter un magasin d\'extension</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Ce magasin d\'extension existe déjà</string>
     <string name="extensionStoresScreen.addStore.processing">Mise en place…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">URL de l\'index du magasin</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Souhaitez-vous ajouter le magasin d\'extension ci-dessous ?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Retirer le magasin d\'extension</string>
-    <string name="extensionStoresScreen.deleteStore.body">Souhaitez-vous retirer le magasin d\'extension \"%1$s\" (%2$s) ?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Placer le menu de navigation à gauche</string>
     <string name="download_bookmarked">Mis en favoris</string>
 </resources>

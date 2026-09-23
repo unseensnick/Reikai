@@ -455,7 +455,6 @@
     <string name="action_asc">صعودی</string>
     <string name="action_display_language_badge">زبان</string>
     <string name="action_show_manga">نمایش ورودی</string>
-    <string name="cancel_all_for_series">لغو همه برای این سری</string>
     <string name="pref_dark_theme_pure_black">حالت تاریک مشکی خالص</string>
     <string name="action_close">بستن</string>
     <string name="pref_app_theme">تم برنامه</string>
@@ -466,7 +465,6 @@
     <string name="theme_tealturquoise">آبی و فیروزه‌ای</string>
     <string name="theme_yinyang">یین و یانگ</string>
     <string name="theme_yotsuba">یوتسوبا</string>
-    <string name="action_move_to_top_all_for_series">انتقال سری به بالا</string>
     <string name="action_start_downloading_now">همین الان شروع به دانلود کن</string>
     <string name="action_show_errors">برای دیدن جزئیات لمس کنید</string>
     <string name="network_not_metered">فقط روی شبکه‌ی نامحدود</string>
@@ -574,7 +572,6 @@
     <string name="action_menu_overflow_description">گزینه های بیشتر</string>
     <string name="selected">انتخاب شده</string>
     <string name="not_selected">انتخاب نشده</string>
-    <string name="action_move_to_bottom_all_for_series">مجموعه ها را به پایین منطقل کن</string>
     <string name="action_bar_up_description">برو به بالا</string>
     <string name="action_sort_tracker_score">امتیاز رهگیز</string>
     <string name="label_data_storage">داده های و ذخیره سازی</string>
@@ -640,7 +637,6 @@
     <string name="transition_animation_flip_right">ورق زدن (راست)</string>
     <string name="webgpu_viewer">پردازش گرافیکی وب</string>
     <string name="ext_confirm_remove">افزونه حذف شود؟</string>
-    <string name="extensionStoresScreen.deleteStore.body">آیا می‌خواهید فروشگاه افزونه \"%1$s\" (%2$s) را حذف کنید؟</string>
     <string name="upcoming_guide">راهنمای پیش‌رو</string>
     <string name="crash_screen_title">اوه!</string>
     <string name="information_cloudflare_help">برای دریافت کمک در مورد کلادفلر اینجا ضربه بزنید</string>
@@ -743,7 +739,6 @@
     <string name="transition_animation_fade">محو شدن</string>
     <string name="transition_animation_none">هیچ‌کدام</string>
     <string name="database_clean">چیزی برای پاک‌سازی وجود ندارد</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">ذخیره نشانی اینترنتی فهرست</string>
     <string name="label_read_chapters">خواندن</string>
     <string name="source_filter_empty_screen">هیچ منبع نصب‌شده‌ای یافت نشد</string>
     <string name="invalid_backup_file_unknown">فایل پشتیبان آسیب‌دیده است</string>
@@ -794,7 +789,6 @@
     <string name="dual_page_view_always">همیشه</string>
     <string name="library_list">فهرست کتابخانه</string>
     <string name="on_hold_list">فهرست موارد معلق</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">آیا می‌خواهید فروشگاه افزونه‌های زیر را اضافه کنید؟</string>
     <string name="pref_reset_user_agent_string">بازنشانی رشته عامل کاربر پیش‌فرض</string>
     <string name="pref_download_concurrent_sources">دانلود هم‌زمان از منابع</string>
     <string name="action.addExtensionStore">افزودن فروشگاه افزونه‌ها</string>
@@ -816,7 +810,6 @@
     <string name="notification_size_warning">به‌روزرسانی‌های حجیم به منابع سیستم آسیب می‌رسانند و ممکن است منجر به کندی روند به‌روزرسانی و افزایش مصرف باتری شوند. برای کسب اطلاعات بیشتر، ضربه بزنید.</string>
     <string name="pref_webtoon_vertical_navigator_on_left">ناوبر عمودی را در سمت چپ قرار دهید</string>
     <string name="library_errors_help">برای راهنمایی در مورد نحوه رفع خطاهای به‌روزرسانی کتابخانه، به %1$s مراجعه کنید</string>
-    <string name="extensionStoresScreen.deleteStore.title">حذف فروشگاه افزونه‌ها</string>
     <string name="skipped_reason_not_in_release_period">به دلیل عدم انتظار انتشار در امروز، نادیده گرفته شد</string>
     <string name="file_null_uri_error">هیچ فایلی انتخاب نشده</string>
     <string name="pref_download_new_unread_chapters_only">صرف‌نظر از بارگیری چپترهای خوانده‌شده‌ تکراری</string>
@@ -840,7 +833,6 @@
     <string name="pref_verbose_logging">گزارش‌گیری طولانی</string>
     <string name="hour_short">%dساعت</string>
     <string name="migrationConfigScreen.availableHeader">در‌دسترس</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">این فروشگاه افزونه از قبل وجود دارد</string>
     <string name="about_dont_kill_my_app">برخی از سازندگان محدودیت‌های اضافی برای برنامه‌ها اعمال می‌کنند که باعث متوقف شدن سرویس‌های پس‌زمینه می‌شود. این وب‌سایت اطلاعات بیشتری درباره نحوه رفع این مشکل ارائه می‌دهد.</string>
     <string name="track_delete_remote_text">همچنین از %s حذف کنید</string>
     <string name="action_display_unread_badge">چپتر‌های خوانده‌نشده</string>
@@ -876,7 +868,6 @@
     <string name="seconds_short">%dثانیه</string>
     <string name="migrationListScreen.exitDialog.cancelLabel">لغو</string>
     <string name="migrationListScreen.exitDialogTitle">توقف مهاجرت؟</string>
-    <string name="extensionStoresScreen.addStore.title">افزودن فروشگاه افزونه‌ها</string>
     <string name="onboarding_storage_info">پوشه‌ای را انتخاب کنید که %1$s فایل‌های دانلودشده‌ی چپترها، نسخه‌های پشتیبان و موارد دیگر را در آن ذخیره کند.\n\nاستفاده از یک پوشه‌ی اختصاصی توصیه می‌شود.\n\nپوشه‌ی انتخاب‌شده: %2$s</string>
     <string name="onboarding_permission_analytics_description">برای بهبود قابلیت‌های برنامه، داده‌های استفاده را به‌صورت ناشناس ارسال کنید.</string>
     <string name="pref_flash_duration">مدت‌زمان فلاش</string>
@@ -908,7 +899,6 @@
     <string name="track_remove_date_conf_title">تاریخ حذف شود؟</string>
     <string name="download_notifier_split_page_path_not_found">مسیر فایل برگه %d پیدا نشد</string>
     <string name="pref_update_library_manga_titles">به‌روزرسانی عناوین مانگای کتابخانه برای مطابقت با منبع</string>
-    <string name="extensionStoresScreen.emptyLabel">هنوز فروشگاه افزونه‌ای اضافه نکرده‌اید</string>
     <string name="crash_screen_restart_application">راه‌اندازی مجدد برنامه</string>
     <string name="manga_interval_expected_update_null">این مانگا یا به پایان رسیده است و یا تاریخ انتشار مشخصی برای آن پیش‌بینی نشده است.</string>
     <string name="migrationConfigScreen.enhancedOptionsWarning">این گزینه‌ها کند و خطرناک هستند و ممکن است منجر به اعمال محدودیت‌هایی از سوی منابع شوند</string>

@@ -191,7 +191,6 @@
     <string name="ext_installer_shizuku_stopped">Shizuku nedarbojas</string>
     <string name="theme_monet">Dinamisks</string>
     <string name="action_sort_count">Visi ieraksti</string>
-    <string name="cancel_all_for_series">Atcelt visu šai sērijai</string>
     <string name="action_order_by_upload_date">Pēc augšupielādes datuma</string>
     <string name="update_never">Izslēgts</string>
     <string name="action_display_language_badge">Valoda</string>
@@ -225,7 +224,6 @@
     <string name="pref_custom_color_filter">Pielāgots krāsu filtrs</string>
     <string name="pref_color_filter_mode">Krāsu filtra sajaukšanas režīms</string>
     <string name="filter_mode_overlay">Parklājums</string>
-    <string name="action_move_to_top_all_for_series">Pārvietot sēriju uz augšu</string>
     <string name="pref_category_appearance">Izskats</string>
     <string name="pref_app_theme">Aplikācijas tēma</string>
     <string name="theme_greenapple">Zaļš Ābols</string>
@@ -709,7 +707,6 @@
     <string name="selected">Atlasīts</string>
     <string name="no_scanlators_found">Nav atrasts neviens scanlators</string>
     <string name="not_selected">Nav atlasīts</string>
-    <string name="action_move_to_bottom_all_for_series">Pārvietot sēriju uz apakšu</string>
     <string name="scanlator">Skanlators</string>
     <string name="pref_flash_page">Zibsnīt baltu, kad maina lapu</string>
     <string name="pref_storage_usage">Krātuves izmantošana</string>

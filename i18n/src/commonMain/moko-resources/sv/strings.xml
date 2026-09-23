@@ -463,7 +463,6 @@
     <string name="pref_grayscale">Gråskala</string>
     <string name="automatic_background">Automatisk</string>
     <string name="notification_incognito_text">Inaktivera inkognitoläge</string>
-    <string name="cancel_all_for_series">Avbryt alla för denna serie</string>
     <string name="error_no_match">Ingen matchning hittad</string>
     <string name="source_unsupported">Källan stöds inte</string>
     <string name="unread">Oläst</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_not_started">Hoppade över eftersom inga kapitel läses</string>
     <string name="learn_more">Tryck på för att få veta mer</string>
     <string name="rotation_reverse_portrait">Omvänt porträtt</string>
-    <string name="action_move_to_top_all_for_series">Flytta serien till toppen</string>
     <string name="disabled_nav">Inaktiverad</string>
     <string name="error_saving_picture">Fel vid lagring av bild</string>
     <string name="empty_backup_error">Inga biblioteksartiklar att säkerhetskopiera</string>
@@ -695,7 +693,6 @@
     <string name="exception_http">HTTP %d, kolla på webbsida i WebView</string>
     <string name="exception_unknown_host">Kunde inte nå %s</string>
     <string name="unlock_app_title">Lås upp %s</string>
-    <string name="action_move_to_bottom_all_for_series">Flytta serien till botten</string>
     <string name="notification_updating_progress">Uppdaterar biblioteket... (%s)</string>
     <string name="source_settings">Inställningar för källa</string>
     <string name="app_settings">Appinställningar</string>
@@ -869,13 +866,6 @@
     <string name="label_auto">Automatisk</string>
     <string name="extensionStores">Tilläggsdepåer</string>
     <string name="action.addExtensionStore">Lägg till tilläggsdepå</string>
-    <string name="extensionStoresScreen.emptyLabel">Du har ännu inte lagt till en tilläggsdepå</string>
-    <string name="extensionStoresScreen.addStore.title">Lägg till tilläggsdepå</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Denna tilläggsdepå finns redan</string>
     <string name="extensionStoresScreen.addStore.processing">Bearbetar…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">Depåindex-URL</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Vill du lägga till nedan tilläggsdepå?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Ta bort tilläggsdepå</string>
-    <string name="extensionStoresScreen.deleteStore.body">Vill du ta bort följande tilläggsdepå: \"%1$s\" (%2$s)?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Placera navigatorn på vänster sida</string>
 </resources>

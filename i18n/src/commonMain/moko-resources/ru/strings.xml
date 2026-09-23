@@ -463,7 +463,6 @@
     <string name="pref_grayscale">Чёрно-белый фильтр</string>
     <string name="notification_incognito_text">Выключить режим инкогнито</string>
     <string name="automatic_background">Автоматически</string>
-    <string name="cancel_all_for_series">Отменить всё для этой серии</string>
     <string name="error_no_match">Совпадений не найдено</string>
     <string name="source_unsupported">Источник не поддерживается</string>
     <string name="unread">Не прочитано</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_not_started">Пропущено, т.к серия не начата</string>
     <string name="learn_more">Нажать для подробностей</string>
     <string name="rotation_reverse_portrait">Портретная наоборот</string>
-    <string name="action_move_to_top_all_for_series">Переместить серию в начало</string>
     <string name="disabled_nav">Отключено</string>
     <string name="error_saving_picture">Не удалось сохранить изображение</string>
     <string name="empty_backup_error">Нет элементов в библиотеке для резервирования</string>
@@ -695,7 +693,6 @@
     <string name="exception_offline">Нет подключения к интернету</string>
     <string name="exception_unknown_host">Не удалось достичь %s</string>
     <string name="unlock_app_title">Разблокировать %s</string>
-    <string name="action_move_to_bottom_all_for_series">Переместить серию в конец</string>
     <string name="pref_relative_format">Относительные временные метки</string>
     <string name="pref_relative_format_summary">\"%1$s\" вместо \"%2$s\"</string>
     <string name="app_settings">Настройки приложения</string>
@@ -869,14 +866,7 @@
     <string name="download_bookmarked">В закладках</string>
     <string name="extensionStores">Хранилище расширений</string>
     <string name="action.addExtensionStore">Добавить хранилище расширений</string>
-    <string name="extensionStoresScreen.emptyLabel">Вы ещё не добавляли хранилище расширений</string>
-    <string name="extensionStoresScreen.addStore.title">Добавить хранилище расширений</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Это хранилище расширений уже существует</string>
     <string name="extensionStoresScreen.addStore.processing">В процессе…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">Хранить индекс URL-адреса</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Вы хотите добавить хранилище расширений ниже?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Удалить хранилище расширений</string>
-    <string name="extensionStoresScreen.deleteStore.body">Вы хотите удалить хранилище расширений \"%1$s\" (%2$s)?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Разместить вертикальную навигацию с левой стороны</string>
     <string name="considering">Рассматривается</string>
     <string name="pref_vertical_navigator">Использовать вертикальную навигацию главы в</string>

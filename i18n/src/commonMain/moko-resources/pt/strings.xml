@@ -474,7 +474,6 @@
     <string name="theme_greenapple">Maçã Verde</string>
     <string name="pref_app_theme">Tema da aplicação</string>
     <string name="action_start_downloading_now">Começar a transferir agora</string>
-    <string name="cancel_all_for_series">Cancelar tudo para esta série</string>
     <string name="unread">Não Lido</string>
     <string name="error_sharing_cover">Erro ao partilhar capa</string>
     <string name="error_saving_cover">Erro ao guardar capa</string>
@@ -544,7 +543,6 @@
     <string name="disabled_nav">Desativado</string>
     <string name="action_display_cover_only_grid">Grelha apenas de capas</string>
     <string name="action_close">Fechar</string>
-    <string name="action_move_to_top_all_for_series">Mover séries para o topo</string>
     <string name="skipped_reason_completed">Ignorado porque a séria está completa</string>
     <string name="skipped_reason_not_started">Ignorado porque nenhum capítulo foi lido</string>
     <string name="skipped_reason_not_caught_up">Ignorado porque existem capítulos não lidos</string>
@@ -745,7 +743,6 @@
     <string name="onboarding_storage_info">Escolha uma pasta onde o %1$s irá armazenar as descargas de capítulos, backups e mais. \n \nUma pasta dedicada é recomendada. \n \nPasta selecionada: %2$s</string>
     <string name="exclude_scanlators">Apagar scanlators</string>
     <string name="no_scanlators_found">Nenhum scanlator encontrado</string>
-    <string name="action_move_to_bottom_all_for_series">Mover série para o fim</string>
     <string name="pref_onboarding_guide">Guia de introdução</string>
     <string name="pref_library_update_smart_update">Atualização inteligente</string>
     <string name="ext_revoke_trust">Revogar a confiabilidade de extensões desconhecidas</string>

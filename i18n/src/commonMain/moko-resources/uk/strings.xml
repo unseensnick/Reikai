@@ -463,7 +463,6 @@
     <string name="pref_grayscale">Відтінки сірого</string>
     <string name="notification_incognito_text">Вимкнути режим інкогніто</string>
     <string name="automatic_background">Авто</string>
-    <string name="cancel_all_for_series">Скасувати для усієї серії</string>
     <string name="error_no_match">Збігів не знайдено</string>
     <string name="source_unsupported">Джерело не підтримується</string>
     <string name="unread">Не прочитане</string>
@@ -544,7 +543,6 @@
     <string name="action_show_manga">Показати запис</string>
     <string name="action_display_cover_only_grid">Сітка тільки з обкладинками</string>
     <string name="pref_update_only_started">Пропустити непочаті глави</string>
-    <string name="action_move_to_top_all_for_series">Перемістити серію на початок</string>
     <string name="rotation_reverse_portrait">Портретна навпаки</string>
     <string name="skipped_reason_completed">Пропущено, оскільки серія завершена</string>
     <string name="skipped_reason_not_caught_up">Пропущено через те, що є непрочитані розділи</string>
@@ -692,7 +690,6 @@
     <string name="information_cloudflare_help">Натисніть тут, щоб отримати допомогу з Cloudflare</string>
     <string name="create_backup_file_error">Не вдалося створити файл резервної копії</string>
     <string name="unlock_app_title">Розблокувати %s</string>
-    <string name="action_move_to_bottom_all_for_series">Перемістити серію вниз</string>
     <string name="exception_offline">Немає Інтернет-з\'єднання</string>
     <string name="exception_http">Http %d, перевірте вебсайт у WebView</string>
     <string name="exception_unknown_host">Не вдалося досягти %s</string>

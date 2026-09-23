@@ -479,7 +479,6 @@
     <string name="local_invalid_format">تنسيق الفصل غير صالح</string>
     <string name="tracking_guide">تعليمات التعقب</string>
     <string name="categorized_display_settings">إعدادات فرز كل صنف</string>
-    <string name="cancel_all_for_series">إلغاء الكل لهذه السلسلة</string>
     <string name="action_display_local_badge">مصدر محلّي</string>
     <string name="information_empty_category_dialog">ليس لديك اي قوائم بعد.</string>
     <string name="action_start_downloading_now">ابدأ التحميل الآن</string>
@@ -553,7 +552,6 @@
     <string name="disabled_nav">معطل</string>
     <string name="rotation_reverse_portrait">رأسي بالعكس</string>
     <string name="learn_more">اضغط لمعرفة المزيد</string>
-    <string name="action_move_to_top_all_for_series">نقل السلسلة للأعلى</string>
     <string name="empty_backup_error">لا توجد مدخلات في المكتبة لإجراء نسخة احتياطي‮‮ة</string>
     <string name="action_close">إغلاق</string>
     <string name="update_check_open">فتح في GitHub</string>
@@ -695,7 +693,6 @@
     <string name="exception_http">خطأ HTTP %d، انظر في WebView</string>
     <string name="exception_unknown_host">لا يمكن الوصول إلى %s</string>
     <string name="unlock_app_title">افتح %s</string>
-    <string name="action_move_to_bottom_all_for_series">انقل السلسلة للأسفل</string>
     <string name="pref_relative_format">التوقيت النسبي</string>
     <string name="pref_relative_format_summary">«%1$s» بدلًا عن «%2$s»</string>
     <string name="notification_updating_progress">تحديث المكتبة… (%s)</string>

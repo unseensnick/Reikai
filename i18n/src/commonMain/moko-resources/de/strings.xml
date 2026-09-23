@@ -463,7 +463,6 @@
     <string name="pref_grayscale">Graustufen</string>
     <string name="notification_incognito_text">Inkognito-Modus deaktivieren</string>
     <string name="automatic_background">Automatisch</string>
-    <string name="cancel_all_for_series">Alles für diese Serie abbrechen</string>
     <string name="error_no_match">Keine Übereinstimmung gefunden</string>
     <string name="source_unsupported">Quelle wird nicht unterstützt</string>
     <string name="unread">Ungelesen</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_not_started">Übersprungen, weil keine Kapitel gelesen wurden</string>
     <string name="learn_more">Antippen, um mehr zu erfahren</string>
     <string name="rotation_reverse_portrait">Umgekehrtes Hochformat</string>
-    <string name="action_move_to_top_all_for_series">Serie nach oben verschieben</string>
     <string name="disabled_nav">Deaktiviert</string>
     <string name="error_saving_picture">Fehler beim Speichern des Bildes</string>
     <string name="empty_backup_error">Keine zu sichernden Bibliothekseinträge verfügbar</string>
@@ -695,7 +693,6 @@
     <string name="exception_offline">Keine Internetverbindung</string>
     <string name="exception_unknown_host">%s konnte nicht erreicht werden</string>
     <string name="unlock_app_title">%s entsperren</string>
-    <string name="action_move_to_bottom_all_for_series">Serie nach unten verschieben</string>
     <string name="pref_relative_format">Relative Zeitstempel</string>
     <string name="pref_relative_format_summary">„%1$s“ anstelle von „%2$s“</string>
     <string name="app_settings">App-Einstellungen</string>
@@ -869,14 +866,7 @@
     <string name="download_bookmarked">Mit Lesezeichen versehen</string>
     <string name="extensionStores">Erweiterungsdepots</string>
     <string name="action.addExtensionStore">Erweiterungsdepot hinzufügen</string>
-    <string name="extensionStoresScreen.emptyLabel">Du hast noch kein Erweiterungsdepot hinzugefügt</string>
-    <string name="extensionStoresScreen.addStore.title">Erweiterungsdepot hinzufügen</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Dieses Erweiterungsdepot existiert bereits</string>
     <string name="extensionStoresScreen.addStore.processing">Verarbeite…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">Depot-Index-URL</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Möchtest du dieses Erweiterungsdepot hinzufügen?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Erweiterungsdepot entfernen</string>
-    <string name="extensionStoresScreen.deleteStore.body">Möchtest du das Erweiterungsdepot \"%1$s\" (%2$s) entfernen?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Vertikalen Navigator auf der linken Seite platzieren</string>
     <string name="pref_vertical_navigator">Verwende vertikalen Kapitelnavigator in</string>
     <string name="pref_vertical_navigator_height">Höhe des vertikalen Navigators</string>

@@ -478,7 +478,6 @@
     <string name="on">オン</string>
     <string name="categorized_display_settings">カテゴリーごとの並べ替え設定</string>
     <string name="restrictions">制限: %s</string>
-    <string name="cancel_all_for_series">このシリーズのすべてをキャンセル</string>
     <string name="action_display_local_badge">ローカルソース</string>
     <string name="rotation_landscape">横向き</string>
     <string name="rotation_portrait">縦向き</string>
@@ -551,7 +550,6 @@
     <string name="pref_navigate_pan">幅広い画像を左右に移動</string>
     <string name="learn_more">タップして詳細をご覧ください</string>
     <string name="rotation_reverse_portrait">縦向き（反転）</string>
-    <string name="action_move_to_top_all_for_series">シリーズをトップに移動</string>
     <string name="disabled_nav">無効</string>
     <string name="empty_backup_error">バックアップできるライブラリ項目はありません</string>
     <string name="update_check_open">GitHub で開く</string>
@@ -695,7 +693,6 @@
     <string name="exception_offline">インターネット接続がありません</string>
     <string name="exception_unknown_host">%sにアクセスできませんでした</string>
     <string name="unlock_app_title">%s をアンロック</string>
-    <string name="action_move_to_bottom_all_for_series">シリーズを底に移動</string>
     <string name="pref_relative_format">相対的なタイムスタンプ</string>
     <string name="pref_relative_format_summary">「%2$s」の代わりに「%1$s」を使用</string>
     <string name="notification_updating_progress">ライブラリの更新中… (%s)</string>
@@ -837,13 +834,7 @@
     <string name="crash_screen_description">%s で予期せぬエラーが発生しました。クラッシュログを Discord のサポートチャンネルで共有することをお勧めします。</string>
     <string name="extensionStores">拡張機能ストア</string>
     <string name="action.addExtensionStore">拡張機能ストアを追加</string>
-    <string name="extensionStoresScreen.emptyLabel">拡張機能ストアをまだ追加していません</string>
-    <string name="extensionStoresScreen.addStore.title">拡張機能ストアを追加</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">この拡張機能ストアは既に存在します</string>
     <string name="extensionStoresScreen.addStore.processing">処理中…</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">以下の拡張機能ストアを追加しますか？</string>
-    <string name="extensionStoresScreen.deleteStore.title">拡張機能ストアを削除</string>
-    <string name="extensionStoresScreen.deleteStore.body">拡張機能ストア「%1$s」（%2$s）を削除しますか？</string>
     <string name="considering">検討中</string>
     <string name="action_filter_excluded_scanlators">除外されたスキャンレーターをフィルタリング</string>
     <string name="notes_placeholder">あの場面が面白かった…</string>
@@ -882,7 +873,6 @@
     <string name="migrationConfigScreen.prioritizeByChaptersSubtitle">有効にすると、最も先の検索結果を選択します。無効にすると、ソースの優先順位に従って最初の検索結果を選択します。</string>
     <string name="migrationListScreen.matchWithoutChapterToast">章が見つかりませんでした。この項目は移行に使用できません</string>
     <string name="theme_tokyonight">Tokyo Night</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">拡張機能ストアのインデックス URL</string>
     <string name="downloading_with_progress">ダウンロード中… (%d%%)</string>
     <string name="pref_filter_upcoming_categories_details">除外対象カテゴリーに含まれるタイトルは、たとえそれらが対象カテゴリーにも含まれている場合でも表示されません。</string>
 </resources>

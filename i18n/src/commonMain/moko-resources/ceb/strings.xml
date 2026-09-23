@@ -94,7 +94,6 @@
     <string name="action_display_grid">Compact nga grid</string>
     <string name="action_pin">Pin</string>
     <string name="action_cancel_all">Cancel tanan</string>
-    <string name="cancel_all_for_series">Ikansela ang tanan alang niini nga serye</string>
     <string name="action_sort">Pagsunud-sunod</string>
     <string name="action_newest">Pinakabag-o</string>
     <string name="action_move_to_bottom">Lihok sa ubos</string>
@@ -151,7 +150,6 @@
     <string name="action_order_by_chapter_number">Pinaagi sa numero sa kapitulo</string>
     <string name="action_oldest">Kinatigulangan</string>
     <string name="action_move_to_top">Ibalhin sa ibabaw</string>
-    <string name="action_move_to_top_all_for_series">Ibalhin ang serye sa ibabaw</string>
     <string name="action_show_errors">I-tap aron makita ang mga detalye</string>
     <string name="action_asc">Pagsaka</string>
     <string name="action_share">Ipaambit</string>

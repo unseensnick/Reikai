@@ -101,7 +101,6 @@
     <string name="action_order_by_chapter_number">Pagal skyrių skaičių</string>
     <string name="action_order_by_upload_date">Pagal įkėlimo datą</string>
     <string name="action_sort">Rikiavimas</string>
-    <string name="cancel_all_for_series">Atšaukti visus šiam kūriniui</string>
     <string name="action_cancel_all">Atšaukti visus</string>
     <string name="action_cancel">Atšaukti</string>
     <string name="action_unpin">Atsegti</string>
@@ -398,7 +397,6 @@
     <string name="action_remove_everything">Ištrinti viską</string>
     <string name="internal_error">InternalError: Patikrinkite klaidų žurnalus, kad gautumėte daugiau informacijos</string>
     <string name="network_not_metered">Kai duomenys neapmokestinami</string>
-    <string name="action_move_to_top_all_for_series">Perkelti seriją į viršų</string>
     <string name="backup_restore_missing_trackers">Sekimo priemonės, neprijungtos prie:</string>
     <string name="split_tall_images_summary">Pagerina skaitytuvo našumą</string>
     <string name="ext_info_language">Kalba</string>

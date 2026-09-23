@@ -133,7 +133,6 @@
     <string name="action_unpin">Ажырату</string>
     <string name="action_cancel">Болдырмау</string>
     <string name="action_cancel_all">Барлығын болдырмау</string>
-    <string name="cancel_all_for_series">Осы туынды үшін барлығын болдырмау</string>
     <string name="action_sort">Сұрыптау</string>
     <string name="action_order_by_upload_date">Жүктелген күні бойынша</string>
     <string name="action_order_by_chapter_number">Тарау нөмірі бойынша</string>
@@ -142,7 +141,6 @@
     <string name="action_asc">Артуы бойынша</string>
     <string name="action_desc">Кемуі бойынша</string>
     <string name="action_move_to_top">Басына оралу</string>
-    <string name="action_move_to_top_all_for_series">Туындыны басына апару</string>
     <string name="action_move_to_bottom">Соңына бару</string>
     <string name="action_install">Орнату</string>
     <string name="action_share">Бөлісу</string>

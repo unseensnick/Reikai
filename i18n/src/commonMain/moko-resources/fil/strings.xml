@@ -463,7 +463,6 @@
     <string name="pref_grayscale">Maabo</string>
     <string name="notification_incognito_text">Di-paganahin ang Incognito na mode</string>
     <string name="automatic_background">Awto</string>
-    <string name="cancel_all_for_series">Kanselahin lahat para sa seryeng ito</string>
     <string name="local_filter_order_by">Ayusin ayon sa</string>
     <string name="restrictions">Mga Restriksyon: %s</string>
     <string name="error_no_match">Walang natagpuang katugma</string>
@@ -551,7 +550,6 @@
     <string name="pref_navigate_pan">I-pan ang mga malalapad na larawan</string>
     <string name="learn_more">Matuto pa</string>
     <string name="rotation_reverse_portrait">Baligtad na patayo</string>
-    <string name="action_move_to_top_all_for_series">Ilagay sa taas ang serye</string>
     <string name="disabled_nav">Nakasara</string>
     <string name="empty_backup_error">Walang entry sa Aklatan na maiba-backup</string>
     <string name="update_check_open">Buksan sa Github</string>
@@ -695,7 +693,6 @@
     <string name="exception_offline">Walang koneksyon sa Internet</string>
     <string name="exception_http">HTTP %d, tignan ang website sa WebView</string>
     <string name="exception_unknown_host">Hindi maabot ang %s</string>
-    <string name="action_move_to_bottom_all_for_series">Ilagay sa ibaba ang serye</string>
     <string name="pref_relative_format">Mga relatibong timestamp</string>
     <string name="pref_relative_format_summary">\"%1$s\" sa halip na \"%2$s\"</string>
     <string name="notification_updating_progress">Nag-a-update ang aklatan... (%s)</string>
@@ -869,14 +866,7 @@
     <string name="download_bookmarked">Na-bookmark</string>
     <string name="extensionStores">Mga Extension store</string>
     <string name="action.addExtensionStore">Magdagdag ng extension store</string>
-    <string name="extensionStoresScreen.emptyLabel">Wala ka pang idinagdag na extension store</string>
-    <string name="extensionStoresScreen.addStore.title">Idagdag ang extension store</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">Ang extension store na ito ay umiiral na</string>
     <string name="extensionStoresScreen.addStore.processing">Nagpoproseso…</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">URL ng Store index</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Gusto mo bang idagdag ang extension store na nasa ibaba?</string>
-    <string name="extensionStoresScreen.deleteStore.title">Tanggalin ang extension store</string>
-    <string name="extensionStoresScreen.deleteStore.body">Gusto mo bang tanggalin ang extension store na \"%1$s\" (%2$s)?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Ilagay ang vertical na navigator sa kaliwa</string>
     <string name="pref_vertical_navigator">Gamitin ang vertical na navigator sa</string>
     <string name="pref_vertical_navigator_height">Taas ng vertical na navigator</string>

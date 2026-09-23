@@ -198,7 +198,8 @@ class NovelUpdateJob(
         val restrictions = preferences.novelUpdateRestrictions().get()
         val favorites = buildList {
             // The library rows carry the chapter counts the rules read, so no chapter is loaded to decide.
-            for (entry in novelRepo.getLibraryNovelAsFlow().first()) {
+            // In title order, as the manga job runs.
+            for (entry in novelRepo.getLibraryNovelAsFlow().first().sortedBy { it.novel.title }) {
                 val novel = entry.novel
                 val categoryOk = if (categoryId != -1L) {
                     categoryId in getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }

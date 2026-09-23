@@ -341,7 +341,6 @@
     <string name="action_newest">ล่าสุด</string>
     <string name="action_order_by_chapter_number">ตามเลขตอน</string>
     <string name="action_order_by_upload_date">ตามวันที่อัปโหลด</string>
-    <string name="cancel_all_for_series">ยกเลิกทั้งหมดสำหรับเรื่องนี้</string>
     <string name="action_cancel_all">ยกเลิกทั้งหมด</string>
     <string name="action_unpin">ยกเลิกการตรึง</string>
     <string name="action_pin">ตรึง</string>
@@ -551,7 +550,6 @@
     <string name="skipped_reason_completed">ถูกข้ามเนื่องจากเรื่องนี้จบแล้ว</string>
     <string name="learn_more">แตะเพื่อเรียนรู้เพิ่มเติม</string>
     <string name="rotation_reverse_portrait">แนวตั้งแบบกลับด้าน</string>
-    <string name="action_move_to_top_all_for_series">ย้ายเรื่องไปด้านบน</string>
     <string name="disabled_nav">ปิดใช้งาน</string>
     <string name="error_saving_picture">ผิดพลาดในการบันทึกรูปภาพ</string>
     <string name="update_check_open">เปิดใน GithHub</string>
@@ -695,7 +693,6 @@
     <string name="exception_offline">ไม่มีการเชื่อมต่ออินเทอร์เน็ต</string>
     <string name="exception_http">HTTP %d, ดูเว็บไซต์ใน WebView</string>
     <string name="exception_unknown_host">ไม่สามารถเข้าถึง %s ได้</string>
-    <string name="action_move_to_bottom_all_for_series">ย้ายเรื่องไปด้านล่าง</string>
     <string name="pref_relative_format">ประทับเวลาแบบสัมพันธ์กัน</string>
     <string name="pref_relative_format_summary">แสดง \"%1$s\" แทน \"%2$s\"</string>
     <string name="notification_updating_progress">กำลังอัปเดตคลัง... (%s)</string>

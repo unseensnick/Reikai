@@ -439,7 +439,6 @@
     <string name="pref_dual_page_split">चौड़े पृष्ठ को दो भागों में बांट दे</string>
     <string name="action_start_downloading_now">अभी डाउनलोड करना शुरू करें</string>
     <string name="action_show_errors">विवरण देखने के लिए टैप करें</string>
-    <string name="cancel_all_for_series">इस श्रृंखला के लिए सभी रद्द करें</string>
     <string name="action_display_local_badge">स्थानीय स्रोत</string>
     <string name="pref_dark_theme_pure_black">पूरा काला मोड़</string>
     <string name="theme_tako">टाको</string>
@@ -552,7 +551,6 @@
     <string name="rotation_reverse_portrait">रिवर्स पोर्ट्रेट</string>
     <string name="pref_navigate_pan">चौड़ी छवियां पैन करें</string>
     <string name="pref_landscape_zoom">ज़ूम लैंडस्केप इमेज</string>
-    <string name="action_move_to_top_all_for_series">श्रृंखला को शीर्ष पर ले जाएं</string>
     <string name="source_empty_screen">कोई स्रोत नहीं मिला</string>
     <string name="source_filter_empty_screen">कोई स्थापित स्रोत नहीं मिला</string>
     <string name="action_sort_last_manga_update">आखिरी आइटम अद्यतन</string>
@@ -655,7 +653,6 @@
     <string name="label_data_storage">डेटा और स्टोरेज</string>
     <string name="unlock_app_title">खोलना%s</string>
     <string name="action_apply">लागू करें</string>
-    <string name="action_move_to_bottom_all_for_series">सीरीज को नीचे ले जाएं</string>
     <string name="pref_onboarding_guide">ऑनबोर्डिंग मार्गदर्शक</string>
     <string name="onboarding_heading">नमस्ते!आपका स्वागत है!</string>
     <string name="label_upcoming">आगामी</string>
@@ -867,7 +864,6 @@
     <string name="pref_download_concurrent_pages_summary">प्रति स्रोत एक साथ डाउनलोड किए जाने वाले पृष्ठ</string>
     <string name="transition_animation_flip_right">पेज फ्लिप (दाएँ)</string>
     <string name="webgpu_viewer">वेबजीपीयू</string>
-    <string name="extensionStoresScreen.deleteStore.body">क्या आप एक्सटेंशन स्टोर \"%1$s\" (%2$s) को हटाना चाहते हैं?</string>
     <string name="transition_animation_cube_inside">क्यूब (अंदर)</string>
     <string name="transition_animation_cube_outside">क्यूब (बाहर)</string>
     <string name="pref_vertical_navigator">वर्टिकल चैप्टर नेविगेटर का उपयोग करें</string>
@@ -887,7 +883,6 @@
     <string name="transition_animation_stack_right">स्टैक (दाएँ)</string>
     <string name="transition_animation_fade">फेड</string>
     <string name="transition_animation_none">कोई नहीं</string>
-    <string name="extensionStoresScreen.addStoreInput.inputLabel">स्टोर इंडेक्स URL</string>
     <string name="dual_page_view_never">कभी नहीं</string>
     <string name="transition_animation_stack_up">स्टैक (ऊपर)</string>
     <string name="pref_filter_upcoming_categories_details">बहिष्कृत श्रेणियों के शीर्षक नहीं दिखाए जाते, भले ही वे किसी शामिल श्रेणी में भी हों।</string>
@@ -895,22 +890,17 @@
     <string name="pref_transition_animation_dual">ट्रांज़िशन एनीमेशन (ड्युअल)</string>
     <string name="transition_animation_flip">पेज फ्लिप</string>
     <string name="dual_page_view_always">हमेशा</string>
-    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">क्या आप नीचे दिए गए एक्सटेंशन स्टोर को जोड़ना चाहते हैं?</string>
     <string name="action.addExtensionStore">एक्सटेंशन स्टोर जोड़ें</string>
     <string name="action_filter_excluded_scanlators">बहिष्कृत स्कैनलेटर्स को फ़िल्टर करें</string>
     <string name="pref_webtoon_vertical_navigator_on_left">वर्टिकल नेविगेटर को बाईं ओर रखें</string>
-    <string name="extensionStoresScreen.deleteStore.title">एक्सटेंशन स्टोर हटाएँ</string>
     <string name="theme_tokyonight">टोक्यो नाइट</string>
-    <string name="extensionStoresScreen.addStore.alreadyExists">यह एक्सटेंशन स्टोर पहले से मौजूद है</string>
     <string name="transition_animation_fade_white">सफेद रंग में फेड</string>
     <string name="pref_high_quality_renderer">उच्च गुणवत्ता वाले रेंडरर का उपयोग करें</string>
     <string name="pref_dual_page_view">दो पृष्ठों का दृश्य</string>
     <string name="pref_transition_animation">ट्रांज़िशन एनीमेशन</string>
     <string name="pref_vertical_navigator_height">वर्टिकल नेविगेटर की ऊँचाई</string>
-    <string name="extensionStoresScreen.addStore.title">एक्सटेंशन स्टोर जोड़ें</string>
     <string name="pref_cutout_mode">डिस्प्ले कटआउट मोड</string>
     <string name="transition_animation_stack_left">स्टैक (बाएँ)</string>
     <string name="pref_cutout_mode_dual">डिस्प्ले कटआउट मोड (ड्युअल)</string>
     <string name="cutout_mode_shift">स्थानांतरित करें</string>
-    <string name="extensionStoresScreen.emptyLabel">आपने अभी तक कोई एक्सटेंशन स्टोर नहीं जोड़ा है</string>
 </resources>

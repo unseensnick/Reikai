@@ -56,7 +56,6 @@
     <string name="action_display_show_number_of_items">Vis talet på gjenstandar</string>
     <string name="action_cancel">Avbryt</string>
     <string name="action_cancel_all">Avbryt alle</string>
-    <string name="cancel_all_for_series">Avbryt alle for denne serien</string>
     <string name="action_sort">Sorter</string>
     <string name="action_newest">Nyaste</string>
     <string name="action_oldest">Eldste</string>

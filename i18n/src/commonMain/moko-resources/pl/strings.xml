@@ -466,7 +466,6 @@
     <string name="pref_create_folder_per_manga">Zapisz strony do osobnych folderów</string>
     <string name="pref_reader_actions">Akcje</string>
     <string name="pref_grayscale">Odcienie szarości</string>
-    <string name="cancel_all_for_series">Anuluj wszystko dla tego tytułu</string>
     <string name="date">Data</string>
     <string name="local_filter_order_by">Sortowanie</string>
     <string name="local_invalid_format">Błędny format rozdziału</string>
@@ -550,7 +549,6 @@
     <string name="skipped_reason_completed">Pominięto, ponieważ seria została ukończona</string>
     <string name="skipped_reason_not_caught_up">Pominięto, ponieważ istnieją nieprzeczytane rozdziały</string>
     <string name="action_close">Zamknij</string>
-    <string name="action_move_to_top_all_for_series">Przenieś serię na górę</string>
     <string name="action_sort_unread_count">Ilość nieprzeczytanych</string>
     <string name="learn_more">Kliknij, by dowiedzieć się więcej</string>
     <string name="update_check_open">Otwórz na GitHubie</string>
@@ -692,7 +690,6 @@
     <string name="track_delete_text">To usunie śledzenie lokalne.</string>
     <string name="action_apply">Zatwierdź</string>
     <string name="action_revert_to_default">Przywróć do domyślnych</string>
-    <string name="action_move_to_bottom_all_for_series">Przenieś serię na dół</string>
     <string name="relative_time_span_never">Nigdy</string>
     <string name="onboarding_storage_action_select">Wybierz folder</string>
     <string name="manga_interval_expected_update">Następna aktualizacja spodziewana za około %1$s, sprawdzanie co %2$s.</string>

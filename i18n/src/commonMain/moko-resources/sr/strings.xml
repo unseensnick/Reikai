@@ -368,7 +368,6 @@
     <string name="label_default">Подразумевано</string>
     <string name="action_start_downloading_now">Покрени преузимање одмах</string>
     <string name="action_display_show_number_of_items">Прикажи број ставки</string>
-    <string name="cancel_all_for_series">Откажи све за овај наслов</string>
     <string name="action_desc">Опадајуће</string>
     <string name="action_show_errors">Прикажи детаље</string>
     <string name="pref_category_appearance">Изглед</string>
@@ -541,7 +540,6 @@
     <string name="on_hiatus">На паузи</string>
     <string name="pref_update_only_started">Прескочи уносе који нису започети</string>
     <string name="action_show_manga">Прикажи наслов</string>
-    <string name="action_move_to_top_all_for_series">Помакни наслов на врх</string>
     <string name="learn_more">Додирните да сазнате више</string>
     <string name="library_errors_help">За помоћ о томе како да поправите грешке у ажурирању колекције, погледајте %1$s</string>
     <string name="skipped_reason_not_started">Прескочено јер ниједно поглавље није прочитано</string>
@@ -742,7 +740,6 @@
     <string name="selected">Одабрано</string>
     <string name="action_menu_overflow_description">Више опција</string>
     <string name="action_bar_up_description">Навигација према горе</string>
-    <string name="action_move_to_bottom_all_for_series">Премести серију на крај</string>
     <string name="app_settings">Подешавања апликације</string>
     <string name="source_settings">Подешавања извора</string>
     <string name="last_auto_backup_info">Последња аутоматска резервна копија:%s</string>
