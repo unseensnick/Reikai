@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
+import reikai.data.notification.shownEntryName
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.displayablePath
@@ -94,6 +95,7 @@ class BackupNotifier(
         progress: Int = 0,
         maxAmount: Int = 100,
         sync: Boolean = false,
+        isAdult: Boolean = false, // RK
     ): NotificationCompat.Builder {
         val builder = with(progressNotificationBuilder) {
             val contentTitle = if (sync) {
@@ -103,8 +105,12 @@ class BackupNotifier(
             }
             setContentTitle(contentTitle)
 
-            if (!preferences.hideNotificationContent.get()) {
-                setContentText(content)
+            // RK: an adult entry stays unnamed under Hide adult content, as in every notifier naming one
+            val hideAll = preferences.hideNotificationContent.get()
+            if (!hideAll) {
+                setContentText(
+                    shownEntryName(content, hideAll, preferences.hideAdultNotificationContent.get(), isAdult).orEmpty(),
+                )
             }
 
             setProgress(maxAmount, progress, false)

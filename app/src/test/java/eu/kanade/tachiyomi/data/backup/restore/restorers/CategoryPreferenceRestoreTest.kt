@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.backup.restore.restorers
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
@@ -21,6 +22,9 @@ import kotlinx.serialization.protobuf.ProtoNumber
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
+import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
@@ -28,6 +32,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -49,17 +54,19 @@ class CategoryPreferenceRestoreTest {
         Category(id = 200, name = "Completed", order = 2, flags = 0),
     )
 
+    private val categoryIdPreferences = CategoryIdPreferences(
+        libraryPreferences,
+        DownloadPreferences(store),
+        NovelPreferences(store),
+        ReikaiLibraryPreferences(store),
+        ReikaiSourcePreferences(store),
+    )
+
     private val restorer = PreferenceRestorer(
         context = mockk(),
         getCategories = mockk<GetCategories> { coEvery { await() } returns deviceCategories },
         preferenceStore = store,
-        categoryIdPreferences = CategoryIdPreferences(
-            libraryPreferences,
-            DownloadPreferences(store),
-            NovelPreferences(store),
-            ReikaiLibraryPreferences(store),
-            ReikaiSourcePreferences(store),
-        ),
+        categoryIdPreferences = categoryIdPreferences,
         novelPreferences = NovelPreferences(store),
         extensionSourcePreferences = SourcePreferences(store),
         networkPreferences = NetworkPreferences(store, isDebugBuild = false),
@@ -121,17 +128,51 @@ class CategoryPreferenceRestoreTest {
     }
 
     @Test
-    fun `a Reikai backup's default category maps to the same category here`() = runTest {
-        restore(reikaiCategories, BackupPreference(DEFAULT_CATEGORY, IntPreferenceValue(12)))
-
-        libraryPreferences.defaultCategory.get() shouldBe 200
-    }
-
-    @Test
     fun `a Reikai backup's Default category stays the Default category`() = runTest {
         restore(reikaiCategories, BackupPreference(DEFAULT_CATEGORY, IntPreferenceValue(0)))
 
         libraryPreferences.defaultCategory.get() shouldBe 0
+    }
+
+    // Novel categories restore after the app settings, so the novel default is remapped in a second pass.
+    private val novelRestorer = NovelRestorer(
+        novelRepository = mockk(relaxed = true),
+        novelChapterRepository = mockk(relaxed = true),
+        categoryRepository = mockk<CategoryRepository> {
+            coEvery { getAll(CategoryContentType.NOVEL) } returns deviceCategories
+        },
+        novelTrackRepository = mockk(relaxed = true),
+        restoreMergeGroups = mockk(relaxed = true),
+        setCustomNovelInfo = mockk(relaxed = true),
+        database = mockk(relaxed = true),
+        categoryIdPreferences = categoryIdPreferences,
+    )
+
+    /** The default category a restore leaves for [kind], from a backup whose categories may [repeatIds]. */
+    private suspend fun restoredDefault(kind: String, repeatIds: Boolean, backupDefault: Int): Int? {
+        val ids = if (repeatIds) listOf(0L, 0L) else listOf(11L, 12L)
+        val names = listOf("Reading", "Completed")
+        val preference = if (kind == "manga") categoryIdPreferences.mangaDefault else categoryIdPreferences.novelDefault
+        val backupCategories = ids.zip(names) { id, name -> BackupCategory(name = name, id = id) }
+        restore(
+            if (kind == "manga") backupCategories else emptyList(),
+            BackupPreference(preference.key(), IntPreferenceValue(backupDefault)),
+        )
+        val novelCategories = ids.zip(names) { id, name -> BackupNovelCategory(name, id = id) }
+        if (kind == "novel") novelRestorer.remapCategoryPreferences(novelCategories)
+        return preference.get().takeIf { preference.isSet() }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["manga", "novel"])
+    fun `a default category naming a backup id that repeats is dropped rather than guessed`(kind: String) = runTest {
+        restoredDefault(kind, repeatIds = true, backupDefault = 3) shouldBe null
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["manga", "novel"])
+    fun `a default category maps through its name to the same category here`(kind: String) = runTest {
+        restoredDefault(kind, repeatIds = false, backupDefault = 12) shouldBe 200
     }
 
     /** The Backup field 2 of each app, alone. */

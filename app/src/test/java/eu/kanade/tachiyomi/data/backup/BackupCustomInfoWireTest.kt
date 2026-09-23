@@ -71,6 +71,17 @@ class BackupCustomInfoWireTest {
     }
 
     @Test
+    fun `a Yokai series that left its status alone restores no status override`() {
+        val bytes = proto.encodeToByteArray(
+            YokaiManga.serializer(),
+            YokaiManga(source = 1L, url = "/m", customStatus = -1, customTitle = "My title"),
+        )
+
+        proto.decodeFromByteArray(BackupManga.serializer(), bytes).customInfo shouldBe
+            BackupCustomInfo(title = "My title")
+    }
+
+    @Test
     fun `a series written here reads in Komikku with its custom info`() {
         val manga = BackupManga(source = 1L, url = "/m").apply { customInfo = everyField }
 

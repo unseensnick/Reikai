@@ -51,13 +51,17 @@ data class LnPluginLoadFailure(
             return LnPluginLoadFailure(
                 url = url,
                 pluginId = metadata?.pluginId,
-                name = seen?.name ?: url.substringAfterLast('/').substringBeforeLast('.'),
+                name = pluginName(url, seen),
                 iconUrl = metadata?.iconUrl ?: seen?.iconUrl,
                 lang = metadata?.lang ?: seen?.lang,
                 version = metadata?.version,
                 reason = reason,
             )
         }
+
+        /** What to call a plugin in a message: the name it last loaded under, else its script's file name. */
+        fun pluginName(url: String, seen: LnSourceIdentity?): String =
+            seen?.name ?: url.substringAfterLast('/').substringBeforeLast('.')
 
         private fun Throwable.causes(): Sequence<Throwable> = generateSequence(this) { it.cause }
     }

@@ -24,9 +24,13 @@ class NovelPluginRestorer(
         // Bounded, because the load fetches each script and revalidates against the added repos: an
         // unreachable repo used to be the reason this ran lazily instead of here. A timeout leaves the
         // plugins to the lazy loader on the next novel screen, and says so.
-        val finished = withTimeoutOrNull(LOAD_TIMEOUT_MS) { installer.loadInstalled() } != null
+        val load = withTimeoutOrNull(LOAD_TIMEOUT_MS) { installer.loadInstalled() }
         val failures = installer.failures.value.values.map { NotRestored(it.name, it.reason.label()) }
-        return if (finished) failures else failures + NotRestored(null, "load timed out")
+        return when {
+            load == null -> failures + NotRestored(null, "load timed out")
+            load.unreachableRepo != null -> failures + NotRestored(null, "repo unreachable: ${load.unreachableRepo}")
+            else -> failures + load.dropped.map { NotRestored(it, "no added repo lists it") }
+        }
     }
 
     private fun LnPluginLoadFailure.Reason.label(): String = when (this) {

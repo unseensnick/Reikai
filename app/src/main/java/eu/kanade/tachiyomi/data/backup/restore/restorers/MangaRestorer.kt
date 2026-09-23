@@ -399,6 +399,11 @@ class MangaRestorer(
         )
     }
 
+    // RK: an older root-list row for a series the backup does not list, applied when the device has it
+    suspend fun restoreCustomInfo(source: Long, url: String, info: BackupCustomInfo) {
+        getMangaByUrlAndSourceId.await(url, source)?.let { restoreCustomInfo(it.id, info) }
+    }
+
     // RK: the novel twin is NovelRestorer.restoreCustomInfo; both read BackupCustomInfoFields.customInfo.
     private suspend fun restoreCustomInfo(mangaId: Long, info: BackupCustomInfo) {
         setCustomMangaInfo.set(

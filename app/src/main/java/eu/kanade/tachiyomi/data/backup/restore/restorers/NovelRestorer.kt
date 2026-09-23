@@ -17,6 +17,7 @@ import reikai.data.novel.updateNovelFetchInterval
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.backupCategoryIdToName
+import reikai.domain.category.translateCategoryId
 import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
@@ -96,10 +97,11 @@ class NovelRestorer(
         val defaultPreference = categoryIdPreferences.novelDefault
         val currentDefault = defaultPreference.get()
         if (currentDefault > 0) {
-            backupIdToName[currentDefault.toString()]
-                ?.let { nameToNewId[it] }
+            // An id no restored category took is dropped rather than left naming whatever has that id here.
+            translateCategoryId(currentDefault.toString(), backupIdToName, nameToNewId, currentIds)
                 ?.toIntOrNull()
                 ?.let(defaultPreference::set)
+                ?: defaultPreference.delete()
         }
     }
 
@@ -231,6 +233,11 @@ class NovelRestorer(
                 group.refs.mapNotNull { novelRepository.getByUrlAndSource(it.url, it.source)?.id }
             },
         )
+    }
+
+    /** An older root-list row for a novel the backup does not list, applied when the device has it. */
+    suspend fun restoreCustomInfo(source: String, url: String, info: BackupCustomInfo) {
+        novelRepository.getByUrlAndSource(url, source)?.let { restoreCustomInfo(it.id, info) }
     }
 
     /** The manga twin is MangaRestorer.restoreCustomInfo; both read BackupCustomInfoFields.customInfo. */

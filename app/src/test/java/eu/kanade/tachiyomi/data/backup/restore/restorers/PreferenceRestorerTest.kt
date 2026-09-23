@@ -156,7 +156,7 @@ class PreferenceRestorerTest {
             backupCategories = null,
         )
 
-        novelPreferences.readerTapLayout().isSet() shouldBe true
+        novelPreferences.readerTapLayout().let { it.get() to it.isSet() } shouldBe (NovelTapLayout.DISABLED to true)
     }
 
     @Test

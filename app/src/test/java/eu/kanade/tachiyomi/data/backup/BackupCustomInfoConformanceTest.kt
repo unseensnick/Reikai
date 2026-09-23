@@ -70,6 +70,20 @@ class BackupCustomInfoConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("restorers")
+    fun `an entry's own custom info wins over the root list`(restorer: CustomInfoRestorer) = runTest {
+        restorer.restore(onEntry = EVERY_FIELD, inRootList = BackupCustomInfo(title = "Older")) shouldBe
+            listOf(LOCAL_ID to EVERY_FIELD)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("restorers")
+    fun `an older Reikai backup's root list reaches an entry the backup does not list`(restorer: CustomInfoRestorer) =
+        runTest {
+            restorer.restore(inRootList = EVERY_FIELD, listed = false) shouldBe listOf(LOCAL_ID to EVERY_FIELD)
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("restorers")
     fun `an entry without custom info leaves the device's own untouched`(restorer: CustomInfoRestorer) = runTest {
         restorer.restore() shouldBe emptyList()
     }
@@ -216,11 +230,13 @@ interface CustomInfoRestorer {
 
     /**
      * Restores the entry with [onEntry] on its own fields and [inRootList] in an older backup's root list,
-     * decoded from real bytes, and returns what was written as (local id, custom info).
+     * decoded from real bytes, and returns what was written as (local id, custom info). An entry not
+     * [listed] in the backup is only on the device, as a 0.3.x novel out of the library was.
      */
     suspend fun restore(
         onEntry: BackupCustomInfo? = null,
         inRootList: BackupCustomInfo? = null,
+        listed: Boolean = true,
     ): List<Pair<Long, BackupCustomInfo>>
 }
 
@@ -231,18 +247,23 @@ class MangaCustomInfoRestorer : CustomInfoRestorer {
     override suspend fun restore(
         onEntry: BackupCustomInfo?,
         inRootList: BackupCustomInfo?,
+        listed: Boolean,
     ): List<Pair<Long, BackupCustomInfo>> {
         val backup = ProtoBuf.decodeFromByteArray(
             Backup.serializer(),
             ProtoBuf.encodeToByteArray(
                 Backup.serializer(),
                 Backup(
-                    backupManga = listOf(BackupManga(source = 1L, url = "u").apply { customInfo = onEntry }),
+                    backupManga = listOf(
+                        BackupManga(source = 1L, url = "u").apply {
+                            customInfo = onEntry
+                        },
+                    ).filter { listed },
                     backupCustomMangaInfo = listOfNotNull(inRootList?.let { it.toRootEntry() }),
                 ),
             ),
         )
-        val manga = LegacyCustomInfo(backup.backupCustomMangaInfo, emptyList()).applyTo(backup.backupManga.single())
+        val legacy = LegacyCustomInfo(backup.backupCustomMangaInfo, emptyList())
 
         val written = mutableListOf<Pair<Long, BackupCustomInfo>>()
         val repository = mockk<CustomMangaInfoRepository> {
@@ -265,7 +286,7 @@ class MangaCustomInfoRestorer : CustomInfoRestorer {
                 secondArg<suspend SuspendingTransactionWithoutReturn.() -> Unit>().invoke(mockk(relaxed = true))
             }
         }
-        MangaRestorer(
+        val restorer = MangaRestorer(
             database = database,
             getCategories = mockk(relaxed = true),
             getMangaByUrlAndSourceId = mockk<GetMangaByUrlAndSourceId> {
@@ -282,7 +303,14 @@ class MangaCustomInfoRestorer : CustomInfoRestorer {
             restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
             mangaMetadataRepository = mockk(relaxed = true),
             setCustomMangaInfo = SetCustomMangaInfo(repository),
-        ).restore(manga, emptyList())
+        )
+        backup.backupManga.forEach {
+            restorer.restore(
+                legacy.decodeManga(ProtoBuf, ProtoBuf.encodeToByteArray(BackupManga.serializer(), it)),
+                emptyList(),
+            )
+        }
+        legacy.unclaimedManga().forEach { (ref, info) -> restorer.restoreCustomInfo(ref.first, ref.second, info) }
         return written
     }
 
@@ -297,6 +325,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
     override suspend fun restore(
         onEntry: BackupCustomInfo?,
         inRootList: BackupCustomInfo?,
+        listed: Boolean,
     ): List<Pair<Long, BackupCustomInfo>> {
         val backup = ProtoBuf.decodeFromByteArray(
             Backup.serializer(),
@@ -304,12 +333,16 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
                 Backup.serializer(),
                 Backup(
                     backupManga = emptyList(),
-                    backupNovels = listOf(BackupNovel(source = "s", url = "u").apply { customInfo = onEntry }),
+                    backupNovels = listOf(
+                        BackupNovel(source = "s", url = "u").apply {
+                            customInfo = onEntry
+                        },
+                    ).filter { listed },
                     backupCustomNovelInfo = listOfNotNull(inRootList?.let { it.toRootEntry() }),
                 ),
             ),
         )
-        val novel = LegacyCustomInfo(emptyList(), backup.backupCustomNovelInfo).applyTo(backup.backupNovels.single())
+        val legacy = LegacyCustomInfo(emptyList(), backup.backupCustomNovelInfo)
 
         val written = mutableListOf<Pair<Long, BackupCustomInfo>>()
         val repository = mockk<CustomNovelInfoRepository> {
@@ -332,7 +365,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
                 Novel.create().copy(id = BackupCustomInfoConformanceTest.LOCAL_ID, url = "u", source = "s")
             coEvery { getById(BackupCustomInfoConformanceTest.LOCAL_ID) } returns null
         }
-        NovelRestorer(
+        val restorer = NovelRestorer(
             novelRepository = novels,
             novelChapterRepository = mockk(relaxed = true),
             categoryRepository = mockk(relaxed = true),
@@ -341,7 +374,14 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             setCustomNovelInfo = SetCustomNovelInfo(repository),
             database = mockk(relaxed = true),
             categoryIdPreferences = mockk(relaxed = true),
-        ).restore(novel, emptyList())
+        )
+        backup.backupNovels.forEach {
+            restorer.restore(
+                legacy.decodeNovel(ProtoBuf, ProtoBuf.encodeToByteArray(BackupNovel.serializer(), it)),
+                emptyList(),
+            )
+        }
+        legacy.unclaimedNovels().forEach { (ref, info) -> restorer.restoreCustomInfo(ref.first, ref.second, info) }
         return written
     }
 

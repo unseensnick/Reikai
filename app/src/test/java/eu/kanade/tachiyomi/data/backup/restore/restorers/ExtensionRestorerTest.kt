@@ -82,6 +82,23 @@ class ExtensionRestorerTest {
         restorer.restore(listOf(orphan)) shouldBe listOf(NotRestored("Orphan", Reason.RepoMissing))
     }
 
+    // Not stubbed to install: a second install would throw and come back as InstallFailed.
+    @Test
+    fun `an extension already installed is not installed again`() = runTest {
+        every { extensionManager.loadedExtensionsFlow } returns
+            MutableStateFlow(listOf(mockk<Extension.Loaded> { every { pkgName } returns "ext.foo" }))
+
+        restorer.restore(listOf(backup)).shouldBeEmpty()
+    }
+
+    @Test
+    fun `a novel extension app already installed is not installed again`() = runTest {
+        every { extensionManager.loadedNovelExtensionsFlow } returns
+            MutableStateFlow(listOf(mockk<Extension.Loaded> { every { pkgName } returns "novel.bar" }))
+
+        restorer.restore(listOf(BackupExtension(pkgName = "novel.bar", name = "Bar"))).shouldBeEmpty()
+    }
+
     @Test
     fun `a novel extension app a repo offers is reinstalled`() = runTest {
         every { extensionManager.installExtension(novelApp) } returns flowOf(InstallStep.Installed)

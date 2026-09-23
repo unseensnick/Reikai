@@ -35,7 +35,7 @@ class NovelPluginRestorerTest {
 
     init {
         every { installer.failures } returns loadFailures
-        coEvery { installer.loadInstalled() } returns emptyList()
+        coEvery { installer.loadInstalled() } returns LnPluginInstaller.InstalledLoad()
     }
 
     private fun failure(reason: LnPluginLoadFailure.Reason) = LnPluginLoadFailure(
@@ -80,13 +80,28 @@ class NovelPluginRestorerTest {
     fun `a load that outlasts its bound is reported rather than waited out`() = runTest {
         coEvery { installer.loadInstalled() } coAnswers {
             delay(10 * 60 * 1000L)
-            emptyList()
+            LnPluginInstaller.InstalledLoad()
         }
 
         restorer.restore() shouldBe listOf(NotRestored(null, "load timed out"))
     }
 
+    @Test
+    fun `a repo that could not be reached is named, since nothing could be trusted to load`() = runTest {
+        coEvery { installer.loadInstalled() } returns LnPluginInstaller.InstalledLoad(unreachableRepo = REPO_URL)
+
+        restorer.restore() shouldBe listOf(NotRestored(null, "repo unreachable: $REPO_URL"))
+    }
+
+    @Test
+    fun `a plugin no added repo lists any more is named`() = runTest {
+        coEvery { installer.loadInstalled() } returns LnPluginInstaller.InstalledLoad(dropped = listOf("Novel Fire"))
+
+        restorer.restore() shouldBe listOf(NotRestored("Novel Fire", "no added repo lists it"))
+    }
+
     private companion object {
         const val PLUGIN_URL = "https://example.com/plugins/novelfire.js"
+        const val REPO_URL = "https://example.com/plugins.min.json"
     }
 }

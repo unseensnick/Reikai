@@ -551,7 +551,7 @@ every release now also ships a foss build with neither in it.
 - **Statistics now counts a merged series once instead of once per source.** The title, completed, started and tracked figures all read higher than the library they describe.
 - **Statistics now counts your downloaded novel chapters.** The Downloaded figure only ever counted manga.
 - **With Hide adult content in notifications on, update notifications no longer come out blank for series from a source that carries extra metadata.** The setting was treating those as adult.
-- **Hide adult content in notifications now keeps adult titles out of every notification that names a series.** That covers library and novel updates, download progress, download errors and read aloud, for manga and novels alike; novels are judged adult by their genre tags.
+- **Hide adult content in notifications now keeps adult titles out of every notification that names a series.** That covers library and novel updates, download progress, download errors, backup restores and read aloud, for manga and novels alike; novels are judged adult by their genre tags.
 - **Hide notification content now also covers read aloud and its lock screen, novel downloads and updates, and the follows sync.** Manga's own update and download notifications already followed it.
 - **A long series title no longer pushes the chapter numbers out of its update notification.**
 - **The Reikai icon on a notification is now the same size as every other notification icon.** It was drawing about a fifth smaller than its neighbours in the shade.

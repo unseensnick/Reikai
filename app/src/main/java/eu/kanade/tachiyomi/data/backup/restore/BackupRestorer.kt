@@ -40,8 +40,10 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
+import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.novel.download.NovelDownloadCache
+import reikai.util.hasLewdGenre
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
@@ -76,6 +78,7 @@ class BackupRestorer(
     private val novelPluginRestorer: NovelPluginRestorer,
     private val reconcileMergedChapters: ReconcileMergedChapters,
     private val novelDownloadCache: NovelDownloadCache,
+    private val adultContentChecker: AdultContentChecker,
     // RK <--
 ) {
 
@@ -162,8 +165,11 @@ class BackupRestorer(
             if (options.categories) {
                 restoreCategories(summary.backupCategories).join()
             }
-            if (options.appSettings) {
+            // RK: kept, so the plugin restore below can wait for the plugin and repo URLs this writes
+            val appPreferences = if (options.appSettings) {
                 restoreAppPreferences(summary.backupPreferences, summary.backupCategories.takeIf { options.categories })
+            } else {
+                null
             }
             if (options.sourceSettings) {
                 restoreSourcePreferences(summary.backupSourcePreferences)
@@ -192,6 +198,7 @@ class BackupRestorer(
             // errors while every novel source was unusable.
             if (options.appSettings) {
                 ensureActive()
+                appPreferences?.join()
                 try {
                     novelPluginRestorer.restore().forEach { (name, reason) ->
                         errors.add(
@@ -345,17 +352,29 @@ class BackupRestorer(
                     }
                 }
 
-                notifier.showRestoreProgress(batch.last().title, restoreProgress.load(), restoreAmount, isSync)
+                val last = batch.last()
+                notifier.showRestoreProgress(
+                    last.title,
+                    restoreProgress.load(),
+                    restoreAmount,
+                    isSync,
+                    isAdult = hasLewdGenre(last.genre),
+                )
                 batch.clear()
             }
 
             BackupProtoReader(context).read(uri) { fieldNumber, data ->
                 if (fieldNumber != 700) return@read
                 ensureActive()
-                batch.add(summary.legacyCustomInfo.applyTo(parser.decodeFromByteArray(BackupNovel.serializer(), data)))
+                batch.add(summary.legacyCustomInfo.decodeNovel(parser, data))
                 if (batch.size >= RESTORE_CHUNK) flush()
             }
             flush()
+            restoreIsolated("novel custom info") {
+                summary.legacyCustomInfo.unclaimedNovels().forEach { (ref, info) ->
+                    novelRestorer.restoreCustomInfo(ref.first, ref.second, info)
+                }
+            }
 
             // Isolated for the same reason as the manga twin: a failure here used to cancel the
             // sibling stream and escape before the error log was written.
@@ -422,17 +441,29 @@ class BackupRestorer(
                 }
             }
 
-            notifier.showRestoreProgress(batch.last().title, restoreProgress.load(), restoreAmount, isSync)
+            val last = batch.last()
+            notifier.showRestoreProgress(
+                last.title,
+                restoreProgress.load(),
+                restoreAmount,
+                isSync,
+                isAdult = adultContentChecker.adultIdsAmong(listOf(last.getMangaImpl())).isNotEmpty(),
+            )
             batch.clear()
         }
 
         BackupProtoReader(context).read(uri) { fieldNumber, data ->
             if (fieldNumber != 1) return@read
             ensureActive()
-            batch.add(legacyCustomInfo.applyTo(parser.decodeFromByteArray(BackupManga.serializer(), data)))
+            batch.add(legacyCustomInfo.decodeManga(parser, data))
             if (batch.size >= RESTORE_CHUNK) flush()
         }
         flush()
+        restoreIsolated("manga custom info") {
+            legacyCustomInfo.unclaimedManga().forEach { (ref, info) ->
+                mangaRestorer.restoreCustomInfo(ref.first, ref.second, info)
+            }
+        }
 
         // RK: with every manga restored (fresh IDs), materialize the backup's merge groups. Isolated
         // like the entry loop above: this ran bare, so a failure here cancelled the novel stream

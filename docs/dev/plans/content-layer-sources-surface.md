@@ -122,7 +122,7 @@ Each step is verified on the emulator before the next starts; the checks named a
 - `reikai/presentation/browse/catalogue/EntryCatalogueScreen.kt` (the filter and settings slots), `app/.../ui/browse/source/browse/SourceFilterDialog.kt`, `app/.../ui/browse/extension/details/SourcePreferencesScreen.kt` (`populateScreen`).
 - `reikai/presentation/browse/extension/ReikaiExtensionsTab.kt`, `ExtensionsProvider.kt`.
 - `reikai/domain/novel/interactor/SetNovelReadStatus.kt`, `UpdateNovel.kt` (`awaitUpdateFavorite`), `app/.../domain/chapter/interactor/SetReadStatus.kt`, `reikai/novel/download/NovelDownloadPacing.kt` (`floorFor`).
-- `app/.../domain/track/interactor/AddTracks.kt` (`bindEnhancedTrackers`), `SyncChapterProgressWithTrack.kt`, `reikai/presentation/track/EntryTrackInfoDialog.kt` (`registerEnhancedTracking`), `mihon/domain/migration/usecases/MigrateMangaUseCase.kt`, `reikai/domain/novel/interactor/MigrateNovelUseCase.kt`.
+- `app/.../domain/track/interactor/AddTracks.kt` (`bindEnhancedTrackers`), `SyncChapterProgressWithTrack.kt`, `reikai/domain/track/autobind/AutoBind.kt` (`offerTrackers`, `bindOnAdd`), `reikai/presentation/track/EntryTrackInfoDialog.kt` (`registerAutoBind`), `mihon/domain/migration/usecases/MigrateMangaUseCase.kt`, `reikai/domain/novel/interactor/MigrateNovelUseCase.kt`.
 - `app/.../data/track/novelupdates/` (`NovelUpdates.push`, `NovelUpdatesApi`).
 - `app/proguard-rules.pro`, `gradle/libs.versions.toml`.
 
