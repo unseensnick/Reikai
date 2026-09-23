@@ -117,12 +117,12 @@ class NovelUpdatesReleasesTest {
     }
 
     @Test
-    fun `an unread unticks its lowest chapter`() {
+    fun `an unread moves back from its lowest chapter`() {
         unreadTarget(listOf(4.0, 2.0, 3.0)) { it } shouldBe 2.0
     }
 
     @Test
-    fun `an unread of unnumbered chapters unticks the first`() {
+    fun `an unread of unnumbered chapters moves back from the first`() {
         unreadTarget(listOf(-1.0, -1.0)) { it } shouldBe -1.0
     }
 }

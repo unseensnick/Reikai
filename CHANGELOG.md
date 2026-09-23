@@ -465,10 +465,10 @@ every release now also ships a foss build with neither in it.
 - **A Kitsu search can now take a title's web-address name too, written as `id:shadow-slave` (synced from Mihon, mihonapp/mihon#3792).** Handy when you have the Kitsu link but not the number, and it works on manga and novels alike.
 - **Extensions that sync reading to their own site now hear what you read, add and remove, on manga and novels, once their own tracking setting is on.** A failed sync shows a message.
 - **Settings -> Tracking can pass migrations on to extensions that sync reading to their own site.** It is on by default.
-- **NovelUpdates now ticks the release you read, for novels from its app or plugin and for other sources' chapters whose number matches a release.**
+- **NovelUpdates now moves your reading-list bookmark to the chapter you read, for novels from its app or plugin and for other sources' chapters whose number matches a release.**
 - **Novels added from the NovelUpdates app or plugin now track there on their own once you sign in to NovelUpdates.**
 - **Rereading an earlier chapter leaves NovelUpdates where it is, unless you turn off Settings -> Tracking -> Never move progress back.**
-- **Settings -> Tracking -> Untick releases on unread moves NovelUpdates back when you mark chapters unread.** It is off by default.
+- **Settings -> Tracking -> Move back on unread moves your NovelUpdates bookmark back when you mark chapters unread.** It is off by default.
 
 #### Changed
 

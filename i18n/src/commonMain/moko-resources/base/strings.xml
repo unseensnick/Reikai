@@ -993,7 +993,7 @@
     <string name="pref_novelupdates_configure_lists_summary">Tap a status to move it to your next list</string>
     <string name="pref_novelupdates_never_backwards">Never move progress back</string>
     <string name="pref_novelupdates_never_backwards_summary">Reading an earlier chapter leaves NovelUpdates where it is</string>
-    <string name="pref_novelupdates_unread_push">Untick releases on unread</string>
+    <string name="pref_novelupdates_unread_push">Move back on unread</string>
     <string name="pref_novelupdates_unread_push_summary">Marking chapters unread moves NovelUpdates back</string>
     <string name="pref_novelupdates_lists_loading">Loading your lists</string>
     <string name="pref_novelupdates_lists_loaded">%1$d lists loaded</string>

@@ -2,7 +2,7 @@ package eu.kanade.tachiyomi.data.track.novelupdates
 
 import org.jsoup.nodes.Document
 
-/** One release of a series on the site: a translation group's post of one chapter, ticked by [id]. */
+/** One release of a series on the site: a translation group's post of one chapter, bookmarked by [id]. */
 data class NovelUpdatesRelease(val id: String, val name: String)
 
 private val RELEASE_LINK = Regex("""(?:^|novelupdates\.com)/?extnu/(\d+)""")
@@ -29,9 +29,9 @@ internal fun parseReleases(document: Document): List<NovelUpdatesRelease> =
     }
 
 /**
- * Which release to tick for chapter [number]: the one the read chapter links to when that is a single
- * release, as the extension ticks; else the site's only release numbered [number], when [releases]
- * can be fetched; else none, since ticking a guess marks the wrong group's post.
+ * Which release to bookmark for chapter [number]: the one the read chapter links to when that is a single
+ * release, as the extension marks; else the site's only release numbered [number], when [releases]
+ * can be fetched; else none, since bookmarking a guess marks the wrong group's post.
  */
 internal suspend fun pickRelease(
     number: Double,
@@ -62,6 +62,6 @@ internal fun progressAfterUnread(unreadChapter: Double, stillRead: Double?, onSi
     return if (onSite != null) minOf(left, onSite.toDouble()) else left
 }
 
-/** The release an unread unticks: the lowest chapter unread, as the extension does. */
+/** The unread chapter that decides how far the site moves back: the lowest one unread. */
 internal fun <T> unreadTarget(unread: List<T>, numberOf: (T) -> Double): T? =
     unread.filter { numberOf(it) > 0 }.minByOrNull(numberOf) ?: unread.firstOrNull()

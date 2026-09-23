@@ -123,11 +123,13 @@ class NovelUpdates(id: Long) :
         val target = unreadTarget(unread) { it.chapterNumber } ?: return null
         val onSite = api.readNotes(novelId)?.let { progressFrom(it.notes) }
         // Called after the unread is written, so this is what is still read.
-        val stillRead = groupChapters(track.manga_id)
+        val chapters = groupChapters(track.manga_id)
+        val stillRead = chapters
             .filter { it.read && it.chapterNumber > 0 }
             .maxOfOrNull { it.chapterNumber }
         val progress = progressAfterUnread(target.chapterNumber, stillRead, onSite) ?: return null
-        markRelease(track, novelId, target.chapterNumber, setOfNotNull(releaseIdOf(target.url)), read = false)
+        // With nothing still read the bookmark stays: the site has no way to move it to "none".
+        if (progress > 0) bookmarkRelease(track, novelId, progress, readReleaseIds(chapters, progress))
         track.last_chapter_read = progress
         push(track)
         return track
@@ -223,7 +225,8 @@ class NovelUpdates(id: Long) :
      * Status moves the entry between lists; progress is written into the note. The note is read back
      * first and left alone when it does not parse, so a bad response cannot blank what the user
      * wrote. Nothing here catches: a failed write must reach the caller rather than read as success.
-     * A [readChapter] also ticks its release, and never moves the site back unless the user allows it.
+     * A [readChapter] also moves the site's bookmark to its release, and never moves the site back
+     * unless the user allows it.
      */
     private suspend fun push(track: Track, readChapter: Boolean = false) {
         val novelId = track.remote_id.toString()
@@ -238,10 +241,8 @@ class NovelUpdates(id: Long) :
             return
         }
         if (readChapter) {
-            val readIds = groupChapters(track.manga_id)
-                .filter { it.read && it.chapterNumber == track.last_chapter_read }
-                .mapNotNullTo(HashSet()) { releaseIdOf(it.url) }
-            markRelease(track, novelId, track.last_chapter_read, readIds, read = true)
+            val readIds = readReleaseIds(groupChapters(track.manga_id), track.last_chapter_read)
+            bookmarkRelease(track, novelId, track.last_chapter_read, readIds)
         }
         val updated = notesWithProgress(existing.notes, track.last_chapter_read.toInt())
         if (updated != existing.notes) {
@@ -250,27 +251,30 @@ class NovelUpdates(id: Long) :
     }
 
     /**
-     * Ticks or unticks the release for chapter [number]. One that cannot be resolved or written is
-     * skipped rather than failing the push, since the note still carries the progress.
+     * Moves the site's bookmark to the release for chapter [number]. One that cannot be resolved or
+     * written is skipped rather than failing the push, since the note still carries the progress.
      */
-    private suspend fun markRelease(
+    private suspend fun bookmarkRelease(
         track: Track,
         novelId: String,
         number: Double,
         readIds: Set<String>,
-        read: Boolean,
     ) {
         try {
             val releaseId = pickRelease(number, readIds, { api.releases(novelId) }) {
                 ChapterRecognition.parseChapterNumber(track.title, it)
             } ?: return
-            api.markRelease(novelId, releaseId, read)
+            api.bookmarkRelease(novelId, releaseId)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logcat(LogPriority.WARN, e) { "Could not mark a NovelUpdates release" }
         }
     }
+
+    /** The site release ids of the read chapters numbered [number]. */
+    private fun readReleaseIds(chapters: List<NovelChapter>, number: Double): Set<String> =
+        chapters.filter { it.read && it.chapterNumber == number }.mapNotNullTo(HashSet()) { releaseIdOf(it.url) }
 
     /** The novel's chapters and those of the sources merged with it, since a track spans the group. */
     private suspend fun groupChapters(novelId: Long): List<NovelChapter> =

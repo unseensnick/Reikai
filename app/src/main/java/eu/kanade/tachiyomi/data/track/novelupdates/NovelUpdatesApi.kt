@@ -96,10 +96,12 @@ class NovelUpdatesApi(client: OkHttpClient) {
         return parseReleases(client.newCall(POST(AJAX_URL, headers, body)).awaitSuccess().asJsoup())
     }
 
-    /** Ticks or unticks one release in the reading list, as the release list's own checkbox does. */
-    suspend fun markRelease(novelId: String, releaseId: String, read: Boolean) {
-        val checked = if (read) "yes" else "no"
-        client.newCall(GET("$BASE_URL/readinglist_update.php?rid=$releaseId&sid=$novelId&checked=$checked", headers))
+    /**
+     * Moves the series' one reading-list bookmark to a release, earlier or later, as the release list's
+     * checkbox does. `checked=no` never moves it back: it only takes the bookmark off that release.
+     */
+    suspend fun bookmarkRelease(novelId: String, releaseId: String) {
+        client.newCall(GET("$BASE_URL/readinglist_update.php?rid=$releaseId&sid=$novelId&checked=yes", headers))
             .awaitSuccess()
             .close()
     }
