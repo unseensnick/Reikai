@@ -76,5 +76,9 @@ internal fun partitionExtensions(
         }
         .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
 
-    return Extensions(updates, loaded, available, notLoaded)
+    val updateVersions = updates.mapNotNull { update ->
+        offered.find { it.pkgName == update.pkgName }?.let { update.pkgName to it.versionName }
+    }.toMap()
+
+    return Extensions(updates, loaded, available, notLoaded, updateVersions)
 }

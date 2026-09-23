@@ -24,6 +24,22 @@ class SectionExtensionsTest {
         )
     }
 
+    /** A language's own section already names it in its heading; every other section names it per row. */
+    @Test
+    fun `only a row outside a language's own section names its language`() {
+        listOf(
+            ExtensionSection.Updates,
+            ExtensionSection.NotLoaded,
+            ExtensionSection.Installed,
+            ExtensionSection.Available("en"),
+        ).map { it.namesLanguage } shouldBe listOf(true, true, true, false)
+    }
+
+    @Test
+    fun `a pending update shows the version it brings after the one installed`() {
+        versionLabel("1.6.7", "1.6.8") shouldBe "1.6.7 → 1.6.8"
+    }
+
     /** Upstream lists what did not load ahead of what did, so the extensions that need a look lead. */
     @Test
     fun `not loaded sits between updates and installed, for both content types`() {

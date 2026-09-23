@@ -98,7 +98,9 @@ fun apkExtensionRows(
     downloads: Map<String, InstallStep>,
     key: (Extension) -> ExtensionKey,
 ): List<BrowseExtensionRow>? = extensions?.run {
-    updates.map { it.toRow(ExtensionSection.Updates, downloads, key) } +
+    updates.map {
+        it.toRow(ExtensionSection.Updates, downloads, key).copy(updateVersion = updateVersions[it.pkgName])
+    } +
         notLoaded.map { it.toRow(ExtensionSection.NotLoaded, downloads, key) } +
         loaded.map { it.toRow(ExtensionSection.Installed, downloads, key) } +
         available.map { it.toRow(ExtensionSection.Available(it.lang), downloads, key) }
@@ -193,6 +195,7 @@ fun novelExtensionRows(
     return updates.mapNotNull {
         val lang = it.entry.lang.toLangCode()
         novelRow(claimed, it.entry.site, it.entry.id, it.entry.name, lang, ExtensionSection.Updates, it)
+            ?.copy(updateVersion = it.entry.version)
     } + notLoaded.mapNotNull {
         // Keyed by URL when the install never recorded a plugin id, which is still one row per plugin.
         val lang = it.lang.orEmpty().toLangCode()

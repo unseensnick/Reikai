@@ -46,6 +46,18 @@ class NovelExtensionRowsTest {
         )
     }
 
+    @Test
+    fun `a plugin with an update pending names the version it brings`() {
+        val rows = novelExtensionRows(
+            updates = listOf(update("novelbin")),
+            notLoaded = emptyList(),
+            installed = listOf(source("novelbin")),
+            available = emptyList(),
+        )
+
+        rows.single().updateVersion shouldBe "2.0.0"
+    }
+
     /** Updating reinstalls the plugin, which is the likeliest fix for one that did not load. */
     @Test
     fun `a plugin that failed to load with an update pending is only under Updates`() {

@@ -63,7 +63,15 @@ data class BrowseExtensionRow(
     val searchTerms: List<String>,
     val searchIds: List<String>,
     val payload: Any,
+    /** The version a pending update brings, for a row under Updates. */
+    val updateVersion: String? = null,
 )
+
+/** Whether a row names its language: every section but a language's own, whose heading already does. */
+val ExtensionSection.namesLanguage: Boolean get() = this !is ExtensionSection.Available
+
+/** A row's version, followed by the one a pending update brings. */
+fun versionLabel(version: String, update: String?): String = if (update == null) version else "$version → $update"
 
 /** A rendered Extensions list: section headings interleaved with the rows under them. */
 sealed interface ExtensionsListItem {

@@ -45,6 +45,7 @@ import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Settings
 import mihon.icons.materialsymbols.rounded.VerifiedUser
 import reikai.presentation.browse.components.NovelIconInset
+import reikai.presentation.browse.extension.versionLabel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
@@ -69,6 +70,9 @@ fun ExtensionItem(
     modifier: Modifier = Modifier,
     // RK: content-type badge, beside the name, drawn by the shared list when it holds both types.
     badge: @Composable () -> Unit = {},
+    // RK: the language outside a language's own section, and the version a pending update brings
+    showsLanguage: Boolean = item.extension is Extension.Loaded,
+    updateVersion: String? = null,
 ) {
     val (extension, installStep) = item
     BaseBrowseItem(
@@ -121,6 +125,8 @@ fun ExtensionItem(
             extension = extension,
             installStep = installStep,
             badge = badge,
+            showsLanguage = showsLanguage,
+            updateVersion = updateVersion,
             modifier = Modifier.weight(1f),
         )
     }
@@ -133,6 +139,8 @@ private fun ExtensionItemContent(
     modifier: Modifier = Modifier,
     // RK: content-type badge, beside the name.
     badge: @Composable () -> Unit = {},
+    showsLanguage: Boolean = extension is Extension.Loaded,
+    updateVersion: String? = null,
 ) {
     Column(
         modifier = modifier.padding(start = MaterialTheme.padding.medium),
@@ -159,10 +167,12 @@ private fun ExtensionItemContent(
                 // RK: a plain local, since a remembered one stays true into the next redraw and puts a
                 // separator before nothing once a row's first element goes away
                 var hasAlreadyShownAnElement = false
-                if (extension is Extension.Loaded && extension.lang.isNotEmpty()) {
+                // RK: shown wherever the list asks, so an extension that did not load names it too
+                val lang = extension.lang
+                if (showsLanguage && !lang.isNullOrEmpty()) {
                     hasAlreadyShownAnElement = true
                     Text(
-                        text = LocaleHelper.getSourceDisplayName(extension.lang, LocalContext.current),
+                        text = LocaleHelper.getSourceDisplayName(lang, LocalContext.current),
                     )
                 }
 
@@ -170,7 +180,8 @@ private fun ExtensionItemContent(
                     if (hasAlreadyShownAnElement) DotSeparatorNoSpaceText()
                     hasAlreadyShownAnElement = true
                     Text(
-                        text = extension.versionName,
+                        // RK: with the version a pending update brings
+                        text = versionLabel(extension.versionName, updateVersion),
                     )
                 }
 

@@ -7,4 +7,6 @@ data class Extensions(
     val loaded: List<Extension.Loaded>,
     val available: List<Extension.Available>,
     val notLoaded: List<Extension.NotLoaded>,
+    // RK: the version each pending update brings, by package, which the installed extension does not carry
+    val updateVersions: Map<String, String> = emptyMap(),
 )

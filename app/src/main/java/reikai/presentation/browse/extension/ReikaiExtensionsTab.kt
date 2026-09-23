@@ -284,7 +284,7 @@ private fun ExtensionsList(
                     when (item.row.key) {
                         is ExtensionKey.Manga, is ExtensionKey.NovelApk -> ApkExtensionRow(
                             modifier = Modifier.animateItem(),
-                            item = item.row.payload as ExtensionUiModel.Item,
+                            row = item.row,
                             model = extensionsViewModel,
                             badge = badge,
                             onNotLoaded = { notLoadedState = it },
@@ -408,7 +408,7 @@ private fun ExtensionsSectionHeader(
 
 @Composable
 private fun ApkExtensionRow(
-    item: ExtensionUiModel.Item,
+    row: BrowseExtensionRow,
     model: ExtensionsViewModel,
     badge: @Composable () -> Unit,
     onNotLoaded: (Extension.NotLoaded) -> Unit,
@@ -420,8 +420,10 @@ private fun ApkExtensionRow(
 
     ExtensionItem(
         modifier = modifier,
-        item = item,
+        item = row.payload as ExtensionUiModel.Item,
         badge = badge,
+        showsLanguage = row.section.namesLanguage,
+        updateVersion = row.updateVersion,
         onClickItem = {
             when (it) {
                 is Extension.Available -> model.installExtension(it)
@@ -478,6 +480,7 @@ private fun NovelExtensionRow(
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
+    val lang = if (row.section.namesLanguage) row.lang else ""
     when (val payload = row.payload) {
         is LnPluginLoadFailure -> {
             // Keyed as the install writes it, so a reinstall from the dialog shows its progress and error here.
@@ -486,7 +489,7 @@ private fun NovelExtensionRow(
             NovelSourceRow(
                 modifier = modifier,
                 name = payload.name,
-                lang = row.lang,
+                lang = lang,
                 iconUrl = payload.iconUrl,
                 version = payload.version,
                 subtitle = state.errors[key],
@@ -510,9 +513,10 @@ private fun NovelExtensionRow(
             NovelSourceRow(
                 modifier = modifier,
                 name = payload.entry.name,
-                lang = row.lang,
+                lang = lang,
                 iconUrl = payload.entry.iconUrl,
-                subtitle = state.errors[key] ?: "v${payload.installedVersion} -> v${payload.entry.version}",
+                version = versionLabel(payload.installedVersion, row.updateVersion),
+                subtitle = state.errors[key],
                 badge = badge,
                 action = {
                     NovelRowAction(inProgress = key in state.inProgress) {
@@ -529,7 +533,7 @@ private fun NovelExtensionRow(
         is NovelSource -> NovelSourceRow(
             modifier = modifier,
             name = payload.name,
-            lang = row.lang,
+            lang = lang,
             iconUrl = payload.iconUrl,
             version = state.installedVersions[payload.id],
             onLongClickItem = { onConfirmUninstall(payload) },
@@ -548,8 +552,9 @@ private fun NovelExtensionRow(
             NovelSourceRow(
                 modifier = modifier,
                 name = payload.name,
-                lang = row.lang,
+                lang = lang,
                 iconUrl = payload.iconUrl,
+                version = payload.version,
                 subtitle = state.errors[key],
                 badge = badge,
                 action = {
