@@ -96,7 +96,7 @@ If you already run a reverse proxy (Caddy, nginx, Traefik), point a subdomain at
 
 Put TLS and authentication in front of it. See the warning below.
 
-Basic auth goes under **FlareSolverr sign-in**, the row below the address, which asks for a username and password together. Do not put `user:password@` in the address itself: the app will not accept it there, and an address is not a private setting, so it would travel in your backups in clear text.
+Basic auth goes under **FlareSolverr sign-in**, which asks for a username and password together. Do not put `user:password@` in the address itself: the app will not accept it there, and an address is not a private setting, so it would travel in your backups in clear text.
 
 Raise the proxy's read timeout to at least 180 seconds. A hard solve takes longer than the 60 seconds nginx allows by default, and the proxy cuts the request off before the solver answers.
 ::::
@@ -107,6 +107,24 @@ Lock it down with basic auth, an IP allowlist or mTLS before pointing anything a
 
 This is not theoretical. A reader who did this had the hostname appear in Certificate Transparency logs within minutes of issuing the certificate, and bots probing `/.env` and `/.git/HEAD` the same evening. The password in front of it is what turned those away.
 :::
+
+## Keeping the sign-in at your proxy
+
+Reikai sends the sign-in only to the address in **FlareSolverr URL**, on the same scheme, host and port, and only over https or to an address on your own network. It never follows a redirect from that address, so the sign-in cannot be carried somewhere else.
+
+Most reverse proxies pass the sign-in on to FlareSolverr after checking it. FlareSolverr ignores it and never sends it to the sites it opens, but nothing past your proxy needs to see it, so remove it there:
+
+| Proxy | Setting |
+|---|---|
+| Nginx Proxy Manager | In the access list, leave **Pass Auth to Host** off. It then removes the sign-in for you. |
+| nginx, SWAG | `proxy_set_header Authorization "";` in the same block as your other `proxy_set_header` lines. A block that sets any header of its own ignores the ones above it, so a server-wide line does nothing inside a `location` that sets `Host`. |
+| Traefik | `removeHeader: true` on the `basicAuth` middleware. It is off by default. |
+| Caddy | `header_up -Authorization` inside `reverse_proxy`. |
+| Apache | `RequestHeader unset Authorization`, without `early`, which would remove it before the password is checked. |
+| HAProxy | `http-request del-header Authorization` after the `http_auth` check. |
+| Authelia or Authentik | Forward auth does not remove it. Add it to your proxy as above, for Traefik a `headers` middleware with `customRequestHeaders` setting `Authorization: ""`. |
+
+Cloudflare Access is not supported: it expects a service token in its own headers, which Reikai cannot send.
 
 ::: warning A hosted solver is blocked by some sources
 A solver on a rented server browses from a datacenter address, and some sites refuse those outright while opening normally from a phone. If one source fails through the proxy while the rest work, the address it browses from is the first thing to suspect, not your setup.
@@ -134,6 +152,12 @@ Check it is running, the URL is right, and your device can reach it.
 **The test says the server rejected the username and password.**
 The credentials did not satisfy whatever guards the server. Check them with `curl -su 'user:password' https://your.server/v1` first, so you know whether the app or the server is the problem.
 If the password has characters outside plain ASCII and `curl` works where the app does not, the encoding is the likely cause: the app sends the UTF-8 bytes, which matches a proxy configured through its own web interface, but not a `htpasswd` file created on a system using a legacy encoding. An ASCII password avoids the question.
+
+**The test says the sign-in needs an https address or one on your network.**
+Reikai will not send a password unencrypted across the internet. Use the proxy's `https://` address, or reach the server over your network or a mesh VPN.
+
+**The test says the server sends you to another address.**
+Usually `http://` in front of a proxy that forces https. Open the failure's details, which show where it points, and put that address in **FlareSolverr URL**.
 
 **The test says the proxy answered but the solver behind it is down.**
 The reverse proxy is up and forwarding, and nothing is listening on the other side. A solver that is still starting does this for its first twenty seconds or so, so wait and test again before changing anything.

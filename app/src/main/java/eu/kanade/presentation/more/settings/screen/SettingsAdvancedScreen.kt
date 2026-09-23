@@ -705,4 +705,5 @@ private fun FlareSolverrTestFailure.stringRes(): StringResource = when (this) {
     FlareSolverrTestFailure.NOT_A_SOLVER -> MR.strings.flaresolverr_test_error_not_solver
     FlareSolverrTestFailure.SOLVE_FAILED -> MR.strings.flaresolverr_test_error_solve
     FlareSolverrTestFailure.LOGIN_NOT_PRIVATE -> MR.strings.flaresolverr_login_not_private
+    FlareSolverrTestFailure.REDIRECTED -> MR.strings.flaresolverr_test_error_redirected
 }

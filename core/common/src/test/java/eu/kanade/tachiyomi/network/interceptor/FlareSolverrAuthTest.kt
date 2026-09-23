@@ -14,19 +14,46 @@ class FlareSolverrAuthTest {
     @Test
     fun `a login bound for a public address in the clear is refused`() {
         shouldThrow<FlareSolverrLoginRefusedException> {
-            flareSolverrLoginFor("http://solver.example.com:8191/v1", "reikai", "secret")
+            flareSolverrLoginFor(
+                "http://solver.example.com:8191/v1",
+                "http://solver.example.com:8191",
+                "reikai",
+                "secret",
+            )
         }
     }
 
     @Test
     fun `a login goes to a solver on the user's own network`() {
-        flareSolverrLoginFor("http://192.168.1.5:8191/v1", "reikai", "secret") shouldBe
+        flareSolverrLoginFor("http://192.168.1.5:8191/v1", "http://192.168.1.5:8191", "reikai", "secret") shouldBe
             Credentials.basic("reikai", "secret", Charsets.UTF_8)
     }
 
     @Test
+    fun `a login never goes to a host other than the saved server`() {
+        flareSolverrLoginFor("https://elsewhere.example/v1", "https://solver.example.com", "reikai", "secret")
+            .shouldBeNull()
+    }
+
+    @Test
+    fun `a login never goes to another port of the saved server`() {
+        flareSolverrLoginFor("http://192.168.1.5:9000/v1", "http://192.168.1.5:8191", "reikai", "secret")
+            .shouldBeNull()
+    }
+
+    @Test
+    fun `a redirect is reported as its own failure`() {
+        FlareSolverrTestFailure.ofStatus(301) shouldBe FlareSolverrTestFailure.REDIRECTED
+    }
+
+    @Test
     fun `a public address with no login set is not refused`() {
-        flareSolverrLoginFor("http://solver.example.com:8191/v1", "", "").shouldBeNull()
+        flareSolverrLoginFor(
+            "http://solver.example.com:8191/v1",
+            "http://solver.example.com:8191",
+            "",
+            "",
+        ).shouldBeNull()
     }
 
     @Test

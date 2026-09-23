@@ -35,14 +35,22 @@ fun flareSolverrAuthHeader(username: String, password: String): String? {
 class FlareSolverrLoginRefusedException : IOException("The sign-in needs https or an address on your network")
 
 /**
- * The login header for a request to [url], or null when none is set. Refused rather than left off
- * where [isPrivateChannel] says no: an unauthenticated request would only fail with a reason that
- * hides the real one.
+ * The login header for a request to [url], or null when none is set or [url] is not on the saved
+ * [serverUrl]'s scheme, host and port, so the login can reach no one but the server it was saved for.
+ * Refused rather than left off where [isPrivateChannel] says no: an unauthenticated request would only
+ * fail with a reason that hides the real one.
  */
-fun flareSolverrLoginFor(url: String, username: String, password: String): String? {
+fun flareSolverrLoginFor(url: String, serverUrl: String, username: String, password: String): String? {
     val header = flareSolverrAuthHeader(username, password) ?: return null
+    if (!isSameOrigin(url, serverUrl)) return null
     if (!isPrivateChannel(url)) throw FlareSolverrLoginRefusedException()
     return header
+}
+
+private fun isSameOrigin(url: String, serverUrl: String): Boolean {
+    val request = url.toHttpUrlOrNull() ?: return false
+    val server = serverUrl.trim().toHttpUrlOrNull() ?: return false
+    return request.scheme == server.scheme && request.host == server.host && request.port == server.port
 }
 
 /**

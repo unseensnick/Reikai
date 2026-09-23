@@ -58,7 +58,7 @@ class FlareSolverrClient(
     private val networkPreferences: NetworkPreferences,
 ) {
 
-    private val flareSolverrClient: OkHttpClient by lazy {
+    internal val flareSolverrClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(5, TimeUnit.SECONDS)
             // Above the 60s maxTimeout every command asks the server for, so the server has room to
@@ -70,10 +70,14 @@ class FlareSolverrClient(
             // Basic auth for a proxy in front of the server, applied here rather than at each call
             // so no request can be left out. Missing it on the banner probe alone would 401 that
             // probe, which latches [fsSessionsSupported] off for the rest of the run.
+            // The API never redirects. One means the address is wrong, most often http behind a proxy
+            // that forces https, and following it would drop the login and report a sign-in failure.
+            .followRedirects(false)
             .addInterceptor { chain ->
                 val request = chain.request()
                 val header = flareSolverrLoginFor(
                     request.url.toString(),
+                    networkPreferences.flareSolverrUrl.get(),
                     networkPreferences.flareSolverrUsername.get(),
                     networkPreferences.flareSolverrPassword.get(),
                 )
@@ -173,7 +177,8 @@ class FlareSolverrClient(
                 if (!resp.isSuccessful) {
                     return@withContext FlareSolverrTestResult.Failure(
                         FlareSolverrTestFailure.ofStatus(resp.code),
-                        "HTTP ${resp.code} ${resp.message}".trim(),
+                        listOfNotNull("HTTP ${resp.code} ${resp.message}".trim(), resp.header("Location"))
+                            .joinToString(" -> "),
                     )
                 }
                 resp.body.string()
@@ -448,6 +453,7 @@ enum class FlareSolverrTestFailure {
     NOT_A_SOLVER,
     SOLVE_FAILED,
     LOGIN_NOT_PRIVATE,
+    REDIRECTED,
     ;
 
     companion object {
@@ -460,6 +466,7 @@ enum class FlareSolverrTestFailure {
             403 -> FORBIDDEN
             404 -> NOT_FOUND
             502, 503, 504 -> SOLVER_DOWN
+            in 300..399 -> REDIRECTED
             else -> HTTP_ERROR
         }
 
