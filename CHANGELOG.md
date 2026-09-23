@@ -60,7 +60,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
-- **Typing quickly into a search bar no longer drops characters.** The field used to be overwritten mid-word by the query it had just reported, losing anything typed in between; it affected the search in Library, Recents and a source's catalogue.
+- **Typing quickly into a search bar no longer scrambles your text.** It reordered and duplicated characters, and after a Compose update dropped them; it affected the search in Library, Recents and a source's catalogue.
 - **Library badges no longer crowd out the unread count or the title.** A cover with 408 unread on a grouped series could read as "4", and a list row gave its title away to the source icons; the badges now share a measured width and the icons give way first.
 - **A grouped series' chapter list now reads straight down instead of alternating between its sources.** Two sources rarely agree on what number a chapter is, so the list was being ordered by a number that means something different on each one, on manga and novels alike.
 - **Missing chapter warnings no longer invent gaps on a grouped series, in the chapter list or between chapters in the reader, on manga and novels alike.** They compared numbers across two sources that count differently, and believed a volume extra's title enough to claim hundreds were missing.
@@ -130,8 +130,7 @@ every release now also ships a foss build with neither in it.
 - **A merged series' library update now announces a new chapter once, not once per source that carries it.**
 - **The Updates widget now draws one cover per merged series.** It drew one per source, so a grouped series filled the grid.
 - **A chapter you continue from History on another source of a merged series no longer appears twice in the reader.** The copy you opened takes that chapter's place, so the chapters before and after it are the right ones.
-- **On a merged novel, the reader's chapter list now shows a chapter as read, bookmarked or downloaded when any source's copy is.** Deleting a download from it removes every source's copy, so the row stops reading as downloaded.
-- **On a merged novel, the reader's chapter list now always names each chapter's source, as the series page does.** It left the names off when every chapter came from one source, or when you opened a single source.
+- **On a merged novel, the reader's chapter list now shows a chapter as read, bookmarked or downloaded when any source's copy is, and names each chapter's source.** Deleting a download from it removes every source's copy, so the row stops reading as downloaded.
 
 ### Updates & History
 
@@ -220,11 +219,10 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
-- **The reader's chapter list no longer shows a stray dot with nothing after it on a merged series.** It appeared when a chapter had no scanlator name or its source could not be resolved.
 - **A merged series now opens in webtoon mode when any of its sources calls it a manhwa, manhua or webtoon.** Before, only the source the chapter came from was consulted, and that is usually not the one carrying the tag.
-- **Chapters you have read no longer disappear from the reader's chapter list.**
+- **Chapters you have read no longer disappear from the manga reader's chapter list, and tapping one opens it.**
 - **Rotating the screen while a chapter is opening no longer leaves the reader stuck loading (synced from Mihon, mihonapp/mihon#3686).**
-- **Swiping back from the reader now reaches the chapter you were on.**
+- **Swiping back from a manga chapter you just finished now reaches the previous chapter, read or not.** It used to say there was no previous chapter.
 - **Swiping a chapter in either reader's chapter list now runs your configured swipe action instead of always bookmarking.**
 - **A novel showing chapter numbers instead of titles now labels them in your app language, like manga.**
 - **The manga reader now names the chapter you are actually on while you scroll across a chapter boundary.** It briefly showed the previous chapter's title and page count beside the new chapter's page number.
@@ -233,26 +231,19 @@ every release now also ships a foss build with neither in it.
 - **Download ahead in the novel reader no longer fetches chapters you have already read.** It passes over them to the next unread ones, as the manga reader does.
 - **A novel chapter marked read by skipping past it now also deletes older downloads, as reading it to the end does.** On a merged novel its copies on the other sources are marked too.
 - **A novel chapter that fails to load no longer shows in History as the one you read last.**
-- **Rotating the screen while reading a novel now keeps the exact line you were on at the top.** Switching dark mode or changing a text setting keeps it too, and the place you had reached is no longer written over.
 - **Read-aloud now carries on when the novel reader rebuilds its page, from the paragraph it was on.** Rotating the screen or changing a text setting used to stop it and drop its notification.
 - **Skipping forward in a novel with "Mark read on skip" on no longer waits on your trackers before the next chapter loads.** The chapter you left is finished in the background instead.
 - **Auto-scroll now carries on into the next novel chapter by itself.** You had to show and hide the toolbar again to restart it, and a rotation stopped it the same way.
 - **The novel reader's voice list now follows the read-aloud engine you pick.** It kept offering the previous engine's voices, so choosing one there left read-aloud speaking in the new engine's default.
 - **The novel reader's chapter list now opens quickly on a grouped novel.**
 - **The novel reader now has its own Fullscreen, cutout, progress rail side and progress rail height settings, on Settings -> Novel reader and its Appearance tab.** They were set from the manga reader screen for both readers, and the novel values start from the defaults.
-- **Picking a chapter from the manga reader's chapter list now opens it at the right page.** The top bar moved to the chapter you picked while the pages stayed where they were.
-- **A manga chapter you finished earlier in the session now re-opens at its first page instead of its last.**
-- **Dragging the manga reader's progress rail now lands inside the chapter the rail is showing.** Dragging it while scrolling across a chapter boundary could jump back into the previous chapter or do nothing at all.
 - **On a grouped manga, Open in browser, Open in WebView and Share now use the site the chapter came from.** They built the link from the source you opened the series under, which often named a page that does not exist.
 - **Download ahead on a grouped manga now fetches the chapters the reader will actually reach next.** It followed the order the sources were stitched in rather than your chapter sort.
 - **Skip duplicate chapters no longer folds chapters with no number, like a prologue and an afterword, into one.** Each is kept in its place in both readers.
 - **Download ahead in the manga reader no longer fetches hidden chapters or duplicates the reader skips.**
 - **Scrolling into the next manga chapter and straight back no longer leaves the reader on the chapter you left.** The bookmark button and Open in WebView could act on it.
 - **Bookmarking or marking a novel chapter read just before closing the reader is no longer lost, and a grouped novel's copies are bookmarked together.** Before, a bookmark could land on some sources' copies and not others.
-- **A manga chapter picked from the reader's chapter list, or reached with its next and previous buttons, now says when it fails to open and offers Retry.** The reader used to stay put silently and could jump there minutes later.
-- **Opening the reader again from a notification or History now goes to the chapter you asked for, even after reading on from where it opened.**
 - **Retrying a manga page that failed to load now always fetches it again (from mihonapp/mihon#3770).**
-- **Remove extra spacing in the novel reader no longer squeezes the line breaks out of a chapter's preformatted text.**
 
 ### Light novels
 
@@ -286,8 +277,6 @@ every release now also ships a foss build with neither in it.
 - **Share on a novel's details page now sits in the menu, as on manga.**
 - **Novel text size now goes from 10 to 40, line spacing from 0.8x to 5x, paragraph indent up to 10em, and Split walls of text up to 2000 words.**
 - **Sorting a chapter list "By source" now really follows that source's own listing, on manga and novels.** It was quietly sorting by chapter number instead, so a source that lists its chapters out of numeric order looked tidier than it is; pick "By chapter number" for the old result.
-- **A novel chapter that fails to load now says so and offers to try again.** It used to leave the previous chapter on screen with no sign anything had gone wrong.
-- **The bookmark button and the WebView, browser and share actions now work while reading a novel.** The bookmark showed as empty whatever the chapter's state and did nothing when tapped; the other three were missing.
 - **Scripts, embedded frames and tap handlers in a novel chapter are now stripped before it renders, unless you allow them under Settings -> Novel reader.** Chapter markup comes from the source rather than from Reikai.
 - **A slow novel source can no longer stall global search, browsing or updates for every other source.** Each now runs in its own engine, and idle ones free their memory after a minute.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, like manga.**
@@ -297,7 +286,6 @@ every release now also ships a foss build with neither in it.
 
 - **A novel chapter its source returns empty now says so, where it used to open as a blank page.**
 - **Light-novel plugins now stay on the installed version until you update them from Browse -> Extensions.** They used to switch to the newest one on their own whenever Android cleared the app's cache, and an update published at a new link now shows as an update.
-- **A novel chapter that separates its paragraphs only with blank lines now shows them as paragraphs in every reading mode.** The web page readers ran them together into one block.
 - **Time spent reading a novel now keeps counting after you switch away and come back.** It was recorded as none from that point until the next chapter.
 - **Read aloud in a novel no longer skips a very long paragraph.** It reads the whole thing, broken at its sentences, where the voice engine used to reject anything past its own size limit and move on in silence.
 - **Novel auto-scroll now moves at the speed you set, rather than creeping along at a fraction of it in visible jerks.** The reader page's own stylesheet was animating every step of the scroll.
