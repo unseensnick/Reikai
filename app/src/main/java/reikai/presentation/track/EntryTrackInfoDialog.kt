@@ -87,6 +87,7 @@ import reikai.domain.novel.track.toUiTrack
 import reikai.domain.track.autobind.AutoBindEntry
 import reikai.domain.track.autobind.AutoBindTracker
 import reikai.domain.track.autobind.AutoBindTrackers
+import reikai.domain.track.autobind.offerTrackers
 import reikai.domain.track.supportingContent
 import reikai.domain.track.trackWriterFor
 import reikai.novel.source.NovelSourceManager
@@ -110,8 +111,8 @@ import kotlin.time.Instant
  * The single track-info dialog stack for both manga and novels: the same domain [Track] (novels adapt
  * via [reikai.domain.novel.track.toUiTrack]) written through a [TrackWriter], so the two cannot drift.
  * Five things branch on [isNovel]: the track subscription, the entry lookup, the search endpoint, the bind
- * target and the delete scope. A tracker that binds entries from a source it knows ([AutoBindTracker]) is offered only
- * for entries from those sources, and matches on a tap instead of searching, for both types.
+ * target and the delete scope. A tracker that binds entries from a source it knows ([AutoBindTracker]) matches on a
+ * tap instead of searching for those entries; [offerTrackers] decides the rows, for both types.
  */
 data class EntryTrackInfoDialogHomeScreen(
     private val entryId: Long,
@@ -223,13 +224,8 @@ data class EntryTrackInfoDialogHomeScreen(
                 entryTrackFlow()
                     .catch { logcat(LogPriority.ERROR, it) }
                     .distinctUntilChanged()
-                    .map { it.mapToTrackItem() }
-                    .collectLatest { trackItems ->
-                        val autoMatch = trackItems.mapNotNullTo(HashSet()) { item ->
-                            item.tracker.id.takeIf { autoBindTrackers.of(item.tracker) != null }
-                        }
-                        state.update { it.copy(trackItems = trackItems, autoMatchTrackerIds = autoMatch) }
-                    }
+                    .map { it.toState() }
+                    .collectLatest { next -> state.update { next } }
             }
         }
 
@@ -295,18 +291,16 @@ data class EntryTrackInfoDialogHomeScreen(
             }
         }
 
-        private suspend fun List<Track>.mapToTrackItem(): List<TrackItem> {
+        private suspend fun List<Track>.toState(): State {
             // Only trackers whose catalogue holds this type; the rest would silently bind the other's hit.
             val loggedInTrackers = trackerManager.loggedInTrackers().supportingContent(isNovel)
             // Resolved only when a tracker asks: for a novel it loads the plugins.
             val entry = if (loggedInTrackers.any { autoBindTrackers.of(it) != null }) autoBindEntry() else null
-            return loggedInTrackers
-                .map { service -> TrackItem(find { it.trackerId == service.id }, service) }
-                // A tracker that knows only some sources is offered only for entries from them; an entry that
-                // cannot be looked up keeps every row, as the source-only check before this did.
-                .filter { item ->
-                    autoBindTrackers.of(item.tracker)?.let { entry == null || it.accepts(entry) } ?: true
-                }
+            val offer = offerTrackers(loggedInTrackers, entry, autoBindTrackers::of)
+            return State(
+                trackItems = offer.offered.map { service -> TrackItem(find { it.trackerId == service.id }, service) },
+                autoMatchTrackerIds = offer.matchedByTap,
+            )
         }
 
         @Immutable

@@ -96,7 +96,6 @@ class NovelUpdates(id: Long) :
         api.search(query).map { it.toTrackSearch() }
 
     override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
-        track.status = if (hasReadChapters) READING else PLAN_TO_READ
         // A search row does not always carry the numeric id, so it is resolved from the series page
         // before the first write rather than fabricated from the slug as the reference fork does.
         if (track.remote_id <= 0L) {
@@ -105,7 +104,24 @@ class NovelUpdates(id: Long) :
             track.remote_id = resolved.toLongOrNull()
                 ?: throw IOException("NovelUpdates returned an unusable id")
         }
-        push(track)
+        val novelId = track.remote_id.toString()
+        val listId = api.findListId(novelId)
+        val siteStatus = listId?.let { mapping().statusFor(it) }
+        when (val plan = bindOnSite(listId != null, siteStatus, hasReadChapters)) {
+            is BindOnSite.File -> {
+                track.status = plan.status
+                push(track)
+            }
+            is BindOnSite.Keep -> {
+                // The bind's backfill still moves the progress forward when the app has read further.
+                siteStatus?.let { track.status = it }
+                api.readNotes(novelId)?.let { progressFrom(it.notes) }?.let { track.last_chapter_read = it.toDouble() }
+                plan.moveTo?.let {
+                    track.status = it
+                    api.moveToList(novelId, mapping().listIdFor(it))
+                }
+            }
+        }
         return track
     }
 
@@ -136,6 +152,9 @@ class NovelUpdates(id: Long) :
     }
 
     override val tracker: Tracker get() = this
+
+    // Any novel can be searched for here; only the site's own sources skip the search.
+    override val offeredOnlyWhenAccepted = false
 
     // The site's own sources: its extension, and the LNReader plugin reading the same pages.
     override fun accepts(entry: AutoBindEntry): Boolean =
@@ -208,17 +227,22 @@ class NovelUpdates(id: Long) :
      * not the user's, which reads worse than the blank the widget leaves when the name is missing.
      */
     private suspend fun storeCredential(credential: String) {
-        val account = api.account()
-        if (account.lists.isEmpty()) {
-            throw IOException("Signed in, but NovelUpdates returned no reading lists")
-        }
-        val username = account.username.orEmpty()
+        val username = signedInAccount().username.orEmpty()
         saveDisplayUsername(username)
         saveCredentials(username.ifBlank { name }, credential)
     }
 
     override suspend fun updateUserConfig() {
-        saveDisplayUsername(api.account().username.orEmpty())
+        saveDisplayUsername(signedInAccount().username.orEmpty())
+    }
+
+    // A logged-out page still loads, so an account with no reading lists is the only sign of a dead session.
+    private suspend fun signedInAccount(): NovelUpdatesAccount {
+        val account = api.account()
+        if (account.lists.isEmpty()) {
+            throw IOException("NovelUpdates shows no reading lists: sign in again")
+        }
+        return account
     }
 
     /**

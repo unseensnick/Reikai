@@ -125,4 +125,39 @@ class NovelUpdatesReleasesTest {
     fun `an unread of unnumbered chapters moves back from the first`() {
         unreadTarget(listOf(-1.0, -1.0)) { it } shouldBe -1.0
     }
+
+    @Test
+    fun `a series on none of the user's lists is filed as plan to read when nothing is read`() {
+        bindOnSite(onList = false, siteStatus = null, hasReadChapters = false) shouldBe
+            BindOnSite.File(NovelUpdates.PLAN_TO_READ)
+    }
+
+    @Test
+    fun `a series on none of the user's lists is filed as reading once chapters are read`() {
+        bindOnSite(onList = false, siteStatus = null, hasReadChapters = true) shouldBe
+            BindOnSite.File(NovelUpdates.READING)
+    }
+
+    @Test
+    fun `a series already on a list keeps it and writes nothing`() {
+        bindOnSite(onList = true, siteStatus = NovelUpdates.ON_HOLD, hasReadChapters = true) shouldBe
+            BindOnSite.Keep(moveTo = null)
+    }
+
+    @Test
+    fun `a series on a custom list keeps it too`() {
+        bindOnSite(onList = true, siteStatus = null, hasReadChapters = true) shouldBe BindOnSite.Keep(moveTo = null)
+    }
+
+    @Test
+    fun `a planned series moves to reading once chapters are read`() {
+        bindOnSite(onList = true, siteStatus = NovelUpdates.PLAN_TO_READ, hasReadChapters = true) shouldBe
+            BindOnSite.Keep(moveTo = NovelUpdates.READING)
+    }
+
+    @Test
+    fun `a planned series with nothing read stays planned`() {
+        bindOnSite(onList = true, siteStatus = NovelUpdates.PLAN_TO_READ, hasReadChapters = false) shouldBe
+            BindOnSite.Keep(moveTo = null)
+    }
 }

@@ -17,8 +17,8 @@ import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 /**
  * Novel twin of [eu.kanade.domain.track.interactor.AddTracks.bind], pinned by the [bindBackfill] kernel
  * both call: registers a freshly picked tracker entry remotely, persists it to `novel_tracks`, then
- * pushes the local read progress. Skips the EnhancedTracker chapter-sync (a no-op for the four
- * light-novel trackers).
+ * pushes the local read progress. Nothing pulls the site's progress back into the chapters, as manga's
+ * server sync does: that was declined for novels (content-layer-sources-surface.md, Decisions).
  */
 @Inject
 class AddNovelTrack(

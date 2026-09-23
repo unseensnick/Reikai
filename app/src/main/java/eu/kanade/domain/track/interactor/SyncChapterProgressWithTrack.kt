@@ -5,6 +5,7 @@ import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import logcat.LogPriority
+import reikai.domain.track.sendsProgressTo
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.UpdateChapter
@@ -49,7 +50,7 @@ class SyncChapterProgressWithTrack(
 
         try {
             // RK: nothing read on either side pushes nothing; a server takes a push of 0 as "read up to 0"
-            if (lastRead > 0) tracker.update(updatedTrack.toDbTrack())
+            if (sendsProgressTo(tracker, lastRead)) tracker.update(updatedTrack.toDbTrack())
             updateChapter.awaitAll(chapterUpdates)
             insertTrack.await(updatedTrack)
         } catch (e: Throwable) {

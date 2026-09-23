@@ -33,6 +33,12 @@ sealed interface AutoBindEntry {
 interface AutoBindTracker {
     val tracker: Tracker
 
+    /**
+     * Whether the tracker is offered only for entries it [accepts]: a manga server holds nothing else,
+     * while a site's tracker still searches its catalogue for a novel from any source.
+     */
+    val offeredOnlyWhenAccepted: Boolean
+
     fun accepts(entry: AutoBindEntry): Boolean
 
     suspend fun match(entry: AutoBindEntry): TrackSearch?
@@ -40,6 +46,8 @@ interface AutoBindTracker {
 
 /** A manga server's own tracker, which knows only the manga from its server's source. */
 class EnhancedAutoBind(override val tracker: Tracker, private val enhanced: EnhancedTracker) : AutoBindTracker {
+
+    override val offeredOnlyWhenAccepted = true
 
     override fun accepts(entry: AutoBindEntry): Boolean = entry is AutoBindEntry.Manga && enhanced.accept(entry.source)
 
@@ -55,6 +63,22 @@ class AutoBindTrackers(private val trackerManager: TrackerManager) {
 
     fun of(tracker: Tracker): AutoBindTracker? =
         tracker as? AutoBindTracker ?: (tracker as? EnhancedTracker)?.let { EnhancedAutoBind(tracker, it) }
+}
+
+/** The trackers a tracking dialog offers, and the ids among them a tap binds by match rather than search. */
+data class TrackerOffer(val offered: List<Tracker>, val matchedByTap: Set<Long>)
+
+/**
+ * What the tracking dialog offers for [entry], for both content types. A null [entry] (a novel whose
+ * source is not loaded) keeps every row and matches none, so a tap searches rather than doing nothing.
+ */
+fun offerTrackers(trackers: List<Tracker>, entry: AutoBindEntry?, of: (Tracker) -> AutoBindTracker?): TrackerOffer {
+    val matched = trackers.filter { entry != null && of(it)?.accepts(entry) == true }
+    val offered = trackers.filter { tracker ->
+        val auto = of(tracker)
+        auto == null || !auto.offeredOnlyWhenAccepted || entry == null || tracker in matched
+    }
+    return TrackerOffer(offered, matched.mapTo(HashSet()) { it.id })
 }
 
 /**

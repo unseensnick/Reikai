@@ -65,3 +65,23 @@ internal fun progressAfterUnread(unreadChapter: Double, stillRead: Double?, onSi
 /** The unread chapter that decides how far the site moves back: the lowest one unread. */
 internal fun <T> unreadTarget(unread: List<T>, numberOf: (T) -> Double): T? =
     unread.filter { numberOf(it) > 0 }.minByOrNull(numberOf) ?: unread.firstOrNull()
+
+/** What binding does on the site: file a series on no list yet, or keep the list the user already chose. */
+internal sealed interface BindOnSite {
+    /** On none of the user's lists: filed under [status], with the progress written into the note. */
+    data class File(val status: Long) : BindOnSite
+
+    /** Already on a list: the site's list and note are taken and never written lower; [moveTo] is the one move. */
+    data class Keep(val moveTo: Long?) : BindOnSite
+}
+
+/**
+ * How a bind treats the site, given the list the series is on ([onList], with [siteStatus] null for a
+ * custom list). A kept series moves from Plan to read to Reading once chapters are read, as the list
+ * trackers do, and otherwise stays where the user put it.
+ */
+internal fun bindOnSite(onList: Boolean, siteStatus: Long?, hasReadChapters: Boolean): BindOnSite = when {
+    !onList -> BindOnSite.File(if (hasReadChapters) NovelUpdates.READING else NovelUpdates.PLAN_TO_READ)
+    hasReadChapters && siteStatus == NovelUpdates.PLAN_TO_READ -> BindOnSite.Keep(NovelUpdates.READING)
+    else -> BindOnSite.Keep(moveTo = null)
+}

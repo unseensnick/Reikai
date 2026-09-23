@@ -55,6 +55,7 @@ class SourceTrackerKernelTest {
     private val inLibrary = mutableSetOf<EntryId>()
     private val categories = mutableMapOf<EntryId, List<String>>()
     private val failures = mutableListOf<String>()
+    private val numbers = mutableMapOf<Long, Double>()
 
     private fun tracked(id: EntryId, tracker: SourceTracker) = TrackedEntry(
         tracker = tracker,
@@ -63,7 +64,13 @@ class SourceTrackerKernelTest {
         favorite = id in inLibrary,
         chapters = (1L..3L).map { chapterId ->
             val chapter = SChapter.create().apply { url = "c$chapterId" }
-            TrackedChapter(chapterId, chapter, read = chapterId in readIds[id].orEmpty(), number = chapterId.toDouble())
+            TrackedChapter(
+                chapterId,
+                chapter,
+                read = chapterId in readIds[id].orEmpty(),
+                number =
+                numbers[chapterId] ?: chapterId.toDouble(),
+            )
         },
         categories = categories[id].orEmpty(),
     )
@@ -119,6 +126,39 @@ class SourceTrackerKernelTest {
         pastDebounce()
 
         tracker.calls shouldBe listOf("read e1 [c2]")
+    }
+
+    @Test
+    fun `an unread that leaves only an unnumbered chapter read tells the site it was unread`() = runTest {
+        numbers[1L] = 0.0
+        readIds[entry] = setOf(1L)
+        kernel().chaptersChanged(entry, listOf(2L), read = false)
+
+        pastDebounce()
+
+        tracker.calls shouldBe listOf("unread e1 [c2]")
+    }
+
+    @Test
+    fun `an entry that cannot be read is skipped and later ones still reach the site`() = runTest {
+        val other = EntryId.Novel(2)
+        val kernel = SourceTrackerKernel(backgroundScope, {
+            if (it ==
+                entry
+            ) {
+                error("db down")
+            } else {
+                tracked(it, tracker)
+            }
+        }) { name, _ ->
+            failures += name
+        }
+        kernel.chaptersChanged(entry, listOf(1L), read = true)
+        kernel.chaptersChanged(other, listOf(1L), read = true)
+
+        pastDebounce()
+
+        tracker.calls shouldBe listOf("read e2 [c1]")
     }
 
     @Test

@@ -21,6 +21,7 @@ import logcat.LogPriority
 import mihon.app.di.appGraph
 import okhttp3.OkHttpClient
 import reikai.domain.track.TrackFieldMutations
+import reikai.domain.track.sendsProgressTo
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -185,7 +186,9 @@ abstract class BaseTracker(
 
     private suspend fun updateRemote(track: Track): Unit = withIOContext {
         try {
-            update(track)
+            // RK --> a status or date change on a server binding nobody has started must not push its 0
+            if (sendsProgressTo(this@BaseTracker, track.last_chapter_read)) update(track)
+            // RK <--
             track.toDomainTrack(idRequired = false)?.let {
                 insertTrack.await(it)
             }

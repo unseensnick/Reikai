@@ -27,8 +27,13 @@ class AutoBindTest {
         private val accepted: Boolean = true,
         private val match: TrackSearch? = TrackSearch.create(1L),
         private val failing: Boolean = false,
+        override val offeredOnlyWhenAccepted: Boolean = true,
+        id: Long = 0L,
     ) : AutoBindTracker {
-        override val tracker: Tracker = mockk { every { this@mockk.name } returns name }
+        override val tracker: Tracker = mockk {
+            every { this@mockk.name } returns name
+            every { this@mockk.id } returns id
+        }
 
         override fun accepts(entry: AutoBindEntry) = accepted
 
@@ -88,6 +93,40 @@ class AutoBindTest {
 
         bound shouldBe emptyList()
     }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("entries")
+    fun `a site's tracker stays offered for an entry it does not know, and a tap searches`(kind: String) {
+        val site = FakeTracker("site", accepted = false, offeredOnlyWhenAccepted = false, id = 1L)
+
+        offer(entryOf(kind), site) shouldBe TrackerOffer(listOf(site.tracker), emptySet())
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("entries")
+    fun `a server's tracker is not offered for an entry it does not know`(kind: String) {
+        val server = FakeTracker("server", accepted = false, id = 2L)
+
+        offer(entryOf(kind), server).offered shouldBe emptyList()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("entries")
+    fun `a tracker that knows the entry is offered and binds on a tap`(kind: String) {
+        val server = FakeTracker("server", id = 3L)
+
+        offer(entryOf(kind), server) shouldBe TrackerOffer(listOf(server.tracker), setOf(3L))
+    }
+
+    @Test
+    fun `an entry that cannot be looked up keeps every row and a tap searches`() {
+        val server = FakeTracker("server", accepted = false, id = 4L)
+
+        offer(null, server) shouldBe TrackerOffer(listOf(server.tracker), emptySet())
+    }
+
+    private fun offer(entry: AutoBindEntry?, auto: FakeTracker) =
+        offerTrackers(listOf(auto.tracker), entry) { auto.takeIf { t -> t.tracker == it } }
 
     @Test
     fun `a manga server's tracker knows the manga from its own source`() {

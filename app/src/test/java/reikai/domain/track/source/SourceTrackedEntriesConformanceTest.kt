@@ -50,6 +50,12 @@ class SourceTrackedEntriesConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `an entry out of the library is read as out of it`(probe: LoaderProbe) = runTest {
+        probe.loader(favorite = false).load(probe.entry)!!.favorite shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `an entry whose source does not track loads as nothing`(probe: LoaderProbe) = runTest {
         probe.loader(tracking = false).load(probe.entry).shouldBeNull()
     }
