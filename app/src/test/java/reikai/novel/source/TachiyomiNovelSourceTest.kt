@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
+import eu.kanade.tachiyomi.source.online.HttpSource
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -70,6 +71,39 @@ class TachiyomiNovelSourceTest {
         source(minimumDelay = { error("broken") }).minimumRequestDelayMs shouldBe 0L
     }
 
+    @Test
+    fun `a novel's web page is the one the app builds for it`() {
+        webSource().webUrl("slug/", isNovel = true) shouldBe "https://site.example/series/slug/"
+    }
+
+    @Test
+    fun `a chapter's web page is the one the app builds for it`() {
+        webSource().webUrl("slug/", isNovel = false) shouldBe "https://site.example/read/slug/"
+    }
+
+    @Test
+    fun `an app that cannot build a page falls back to its site`() {
+        webSource(fails = true).webUrl("slug/", isNovel = true) shouldBe "https://site.example/slug/"
+    }
+
+    /** An app whose novel path is a bare slug, which only its own url rule turns into a page. */
+    private fun webSource(fails: Boolean = false) = TachiyomiNovelSource(
+        mockk<HttpSource>().apply {
+            every { id } returns 7L
+            every { name } returns "App"
+            every { lang } returns "en"
+            every { supportsLatest } returns false
+            every { baseUrl } returns "https://site.example/"
+            every { getFilterList() } returns FilterList()
+            every { getMangaUrl(any()) } answers {
+                if (fails) error("broken")
+                "https://site.example/series/" + firstArg<SManga>().url
+            }
+            every { getChapterUrl(any()) } answers { "https://site.example/read/" + firstArg<SChapter>().url }
+        },
+        loadedExtension(),
+    )
+
     private fun source(
         details: SManga.() -> Unit = {},
         chapter: SChapter.() -> Unit = {},
@@ -98,20 +132,22 @@ class TachiyomiNovelSourceTest {
                 SMangaUpdate(manga, chapters)
             }
         },
-        Extension.Loaded(
-            name = "App",
-            pkgName = "eu.kanade.tachiyomi.novelextension.en.app",
-            versionName = "1.6.1",
-            versionCode = 1,
-            libVersion = 1.6,
-            lang = "en",
-            contentWarning = ContentWarning.SAFE,
-            isShared = true,
-            kind = Extension.Kind.TACHIYOMI_NOVEL,
-            pkgFactory = null,
-            sources = emptyList(),
-            icon = null,
-        ),
+        loadedExtension(),
+    )
+
+    private fun loadedExtension() = Extension.Loaded(
+        name = "App",
+        pkgName = "eu.kanade.tachiyomi.novelextension.en.app",
+        versionName = "1.6.1",
+        versionCode = 1,
+        libVersion = 1.6,
+        lang = "en",
+        contentWarning = ContentWarning.SAFE,
+        isShared = true,
+        kind = Extension.Kind.TACHIYOMI_NOVEL,
+        pkgFactory = null,
+        sources = emptyList(),
+        icon = null,
     )
 
     /** A catalogue that declares a least delay when [minimumDelay] is given, as a library 1.6 app can. */

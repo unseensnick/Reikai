@@ -96,7 +96,14 @@ class TachiyomiNovelSource(
         NovelTextSanitizer.stripInvalidChars(text)
     }
 
-    override suspend fun resolveUrl(path: String, isNovel: Boolean): String? {
+    override suspend fun resolveUrl(path: String, isNovel: Boolean): String? = appUrl(path, isNovel)
+
+    // An app's stored path need not be relative to its site (a bare series slug, say), so its own
+    // rule answers; one that throws falls back to the site join rather than hiding the page.
+    override fun webUrl(path: String, isNovel: Boolean): String =
+        runCatching { appUrl(path, isNovel) }.getOrNull() ?: super.webUrl(path, isNovel)
+
+    private fun appUrl(path: String, isNovel: Boolean): String? {
         val http = source as? HttpSource ?: return null
         return if (isNovel) {
             http.getMangaUrl(SManga.create().apply { url = path })

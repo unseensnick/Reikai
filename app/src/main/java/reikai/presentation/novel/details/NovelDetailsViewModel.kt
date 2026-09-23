@@ -343,7 +343,7 @@ class NovelDetailsViewModel(
                             sourceName = resolved.name,
                             sourceHasSettings = resolved.settings != null,
                             browsableSourceId = resolved.id,
-                            novelWebUrl = resolved.webUrl(l.displayNovel.url),
+                            novelWebUrl = resolved.webUrl(l.displayNovel.url, isNovel = true),
                         )
                     } ?: it
                 }
@@ -603,7 +603,7 @@ class NovelDetailsViewModel(
                 seedColor = loaded?.seedColor,
                 // An uninstalled plugin shows its own id, as its chip does.
                 sourceName = viewSource?.name ?: viewNovel.source,
-                novelWebUrl = viewSource?.webUrl(viewNovel.url),
+                novelWebUrl = viewSource?.webUrl(viewNovel.url, isNovel = true),
                 sourceHasSettings = viewSource?.settings != null,
                 browsableSourceId = viewSource?.id,
                 sorting = anchor.effectiveSorting(novelPreferences),

@@ -78,12 +78,12 @@ class IReaderNovelSourceTest {
 
     @Test
     fun `a relative key opens under the site`() {
-        adapter().webUrl("novel/x") shouldBe "https://freewebnovel.com/novel/x"
+        adapter().webUrl("novel/x", isNovel = true) shouldBe "https://freewebnovel.com/novel/x"
     }
 
     @Test
     fun `an absolute key opens as it is`() {
-        adapter().webUrl("https://other.example/x") shouldBe "https://other.example/x"
+        adapter().webUrl("https://other.example/x", isNovel = true) shouldBe "https://other.example/x"
     }
 
     private fun app() = Extension.Loaded(

@@ -90,7 +90,7 @@ class IReaderNovelSource(
     }
 
     // IReader's own rule: a key is used as it is when absolute, and joined to the site otherwise.
-    override fun webUrl(path: String): String = when {
+    override fun webUrl(path: String, isNovel: Boolean): String = when {
         path.startsWith("http") -> path
         path.startsWith("/") -> site + path
         else -> "$site/$path"

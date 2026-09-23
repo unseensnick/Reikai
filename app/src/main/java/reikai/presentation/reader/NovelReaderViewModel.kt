@@ -1195,7 +1195,7 @@ class NovelReaderViewModel(
      * never resolved, which is the case the web actions have to hide rather than open empty.
      */
     fun webUrlFor(chapter: LoadedChapter): String? =
-        textLoader.cachedSource(currentNovelId)?.webUrl(chapter.url)
+        textLoader.cachedSource(currentNovelId)?.webUrl(chapter.url, isNovel = false)
 
     /** Start, cancel or delete a chapter download from the sheet, mirroring the details model. */
     fun downloadChapter(chapterId: Long, action: ChapterDownloadAction) {
