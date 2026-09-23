@@ -1,11 +1,13 @@
 package reikai.presentation.browse.repos
 
 import eu.kanade.tachiyomi.extension.model.Extension
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
 import mihon.domain.extension.model.ExtensionStore
 import org.junit.jupiter.api.Test
+import reikai.domain.extension.NO_SIGNING_KEY
 import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.toRepoStatus
 
@@ -27,6 +29,17 @@ class RepoCardsTest {
     fun `a repo the last fetch did not cover reads as checking`() {
         repoCards(listOf(STORE), storeStatuses = emptyMap(), pluginRepos = emptySet(), pluginStatuses = null)
             .single().status shouldBe RepoStatus.Checking
+    }
+
+    @Test
+    fun `a store that publishes no key shows none`() {
+        repoCards(listOf(STORE.copy(signingKey = NO_SIGNING_KEY)), null, emptySet(), null).single().signingKey
+            .shouldBeNull()
+    }
+
+    @Test
+    fun `a store's own key is shown`() {
+        repoCards(listOf(STORE), null, emptySet(), null).single().signingKey shouldBe "key"
     }
 
     @Test

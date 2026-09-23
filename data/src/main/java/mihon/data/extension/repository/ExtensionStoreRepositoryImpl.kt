@@ -14,6 +14,7 @@ import logcat.LogPriority
 import mihon.data.extension.service.ExtensionStoreService
 import mihon.domain.extension.model.ExtensionStore
 import mihon.domain.extension.repository.ExtensionStoreRepository
+import reikai.domain.extension.NO_SIGNING_KEY
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
@@ -35,7 +36,7 @@ class ExtensionStoreRepositoryImpl(
             indexUrl = indexUrl,
             name = name,
             badgeLabel = name,
-            signingKey = "NO_SIGNING_KEY",
+            signingKey = NO_SIGNING_KEY, // RK
             contactWebsite = indexUrl,
             contactDiscord = null,
             isLegacy = false,

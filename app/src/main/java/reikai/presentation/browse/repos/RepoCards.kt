@@ -1,8 +1,9 @@
 package reikai.presentation.browse.repos
 
 import mihon.domain.extension.model.ExtensionStore
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.domain.extension.RepoStatus
+import reikai.domain.extension.hasSigningKey
+import reikai.domain.extension.repoNameFromAddress
 import reikai.domain.library.ContentType
 
 enum class RepoFormat { STORE, PLUGINS }
@@ -46,12 +47,12 @@ fun repoCards(
             name = store.name,
             website = store.contact.website,
             discord = store.contact.discord,
-            signingKey = store.signingKey,
+            signingKey = store.signingKey.takeIf { store.hasSigningKey },
             status = storeStatuses?.get(store.indexUrl) ?: RepoStatus.Checking,
         )
     }
     val pluginCards = pluginRepos.map { url ->
-        val (name, website) = pluginRepoName(url)
+        val (name, website) = repoNameFromAddress(url)
         RepoCardUi(
             address = url,
             format = RepoFormat.PLUGINS,
@@ -74,14 +75,3 @@ suspend fun addRepoOfEitherKind(
     addPluginRepo: suspend () -> Result<Unit>,
     addStore: suspend () -> Result<Unit>,
 ): Boolean = addPluginRepo().isSuccess || addStore().isSuccess
-
-/** A plugin repo has no metadata of its own: a GitHub raw address names its owner, anything else its host. */
-private fun pluginRepoName(url: String): Pair<String, String?> {
-    val httpUrl = url.toHttpUrlOrNull() ?: return url to null
-    val segments = httpUrl.pathSegments
-    return if (httpUrl.host == "raw.githubusercontent.com" && segments.size >= 2) {
-        segments[0] to "https://github.com/${segments[0]}/${segments[1]}"
-    } else {
-        httpUrl.host to "${httpUrl.scheme}://${httpUrl.host}"
-    }
-}

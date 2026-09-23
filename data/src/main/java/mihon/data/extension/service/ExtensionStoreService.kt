@@ -20,6 +20,9 @@ import mihon.domain.extension.model.ExtensionStore
 import okio.BufferedSource
 import okio.buffer
 import okio.gzip
+import reikai.data.extension.isIReaderIndex
+import reikai.data.extension.readIReaderExtensions
+import reikai.data.extension.readIReaderStore
 import tachiyomi.core.common.util.system.logcat
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -41,6 +44,8 @@ class ExtensionStoreService(
                         if (!indexUrl.endsWith("/index.min.json")) {
                             throw IllegalArgumentException("Provided legacy store url is not valid")
                         }
+                        // RK: an IReader index has no repo.json to go on to
+                        readIReaderStore(indexUrl, source.peek(), json)?.let { return Result.success(it) }
                         updatedIndexUrl = indexUrl.replace("/index.min.json", "/repo.json")
                         network.client.newCall(GET(updatedIndexUrl)).awaitSuccess().body.source().use {
                             json.decodeFromBufferedSource<NetworkLegacyExtensionRepo>(it)
@@ -97,6 +102,12 @@ class ExtensionStoreService(
                         .extensionList!!
                         .toAvailableExtensions(store)
                 }
+                // RK -->
+            } else if (store.isIReaderIndex) {
+                network.client.newCall(GET(store.indexUrl)).awaitSuccess().body.source().use {
+                    readIReaderExtensions(store, it, json)
+                }
+                // RK <--
             } else {
                 val storeBaseUrl = store.indexUrl.removeSuffix("/repo.json")
                 val response = network.client.newCall(GET("$storeBaseUrl/index.min.json")).awaitSuccess()

@@ -285,7 +285,8 @@ private fun ExtensionItemActions(
                         }
                     }
                     is Extension.Available -> {
-                        if (extension.sources.isNotEmpty()) {
+                        // RK: an index that names no site (an old-style or IReader one) has nothing to open
+                        if (!extension.sources.firstOrNull()?.baseUrl.isNullOrEmpty()) {
                             IconButton(
                                 onClick = { onClickItemSecondaryAction(extension) },
                             ) {
