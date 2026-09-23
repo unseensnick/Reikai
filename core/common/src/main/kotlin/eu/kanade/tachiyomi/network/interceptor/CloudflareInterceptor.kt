@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.util.system.isOutdated
 import eu.kanade.tachiyomi.util.system.toast
+import logcat.LogPriority
 import okhttp3.Cookie
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
@@ -89,7 +90,10 @@ class CloudflareInterceptor(
                     when (val outcome = webViewFetcher.fetch(chain, fetchRequest)) {
                         is WebViewFetcher.Outcome.Served -> return outcome.response
                         // As a failed solve, so the caller can still offer the blocked page to open.
-                        is WebViewFetcher.Outcome.Failed -> throw CloudflareBypassException()
+                        is WebViewFetcher.Outcome.Failed -> {
+                            logcat(LogPriority.WARN, outcome.error) { "WebView fetch failed for $host" }
+                            throw CloudflareBypassException()
+                        }
                         // The WebView is challenged now too, so a solve may issue a clearance again.
                         WebViewFetcher.Outcome.Challenged -> webViewFetcher.forget(fetchRequest)
                     }
@@ -103,6 +107,9 @@ class CloudflareInterceptor(
                         // Cloudflare may let the WebView in without a challenge, which issues no
                         // clearance to retry with, so the WebView answers the request itself.
                         val outcome = webViewFetcher.fetch(chain, fetchRequest)
+                        if (outcome is WebViewFetcher.Outcome.Failed) {
+                            logcat(LogPriority.WARN, outcome.error) { "WebView fetch failed for $host" }
+                        }
                         if (outcome !is WebViewFetcher.Outcome.Served) throw e
                         webViewFetcher.markServed(fetchRequest)
                         return outcome.response

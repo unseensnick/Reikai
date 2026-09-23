@@ -10,6 +10,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import okhttp3.Headers.Companion.headersOf
@@ -60,6 +62,14 @@ class NovelImageRequestsTest {
     }
 
     @Test
+    fun `an LNReader source does not wait for the extension scan`() = runTest {
+        val identity = LnSourceIdentity(name = "P", site = "https://site.example/")
+        val requests = requests(seen = mapOf("p" to identity), scanDone = false)
+
+        requests.forSource("p").headers["Referer"] shouldBe "https://site.example/"
+    }
+
+    @Test
     fun `an APK source uses its own headers`() = runTest {
         val source = mockk<HttpSource> {
             every { id } returns 42L
@@ -106,12 +116,15 @@ class NovelImageRequestsTest {
     private fun requests(
         seen: Map<String, LnSourceIdentity> = emptyMap(),
         loaded: List<Extension.Loaded> = emptyList(),
+        scanDone: Boolean = true,
     ) = NovelImageRequests(
         context = mockk<Context>(relaxed = true),
         network = mockk<NetworkHelper> { every { client } returns OkHttpClient() },
         novelPreferences = NovelPreferences(
             InMemoryPreferenceStore(sequenceOf(InMemoryPreference("ln_seen_novel_sources", seen, emptyMap()))),
         ),
-        extensionManager = mockk<ExtensionManager> { every { loadedNovelExtensionsFlow } returns flowOf(loaded) },
+        extensionManager = mockk<ExtensionManager> {
+            every { loadedNovelExtensionsFlow } returns if (scanDone) flowOf(loaded) else flow { awaitCancellation() }
+        },
     )
 }

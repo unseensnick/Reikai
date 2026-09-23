@@ -31,7 +31,7 @@ fun deviceWebViewUserAgent(context: Context): String {
  */
 fun Request.Builder.applyNovelDefaults(
     deviceUserAgent: String,
-    pluginSetUserAgent: Boolean = false,
+    pluginSetUserAgent: Boolean,
 ): Request.Builder = apply {
     if (deviceUserAgent.isNotBlank() && !pluginSetUserAgent) header("User-Agent", deviceUserAgent)
 }

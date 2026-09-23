@@ -96,7 +96,15 @@ class WebViewFetcher(private val context: Context) {
                 else -> fetchOnce(chain, current, manualRedirect = true) is Answer.Redirect
             }
             if (!redirected) return first.toOutcome(current)
-            val target = redirectTarget(current)
+            // Checked before the navigation below, which would load the page only for its answer to be refused.
+            if (!followsRedirect(
+                    current,
+                    chain.followRedirects,
+                )
+            ) {
+                return Outcome.Failed(IOException("Redirect not followed"))
+            }
+            val target = (first as? Answer.Redirect)?.target ?: redirectTarget(current)
                 ?: return Outcome.Failed(IOException("Redirect target not found"))
             val next = webViewFetchFollowUp(current, target, chain.followRedirects, chain.followSslRedirects)
                 ?: return Outcome.Failed(IOException("Redirect not followed"))
@@ -122,7 +130,9 @@ class WebViewFetcher(private val context: Context) {
 
     private sealed interface Answer {
         data class Done(val response: Response?, val challenged: Boolean) : Answer
-        data object Redirect : Answer
+
+        /** [target] is known when the fetch followed it to another site and that site allowed the answer. */
+        data class Redirect(val target: String? = null) : Answer
 
         // fromPage: the fetch itself failed, which is what a redirect to another site looks like.
         data class Error(val message: String, val fromPage: Boolean = false) : Answer
@@ -134,7 +144,7 @@ class WebViewFetcher(private val context: Context) {
             response == null -> Outcome.Failed(IOException("WebView fetch returned no status"))
             else -> Outcome.Served(response)
         }
-        Answer.Redirect -> Outcome.Failed(IOException("Unexpected redirect"))
+        is Answer.Redirect -> Outcome.Failed(IOException("Unexpected redirect"))
         is Answer.Error -> Outcome.Failed(IOException("WebView fetch of ${request.url.host} failed: $message"))
     }
 
@@ -190,7 +200,7 @@ class WebViewFetcher(private val context: Context) {
             val next = runCatching { json.parseToJsonElement(raw).jsonObject }.getOrNull() ?: continue
             if (next["id"]?.jsonPrimitive?.content != id) continue
             when (next["kind"]?.jsonPrimitive?.content) {
-                "redirect" -> return Answer.Redirect
+                "redirect" -> return Answer.Redirect()
                 "error" -> {
                     val reason = next["message"]?.jsonPrimitive?.content?.take(64) ?: "error"
                     return Answer.Error(reason, fromPage = true)
@@ -208,6 +218,8 @@ class WebViewFetcher(private val context: Context) {
                     val status = done["status"]?.jsonPrimitive?.int ?: 0
                     val headers = done.headerPairs()
                     if (isWebViewFetchChallenged(status, headers)) return Answer.Done(null, challenged = true)
+                    webViewFetchLandedElsewhere(request, done["url"]?.jsonPrimitive?.content)
+                        ?.let { return Answer.Redirect(target = it) }
                     val response = webViewFetchResponse(
                         request = request,
                         status = status,
@@ -441,7 +453,7 @@ class WebViewFetcher(private val context: Context) {
                   if (req.contentType && !headers.has('content-type')) headers.set('content-type', req.contentType);
                   const init = { method: req.method, headers, credentials: 'include', cache: 'no-store',
                     redirect: req.redirect === 'manual' ? 'manual' : 'follow', signal: controller.signal };
-                  if (req.referrer) init.referrer = req.referrer;
+                  if (req.referrer) init.referrer = req.referrer; else init.referrerPolicy = 'no-referrer';
                   if (req.body != null) init.body = fromBase64(req.body);
                   const res = await fetch(req.url, init);
                   if (res.type === 'opaqueredirect') { send({ id, kind: 'redirect' }); return; }

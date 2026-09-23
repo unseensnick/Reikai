@@ -13,9 +13,13 @@ import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import okhttp3.Call
+import okhttp3.Connection
 import okhttp3.Cookie
+import okhttp3.EventListener
 import okhttp3.FormBody
 import okhttp3.Headers
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -104,6 +108,14 @@ class FlareSolverrClient(
     // sessionless request.get / request.post for the rest of this app session.
     @Volatile private var fsSessionsSupported = true
 
+    // The login a failed probe ran under: a proxy 401 before the reader saved theirs says nothing once they have.
+    @Volatile private var sessionlessUnder: String? = null
+
+    private fun currentLogin(): String = flareSolverrAuthHeader(
+        networkPreferences.flareSolverrUsername.get().trim(),
+        networkPreferences.flareSolverrPassword.get(),
+    ).orEmpty()
+
     fun pinnedUserAgentFor(host: String): String? = fsPinByHost[host]
 
     fun shouldSkipWebView(host: String): Boolean = fsRequiredHosts.contains(host)
@@ -141,12 +153,22 @@ class FlareSolverrClient(
         }
         val body = json.encodeToString(JsonObject.serializer(), command)
             .toRequestBody(JSON_MEDIA_TYPE)
+        // A restored address skipped the settings field's check, so it may not parse at all.
+        val address = "${flareSolverrUrl.trimEnd('/')}/v1".toHttpUrlOrNull()
+            ?: return@withContext FlareSolverrTestResult.Failure(FlareSolverrTestFailure.UNREACHABLE, "not an address")
         val req = Request.Builder()
-            .url("${flareSolverrUrl.trimEnd('/')}/v1")
+            .url(address)
             .post(body)
             .build()
+        // Whether the call got as far as a connection, so a timeout can be told from an unreachable address.
+        var connected = false
+        val listener = object : EventListener() {
+            override fun connectionAcquired(call: Call, connection: Connection) {
+                connected = true
+            }
+        }
         val text = try {
-            flareSolverrClient.newCall(req).execute().use { resp ->
+            flareSolverrClient.newBuilder().eventListener(listener).build().newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) {
                     return@withContext FlareSolverrTestResult.Failure(
                         FlareSolverrTestFailure.ofStatus(resp.code),
@@ -157,7 +179,7 @@ class FlareSolverrClient(
             }
         } catch (e: IOException) {
             return@withContext FlareSolverrTestResult.Failure(
-                FlareSolverrTestFailure.ofException(e),
+                FlareSolverrTestFailure.ofException(e, connected),
                 e.message ?: e.toString(),
             )
         }
@@ -188,7 +210,7 @@ class FlareSolverrClient(
                 "solution status: ${solution.status}",
             )
         }
-        FlareSolverrTestResult.Success(solution.userAgent)
+        FlareSolverrTestResult.Success
     }
 
     private fun resolveWithFlareSolverrDedup(flareSolverrUrl: String, request: Request): Response? {
@@ -231,6 +253,7 @@ class FlareSolverrClient(
      * solve still proceeds, just without the warm-cookie reuse a FlareSolverr session would give.
      */
     private fun ensureFlareSolverrSession(flareSolverrUrl: String): String? {
+        if (!fsSessionsSupported && sessionlessUnder != currentLogin()) fsSessionsSupported = true
         if (!fsSessionsSupported) return null
         fsSessionId?.let { return it }
         return synchronized(fsSessionLock) {
@@ -240,6 +263,7 @@ class FlareSolverrClient(
             // sessions.create (it has no url to navigate), spamming its console with a stack trace.
             // Probe the root banner so we attempt sessions.create only on FlareSolverr.
             if (!flareSolverrSupportsSessions(flareSolverrUrl)) {
+                sessionlessUnder = currentLogin()
                 fsSessionsSupported = false
                 return@synchronized null
             }
@@ -260,6 +284,7 @@ class FlareSolverrClient(
             if (!created) {
                 // Sessionless solver (Byparr) or a transient error: fall back to sessionless requests
                 // rather than failing the solve. request.get still works without a session.
+                sessionlessUnder = currentLogin()
                 fsSessionsSupported = false
                 return@synchronized null
             }
@@ -299,7 +324,11 @@ class FlareSolverrClient(
         // fields. Build the command via the JSON DSL so the body can't break the envelope.
         val isPost = request.method.equals("POST", ignoreCase = true)
         val postData = request.body?.takeIf { isPost }?.let(::flareSolverrPostData)
-        val forwarded = if (mayForwardCookies(flareSolverrUrl)) cookieManager.get(request.url) else emptyList()
+        val forwarded = if (mayForwardCookies(flareSolverrUrl)) {
+            cookiesToForward(cookieManager.get(request.url), request.header("Cookie"), request.url)
+        } else {
+            emptyList()
+        }
         val command = flareSolverrCommand(targetUrl, isPost, postData, sessionId, forwarded)
         val body = json.encodeToString(JsonObject.serializer(), command)
             .toRequestBody(JSON_MEDIA_TYPE)
@@ -401,7 +430,7 @@ class FlareSolverrClient(
 
 /** What the settings "Test" button learned about the configured server. */
 sealed interface FlareSolverrTestResult {
-    data class Success(val userAgent: String) : FlareSolverrTestResult
+    data object Success : FlareSolverrTestResult
 
     /** [detail] is the untranslated technical text: the status line, or the exception's message. */
     data class Failure(val reason: FlareSolverrTestFailure, val detail: String) : FlareSolverrTestResult
@@ -432,10 +461,10 @@ enum class FlareSolverrTestFailure {
             else -> HTTP_ERROR
         }
 
-        // A read that ran out is not an unreachable address: something answered and then took too
-        // long. Matches the call timeout too, which OkHttp reports as the same supertype.
-        fun ofException(e: IOException): FlareSolverrTestFailure =
-            if (e is InterruptedIOException) TIMED_OUT else UNREACHABLE
+        // A timeout once [connected] is not an unreachable address: something answered and then took
+        // too long. One while connecting is: nothing answered at all, as for a LAN address off the LAN.
+        fun ofException(e: IOException, connected: Boolean): FlareSolverrTestFailure =
+            if (e is InterruptedIOException && connected) TIMED_OUT else UNREACHABLE
     }
 }
 
@@ -462,6 +491,19 @@ internal fun mayForwardCookies(flareSolverrUrl: String): Boolean {
 }
 
 private val LOCAL_SUFFIXES = listOf(".local", ".lan", ".home.arpa", ".internal")
+
+/**
+ * The cookies a request carries, as OkHttp would send them: the jar's for [url], or when the jar has
+ * none, the Cookie header the source set on the request itself.
+ */
+internal fun cookiesToForward(jar: List<Cookie>, cookieHeader: String?, url: HttpUrl): List<Cookie> =
+    jar.ifEmpty {
+        cookieHeader.orEmpty().split(';').mapNotNull { pair ->
+            val name = pair.substringBefore('=').trim()
+            if (name.isEmpty() || '=' !in pair) return@mapNotNull null
+            Cookie.Builder().name(name).value(pair.substringAfter('=').trim()).domain(url.host).build()
+        }
+    }
 
 /**
  * The solver's cookies worth storing: not one it only echoed back from [forwarded], which returns

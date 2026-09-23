@@ -56,19 +56,25 @@ class FlareSolverrTestFailureTest {
 
     @Test
     fun `a read that ran out is not reported as an unreachable server`() {
-        FlareSolverrTestFailure.ofException(SocketTimeoutException("timeout")) shouldBe
+        FlareSolverrTestFailure.ofException(SocketTimeoutException("timeout"), connected = true) shouldBe
             FlareSolverrTestFailure.TIMED_OUT
     }
 
     @Test
     fun `the call timeout reads the same way, though it is a different exception`() {
-        FlareSolverrTestFailure.ofException(InterruptedIOException("timeout")) shouldBe
+        FlareSolverrTestFailure.ofException(InterruptedIOException("timeout"), connected = true) shouldBe
             FlareSolverrTestFailure.TIMED_OUT
     }
 
     @Test
+    fun `a connect that ran out is an unreachable server, since nothing answered`() {
+        FlareSolverrTestFailure.ofException(SocketTimeoutException("failed to connect"), connected = false) shouldBe
+            FlareSolverrTestFailure.UNREACHABLE
+    }
+
+    @Test
     fun `anything else really is an unreachable server`() {
-        FlareSolverrTestFailure.ofException(ConnectException("failed to connect")) shouldBe
+        FlareSolverrTestFailure.ofException(ConnectException("failed to connect"), connected = false) shouldBe
             FlareSolverrTestFailure.UNREACHABLE
     }
 }

@@ -159,7 +159,7 @@ A `popularNovels` call (the others are analogous):
 | `source/NovelSourceManager.kt` | In-memory registry of loaded `LnPluginSource`s, keyed by `String` id (disjoint from the manga `SourceManager`'s `Long` ids). |
 | `install/LnPluginInstaller.kt` | `installFromUrl` / `uninstall` / `ensureLoaded` / `loadInstalled` / `fetchRepo`, plus the top-level `canonicalizePluginUrl` and per-URL storage-scope derivation. Owns the app-scoped host's load lifecycle. |
 | `registry/LnRegistry.kt` | `LnRegistry.parse()` and the `LnRegistryEntry` DTO for an lnreader `plugins.min.json`. |
-| `network/NovelRequestHeaders.kt` | `deviceWebViewUserAgent` + the `applyNovelDefaults` request-builder extension shared by the bridge and the cover fetcher. |
+| `network/NovelRequestHeaders.kt` | `deviceWebViewUserAgent` + the `applyNovelDefaults` request-builder extension the bridge applies. Covers and chapter pictures take their headers from `NovelImageRequests` instead. |
 | `download/` | `NovelDownloadManager`, `NovelDownloadJob`, `NovelDownloadProvider`, `NovelDownloadStore`, `NovelDownloadNotifier`, `NovelDownload`, `NovelChapterImageInliner`. |
 | `update/` | `LnPluginUpdateChecker`, `LnPluginVersion` (plugin-version comparison for update checks). |
 

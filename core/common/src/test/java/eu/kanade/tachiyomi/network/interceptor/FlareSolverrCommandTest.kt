@@ -8,6 +8,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Cookie
 import okhttp3.FormBody
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.jupiter.api.Test
@@ -36,6 +37,18 @@ class FlareSolverrCommandTest {
     }
 
     @Test
+    fun `a cookie the source set on the request goes when the jar has none, as OkHttp sends it`() {
+        cookiesToForward(emptyList(), "session=abc; lang=en", "https://www.example.com/".toHttpUrl())
+            .map { it.name to it.value } shouldBe listOf("session" to "abc", "lang" to "en")
+    }
+
+    @Test
+    fun `the jar's cookies win over a Cookie header, as OkHttp sends them`() {
+        cookiesToForward(listOf(cookie("site", "jar")), "site=header", "https://www.example.com/".toHttpUrl())
+            .map { it.value } shouldBe listOf("jar")
+    }
+
+    @Test
     fun `a jar with nothing for the site sends no cookies at all`() {
         cookiesSent(emptyList()).shouldBeNull()
     }
@@ -59,7 +72,19 @@ class FlareSolverrCommandTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["http://solver.example.com:8191", "http://203.0.113.7:8191", "not a url"])
+    @ValueSource(
+        strings = [
+            "http://solver.example.com:8191",
+            "http://203.0.113.7:8191",
+            "not a url",
+            // Public neighbours of the private ranges, which share their first octet.
+            "http://172.64.1.1:8191",
+            "http://172.15.0.1:8191",
+            "http://100.128.0.1:8191",
+            "http://100.63.0.1:8191",
+            "http://[2001:db8::5]:8191",
+        ],
+    )
     fun `cookies never cross the internet in the clear`(url: String) {
         mayForwardCookies(url) shouldBe false
     }

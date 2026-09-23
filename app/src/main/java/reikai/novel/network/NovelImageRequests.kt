@@ -43,9 +43,10 @@ class NovelImageRequests(
         )
     }
 
-    // Found by its whole text id: an IReader app and a tachiyomi-format one may share the number.
+    // Found by its whole text id: an IReader app and a tachiyomi-format one may share the number. The
+    // prefix is checked first, since the extension list waits for the whole extension scan.
     private suspend fun iReaderSource(sourceId: String?): IReaderSourceHolder? {
-        sourceId ?: return null
+        if (sourceId?.startsWith(IREADER_NOVEL_SOURCE_PREFIX) != true) return null
         return extensionManager.loadedNovelExtensionsFlow.first()
             .flatMap { it.sources.filterIsInstance<IReaderSourceHolder>() }
             .firstOrNull { IREADER_NOVEL_SOURCE_PREFIX + it.id == sourceId }

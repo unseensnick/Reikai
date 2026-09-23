@@ -228,7 +228,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         val userAgentPref = networkPreferences.defaultUserAgent
         val userAgent by userAgentPref.collectAsState()
 
-        // RK: FlareSolverr settings live in the Network group, gated on the enable toggle
+        // RK --> FlareSolverr settings live in the Network group, gated on the enable toggle
         val scope = rememberCoroutineScope()
         val flareSolverrEnabled by networkPreferences.enableFlareSolverr.collectAsState()
         val flareSolverrUrl by networkPreferences.flareSolverrUrl.collectAsState()
@@ -286,6 +286,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                 },
             )
         }
+        // RK <--
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_network),
@@ -465,14 +466,17 @@ object SettingsAdvancedScreen : SearchableSettings {
                             stringResource(lastTest.reason.stringRes())
                         else -> stringResource(MR.strings.pref_test_flaresolverr_summary)
                     },
-                    enabled = flareSolverrEnabled && !flareSolverrTesting,
+                    // Stays enabled while a test runs, since this DSL hides a disabled row; a tap then does nothing.
+                    enabled = flareSolverrEnabled,
                     onClick = {
                         val url = networkPreferences.flareSolverrUrl.get().trim()
-                        if (url.isBlank()) {
+                        if (flareSolverrTesting) {
+                            // One test at a time.
+                        } else if (url.isBlank()) {
                             context.toast(MR.strings.error_flaresolverr_invalid_url)
                         } else {
                             scope.launch {
-                                // The agent it reports is deliberately not stored as the app default.
+                                // The solver's agent is deliberately not stored as the app default.
                                 // Doing that made every WebView announce FlareSolverr's desktop browser
                                 // while running as Android WebView, and Cloudflare re-challenged that
                                 // mismatch endlessly. UserAgentInterceptor already pins the agent per

@@ -156,6 +156,38 @@ class WebViewFetchTest {
     }
 
     @Test
+    fun `a redirect from https to http is followed when the client allows it`() {
+        webViewFetchFollowUp(get().build(), "http://www.example.com/", true, followSslRedirects = true)!!
+            .url.scheme shouldBe "http"
+    }
+
+    @Test
+    fun `a referrer on the request's own site is named to the page`() {
+        val request = get().header("Referer", "https://www.example.com/list").build()
+
+        webViewFetchMessage("id", request, false)!!["referrer"]!!.jsonPrimitive.content shouldBe
+            "https://www.example.com/list"
+    }
+
+    @Test
+    fun `a referrer on another site is left out rather than replaced by the page's own`() {
+        val request = get().header("Referer", "https://other.example.net/").build()
+
+        webViewFetchMessage("id", request, false)!!["referrer"].shouldBeNull()
+    }
+
+    @Test
+    fun `a fetch that landed on another site is a redirect there`() {
+        webViewFetchLandedElsewhere(get().build(), "https://mirror.example.net/c/1") shouldBe
+            "https://mirror.example.net/c/1"
+    }
+
+    @Test
+    fun `a fetch that stayed on its site is no redirect`() {
+        webViewFetchLandedElsewhere(get().build(), "https://www.example.com/moved").shouldBeNull()
+    }
+
+    @Test
     fun `a client that follows no redirects gets none here either`() {
         webViewFetchFollowUp(get().build(), "/next", followRedirects = false, followSslRedirects = true).shouldBeNull()
     }

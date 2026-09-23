@@ -73,11 +73,16 @@ an htpasswd access list.
   install marks every migration done without running it, so a restored address would otherwise keep
   its password where nothing reads it and every later backup would copy it forward. Neither path can
   fix a backup already taken, so the docs say to rotate the password.
+- **A restored address is treated as someone else's.** The saved login stays with the server it was
+  entered for: an address on another origin clears it rather than inheriting it, a login already on
+  the device wins over one buried in the address only as a whole pair, and an address the settings
+  field would refuse is not stored at all.
 - **A separate defect the same investigation found, fixed in its own commit:** the client read for 60
   seconds while asking the server for a 60-second `maxTimeout`, so a solve that ran long was lost at
   the app end with a socket timeout and reported as an unreachable server. The read timeout is 90
   seconds now, above what each command asks for, and a timeout is classified apart from other IO
   failures on `InterruptedIOException`, which covers OkHttp's call timeout as well as a socket read.
+  A timeout before any connection was made is still an unreachable server, since nothing answered.
   The 90-second call timeout stays: a solve runs inside `NetworkHelper`'s client, whose own
   `callTimeout` is two minutes, so nothing above that is reachable on this path. Measured against a
   server answering at 75 seconds: it died at exactly 60.0 before and succeeds at 75.3 now. No solve

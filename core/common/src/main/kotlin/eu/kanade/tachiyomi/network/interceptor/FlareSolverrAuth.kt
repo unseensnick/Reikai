@@ -54,16 +54,29 @@ const val FLARESOLVERR_URL_KEY = "flaresolverr_url"
  *
  * Called from both the upgrade migration and the backup restorer, because a fresh install marks
  * every migration done without running it, so a restored address would otherwise keep its password
- * where nothing reads it and every later backup copies it.
+ * where nothing reads it and every later backup copies it. A backup may be someone else's, so the
+ * saved login never follows an address to another server, and an address the settings field would
+ * refuse is not stored.
  */
 fun NetworkPreferences.carryFlareSolverrUserInfo(rawUrl: String) {
     val split = splitFlareSolverrUserInfo(rawUrl)
-    if (split == null) {
-        flareSolverrUrl.set(rawUrl)
-        return
+    val address = split?.url ?: rawUrl
+    if (address.isNotBlank() && address.trim().toHttpUrlOrNull() == null) return
+    val current = flareSolverrUrl.get()
+    if (address.isNotBlank() && current.isNotBlank() && !isSameServer(current, address)) {
+        flareSolverrUsername.delete()
+        flareSolverrPassword.delete()
     }
-    flareSolverrUrl.set(split.url)
-    // Credentials already configured by hand win: they are the ones the reader last verified.
-    if (flareSolverrUsername.get().isBlank()) flareSolverrUsername.set(split.username)
-    if (flareSolverrPassword.get().isBlank()) flareSolverrPassword.set(split.password)
+    flareSolverrUrl.set(address)
+    // Credentials already configured by hand win as a pair: they are the ones the reader last verified.
+    if (split != null && flareSolverrUsername.get().isBlank() && flareSolverrPassword.get().isBlank()) {
+        flareSolverrUsername.set(split.username)
+        flareSolverrPassword.set(split.password)
+    }
+}
+
+private fun isSameServer(a: String, b: String): Boolean {
+    val first = a.trim().toHttpUrlOrNull() ?: return false
+    val second = b.trim().toHttpUrlOrNull() ?: return false
+    return isSameOrigin(first, second)
 }

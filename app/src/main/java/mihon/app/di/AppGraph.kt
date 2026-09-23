@@ -183,8 +183,8 @@ interface AppGraph : ViewModelGraph {
     val novelSourceManager: NovelSourceManager
     val iReaderHostServices: IReaderHostServices // RK: the extension loader builds IReader sources with it
     val novelPageFetcher: NovelPageFetcher // RK: the in-app browser hands a loaded page to a novel source
-    val novelImageRequests: NovelImageRequests
-    val extensionUpdateCounts: ExtensionUpdateCounts
+    val novelImageRequests: NovelImageRequests // RK: novel covers and pictures take their source's headers
+    val extensionUpdateCounts: ExtensionUpdateCounts // RK: the Browse badge counts plugin updates too
     val reikaiRecommendationPreferences: ReikaiRecommendationPreferences
     val lnPluginUpdateChecker: LnPluginUpdateChecker
     val refreshTrackerLibrary: RefreshTrackerLibrary

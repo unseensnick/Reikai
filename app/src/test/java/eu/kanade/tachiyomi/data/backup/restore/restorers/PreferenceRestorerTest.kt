@@ -115,6 +115,54 @@ class PreferenceRestorerTest {
         networkPreferences.flareSolverrUsername.get() shouldBe ""
     }
 
+    private fun savedLogin(url: String, username: String, password: String) = with(networkPreferences) {
+        flareSolverrUrl.set(url)
+        flareSolverrUsername.set(username)
+        flareSolverrPassword.set(password)
+    }
+
+    private fun login() = networkPreferences.flareSolverrUsername.get() to networkPreferences.flareSolverrPassword.get()
+
+    @Test
+    @DisplayName("a restored address for another server does not take the saved login with it")
+    fun restoredAddressForAnotherServerDropsTheLogin() = runTest {
+        savedLogin("https://mine.example.com", "me", "pw")
+
+        restoreString(FLARESOLVERR_URL_KEY, "https://solverr.example.net")
+
+        login() shouldBe ("" to "")
+    }
+
+    @Test
+    @DisplayName("a restored address for the same server keeps the saved login")
+    fun restoredAddressForTheSameServerKeepsTheLogin() = runTest {
+        savedLogin("https://mine.example.com", "me", "pw")
+
+        restoreString(FLARESOLVERR_URL_KEY, "https://mine.example.com/")
+
+        login() shouldBe ("me" to "pw")
+    }
+
+    @Test
+    @DisplayName("a saved login wins as a pair over one buried in the restored address")
+    fun savedLoginWinsAsAPair() = runTest {
+        savedLogin("https://mine.example.com", "alice", "")
+
+        restoreString(FLARESOLVERR_URL_KEY, "https://bob:secret@mine.example.com")
+
+        login() shouldBe ("alice" to "")
+    }
+
+    @Test
+    @DisplayName("a restored address the settings field would refuse is not stored")
+    fun restoredUnparseableAddressIsNotStored() = runTest {
+        savedLogin("https://mine.example.com", "me", "pw")
+
+        restoreString(FLARESOLVERR_URL_KEY, "192.168.1.5:8191")
+
+        networkPreferences.flareSolverrUrl.get() shouldBe "https://mine.example.com"
+    }
+
     @Test
     @DisplayName("a backup taken before the margins existed keeps its page padding")
     fun retiredPaddingReachesTheMargins() = runTest {

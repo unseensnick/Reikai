@@ -54,7 +54,9 @@ internal fun webViewFetchMessage(id: String, request: Request, manualRedirect: B
         put("url", request.url.toString())
         put("method", method)
         put("redirect", if (manualRedirect) "manual" else "follow")
-        request.header("Referer")?.toHttpUrlOrNull()?.let { put("referrer", it.toString()) }
+        // A page can only name a referrer on its own origin; the page sends none rather than its own.
+        request.header("Referer")?.toHttpUrlOrNull()?.takeIf { isSameOrigin(it, request.url) }
+            ?.let { put("referrer", it.toString()) }
         putJsonArray("headers") {
             request.headers
                 .filter { (name, _) -> isForwardable(name) }
@@ -109,6 +111,18 @@ internal fun webViewFetchResponse(
         .build()
 }
 
+/**
+ * The other site a followed fetch landed on, or null when it stayed on the request's own origin. The
+ * browser hands back such an answer only when that site allows it, and it is taken as a redirect there,
+ * so the body is never served under the original address.
+ */
+internal fun webViewFetchLandedElsewhere(request: Request, finalUrl: String?): String? =
+    finalUrl?.toHttpUrlOrNull()?.takeUnless { isSameOrigin(it, request.url) }?.toString()
+
+/** Whether a redirect of [request] may be followed at all: only a GET or HEAD, by a client that follows. */
+internal fun followsRedirect(request: Request, followRedirects: Boolean): Boolean =
+    followRedirects && request.method in setOf("GET", "HEAD")
+
 /** Whether the page's answer is Cloudflare challenging the WebView too, which this cannot get past. */
 internal fun isWebViewFetchChallenged(status: Int, headers: List<Pair<String, String>>): Boolean =
     status == 403 && headers.any { (name, value) -> name.equals("cf-mitigated", true) && value == "challenge" }
@@ -124,7 +138,7 @@ internal fun webViewFetchFollowUp(
     followRedirects: Boolean,
     followSslRedirects: Boolean,
 ): Request? {
-    if (!followRedirects || request.method !in setOf("GET", "HEAD")) return null
+    if (!followsRedirect(request, followRedirects)) return null
     val url = request.url.resolve(target) ?: return null
     if (url.scheme != request.url.scheme && !followSslRedirects) return null
     return request.newBuilder().url(url).apply {
