@@ -2,6 +2,7 @@ package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.download.isExcludedFromRemoval
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelChapter

@@ -102,7 +102,10 @@ suspend fun syncChaptersWithNovelSource(
     // Sources list newest first, so the kernel counts fetch dates down from now in that order.
     val arrivals = chapterArrivals(
         added = toAdd.map { ArrivingChapter(it.chapterNumber, it.read, it.bookmark) },
-        stored = dbChapters.map { it.toStoredChapter() },
+        // The whole novel, not just this page: a chapter read on another page is read here too, as manga's
+        // whole list is. A re-listed twin is still matched within the page, where its old row is deleted.
+        stored = (if (page != null) novelChapterRepository.getByNovelId(novelId) else dbChapters)
+            .map { it.toStoredChapter() },
         removed = toDelete.map { it.toStoredChapter() },
         markDuplicateAsRead = markDuplicateAsRead,
         now = System.currentTimeMillis(),

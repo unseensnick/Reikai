@@ -271,9 +271,9 @@ class App :
     override fun newImageLoader(context: Context): ImageLoader {
         return ImageLoader.Builder(this).apply {
             val callFactoryLazy = lazy { graph.networkHelper.client }
-            // RK: read here rather than as injected App fields, upstream's shape: newImageLoader runs
-            // lazily, while a field would build SourceManager at graph.inject, before the legacy
-            // database recovery below has moved an incompatible database aside.
+            // RK: read here rather than as the injected App fields upstream uses: newImageLoader runs
+            // lazily, while a field would build SourceManager at graph.inject in every process,
+            // :error_handler included, which the main-process gate above keeps it out of.
             val coverCache = graph.coverCache
             val sourceManager = graph.sourceManager
             val mangaCoverMetadata = graph.mangaCoverMetadata // RK

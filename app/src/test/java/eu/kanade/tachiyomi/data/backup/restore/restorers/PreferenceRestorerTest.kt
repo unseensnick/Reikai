@@ -308,6 +308,7 @@ class PreferenceRestorerTest {
             Arguments.of(DEAD_READER_TAP_TO_SCROLL_KEY, BooleanPreferenceValue(true)),
             Arguments.of(ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY, BooleanPreferenceValue(false)),
             Arguments.of(DEAD_READER_TTS_ENABLED_KEY, BooleanPreferenceValue(true)),
+            Arguments.of(ReikaiSourcePreferences.DEAD_DOWNLOAD_CONTENT_TYPE_KEY, StringPreferenceValue("NOVELS")),
         ) + DEAD_READER_TTS_BUTTON_KEYS.map { Arguments.of(it, IntPreferenceValue(120)) }
     }
 }

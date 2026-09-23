@@ -217,7 +217,7 @@ class ExtensionManager(
         // RK: serialized, see loadMutex
         try {
             // RK --> read before the loader reads them, so a write in between costs only a spare scan
-            scannedContentWarnings = preferences.contentWarningScan()
+            val contentWarnings = preferences.contentWarningScan()
             // RK <--
             // RK --> novel extensions go back in too, so a reload keeps their source instances
             val (extensions, novelExtensions) = ExtensionLoader.loadExtensions(
@@ -241,6 +241,8 @@ class ExtensionManager(
             notLoadedExtensionMapFlow.value = extensions
                 .filterIsInstance<Extension.NotLoaded>()
                 .associateBy { it.pkgName }
+            // RK: recorded once the scan lands, since a cancelled one judged nothing
+            scannedContentWarnings = contentWarnings
 
             // Newly loaded extensions have no status derived from the store index yet
             updatedInstalledExtensionsStatuses(availableExtensionMapFlow.value.values.toList())

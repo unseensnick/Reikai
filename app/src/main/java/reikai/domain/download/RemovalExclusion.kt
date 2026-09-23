@@ -1,8 +1,8 @@
-package reikai.domain.novel.interactor
+package reikai.domain.download
 
 /**
- * Whether the categories kept from download removal cover a novel, the one rule both removal paths
- * honour. An uncategorized novel sits in Default (id 0), as manga's `DownloadManager` counts it.
+ * Whether the categories kept from download removal cover an entry, the one rule every removal path of
+ * both content types honours. An uncategorized entry sits in Default (id 0).
  * [categoryIds] is only asked when something is excluded, so the common case costs no lookup.
  */
 internal suspend fun isExcludedFromRemoval(excluded: Set<String>, categoryIds: suspend () -> List<Long>): Boolean {

@@ -97,12 +97,12 @@ class NovelRefreshTest {
         return novels.getById(id)!!
     }
 
-    private suspend fun storedChapter(novel: Novel, url: String, number: Double, read: Boolean) {
+    private suspend fun storedChapter(novel: Novel, url: String, number: Double, read: Boolean, page: String = "") {
         chapters.insert(
             NovelChapter(
                 id = -1L, novelId = novel.id, url = url, name = "Chapter $number", read = read, bookmark = false,
                 lastTextProgress = 0L, chapterNumber = number, sourceOrder = 0L, dateFetch = 0L, dateUpload = 0L,
-                page = "",
+                page = page,
             ),
         )
     }
@@ -131,10 +131,20 @@ class NovelRefreshTest {
     @Test
     fun `a chapter re-listed at a new address is not reported as new`() = runTest {
         val novel = storedNovel()
-        storedChapter(novel, "/c/12-a", 12.0, read = true)
+        // Unread, so the duplicate-read rule cannot be what holds it back.
+        storedChapter(novel, "/c/12-a", 12.0, read = false)
         // A later row, so the re-listed one cannot take the removed row's id back.
         storedChapter(novel, "/c/13", 13.0, read = false)
         val source = PagedSource(listOf(chapter("/c/13", 13.0), chapter("/c/12-b", 12.0)))
+
+        refresh(novel, source).newChapters shouldBe emptyList()
+    }
+
+    @Test
+    fun `a new copy of a chapter read on another page is not reported as new`() = runTest {
+        val novel = storedNovel()
+        storedChapter(novel, "/c/12-a", 12.0, read = true, page = "1")
+        val source = PagedSource(listOf(chapter("/c/12-a", 12.0)), mapOf("2" to listOf(chapter("/c/12-b", 12.0))))
 
         refresh(novel, source).newChapters shouldBe emptyList()
     }

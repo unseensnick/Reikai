@@ -184,6 +184,18 @@ class SourceTrackerKernelTest {
     }
 
     @Test
+    fun `a read counts only the chapters that were unread`() = runTest {
+        kernel().readStateWritten(
+            read = true,
+            listOf(ChapterWrite(entry, 1L, wasRead = false), ChapterWrite(entry, 2L, wasRead = true)),
+        )
+
+        pastDebounce()
+
+        tracker.calls shouldBe listOf("read e1 [c1]")
+    }
+
+    @Test
     fun `a write across two entries reaches each one's site`() = runTest {
         kernel().readStateWritten(
             read = true,

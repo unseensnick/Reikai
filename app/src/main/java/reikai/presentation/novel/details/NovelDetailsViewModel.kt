@@ -1057,7 +1057,7 @@ class NovelDetailsViewModel(
      * also serves an in-library novel changing its categories, which [NovelLibraryAdder.favoriteForAdd]
      * leaves alone rather than re-writing. A group add's favorite joins [joinGroup]'s group as one unit.
      */
-    fun applyCategories(categoryIds: List<Long>, joinGroup: List<Long> = emptyList()) {
+    fun applyCategories(categoryIds: List<Long>, joinGroup: List<Long>) {
         viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             finishAdd(

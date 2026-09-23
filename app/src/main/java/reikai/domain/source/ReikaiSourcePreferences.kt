@@ -240,6 +240,9 @@ class ReikaiSourcePreferences(
         const val DEAD_UPDATES_FILTER_CATEGORY_SET_PREFIX = "updates_filter_manga_categories_"
         const val DEAD_UPDATES_FILTER_NOVEL_CATEGORY_SET_PREFIX = "updates_filter_novel_categories_"
 
+        /** The download queue's retired content-type filter, which the queue order replaced; skipped on restore. */
+        const val DEAD_DOWNLOAD_CONTENT_TYPE_KEY = "download_content_type"
+
         /** Upstream's retired extension NSFW switch, which the allowed content warnings replaced. */
         const val DEAD_SHOW_NSFW_SOURCE_KEY = "show_nsfw_source"
     }

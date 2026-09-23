@@ -1,6 +1,7 @@
 package reikai.domain.source
 
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -36,6 +37,30 @@ class ContentWarningScanTest {
         var reloads = 0
 
         val job = launch { settings.reloadWhenScanStale({ allWarnings }) { reloads++ } }
+        advanceUntilIdle()
+        job.cancel()
+
+        reloads shouldBe 0
+    }
+
+    @Test
+    fun `a value back at the scan's settings cancels the reload still waiting`() = runTest {
+        val settings = MutableStateFlow(allWarnings)
+        val gate = CompletableDeferred<Unit>()
+        var reloads = 0
+
+        val job = launch {
+            settings.reloadWhenScanStale({ allWarnings }) {
+                gate.await()
+                reloads++
+            }
+        }
+        advanceUntilIdle()
+        settings.value = safeOnly
+        advanceUntilIdle()
+        settings.value = allWarnings
+        advanceUntilIdle()
+        gate.complete(Unit)
         advanceUntilIdle()
         job.cancel()
 

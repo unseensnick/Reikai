@@ -1,11 +1,11 @@
-package reikai.domain.novel.interactor
+package reikai.domain.download
 
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
-/** The exclusion both novel removal paths call, so the rule is pinned here once for both. */
-class NovelRemovalExclusionTest {
+/** The exclusion every removal path of both content types calls, so the rule is pinned here once. */
+class RemovalExclusionTest {
 
     @Test
     fun `an uncategorized novel is kept when Default is excluded`() = runTest {

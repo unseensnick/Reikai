@@ -19,7 +19,7 @@ fun SourcePreferences.contentWarningScanChanges(): Flow<ContentWarningScan> =
     combine(enabledContentWarnings.changes(), applyContentWarningsToInstalled.changes(), ::ContentWarningScan)
 
 /**
- * Re-scans whenever the settings differ from the ones the last scan used, read through [scanned].
+ * Re-scans whenever the settings differ from the ones the last finished scan used, read through [scanned].
  * Compared against the scan rather than the previous emission, because a write landing while the
  * first scan runs (the upgrade carry, a backup restore) is already current when this subscribes.
  * Decided inside collectLatest, not in a filter ahead of it: a value that arrives while the reload

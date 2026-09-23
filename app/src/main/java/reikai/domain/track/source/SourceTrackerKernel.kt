@@ -59,8 +59,9 @@ class SourceTrackerKernel(
 
     /** Both content types' read writes land here, so which chapters count is decided once. */
     fun readStateWritten(read: Boolean, chapters: List<ChapterWrite>) {
-        // An unread counts only the chapters that were read, not ones merely started.
-        chapters.filter { read || it.wasRead }.groupBy { it.entry }.forEach { (entry, changed) ->
+        // A write counts only the chapters it changed: a read the unread ones, an unread the read ones,
+        // not ones merely started.
+        chapters.filter { it.wasRead != read }.groupBy { it.entry }.forEach { (entry, changed) ->
             chaptersChanged(entry, changed.map { it.id }, read)
         }
     }

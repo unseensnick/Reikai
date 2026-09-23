@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test
 import java.lang.reflect.Method
 
 /**
- * The JVM shape novel APKs link against, copied from tsundoku-otaku/extensions-lib 1.6.0-3's ABI
- * dump. A rename here still compiles and only fails once an installed extension calls the member,
+ * The JVM shape novel APKs link against, from tsundoku-otaku/extensions-lib 1.6.0-3's sources: its ABI
+ * dump predates RateLimited and fetchPageText, so it cannot vouch for them. A rename here still compiles and only fails once an installed extension calls the member,
  * so this is the one check that catches it.
  */
 class SourceApiContractTest {

@@ -916,7 +916,7 @@ class MangaViewModel(
     fun moveMangaToCategoriesAndAddToLibrary(
         manga: Manga,
         categories: List<Long>,
-        joinGroup: List<Long> = emptyList(),
+        joinGroup: List<Long>,
     ) {
         viewModelScope.launchIO {
             finishAdd(

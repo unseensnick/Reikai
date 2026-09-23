@@ -87,13 +87,21 @@ class NovelPreferences(
         },
     )
 
-    /** Adds to [novelIconHints], writing only when something changed. */
-    fun addIconHints(packages: Map<String, String>, siteIcons: List<Pair<String?, String>>) {
+    /**
+     * Adds to [novelIconHints], writing only when something changed. Locked, since repos fetched in
+     * parallel each read, merge and write, and an unlocked write drops the other's hints.
+     */
+    fun addIconHints(
+        packages: Map<String, String>,
+        siteIcons: List<Pair<String?, String>>,
+    ) = synchronized(iconHintsLock) {
         val hints = novelIconHints()
         val current = hints.get()
         val updated = current.plus(packages, siteIcons)
         if (updated != current) hints.set(updated)
     }
+
+    private val iconHintsLock = Any()
 
     /**
      * Plugin repo URLs (i.e. `plugins.min.json` registries) the user added. Distinct from

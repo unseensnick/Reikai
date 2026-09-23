@@ -125,7 +125,9 @@ class PreferenceRestorer(
             }
             // RK: retired per-content-type Updates category-filter keys and their master switch; the
             // filter is one selection over the shared id space now, covering the whole recents surface.
+            // Likewise the download queue's content-type filter, which the queue order replaced.
             if (key == ReikaiSourcePreferences.DEAD_UPDATES_FILTER_CATEGORIES_KEY ||
+                key == ReikaiSourcePreferences.DEAD_DOWNLOAD_CONTENT_TYPE_KEY ||
                 key.startsWith(ReikaiSourcePreferences.DEAD_UPDATES_FILTER_CATEGORY_SET_PREFIX) ||
                 key.startsWith(ReikaiSourcePreferences.DEAD_UPDATES_FILTER_NOVEL_CATEGORY_SET_PREFIX)
             ) {

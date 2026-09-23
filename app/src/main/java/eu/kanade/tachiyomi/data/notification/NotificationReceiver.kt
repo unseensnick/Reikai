@@ -260,7 +260,8 @@ class NotificationReceiver : BroadcastReceiver() {
      */
     private fun markAsRead(chapterUrls: Array<String>, mangaId: Long) {
         launchIO {
-            val toUpdate = chapterUrls.mapNotNull { getChapter.await(it, mangaId) }
+            val chapters = chapterUrls.mapNotNull { getChapter.await(it, mangaId) } // RK: kept for the tracker
+            val toUpdate = chapters
                 .map {
                     val chapter = it.copy(read = true)
                     if (downloadPreferences.removeAfterMarkedAsRead.get()) {
@@ -276,7 +277,7 @@ class NotificationReceiver : BroadcastReceiver() {
                 }
             updateChapter.awaitAll(toUpdate)
             // RK: marking read here writes the rows itself, so the source's own tracker is told here
-            sourceTracker.readStateWritten(true, toUpdate.map { ChapterWrite(EntryId.Manga(mangaId), it.id, false) })
+            sourceTracker.readStateWritten(true, chapters.map { ChapterWrite(EntryId.Manga(mangaId), it.id, it.read) })
         }
     }
 
