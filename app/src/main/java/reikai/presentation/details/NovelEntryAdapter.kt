@@ -54,7 +54,10 @@ class NovelEntryAdapter(
         return EntryDetailsScreenState.Loaded(
             entryId = EntryId.Novel(novel.id),
             details = EntryDetailsUiState(
-                header = display.toEntryHeader(sourceName = model.headerSourceName(this)),
+                header = display.toEntryHeader(
+                    sourceName = model.headerSourceName(this),
+                    sourceQuery = model.headerSourceQuery(this),
+                ),
                 favorite = novel.favorite,
                 trackingCount = trackingCount,
                 nextUpdate = novel.expectedNextUpdate(),

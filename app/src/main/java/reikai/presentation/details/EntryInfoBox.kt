@@ -78,9 +78,11 @@ data class EntryHeaderUi(
     val status: Long,
     val sourceName: String,
     val isStubSource: Boolean,
+    /** The library query for the viewed source's entries; null where [sourceName] labels a merged group. */
+    val sourceQuery: String?,
 )
 
-fun Manga.toEntryHeader(sourceName: String, isStubSource: Boolean) = EntryHeaderUi(
+fun Manga.toEntryHeader(sourceName: String, isStubSource: Boolean, sourceQuery: String?) = EntryHeaderUi(
     coverModel = this,
     title = title,
     author = author,
@@ -88,9 +90,10 @@ fun Manga.toEntryHeader(sourceName: String, isStubSource: Boolean) = EntryHeader
     status = status,
     sourceName = sourceName,
     isStubSource = isStubSource,
+    sourceQuery = sourceQuery,
 )
 
-fun Novel.toEntryHeader(sourceName: String) = EntryHeaderUi(
+fun Novel.toEntryHeader(sourceName: String, sourceQuery: String?) = EntryHeaderUi(
     coverModel = NovelCover(
         url = thumbnailUrl,
         sourceId = source,
@@ -105,6 +108,7 @@ fun Novel.toEntryHeader(sourceName: String) = EntryHeaderUi(
     sourceName = sourceName,
     // stub sources are a manga-extension concept; novels never have one
     isStubSource = false,
+    sourceQuery = sourceQuery,
 )
 
 /**
@@ -112,7 +116,7 @@ fun Novel.toEntryHeader(sourceName: String) = EntryHeaderUi(
  * for manga and novels. Replaces MangaInfoBox + NovelInfoBox. Status codes match between the two
  * (see NovelStatusCode), so the status icon + label render from one switch. Tapping the title / author
  * / artist runs [onGlobalSearch] and tapping the source browses it; long-press offers library search,
- * global search and copy (Browse and copy on the source).
+ * global search and copy (Browse, library search and copy on the source).
  */
 @Composable
 fun EntryInfoBox(
@@ -260,14 +264,23 @@ private fun ColumnScope.EntryContentInfo(
     var menuIsSource by remember { mutableStateOf(false) }
 
     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-        // The source row offers Browse instead of searching: searching for a source's own name
-        // is what this screen used to do by accident, and on a merged entry the name is a label.
+        // The source row searches the library by the source's key rather than its name, which two
+        // sources can share, and offers no search where the name labels a merged group.
         if (menuIsSource) {
             if (onBrowseSource != null) {
                 DropdownMenuItem(
                     text = { Text(text = stringResource(MR.strings.browse)) },
                     onClick = {
                         onBrowseSource()
+                        showMenu = false
+                    },
+                )
+            }
+            header.sourceQuery?.let { query ->
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(MR.strings.action_library_search)) },
+                    onClick = {
+                        librarySearch(query)
                         showMenu = false
                     },
                 )

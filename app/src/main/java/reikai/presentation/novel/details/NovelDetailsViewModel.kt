@@ -113,6 +113,7 @@ import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.library.reikaiSortCategories
+import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import reikai.presentation.selection.EntrySelection
@@ -836,6 +837,14 @@ class NovelDetailsViewModel(
             context.stringResource(MR.strings.merge_unified)
         } else {
             loaded.sourceName
+        }
+
+    /** The library query for the header's source, or null where the header names the whole merged group. */
+    fun headerSourceQuery(loaded: NovelDetailsState.Loaded): String? =
+        if (loaded.mergeSources.size > 1 && loaded.selectedSourceNovelId == null) {
+            null
+        } else {
+            sourceKeyQuery(loaded.displayNovel.source)
         }
 
     fun showManageSourcesDialog() {

@@ -67,6 +67,7 @@ class MangaEntryAdapter(
                 header = (mergeDisplayManga?.withCustomInfo(customInfo) ?: displayManga).toEntryHeader(
                     sourceName = model.headerSourceName(this),
                     isStubSource = displaySource is StubSource,
+                    sourceQuery = model.headerSourceQuery(this),
                 ),
                 favorite = manga.favorite,
                 trackingCount = trackingCount,

@@ -127,6 +127,7 @@ import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.library.reikaiSortCategories
+import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.i18n.stringResource
@@ -1771,6 +1772,14 @@ class MangaViewModel(
             context.stringResource(MR.strings.merge_unified)
         } else {
             (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
+        }
+
+    /** The library query for the header's source, or null where the header names the whole merged group. */
+    fun headerSourceQuery(state: State.Success): String? =
+        if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
+            null
+        } else {
+            sourceKeyQuery((state.mergeDisplaySource ?: state.source).id.toString())
         }
 
     /** The localized "Page N" resume hint for a started-but-unread chapter, else null. Resolved here (needs

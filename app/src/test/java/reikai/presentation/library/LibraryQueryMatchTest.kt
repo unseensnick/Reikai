@@ -100,6 +100,16 @@ class LibraryQueryMatchTest {
     }
 
     @Test
+    fun `a source's own query finds entries on that source, whatever its key holds`() {
+        matches(sourceKeyQuery("ireader:42"), Row(sourceKey = "ireader:42")) shouldBe true
+    }
+
+    @Test
+    fun `a source's own query leaves a source whose key only begins the same way`() {
+        matches(sourceKeyQuery("ireader:4"), Row(sourceKey = "ireader:42")) shouldBe false
+    }
+
+    @Test
     fun `srcid matches the source key exactly on either content type`() {
         matches("srcid:novelarrow") shouldBe true
         matches("srcid:novel") shouldBe false

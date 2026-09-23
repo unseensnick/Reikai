@@ -154,6 +154,12 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
 }
 
 /**
+ * The library query for one source's entries: its exact key, since two sources can share a name and a
+ * language (an app and an IReader copy of one site). Quoted, so any key reads as one value.
+ */
+fun sourceKeyQuery(sourceKey: String): String = "srcid:\"$sourceKey\""
+
+/**
  * `source:` / `src:` match the source's display name, upstream's meaning unchanged, plus the `local`
  * keyword. The exact-key form is `srcid:`, which answers identically on both content types: a numeric
  * source id for manga, a plugin slug for novels.

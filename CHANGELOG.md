@@ -165,6 +165,7 @@ every release now also ships a foss build with neither in it.
 #### Added
 
 - **Holding the title, author or artist on a series now offers to search your library or every source, instead of only copying.** A library search opens the content type the series belongs to, so a novel never searches your manga.
+- **Holding a series' source name now offers a library search for that source's entries, except on a merged series under All (partly synced from Mihon, mihonapp/mihon#4002).** Tapping the name still browses the source.
 - **A series' details overflow can now open its download folder in your file manager.** On a merged series it opens the source you are viewing, or under All the first source holding downloads, and shows only when that folder exists.
 - **A series' details overflow can now clear its downloaded chapters.** It clears the source you are viewing on a merged series, appears only when there is something to clear, and leaves your reading progress, bookmarks and history alone.
 - **A series' details overflow now opens its source's settings.** It appears only when the source has any, and on a merged series it opens the settings of the source you are viewing.
