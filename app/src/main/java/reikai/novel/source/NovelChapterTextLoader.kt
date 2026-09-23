@@ -122,7 +122,9 @@ class NovelChapterTextLoader(
         val novel = novelRepo.getById(chapter.novelId)
         if (novel != null && !fromSource) readDownloaded(novel, chapter)?.let { return it to null }
         val src = resolveSource(chapter.novelId)
-        return src.parseChapter(chapter.url) to src.site.ifBlank { null }
+        // A blank page reads as the reader failing to draw, so an empty answer fails the load instead.
+        val text = src.parseChapter(chapter.url).ifBlank { throw EmptyChapterException() }
+        return text to src.site.ifBlank { null }
     }
 
     /**
@@ -140,3 +142,6 @@ class NovelChapterTextLoader(
         return resolved
     }
 }
+
+/** The source answered a chapter with no text. */
+class EmptyChapterException : Exception()

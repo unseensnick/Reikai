@@ -1,5 +1,6 @@
 package reikai.novel.content
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -184,6 +186,24 @@ class NovelContentPipelineTest {
 
         html shouldNotContain "<script>"
         html shouldContain "&lt;script&gt;"
+    }
+
+    @Test
+    fun `a chapter the source returns empty fails its load rather than reading blank`() = runTest {
+        val source = mockk<NovelSource> {
+            every { site } returns "https://example.test"
+            coEvery { parseChapter(any()) } returns "  "
+        }
+        val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get(any()) } returns source }
+        val loader = NovelChapterTextLoader(
+            novelRepo = mockk { coEvery { getById(any()) } returns Novel.create().copy(id = 1L, source = "s") },
+            sourceManager = sourceManager,
+            installer = mockk(relaxed = true),
+            preferences = preferences,
+            readDownloaded = { _, _ -> null },
+        )
+
+        shouldThrow<EmptyChapterException> { loader.load(chapter(url = "/book/ch1.html")) }
     }
 
     private fun lowercased(raw: String) =

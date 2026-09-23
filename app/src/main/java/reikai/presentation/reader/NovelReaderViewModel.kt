@@ -80,6 +80,7 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.components.chapterSubtitle
@@ -92,9 +93,11 @@ import reikai.presentation.reader.text.NovelResume
 import reikai.presentation.reader.text.NovelWarmPolicy
 import reikai.presentation.reader.text.NovelWindowReach
 import reikai.presentation.reader.web.NovelWebSnippets
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.i18n.MR
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 
@@ -1502,8 +1505,11 @@ class NovelReaderViewModel(
         }
     }
 
-    suspend fun loadChapterHtml(chapter: NovelChapter, fromSource: Boolean = false): Pair<String, String?> =
+    suspend fun loadChapterHtml(chapter: NovelChapter, fromSource: Boolean = false): Pair<String, String?> = try {
         textLoader.load(chapter, fromSource)
+    } catch (e: EmptyChapterException) {
+        throw Exception(context.stringResource(MR.strings.novel_chapter_empty), e)
+    }
 
     override fun onCleared() {
         readAloud.shutdown()
