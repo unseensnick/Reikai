@@ -875,8 +875,8 @@ data object LibraryTab : Tab {
         }
 
         LaunchedEffect(Unit) {
-            // RK: through the seam, so a search sent from another screen lands on the library the chip is
-            // showing. Both collectors read the chip from its flow rather than the captured composition
+            // RK: through the seam, so a search sent from another screen lands on the library of its type.
+            // The settings collector reads the chip from its flow rather than the captured composition
             // value, because this effect keys on Unit and would otherwise hold the chip's first value.
             launch {
                 queryEvent.receiveAsFlow().collect { (query, requested) ->

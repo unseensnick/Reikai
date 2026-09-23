@@ -68,6 +68,12 @@ class SmartUpdateSkipTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("entries")
+    fun `a started entry passes the unstarted restriction`(entry: SmartUpdateEntry) {
+        smartUpdateSkip(entry.facts(total = 3, read = 1), setOf(MANGA_NON_READ), WINDOW_END) shouldBe null
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("entries")
     fun `an entry with no chapters yet is not skipped as unstarted`(entry: SmartUpdateEntry) {
         smartUpdateSkip(entry.facts(), setOf(MANGA_NON_READ), WINDOW_END) shouldBe null
     }

@@ -337,4 +337,10 @@ class ChapterAggregationTest {
         unified.map { it.chapterNumber } shouldBe listOf(1.0, 2.0, 3.0)
         unified.map { it.sourceOrder } shouldBe listOf(0L, 1L, 2L)
     }
+
+    /** The library counts from SQL, where a source's float 1.1 and a parsed 1.1 are two REAL values. */
+    @Test
+    fun `a float and a double of one chapter number count once`() {
+        ChapterAggregation.distinctChapterNumberCount(listOf(1.1f.toDouble(), 1.1, 2.0)) shouldBe 2
+    }
 }

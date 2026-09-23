@@ -208,7 +208,8 @@ class MergedTrunkConformanceTest {
     }
 
     private companion object {
-        const val LARGER = 1L
-        const val SMALLER = 2L
+        // The larger member has the higher id, so the id tiebreak alone would pick the wrong one.
+        const val LARGER = 2L
+        const val SMALLER = 1L
     }
 }

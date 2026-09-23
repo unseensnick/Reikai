@@ -13,6 +13,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -238,7 +239,7 @@ class MergedStitchReconcileTest {
     fun `a cancelled pass still restitches what it wrote`(type: ContentType) = runTest {
         val fixture = fixture(type)
         val group = fixture.twoSourceGroup()
-        val reconcile = fixture.reconcile()
+        val reconcile = ReconcileMergedChapters(units, setOf(SuspendingStitcher(fixture.stitcher(emptyList()))))
         reconcile.await()
         val pass = launch {
             reconcile.afterPass {
@@ -267,6 +268,14 @@ class MergedStitchReconcileTest {
                 gate.await()
             }
             return stitched
+        }
+    }
+
+    /** Suspends before each stitch, as a real database read does, so a cancelled caller is noticed there. */
+    private class SuspendingStitcher(private val inner: MergedGroupStitcher) : MergedGroupStitcher by inner {
+        override suspend fun stitch(groupId: Long): List<StoredUnit> {
+            yield()
+            return inner.stitch(groupId)
         }
     }
 

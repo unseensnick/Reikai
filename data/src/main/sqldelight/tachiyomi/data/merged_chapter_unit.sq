@@ -254,22 +254,21 @@ FROM (
 ) AS G
 GROUP BY G.group_id;
 
--- How many distinct recognized chapter numbers each grouped library entry lists: the count the stitch
--- ranks the trunk on after the source ranking (ChapterAggregation.rank), read here so the collapsed
--- library row leads on the same member the stitch does. Counted from the chapter rows as the stitch
--- counts them, excluded scanlators included, so it needs no stitch and holds before one exists. A row
--- count cannot stand in: a source listing one chapter under several scanlators wins on rows while
--- covering no more of the series. A member absent from the result lists no recognized number.
-recognizedChapterCountsByManga:
-SELECT C.manga_id AS mangaId, count(DISTINCT C.chapter_number) AS recognizedCount
+-- The distinct recognized chapter numbers each grouped library entry lists, for the count the stitch
+-- ranks the trunk on after the source ranking (ChapterAggregation.rank), so the collapsed library row
+-- leads on the same member the stitch does. The caller counts them as the stitch does, narrowed to
+-- Float, which SQL cannot. Excluded scanlators are included, so it needs no stitch and holds before one
+-- exists. A row count cannot stand in: a source listing one chapter under several scanlators wins on
+-- rows while covering no more of the series. A member absent from the result lists no recognized number.
+recognizedChapterNumbersByManga:
+SELECT DISTINCT C.manga_id AS mangaId, C.chapter_number AS chapterNumber
 FROM merge_group_manga MGM
 JOIN mangas M
 ON M._id = MGM.manga_id
 AND M.favorite = 1
 JOIN chapters C
 ON C.manga_id = MGM.manga_id
-WHERE C.chapter_number >= 0
-GROUP BY C.manga_id;
+WHERE C.chapter_number >= 0;
 
 -- Every merged group's member chapters, with what a download probe needs to find the file. Whether a
 -- chapter is on disk is not in this database, so the count itself cannot be a query: the caller probes

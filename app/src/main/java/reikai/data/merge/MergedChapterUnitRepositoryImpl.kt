@@ -9,6 +9,7 @@ import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
+import reikai.domain.manga.ChapterAggregation
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -75,7 +76,9 @@ class MergedChapterUnitRepositoryImpl(
         }.subscribeToList().map { rows -> rows.groupBy { it.groupId } }
 
     override suspend fun getRecognizedChapterCounts(): Map<Long, Long> =
-        queries.recognizedChapterCountsByManga().awaitAsList().associate { it.mangaId to it.recognizedCount }
+        queries.recognizedChapterNumbersByManga().awaitAsList()
+            .groupBy({ it.mangaId }, { it.chapterNumber })
+            .mapValues { (_, numbers) -> ChapterAggregation.distinctChapterNumberCount(numbers).toLong() }
 
     override suspend fun replaceGroup(
         contentType: ContentType,
