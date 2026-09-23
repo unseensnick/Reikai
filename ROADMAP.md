@@ -4,10 +4,9 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## The 0.4.0 cut
 
-Two items gate the 0.4.0 cut; once both are done, when to cut is the owner's call.
+One item gates the 0.4.0 cut; once it is done, when to cut is the owner's call.
 
 - **Compiled-APK novel extensions** `[XL]` - the item under Novel sources & LN plugins below.
-- **NovelUpdates live check** `[S]` - tick a release, then untick it with unread push on, on the owner's real NovelUpdates list, with consent on the day. Held until the site's chapter list returns real release ids again; the check and its cleanup are in the [plan](docs/dev/plans/content-layer-sources-surface.md) Status.
 
 The light-novel trackers do not gate it; MyNovelList is in [parked.md](docs/dev/parked.md), and the rulings behind both are in [novel-specific-trackers.md](docs/dev/plans/novel-specific-trackers.md).
 
