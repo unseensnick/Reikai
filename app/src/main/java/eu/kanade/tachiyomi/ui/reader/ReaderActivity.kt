@@ -1114,8 +1114,8 @@ class ReaderActivity : BaseActivity() {
      */
     private fun setInitialChapterError(error: Throwable) {
         logcat(LogPriority.ERROR, error)
-        finish()
-        toast(error.message)
+        // RK: reported through the engine's failure dialog, which offers Retry and the chapter's page;
+        // its Cancel closes the reader, as this finish did.
     }
 
     /**

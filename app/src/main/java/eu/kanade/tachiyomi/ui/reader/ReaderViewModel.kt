@@ -993,7 +993,18 @@ class ReaderViewModel(
         }
     }
 
-    private fun chapterById(chapterId: Long) = chapterList.firstOrNull { it.chapter.id == chapterId }?.chapter
+    // From every chapter: the skip-filtered list leaves out a read one, which can fail to load as well.
+    private fun chapterById(chapterId: Long) = fullChapterList.firstOrNull { it.chapter.id == chapterId }?.chapter
+
+    /** The chapter the reader is opening, which a first open that failed is about. */
+    val openingChapterId: Long get() = if (chapterId == -1L) initialChapterId else chapterId
+
+    /** Runs a first open that failed again, from the reader's failure dialog. */
+    fun retryInit() {
+        if (state.value.initError == null) return
+        mutableState.update { it.copy(initError = null) }
+        viewModelScope.launch { init() }
+    }
 
     private fun sourceOf(chapter: eu.kanade.tachiyomi.data.database.models.Chapter): HttpSource? =
         (memberSources[mangaForChapterId(chapter.manga_id).source] ?: state.value.source) as? HttpSource

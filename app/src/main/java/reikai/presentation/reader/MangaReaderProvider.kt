@@ -139,12 +139,20 @@ class MangaReaderProvider(
     override val showProgress: Flow<Boolean> = readerPreferences.showPageNumber.changes()
 
     // A step, a pick or a reload that failed is reported, and stays so until the next one starts. A
-    // chapter that cannot open at all is upstream's initError, which closes the reader with its own
-    // message. A neighbour failing to preload keeps upstream's retry on its transition page and
-    // reports nothing.
+    // first open that failed is upstream's initError, reported the same way with nothing to keep
+    // reading, as a novel's is, so it gets the chapter's page and Retry rather than closing on a toast.
+    // A neighbour failing to preload keeps upstream's retry on its transition page and reports nothing.
     override val loadState: Flow<ReaderLoadState> = viewModel.state.map { state ->
         val failure = state.adjacentLoadFailure
+        val initError = state.initError
         when {
+            initError != null -> ReaderLoadState.Failed(
+                initError.message,
+                canKeepReading = false,
+                // No chapter without the series, which is also what resolves the chapter's page.
+                chapterId = viewModel.openingChapterId.takeIf { state.manga != null },
+                attempt = attemptOf(initError),
+            )
             state.isLoadingAdjacentChapter -> ReaderLoadState.Loading
             failure != null -> ReaderLoadState.Failed(
                 failure.message,
@@ -161,12 +169,20 @@ class MangaReaderProvider(
     // a reload from the source is retried as one, since the sheet's path would serve a downloaded copy.
     override fun retryLoad() {
         val state = viewModel.state.value
+        if (state.initError != null) return viewModel.retryInit()
         if (state.adjacentLoadFailure?.fromSource == true) return viewModel.reloadChapter(fromSource = true)
         val id = state.adjacentLoadFailure?.chapterId ?: state.currentChapter?.chapter?.id ?: return
         chapterList.open(id)
     }
 
     override fun reloadChapter(fromSource: Boolean) = viewModel.reloadChapter(fromSource)
+
+    // One attempt per error: the state re-emits for unrelated changes, and a fresh stamp each time
+    // would raise a dismissed failure again.
+    private var initFailure: Pair<Throwable, Long>? = null
+
+    private fun attemptOf(error: Throwable): Long = initFailure?.takeIf { it.first === error }?.second
+        ?: ReaderLoadState.Failed.nextAttempt().also { initFailure = error to it }
 
     override val bookmarked: Flow<Boolean> = viewModel.state.map { it.bookmarked }
 
