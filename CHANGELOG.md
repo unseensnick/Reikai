@@ -298,6 +298,7 @@ every release now also ships a foss build with neither in it.
 - **Novels in your library now get smart update: a predicted next release on the details page, and Settings -> Library -> Global update · Novels -> Smart update can skip novels outside their release period.** Share moved off the novel action row into the menu, as on manga.
 - **Novel sources can now be hidden per language, from the switch each language carries in the sources filter.** Switching one off hides all its sources from Browse and search, like manga.
 - **Adding a duplicate novel now gives you a one-tap Migrate, moving progress, categories, cover and tracking to the new source.**
+- **A novel from an IReader extension can take its details, chapters or a chapter's text from a page you open in its WebView menu.** It is the way through for a site that blocks the app.
 - **Settings -> Advanced can now repair novels that are showing another novel's title or cover.** It finds the affected entries and re-fetches them from their own source.
 - **Clear database now also removes novels that aren't in your library.** Novel sources get their own rows on the screen, and the keep-read toggle protects novels with reading progress, like manga.
 - **A novel's update notification now names the chapters it found and offers Mark as read and Download.** It only ever said how many there were, and gave you nothing to do about them.

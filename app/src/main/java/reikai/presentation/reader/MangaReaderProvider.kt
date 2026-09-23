@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.readerBackgroundColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -90,6 +91,13 @@ class MangaReaderProvider(
 
     // Each page turn writes its own position, so nothing is held back.
     override fun flushPosition() = Unit
+
+    // The source id lets the browser reuse that source's headers.
+    override fun chapterWebViewIntent(context: Context, url: String, title: String?): Intent =
+        WebViewActivity.newIntent(context, url, viewModel.getSource()?.id, title)
+
+    // A manga chapter's browser offers nothing to save.
+    override fun onChapterPageSaved() = Unit
 
     // Upstream's ReaderActivity.openMangaScreen, moved here so the host asks the session.
     override fun detailsIntent(context: Context): Intent? = viewModel.manga?.id?.let { id ->

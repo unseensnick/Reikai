@@ -97,7 +97,14 @@ class NovelScreen(
 
                 val onWebView: () -> Unit = {
                     s.novelWebUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                        navigator.push(WebViewScreen(url = url, initialTitle = s.sourceName, sourceId = null))
+                        navigator.push(
+                            WebViewScreen(
+                                url = url,
+                                initialTitle = s.sourceName,
+                                sourceId = null,
+                                novelId = s.displayNovel.id,
+                            ),
+                        )
                     }
                 }
                 val onShare: () -> Unit = {

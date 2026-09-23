@@ -76,6 +76,9 @@ interface NovelSource {
     /** The least delay the source asks for between requests to its site; 0 when it asks for none. */
     val minimumRequestDelayMs: Long get() = 0L
 
+    /** Reads a page the user loaded in the in-app browser; null when the source cannot be handed one. */
+    val pageFetch: NovelPageFetch? get() = null
+
     /**
      * This source can serve a Latest listing, which is why browse offers the chip. The lnreader
      * format declares no such flag, so it is derived rather than read, by looking for

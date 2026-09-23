@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.extension.model.Extension
 import ireader.core.source.CatalogSource
 import ireader.core.source.HttpSource
 import ireader.core.source.model.ChapterInfo
+import ireader.core.source.model.Command
 import ireader.core.source.model.Listing
 import ireader.core.source.model.MangaInfo
 import ireader.core.source.model.MangasPageInfo
@@ -20,6 +21,8 @@ import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelFilters
 import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
+import reikai.novel.source.NovelPageFetch
+import reikai.novel.source.NovelPageKind
 import tachiyomi.core.common.util.lang.withIOContext
 import java.time.Instant
 
@@ -66,28 +69,67 @@ class IReaderNovelSource(
     override suspend fun parseNovel(novelPath: String): SourceNovel = withIOContext {
         val novel = source.getMangaDetails(MangaInfo(key = novelPath, title = ""), emptyList())
         val chapters = source.getChapterList(novel.copy(key = novelPath), emptyList())
-        SourceNovel(
-            path = novelPath,
-            name = novel.title.ifBlank { null },
-            cover = novel.cover.ifBlank { null },
-            genres = novel.genres.joinToString(", ").ifBlank { null },
-            summary = novel.description.ifBlank { null },
-            author = novel.author.ifBlank { null },
-            artist = novel.artist.ifBlank { null },
-            // IReader numbers its statuses as tachiyomi does.
-            status = NovelStatusCode.toSourceString(novel.status.toInt()),
-            chapters = chapters.map { it.toChapterItem() },
-        )
+        novel.toSourceNovel(novelPath, chapters.map { it.toChapterItem() })
     }
 
-    // Strip control characters only, as the other formats do: the text is HTML the reader renders.
     override suspend fun parseChapter(chapterPath: String): String = withIOContext {
-        val pages = source.getPageList(ChapterInfo(key = chapterPath, name = ""), emptyList())
+        chapterHtml(chapterPath, emptyList())
+    }
+
+    // A source takes a page the user loaded through the Fetch commands it declares, the way through
+    // for a site that blocks its requests; the novel keeps its own path rather than the page's address.
+    override val pageFetch: NovelPageFetch? = pageKinds().takeIf { it.isNotEmpty() }?.let { kinds ->
+        object : NovelPageFetch {
+            override val kinds = kinds
+
+            override suspend fun details(novelPath: String, url: String, html: String) = withIOContext {
+                source.getMangaDetails(MangaInfo(key = novelPath, title = ""), listOf(Command.Detail.Fetch(url, html)))
+                    .toSourceNovel(novelPath, chapters = null)
+            }
+
+            override suspend fun chapters(novelPath: String, url: String, html: String) = withIOContext {
+                source.getChapterList(MangaInfo(key = novelPath, title = ""), listOf(Command.Chapter.Fetch(url, html)))
+                    .map { it.toChapterItem() }
+            }
+
+            override suspend fun chapterText(chapterPath: String, url: String, html: String) = withIOContext {
+                chapterHtml(chapterPath, listOf(Command.Content.Fetch(url, html)))
+            }
+        }
+    }
+
+    // A source's own code answers this, so one that throws offers no page fetch rather than failing the load.
+    private fun pageKinds(): Set<NovelPageKind> = runCatching { source.getCommands() }.getOrDefault(emptyList())
+        .mapNotNullTo(HashSet()) {
+            when (it) {
+                is Command.Detail.Fetch -> NovelPageKind.DETAILS
+                is Command.Chapter.Fetch -> NovelPageKind.CHAPTERS
+                is Command.Content.Fetch -> NovelPageKind.CHAPTER_TEXT
+                else -> null
+            }
+        }
+
+    // Strip control characters only, as the other formats do: the text is HTML the reader renders.
+    private suspend fun chapterHtml(chapterPath: String, commands: List<Command<*>>): String {
+        val pages = source.getPageList(ChapterInfo(key = chapterPath, name = ""), commands)
         val html = pages.toChapterHtml { page ->
             (source as? HttpSource)?.let { runCatching { it.getPage(page) }.getOrNull() }
         }
-        NovelTextSanitizer.stripInvalidChars(html)
+        return NovelTextSanitizer.stripInvalidChars(html)
     }
+
+    private fun MangaInfo.toSourceNovel(path: String, chapters: List<ChapterItem>?) = SourceNovel(
+        path = path,
+        name = title.ifBlank { null },
+        cover = cover.ifBlank { null },
+        genres = genres.joinToString(", ").ifBlank { null },
+        summary = description.ifBlank { null },
+        author = author.ifBlank { null },
+        artist = artist.ifBlank { null },
+        // IReader numbers its statuses as tachiyomi does.
+        status = NovelStatusCode.toSourceString(status.toInt()),
+        chapters = chapters,
+    )
 
     // IReader's own rule: a key is used as it is when absolute, and joined to the site otherwise.
     override fun webUrl(path: String, isNovel: Boolean): String = when {

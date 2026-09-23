@@ -5,6 +5,8 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import reikai.novel.host.ChapterItem
+import reikai.novel.host.SourceNovel
 import tachiyomi.i18n.MR
 
 /** How a novel source is packaged: an LNReader plugin, or an app built on tachiyomi's or IReader's library. */
@@ -80,4 +82,24 @@ sealed interface NovelFilterState {
      * the pager something changed, as manga's search listing does by copying its filters in.
      */
     class Filters(val list: FilterList) : NovelFilterState
+}
+
+/** What a page loaded in the in-app browser can be used for. */
+enum class NovelPageKind { DETAILS, CHAPTERS, CHAPTER_TEXT }
+
+/**
+ * A source that parses a page the user loaded themselves rather than one it requests, the way through
+ * for a site that blocks its requests. [kinds] is what it takes; only those are offered.
+ */
+interface NovelPageFetch {
+
+    val kinds: Set<NovelPageKind>
+
+    /** The novel at [novelPath] as the page shows it, with no chapters. */
+    suspend fun details(novelPath: String, url: String, html: String): SourceNovel
+
+    suspend fun chapters(novelPath: String, url: String, html: String): List<ChapterItem>
+
+    /** The chapter at [chapterPath] as HTML the readers take, as [NovelSource.parseChapter] returns it. */
+    suspend fun chapterText(chapterPath: String, url: String, html: String): String
 }

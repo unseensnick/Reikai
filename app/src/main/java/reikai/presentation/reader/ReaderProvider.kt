@@ -62,6 +62,12 @@ interface ReaderProvider {
     /** Opens the entry's own details page, or null while the entry is not resolved yet. */
     fun detailsIntent(context: Context): Intent?
 
+    /** The in-app browser on the open chapter's page at [url]. */
+    fun chapterWebViewIntent(context: Context, url: String, title: String?): Intent
+
+    /** The in-app browser saved the open chapter's text from its page, so the type shows the saved copy. */
+    fun onChapterPageSaved()
+
     /**
      * The colour behind the page, which shows while a chapter loads or fails. Each type has its own
      * theme setting. [context] resolves a follow-system theme against its night mode.

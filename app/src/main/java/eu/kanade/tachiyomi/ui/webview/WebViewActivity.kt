@@ -24,6 +24,7 @@ import eu.kanade.tachiyomi.util.view.setComposeContent
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import reikai.presentation.webview.rememberNovelPageActions
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
@@ -93,6 +94,12 @@ class WebViewActivity : BaseActivity() {
                 onShare = this::shareWebpage,
                 onOpenInBrowser = this::openInBrowser,
                 onClearCookies = this::clearCookies,
+                // RK: a novel chapter's page, whose text the reader reloads once it is saved
+                pageActions = rememberNovelPageActions(
+                    novelId = intent.getLongExtra(NOVEL_ID_KEY, -1L).takeIf { it > 0L },
+                    chapterId = intent.getLongExtra(CHAPTER_ID_KEY, -1L).takeIf { it > 0L },
+                    onChapterSaved = { setResult(RESULT_OK) },
+                ),
             )
         }
     }
@@ -137,6 +144,18 @@ class WebViewActivity : BaseActivity() {
         private const val URL_KEY = "url_key"
         private const val SOURCE_KEY = "source_key"
         private const val TITLE_KEY = "title_key"
+
+        // RK -->
+        private const val NOVEL_ID_KEY = "novel_id_key"
+        private const val CHAPTER_ID_KEY = "chapter_id_key"
+
+        /** A novel chapter's page, offering to save the chapter's text from it where its source can. */
+        fun newNovelChapterIntent(context: Context, url: String, title: String?, novelId: Long, chapterId: Long) =
+            newIntent(context, url, title = title).apply {
+                putExtra(NOVEL_ID_KEY, novelId)
+                putExtra(CHAPTER_ID_KEY, chapterId)
+            }
+        // RK <--
 
         fun newIntent(context: Context, url: String, sourceId: Long? = null, title: String? = null): Intent {
             return Intent(context, WebViewActivity::class.java).apply {

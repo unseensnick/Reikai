@@ -10,12 +10,15 @@ import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.webview.WebViewScreenContent
+import reikai.presentation.webview.rememberNovelPageActions
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class WebViewScreen(
     private val url: String,
     private val initialTitle: String? = null,
     private val sourceId: Long? = null,
+    // RK: a novel's page, which a source taking pages can read the novel's details and chapters from
+    private val novelId: Long? = null,
 ) : Screen(), AssistContentScreen {
 
     private var assistUrl: String? = null
@@ -46,6 +49,7 @@ class WebViewScreen(
             onShare = { viewModel.shareWebpage(context, it) },
             onOpenInBrowser = { viewModel.openInBrowser(context, it) },
             onClearCookies = viewModel::clearCookies,
+            pageActions = rememberNovelPageActions(novelId), // RK
         )
     }
 }

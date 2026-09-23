@@ -51,6 +51,8 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ArrowBack
 import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
 import mihon.icons.materialsymbols.rounded.Close
+import reikai.presentation.webview.WebPageAction
+import reikai.presentation.webview.pageHtml
 import reikai.util.isDebugInspectorBuild
 import tachiyomi.core.common.Constants
 import tachiyomi.i18n.MR
@@ -79,6 +81,8 @@ fun WebViewScreenContent(
     onClearCookies: (String) -> Unit,
     headers: Map<String, String> = emptyMap(),
     onUrlChange: (String) -> Unit = {},
+    // RK: actions a novel source offers on the page on screen
+    pageActions: List<WebPageAction> = emptyList(),
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -273,6 +277,21 @@ fun WebViewScreenContent(
                                         onClick = { onClearCookies(currentUrl) },
                                     ),
                                 ).toMutableList().apply {
+                                    // RK -->
+                                    pageActions.forEach { action ->
+                                        add(
+                                            AppBar.OverflowAction(
+                                                title = action.title,
+                                                onClick = {
+                                                    coroutineScope.launch {
+                                                        currentWindow.webView?.pageHtml()
+                                                            ?.let { action.onPage(currentUrl, it) }
+                                                    }
+                                                },
+                                            ),
+                                        )
+                                    }
+                                    // RK <--
                                     if (windowStack.size > 1) {
                                         add(
                                             0,

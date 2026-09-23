@@ -28,7 +28,6 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
-import reikai.novel.network.NovelImageRequests
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -55,10 +54,10 @@ class NovelDownloadManager(
     private val novelRepo: NovelRepository,
     private val sourceManager: NovelSourceManager,
     private val installer: LnPluginInstaller,
-    private val imageRequests: NovelImageRequests,
     private val downloadPreferences: DownloadPreferences,
     private val sourcePreferences: ReikaiSourcePreferences,
     private val novelPreferences: NovelPreferences,
+    private val saver: NovelChapterSaver,
 ) {
 
     private val store = NovelDownloadStore(context, chapterRepo)
@@ -358,11 +357,7 @@ class NovelDownloadManager(
                     ok = runCatching {
                         val source = novel?.let { sourceManager.get(it.source) } ?: return@runCatching false
                         if (chapter == null) return@runCatching false
-                        val html = source.parseChapter(next.url)
-                        if (html.isBlank()) return@runCatching false
-                        // Embed inline images so the saved file reads offline (see inlineChapterImages).
-                        val selfContained = inlineChapterImages(html, source.site, imageRequests.forSource(source.id))
-                        provider.writeChapter(novel, chapter, selfContained)
+                        saver.save(novel, chapter, source, source.parseChapter(next.url))
                     }.getOrElse {
                         lastError = it
                         logcat(LogPriority.ERROR, it) {
@@ -389,7 +384,6 @@ class NovelDownloadManager(
                     continue
                 }
                 if (ok) {
-                    if (novel != null && chapter != null) cache.addChapter(novel, chapter)
                     store.remove(next.chapterId)
                     completions.record(next.novelId)
                     _queueState.update { q -> q.filter { it.chapterId != next.chapterId } }

@@ -1190,6 +1190,9 @@ class NovelReaderViewModel(
 
     fun toggleBookmark() = setChapterBookmark(currentChapterId, !bookmarkedState.value)
 
+    /** The novel and chapter on screen, for the browser to save the chapter's text to. */
+    fun openChapterIds(): Pair<Long, Long>? = loadedChapter.value?.let { currentNovelId to it.chapterId }
+
     /**
      * [chapter]'s page on the source site, or null for one read from disk whose source this session
      * never resolved, which is the case the web actions have to hide rather than open empty.

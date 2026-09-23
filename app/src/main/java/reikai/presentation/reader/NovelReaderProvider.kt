@@ -7,6 +7,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
+import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.isNightMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -80,6 +81,15 @@ class NovelReaderProvider(
     override fun onReaderMoved() = viewModel.readerMoved()
 
     override fun flushPosition() = viewModel.flushProgress()
+
+    // A novel source has no numeric id, so the browser opens without its headers; the ids let a source
+    // that takes pages save the chapter's text from it.
+    override fun chapterWebViewIntent(context: Context, url: String, title: String?): Intent =
+        viewModel.openChapterIds()?.let { (novelId, chapterId) ->
+            WebViewActivity.newNovelChapterIntent(context, url, title, novelId, chapterId)
+        } ?: WebViewActivity.newIntent(context, url, title = title)
+
+    override fun onChapterPageSaved() = viewModel.reloadChapter(fromSource = false)
 
     // By source and url rather than row id, since that is what the novel screen is pushed with.
     override fun detailsIntent(context: Context): Intent? = viewModel.detailsRoute.value?.let { route ->
