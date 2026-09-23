@@ -1,0 +1,12 @@
+{
+  "name": "block clean -fd behind a space-separated --work-tree",
+  "stdin": {
+    "tool_input": {
+      "command": "git --work-tree . clean -fd"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

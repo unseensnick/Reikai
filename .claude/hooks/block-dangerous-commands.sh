@@ -52,7 +52,8 @@ NORM=$(printf '%s' "$COMMAND" | tr -d "'\"\`" | tr '\\' '/' | tr '[:upper:]' '[:
 # Each normalised command is read token by token. A finding is printed as one line: its code, then an
 # argument. Command-position rules look at the verb only (after sudo/env-style prefixes), since several
 # verbs are also English words that a commit message may carry; delete and destructive-git rules look
-# anywhere in a command, as the raw-text rules before them did.
+# anywhere in a command, as the raw-text rules before them did. A message holding ; & | ( ) or { } is
+# still split there, deliberately: the same split is what finds a read inside `bash -c "...; cat .env"`.
 FINDINGS=$(printf '%s\n' "$NORM" | awk -v protected="$(printf '%s' "$PROTECTED_BRANCHES" | tr '[:upper:]' '[:lower:]')" '
 BEGIN {
   n = split(protected, p, ",")
@@ -60,7 +61,7 @@ BEGIN {
   READERS = "^(cat|head|tail|sed|awk|grep|rg|less|more|strings|xxd|od|base64|cp|mv|scp|curl|get-content|gc|type|select-string|sls|copy-item|copy|cpi|move-item|move|mi|invoke-item|ii)$"
   DELETES = "^(rm|rmdir|rd|del|erase|ri|remove-item|remove-itemproperty)$"
   PS_ONLY = "^(rmdir|rd|del|erase|ri|remove-item|remove-itemproperty)$"
-  split("recurse force path literalpath include exclude filter confirm whatif credential stream erroraction verbose", PSP, " ")
+  split("force path literalpath include exclude filter confirm whatif credential stream erroraction verbose", PSP, " ")
 }
 function base(x) { sub(/^.*\//, "", x); return x }
 # First token after git and its global options, recording a -C directory.
@@ -69,12 +70,13 @@ function git_sub(j,    x) {
   while (j <= nt) {
     x = t[j]
     if (x == "-c") { if (t[j + 1] !~ /=/) print "GITC " t[j + 1]; j += 2; continue }
+    if (x ~ /^--(git-dir|work-tree|namespace|super-prefix)$/) { j += 2; continue }
     if (x ~ /^--(git-dir|work-tree|namespace|exec-path|super-prefix)=/ || x ~ /^--(no-pager|paginate|bare|no-replace-objects|literal-pathspecs)$/ || x == "-p") { j++; continue }
     break
   }
   return j
 }
-function check_push(k,    m, x, force, remote, nonflag, refs, probe, r, d) {
+function check_push(k,    m, x, force, nonflag, refs, probe, r, d) {
   force = 0; nonflag = 0; refs = 0; probe = 0
   for (m = k + 1; m <= nt; m++) {
     x = t[m]
@@ -87,7 +89,7 @@ function check_push(k,    m, x, force, remote, nonflag, refs, probe, r, d) {
     else if (x ~ /^-[a-z]+$/) { if (x ~ /f/) force = 1; if (x == "-o") m++ }
     else {
       nonflag++
-      if (nonflag == 1) { remote = x; continue }
+      if (nonflag == 1) continue
       refs++; r = x
       if (substr(r, 1, 1) == "+") { force = 1; r = substr(r, 2) }
       d = r; sub(/^.*:/, "", d); sub(/^refs\/heads\//, "", d)
@@ -118,7 +120,7 @@ function check_delete(j,    m, x, y, recursive, ps, danger, sys) {
       else if (y ~ /^[a-z]+$/ && y ~ /r/) recursive = 1
       continue
     }
-    if (x ~ /^\/\*?$/ || x ~ /^~\/?\*?$/ || x ~ /^\$/ || x ~ /^\.\.\/\.\./ || x ~ /^[a-z]:\/?\*?$/ || x ~ /^\/[a-z]\/?\*?$/) danger = x
+    if (x ~ /^\/\*?$/ || x ~ /^~(\/|$)/ || x ~ /^\$/ || x ~ /^\.\.\/\.\./ || x ~ /^[a-z]:\/?\*?$/ || x ~ /^\/[a-z]\/?\*?$/) danger = x
     if (x ~ /^\/(usr|etc|var|bin|sbin|lib|opt|root|boot)(\/|$)/) sys = "posix"
     if (x ~ /^([a-z]:|\/[a-z])\/(windows|users|programdata)(\/|$)/ || x ~ /^([a-z]:|\/[a-z])\/program$/) sys = "windows"
   }

@@ -1,8 +1,8 @@
 {
-  "name": "block git push --all, which pushes every branch",
+  "name": "block push --mirror, which overwrites every remote branch",
   "stdin": {
     "tool_input": {
-      "command": "git push --all origin"
+      "command": "git push --mirror origin"
     }
   },
   "expect_exit": 2,

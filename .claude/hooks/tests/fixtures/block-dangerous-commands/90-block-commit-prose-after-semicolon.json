@@ -1,0 +1,12 @@
+{
+  "name": "a commit message split by a semicolon is read as two commands, so a secret read after it is blocked",
+  "stdin": {
+    "tool_input": {
+      "command": "git commit -m \"docs: refuse shell reads; type keystore.properties is refused\""
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

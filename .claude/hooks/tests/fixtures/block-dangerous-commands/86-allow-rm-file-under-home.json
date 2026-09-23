@@ -1,0 +1,9 @@
+{
+  "name": "allow a plain rm of one file under home",
+  "stdin": {
+    "tool_input": {
+      "command": "rm ~/notes.txt"
+    }
+  },
+  "expect_exit": 0
+}

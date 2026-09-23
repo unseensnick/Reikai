@@ -1,0 +1,12 @@
+{
+  "name": "block reset --hard behind a space-separated --git-dir",
+  "stdin": {
+    "tool_input": {
+      "command": "git --git-dir .git reset --hard"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

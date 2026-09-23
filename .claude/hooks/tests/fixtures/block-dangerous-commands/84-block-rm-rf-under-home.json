@@ -1,0 +1,12 @@
+{
+  "name": "block rm -rf of a directory under home written with ~",
+  "stdin": {
+    "tool_input": {
+      "command": "rm -rf ~/Documents"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

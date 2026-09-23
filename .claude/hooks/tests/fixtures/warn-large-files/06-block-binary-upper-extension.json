@@ -1,0 +1,9 @@
+{
+  "name": "block a binary whose extension is upper-case",
+  "stdin": {
+    "tool_input": {
+      "file_path": "E:/Code/app/tool.EXE"
+    }
+  },
+  "expect_exit": 2
+}

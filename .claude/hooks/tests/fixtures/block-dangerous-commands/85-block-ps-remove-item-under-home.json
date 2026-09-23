@@ -1,0 +1,12 @@
+{
+  "name": "block Remove-Item -Recurse of a directory under home written with ~",
+  "stdin": {
+    "tool_input": {
+      "command": "Remove-Item -Recurse -Force ~\\Documents"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

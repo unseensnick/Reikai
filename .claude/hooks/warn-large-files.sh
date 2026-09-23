@@ -17,6 +17,8 @@ if [ -z "$FILE_PATH" ]; then
 fi
 # Windows paths arrive with backslashes, which every pattern below would miss (as protect-files.sh does).
 FILE_PATH=${FILE_PATH//\\//}
+# Lower-cased for matching, since the Windows filesystem ignores case (as protect-files.sh does).
+FILE_PATH=$(printf '%s' "$FILE_PATH" | tr '[:upper:]' '[:lower:]')
 
 # Block dependency and build directories
 case "$FILE_PATH" in

@@ -1,0 +1,9 @@
+{
+  "name": "block a write into Build/ spelled with a capital",
+  "stdin": {
+    "tool_input": {
+      "file_path": "E:/Code/app/app/Build/out.txt"
+    }
+  },
+  "expect_exit": 2
+}
