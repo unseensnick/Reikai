@@ -178,7 +178,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
-- **A series whose site shows a placeholder until its cover loads now keeps its real cover.** A novel stuck on the placeholder takes its cover back when you open it from its source.
+- **A series whose site shows a placeholder until its cover loads now keeps its real cover.** A series already stuck on the placeholder takes its cover back from its source's listing.
 - **Tapping a series' source name now opens that source to browse.** It used to run a search for the source's own name, and from most screens it did nothing at all.
 - **Page previews on an adult source's details page no longer go blank over time.** Their thumbnails were remembered against links that expire, so a series you had opened before came back as numbered blanks.
 - **A novel's page now shows its artist, when it has one separate from the author.** Manga pages already did; tap it to search, like every other field there.
@@ -285,6 +285,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **Pulling down to refresh a novel now downloads its new chapters when Download new chapters is on, as it does for manga.**
 - **A novel chapter its source returns empty now says so, where it used to open as a blank page.**
 - **WebView and Share on a light-novel plugin's novel now open the page the plugin names for it.** They joined the stored path to the site, which for some plugins is not a real page.
 - **Light-novel plugins now stay on the installed version until you update them from Browse -> Extensions.** They used to switch to the newest one on their own whenever Android cleared the app's cache.

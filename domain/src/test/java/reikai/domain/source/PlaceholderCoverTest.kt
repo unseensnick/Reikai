@@ -8,7 +8,13 @@ class PlaceholderCoverTest {
 
     @Test
     fun `the Madara lazy-load image is a placeholder`() {
-        isPlaceholderCover("https://lightnovelheaven.com/wp-content/themes/madara/images/dflazy.jpg?v=2") shouldBe true
+        isPlaceholderCover("https://lightnovelheaven.com/wp-content/themes/madara/images/dflazy.jpg") shouldBe true
+    }
+
+    /** A dotted query would otherwise read as the extension. */
+    @Test
+    fun `a placeholder with a versioned query is a placeholder`() {
+        isPlaceholderCover("https://site.example/wp-content/themes/madara/images/dflazy.jpg?ver=6.4.2") shouldBe true
     }
 
     @Test
@@ -34,6 +40,21 @@ class PlaceholderCoverTest {
     @Test
     fun `a blank cover keeps the one stored`() {
         keptCover(COVER, " ") shouldBe COVER
+    }
+
+    @Test
+    fun `a stored placeholder takes the listing cover`() {
+        healedCover(PLACEHOLDER, COVER) shouldBe COVER
+    }
+
+    @Test
+    fun `a stored cover is kept over the listing's`() {
+        healedCover(COVER, "https://site.example/new.jpg") shouldBe null
+    }
+
+    @Test
+    fun `a listing placeholder heals nothing`() {
+        healedCover(null, PLACEHOLDER) shouldBe null
     }
 
     private companion object {

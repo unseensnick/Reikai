@@ -190,16 +190,6 @@ class MangaEntryAdapter(
         selectedItems().firstOrNull()?.let { model.markPreviousChapterRead(it.chapter) }
     }
 
-    override fun markChapterRead(chapterId: Long, read: Boolean) {
-        chapterById(chapterId)?.let { model.markChaptersRead(listOf(it), read) }
-    }
-
-    override fun toggleChapterBookmark(chapterId: Long) {
-        // Toggled against what the row shows, which on a merged entry is the group's own state.
-        val item = itemById(chapterId) ?: return
-        model.bookmarkChapters(listOf(item.chapter), !item.isBookmarked)
-    }
-
     override fun runDownloadAction(action: DownloadAction) {
         model.runDownloadAction(action)
     }
@@ -265,10 +255,6 @@ class MangaEntryAdapter(
         model.resetMangaInfo(manga)
     }
 
-    override fun showTrackDialog() {
-        model.showTrackDialog()
-    }
-
     override suspend fun autofillCandidates(): List<Pair<Track, Tracker>> = model.autofillCandidates()
 
     override suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
@@ -277,11 +263,6 @@ class MangaEntryAdapter(
     override fun toggleFavorite() {
         model.toggleFavorite()
     }
-    override fun addFavoriteAnyway() {
-        // Add despite a duplicate: the same net behaviour as the novel adapter's addFavoriteAnyway.
-        model.toggleFavorite(onRemoved = {}, checkDuplicate = false)
-    }
-
     override fun selectSource(entryId: Long?) {
         model.selectSource(entryId)
     }

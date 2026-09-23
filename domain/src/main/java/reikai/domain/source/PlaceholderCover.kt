@@ -15,3 +15,7 @@ private val PLACEHOLDER_NAMES = setOf("dflazy")
 /** The cover a parse leaves stored: [parsed], unless it is blank or a placeholder, then [current]. */
 fun keptCover(current: String?, parsed: String?): String? =
     parsed?.takeIf { it.isNotBlank() && !isPlaceholderCover(it) } ?: current
+
+/** The listing cover a stored row takes when it has no real cover of its own, or null to keep it. */
+fun healedCover(stored: String?, listing: String?): String? =
+    keptCover(null, listing)?.takeIf { keptCover(null, stored) == null }

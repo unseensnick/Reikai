@@ -56,6 +56,8 @@ import reikai.domain.merge.collapseNewChapters
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
+import reikai.domain.novel.interactor.categoryGate
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.updateerror.DeleteNovelUpdateErrors
@@ -107,6 +109,8 @@ class NovelUpdateJob(
     @Inject private lateinit var installer: LnPluginInstaller
 
     @Inject private lateinit var getNovelCategories: GetNovelCategories
+
+    @Inject private lateinit var filterChaptersForDownload: FilterNovelChaptersForDownload
 
     @Inject private lateinit var preferences: NovelPreferences
 
@@ -208,7 +212,6 @@ class NovelUpdateJob(
         }
         if (favorites.isEmpty()) return false
 
-        val downloadNew = preferences.downloadNewChapters().get()
         val failed = mutableListOf<UpdateErrorEntry>()
         favorites.forEachIndexed { index, novel ->
             currentCoroutineContext().ensureActive()
@@ -221,9 +224,7 @@ class NovelUpdateJob(
                     updates.add(novel to newChapters)
                     // Queued after the run rather than here, so a merge group's sources cannot each
                     // fetch the same chapter.
-                    if (downloadNew) {
-                        pendingDownloads += filterChaptersForDownload(novel, newChapters)
-                    }
+                    pendingDownloads += filterChaptersForDownload.await(novel, newChapters)
                 }
                 // A successful check clears any previously recorded error.
                 if (trackErrors) runCatching { deleteNovelUpdateErrors.byNovelIds(listOf(novel.id)) }
@@ -308,27 +309,6 @@ class NovelUpdateJob(
         fetchWindow = fetchWindow,
     ).newChapters
 
-    /** Mirror of the manga FilterChaptersForDownload: gate by the novel's categories, then (when
-     *  "skip duplicate read" is on) drop new chapters whose number matches an already-read one. */
-    private suspend fun filterChaptersForDownload(novel: Novel, newChapters: List<NovelChapter>): List<NovelChapter> {
-        if (!shouldDownloadFor(novel)) return emptyList()
-        if (!preferences.downloadNewUnreadChaptersOnly().get()) return newChapters
-        val readNumbers = chapterRepo.getByNovelId(novel.id)
-            .asSequence()
-            .filter { it.read && it.chapterNumber >= 0.0 }
-            .map { it.chapterNumber }
-            .toSet()
-        return newChapters.filterNot { it.chapterNumber in readNumbers }
-    }
-
-    private suspend fun shouldDownloadFor(novel: Novel): Boolean {
-        val included = preferences.downloadNewChapterCategories().get().map { it.toLong() }
-        val excluded = preferences.downloadNewChapterCategoriesExclude().get().map { it.toLong() }
-        if (included.isEmpty() && excluded.isEmpty()) return true
-        val categories = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
-        return categoryGate(categories, included, excluded)
-    }
-
     /** Category scope for the update itself (mirrors the manga global-update Categories filter). */
     private suspend fun shouldUpdate(novel: Novel): Boolean {
         val included = preferences.novelUpdateCategories().get().map { it.toLong() }
@@ -336,14 +316,6 @@ class NovelUpdateJob(
         if (included.isEmpty() && excluded.isEmpty()) return true
         val categories = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
         return categoryGate(categories, included, excluded)
-    }
-
-    /** Include/exclude category predicate shared by the download + update gates: exclude wins; an empty
-     *  include set means "all not excluded". Callers short-circuit the no-filter case before the DB read. */
-    private fun categoryGate(categories: List<Long>, included: List<Long>, excluded: List<Long>): Boolean = when {
-        categories.any { it in excluded } -> false
-        included.isEmpty() -> true
-        else -> categories.any { it in included }
     }
 
     companion object {

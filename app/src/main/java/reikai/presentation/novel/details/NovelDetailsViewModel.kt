@@ -62,6 +62,7 @@ import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.buildNovelChapterListEntries
+import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
@@ -88,7 +89,7 @@ import reikai.domain.novel.model.sortedAndFiltered
 import reikai.domain.novel.novelMissingChapterCount
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
-import reikai.domain.source.isPlaceholderCover
+import reikai.domain.source.healedCover
 import reikai.domain.source.keptCover
 import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownload
@@ -110,6 +111,7 @@ import reikai.presentation.details.EntryMergeGroupHost
 import reikai.presentation.details.EntryMergeSource
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
+import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.library.reikaiSortCategories
@@ -157,6 +159,7 @@ class NovelDetailsViewModel(
     private val sourceManager: NovelSourceManager,
     private val installer: LnPluginInstaller,
     private val getNovelCategories: GetNovelCategories,
+    private val filterChaptersForDownload: FilterNovelChaptersForDownload,
     private val setNovelCategories: SetNovelCategories,
     private val novelLibraryAdder: NovelLibraryAdder,
     private val setNovelReadStatus: SetNovelReadStatus,
@@ -275,11 +278,11 @@ class NovelDetailsViewModel(
      * exists: a details page can serve a placeholder where its listing served the cover.
      */
     private fun healPlaceholderCover() {
-        val cover = listingCover?.takeIf { it.isNotBlank() && !isPlaceholderCover(it) } ?: return
+        if (keptCover(null, listingCover) == null) return
         viewModelScope.launchIO {
             val stored = novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId).filterNotNull().first()
-            if (keptCover(cover, stored.thumbnailUrl) != stored.thumbnailUrl) {
-                novelRepo.update(stored.copy(thumbnailUrl = cover))
+            healedCover(stored.thumbnailUrl, listingCover)?.let {
+                novelRepo.update(NovelUpdate(id = stored.id, thumbnailUrl = it))
             }
         }
     }
@@ -837,7 +840,7 @@ class NovelDetailsViewModel(
     /** Header source label: the localized unified ("All") label for the merged all-view, else the source
      *  name. Resolved here (the model has the context) so the neutral-state mapping needs no composable. */
     fun headerSourceName(loaded: NovelDetailsState.Loaded): String =
-        if (loaded.mergeSources.size > 1 && loaded.selectedSourceNovelId == null) {
+        if (headerNamesWholeGroup(loaded.mergeSources.size, loaded.selectedSourceNovelId)) {
             context.stringResource(MR.strings.merge_unified)
         } else {
             loaded.sourceName
@@ -845,7 +848,7 @@ class NovelDetailsViewModel(
 
     /** The library query for the header's source, or null where the header names the whole merged group. */
     fun headerSourceQuery(loaded: NovelDetailsState.Loaded): String? =
-        if (loaded.mergeSources.size > 1 && loaded.selectedSourceNovelId == null) {
+        if (headerNamesWholeGroup(loaded.mergeSources.size, loaded.selectedSourceNovelId)) {
             null
         } else {
             sourceKeyQuery(loaded.displayNovel.source)
@@ -903,13 +906,15 @@ class NovelDetailsViewModel(
             try {
                 // Refresh the anchor first (its refreshed novel drives the viewed-page fix below), then
                 // every other grouped source so the unified list picks up new chapters everywhere.
-                val anchorUpdated = refreshNovel(anchorSrc, loaded.novel)
+                val toDownload = mutableListOf<NovelChapter>()
+                val anchorUpdated = refreshNovel(anchorSrc, loaded.novel, toDownload)
                 for (id in mergeGroup.relatedIds) {
                     if (id == loaded.novel.id) continue
                     val novel = novelRepo.getById(id) ?: continue
                     val src = siblingSources.value[id] ?: continue
-                    refreshNovel(src, novel)
+                    refreshNovel(src, novel, toDownload)
                 }
+                if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
                 // Force-refresh the viewed page when viewing the anchor's own (paged) list and the walk
                 // skipped it (a middle page); the unified view has no pages so this is a no-op there.
                 if (loaded.selectedSourceNovelId == null || loaded.selectedSourceNovelId == loaded.novel.id) {
@@ -922,8 +927,9 @@ class NovelDetailsViewModel(
     }
 
     /** Shared favorite-refresh: parseNovel + merge + sync page 1 + walk newly-opened pages. Bounded,
-     *  never a full fetch-all. Keeps the current novel on failure; returns the refreshed novel. */
-    private suspend fun refreshNovel(src: NovelSource, novel: Novel): Novel =
+     *  never a full fetch-all. Keeps the current novel on failure; returns the refreshed novel and adds
+     *  the new chapters the download-new-chapters setting takes to [toDownload]. */
+    private suspend fun refreshNovel(src: NovelSource, novel: Novel, toDownload: MutableList<NovelChapter>): Novel =
         runCatching {
             refreshNovelFromSource(
                 novel,
@@ -934,7 +940,7 @@ class NovelDetailsViewModel(
                 libraryPreferences,
                 novelDownloadManager = downloadManager,
                 manualFetch = true,
-            )
+            ).also { toDownload += filterChaptersForDownload.await(it.novel, it.newChapters) }
         }.getOrNull()?.novel
             ?: novel
 

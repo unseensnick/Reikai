@@ -124,6 +124,7 @@ import reikai.presentation.details.EntryMergeGroupHost
 import reikai.presentation.details.EntryMergeSource
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
+import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.library.reikaiSortCategories
@@ -1768,7 +1769,7 @@ class MangaViewModel(
      *  source's display name. Resolved here (the model has the context) so MangaEntryAdapter's neutral-state
      *  mapping needs no composable. Mirrors NovelDetailsViewModel.headerSourceName. */
     fun headerSourceName(state: State.Success): String =
-        if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
+        if (headerNamesWholeGroup(state.mergeSources.size, state.selectedSourceMangaId)) {
             context.stringResource(MR.strings.merge_unified)
         } else {
             (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
@@ -1776,7 +1777,7 @@ class MangaViewModel(
 
     /** The library query for the header's source, or null where the header names the whole merged group. */
     fun headerSourceQuery(state: State.Success): String? =
-        if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
+        if (headerNamesWholeGroup(state.mergeSources.size, state.selectedSourceMangaId)) {
             null
         } else {
             sourceKeyQuery((state.mergeDisplaySource ?: state.source).id.toString())

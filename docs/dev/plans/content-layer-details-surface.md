@@ -76,7 +76,9 @@ instead. Its "two library query deltas" resolve to exactly two behavioural diffe
 matcher, both already deliberate and commented (`srcid:` compares a string where upstream parses a
 Long, since novel source keys are slugs; `interval:` and `nextupdate:` return false for a type that
 cannot answer them, where upstream has no such case). Its "five dead `EntryDetailsBehavior` members"
-do not reproduce: every member and every `EntryDetailsScreenState` property has a live reader. The
+did not reproduce then; a later audit found four with no caller through the contract
+(`markChapterRead`, `toggleChapterBookmark`, `showTrackDialog`, `addFavoriteAnyway`, since both screens
+call their models directly for those) and deleted them with their adapter overrides. The first
 sweep did find three genuinely dead members, two `isPaged` properties (deleted) and Mihon's
 `isAnySelected` (marked rather than deleted, since upstream still has it).
 

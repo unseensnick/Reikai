@@ -154,14 +154,6 @@ class NovelEntryAdapter(
         model.markPreviousRead(true)
     }
 
-    override fun markChapterRead(chapterId: Long, read: Boolean) {
-        chapterById(chapterId)?.let { model.markChapterRead(it, read) }
-    }
-
-    override fun toggleChapterBookmark(chapterId: Long) {
-        chapterById(chapterId)?.let { model.toggleChapterBookmark(it) }
-    }
-
     override fun runDownloadAction(action: DownloadAction) {
         model.runDownloadAction(action)
     }
@@ -225,10 +217,6 @@ class NovelEntryAdapter(
     override fun resetInfo() {
         model.resetNovelInfo()
     }
-    override fun showTrackDialog() {
-        model.showTrackDialog()
-    }
-
     override suspend fun autofillCandidates(): List<Pair<Track, Tracker>> = model.autofillCandidates()
 
     override suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
@@ -236,9 +224,6 @@ class NovelEntryAdapter(
 
     override fun toggleFavorite() {
         model.toggleFavorite()
-    }
-    override fun addFavoriteAnyway() {
-        model.addFavoriteAnyway()
     }
     override fun selectSource(entryId: Long?) {
         model.selectSource(entryId)

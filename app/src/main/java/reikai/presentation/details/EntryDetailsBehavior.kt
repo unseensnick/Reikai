@@ -25,15 +25,12 @@ interface EntryDetailsBehavior {
     fun invertSelection()
     fun clearSelection()
 
-    // Mark read / bookmark. The per-chapter calls key on the neutral chapter id; each adapter resolves it
-    // back to its own chapter type. markPreviousRead is selection-based (mark everything before the single
+    // Mark read / bookmark. markPreviousRead is selection-based (mark everything before the single
     // selected chapter), not per-chapter, matching both models. It takes no flag: neither content type's UI
     // offers a "mark previous as unread", and the manga engine only supports marking previous as read.
     fun markSelectedRead(read: Boolean)
     fun bookmarkSelected(bookmark: Boolean)
     fun markPreviousRead()
-    fun markChapterRead(chapterId: Long, read: Boolean)
-    fun toggleChapterBookmark(chapterId: Long)
 
     // Download.
     fun runDownloadAction(action: DownloadAction)
@@ -86,13 +83,11 @@ interface EntryDetailsBehavior {
     fun resetInfo()
 
     // Tracking (the two suspend calls back the shared "Fill from tracker" button).
-    fun showTrackDialog()
     suspend fun autofillCandidates(): List<Pair<Track, Tracker>>
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata
 
-    // Favorite and add-despite-duplicate.
+    // Favorite.
     fun toggleFavorite()
-    fun addFavoriteAnyway()
 
     // Merge / multi-source. Keyed on Long entry ids on both sides, so no EntryId parameterization.
     // selectSource takes a nullable id: null selects the unified ("All") view, non-null a single source.

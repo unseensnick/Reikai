@@ -83,7 +83,8 @@ data class EntryDetailsNavigation(
     val onOpenSourceSettings: (() -> Unit)? = null,
     /** Hands the viewed source's download folder to a file manager. */
     val onOpenFolder: (() -> Unit)? = null,
-    /** Header long-press: search the library for the pressed text, forced to this entry's type. */
+    /** Header long-press: search the library, forced to this entry's type. The source row passes a
+     *  `srcid:` query for its source rather than the name it shows. */
     val onLibrarySearch: (query: String) -> Unit,
     /** Header source row: browse that source. Null on a stub, where there is nothing to browse. */
     val onBrowseSource: (() -> Unit)? = null,

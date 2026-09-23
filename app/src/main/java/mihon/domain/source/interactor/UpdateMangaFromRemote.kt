@@ -11,7 +11,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SManga
 import logcat.LogPriority
 import mihon.domain.source.models.RemoteMangaUpdate
-import reikai.domain.source.isPlaceholderCover
+import reikai.domain.source.keptCover
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
@@ -112,10 +112,11 @@ class UpdateMangaFromRemote(
                 null
             }
 
+        val thumbnailUrl = keptCover(null, remoteManga.thumbnail_url) // RK: nor a placeholder
+
         val coverLastModified = when {
             // Never refresh covers if the url is empty to avoid "losing" existing covers
-            remoteManga.thumbnail_url.isNullOrEmpty() -> null
-            remoteManga.thumbnail_url?.let(::isPlaceholderCover) == true -> null // RK: no cover either
+            thumbnailUrl == null -> null // RK
             !manualFetch && localManga.thumbnailUrl == remoteManga.thumbnail_url -> null
             localManga.isLocal() -> Clock.System.now().toEpochMilliseconds()
             localManga.hasCustomCover(coverCache) -> {
@@ -127,8 +128,6 @@ class UpdateMangaFromRemote(
                 Clock.System.now().toEpochMilliseconds()
             }
         }
-
-        val thumbnailUrl = remoteManga.thumbnail_url?.takeIf { it.isNotEmpty() && !isPlaceholderCover(it) } // RK
 
         val success = mangaRepository.update(
             MangaUpdate(
