@@ -733,9 +733,11 @@ class MangaViewModel(
         }
     }
 
-    // RK: the favorite-and-merge pair and why it is atomic live in MangaLibraryAdder.joinGroup.
+    // RK: the favorite-and-merge pair, why it is atomic, and the tracker bind live in MangaLibraryAdder.joinGroup.
     private suspend fun joinGroup(manga: Manga, selectedIds: List<Long>): Long? =
-        mangaLibraryAdder.joinGroup(manga, selectedIds)?.also { onAdded(manga) }
+        mangaLibraryAdder.joinGroup(manga, selectedIds)?.also {
+            viewModelScope.launchIO { maybeBackupFavoriteToAccount(manga) }
+        }
 
     // RK: an add's favorite write, then onAdded; a picker the add raised runs it only on its confirm.
     private suspend fun favoriteForAdd(manga: Manga): Long? =

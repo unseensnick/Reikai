@@ -193,10 +193,6 @@ abstract class SearchViewModel(
         }
     }
 
-    fun moveMangaToCategories(manga: Manga, categoryIds: List<Long>) {
-        viewModelScope.launchIO { mangaLibraryAdder.moveToCategories(manga, categoryIds) }
-    }
-
     /** RK: apply the category picker's choice; the adder owes the favorite, and the merge on a group add. */
     fun confirmCategories(manga: Manga, categoryIds: List<Long>, joinGroup: List<Long>) {
         viewModelScope.launchIO { mangaLibraryAdder.confirmPicker(manga, categoryIds, joinGroup) }

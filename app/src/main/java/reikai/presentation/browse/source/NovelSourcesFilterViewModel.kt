@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.ToggleNovelSource
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import kotlin.time.Duration.Companion.seconds
@@ -80,6 +81,9 @@ class NovelSourcesFilterViewModel(
             val disabledLanguages: Set<String>,
         ) : State {
             val isEmpty get() = items.isEmpty()
+
+            /** Two copies of one site differ only by packaging, so each row names its own. */
+            val showsFormat: Boolean = NovelExtensionFormat.tellsApart(items.flatMap { it.second }.map { it.format })
         }
     }
 }

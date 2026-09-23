@@ -40,6 +40,38 @@ class AddToGroupConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a group join binds the entry's source trackers`(probe: GroupAddProbe) = runTest {
+        probe.joinGroup()
+
+        probe.trackersBound shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a failed group join binds nothing`(probe: GroupAddProbe) = runTest {
+        probe.joinGroup(favoriteWriteSucceeds = false)
+
+        probe.trackersBound shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a browse add binds the entry's source trackers once its favorite lands`(probe: GroupAddProbe) = runTest {
+        probe.favoriteFromBrowse(favoriteWriteSucceeds = true)
+
+        probe.trackersBound shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a browse add whose favorite write fails binds nothing`(probe: GroupAddProbe) = runTest {
+        probe.favoriteFromBrowse(favoriteWriteSucceeds = false)
+
+        probe.trackersBound shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `an already-favorited row is merged without rewriting its favorite`(probe: GroupAddProbe) = runTest {
         probe.joinGroup(alreadyFavorite = true) shouldBe
             GroupAddEffects(joined = true, merged = true, favoriteWritten = false, filedCategories = null)
@@ -199,6 +231,9 @@ interface GroupAddProbe {
     /** Whether the last call bound the entry's source trackers. */
     val trackersBound: Boolean
 
+    /** A browse add's favorite write, the one that skips the category sequence's confirm. */
+    suspend fun favoriteFromBrowse(favoriteWriteSucceeds: Boolean)
+
     /** What a stored row's picker confirm wrote. Both types favorite here, then file. */
     suspend fun confirmAddCategories(
         categoryIds: List<Long>,
@@ -260,6 +295,10 @@ class MangaGroupAddProbe : GroupAddProbe {
                 favoriteWritten = true
                 favoriteWriteSucceeds
             }
+            coEvery { await(any()) } answers {
+                favoriteWritten = true
+                favoriteWriteSucceeds
+            }
         },
         autoBindOnAdd = mockk {
             every { manga(any(), any()) } answers { trackersBound = true }
@@ -290,6 +329,12 @@ class MangaGroupAddProbe : GroupAddProbe {
         val id = adder(favoriteWriteSucceeds, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
             .joinGroup(manga, listOf(2L))
         return GroupAddEffects(id != null, merged, favoriteWritten, filed)
+    }
+
+    override suspend fun favoriteFromBrowse(favoriteWriteSucceeds: Boolean) {
+        reset()
+        adder(favoriteWriteSucceeds, false, true, emptyList(), emptyList(), -1)
+            .changeFavorite(Manga.create().copy(id = 1L, source = 99L))
     }
 
     override suspend fun addToExistingGroup(
@@ -409,6 +454,11 @@ class NovelGroupAddProbe : GroupAddProbe {
         val id = adder(favoriteWriteSucceeds, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
             .joinGroup(1L, listOf(2L))
         return GroupAddEffects(id != null, merged, favoriteWritten, filed)
+    }
+
+    override suspend fun favoriteFromBrowse(favoriteWriteSucceeds: Boolean) {
+        reset()
+        adder(favoriteWriteSucceeds, false, true, emptyList(), emptyList(), -1).favoriteReturningId(item, "src")
     }
 
     override suspend fun addToExistingGroup(

@@ -1,11 +1,14 @@
 package reikai.presentation.browse
 
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.jupiter.api.Test
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelExtensionFormat.APK
 import reikai.novel.source.NovelExtensionFormat.IREADER
+import reikai.novel.source.NovelSource
 import reikai.presentation.browse.components.sourceDetail
 import reikai.presentation.browse.feed.FeedEntry
 import reikai.presentation.browse.feed.FeedState
@@ -14,6 +17,10 @@ import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.browse.globalsearch.GlobalSearchEngine
 import reikai.presentation.browse.migrate.BrowseMigrateRow
 import reikai.presentation.browse.migrate.MigrateSourcesEngine
+import reikai.presentation.browse.source.BrowseSourceRow
+import reikai.presentation.browse.source.NovelSourcesFilterViewModel
+import reikai.presentation.browse.source.SourcesEngine
+import reikai.presentation.browse.source.SourcesListItem
 import reikai.presentation.migrate.flow.EntryMigrationConfigViewModel
 import reikai.presentation.migrate.flow.EntryMigrationSearchViewModel
 import reikai.presentation.migrate.flow.MigratingEntryRow
@@ -22,7 +29,8 @@ import reikai.presentation.migrate.flow.MigrationSourceUi
 
 /**
  * Every list that shows novel sources names each one's packaging once it holds two kinds, so two
- * sources with one name (an app and an IReader copy of one site) can be told apart.
+ * sources with one name (an app and an IReader copy of one site) can be told apart. The feed's
+ * add-source dialog passes its whole list straight to the kernel, so it has no case here.
  */
 class SourceFormatLabelTest {
 
@@ -39,6 +47,25 @@ class SourceFormatLabelTest {
     @Test
     fun `global search names none while every source is packaged alike`() {
         GlobalSearchEngine.State(rows = listOf(searchRow(APK), searchRow(APK))).showsFormat shouldBe false
+    }
+
+    @Test
+    fun `the Sources tab names packaging once it shows two kinds`() {
+        SourcesEngine.State(items = listOf(sourceItem(APK), sourceItem(IREADER))).showsFormat shouldBe true
+    }
+
+    @Test
+    fun `the Sources tab names none while every source is packaged alike`() {
+        SourcesEngine.State(items = listOf(sourceItem(APK), sourceItem(APK))).showsFormat shouldBe false
+    }
+
+    @Test
+    fun `the sources filter names packaging once it lists two kinds`() {
+        NovelSourcesFilterViewModel.State.Success(
+            items = listOf("en" to listOf(novelSource(APK), novelSource(IREADER))),
+            disabledSources = emptySet(),
+            disabledLanguages = emptySet(),
+        ).showsFormat shouldBe true
     }
 
     @Test
@@ -78,6 +105,24 @@ class SourceFormatLabelTest {
         source = Unit,
         format = format,
     )
+
+    private fun sourceItem(format: NovelExtensionFormat) = SourcesListItem.Row(
+        BrowseSourceRow(
+            key = SourceKey.Novel("s-$format"),
+            name = "Site",
+            lang = "en",
+            isPinned = false,
+            isUsedLast = false,
+            supportsLatest = true,
+            extensionName = "Site",
+            source = Unit,
+            format = format,
+        ),
+    )
+
+    private fun novelSource(format: NovelExtensionFormat) = mockk<NovelSource> {
+        every { this@mockk.format } returns format
+    }
 
     private fun feedEntry(format: NovelExtensionFormat) = FeedEntry(
         feedId = format.ordinal.toLong(),

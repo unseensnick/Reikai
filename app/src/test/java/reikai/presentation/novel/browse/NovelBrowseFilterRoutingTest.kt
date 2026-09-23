@@ -96,6 +96,16 @@ class NovelBrowseFilterRoutingTest {
         (model.state.value.pagerInput == first) shouldBe false
     }
 
+    @Test
+    fun `a filters-only saved search on a Mihon filter list drops the typed query`() = runTest {
+        val model = open(MIHON_FILTERS)
+        model.search("shadow")
+
+        model.applySavedSearch(null)
+
+        model.state.value.query shouldBe ""
+    }
+
     private suspend fun open(filters: NovelFilters): NovelBrowseViewModel {
         val source = mockk<NovelSource>(relaxed = true) {
             every { id } returns SOURCE_ID

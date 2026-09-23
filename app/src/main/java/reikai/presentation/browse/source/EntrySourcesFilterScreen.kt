@@ -26,6 +26,7 @@ import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.toast
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.NovelSourceRow
+import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.components.ContentTypeFilterChips
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
@@ -168,6 +169,7 @@ class EntrySourcesFilterScreen(
                                     modifier = Modifier.animateItem(),
                                     name = source.name,
                                     iconUrl = source.iconUrl,
+                                    subtitle = formatLabel(source.format, s.showsFormat),
                                     onClickItem = { viewModel.toggleSource(source.id) },
                                     action = {
                                         Checkbox(

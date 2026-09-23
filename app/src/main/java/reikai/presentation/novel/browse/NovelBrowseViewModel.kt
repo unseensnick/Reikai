@@ -185,10 +185,23 @@ class NovelBrowseViewModel(
         }
     }
 
-    /** A saved search's query with its filters, for a source whose filters travel with the search. */
-    fun searchWithFilters(query: String) {
-        state.update {
-            it.copy(query = query, appliedFilters = it.filterDraft?.freshlyApplied(), filtersApplied = true)
+    /**
+     * Run a saved search over the filters already set, with its own query or none, never the one typed
+     * before. An LNReader plugin's search takes no options, so a saved query runs as a plain search and
+     * saved filters as a listing. A Mihon filter list travels with the query, as manga's does.
+     */
+    fun applySavedSearch(query: String?) {
+        val source = state.value.source ?: return
+        when {
+            source.filters?.applyToSearch == true -> state.update {
+                it.copy(
+                    query = query.orEmpty(),
+                    appliedFilters = it.filterDraft?.freshlyApplied(),
+                    filtersApplied = true,
+                )
+            }
+            query.isNullOrBlank() -> applyFilters()
+            else -> search(query)
         }
     }
 

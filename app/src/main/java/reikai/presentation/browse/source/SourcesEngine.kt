@@ -65,7 +65,6 @@ class SourcesEngine(
             // longer holds back the half that is ready.
             isLoading = active.all { rowsPerProvider[it] == null },
             hasPending = active.any { rowsPerProvider[it] == null },
-            showsFormat = NovelExtensionFormat.tellsApart(shown.map { it.format }),
             items = sectionSources(shown),
         )
     }
@@ -124,8 +123,6 @@ class SourcesEngine(
         val isLoading: Boolean = true,
         /** A content type that has not answered yet, so the list is showing part of itself. */
         val hasPending: Boolean = true,
-        /** Novel sources of more than one packaging are on screen, so each row names its own. */
-        val showsFormat: Boolean = false,
         val items: List<SourcesListItem> = emptyList(),
         val dialog: SourceOptionsDialog? = null,
         /** Whether a row that supports Latest shows its button. */
@@ -136,6 +133,10 @@ class SourcesEngine(
         val isEmpty get() = items.isEmpty() && !hasPending
 
         val isSearching get() = !query.isNullOrBlank()
+
+        /** Novel sources of more than one packaging are on screen, so each row names its own. */
+        val showsFormat: Boolean =
+            NovelExtensionFormat.tellsApart(items.filterIsInstance<SourcesListItem.Row>().map { it.row.format })
     }
 
     /** The long-press sheet on a row, built here because only the engine knows which type it came from. */

@@ -200,16 +200,8 @@ class NovelBrowseAdapter(
         model.setFilterState(
             filtersJson?.let { json -> defaults?.let { savedSearchFilters.decode(json, it) } } ?: defaults,
         )
-        // An LNReader plugin's search takes no options, so a saved query runs as a plain search and
-        // saved filters as a listing. A Mihon filter list travels with the query, as manga's does.
-        when {
-            query.isNullOrBlank() -> model.applyFilters()
-            filters?.applyToSearch == true -> {
-                toolbarText.value = ToolbarText.Typed(query)
-                model.searchWithFilters(query)
-            }
-            else -> search(query)
-        }
+        toolbarText.value = ToolbarText.Typed(query)
+        model.applySavedSearch(query)
     }
 
     override fun onRowLongClick(row: EntryBrowseRow) = model.onLongClickItem(row.item)
