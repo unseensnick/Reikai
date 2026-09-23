@@ -523,6 +523,7 @@ every release now also ships a foss build with neither in it.
 #### Fixed
 
 - **Installing an extension through Shizuku works again.**
+- **Extensions marked Orphaned lose the mark as soon as you add a repo that lists them, rather than after a restart.**
 - **The Browse badge on the home screen now counts novel plugin updates, as the Extensions tab's own badge does.**
 - **Updating a privately installed extension no longer switches it to a shared install.**
 - **Trusting an extension now works from Browse's All chip.** The prompt only appeared with the Manga chip selected; under All, tapping the shield or the row did nothing at all.
