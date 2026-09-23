@@ -73,6 +73,7 @@ class NovelImageRequestsTest {
     fun `an APK source uses its own headers`() = runTest {
         val source = mockk<HttpSource> {
             every { id } returns 42L
+            every { baseUrl } returns "https://apk.example"
             every { headers } returns headersOf("Referer", "https://apk.example/")
             every { client } returns OkHttpClient()
         }
@@ -81,6 +82,43 @@ class NovelImageRequestsTest {
         val headers = requests(loaded = listOf(extension)).forSource("tachiyomi:42").headers
 
         headers["Referer"] shouldBe "https://apk.example/"
+    }
+
+    @Test
+    fun `a chapter picture on the source's own site gets its headers, a subdomain included`() = runTest {
+        requests(loaded = listOf(apkWithToken())).forSource("tachiyomi:42")
+            .forUrl("https://cdn.apk.example/p.jpg").headers["X-Token"] shouldBe "secret"
+    }
+
+    @Test
+    fun `a chapter picture on another site never gets the source's headers`() = runTest {
+        requests(loaded = listOf(apkWithToken())).forSource("tachiyomi:42")
+            .forUrl("https://attacker.example/p.jpg").headers["X-Token"] shouldBe null
+    }
+
+    @Test
+    fun `a chapter picture on another site still names the source's site as Referer`() = runTest {
+        requests(loaded = listOf(apkWithToken())).forSource("tachiyomi:42")
+            .forUrl("https://images.example/p.jpg").headers["Referer"] shouldBe "https://apk.example"
+    }
+
+    @Test
+    fun `a plugin's own image header stays on its site`() = runTest {
+        val identity =
+            LnSourceIdentity(name = "P", site = "https://site.example/", imageHeaders = mapOf("X-Image" to "1"))
+
+        requests(seen = mapOf("p" to identity)).forSource("p")
+            .forUrl("https://elsewhere.example/p.jpg").headers["X-Image"] shouldBe null
+    }
+
+    private fun apkWithToken(): Extension.Loaded {
+        val source = mockk<HttpSource> {
+            every { id } returns 42L
+            every { baseUrl } returns "https://apk.example"
+            every { headers } returns headersOf("X-Token", "secret")
+            every { client } returns OkHttpClient()
+        }
+        return mockk { every { sources } returns listOf(source) }
     }
 
     @Test

@@ -37,8 +37,9 @@ suspend fun inlineChapterImages(html: String, baseSite: String, images: NovelIma
         if (src.isBlank()) continue
         val absolute = StringUtil.resolve(img.baseUri(), src).ifBlank { src }
         runCatching {
-            val request = Request.Builder().url(absolute).headers(images.headers).build()
-            images.client.newCall(request).execute().use { response ->
+            val picture = images.forUrl(absolute)
+            val request = Request.Builder().url(absolute).headers(picture.headers).build()
+            picture.client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@use
                 val body = response.body
                 // Bound the read itself, not just the post-read size: a lying or unknown (-1)

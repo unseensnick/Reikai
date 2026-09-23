@@ -67,8 +67,8 @@ class FlareSolverrCommandTest {
             "http://[fd12::1]:8191",
         ],
     )
-    fun `cookies go to a solver over https or on the user's own network`(url: String) {
-        mayForwardCookies(url) shouldBe true
+    fun `secrets go to a solver over https or on the user's own network`(url: String) {
+        isPrivateChannel(url) shouldBe true
     }
 
     @ParameterizedTest
@@ -85,8 +85,8 @@ class FlareSolverrCommandTest {
             "http://[2001:db8::5]:8191",
         ],
     )
-    fun `cookies never cross the internet in the clear`(url: String) {
-        mayForwardCookies(url) shouldBe false
+    fun `secrets never cross the internet in the clear`(url: String) {
+        isPrivateChannel(url) shouldBe false
     }
 
     @Test

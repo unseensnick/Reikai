@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.coroutines.flow.first
 import okhttp3.Headers
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.source.IREADER_NOVEL_SOURCE_PREFIX
@@ -17,7 +18,30 @@ import reikai.novel.source.ireader.IReaderSourceHolder
 import ireader.core.source.HttpSource as IReaderHttpSource
 
 /** The client and headers a novel source's images are fetched with. */
-class NovelImageClient(val client: OkHttpClient, val headers: Headers)
+class NovelImageClient(
+    val client: OkHttpClient,
+    val headers: Headers,
+    private val site: String? = null,
+    private val elsewhere: NovelImageClient? = null,
+) {
+    /**
+     * The client for a chapter picture at [url]. Whoever wrote the chapter names its pictures, so only
+     * one on the source's own site gets the source's client and headers, which can carry a login. Any
+     * other host gets [elsewhere]: the app's client, the source's user agent and its site as Referer.
+     */
+    fun forUrl(url: String): NovelImageClient = if (elsewhere == null || isSameSite(url, site)) this else elsewhere
+}
+
+/**
+ * Whether [url] is on [site]'s host or a subdomain of it, `www.` aside, so a site's own CDN counts.
+ * Deliberately narrower than a registrable-domain match, which needs a public-suffix list: a sibling
+ * subdomain still gets the plain client, which only drops what could carry a login.
+ */
+internal fun isSameSite(url: String, site: String?): Boolean {
+    val picture = url.toHttpUrlOrNull()?.host ?: return false
+    val own = site?.toHttpUrlOrNull()?.host?.removePrefix("www.") ?: return false
+    return picture == own || picture.endsWith(".$own")
+}
 
 /**
  * How each novel source's images are fetched, for covers, both reader modes and downloads alike.
@@ -34,13 +58,25 @@ class NovelImageRequests(
 ) {
 
     suspend fun forSource(sourceId: String?): NovelImageClient {
-        apkSource(sourceId)?.let { return NovelImageClient(it.client, it.headers) }
-        iReaderSource(sourceId)?.let { return NovelImageClient(network.client, iReaderImageHeaders(it)) }
+        apkSource(sourceId)?.let { return withElsewhere(it.client, it.headers, it.baseUrl) }
+        iReaderSource(sourceId)?.let {
+            return withElsewhere(network.client, iReaderImageHeaders(it), (it.source as? IReaderHttpSource)?.baseUrl)
+        }
         val record = sourceId?.let { novelPreferences.seenNovelSources().get()[it] }
-        return NovelImageClient(
+        return withElsewhere(
             network.client,
             lnImageHeaders(deviceWebViewUserAgent(context), record?.site, record?.imageHeaders.orEmpty()),
+            record?.site,
         )
+    }
+
+    private fun withElsewhere(client: OkHttpClient, headers: Headers, site: String?): NovelImageClient {
+        val plain = Headers.Builder().apply {
+            headers["User-Agent"]?.let { set("User-Agent", it) }
+            set("Accept", IMAGE_ACCEPT)
+            if (!site.isNullOrBlank()) set("Referer", site)
+        }.build()
+        return NovelImageClient(client, headers, site, NovelImageClient(network.client, plain))
     }
 
     // Found by its whole text id: an IReader app and a tachiyomi-format one may share the number. The
@@ -62,6 +98,8 @@ class NovelImageRequests(
     }
 }
 
+private const val IMAGE_ACCEPT = "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+
 /**
  * An LNReader source's image headers: the device user agent, an image Accept, and the site as Referer,
  * which some hosts refuse an image without, then the plugin's own, which win (`imageRequestInit`).
@@ -69,7 +107,7 @@ class NovelImageRequests(
 internal fun lnImageHeaders(deviceUserAgent: String, site: String?, pluginHeaders: Map<String, String>): Headers =
     Headers.Builder().apply {
         if (deviceUserAgent.isNotBlank()) set("User-Agent", deviceUserAgent)
-        set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+        set("Accept", IMAGE_ACCEPT)
         if (!site.isNullOrBlank()) set("Referer", site)
         // A name or value no header can carry throws, and drops only that header.
         pluginHeaders.forEach { (name, value) -> runCatching { set(name, value) } }

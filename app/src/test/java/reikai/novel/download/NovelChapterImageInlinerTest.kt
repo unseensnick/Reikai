@@ -53,6 +53,27 @@ class NovelChapterImageInlinerTest {
     private val images get() = NovelImageClient(client, headersOf("Referer", "https://site.example/"))
 
     @Test
+    fun `a picture on another site is fetched without the source's headers`() = runTest {
+        val plain = OkHttpClient.Builder().addInterceptor { chain ->
+            fetched += "plain:" + chain.request().url
+            chain.proceed(chain.request())
+        }.build()
+        val guarded = NovelImageClient(
+            client,
+            headersOf("X-Token", "secret"),
+            site = "https://site.example/",
+            elsewhere = NovelImageClient(
+                plain.newBuilder().addInterceptor(client.interceptors.single()).build(),
+                headersOf(),
+            ),
+        )
+
+        inlineChapterImages("""<img src="https://attacker.example/p.png">""", "https://site.example/chapter/1", guarded)
+
+        fetched.first() shouldBe "plain:https://attacker.example/p.png"
+    }
+
+    @Test
     fun `an image with a srcset is stored with no remote candidate left`() = runTest {
         val img = inlined("""<p><img src="/a.jpg" srcset="/a-800.jpg 800w, /a-1600.jpg 1600w"></p>""")
 

@@ -58,7 +58,7 @@ suspend fun fetchNovelImage(
     val key = image.url
     if (readCache) diskCache?.openSnapshot(key)?.let { return it.toResult(diskCache, key, null, DataSource.DISK) }
 
-    val client = requests.forSource(image.sourceId)
+    val client = requests.forSource(image.sourceId).forUrl(image.url)
     // OkHttp's own cache would keep a failed answer that a retry then reads back.
     val request = Request.Builder().url(image.url).headers(client.headers).cacheControl(NO_STORE).build()
     val response = client.client.newCall(request).awaitSuccess()

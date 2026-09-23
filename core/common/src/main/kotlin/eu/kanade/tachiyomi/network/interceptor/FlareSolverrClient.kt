@@ -71,11 +71,12 @@ class FlareSolverrClient(
             // so no request can be left out. Missing it on the banner probe alone would 401 that
             // probe, which latches [fsSessionsSupported] off for the rest of the run.
             .addInterceptor { chain ->
-                val header = flareSolverrAuthHeader(
-                    networkPreferences.flareSolverrUsername.get().trim(),
+                val request = chain.request()
+                val header = flareSolverrLoginFor(
+                    request.url.toString(),
+                    networkPreferences.flareSolverrUsername.get(),
                     networkPreferences.flareSolverrPassword.get(),
                 )
-                val request = chain.request()
                 chain.proceed(
                     if (header == null) request else request.newBuilder().header("Authorization", header).build(),
                 )
@@ -324,7 +325,7 @@ class FlareSolverrClient(
         // fields. Build the command via the JSON DSL so the body can't break the envelope.
         val isPost = request.method.equals("POST", ignoreCase = true)
         val postData = request.body?.takeIf { isPost }?.let(::flareSolverrPostData)
-        val forwarded = if (mayForwardCookies(flareSolverrUrl)) {
+        val forwarded = if (isPrivateChannel(flareSolverrUrl)) {
             cookiesToForward(cookieManager.get(request.url), request.header("Cookie"), request.url)
         } else {
             emptyList()
@@ -446,6 +447,7 @@ enum class FlareSolverrTestFailure {
     UNREACHABLE,
     NOT_A_SOLVER,
     SOLVE_FAILED,
+    LOGIN_NOT_PRIVATE,
     ;
 
     companion object {
@@ -463,8 +465,11 @@ enum class FlareSolverrTestFailure {
 
         // A timeout once [connected] is not an unreachable address: something answered and then took
         // too long. One while connecting is: nothing answered at all, as for a LAN address off the LAN.
-        fun ofException(e: IOException, connected: Boolean): FlareSolverrTestFailure =
-            if (e is InterruptedIOException && connected) TIMED_OUT else UNREACHABLE
+        fun ofException(e: IOException, connected: Boolean): FlareSolverrTestFailure = when {
+            e is FlareSolverrLoginRefusedException -> LOGIN_NOT_PRIVATE
+            e is InterruptedIOException && connected -> TIMED_OUT
+            else -> UNREACHABLE
+        }
     }
 }
 
@@ -473,10 +478,10 @@ private const val JSON_CONTENT_TYPE = "application/json; charset=UTF-8"
 private val COOKIE_NAMES = listOf("cf_clearance")
 
 /**
- * Whether the site's cookies may travel to the FlareSolverr at [flareSolverrUrl]: over https, or in
- * the clear only to the user's own network, since a login cookie is worth more than the page it gets.
+ * Whether a secret may travel to the FlareSolverr at [flareSolverrUrl]: over https, or in the clear
+ * only to the user's own network. The site's cookies and the proxy login both go through this.
  */
-internal fun mayForwardCookies(flareSolverrUrl: String): Boolean {
+fun isPrivateChannel(flareSolverrUrl: String): Boolean {
     val url = flareSolverrUrl.trim().toHttpUrlOrNull() ?: return false
     if (url.isHttps) return true
     val host = url.host.lowercase()

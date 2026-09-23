@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.network.interceptor
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -11,13 +12,37 @@ class FlareSolverrAuthTest {
     private val nonAscii = "pässwörd"
 
     @Test
-    fun `no username means no header`() {
-        flareSolverrAuthHeader("", "secret").shouldBeNull()
+    fun `a login bound for a public address in the clear is refused`() {
+        shouldThrow<FlareSolverrLoginRefusedException> {
+            flareSolverrLoginFor("http://solver.example.com:8191/v1", "reikai", "secret")
+        }
     }
 
     @Test
-    fun `blank username means no header`() {
-        flareSolverrAuthHeader("   ", "secret").shouldBeNull()
+    fun `a login goes to a solver on the user's own network`() {
+        flareSolverrLoginFor("http://192.168.1.5:8191/v1", "reikai", "secret") shouldBe
+            Credentials.basic("reikai", "secret", Charsets.UTF_8)
+    }
+
+    @Test
+    fun `a public address with no login set is not refused`() {
+        flareSolverrLoginFor("http://solver.example.com:8191/v1", "", "").shouldBeNull()
+    }
+
+    @Test
+    fun `a refused login is reported as such, not as an unreachable server`() {
+        FlareSolverrTestFailure.ofException(FlareSolverrLoginRefusedException(), connected = false) shouldBe
+            FlareSolverrTestFailure.LOGIN_NOT_PRIVATE
+    }
+
+    @Test
+    fun `no username and no password means no header`() {
+        flareSolverrAuthHeader("   ", "").shouldBeNull()
+    }
+
+    @Test
+    fun `a password alone is sent with an empty username`() {
+        flareSolverrAuthHeader("   ", "secret") shouldBe Credentials.basic("", "secret", Charsets.UTF_8)
     }
 
     @Test

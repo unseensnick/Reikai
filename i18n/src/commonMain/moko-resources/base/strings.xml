@@ -1082,6 +1082,8 @@
     <string name="pref_flaresolverr_url_summary">Address of your FlareSolverr server, for example http://192.168.1.10:8191</string>
     <string name="pref_flaresolverr_login">FlareSolverr sign-in</string>
     <string name="pref_flaresolverr_login_summary">Only needed if a proxy guards the server</string>
+    <string name="pref_flaresolverr_login_password_only">Password only</string>
+    <string name="flaresolverr_login_not_private">Sign-in needs an https address or one on your network</string>
     <!-- RK: in-WebView solver for interactive Cloudflare challenges -->
     <string name="pref_enable_turnstile_solver">Solve interactive Cloudflare challenges</string>
     <string name="pref_enable_turnstile_solver_summary">Tick the verification box for you instead of giving up on the challenge</string>

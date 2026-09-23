@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -46,6 +47,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 fun FlareSolverrLoginDialog(
     currentUsername: String,
     currentPassword: String,
+    /** The address is plain http off the user's network, where a login is refused. */
+    sentInTheClear: Boolean,
     onConfirm: (username: String, password: String) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
@@ -58,6 +61,12 @@ fun FlareSolverrLoginDialog(
         title = { Text(text = stringResource(MR.strings.login_title, "FlareSolverr")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (sentInTheClear) {
+                    Text(
+                        text = stringResource(MR.strings.flaresolverr_login_not_private),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 OutlinedTextField(
                     modifier = Modifier
                         .fillMaxWidth()

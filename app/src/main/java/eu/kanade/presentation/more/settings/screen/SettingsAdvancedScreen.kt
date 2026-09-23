@@ -49,6 +49,7 @@ import eu.kanade.tachiyomi.network.PREF_DOH_SHECAN
 import eu.kanade.tachiyomi.network.interceptor.FlareSolverrTestFailure
 import eu.kanade.tachiyomi.network.interceptor.FlareSolverrTestResult
 import eu.kanade.tachiyomi.network.interceptor.TurnstileSolver
+import eu.kanade.tachiyomi.network.interceptor.isPrivateChannel
 import eu.kanade.tachiyomi.network.interceptor.splitFlareSolverrUserInfo
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
@@ -233,6 +234,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         val flareSolverrEnabled by networkPreferences.enableFlareSolverr.collectAsState()
         val flareSolverrUrl by networkPreferences.flareSolverrUrl.collectAsState()
         val flareSolverrUsername by networkPreferences.flareSolverrUsername.collectAsState()
+        val flareSolverrPassword by networkPreferences.flareSolverrPassword.collectAsState()
         var flareSolverrTesting by remember { mutableStateOf(false) }
         var flareSolverrTestResult by remember { mutableStateOf<FlareSolverrTestResult?>(null) }
         var flareSolverrTestFailure by remember { mutableStateOf<FlareSolverrTestResult.Failure?>(null) }
@@ -249,6 +251,7 @@ object SettingsAdvancedScreen : SearchableSettings {
             FlareSolverrLoginDialog(
                 currentUsername = flareSolverrUsername,
                 currentPassword = networkPreferences.flareSolverrPassword.get(),
+                sentInTheClear = flareSolverrUrl.isNotBlank() && !isPrivateChannel(flareSolverrUrl),
                 onConfirm = { username, password ->
                     networkPreferences.flareSolverrUsername.set(username)
                     networkPreferences.flareSolverrPassword.set(password)
@@ -446,10 +449,11 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_flaresolverr_login),
                     // The username identifies the row; the password is never rendered, since a
                     // preference subtitle prints its value at up to ten lines.
-                    subtitle = if (flareSolverrUsername.isBlank()) {
-                        stringResource(MR.strings.pref_flaresolverr_login_summary)
-                    } else {
-                        flareSolverrUsername
+                    subtitle = when {
+                        flareSolverrUsername.isNotBlank() -> flareSolverrUsername
+                        flareSolverrPassword.isNotEmpty() ->
+                            stringResource(MR.strings.pref_flaresolverr_login_password_only)
+                        else -> stringResource(MR.strings.pref_flaresolverr_login_summary)
                     },
                     enabled = flareSolverrEnabled,
                     onClick = { showFlareSolverrLogin = true },
@@ -700,4 +704,5 @@ private fun FlareSolverrTestFailure.stringRes(): StringResource = when (this) {
     FlareSolverrTestFailure.TIMED_OUT -> MR.strings.flaresolverr_test_error_timed_out
     FlareSolverrTestFailure.NOT_A_SOLVER -> MR.strings.flaresolverr_test_error_not_solver
     FlareSolverrTestFailure.SOLVE_FAILED -> MR.strings.flaresolverr_test_error_solve
+    FlareSolverrTestFailure.LOGIN_NOT_PRIVATE -> MR.strings.flaresolverr_login_not_private
 }

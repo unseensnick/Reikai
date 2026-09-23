@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.network.interceptor
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import okhttp3.Credentials
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import java.io.IOException
 
 /** An address with the credentials that were embedded in it, once they have been taken back out. */
 data class FlareSolverrAddress(
@@ -15,8 +16,9 @@ data class FlareSolverrAddress(
 }
 
 /**
- * The `Authorization` value for a reverse proxy in front of the bypass server, or null when no
- * username is configured.
+ * The `Authorization` value for a reverse proxy in front of the bypass server, or null when neither a
+ * username nor a password is configured. A password alone goes with an empty username, as curl and
+ * browsers send `http://:password@host`.
  *
  * UTF-8 is deliberate. OkHttp's default is ISO-8859-1, and the two encodings produce different
  * bytes for a non-ASCII password, so only one of them matches what the server stored. A proxy
@@ -25,8 +27,22 @@ data class FlareSolverrAddress(
  * say so. For an ASCII password both encodings are byte-identical and the choice cannot matter.
  */
 fun flareSolverrAuthHeader(username: String, password: String): String? {
-    if (username.isBlank()) return null
-    return Credentials.basic(username, password, Charsets.UTF_8)
+    if (username.isBlank() && password.isEmpty()) return null
+    return Credentials.basic(username.trim(), password, Charsets.UTF_8)
+}
+
+/** A proxy login held back because it would cross the internet unencrypted. */
+class FlareSolverrLoginRefusedException : IOException("The sign-in needs https or an address on your network")
+
+/**
+ * The login header for a request to [url], or null when none is set. Refused rather than left off
+ * where [isPrivateChannel] says no: an unauthenticated request would only fail with a reason that
+ * hides the real one.
+ */
+fun flareSolverrLoginFor(url: String, username: String, password: String): String? {
+    val header = flareSolverrAuthHeader(username, password) ?: return null
+    if (!isPrivateChannel(url)) throw FlareSolverrLoginRefusedException()
+    return header
 }
 
 /**
