@@ -91,8 +91,6 @@ class NovelReaderProvider(
             WebViewActivity.newNovelChapterIntent(context, url, title, novelId, chapterId)
         } ?: WebViewActivity.newIntent(context, url, title = title)
 
-    override fun onChapterPageSaved() = viewModel.reloadChapter(fromSource = false)
-
     // By source and url rather than row id, since that is what the novel screen is pushed with.
     override fun detailsIntent(context: Context): Intent? = viewModel.detailsRoute.value?.let { route ->
         Intent(context, MainActivity::class.java).apply {
@@ -140,7 +138,7 @@ class NovelReaderProvider(
 
     override fun toggleBookmark() = viewModel.toggleBookmark()
 
-    override val webUrl: Flow<String?> = viewModel.chapter.map { it?.let(viewModel::webUrlFor) }
+    override val webUrl: Flow<String?> = viewModel.chapter.map { chapter -> chapter?.let { viewModel.webUrlFor(it) } }
 
     override suspend fun updateHistory() = viewModel.updateHistory()
 

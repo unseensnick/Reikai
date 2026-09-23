@@ -286,6 +286,7 @@ every release now also ships a foss build with neither in it.
 #### Fixed
 
 - **A novel chapter its source returns empty now says so, where it used to open as a blank page.**
+- **WebView and Share on a light-novel plugin's novel now open the page the plugin names for it.** They joined the stored path to the site, which for some plugins is not a real page.
 - **Light-novel plugins now stay on the installed version until you update them from Browse -> Extensions.** They used to switch to the newest one on their own whenever Android cleared the app's cache.
 - **A light-novel plugin update published at a new link now shows as an update in Browse -> Extensions.**
 - **Time spent reading a novel now keeps counting after you switch away and come back.** It was recorded as none from that point until the next chapter.

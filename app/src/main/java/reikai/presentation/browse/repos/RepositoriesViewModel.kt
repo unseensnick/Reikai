@@ -102,14 +102,18 @@ class RepositoriesViewModel(
 
     fun add(address: String) {
         val trimmed = address.trim()
-        dialog.update { (it as? RepoDialog.Add)?.copy(processing = true, failed = false) ?: it }
+        dialog.update { (it as? RepoDialog.Add)?.copy(processing = true, failed = null) ?: it }
         viewModelScope.launchIO {
-            val added = addRepoOfEitherKind(
+            val outcome = addRepoOfEitherKind(
                 addPluginRepo = { registries.add(trimmed) },
                 addStore = { addExtensionStore(trimmed).onSuccess { extensionManager.findAvailableExtensions() } },
             )
             dialog.update {
-                if (added) null else (it as? RepoDialog.Add)?.copy(processing = false, failed = true) ?: it
+                if (outcome == AddRepoOutcome.ADDED) {
+                    null
+                } else {
+                    (it as? RepoDialog.Add)?.copy(processing = false, failed = outcome) ?: it
+                }
             }
         }
     }
@@ -158,7 +162,8 @@ sealed interface RepoDialog {
     data class Add(
         val fromLink: String? = null,
         val processing: Boolean = false,
-        val failed: Boolean = false,
+        /** Why the last add failed, or null when it did not. */
+        val failed: AddRepoOutcome? = null,
     ) : RepoDialog
 
     data class Remove(val card: RepoCardUi) : RepoDialog

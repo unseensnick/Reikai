@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 /**
  * What is known about a light-novel source without running it, persisted in
  * [NovelPreferences.seenNovelSources] by source id. Written on every load or install and never pruned
- * on uninstall, so a novel whose source was removed still shows a real name in the Browse migration list
- * (the twin of manga's stub-source name table); a source never seen here falls back to its raw id.
+ * on uninstall, so a novel whose source was removed still shows a real name in the Browse migration list,
+ * as manga's stub sources keep theirs; a source never seen here falls back to its raw id.
  * [site] and [imageHeaders] are how a plugin's images are fetched, which a cover needs before any plugin
  * has loaded (`NovelImageRequests`).
  */

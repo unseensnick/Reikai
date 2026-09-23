@@ -62,9 +62,15 @@ class LnPluginLoader(
     /** Makes [script] the installed one for [url], replacing the file whole so a crash can't leave half. */
     suspend fun store(url: String, script: String): Unit = withContext(Dispatchers.IO) {
         val file = fileFor(url)
-        val partial = File(file.parentFile, "${file.name}.tmp")
-        partial.writeText(script)
-        Files.move(partial.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE)
+        // Named apart per write: a restore's self-heal load and a reinstall can store one plugin at once.
+        val partial = File.createTempFile(file.name, ".tmp", file.parentFile)
+        try {
+            partial.writeText(script)
+            Files.move(partial.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE)
+        } finally {
+            // Gone already once moved; a write that failed leaves no stray file behind.
+            partial.delete()
+        }
     }
 
     suspend fun delete(url: String) = withContext(Dispatchers.IO) {

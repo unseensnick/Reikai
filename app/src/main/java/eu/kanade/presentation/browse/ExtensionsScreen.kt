@@ -71,8 +71,8 @@ fun ExtensionItem(
     // RK: content-type badge, beside the name, drawn by the shared list when it holds both types.
     badge: @Composable () -> Unit = {},
     // RK: the language outside a language's own section, and the version a pending update brings
-    showsLanguage: Boolean = item.extension is Extension.Loaded,
-    updateVersion: String? = null,
+    showsLanguage: Boolean,
+    updateVersion: String?,
 ) {
     val (extension, installStep) = item
     BaseBrowseItem(
@@ -139,8 +139,8 @@ private fun ExtensionItemContent(
     modifier: Modifier = Modifier,
     // RK: content-type badge, beside the name.
     badge: @Composable () -> Unit = {},
-    showsLanguage: Boolean = extension is Extension.Loaded,
-    updateVersion: String? = null,
+    showsLanguage: Boolean,
+    updateVersion: String?,
 ) {
     Column(
         modifier = modifier.padding(start = MaterialTheme.padding.medium),

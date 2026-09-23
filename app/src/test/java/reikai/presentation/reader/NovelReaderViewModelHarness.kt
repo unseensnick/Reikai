@@ -13,6 +13,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -132,6 +133,10 @@ class NovelReaderViewModelHarness private constructor(
         every { getChapterText(any(), any()) } answers { downloaded[secondArg<NovelChapter>().id] }
         every { isChapterDownloaded(any(), any()) } answers { secondArg<NovelChapter>().id in downloaded }
     }
+
+    /** What the in-app browser reports as a chapter saved from its page. */
+    val pageSaves = MutableSharedFlow<Long>(extraBufferCapacity = 1)
+
     private val downloadCache = mockk<NovelDownloadCache> {
         every { isChapterDownloaded(any<Novel>(), any()) } answers { secondArg<NovelChapter>().id in downloaded }
         every { downloadedChapterIds(any(), any()) } answers {
@@ -237,6 +242,7 @@ class NovelReaderViewModelHarness private constructor(
             ),
             setNovelViewerFlags = SetNovelViewerFlags(novelRepo),
             novelDownloadCache = downloadCache,
+            pageFetcher = mockk { every { chapterSaved } returns pageSaves },
             deleteChaptersBehindReader = DeleteNovelChaptersBehindReader(
                 novelPreferences,
                 categories,

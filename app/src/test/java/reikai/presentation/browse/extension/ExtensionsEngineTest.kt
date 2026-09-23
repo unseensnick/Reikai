@@ -69,6 +69,17 @@ class ExtensionsEngineTest {
     }
 
     @Test
+    fun `the install permission is asked for where a shown row installs through the system`() = runTest(dispatcher) {
+        val state = settledState(
+            ContentType.MANGA,
+            FakeProvider(apks, listOf(row(ExtensionKey.Manga("m"))), needsInstallPermission = true),
+            FakeProvider(setOf(ContentType.NOVELS), listOf(row(ExtensionKey.Novel("plugin")))),
+        )
+
+        state.needsInstallPermission shouldBe true
+    }
+
+    @Test
     fun `novel rows packaged two ways name their format`() = runTest(dispatcher) {
         val state = settledState(
             ContentType.NOVELS,

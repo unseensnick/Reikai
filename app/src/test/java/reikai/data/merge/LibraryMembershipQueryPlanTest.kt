@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.CsvSource
 import reikai.domain.library.ContentType
 import tachiyomi.data.Chapters
 import tachiyomi.data.Custom_manga_info
@@ -41,8 +41,8 @@ class LibraryMembershipQueryPlanTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `the library membership query walks the groups, not the library`(type: ContentType) = runTest {
+    @CsvSource("MANGA, SCAN MGM", "NOVELS, SCAN MGN")
+    fun `the library membership query walks the groups, not the library`(type: ContentType, scan: String) = runTest {
         Database.Schema.create(driver).await()
         val issued = mutableListOf<String>()
         MergeGroupRepositoryImpl(database(RecordingDriver(driver, issued))).getLibraryMembershipsAsFlow(type).first()
@@ -50,7 +50,7 @@ class LibraryMembershipQueryPlanTest {
         val plan = queryPlan(issued.single())
 
         withClue(plan) {
-            plan.first() shouldStartWith if (type == ContentType.MANGA) "SCAN MGM" else "SCAN MGN"
+            plan.first() shouldStartWith scan
         }
     }
 

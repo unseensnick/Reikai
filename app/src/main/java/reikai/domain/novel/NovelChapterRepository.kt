@@ -40,6 +40,4 @@ interface NovelChapterRepository {
      * One commit keeps mark-all on a large novel instant.
      */
     suspend fun setReadBulk(ids: List<Long>, read: Boolean): Boolean
-
-    suspend fun delete(id: Long)
 }

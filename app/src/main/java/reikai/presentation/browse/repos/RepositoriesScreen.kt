@@ -28,8 +28,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -153,7 +156,10 @@ class RepositoriesScreen(private val url: String? = null) : Screen() {
             is RepoDialog.Remove -> AlertDialog(
                 onDismissRequest = model::dismissDialog,
                 title = { Text(text = stringResource(MR.strings.repo_remove_title)) },
-                text = { Text(text = stringResource(MR.strings.repo_remove_body, dialog.card.name)) },
+                // The address too, since two plugin repos from one owner or host share a name.
+                text = {
+                    Text(text = stringResource(MR.strings.repo_remove_body, dialog.card.name, dialog.card.address))
+                },
                 confirmButton = {
                     TextButton(onClick = { model.remove(dialog.card) }) {
                         Text(text = stringResource(MR.strings.action_ok))
@@ -333,6 +339,9 @@ private fun AddRepoDialog(
     val field = rememberTextFieldState(initialText = dialog.fromLink.orEmpty())
     val address = field.text.toString().trim()
     val alreadyAdded = address in addedAddresses
+    // Ready to paste, as Mihon's dialog was; an address a link brought is only read.
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { if (dialog.fromLink == null) focus.requestFocus() }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -348,15 +357,18 @@ private fun AddRepoDialog(
                         alreadyAdded -> {
                             { Text(text = stringResource(MR.strings.repo_already_added)) }
                         }
-                        dialog.failed -> {
+                        dialog.failed == AddRepoOutcome.UNREACHABLE -> {
+                            { Text(text = stringResource(MR.strings.repo_add_unreachable)) }
+                        }
+                        dialog.failed != null -> {
                             { Text(text = stringResource(MR.strings.repo_add_failed)) }
                         }
                         else -> null
                     },
-                    isError = alreadyAdded || dialog.failed,
+                    isError = alreadyAdded || dialog.failed != null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     lineLimits = TextFieldLineLimits.SingleLine,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 )
             }
         },

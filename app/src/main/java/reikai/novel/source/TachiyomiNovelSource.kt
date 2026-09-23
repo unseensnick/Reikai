@@ -101,12 +101,10 @@ class TachiyomiNovelSource(
     private fun Page.addressed(): Page =
         if (url.isBlank() && !imageUrl.isNullOrBlank()) Page(index, imageUrl!!, imageUrl) else this
 
-    override suspend fun resolveUrl(path: String, isNovel: Boolean): String? = appUrl(path, isNovel)
-
     // An app's stored path need not be relative to its site (a bare series slug, say), so its own
     // rule answers; one that throws falls back to the site join rather than hiding the page.
-    override fun webUrl(path: String, isNovel: Boolean): String =
-        runCatching { appUrl(path, isNovel) }.getOrNull() ?: super.webUrl(path, isNovel)
+    override suspend fun resolveUrl(path: String, isNovel: Boolean): String? =
+        runCatching { appUrl(path, isNovel) }.getOrNull()
 
     private fun appUrl(path: String, isNovel: Boolean): String? {
         val http = source as? HttpSource ?: return null

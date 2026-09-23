@@ -7,22 +7,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.tachiyomi.util.system.toast
-import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
+import reikai.novel.source.NovelPageFetcher.ChapterFromPage
 import reikai.novel.source.NovelPageKind
+import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.lang.launchNonCancellable
+import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * What the in-app browser offers for a novel's page: its details and chapters when opened from the novel
- * screen, [chapterId]'s text when opened from the reader, and only what the novel's source takes.
+ * screen, [chapterId]'s text when opened from the reader, and only what the novel's source takes. Each
+ * runs to the end if the browser is left meanwhile, and the reader learns of a saved chapter from the fetcher.
  */
 @Composable
 fun rememberNovelPageActions(
     novelId: Long?,
     chapterId: Long? = null,
-    onChapterSaved: () -> Unit = {},
 ): List<WebPageAction> {
     val context = LocalContext.current
     val fetcher = remember { context.appGraph.novelPageFetcher }
@@ -35,7 +38,8 @@ fun rememberNovelPageActions(
     val forChapter = stringResource(MR.strings.novel_page_use_for_chapter)
     if (novelId == null) return emptyList()
 
-    fun run(block: suspend () -> String) = scope.launch { context.toast(block()) }
+    val app = context.applicationContext
+    fun run(block: suspend () -> String) = scope.launchNonCancellable { withUIContext { app.toast(block()) } }
     val unreadable = context.stringResource(MR.strings.novel_page_unreadable)
 
     return buildList {
@@ -56,7 +60,7 @@ fun rememberNovelPageActions(
                         when (val found = fetcher.useForChapters(novelId, url, html)) {
                             null -> unreadable
                             0 -> context.stringResource(MR.strings.novel_page_no_chapters)
-                            else -> context.stringResource(MR.strings.novel_page_chapters_found, found)
+                            else -> context.pluralStringResource(MR.plurals.novel_page_chapters_found, found, found)
                         }
                     }
                 },
@@ -66,11 +70,10 @@ fun rememberNovelPageActions(
             add(
                 WebPageAction(forChapter) { url, html ->
                     run {
-                        if (fetcher.useForChapterText(chapterId, url, html)) {
-                            onChapterSaved()
-                            context.stringResource(MR.strings.novel_page_chapter_saved)
-                        } else {
-                            unreadable
+                        when (fetcher.useForChapterText(chapterId, url, html)) {
+                            ChapterFromPage.SAVED -> context.stringResource(MR.strings.novel_page_chapter_saved)
+                            ChapterFromPage.NO_TEXT -> context.stringResource(MR.strings.novel_page_no_chapter_text)
+                            ChapterFromPage.UNREADABLE -> unreadable
                         }
                     }
                 },

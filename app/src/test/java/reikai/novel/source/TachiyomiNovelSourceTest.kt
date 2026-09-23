@@ -50,17 +50,17 @@ class TachiyomiNovelSourceTest {
     }
 
     @Test
-    fun `a novel's web page is the one the app builds for it`() {
+    fun `a novel's web page is the one the app builds for it`() = runTest {
         webSource().webUrl("slug/", isNovel = true) shouldBe "https://site.example/series/slug/"
     }
 
     @Test
-    fun `a chapter's web page is the one the app builds for it`() {
+    fun `a chapter's web page is the one the app builds for it`() = runTest {
         webSource().webUrl("slug/", isNovel = false) shouldBe "https://site.example/read/slug/"
     }
 
     @Test
-    fun `an app that cannot build a page falls back to its site`() {
+    fun `an app that cannot build a page falls back to its site`() = runTest {
         webSource(fails = true).webUrl("slug/", isNovel = true) shouldBe "https://site.example/slug/"
     }
 

@@ -5,6 +5,7 @@ import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.hasSigningKey
 import reikai.domain.extension.repoNameFromAddress
 import reikai.domain.library.ContentType
+import java.io.IOException
 
 enum class RepoFormat { STORE, PLUGINS }
 
@@ -70,8 +71,21 @@ fun repoCards(
  * Adds an address as whichever kind of repo it reads as. The plugin repo is tried first because that
  * fetch reads the whole body, which the HTTP cache then serves to the store attempt; the other way
  * round, the store attempt stops at the first byte, so nothing is cached and the address downloads twice.
+ * Both failing to connect means the address was not reached, which reads differently from one that holds no repo.
  */
 suspend fun addRepoOfEitherKind(
     addPluginRepo: suspend () -> Result<Unit>,
     addStore: suspend () -> Result<Unit>,
-): Boolean = addPluginRepo().isSuccess || addStore().isSuccess
+): AddRepoOutcome {
+    val plugin = addPluginRepo()
+    if (plugin.isSuccess) return AddRepoOutcome.ADDED
+    val store = addStore()
+    if (store.isSuccess) return AddRepoOutcome.ADDED
+    return if (plugin.exceptionOrNull() is IOException && store.exceptionOrNull() is IOException) {
+        AddRepoOutcome.UNREACHABLE
+    } else {
+        AddRepoOutcome.NOT_A_REPO
+    }
+}
+
+enum class AddRepoOutcome { ADDED, UNREACHABLE, NOT_A_REPO }

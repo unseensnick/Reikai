@@ -98,7 +98,6 @@ class WebViewActivity : BaseActivity() {
                 pageActions = rememberNovelPageActions(
                     novelId = intent.getLongExtra(NOVEL_ID_KEY, -1L).takeIf { it > 0L },
                     chapterId = intent.getLongExtra(CHAPTER_ID_KEY, -1L).takeIf { it > 0L },
-                    onChapterSaved = { setResult(RESULT_OK) },
                 ),
             )
         }

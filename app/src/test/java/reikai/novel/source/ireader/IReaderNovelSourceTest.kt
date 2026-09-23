@@ -121,12 +121,12 @@ class IReaderNovelSourceTest {
     }
 
     @Test
-    fun `a relative key opens under the site`() {
+    fun `a relative key opens under the site`() = runTest {
         adapter().webUrl("novel/x", isNovel = true) shouldBe "https://freewebnovel.com/novel/x"
     }
 
     @Test
-    fun `an absolute key opens as it is`() {
+    fun `an absolute key opens as it is`() = runTest {
         adapter().webUrl("https://other.example/x", isNovel = true) shouldBe "https://other.example/x"
     }
 

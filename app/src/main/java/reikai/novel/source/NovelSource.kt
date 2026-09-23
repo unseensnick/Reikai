@@ -43,7 +43,7 @@ val Extension.Kind.novelFormat: NovelExtensionFormat?
  */
 interface NovelSource {
 
-    /** Source id, matches the upstream lnreader registry's `id` field (e.g. `novelbin`). */
+    /** Source id: a plugin's registry id (`novelbin`), or an app source's prefixed one (`tachiyomi:N`, `ireader:N`). */
     val id: String
 
     val name: String
@@ -55,9 +55,8 @@ interface NovelSource {
     val lang: String
 
     /**
-     * Absolute CDN URL for the source's icon, resolved at install time from the lnreader registry's
-     * `iconUrl` field. Null for installs whose lazy backfill hasn't matched a repo yet, or for
-     * direct-URL-paste installs that bypass the registry.
+     * The source's icon: a plugin's from its registry entry (null until a repo has been matched, or for a
+     * pasted install), an app's from the app itself.
      */
     val iconUrl: String?
 
@@ -116,19 +115,18 @@ interface NovelSource {
     suspend fun parseChapter(chapterPath: String): String
 
     /**
-     * Resolve a source-relative [path] to its absolute web URL via the plugin's optional lnreader
-     * `resolveUrl`. Returns null when the plugin doesn't implement it (only some do), so callers
-     * fall back to [site] (the source homepage).
+     * The source's own rule for a source-relative [path]'s absolute web URL, or null when it has none: a
+     * plugin's optional lnreader `resolveUrl`, an app's own address rule.
      */
     suspend fun resolveUrl(path: String, isNovel: Boolean): String? = null
 
     /**
      * Full browser URL for a source-relative [path], a novel's when [isNovel] and a chapter's otherwise,
-     * for opening in WebView or sharing: the path itself if it is already absolute, else [site] + path.
-     * Mirrors lnreader's `resolveUrl` service fallback (`plugin.site + path`); the [resolveUrl] plugin
-     * override is left for a future caller since almost no plugins implement it.
+     * for opening in WebView or sharing. As lnreader's service does: the source's own [resolveUrl] first,
+     * else the path itself if it is already absolute, else [site] + path.
      */
-    fun webUrl(path: String, isNovel: Boolean): String = if (path.startsWith("http")) path else site + path
+    suspend fun webUrl(path: String, isNovel: Boolean): String =
+        resolveUrl(path, isNovel) ?: if (path.startsWith("http")) path else site + path
 }
 
 /**

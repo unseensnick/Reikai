@@ -160,8 +160,4 @@ class NovelChapterRepositoryImpl(
         logcat(LogPriority.ERROR, e) { "Failed to bulk set read on ${ids.size} novel chapters" }
         false
     }
-
-    override suspend fun delete(id: Long) {
-        database.novel_chaptersQueries.delete(id)
-    }
 }

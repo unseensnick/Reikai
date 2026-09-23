@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.extension.NO_SIGNING_KEY
 import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.toRepoStatus
+import java.io.IOException
 
 class RepoCardsTest {
 
@@ -94,15 +95,23 @@ class RepoCardsTest {
         addRepoOfEitherKind(
             addPluginRepo = { Result.failure(IllegalStateException()) },
             addStore = { Result.success(Unit) },
-        ) shouldBe true
+        ) shouldBe AddRepoOutcome.ADDED
     }
 
     @Test
-    fun `an address neither kind can read is not added`() = runTest {
+    fun `an address neither kind can read holds no repo`() = runTest {
         addRepoOfEitherKind(
             addPluginRepo = { Result.failure(IllegalStateException()) },
             addStore = { Result.failure(IllegalStateException()) },
-        ) shouldBe false
+        ) shouldBe AddRepoOutcome.NOT_A_REPO
+    }
+
+    @Test
+    fun `an address neither kind could connect to was not reached`() = runTest {
+        addRepoOfEitherKind(
+            addPluginRepo = { Result.failure(IOException("offline")) },
+            addStore = { Result.failure(IOException("offline")) },
+        ) shouldBe AddRepoOutcome.UNREACHABLE
     }
 
     private fun available(kind: Extension.Kind) = Extension.Available(

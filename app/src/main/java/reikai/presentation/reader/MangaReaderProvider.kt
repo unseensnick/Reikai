@@ -97,7 +97,6 @@ class MangaReaderProvider(
         WebViewActivity.newIntent(context, url, viewModel.getSource()?.id, title)
 
     // A manga chapter's browser offers nothing to save.
-    override fun onChapterPageSaved() = Unit
 
     // Upstream's ReaderActivity.openMangaScreen, moved here so the host asks the session.
     override fun detailsIntent(context: Context): Intent? = viewModel.manga?.id?.let { id ->

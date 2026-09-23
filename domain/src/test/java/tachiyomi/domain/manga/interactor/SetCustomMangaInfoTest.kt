@@ -13,7 +13,6 @@ class SetCustomMangaInfoTest {
     private class FakeRepository : CustomMangaInfoRepository {
         val stored = mutableMapOf<Long, CustomMangaInfo>()
         val deleted = mutableListOf<Long>()
-        override suspend fun getAll(): List<CustomMangaInfo> = stored.values.toList()
         override fun getByMangaIdAsFlow(mangaId: Long): Flow<CustomMangaInfo?> = flowOf(stored[mangaId])
         override fun getAllAsFlow(): Flow<List<CustomMangaInfo>> = flowOf(stored.values.toList())
         override suspend fun set(info: CustomMangaInfo) {

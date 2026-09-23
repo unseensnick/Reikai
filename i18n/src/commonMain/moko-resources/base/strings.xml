@@ -287,10 +287,10 @@
     <string name="novel_page_use_for_chapters">Use page for chapters</string>
     <string name="novel_page_use_for_chapter">Use page for this chapter</string>
     <string name="novel_page_details_updated">Details updated from this page</string>
-    <string name="novel_page_chapters_found">%d chapters found on this page</string>
     <string name="novel_chapter_empty">The source returned no text for this chapter</string>
     <string name="novel_page_no_chapters">No chapters on this page. Open the page that lists them.</string>
     <string name="novel_page_chapter_saved">Chapter saved from this page</string>
+    <string name="novel_page_no_chapter_text">No chapter text on this page</string>
     <string name="novel_page_unreadable">Couldn\'t read this page</string>
     <string name="content_type_with_format">%1$s · %2$s</string>
     <!-- RK: backup toggle for the non-destructive custom-info overlay (title/author/cover edits) -->
@@ -337,10 +337,11 @@
     <string name="repo_signing_key">Signing key</string>
     <string name="repo_add_input">Repo address</string>
     <string name="repo_add_failed">Couldn\'t read a repo at this address</string>
+    <string name="repo_add_unreachable">Couldn\'t reach this address</string>
     <string name="repo_already_added">This repo is already added</string>
     <string name="repo_add_deeplink">Add the repo below?</string>
     <string name="repo_remove_title">Remove repo</string>
-    <string name="repo_remove_body">Remove %1$s?</string>
+    <string name="repo_remove_body">Remove %1$s (%2$s)?</string>
     <string name="ln_no_sources">No light novel sources installed. Install one from the Extensions tab.</string>
     <string name="channel_ln_plugin_updates">Light novel plugin updates</string>
     <string name="channel_novel_tts">Novel read aloud</string>

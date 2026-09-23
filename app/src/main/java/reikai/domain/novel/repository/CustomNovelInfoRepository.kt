@@ -5,8 +5,6 @@ import reikai.domain.novel.model.CustomNovelInfo
 
 interface CustomNovelInfoRepository {
 
-    suspend fun getAll(): List<CustomNovelInfo>
-
     fun getByNovelIdAsFlow(novelId: Long): Flow<CustomNovelInfo?>
 
     fun getAllAsFlow(): Flow<List<CustomNovelInfo>>

@@ -36,18 +36,24 @@ class LnPluginUpdateChecker(
         val metadata = prefs.installedPluginMetadata().get()
         if (repos.isEmpty() || installedUrls.isEmpty()) return emptyList()
 
-        val entries: List<LnRegistryEntry> = coroutineScope {
+        val fetched: List<List<LnRegistryEntry>?> = coroutineScope {
             repos.map { repoUrl ->
                 async {
                     runCatching { installer.fetchRepo(repoUrl) }.getOrElse {
                         logcat(LogPriority.WARN, it) { "update-check: repo fetch failed for $repoUrl" }
-                        emptyList()
+                        null
                     }
                 }
-            }.awaitAll().flatten()
+            }.awaitAll()
         }
 
-        return findPluginUpdates(installedUrls, metadata, entries)
+        return findPluginUpdates(
+            installedUrls,
+            metadata,
+            fetched.filterNotNull().flatten(),
+            everyRepoReached =
+            null !in fetched,
+        )
     }
 
     /**
@@ -81,12 +87,14 @@ data class LnPluginUpdate(
  * The installed plugins a repo offers a newer version of, matched by plugin id since a repo can publish
  * a new version at a new URL. Where several repos list the id, the listing at the installed URL decides,
  * because accepting another repo's entry replaces the installed script with that repo's. With no such
- * listing the highest version wins, a tie going to the earlier repo in [entries].
+ * listing the highest version wins, a tie going to the earlier repo in [entries], but only once
+ * [everyRepoReached]: a repo that is down looks the same as one that stopped listing the plugin.
  */
 fun findPluginUpdates(
     installedUrls: Set<String>,
     metadata: Map<String, LnInstalledPluginMetadata>,
     entries: List<LnRegistryEntry>,
+    everyRepoReached: Boolean,
 ): List<LnPluginUpdate> {
     val byId = entries.groupBy { it.id }
     return installedUrls
@@ -95,7 +103,10 @@ fun findPluginUpdates(
             val installedVersion = record.version ?: return@mapNotNull null
             val listings = byId[record.pluginId] ?: return@mapNotNull null
             val entry = listings.firstOrNull { canonicalizePluginUrl(it.url) == url }
-                ?: listings.maxWith { a, b -> LnPluginVersion.compare(a.version, b.version) }
+                ?: listings.takeIf {
+                    everyRepoReached
+                }?.maxWith { a, b -> LnPluginVersion.compare(a.version, b.version) }
+                ?: return@mapNotNull null
             if (LnPluginVersion.compare(entry.version, installedVersion) > 0) {
                 LnPluginUpdate(entry = entry, installedVersion = installedVersion)
             } else {

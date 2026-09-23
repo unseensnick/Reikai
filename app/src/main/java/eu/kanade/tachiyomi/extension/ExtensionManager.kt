@@ -299,12 +299,16 @@ class ExtensionManager(
 
         availableExtensionMapFlow.value = extensions.associateBy { it.pkgName }
         updatedInstalledExtensionsStatuses(extensions)
-        // RK: see loadExtensions for why only a non-empty novel list is applied
+        // RK: see loadExtensions for why only a non-empty novel list is applied. An empty one clears the
+        // novel updates as upstream zeroes manga's count, since nothing is left to update them from.
         if (novelExtensions.isNotEmpty()) {
             updatedInstalledExtensionsStatuses(
                 novelExtensions,
                 loadedNovelExtensionMapFlow,
             )
+        } else {
+            loadedNovelExtensionMapFlow.value =
+                loadedNovelExtensionMapFlow.value.mapValues { it.value.copy(hasUpdate = false) }
         }
         setupAvailableExtensionsSourcesDataMap(extensions)
     }

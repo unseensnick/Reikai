@@ -41,7 +41,7 @@ import java.io.File
  */
 internal object ExtensionLoader {
 
-    // RK --> the feature and these keys differ per kind: each key follows Extension.Kind.manifestKey
+    // RK --> the feature and these keys differ per kind: each key follows Extension.Kind.metadataPrefix
     private const val METADATA_SOURCE_CLASS = "class"
     private const val METADATA_SOURCE_FACTORY = "factory"
     private const val METADATA_NSFW = "nsfw"

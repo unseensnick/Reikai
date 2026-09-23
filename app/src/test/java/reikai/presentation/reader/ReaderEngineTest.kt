@@ -741,8 +741,6 @@ private class FakeReaderProvider(
 
     override fun chapterWebViewIntent(context: Context, url: String, title: String?): Intent = Intent()
 
-    override fun onChapterPageSaved() = Unit
-
     override val orientation = MutableStateFlow(0)
 
     override val keepScreenOn = MutableStateFlow(false)

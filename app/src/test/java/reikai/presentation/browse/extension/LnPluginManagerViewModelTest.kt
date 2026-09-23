@@ -26,6 +26,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRepoRegistries
+import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
 import java.util.concurrent.atomic.AtomicInteger
@@ -129,7 +130,7 @@ class LnPluginManagerViewModelTest {
     }
 
     @Test
-    fun `an installed plugin leaves Available without a download`() = runTest(dispatcher) {
+    fun `an installed plugin leaves Available`() = runTest(dispatcher) {
         val model = model()
         val watching = launch { model.state.collect {} }
         advanceUntilIdle()
@@ -139,6 +140,35 @@ class LnPluginManagerViewModelTest {
         watching.cancel()
 
         model.state.value.available shouldBe emptyList()
+    }
+
+    @Test
+    fun `a plugin being installed downloads no registry again`() = runTest(dispatcher) {
+        val model = model()
+        val watching = launch { model.state.collect {} }
+        advanceUntilIdle()
+
+        prefs.installedPluginUrls().set(setOf(ENTRY.url))
+        advanceUntilIdle()
+        watching.cancel()
+
+        coVerify(exactly = 1) { installer.fetchRepo(REPO) }
+    }
+
+    /** The uninstall runs on the IO dispatcher, so the test joins the jobs it started, as the install test does. */
+    @Test
+    fun `an uninstall downloads no registry`() = runTest(dispatcher) {
+        val model = model()
+        val watching = launch { model.state.collect {} }
+        advanceUntilIdle()
+        val before = model.viewModelScope.coroutineContext.job.children.toSet()
+
+        model.uninstall(mockk<NovelSource> { every { id } returns ENTRY.id })
+        (model.viewModelScope.coroutineContext.job.children.toSet() - before).joinAll()
+        advanceUntilIdle()
+        watching.cancel()
+
+        coVerify(exactly = 1) { installer.fetchRepo(REPO) }
     }
 
     /**

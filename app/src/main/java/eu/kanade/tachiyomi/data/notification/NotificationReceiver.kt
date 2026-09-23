@@ -605,7 +605,7 @@ class NotificationReceiver : BroadcastReceiver() {
         internal fun cancelNovelDownloadPendingBroadcast(context: Context): PendingIntent =
             novelDownloaderPendingBroadcast(context, ACTION_CANCEL_NOVEL_DOWNLOAD)
 
-        /** A novel's details, which open by source and url; the novel twin of [openEntryPendingActivity]. */
+        /** A novel's details, which open by source and url rather than by row id as a manga's do. */
         internal fun openNovelPendingActivity(context: Context, novel: Novel): PendingIntent {
             val intent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP

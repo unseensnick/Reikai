@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
 import mihon.domain.extension.model.ExtensionStore
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.EnumSource
 
 /** Manga and novel apks are sorted into the Extensions sections by one rule. */
@@ -43,14 +44,14 @@ class GetExtensionsByTypeTest {
 
     /** The language filter is the manga list's own; the Novels chip hides it, so novels keep every language. */
     @ParameterizedTest
-    @EnumSource(Extension.Kind::class)
-    fun `only manga is narrowed to the enabled languages`(kind: Extension.Kind) = runTest {
+    @CsvSource("MANGA, 1", "TACHIYOMI_NOVEL, 2", "IREADER, 2")
+    fun `only manga is narrowed to the enabled languages`(kind: Extension.Kind, shown: Int) = runTest {
         val extensions = subscribe(
             kind,
             available = listOf(available("pkg.en", "en", kind), available("pkg.ja", "ja", kind)),
         )
 
-        extensions.available.size shouldBe if (kind == Extension.Kind.MANGA) 1 else 2
+        extensions.available.size shouldBe shown
     }
 
     private suspend fun subscribe(

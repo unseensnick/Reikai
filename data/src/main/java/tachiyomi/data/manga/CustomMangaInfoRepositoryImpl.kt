@@ -1,6 +1,5 @@
 package tachiyomi.data.manga
 
-import app.cash.sqldelight.async.coroutines.awaitAsList
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -18,10 +17,6 @@ import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
 class CustomMangaInfoRepositoryImpl(
     private val database: Database,
 ) : CustomMangaInfoRepository {
-
-    override suspend fun getAll(): List<CustomMangaInfo> {
-        return database.custom_manga_infoQueries.getAll(::mapCustomMangaInfo).awaitAsList()
-    }
 
     override fun getByMangaIdAsFlow(mangaId: Long): Flow<CustomMangaInfo?> {
         return database.custom_manga_infoQueries

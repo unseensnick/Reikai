@@ -356,6 +356,9 @@ class NovelDetailsViewModel(
                 }
             } else {
                 source = resolved
+                // Asked of the source before the update, since a plugin answers it through its host.
+                val shown = (state.value as? NovelDetailsState.Loaded)?.displayNovel?.url
+                val shownWebUrl = shown?.let { resolved.webUrl(it, isNovel = true) }
                 state.update {
                     // A chip on a sibling already shows that sibling's own source.
                     (it as? NovelDetailsState.Loaded)?.takeIf { l -> l.displayNovel.id == l.novel.id }?.let { l ->
@@ -363,7 +366,7 @@ class NovelDetailsViewModel(
                             sourceName = resolved.name,
                             sourceHasSettings = resolved.settings != null,
                             browsableSourceId = resolved.id,
-                            novelWebUrl = resolved.webUrl(l.displayNovel.url, isNovel = true),
+                            novelWebUrl = shownWebUrl.takeIf { l.displayNovel.url == shown } ?: l.novelWebUrl,
                         )
                     } ?: it
                 }
@@ -554,7 +557,7 @@ class NovelDetailsViewModel(
     /** Build [NovelDetailsState.Loaded] from the [anchor] (identity, favorite, chapter-view flags) and
      *  the [viewNovel] whose metadata + source the header shows (== anchor for the unified view, the
      *  selected sibling otherwise). Sort/filter always follow the anchor's flags. */
-    private fun rebuildLoaded(
+    private suspend fun rebuildLoaded(
         anchor: Novel,
         viewNovel: Novel,
         chapters: List<NovelChapter>,
@@ -594,6 +597,7 @@ class NovelDetailsViewModel(
         val resumable = ReadingOrder.of(display.filterNot { it.id in hiddenChapterIds }, sortDescending)
         val resume = ReadingOrder.nextToRead(resumable) { it.read || it.id in readInOtherSources }
         val viewSource = viewedNovelSource(viewNovel.id, anchor.id, siblingSources.value, source)
+        val novelWebUrl = viewSource?.webUrl(viewNovel.url, isNovel = true)
         state.update { prev ->
             val loaded = prev as? NovelDetailsState.Loaded
             NovelDetailsState.Loaded(
@@ -623,7 +627,7 @@ class NovelDetailsViewModel(
                 seedColor = loaded?.seedColor,
                 // An uninstalled plugin shows its own id, as its chip does.
                 sourceName = viewSource?.name ?: viewNovel.source,
-                novelWebUrl = viewSource?.webUrl(viewNovel.url, isNovel = true),
+                novelWebUrl = novelWebUrl,
                 sourceHasSettings = viewSource?.settings != null,
                 browsableSourceId = viewSource?.id,
                 sorting = anchor.effectiveSorting(novelPreferences),
@@ -1510,8 +1514,8 @@ sealed interface NovelDetailsState {
         val hasPromptedToAddBefore: Boolean = false,
         /** Cover-derived header tint; null when off or not yet extracted. */
         val seedColor: Color? = null,
-        /** Resolved source name, and [novelWebUrl], this novel's own page (site + path), for WebView
-         *  and Share. */
+        /** Resolved source name, and [novelWebUrl], this novel's own page as its source addresses it, for
+         *  WebView and Share. */
         val sourceName: String = "",
         val novelWebUrl: String? = null,
         /** Whether the viewed source exposes settings; gates the overflow item that opens them. */

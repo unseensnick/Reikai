@@ -20,7 +20,6 @@ import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -1064,12 +1063,7 @@ class ReaderActivity : BaseActivity() {
     private fun openChapterInWebView(url: String?) {
         val target = url ?: return
         val title = engine.chrome.value.entryTitle
-        chapterWebView.launch(engine.provider.chapterWebViewIntent(this, target, title))
-    }
-
-    // RK: the browser reports a chapter saved from its page, which the session then shows.
-    private val chapterWebView = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        if (it.resultCode == RESULT_OK) engine.provider.onChapterPageSaved()
+        startActivity(engine.provider.chapterWebViewIntent(this, target, title))
     }
 
     private fun openChapterInBrowser(url: String?) {

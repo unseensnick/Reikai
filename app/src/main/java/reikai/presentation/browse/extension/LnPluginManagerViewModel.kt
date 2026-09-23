@@ -118,7 +118,12 @@ class LnPluginManagerViewModel(
         return RepoFetch(
             hasRepos = results.isNotEmpty(),
             available = byUrl.filterKeys { it !in installedUrls }.values.toList(),
-            updates = findPluginUpdates(installedUrls, metadata, registries.flatten()),
+            updates = findPluginUpdates(
+                installedUrls,
+                metadata,
+                registries.flatten(),
+                everyRepoReached = results.values.all { it is LnRepoResult.Reached },
+            ),
             installedVersions = metadata.values
                 .mapNotNull { meta -> meta.version?.let { meta.pluginId to it } }
                 .toMap(),
@@ -168,10 +173,6 @@ class LnPluginManagerViewModel(
 
     /** Update is a reinstall of the newer registry entry: re-fetch, re-register, overwrite version. */
     fun update(update: LnPluginUpdate) = install(update.entry)
-
-    fun updateAll() {
-        state.value.updates.forEach(::update)
-    }
 
     fun uninstall(source: NovelSource) {
         viewModelScope.launchIO {

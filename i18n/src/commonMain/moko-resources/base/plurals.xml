@@ -212,6 +212,11 @@
         <item quantity="one">%d plugin</item>
         <item quantity="other">%d plugins</item>
     </plurals>
+    <plurals name="novel_page_chapters_found">
+        <item quantity="one">%d chapter found on this page</item>
+        <item quantity="other">%d chapters found on this page</item>
+    </plurals>
+
     <plurals name="repo_count">
         <item quantity="one">%d repo</item>
         <item quantity="other">%d repos</item>

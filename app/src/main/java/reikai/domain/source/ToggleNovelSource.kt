@@ -3,7 +3,7 @@ package reikai.domain.source
 import dev.zacsweers.metro.Inject
 import tachiyomi.core.common.preference.getAndSet
 
-/** Turns novel sources on or off, the novel twin of `ToggleSource`, keyed by the source's text id. */
+/** Turns novel sources on or off, the novel twin of `ToggleSource` keyed by text id, pinned by ToggleSourceConformanceTest. */
 @Inject
 class ToggleNovelSource(
     private val preferences: ReikaiSourcePreferences,

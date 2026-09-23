@@ -82,6 +82,7 @@ import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelChapterTextLoader
+import reikai.novel.source.NovelPageFetcher
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
@@ -136,6 +137,7 @@ class NovelReaderViewModel(
     private val deleteChaptersBehindReader: DeleteNovelChaptersBehindReader,
     private val basePreferences: BasePreferences,
     private val context: Context,
+    private val pageFetcher: NovelPageFetcher,
     // Dispatchers.IO, which is what launchIO would have used. Passed in so a JVM test can run the
     // whole session on its own scheduler.
     @Assisted private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -773,6 +775,10 @@ class NovelReaderViewModel(
                 }
             }
         }
+        // A page saved as the open chapter in the in-app browser, whenever it lands, even after the browser closed.
+        pageFetcher.chapterSaved
+            .onEach { id -> if (id == currentChapterId) reloadChapter(fromSource = false) }
+            .launchIn(viewModelScope)
         // The cache holds pipeline output, so a chapter-text setting reaches the open chapter and the
         // prefetched next one only by dropping both and running it again.
         textLoader.settingsChanged
@@ -1199,7 +1205,7 @@ class NovelReaderViewModel(
      * [chapter]'s page on the source site, or null for one read from disk whose source this session
      * never resolved, which is the case the web actions have to hide rather than open empty.
      */
-    fun webUrlFor(chapter: LoadedChapter): String? =
+    suspend fun webUrlFor(chapter: LoadedChapter): String? =
         textLoader.cachedSource(currentNovelId)?.webUrl(chapter.url, isNovel = false)
 
     /** Start, cancel or delete a chapter download from the sheet, mirroring the details model. */

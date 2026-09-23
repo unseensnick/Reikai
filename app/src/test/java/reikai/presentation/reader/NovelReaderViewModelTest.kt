@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -73,6 +74,21 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
 
         model.chapterRows.first().map { it.id } shouldBe listOf(opened.id, third.id)
+    }
+
+    /** The browser may already be closed when the save lands, so the reader hears of it from the fetcher. */
+    @Test
+    fun `a page saved as the open chapter in the browser is shown`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+        harness.download(opened, "<p>From the page</p>")
+
+        harness.pageSaves.emit(opened.id)
+        advanceUntilIdle()
+
+        model.chapter.value?.html.orEmpty() shouldContain "From the page"
     }
 
     /** Under the switch the reader's own list holds nothing left to fetch, so download-ahead walks past it. */
