@@ -118,6 +118,8 @@ sealed interface Extension {
         val hasUpdate: Boolean = false,
         val isObsolete: Boolean = false,
         val store: ExtensionStore? = null,
+        // RK: the listing's icon, for an apk whose own icon shows nothing (every IReader apk's)
+        val storeIconUrl: String? = null,
     ) : Installed
 
     /**

@@ -510,6 +510,7 @@ every release now also ships a foss build with neither in it.
 - **Settings -> Downloads -> Pacing sets the wait between novel chapters, for every source or one source at a time, never below what the source asks for.** Manga sources pace themselves.
 - **The novel download notification now has Pause and Show entry, as manga's does.** A paused queue leaves a notification with Resume and Cancel all.
 - **Novels from novel extension apps, IReader's included, now browse, search, read, download and update like plugin novels, and the apps install and update in Browse -> Extensions like manga extensions.** Beside plugins, each extension and source says JS, APK or IReader.
+- **Extensions from IReader's own repo load without a trust prompt, as a signed repo's do.**
 
 #### Changed
 
@@ -524,6 +525,7 @@ every release now also ships a foss build with neither in it.
 
 - **Installing an extension through Shizuku works again.**
 - **Extensions marked Orphaned lose the mark as soon as you add a repo that lists them, rather than after a restart.**
+- **An extension whose repo publishes no icon now shows the default source icon instead of a broken image.**
 - **The Browse badge on the home screen now counts novel plugin updates, as the Extensions tab's own badge does.**
 - **Updating a privately installed extension no longer switches it to a shared install.**
 - **Trusting an extension now works from Browse's All chip.** The prompt only appeared with the Manga chip selected; under All, tapping the shield or the row did nothing at all.

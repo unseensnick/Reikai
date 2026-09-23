@@ -360,11 +360,13 @@ class ExtensionManager(
                         hasUpdate = hasUpdate,
                         store = availableExt.store,
                         isObsolete = false, // RK: a store added since lists it again
+                        storeIconUrl = availableExt.iconUrl, // RK
                     )
                 } else {
                     loadedExtensionsMap[pkgName] = extension.copy(
                         store = availableExt.store,
                         isObsolete = false, // RK
+                        storeIconUrl = availableExt.iconUrl, // RK
                     )
                 }
                 changed = true

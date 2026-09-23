@@ -1,5 +1,6 @@
 package eu.kanade.presentation.browse.components
 
+import android.graphics.Bitmap
 import android.util.DisplayMetrics
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -29,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import coil3.compose.AsyncImage
 import eu.kanade.domain.source.model.icon
-import eu.kanade.presentation.util.rememberResourceBitmapPainter
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
@@ -152,7 +152,8 @@ fun ExtensionIcon(
                 model = extension.iconUrl,
                 contentDescription = null,
                 placeholder = ColorPainter(Color(0x1F888888)),
-                error = rememberResourceBitmapPainter(id = R.drawable.cover_error),
+                // RK: the installed rows' fallback, since many stores publish no icon for some extensions
+                error = painterResource(R.mipmap.ic_default_source),
                 modifier = modifier
                     .clip(MaterialTheme.shapes.extraSmall),
             )
@@ -166,11 +167,22 @@ fun ExtensionIcon(
                     contentDescription = null,
                     modifier = modifier,
                 )
-                Result.Error -> Image(
-                    bitmap = ImageBitmap.imageResource(id = R.mipmap.ic_default_source),
-                    contentDescription = null,
-                    modifier = modifier,
-                )
+                // RK -->
+                Result.Error -> if (extension.storeIconUrl != null) {
+                    AsyncImage(
+                        model = extension.storeIconUrl,
+                        contentDescription = null,
+                        error = painterResource(R.mipmap.ic_default_source),
+                        modifier = modifier,
+                    )
+                } else {
+                    Image(
+                        bitmap = ImageBitmap.imageResource(id = R.mipmap.ic_default_source),
+                        contentDescription = null,
+                        modifier = modifier,
+                    )
+                }
+                // RK <--
             }
         }
         is Extension.NotLoaded -> Image(
@@ -190,16 +202,20 @@ private fun Extension.getIcon(density: Int = DisplayMetrics.DENSITY_DEFAULT): St
             value = try {
                 val appInfo = ExtensionLoader.getExtensionPackageInfoFromPkgName(context, pkgName)!!.applicationInfo!!
                 val appResources = context.packageManager.getResourcesForApplication(appInfo)
-                Result.Success(
-                    appResources.getDrawableForDensity(appInfo.icon, density, null)!!
-                        .toBitmap()
-                        .asImageBitmap(),
-                )
+                // RK: an icon with no visible pixel is as good as none
+                val bitmap = appResources.getDrawableForDensity(appInfo.icon, density, null)!!.toBitmap()
+                if (bitmap.isInvisible()) Result.Error else Result.Success(bitmap.asImageBitmap())
             } catch (e: Exception) {
                 Result.Error
             }
         }
     }
+}
+
+// RK
+private fun Bitmap.isInvisible(): Boolean {
+    val pixels = IntArray(width * height).also { getPixels(it, 0, width, 0, 0, width, height) }
+    return pixels.all { it ushr 24 == 0 }
 }
 
 sealed class Result<out T> {

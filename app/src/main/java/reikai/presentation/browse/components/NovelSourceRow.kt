@@ -158,11 +158,14 @@ fun BrowseSectionHeader(
     }
 }
 
+/** A novel extension's icon is full-bleed too, as a web image or a novel app's own, so its row insets it. */
+val NovelIconInset = 4.dp
+
 /**
  * Shared with the Clear-database screen's novel rows; renders a placeholder when the URL is absent.
  *
- * The 4.dp inset is what keeps a novel row lined up with a manga one. Both icons occupy the same
- * [size] box, but a manga source icon is an Android app icon carrying its own transparent margin,
+ * The [NovelIconInset] is what keeps a novel row lined up with a manga one. Both icons occupy the
+ * same [size] box, but a manga source icon is an Android app icon carrying its own transparent margin,
  * while a novel icon is a full-bleed web image that would otherwise fill the box edge to edge and
  * read as noticeably larger next to it.
  */
@@ -170,7 +173,7 @@ fun BrowseSectionHeader(
 fun NovelSourceIcon(iconUrl: String?, size: Dp = 40.dp) {
     val modifier = Modifier
         .size(size)
-        .padding(4.dp)
+        .padding(NovelIconInset)
         .clip(RoundedCornerShape(4.dp))
     if (iconUrl.isNullOrEmpty()) {
         Icon(

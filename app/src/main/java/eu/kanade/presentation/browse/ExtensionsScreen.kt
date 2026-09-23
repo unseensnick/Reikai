@@ -47,6 +47,7 @@ import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Settings
 import mihon.icons.materialsymbols.rounded.VerifiedUser
+import reikai.presentation.browse.components.NovelIconInset
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
@@ -103,7 +104,9 @@ fun ExtensionItem(
                     extension = extension,
                     modifier = Modifier
                         .matchParentSize()
-                        .padding(padding),
+                        .padding(padding)
+                        // RK: a novel extension's full-bleed icon, inset as the novel source rows do
+                        .padding(if (extension.kind == Extension.Kind.MANGA) 0.dp else NovelIconInset),
                 )
             }
         },

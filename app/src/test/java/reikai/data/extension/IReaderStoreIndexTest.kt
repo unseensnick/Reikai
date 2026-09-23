@@ -51,8 +51,13 @@ class IReaderStoreIndexTest {
     }
 
     @Test
-    fun `an IReader index is a keyless store named after its owner`() {
+    fun `IReader's own index is a store with its key named after its owner`() {
         readIReaderStore(INDEX_URL, source(FREE_WEB_NOVEL), json) shouldBe store
+    }
+
+    @Test
+    fun `another IReader-format index is a keyless store`() {
+        readIReaderStore(OTHER_INDEX_URL, source(FREE_WEB_NOVEL), json)?.signingKey shouldBe NO_SIGNING_KEY
     }
 
     @Test
@@ -92,6 +97,7 @@ class IReaderStoreIndexTest {
     private companion object {
         const val BASE = "https://raw.githubusercontent.com/IReaderorg/IReader-extensions/repov2"
         const val INDEX_URL = "$BASE/index.min.json"
+        const val OTHER_INDEX_URL = "https://raw.githubusercontent.com/someone/IReader-extensions/repov2/index.min.json"
 
         // The app's own configuration, which neither coerces nor reads leniently.
         val json = Json {
@@ -103,7 +109,7 @@ class IReaderStoreIndexTest {
             indexUrl = INDEX_URL,
             name = "IReaderorg",
             badgeLabel = "IReaderorg",
-            signingKey = NO_SIGNING_KEY,
+            signingKey = "f4527fa6edd6de2a8ec987f9967bfdb8836dfef88e437a87ac81bba70557c17c",
             contact = ExtensionStore.Contact(
                 website = "https://github.com/IReaderorg/IReader-extensions",
                 discord = null,
