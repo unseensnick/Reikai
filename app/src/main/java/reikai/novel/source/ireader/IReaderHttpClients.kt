@@ -36,10 +36,13 @@ class IReaderHttpClients(
     // for seconds on a cold device, and most extensions never touch it.
     private val webViewCookieJar by lazy { WebViewCookieJar(AcceptAllCookiesStorage()) }
 
-    // IReader's own client decodes JSON bodies with Gson, so an extension's plain classes need it.
-    override val default: HttpClient = client(okHttp) { install(ContentNegotiation) { gson() } }
+    // First, so what it asks in a source's place still passes the app's Cloudflare and agent handling.
+    private val sourceClient = okHttp.newBuilder().apply { interceptors().add(0, MadaraChapterEndpoint) }.build()
 
-    override val cloudflareClient: HttpClient = client(okHttp) {}
+    // IReader's own client decodes JSON bodies with Gson, so an extension's plain classes need it.
+    override val default: HttpClient = client(sourceClient) { install(ContentNegotiation) { gson() } }
+
+    override val cloudflareClient: HttpClient = client(sourceClient) {}
 
     // IReader's own engine: extensions call it for pages that need a browser, and the class is final.
     override val browser: BrowserEngine by lazy { BrowserEngine(WebViewManger(context), webViewCookieJar) }

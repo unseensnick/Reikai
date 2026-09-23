@@ -339,6 +339,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **Novels from IReader sources built on the Madara site theme list their chapters again.** Most of these sites stopped answering the way the extension asks, so their novels opened with no chapters.
 - **Light-novel plugins now stay on the installed version until you update them from Browse -> Extensions.** They used to switch to the newest one on their own whenever Android cleared the app's cache, and an update published at a new link now shows as an update.
 - **A novel chapter that separates its paragraphs only with blank lines now shows them as paragraphs in every reading mode.** The web page readers ran them together into one block.
 - **Time spent reading a novel now keeps counting after you switch away and come back.** It was recorded as none from that point until the next chapter.

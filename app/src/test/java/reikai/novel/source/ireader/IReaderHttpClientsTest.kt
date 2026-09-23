@@ -2,9 +2,12 @@ package reikai.novel.source.ireader
 
 import io.kotest.matchers.shouldBe
 import io.ktor.client.call.body
+import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
+import io.ktor.http.Parameters
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
@@ -60,5 +63,35 @@ class IReaderHttpClientsTest {
     @Test
     fun `a JSON body decodes into an extension's plain class, as IReader's Gson client does`() = runTest {
         clients.default.get("https://example.org/novel").body<Book>().name shouldBe "Beware of the Bald Guy"
+    }
+
+    @Test
+    fun `a Madara chapter list the site refuses reaches the source from the novel's own address`() = runTest {
+        // A current Madara site: the theme's old ask refused, the novel's own chapter address serving.
+        val site = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            val (answered, code, body) = when {
+                request.url.encodedPath.endsWith("admin-ajax.php") -> Triple(request, 400, "0")
+                request.url.queryParameter("p") == "42" ->
+                    Triple(request.newBuilder().url("https://example.org/novel/a/").build(), 200, "")
+                else -> Triple(request, 200, CHAPTER_LIST)
+            }
+            Response.Builder().request(answered).protocol(Protocol.HTTP_1_1).code(code).message("")
+                .body(body.toResponseBody()).build()
+        }.build()
+
+        val response = IReaderHttpClients(mockk(), site) { "app-agent" }.default.submitForm(
+            url = "https://example.org/wp-admin/admin-ajax.php",
+            formParameters = Parameters.build {
+                append("action", "manga_get_chapters")
+                append("manga", "42")
+            },
+        )
+
+        response.bodyAsText() shouldBe CHAPTER_LIST
+    }
+
+    private companion object {
+        const val CHAPTER_LIST = """<li class="wp-manga-chapter"><a href="x">Chapter 1</a></li>"""
     }
 }
