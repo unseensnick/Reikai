@@ -15,9 +15,15 @@ sealed interface ReaderDialog {
     /** Raised by the engine while a chapter loads, off the session's own load state. */
     data object Loading : ReaderDialog
 
-    /** A chapter that could not be loaded, offering another attempt. Dismissed with nothing on
-     *  screen, it closes the reader rather than leave a blank page with no retry left. */
-    data class LoadFailed(val message: String?, val canKeepReading: Boolean) : ReaderDialog
+    /** A chapter that could not be loaded, offering another attempt, and its page on the source site
+     *  where [webUrl] names one. Dismissed with nothing on screen, it closes the reader rather than
+     *  leave a blank page with no retry left. */
+    data class LoadFailed(
+        val message: String?,
+        val canKeepReading: Boolean,
+        val webUrl: String? = null,
+        val chapterId: Long? = null,
+    ) : ReaderDialog
 
     data object Settings : ReaderDialog
 

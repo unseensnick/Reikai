@@ -9,8 +9,8 @@ class ReaderLoadStateTest {
 
     @Test
     fun `a novel failure repeated word for word is a new failure`() {
-        ReaderLoadState.Failed("no connection", canKeepReading = true) shouldNotBe
-            ReaderLoadState.Failed("no connection", canKeepReading = true)
+        ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = null) shouldNotBe
+            ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = null)
     }
 
     @Test

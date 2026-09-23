@@ -62,8 +62,11 @@ interface ReaderProvider {
     /** Opens the entry's own details page, or null while the entry is not resolved yet. */
     fun detailsIntent(context: Context): Intent?
 
-    /** The in-app browser on the open chapter's page at [url]. */
-    fun chapterWebViewIntent(context: Context, url: String, title: String?): Intent
+    /** The in-app browser on [chapterId]'s page at [url], which need not be the chapter on screen. */
+    suspend fun chapterWebViewIntent(context: Context, url: String, title: String?, chapterId: Long): Intent
+
+    /** [chapterId]'s page on the source site, for a chapter that failed to open; null where it has none. */
+    suspend fun chapterWebUrl(chapterId: Long): String?
 
     /**
      * The colour behind the page, which shows while a chapter loads or fails. Each type has its own

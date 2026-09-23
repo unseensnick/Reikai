@@ -775,9 +775,15 @@ class NovelReaderViewModel(
                 }
             }
         }
-        // A page saved as the open chapter in the in-app browser, whenever it lands, even after the browser closed.
+        // A page saved in the in-app browser, whenever it lands, even after the browser closed: the open
+        // chapter reloads, and a chapter that failed to open is opened, the case the page is there for.
         pageFetcher.chapterSaved
-            .onEach { id -> if (id == currentChapterId) reloadChapter(fromSource = false) }
+            .onEach { id ->
+                when (id) {
+                    currentChapterId -> reloadChapter(fromSource = false)
+                    (loadState.value as? ReaderLoadState.Failed)?.chapterId -> retryLoad()
+                }
+            }
             .launchIn(viewModelScope)
         // The cache holds pipeline output, so a chapter-text setting reaches the open chapter and the
         // prefetched next one only by dropping both and running it again.
@@ -961,6 +967,7 @@ class NovelReaderViewModel(
                 loadState.value = ReaderLoadState.Failed(
                     e.message,
                     canKeepReading = loadedChapter.value != null,
+                    chapterId = target,
                 )
                 readAloud.onChapterLoadFailed()
             }
@@ -1198,8 +1205,14 @@ class NovelReaderViewModel(
 
     fun toggleBookmark() = setChapterBookmark(currentChapterId, !bookmarkedState.value)
 
-    /** The novel and chapter on screen, for the browser to save the chapter's text to. */
-    fun openChapterIds(): Pair<Long, Long>? = loadedChapter.value?.let { currentNovelId to it.chapterId }
+    /** The novel [chapterId] belongs to, for the browser to save the chapter's text to. */
+    suspend fun novelIdOf(chapterId: Long): Long? = chapterRepo.getById(chapterId)?.novelId
+
+    /** [chapterId]'s page on the source site, by its row, so a chapter that failed to open has one too. */
+    suspend fun webUrlOf(chapterId: Long): String? {
+        val chapter = chapterRepo.getById(chapterId) ?: return null
+        return textLoader.cachedSource(chapter.novelId)?.webUrl(chapter.url, isNovel = false)
+    }
 
     /**
      * [chapter]'s page on the source site, or null for one read from disk whose source this session

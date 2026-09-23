@@ -86,10 +86,12 @@ class NovelReaderProvider(
 
     // A novel source has no numeric id, so the browser opens without its headers; the ids let a source
     // that takes pages save the chapter's text from it.
-    override fun chapterWebViewIntent(context: Context, url: String, title: String?): Intent =
-        viewModel.openChapterIds()?.let { (novelId, chapterId) ->
+    override suspend fun chapterWebViewIntent(context: Context, url: String, title: String?, chapterId: Long): Intent =
+        viewModel.novelIdOf(chapterId)?.let { novelId ->
             WebViewActivity.newNovelChapterIntent(context, url, title, novelId, chapterId)
         } ?: WebViewActivity.newIntent(context, url, title = title)
+
+    override suspend fun chapterWebUrl(chapterId: Long): String? = viewModel.webUrlOf(chapterId)
 
     // By source and url rather than row id, since that is what the novel screen is pushed with.
     override fun detailsIntent(context: Context): Intent? = viewModel.detailsRoute.value?.let { route ->

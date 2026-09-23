@@ -14,16 +14,17 @@ sealed interface ReaderLoadState {
     data object Loading : ReaderLoadState
 
     /**
-     * The chapter could not be loaded. [message] is what to tell the reader, null where the failure
-     * carried nothing worth showing. [canKeepReading] is false when nothing reached the screen, so
-     * giving up closes the reader, as manga does, instead of leaving it blank with no way back.
-     * [attempt] tells one failure from the next: the state is conflated, so a repeat of the same
-     * failure, with the Loading between them missed, would otherwise read as nothing new at all. Stamped
-     * by default, so no site can report a failure that equals the last one.
+     * The chapter could not be loaded. [message] is what to tell the reader, null where there is nothing
+     * worth showing. [canKeepReading] is false when nothing reached the screen, so giving up closes the
+     * reader, as manga does, rather than leaving it blank. [chapterId] is the chapter that failed, whose
+     * page the dialog offers, null where it is not one chapter. [attempt] tells one failure from the
+     * next: the state is conflated, so a repeat with the Loading between missed would read as nothing
+     * new. Stamped by default, so no site can report a failure equal to the last one.
      */
     data class Failed(
         val message: String?,
         val canKeepReading: Boolean,
+        val chapterId: Long?,
         val attempt: Long = nextAttempt(),
     ) : ReaderLoadState {
         companion object {

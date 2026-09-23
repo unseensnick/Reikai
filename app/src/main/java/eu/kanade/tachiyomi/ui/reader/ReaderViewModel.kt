@@ -976,9 +976,28 @@ class ReaderViewModel(
     // manga's source before the first chapter arrives and for an unmerged series.
     fun getSource(): HttpSource? {
         val chapter = getCurrentChapter()?.chapter ?: return state.value.source as? HttpSource
-        val owner = mangaForChapterId(chapter.manga_id)
-        return (memberSources[owner.source] ?: state.value.source) as? HttpSource
+        return sourceOf(chapter)
     }
+
+    // RK --> by id, for a chapter that failed to open and so is not the current one
+    fun getSource(chapterId: Long): HttpSource? = chapterById(chapterId)?.let(::sourceOf) ?: getSource()
+
+    fun getChapterUrl(chapterId: Long): String? {
+        val chapter = chapterById(chapterId) ?: return null
+        val source = sourceOf(chapter) ?: return null
+        return try {
+            source.getChapterUrl(chapter)
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e)
+            null
+        }
+    }
+
+    private fun chapterById(chapterId: Long) = chapterList.firstOrNull { it.chapter.id == chapterId }?.chapter
+
+    private fun sourceOf(chapter: eu.kanade.tachiyomi.data.database.models.Chapter): HttpSource? =
+        (memberSources[mangaForChapterId(chapter.manga_id).source] ?: state.value.source) as? HttpSource
+    // RK <--
 
     fun getChapterUrl(): String? {
         val sChapter = getCurrentChapter()?.chapter ?: return null

@@ -35,6 +35,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupChapterFlags
 import reikai.presentation.components.chapterSubtitle
 import tachiyomi.core.common.Constants
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.asMangaCover
 import kotlin.time.Duration.Companion.milliseconds
@@ -93,8 +94,11 @@ class MangaReaderProvider(
     override fun flushPosition() = Unit
 
     // The source id lets the browser reuse that source's headers.
-    override fun chapterWebViewIntent(context: Context, url: String, title: String?): Intent =
-        WebViewActivity.newIntent(context, url, viewModel.getSource()?.id, title)
+    override suspend fun chapterWebViewIntent(context: Context, url: String, title: String?, chapterId: Long): Intent =
+        WebViewActivity.newIntent(context, url, viewModel.getSource(chapterId)?.id, title)
+
+    // The source builds the URL and an extension may override that, so it is not main-thread work.
+    override suspend fun chapterWebUrl(chapterId: Long): String? = withIOContext { viewModel.getChapterUrl(chapterId) }
 
     // A manga chapter's browser offers nothing to save.
 
@@ -145,6 +149,7 @@ class MangaReaderProvider(
             failure != null -> ReaderLoadState.Failed(
                 failure.message,
                 canKeepReading = state.currentChapter != null,
+                chapterId = failure.chapterId,
                 attempt = failure.attempt,
             )
             else -> ReaderLoadState.Idle

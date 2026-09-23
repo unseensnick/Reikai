@@ -117,9 +117,21 @@ class ReaderEngineTest {
         val provider = FakeReaderProvider()
         val engine = engine(provider)
 
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
+        provider.loadState.value =
+            ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = null, attempt = 1L)
 
         engine.dialog.value shouldBe ReaderDialog.LoadFailed("no connection", canKeepReading = true)
+    }
+
+    @Test
+    fun `a failure offers the page of the chapter that failed`() {
+        val provider = FakeReaderProvider()
+        provider.chapterPages[7L] = "https://site.example/7"
+        val engine = engine(provider)
+
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = 7L)
+
+        (engine.dialog.value as ReaderDialog.LoadFailed).webUrl shouldBe "https://site.example/7"
     }
 
     @Test
@@ -532,7 +544,8 @@ class ReaderEngineTest {
         engine.chapterList.open(FakeChapterList.NEVER_LOADS)
         provider.loadState.value = ReaderLoadState.Loading
         advanceUntilIdle()
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
+        provider.loadState.value =
+            ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = null, attempt = 1L)
         advanceUntilIdle()
 
         provider.chapterList.currentChapterId.value = FakeChapterList.NEVER_LOADS
@@ -547,7 +560,8 @@ class ReaderEngineTest {
         val engine = engine(provider)
         val viewport = FakeViewport()
         engine.installViewport(viewport)
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
+        provider.loadState.value =
+            ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = null, attempt = 1L)
         engine.chapterList.open(FakeChapterList.NEVER_LOADS)
         advanceUntilIdle()
 
@@ -567,7 +581,8 @@ class ReaderEngineTest {
         engine.chapterList.open(FakeChapterList.NEVER_LOADS)
         provider.loadState.value = ReaderLoadState.Loading
         advanceUntilIdle()
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
+        provider.loadState.value =
+            ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = null, attempt = 1L)
         advanceUntilIdle()
 
         provider.chapterList.loadsAgain = true
@@ -586,11 +601,13 @@ class ReaderEngineTest {
         engine.chapterList.open(FakeChapterList.NEVER_LOADS)
         provider.loadState.value = ReaderLoadState.Loading
         advanceUntilIdle()
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
+        provider.loadState.value =
+            ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = null, attempt = 1L)
         advanceUntilIdle()
         provider.loadState.value = ReaderLoadState.Loading
         advanceUntilIdle()
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 2L)
+        provider.loadState.value =
+            ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = null, attempt = 2L)
         advanceUntilIdle()
 
         engine.retryLoad()
@@ -607,10 +624,12 @@ class ReaderEngineTest {
     fun `a pick failing the way the failure before it did still ends`() = runTest(scheduler) {
         val provider = FakeReaderProvider()
         val engine = engine(provider)
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 1L)
+        provider.loadState.value =
+            ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = null, attempt = 1L)
         engine.chapterList.open(FakeChapterList.NEVER_LOADS)
         advanceUntilIdle()
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, attempt = 2L)
+        provider.loadState.value =
+            ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = null, attempt = 2L)
         advanceUntilIdle()
 
         engine.retryLoad()
@@ -739,7 +758,12 @@ private class FakeReaderProvider(
 
     override fun detailsIntent(context: Context): Intent? = null
 
-    override fun chapterWebViewIntent(context: Context, url: String, title: String?): Intent = Intent()
+    override suspend fun chapterWebViewIntent(context: Context, url: String, title: String?, chapterId: Long): Intent =
+        Intent()
+
+    val chapterPages = mutableMapOf<Long, String>()
+
+    override suspend fun chapterWebUrl(chapterId: Long): String? = chapterPages[chapterId]
 
     override val orientation = MutableStateFlow(0)
 

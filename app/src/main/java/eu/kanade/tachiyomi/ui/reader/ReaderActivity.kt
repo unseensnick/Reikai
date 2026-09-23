@@ -510,6 +510,15 @@ class ReaderActivity : BaseActivity() {
                             }
                         },
                         dismissButton = {
+                            // Kept open behind the browser: a page saved there reopens the chapter,
+                            // and backing out without one leaves Retry where it was.
+                            val webUrl = dialog.webUrl
+                            val chapterId = dialog.chapterId
+                            if (webUrl != null && chapterId != null) {
+                                TextButton(onClick = { openChapterInWebView(webUrl, chapterId) }) {
+                                    Text(stringResource(MR.strings.action_open_in_web_view))
+                                }
+                            }
                             TextButton(onClick = giveUp) {
                                 Text(stringResource(MR.strings.action_cancel))
                             }
@@ -911,7 +920,7 @@ class ReaderActivity : BaseActivity() {
             // manga's model left it permanently empty and its tap a no-op for a novel.
             bookmarked = bookmarked,
             onToggleBookmarked = engine::toggleBookmark,
-            onOpenInWebView = { openChapterInWebView(webUrl) }.takeIf { webUrl != null },
+            onOpenInWebView = { openChapterInWebView(webUrl, engine.currentChapterId.value) }.takeIf { webUrl != null },
             onOpenInBrowser = { openChapterInBrowser(webUrl) }.takeIf { webUrl != null },
             onShare = { shareChapter(webUrl) }.takeIf { webUrl != null },
 
@@ -1060,10 +1069,12 @@ class ReaderActivity : BaseActivity() {
 
     // RK: the URL and the browser are the session's answers, so a novel opens its own chapter page, where
     // a source that takes pages can save the chapter's text.
-    private fun openChapterInWebView(url: String?) {
+    private fun openChapterInWebView(url: String?, chapterId: Long) {
         val target = url ?: return
         val title = engine.chrome.value.entryTitle
-        startActivity(engine.provider.chapterWebViewIntent(this, target, title))
+        lifecycleScope.launch {
+            startActivity(engine.provider.chapterWebViewIntent(this@ReaderActivity, target, title, chapterId))
+        }
     }
 
     private fun openChapterInBrowser(url: String?) {

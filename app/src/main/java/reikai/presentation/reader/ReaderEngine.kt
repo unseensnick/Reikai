@@ -247,7 +247,12 @@ class ReaderEngine(
                     }
                     is ReaderLoadState.Failed -> {
                         latestFailure = state.attempt
-                        openDialog(ReaderDialog.LoadFailed(state.message, state.canKeepReading))
+                        // The failed chapter's own page, where a site challenge is solved or, for a
+                        // source that takes pages, the chapter saved from.
+                        val webUrl = state.chapterId?.let { provider.chapterWebUrl(it) }
+                        openDialog(
+                            ReaderDialog.LoadFailed(state.message, state.canKeepReading, webUrl, state.chapterId),
+                        )
                     }
                     // Only what this raised: a chapter arriving must not close the sheet the reader
                     // opened while waiting for it.

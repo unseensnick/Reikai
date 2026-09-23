@@ -91,6 +91,26 @@ class NovelReaderViewModelTest {
         model.chapter.value?.html.orEmpty() shouldContain "From the page"
     }
 
+    /** The browser's page is how a chapter the source cannot serve gets read, so its save opens it. */
+    @Test
+    fun `a page saved for a chapter that failed to open opens it`() = readerTest { harness ->
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val opened = harness.chapter(novel, 1.0)
+        val failed = harness.chapter(novel, 2.0)
+        source.failing += failed.url
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+        model.open(failed.id)
+        advanceUntilIdle()
+        harness.download(failed, "<p>Saved from the page</p>")
+
+        harness.pageSaves.emit(failed.id)
+        advanceUntilIdle()
+
+        model.chapter.value?.html.orEmpty() shouldContain "Saved from the page"
+    }
+
     /** Under the switch the reader's own list holds nothing left to fetch, so download-ahead walks past it. */
     @Test
     fun `with Downloaded only on download-ahead still queues the next chapter not on disk`() = readerTest { harness ->
