@@ -14,6 +14,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import eu.kanade.presentation.browse.components.BaseBrowseItem
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import reikai.presentation.browse.components.formatLabel
+import reikai.presentation.browse.components.sourceDetail
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.presentation.core.components.BadgeGroup
@@ -34,6 +36,8 @@ fun EntryMigrateSourceRow(
     modifier: Modifier = Modifier,
     /** Content-type badge, beside the name, drawn while the list holds both types. */
     badge: @Composable () -> Unit = {},
+    /** Whether the list holds novel sources of more than one packaging, so this row names its own. */
+    showsFormat: Boolean = false,
     icon: @Composable RowScope.() -> Unit,
 ) {
     BaseBrowseItem(
@@ -65,10 +69,15 @@ fun EntryMigrateSourceRow(
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (row.lang.isNotEmpty()) {
+                    val detail = sourceDetail(
+                        language = row.lang.takeIf { it.isNotEmpty() }
+                            ?.let { LocaleHelper.getSourceDisplayName(it, LocalContext.current) },
+                        format = formatLabel(row.format, showsFormat),
+                    )
+                    if (detail != null) {
                         Text(
                             modifier = Modifier.secondaryItemAlpha(),
-                            text = LocaleHelper.getSourceDisplayName(row.lang, LocalContext.current),
+                            text = detail,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.bodySmall,

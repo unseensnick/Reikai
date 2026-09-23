@@ -7,6 +7,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.migrate.PickMember
 import tachiyomi.domain.source.model.Source
 
@@ -40,6 +41,8 @@ data class MigrationSourceUi(
     val name: String,
     val lang: String,
     val icon: MigrationSourceIcon,
+    /** How a novel source is packaged; null for manga. */
+    val format: NovelExtensionFormat? = null,
 )
 
 /** The per-type icon payload: a typed slot, so shared UI renders by case instead of downcasting. */

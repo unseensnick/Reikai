@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import reikai.novel.source.NovelExtensionFormat
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -111,7 +112,10 @@ class MigratingEntryRow(
         data object Idle : OverrideState
 
         /** One strip per configured source, each carrying its own [StripResult]. */
-        data class Strips(val strips: List<OverrideStrip>) : OverrideState
+        data class Strips(val strips: List<OverrideStrip>) : OverrideState {
+            /** Novel sources of more than one packaging are searched, so each heading names its own. */
+            val showsFormat: Boolean = NovelExtensionFormat.tellsApart(strips.map { it.sourceFormat })
+        }
     }
 
     /**
@@ -124,6 +128,7 @@ class MigratingEntryRow(
         /** Raw language tag, localized at render (shared header shows it like global search). */
         val sourceLang: String = "",
         val result: StripResult,
+        val sourceFormat: NovelExtensionFormat? = null,
     )
 }
 

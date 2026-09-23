@@ -22,7 +22,10 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.domain.source.MAX_FEED_ROWS
 import reikai.domain.source.model.SavedSearch
+import reikai.novel.source.NovelExtensionFormat
+import reikai.presentation.browse.components.sourceDetail
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -44,11 +47,15 @@ fun FeedSourcePickerDialog(
     }
     // Language included, because two sources sharing a name are otherwise the same entry twice, and
     // picking the wrong one is only visible once the row is added and fetching.
-    val labels = remember(matching, context) {
+    // The packaging too where both kinds of one site are installed, which the language alone cannot tell apart.
+    val showsFormat = NovelExtensionFormat.tellsApart(sources.map { it.format })
+    val labels = remember(matching, context, showsFormat) {
         matching.map { row ->
-            val lang = row.lang.takeIf { it.isNotBlank() }
-                ?.let { LocaleHelper.getSourceDisplayName(it, context) }
-            if (lang.isNullOrBlank()) row.name else "${row.name} ($lang)"
+            val detail = sourceDetail(
+                language = row.lang.takeIf { it.isNotBlank() }?.let { LocaleHelper.getSourceDisplayName(it, context) },
+                format = row.format?.takeIf { showsFormat }?.let { context.stringResource(it.label) },
+            )
+            if (detail == null) row.name else "${row.name} ($detail)"
         }
     }
 

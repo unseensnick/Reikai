@@ -26,6 +26,7 @@ import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.SmartNovelSearchEngine
+import reikai.novel.source.langCode
 import reikai.presentation.migrate.PickMember
 import reikai.presentation.migrate.memberSubtitle
 import tachiyomi.data.Database
@@ -83,8 +84,10 @@ class NovelMigrationFlowAdapter(
                 MigrationSourceUi(
                     key = source.id,
                     name = source.name,
-                    lang = source.lang,
+                    // A code, as the manga side gives, so a plugin's pill reads like an app's.
+                    lang = source.langCode(),
                     icon = MigrationSourceIcon.NovelUrl(source.iconUrl),
+                    format = source.format,
                 )
             }
     }

@@ -2,6 +2,7 @@ package reikai.presentation.browse.globalsearch
 
 import androidx.compose.runtime.Immutable
 import reikai.domain.source.SourceKey
+import reikai.novel.source.NovelExtensionFormat
 
 /** Which sources a global search covers. */
 enum class SearchSourceFilter { All, PinnedOnly }
@@ -38,6 +39,8 @@ data class BrowseSearchRow(
     val isPinned: Boolean,
     val state: EntrySearchState,
     val source: Any,
+    /** How a novel source is packaged; null for manga. */
+    val format: NovelExtensionFormat? = null,
     /**
      * What tells this row from the others in its own list. The source, for a search, which covers a
      * source once. Not for a feed: one source can sit in it twice, once for its latest and again for

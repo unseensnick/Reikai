@@ -158,6 +158,7 @@ private fun MigrateSourcesList(
         items(items = state.items, key = { "migrate-${it.key}" }) { row ->
             EntryMigrateSourceRow(
                 row = row,
+                showsFormat = state.showsFormat,
                 modifier = Modifier.animateItem(),
                 onClickItem = { onClickItem(row) },
                 // Copying the id is how a source with no name left is identified elsewhere.

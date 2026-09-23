@@ -30,6 +30,7 @@ import reikai.domain.source.SourceKey
 import reikai.domain.source.model.FeedSavedSearch
 import reikai.domain.source.model.SavedSearch
 import reikai.novel.host.NovelItem
+import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -423,7 +424,10 @@ data class FeedState(
     val addDialog: EntryBrowseDialog? = null,
     /** Which type raised [addDialog], which is what the migrate dialog acts on. */
     val addDialogContentType: ContentType = ContentType.MANGA,
-)
+) {
+    /** Novel sources of more than one packaging are in the feed, so each heading names its own. */
+    val showsFormat: Boolean = NovelExtensionFormat.tellsApart(entries.map { it.row.format })
+}
 
 sealed interface FeedDialog {
     data class PickSource(val sources: List<BrowseSearchRow>) : FeedDialog

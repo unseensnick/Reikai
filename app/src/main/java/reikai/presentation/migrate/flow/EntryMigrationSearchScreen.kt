@@ -45,6 +45,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
+import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -167,6 +168,8 @@ class EntryMigrationSearchScreen(
                     MigrationCandidateStrip(
                         sourceName = section.sourceName,
                         sourceLang = section.sourceLang,
+                        sourceFormat = section.sourceFormat,
+                        showsFormat = state.showsFormat,
                         isCurrentSource = section.sourceKey == entry.sourceKey,
                         result = section.result,
                         onPick = viewModel::showDialog,
@@ -267,7 +270,7 @@ class EntryMigrationSearchViewModel(
             val myJob = coroutineContext[Job]
             val sources = adapter.sourcesFor()
             state.update { state ->
-                state.copy(sections = sources.map { Section(it.key, it.name, it.lang) })
+                state.copy(sections = sources.map { Section(it.key, it.name, it.lang, sourceFormat = it.format) })
             }
             adapter.fanOutCandidates(
                 entry = entry,
@@ -326,6 +329,7 @@ class EntryMigrationSearchViewModel(
         /** Raw language tag, localized at render (shared header shows it like global search). */
         val sourceLang: String = "",
         val result: StripResult = StripResult.Loading,
+        val sourceFormat: NovelExtensionFormat? = null,
     )
 
     data class State(
@@ -338,5 +342,8 @@ class EntryMigrationSearchViewModel(
         val onlyShowHasResults: Boolean = false,
     ) {
         val searchedCount: Int get() = sections.count { it.result !is StripResult.Loading }
+
+        /** Novel sources of more than one packaging are searched, so each heading names its own. */
+        val showsFormat: Boolean = NovelExtensionFormat.tellsApart(sections.map { it.sourceFormat })
     }
 }

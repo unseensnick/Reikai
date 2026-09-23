@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.source.NovelExtensionFormat
 import tachiyomi.core.common.preference.getAndSet
 import kotlin.time.Duration.Companion.seconds
 
@@ -104,6 +105,9 @@ class MigrateSourcesEngine(
     ) {
         // A half still on its way must not read as "nothing found".
         val isEmpty get() = items.isEmpty() && !hasPending
+
+        /** Novel sources of more than one packaging are listed, so each row names its own. */
+        val showsFormat: Boolean = NovelExtensionFormat.tellsApart(items.map { it.format })
     }
 
     @AssistedFactory

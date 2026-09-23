@@ -15,6 +15,8 @@ import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
+import reikai.presentation.browse.components.formatLabel
+import reikai.presentation.browse.components.sourceDetail
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.components.ContentTypeBadge
@@ -43,15 +45,19 @@ fun SearchResultSection(
     showContentType: Boolean = false,
     /** Replaces the source language under the title, where a row is not titled by its source. */
     subtitle: String? = null,
+    /** Whether the list holds novel sources of more than one packaging, so this heading names its own. */
+    showsFormat: Boolean = false,
     onLongClickSource: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     EntrySearchSection(
         title = row.name,
-        subtitle = subtitle
-            ?: row.lang.takeIf { it.isNotBlank() }
-                ?.let { LocaleHelper.getSourceDisplayName(it, context) }.orEmpty(),
+        subtitle = sourceDetail(
+            language = subtitle
+                ?: row.lang.takeIf { it.isNotBlank() }?.let { LocaleHelper.getSourceDisplayName(it, context) },
+            format = formatLabel(row.format, showsFormat),
+        ).orEmpty(),
         onClick = { onClickSource(row) },
         onLongClick = onLongClickSource,
         badge = { if (showContentType) ContentTypeBadge(row.key.contentType) },

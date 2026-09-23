@@ -56,6 +56,7 @@ class NovelMigrateSourcesProvider(private val model: MigrateNovelSourcesViewMode
                 count = source.count.toLong(),
                 isStub = !source.isInstalled,
                 source = source,
+                format = source.format,
             )
         }
     }

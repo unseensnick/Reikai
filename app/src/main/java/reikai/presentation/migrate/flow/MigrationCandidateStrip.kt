@@ -6,9 +6,12 @@ import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.EntryBrowseItemUi
 import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
+import reikai.presentation.browse.components.formatLabel
+import reikai.presentation.browse.components.sourceDetail
 
 /**
  * One source's migration candidates, under the shared global-search section header and rendering the
@@ -23,6 +26,9 @@ internal fun MigrationCandidateStrip(
     sourceName: String,
     sourceLang: String,
     result: StripResult,
+    /** The source's packaging, named when [showsFormat] says the searched sources hold more than one. */
+    sourceFormat: NovelExtensionFormat?,
+    showsFormat: Boolean,
     onPick: (MigrationCandidate) -> Unit,
     onPreview: (MigrationCandidate) -> Unit,
     onBrowseSource: () -> Unit,
@@ -34,7 +40,10 @@ internal fun MigrationCandidateStrip(
     val candidates = result.candidates
     EntrySearchSection(
         title = if (isCurrentSource) "▶ $sourceName" else sourceName,
-        subtitle = LocaleHelper.getSourceDisplayName(sourceLang, LocalContext.current),
+        subtitle = sourceDetail(
+            language = LocaleHelper.getSourceDisplayName(sourceLang, LocalContext.current),
+            format = formatLabel(sourceFormat, showsFormat),
+        ).orEmpty(),
         onClick = onBrowseSource,
         modifier = modifier,
     ) {

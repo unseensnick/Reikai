@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSourceManager
 import kotlin.time.Duration.Companion.seconds
 
@@ -45,11 +46,12 @@ class MigrateNovelSourcesViewModel(
         val installed = installedSources.associate {
             it.id to LnSourceIdentity(name = it.name, iconUrl = it.iconUrl, lang = it.lang)
         }
+        val formats = installedSources.associate { it.id to it.format }
         buildNovelMigrateSources(
             sourceIdsPerNovel = libraryNovels.map { it.novel.source },
             installed = installed,
             cached = cached,
-        )
+        ).map { it.copy(format = formats[it.id]) }
     }
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
@@ -65,6 +67,8 @@ data class NovelMigrateSource(
     val lang: String,
     val count: Int,
     val isInstalled: Boolean,
+    /** How the source is packaged; null for one not installed, which names none. */
+    val format: NovelExtensionFormat? = null,
 )
 
 /**

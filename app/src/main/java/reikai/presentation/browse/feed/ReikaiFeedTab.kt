@@ -241,6 +241,7 @@ private fun Screen.FeedContent(
                         // here or two rows on one source read as the same thing.
                         subtitle = entry.sourceName.takeIf { entry.savedSearch != null },
                         showContentType = true,
+                        showsFormat = state.showsFormat,
                         favoritedKeys = state.favoritedKeys,
                         mangaSelection = mangaSelection,
                         novelSelection = novelSelection,

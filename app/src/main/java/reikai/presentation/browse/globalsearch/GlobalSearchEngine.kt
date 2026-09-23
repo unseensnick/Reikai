@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.fillEntryRows
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
@@ -159,6 +160,9 @@ class GlobalSearchEngine(
         // Computed once per state rather than on each read: the list is read several times per pass.
         val visibleRows: List<BrowseSearchRow> =
             if (onlyShowHasResults) rows.filter { it.hasResults() } else rows
+
+        /** Novel sources of more than one packaging are on screen, so each heading names its own. */
+        val showsFormat: Boolean = NovelExtensionFormat.tellsApart(visibleRows.map { it.format })
     }
 
     @AssistedFactory

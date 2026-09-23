@@ -66,7 +66,9 @@ import mihon.icons.materialsymbols.rounded.DragHandle
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.library.ContentType
+import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.components.NovelSourceIcon
+import reikai.presentation.browse.components.formatLabel
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.ReorderableLazyListState
@@ -197,6 +199,7 @@ class EntryMigrationConfigScreen(
                             lastItem = index == state.selected.size - 1,
                             source = source,
                             showLanguage = showLanguage,
+                            showsFormat = state.showsFormat,
                             // Order only means something with more than one source in it.
                             dragEnabled = state.selected.size > 1,
                             state = reorderState,
@@ -215,6 +218,7 @@ class EntryMigrationConfigScreen(
                             lastItem = index == state.available.size - 1,
                             source = source,
                             showLanguage = showLanguage,
+                            showsFormat = state.showsFormat,
                             dragEnabled = false,
                             state = reorderState,
                             key = "available-${source.key}",
@@ -273,6 +277,7 @@ private fun LazyItemScope.SourceItemContainer(
     lastItem: Boolean,
     source: MigrationSourceUi,
     showLanguage: Boolean,
+    showsFormat: Boolean,
     dragEnabled: Boolean,
     state: ReorderableLazyListState,
     key: Any,
@@ -298,6 +303,7 @@ private fun LazyItemScope.SourceItemContainer(
             SourceItem(
                 source = source,
                 showLanguage = showLanguage,
+                showsFormat = showsFormat,
                 dragEnabled = dragEnabled,
                 scope = this@ReorderableItem,
                 onClick = onClick,
@@ -314,6 +320,7 @@ private fun LazyItemScope.SourceItemContainer(
 private fun SourceItem(
     source: MigrationSourceUi,
     showLanguage: Boolean,
+    showsFormat: Boolean,
     dragEnabled: Boolean,
     scope: ReorderableCollectionItemScope,
     onClick: () -> Unit,
@@ -349,15 +356,13 @@ private fun SourceItem(
             )
             if (showLanguage && source.lang.isNotEmpty()) {
                 Pill(
-                    // Manga langs are short tags ("en" -> "EN"); novel plugins declare full names
-                    // ("English"), which stay as-is rather than becoming a shouting pill.
-                    text = if (source.lang.length <= 6) {
-                        LocaleHelper.getShortDisplayName(source.lang, uppercase = true)
-                    } else {
-                        source.lang
-                    },
+                    text = LocaleHelper.getShortDisplayName(source.lang, uppercase = true),
                     style = MaterialTheme.typography.bodySmall,
                 )
+            }
+            // After the language, the order the other source lists name them in.
+            formatLabel(source.format, showsFormat)?.let {
+                Pill(text = it, style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -533,5 +538,8 @@ class EntryMigrationConfigViewModel(
         val selected: List<MigrationSourceUi> = emptyList(),
         val available: List<MigrationSourceUi> = emptyList(),
         val tuning: MigrationTuning = MigrationTuning(),
-    )
+    ) {
+        /** Novel sources of more than one packaging are listed, so each row names its own. */
+        val showsFormat: Boolean = NovelExtensionFormat.tellsApart((selected + available).map { it.format })
+    }
 }

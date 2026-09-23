@@ -347,6 +347,8 @@ private fun OverridePicker(
                 MigrationCandidateStrip(
                     sourceName = strip.sourceName,
                     sourceLang = strip.sourceLang,
+                    sourceFormat = strip.sourceFormat,
+                    showsFormat = state.showsFormat,
                     isCurrentSource = strip.sourceKey == row.entry.sourceKey,
                     result = strip.result,
                     onPick = { viewModel.pick(row.entry.id, it) },

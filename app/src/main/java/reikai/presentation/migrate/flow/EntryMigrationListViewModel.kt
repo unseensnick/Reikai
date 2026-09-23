@@ -370,6 +370,7 @@ class EntryMigrationListViewModel(
                     sourceName = it.name,
                     sourceLang = it.lang,
                     result = StripResult.Loading,
+                    sourceFormat = it.format,
                 )
             },
         )

@@ -3,6 +3,7 @@ package reikai.presentation.browse.migrate
 import androidx.compose.runtime.Immutable
 import eu.kanade.domain.source.interactor.SetMigrateSorting
 import reikai.domain.source.SourceKey
+import reikai.novel.source.NovelExtensionFormat
 import tachiyomi.core.common.util.lang.compareToWithCollator
 
 /**
@@ -20,6 +21,8 @@ data class BrowseMigrateRow(
     val count: Long,
     val isStub: Boolean,
     val source: Any,
+    /** How a novel source is packaged; null for manga, and for a source that is not installed. */
+    val format: NovelExtensionFormat? = null,
 )
 
 /**

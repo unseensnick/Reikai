@@ -168,5 +168,6 @@ class NovelFeedProvider(
         isPinned = false,
         state = EntrySearchState.Loading,
         source = source,
+        format = source.format,
     )
 }

@@ -39,6 +39,8 @@ import reikai.presentation.browse.components.ContentWarningBadge
 import reikai.presentation.browse.components.NovelSourceLatestButton
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
+import reikai.presentation.browse.components.formatLabel
+import reikai.presentation.browse.components.sourceDetail
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.browse.sourceLanguageLabel
 import reikai.presentation.components.ContentTypeBadge
@@ -254,10 +256,10 @@ private fun SourceRow(
                 modifier = modifier,
                 name = row.title,
                 // The row hides a language it has none of, so the flagged line is dropped the same way.
-                subtitle = listOfNotNull(
-                    languageLabel.takeIf { row.lang.isNotEmpty() },
-                    row.format?.takeIf { showsFormat }?.let { stringResource(it.label) },
-                ).joinToString(" • ").ifEmpty { null },
+                subtitle = sourceDetail(
+                    language = languageLabel.takeIf { row.lang.isNotEmpty() },
+                    format = formatLabel(row.format, showsFormat),
+                ),
                 iconUrl = source.iconUrl,
                 onClickItem = { onClickItem(row, false) },
                 onLongClickItem = { onLongClickItem(row) },

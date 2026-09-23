@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchViewModel
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelSource
+import reikai.novel.source.langCode
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
 
 /**
@@ -54,10 +55,13 @@ class NovelGlobalSearchProvider(private val model: NovelGlobalSearchViewModel) :
             BrowseSearchRow(
                 key = SourceKey.Novel(source.id),
                 name = source.name,
-                lang = source.lang,
+                // Normalised like the Sources list, so a plugin naming its language in that language
+                // renders a language name here too.
+                lang = source.langCode(),
                 isPinned = model.isPinned(source),
                 state = EntrySearchState.Loading,
                 source = source,
+                format = source.format,
             )
         }
 

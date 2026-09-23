@@ -205,6 +205,7 @@ class EntryGlobalSearchScreen(
                         // Only on All, where the rows are interleaved and nothing else says which
                         // kind a source is. The Browse lists badge their rows on the same rule.
                         showContentType = state.contentType == ContentType.ALL,
+                        showsFormat = state.showsFormat,
                         favoritedKeys = novelState.favoritedKeys,
                         mangaSelection = mangaBulkState.selection,
                         novelSelection = novelBulkState.selection,
