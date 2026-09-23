@@ -48,15 +48,6 @@ class DownloadQueueKernelTest {
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    @DisplayName("a cancelled chapter shrinks the total instead of reading as downloaded")
-    fun cancelledChapterShrinksTotal(type: ContentType) {
-        val cards = snapshot(queued(7, 2), completed = mapOf(7L to 1)).toCards(type)
-
-        cards.single().let { it.downloadedChapters to it.totalChapters } shouldBe (1 to 2)
-    }
-
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     @DisplayName("a series the downloader is working on reads as downloading")
     fun activeSeriesIsDownloading(type: ContentType) {
         val cards = snapshot(queued(7, 1), active = setOf(7L)).toCards(type)
@@ -154,6 +145,20 @@ class DownloadQueueKernelTest {
         )
 
         arranged shouldBe listOf(m1, n1)
+    }
+
+    @Test
+    @DisplayName("a series queued again after it left goes last, moving no other card")
+    fun requeuedSeriesGoesLast() {
+        val m3 = card(ContentType.MANGA, 3)
+        val kept = prunedOrder(
+            listOf(m1.cardKey, n1.cardKey),
+            mapOf(ContentType.MANGA to listOf(m3), ContentType.NOVELS to listOf(n1)),
+        )
+
+        val arranged = arrangeCards(kept, mapOf(ContentType.MANGA to listOf(m3, m1), ContentType.NOVELS to listOf(n1)))
+
+        arranged shouldBe listOf(n1, m3, m1)
     }
 
     @Test

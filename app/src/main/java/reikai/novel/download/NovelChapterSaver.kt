@@ -10,8 +10,8 @@ import reikai.novel.source.NovelSource
 
 /**
  * Saves a chapter's HTML as its downloaded copy, which the reader prefers to asking the source. Apart
- * from the download manager because a page fetch saves one too, and building the manager restores and
- * may start the whole queue.
+ * from the download manager because a page fetch saves one too, and building the manager reads the
+ * persisted queue from the database.
  */
 @Inject
 @SingleIn(AppScope::class)

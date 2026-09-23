@@ -6,11 +6,13 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.Downloader
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
@@ -52,6 +54,8 @@ class MangaDownloadQueueProvider(
             shownNonEmpty = queue.isNotEmpty()
         }
     }
+        // A pass over the whole queue per status change and progress sample, as the novel provider does.
+        .flowOn(Dispatchers.IO)
 
     override suspend fun chapterNames(seriesId: Long, chapterIds: Collection<Long>): Map<Long, String> =
         downloadManager.queueState.value

@@ -77,6 +77,10 @@ class DownloadJob(context: Context, workerParams: WorkerParameters) : CoroutineW
         }
 
         setForegroundSafely()
+        // RK: the foreground notice just replaced the paused one the offline check posted; post it again
+        if (!active) {
+            checkNetworkState(applicationContext.activeNetworkState(), downloadPreferences.downloadOnlyOverWifi.get())
+        }
 
         coroutineScope {
             combineTransform(

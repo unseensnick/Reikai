@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
 import reikai.data.notification.downloadErrorTitle
+import reikai.domain.novel.model.Novel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 
@@ -100,9 +101,9 @@ class NovelDownloadNotifier(
      * Without this a failed novel download was completely silent (only an ERROR row in the queue,
      * gone on restart). Mirrors the manga downloader's error notification; tapping opens the queue.
      */
-    fun onError(novelTitle: String?, chapterName: String?, error: String?, isAdult: Boolean) {
+    fun onError(novel: Novel?, chapterName: String?, error: String?, isAdult: Boolean) {
         val title = downloadErrorTitle(
-            novelTitle,
+            novel?.title,
             chapterName,
             securityPreferences.hideAdultNotificationContent.get(),
             isAdult,
@@ -112,6 +113,13 @@ class NovelDownloadNotifier(
             setContentText(error ?: context.stringResource(MR.strings.download_notifier_unknown_error))
             setSmallIcon(R.drawable.ic_warning_white_24dp)
             setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))
+            if (novel != null) {
+                addAction(
+                    R.drawable.ic_book_24dp,
+                    context.stringResource(MR.strings.action_show_manga),
+                    NotificationReceiver.openNovelPendingActivity(context, novel),
+                )
+            }
             setAutoCancel(true)
         }.build()
         context.notificationManager.notify(Notifications.ID_NOVEL_DOWNLOADER_ERROR, notification)

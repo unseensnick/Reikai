@@ -32,6 +32,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -65,6 +66,9 @@ class NovelDownloadCache(
 
     private val renewing = AtomicBoolean(false)
 
+    // Bumped by invalidate, so a scan that read the disk before it knows to scan again.
+    private val invalidations = AtomicInteger(0)
+
     /** Serializes tree edits so a mutator and a renew can't clobber each other's read-modify-write. */
     private val mutex = Mutex()
 
@@ -90,6 +94,7 @@ class NovelDownloadCache(
 
     /** Throw the index away and rescan, for a restore or the Settings action that asks for it. */
     fun invalidate() {
+        invalidations.incrementAndGet()
         lastRenew = 0L
         indexFile.delete()
         scope.launch { renew() }
@@ -206,7 +211,9 @@ class NovelDownloadCache(
 
     /** Full disk scan: rebuild the tree from what is actually on disk. */
     private suspend fun renew() {
+        // A scan already running rescans on its own if an invalidate lands meanwhile.
         if (!renewing.compareAndSet(false, true)) return
+        val scannedAt = invalidations.get()
         try {
             if (lastRenew == 0L) _isInitializing.value = true
             val root = storageManager.getNovelDownloadsDirectory()
@@ -228,15 +235,20 @@ class NovelDownloadCache(
                         if (novels.isNotEmpty()) put(sourceDir.name!!, novels)
                     }
             }
-            mutex.withLock {
+            val current = mutex.withLock {
+                // Scanned before an invalidate: the root it read may be the old one, so keep nothing.
+                if (invalidations.get() != scannedAt) return@withLock false
                 tree = scanned
                 lastRenew = System.currentTimeMillis()
+                true
             }
-            notifyChanges()
+            if (current) notifyChanges()
         } finally {
             _isInitializing.value = false
             renewing.set(false)
         }
+        // An invalidate that arrived during the scan, or just after it, found the flag held and gave up.
+        if (invalidations.get() != scannedAt) scope.launch { renew() }
     }
 
     private suspend fun restoreIndex() {

@@ -311,6 +311,10 @@ class DownloadManager(
                 downloader.start()
             }
         }
+        // RK: a paused queue emptied one series at a time has nothing left to resume
+        else if (queueState.value.isEmpty()) {
+            downloader.clearQueue()
+        }
     }
 
     /**

@@ -29,12 +29,11 @@ suspend fun inlineChapterImages(html: String, baseSite: String, images: NovelIma
     NovelImageSources.unwrapPictures(document)
 
     for (img in document.select("img")) {
-        if (img.attr("src").startsWith("data:")) {
-            dropCandidates(img)
-            continue
-        }
         // With no src, the widest candidate, since a stored copy is read at whatever width the device has.
-        val src = img.attr("src").ifBlank { NovelImageSources.srcsetCandidate(img, Int.MAX_VALUE).orEmpty() }
+        // A data: src beside a srcset is a lazy-load placeholder, and the srcset holds the picture.
+        val widest = NovelImageSources.srcsetCandidate(img, Int.MAX_VALUE).orEmpty()
+        val given = img.attr("src")
+        val src = if (given.isBlank() || given.startsWith("data:")) widest else given
         if (src.isBlank()) continue
         val absolute = StringUtil.resolve(img.baseUri(), src).ifBlank { src }
         runCatching {

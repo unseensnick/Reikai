@@ -67,6 +67,20 @@ class NovelChapterImageInlinerTest {
     }
 
     @Test
+    fun `a lazy-load placeholder in src is stored as the picture its srcset names`() = runTest {
+        inlined("""<img src="data:image/gif;base64,R0lGOD" srcset="/ill-800.jpg 800w">""")
+
+        fetched shouldBe listOf("https://site.example/ill-800.jpg")
+    }
+
+    @Test
+    fun `an image already stored inline is left as it is`() = runTest {
+        inlined("""<img src="data:image/png;base64,AQID">""")
+
+        fetched shouldBe emptyList()
+    }
+
+    @Test
     fun `a stored image is fetched with its source's image headers`() = runTest {
         inlined("""<img src="/a.jpg">""")
 

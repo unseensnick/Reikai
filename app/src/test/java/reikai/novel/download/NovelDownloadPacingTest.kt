@@ -66,6 +66,22 @@ class NovelDownloadPacingTest {
     }
 
     @Test
+    fun `a success halves the wait`() {
+        NovelDownloadPacing.next(currentMs = 8_000, succeeded = true, floorMs = 500) shouldBe 4_000L
+    }
+
+    @Test
+    fun `a failure doubles the wait`() {
+        NovelDownloadPacing.next(currentMs = 2_000, succeeded = false, floorMs = 500) shouldBe 4_000L
+    }
+
+    /** The user raised the delay while downloads ran, so the kept wait sits below the new one. */
+    @Test
+    fun `a failure doubles from the user's delay when the kept wait is below it`() {
+        NovelDownloadPacing.next(currentMs = 500, succeeded = false, floorMs = 5_000) shouldBe 10_000L
+    }
+
+    @Test
     fun `a success halves the wait but never below the user's delay`() {
         NovelDownloadPacing.next(currentMs = 4_000, succeeded = true, floorMs = 3_000) shouldBe 3_000L
     }

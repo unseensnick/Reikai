@@ -143,6 +143,7 @@ class Downloader(
 
         val pending = queueState.value.filter { it.status != Download.State.DOWNLOADED }
         pending.forEach { if (it.status != Download.State.QUEUE) it.status = Download.State.QUEUE }
+        pending.forEach { it.failure = null } // RK: a retry does not keep the last attempt's reason
 
         isPaused = false
 

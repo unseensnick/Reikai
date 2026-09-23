@@ -38,11 +38,7 @@ data class DownloadQueueSnapshot(
     val activeSeries: Set<Long>,
     val completed: Map<Long, Int>,
     val labels: Map<Long, QueuedSeriesLabel>,
-) {
-    companion object {
-        val EMPTY = DownloadQueueSnapshot(emptyList(), emptySet(), emptyMap(), emptyMap())
-    }
-}
+)
 
 /**
  * One card per series, in the downloader's order. The total is what remains plus what finished, so
@@ -93,6 +89,15 @@ fun arrangeCards(
         present[key]?.let { remaining[it.contentType]?.removeFirstOrNull() }
     }
     return slotted + remaining.values.flatten()
+}
+
+/**
+ * The saved order with every series that has left the queue taken out, so one queued again later goes
+ * last instead of taking back its old position and moving a card nobody dragged.
+ */
+fun prunedOrder(savedKeys: List<String>, cardsByType: Map<ContentType, List<EntryDownloadCardUi>>): List<String> {
+    val present = cardsByType.values.flatten().mapTo(HashSet()) { it.cardKey }
+    return savedKeys.filter { it in present }
 }
 
 /**

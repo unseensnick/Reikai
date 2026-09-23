@@ -25,9 +25,6 @@ data class Download(
     @Transient
     var failure: String? = null
 
-    val totalProgress: Int
-        get() = pages?.sumOf(Page::progress) ?: 0
-
     val downloadedImages: Int
         get() = pages?.count { it.status == Page.State.Ready } ?: 0
 

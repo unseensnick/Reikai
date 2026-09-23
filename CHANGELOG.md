@@ -450,7 +450,7 @@ every release now also ships a foss build with neither in it.
 
 - **Tap a series in the download queue to see its chapters, cancel one, start one now, move one to the bottom, or read why it failed.** A downloading manga chapter shows its page count.
 - **Settings -> Downloads -> Pacing sets the wait between novel chapters, for every source or one source at a time, never below what the source asks for.** Manga sources pace themselves.
-- **The novel download notification now has Pause and Show entry, as manga's does.** A paused queue leaves a notification with Resume and Cancel all.
+- **The novel download notification now has Pause and Show entry, as manga's does.** A paused queue leaves a notification with Resume and Cancel all, and a failed chapter's has Show entry.
 - **Novels from novel extension apps, IReader's included, now browse, search, read, download and update like plugin novels, and the apps install and update in Browse -> Extensions like manga extensions.**
 - **When a list mixes kinds of novel source, each one is labelled JS, APK or IReader.** Browse, global search, the feed and migration all do it.
 - **Extensions from IReader's own repo load without a trust prompt, as a signed repo's do.**
@@ -489,6 +489,9 @@ every release now also ships a foss build with neither in it.
 - **Deleting a novel's last downloaded chapter now removes its empty folder, as manga does.**
 - **Settings -> Advanced -> Reindex downloads now covers novel downloads too, as does restoring a backup.**
 - **Pausing manga downloads from the notification now leaves the paused notification to resume from.** It used to vanish, leaving the queue paused with no way back from the shade.
+- **Reordering or sorting a paused novel download queue no longer starts it downloading.**
+- **Pausing novel downloads no longer marks the chapter being retried as failed and drops it from the queue.**
+- **A novel chapter its source returns empty now fails to download at once and says why, instead of retrying and reporting an unknown error.**
 
 ### Backup & restore
 

@@ -9,12 +9,14 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
@@ -52,8 +54,13 @@ class EntryDownloadQueueViewModel(
     ) { snapshotsByType, savedOrder -> snapshotsByType to savedOrder }
         .mapLatest { (snapshotsByType, savedOrder) ->
             val cardsByType = snapshotsByType.mapValues { (type, snapshot) -> snapshot.toCards(type) }
-            State(arrangeCards(savedOrder.toKeys(), cardsByType).map { it.withChapterName() })
+            val saved = savedOrder.toKeys()
+            val kept = prunedOrder(saved, cardsByType)
+            if (kept.size != saved.size) sourcePreferences.downloadQueueOrder.set(kept.joinToString(ORDER_SEPARATOR))
+            State(arrangeCards(kept, cardsByType).map { it.withChapterName() })
         }
+        // The whole queue is rebuilt on every status change and progress sample; keep that off the main thread.
+        .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
     private val openedSeries = MutableStateFlow<Pair<ContentType, Long>?>(null)
@@ -94,9 +101,6 @@ class EntryDownloadQueueViewModel(
 
     fun cancel(card: EntryDownloadCardUi) {
         providers[card.contentType]?.cancelSeries(card.seriesId)
-        // Forgotten here so the series lands at the end, not in its old place, if it is queued again.
-        val saved = sourcePreferences.downloadQueueOrder.get().toKeys()
-        sourcePreferences.downloadQueueOrder.set((saved - card.cardKey).joinToString(ORDER_SEPARATOR))
     }
 
     fun cancelAll() {

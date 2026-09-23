@@ -7,6 +7,7 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.activeNetworkState
 import eu.kanade.tachiyomi.util.system.notificationManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,6 +29,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -150,8 +152,8 @@ class NovelDownloadManager(
         context.notificationManager.cancel(Notifications.ID_NOVEL_DOWNLOADER_PAUSED)
     }
 
-    /** User pause: stop the drain without clearing the queue, persisted so a restart stays paused. The
-     *  worker is cancelled; any in-flight chapter is reset to QUEUE at the next drain start (see
+    /** User pause: stop the drain without clearing the queue. The flag only tells the worker's last
+     *  notification to offer Resume, since nothing restarts a queue on launch anyway. The worker is cancelled; any in-flight chapter is reset to QUEUE at the next drain start (see
      *  [runQueue]) so resume re-downloads it rather than leaving it stuck DOWNLOADING. */
     fun pauseDownloads() {
         sourcePreferences.novelDownloadsPaused.set(true)
@@ -173,9 +175,11 @@ class NovelDownloadManager(
     fun cancelDownloads(chapterIds: List<Long>) {
         val ids = chapterIds.toSet()
         if (ids.isEmpty()) return
-        _queueState.update { q -> q.filter { it.chapterId !in ids } }
+        val left = _queueState.updateAndGet { q -> q.filter { it.chapterId !in ids } }
         retainQueuedCompletions()
         scope.launch { ids.forEach { store.remove(it) } }
+        // A paused queue emptied one series at a time has nothing left to resume.
+        if (left.isEmpty()) dismissPausedNotification()
     }
 
     /** Bump a queued chapter to the front so it downloads next, retrying it if it failed, and persist
@@ -198,13 +202,13 @@ class NovelDownloadManager(
 
     /** Replace the pending queue order (drag-to-reorder or sort from the queue screen) and persist it,
      *  so a cold restart drains in the new order. The active drain re-reads the queue each step, so a
-     *  reorder takes effect on the next pick and the in-flight chapter is left alone. */
+     *  reorder takes effect on the next pick and the in-flight chapter is left alone; a paused or idle
+     *  queue stays paused, as manga's does. */
     fun reorderQueue(downloads: List<NovelDownload>) {
         // update{} (not value=) so this composes with the active drain's atomic removals instead of
         // overwriting them, which could otherwise re-add a chapter the drain just completed.
         _queueState.update { downloads }
         scope.launch { store.replaceAll(downloads) }
-        if (downloads.any { it.state == NovelDownload.State.QUEUE }) NovelDownloadJob.start(context)
     }
 
     /** Relocate a downloaded chapter's file after a source re-title, keeping the disk index in sync.
@@ -289,7 +293,7 @@ class NovelDownloadManager(
      */
     suspend fun runQueue(
         onProgress: (NovelDownloadProgress) -> Unit,
-        onError: (novelTitle: String?, chapterName: String?, error: String?, isAdult: Boolean) -> Unit,
+        onError: (novel: Novel?, chapterName: String?, error: String?, isAdult: Boolean) -> Unit,
     ) {
         if (!running.compareAndSet(false, true)) return
         try {
@@ -357,8 +361,11 @@ class NovelDownloadManager(
                     ok = runCatching {
                         val source = novel?.let { sourceManager.get(it.source) } ?: return@runCatching false
                         if (chapter == null) return@runCatching false
-                        saver.save(novel, chapter, source, source.parseChapter(next.url))
+                        val html = source.parseChapter(next.url).ifBlank { throw EmptyChapterException() }
+                        saver.save(novel, chapter, source, html)
                     }.getOrElse {
+                        // A pause cancels the worker mid-attempt; the last attempt has no delay to rethrow it.
+                        if (it is CancellationException) throw it
                         lastError = it
                         logcat(LogPriority.ERROR, it) {
                             "Novel chapter download attempt ${attempt + 1} failed: chapter=${next.chapterId}"
@@ -372,7 +379,8 @@ class NovelDownloadManager(
                         connectionLost = true
                         break
                     }
-                    if (attempt >= MAX_RETRIES) break
+                    // An empty answer is the source's, not a blip, so trying again gets the same.
+                    if (attempt >= MAX_RETRIES || lastError is EmptyChapterException) break
                     attempt++
                     // Exponential backoff: 2s, 4s, 8s.
                     delay(maxOf((1L shl attempt) * 1000L, minimumMs))
@@ -391,10 +399,15 @@ class NovelDownloadManager(
                     done++
                 } else {
                     // Don't retry forever across restarts; surface ERROR and drop from persistence.
-                    setState(next.chapterId, NovelDownload.State.ERROR, lastError?.message)
+                    val reason = if (lastError is EmptyChapterException) {
+                        context.stringResource(MR.strings.novel_chapter_empty)
+                    } else {
+                        lastError?.message
+                    }
+                    setState(next.chapterId, NovelDownload.State.ERROR, reason)
                     store.remove(next.chapterId)
                     // Notify the user: a failed novel download was previously completely silent.
-                    onError(novel?.title, chapter?.name, lastError?.message, isAdult)
+                    onError(novel, chapter?.name, reason, isAdult)
                 }
                 // Per-source pacing, by the user's delay and NovelDownloadPacing's back-off, so a
                 // rate-limited or blocked site slows down on its own without dragging healthy sources.

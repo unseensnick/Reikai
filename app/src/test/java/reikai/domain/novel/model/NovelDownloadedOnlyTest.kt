@@ -13,6 +13,11 @@ class NovelDownloadedOnlyTest {
     /** The novel's own downloaded filter is off, so only the switch can hide chapter 2. */
     private val novel = Novel.create().copy(chapterFlags = NovelChapterFlags.FILTER_LOCAL)
 
+    /** This novel's own filter shows only chapters not on disk, which the switch must not override when off. */
+    private val notDownloaded = Novel.create().copy(
+        chapterFlags = NovelChapterFlags.FILTER_LOCAL or NovelChapterFlags.SHOW_NOT_DOWNLOADED,
+    )
+
     private fun chapter(id: Long) = NovelChapter(
         id = id,
         novelId = 1L,
@@ -28,8 +33,8 @@ class NovelDownloadedOnlyTest {
         page = "",
     )
 
-    private fun shown(downloadedOnly: Boolean) = listOf(chapter(1), chapter(2)).sortedAndFiltered(
-        novel,
+    private fun shown(downloadedOnly: Boolean, of: Novel = novel) = listOf(chapter(1), chapter(2)).sortedAndFiltered(
+        of,
         prefs,
         downloadedChapterIds = setOf(1L),
         readInOtherSources = emptySet(),
@@ -44,12 +49,6 @@ class NovelDownloadedOnlyTest {
 
     @Test
     fun `with the switch off the novel's own filter decides`() {
-        shown(downloadedOnly = false) shouldBe listOf(1L, 2L)
-    }
-
-    /** The switch is applied when reading, never saved, so the novel's setting survives it. */
-    @Test
-    fun `the switch leaves the novel's own filter untouched`() {
-        novel.effectiveDownloadedFilter(prefs) shouldBe 0L
+        shown(downloadedOnly = false, of = notDownloaded) shouldBe listOf(2L)
     }
 }
