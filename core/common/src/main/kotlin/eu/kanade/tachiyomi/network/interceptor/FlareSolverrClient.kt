@@ -486,7 +486,7 @@ private val COOKIE_NAMES = listOf("cf_clearance")
 
 /**
  * Whether a secret may travel to the FlareSolverr at [flareSolverrUrl]: over https, or in the clear
- * only to the user's own network. The site's cookies and the proxy login both go through this.
+ * only to the user's own network or mesh VPN. The site's cookies and the proxy login both go through this.
  */
 fun isPrivateChannel(flareSolverrUrl: String): Boolean {
     val url = flareSolverrUrl.trim().toHttpUrlOrNull() ?: return false
@@ -494,6 +494,8 @@ fun isPrivateChannel(flareSolverrUrl: String): Boolean {
     val host = url.host.lowercase()
     if (host == "localhost" || ('.' !in host && ':' !in host)) return true
     if (LOCAL_SUFFIXES.any { host.endsWith(it) }) return true
+    if (host.endsWith(".ts.net")) return url.port !in TAILSCALE_PUBLIC_PORTS
+    if (MESH_SUFFIXES.any { host.endsWith(it) }) return true
     if (':' in host) return host == "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80")
     val octets = host.split('.').map { it.toIntOrNull() ?: return false }
     if (octets.size != 4) return false
@@ -503,6 +505,13 @@ fun isPrivateChannel(flareSolverrUrl: String): Boolean {
 }
 
 private val LOCAL_SUFFIXES = listOf(".local", ".lan", ".home.arpa", ".internal")
+
+// NetBird's peer names, hosted and its self-hosted default, which resolve only inside the mesh.
+private val MESH_SUFFIXES = listOf(".netbird.cloud", ".netbird.selfhosted")
+
+// A Tailscale name resolves only inside the tailnet unless Funnel publishes it, to relays taking https
+// on 443, 8443 and 10000; 80 too, since how a relay answers plain http there is undocumented.
+private val TAILSCALE_PUBLIC_PORTS = setOf(80, 443, 8443, 10000)
 
 /**
  * The cookies a request carries, as OkHttp would send them: the jar's for [url], or when the jar has

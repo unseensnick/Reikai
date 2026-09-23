@@ -91,6 +91,8 @@ A mesh VPN such as [Tailscale](https://tailscale.com/), [Headscale](https://gith
 1. Put `http://<vpn-address>:8191` in **FlareSolverr URL** instead of the LAN address.
 
 Nothing is opened on your router, and the proxy answers only devices signed in to your mesh.
+
+A sign-in in front of the server works over plain `http://` here too. Reikai counts a mesh VPN's `100.x.y.z` addresses, Tailscale's `.ts.net` names and NetBird's `.netbird.cloud` and `.netbird.selfhosted` names as your own network. A `.ts.net` name needs a port other than 80, 443, 8443 or 10000, because Tailscale Funnel can publish the same name on the internet on those. For a Headscale name on a domain of your own, or a ZeroTier network, use the device's VPN address.
 == Public domain
 If you already run a reverse proxy (Caddy, nginx, Traefik), point a subdomain at port `8191` and set **FlareSolverr URL** to `https://flaresolverr.example.com`.
 
@@ -110,7 +112,7 @@ This is not theoretical. A reader who did this had the hostname appear in Certif
 
 ## Keeping the sign-in at your proxy
 
-Reikai sends the sign-in only to the address in **FlareSolverr URL**, on the same scheme, host and port, and only over https or to an address on your own network. It never follows a redirect from that address, so the sign-in cannot be carried somewhere else.
+Reikai sends the sign-in only to the address in **FlareSolverr URL**, on the same scheme, host and port, and only over https or to an address on your own network or mesh VPN. It never follows a redirect from that address, so the sign-in cannot be carried somewhere else.
 
 Most reverse proxies pass the sign-in on to FlareSolverr after checking it. FlareSolverr ignores it and never sends it to the sites it opens, but nothing past your proxy needs to see it, so remove it there:
 

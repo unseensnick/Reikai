@@ -65,6 +65,9 @@ class FlareSolverrCommandTest {
             "http://nas:8191",
             "http://solver.lan:8191",
             "http://[fd12::1]:8191",
+            "http://unraid.tail1234.ts.net:8191",
+            "http://peer.netbird.cloud:8191",
+            "http://peer.netbird.selfhosted:8191",
         ],
     )
     fun `secrets go to a solver over https or on the user's own network`(url: String) {
@@ -83,6 +86,15 @@ class FlareSolverrCommandTest {
             "http://100.128.0.1:8191",
             "http://100.63.0.1:8191",
             "http://[2001:db8::5]:8191",
+            // Ports a Tailscale Funnel relay serves publicly, and plain http's default.
+            "http://unraid.tail1234.ts.net",
+            "http://unraid.tail1234.ts.net:443",
+            "http://unraid.tail1234.ts.net:8443",
+            "http://unraid.tail1234.ts.net:10000",
+            // Look-alikes that only contain the mesh domains.
+            "http://evil-ts.net:8191",
+            "http://ts.net.example.com:8191",
+            "http://peer.netbird.cloud.example.com:8191",
         ],
     )
     fun `secrets never cross the internet in the clear`(url: String) {
