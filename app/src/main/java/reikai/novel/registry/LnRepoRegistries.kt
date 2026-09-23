@@ -71,6 +71,7 @@ class LnRepoRegistries(
         }
         loaded.value = loaded.value.orEmpty() + (repoUrl to LnRepoResult.Reached(entries))
         prefs.addedRepoUrls().set(prefs.addedRepoUrls().get() + repoUrl)
+        rememberIcons(entries)
         Result.success(Unit)
     }
 
@@ -94,11 +95,16 @@ class LnRepoRegistries(
 
     private suspend fun fetch(repo: String): LnRepoResult {
         return try {
-            LnRepoResult.Reached(fetcher.fetchRepo(repo))
+            LnRepoResult.Reached(fetcher.fetchRepo(repo).also(::rememberIcons))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             LnRepoResult.Unreachable(e.message ?: e::class.simpleName.orEmpty())
         }
+    }
+
+    // A novel app whose own icon shows nothing can take the icon a plugin lists for the same site.
+    private fun rememberIcons(entries: List<LnRegistryEntry>) {
+        prefs.addIconHints(emptyMap(), entries.mapNotNull { entry -> entry.iconUrl?.let { entry.site to it } })
     }
 }

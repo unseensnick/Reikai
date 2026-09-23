@@ -14,6 +14,7 @@ import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.domain.source.NovelIconHints
 import reikai.novel.content.NovelSnippetKind
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -73,6 +74,26 @@ class NovelPreferences(
             runCatching { metadataJson.decodeFromString(seenSourcesMapSerializer, it) }.getOrElse { emptyMap() }
         },
     )
+
+    /** Icons for a novel app whose own icon shows nothing, gathered from the store and repo listings. */
+    fun novelIconHints() = preferenceStore.getObjectFromString(
+        key = "novel_icon_hints",
+        defaultValue = NovelIconHints(),
+        serializer = { metadataJson.encodeToString(NovelIconHints.serializer(), it) },
+        deserializer = {
+            runCatching {
+                metadataJson.decodeFromString(NovelIconHints.serializer(), it)
+            }.getOrElse { NovelIconHints() }
+        },
+    )
+
+    /** Adds to [novelIconHints], writing only when something changed. */
+    fun addIconHints(packages: Map<String, String>, siteIcons: List<Pair<String?, String>>) {
+        val hints = novelIconHints()
+        val current = hints.get()
+        val updated = current.plus(packages, siteIcons)
+        if (updated != current) hints.set(updated)
+    }
 
     /**
      * Plugin repo URLs (i.e. `plugins.min.json` registries) the user added. Distinct from

@@ -1,8 +1,8 @@
 package reikai.domain.track.site
 
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import reikai.domain.source.siteHost
 import reikai.novel.source.NovelSource
-import java.net.URI
 
 /**
  * A site whose tracking a Reikai tracker has taken over from the extensions reading that site: the
@@ -33,8 +33,7 @@ object OwnedSites {
 
     /** The site [siteUrl] is on, when a Reikai tracker owns it; matched by host, with or without `www.`. */
     fun ownerOf(siteUrl: String): OwnedSite? {
-        val host = runCatching { URI(siteUrl.trim()).host }.getOrNull()?.lowercase()?.removePrefix("www.")
-            ?: return null
+        val host = siteHost(siteUrl) ?: return null
         return all.firstOrNull { it.host == host }
     }
 

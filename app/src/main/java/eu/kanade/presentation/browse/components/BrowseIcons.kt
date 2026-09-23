@@ -1,6 +1,5 @@
 package eu.kanade.presentation.browse.components
 
-import android.graphics.Bitmap
 import android.util.DisplayMetrics
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -24,7 +23,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
@@ -41,6 +39,8 @@ import exh.source.eHentaiSourceIds
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Dangerous
 import mihon.icons.materialsymbols.rounded.Warning
+import reikai.data.coil.extensionIconUrl
+import reikai.data.coil.isInvisible
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.source.model.Source
 import tachiyomi.source.local.isLocal
@@ -167,22 +167,13 @@ fun ExtensionIcon(
                     contentDescription = null,
                     modifier = modifier,
                 )
-                // RK -->
-                Result.Error -> if (extension.storeIconUrl != null) {
-                    AsyncImage(
-                        model = extension.storeIconUrl,
-                        contentDescription = null,
-                        error = painterResource(R.mipmap.ic_default_source),
-                        modifier = modifier,
-                    )
-                } else {
-                    Image(
-                        bitmap = ImageBitmap.imageResource(id = R.mipmap.ic_default_source),
-                        contentDescription = null,
-                        modifier = modifier,
-                    )
-                }
-                // RK <--
+                // RK: an app whose icon shows nothing may borrow one through the novel source icon's fetcher
+                Result.Error -> AsyncImage(
+                    model = extensionIconUrl(extension.pkgName),
+                    contentDescription = null,
+                    error = painterResource(R.mipmap.ic_default_source),
+                    modifier = modifier,
+                )
             }
         }
         is Extension.NotLoaded -> Image(
@@ -210,12 +201,6 @@ private fun Extension.getIcon(density: Int = DisplayMetrics.DENSITY_DEFAULT): St
             }
         }
     }
-}
-
-// RK
-private fun Bitmap.isInvisible(): Boolean {
-    val pixels = IntArray(width * height).also { getPixels(it, 0, width, 0, 0, width, height) }
-    return pixels.all { it ushr 24 == 0 }
 }
 
 sealed class Result<out T> {

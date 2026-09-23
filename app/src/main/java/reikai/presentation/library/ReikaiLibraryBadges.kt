@@ -11,8 +11,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -193,7 +196,9 @@ private fun NHentaiNetSourceIconBadge() {
  *  novel cover's badge is visually identical to a manga's. Renders nothing when the URL is absent. */
 @Composable
 fun NovelSourceIconBadge(iconUrl: String?) {
-    if (iconUrl.isNullOrEmpty()) return
+    // One that fails to load is dropped like an absent one, rather than left an empty square.
+    var failed by remember(iconUrl) { mutableStateOf(false) }
+    if (iconUrl.isNullOrEmpty() || failed) return
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -203,6 +208,7 @@ fun NovelSourceIconBadge(iconUrl: String?) {
         AsyncImage(
             model = iconUrl,
             contentDescription = null,
+            onError = { failed = true },
             modifier = Modifier
                 .scale(1.3f)
                 .height(18.dp),

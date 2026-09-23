@@ -38,6 +38,7 @@ import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.toRepoStatus
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ContentWarningScan
 import reikai.domain.source.contentWarningScan
 import reikai.domain.source.contentWarningScanChanges
@@ -68,6 +69,8 @@ class ExtensionManager(
     private val api: ExtensionApi,
     private val installer: ExtensionInstaller,
     private val extensionUpdateNotifier: ExtensionUpdateNotifier,
+    // RK: keeps the listing's icons for a novel app whose own icon shows nothing
+    private val novelPreferences: NovelPreferences,
 ) {
 
     val scope = CoroutineScope(SupervisorJob())
@@ -284,6 +287,12 @@ class ExtensionManager(
         // RK --> novel entries leave here, so languages, statuses and stub data below see manga only
         val (extensions, novelExtensions) = fetched.partition { it.kind == Extension.Kind.MANGA }
         availableNovelExtensionMapFlow.value = novelExtensions.associateBy { it.pkgName }
+        novelPreferences.addIconHints(
+            packages = novelExtensions.associate { it.pkgName to it.iconUrl },
+            siteIcons = novelExtensions.flatMap { extension ->
+                extension.sources.map { it.baseUrl to extension.iconUrl }
+            },
+        )
         // RK <--
 
         enableAdditionalSubLanguages(extensions)
@@ -360,13 +369,11 @@ class ExtensionManager(
                         hasUpdate = hasUpdate,
                         store = availableExt.store,
                         isObsolete = false, // RK: a store added since lists it again
-                        storeIconUrl = availableExt.iconUrl, // RK
                     )
                 } else {
                     loadedExtensionsMap[pkgName] = extension.copy(
                         store = availableExt.store,
                         isObsolete = false, // RK
-                        storeIconUrl = availableExt.iconUrl, // RK
                     )
                 }
                 changed = true
