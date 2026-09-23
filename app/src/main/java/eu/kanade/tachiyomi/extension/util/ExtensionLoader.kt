@@ -302,7 +302,10 @@ internal object ExtensionLoader {
         val extName = metaData?.getString(METADATA_NAME)
             // RK: an IReader app names itself in its source metadata; its label reads "IReader: X (en)"
             ?: metaData?.getString(kind.metadataKey("name"))
-            ?: appInfo?.let { pkgManager.getApplicationLabel(it).toString().substringAfter("Tachiyomi: ") }
+            // RK: a tsundoku-format app's label reads "Tsundoku: X"
+            ?: appInfo?.let {
+                pkgManager.getApplicationLabel(it).toString().substringAfter("Tachiyomi: ").substringAfter("Tsundoku: ")
+            }
             ?: pkgName
         val versionName = pkgInfo.versionName
         val versionCode = PackageInfoCompat.getLongVersionCode(pkgInfo)

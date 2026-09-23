@@ -88,6 +88,18 @@ class IReaderNovelSourceTest {
     }
 
     @Test
+    fun `a listed novel with no title is left out, as IReader leaves it out`() = runTest {
+        val source = source().also {
+            coEvery { it.getMangaList(first, 1) } returns
+                MangasPageInfo(
+                    listOf(MangaInfo(key = "k0", title = " "), MangaInfo(key = "k1", title = "First")),
+                    false,
+                )
+        }
+        adapter(source).browse(NovelListing.Popular, 1, null).items.map { it.path } shouldBe listOf("k1")
+    }
+
+    @Test
     fun `latest is its second listing`() = runTest {
         adapter(source(listOf(first, second))).browse(NovelListing.Latest, 1, null).items.single().name shouldBe
             "Second"

@@ -138,8 +138,11 @@ class IReaderNovelSource(
         else -> "$site/$path"
     }
 
+    // IReader leaves out an entry its source parsed no title for, which would list as a blank row.
     private fun MangasPageInfo.toPage() = NovelItemsPage(
-        items = mangas.map { NovelItem(name = it.title, path = it.key, cover = it.cover.ifBlank { null }) },
+        items = mangas.filter {
+            it.title.isNotBlank()
+        }.map { NovelItem(name = it.title, path = it.key, cover = it.cover.ifBlank { null }) },
         hasNextPage = hasNextPage,
     )
 

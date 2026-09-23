@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.RateLimited
 import eu.kanade.tachiyomi.source.SourceTracker
 import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -92,9 +93,14 @@ class TachiyomiNovelSource(
     // Strip control characters only, as the plugin adapter does: the text is HTML the reader renders.
     override suspend fun parseChapter(chapterPath: String): String = withIOContext {
         val chapter = SChapter.create().apply { url = chapterPath }
-        val text = source.getPageList(chapter).map { source.fetchPageText(it) }.joinToString("\n")
+        val text = source.getPageList(chapter).map { source.fetchPageText(it.addressed()) }.joinToString("\n")
         NovelTextSanitizer.stripInvalidChars(text)
     }
+
+    // NovelSourcery's ReadWN theme names the chapter only as the page's picture, then fetches the page's
+    // own address, which is empty and lands on the site's home page.
+    private fun Page.addressed(): Page =
+        if (url.isBlank() && !imageUrl.isNullOrBlank()) Page(index, imageUrl!!, imageUrl) else this
 
     override suspend fun resolveUrl(path: String, isNovel: Boolean): String? = appUrl(path, isNovel)
 

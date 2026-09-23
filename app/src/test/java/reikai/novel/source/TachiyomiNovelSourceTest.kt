@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.RateLimited
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
@@ -85,6 +86,32 @@ class TachiyomiNovelSourceTest {
     fun `an app that cannot build a page falls back to its site`() {
         webSource(fails = true).webUrl("slug/", isNovel = true) shouldBe "https://site.example/slug/"
     }
+
+    @Test
+    fun `a chapter an app names only as its picture address is fetched from that address`() = runTest {
+        textSource(Page(0, imageUrl = "https://site.example/read/c")).parseChapter("c") shouldBe
+            "text of https://site.example/read/c"
+    }
+
+    @Test
+    fun `a chapter page with its own address is fetched as the app gave it`() = runTest {
+        textSource(Page(0, url = "https://site.example/read/c", imageUrl = "https://cdn.example/p.jpg"))
+            .parseChapter("c") shouldBe "text of https://site.example/read/c"
+    }
+
+    /** An app whose page text echoes the address it was asked for. */
+    private fun textSource(page: Page) = TachiyomiNovelSource(
+        mockk<CatalogueSource>().apply {
+            every { id } returns 7L
+            every { name } returns "App"
+            every { lang } returns "en"
+            every { supportsLatest } returns false
+            every { getFilterList() } returns FilterList()
+            coEvery { getPageList(any()) } returns listOf(page)
+            coEvery { fetchPageText(any()) } answers { "text of " + firstArg<Page>().url }
+        },
+        loadedExtension(),
+    )
 
     /** An app whose novel path is a bare slug, which only its own url rule turns into a page. */
     private fun webSource(fails: Boolean = false) = TachiyomiNovelSource(
