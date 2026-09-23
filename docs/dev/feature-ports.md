@@ -1,4 +1,4 @@
-# Feature ports (Komikku, Tsundoku, LNReader)
+# Feature ports (Komikku, Tsundoku, IReader, LNReader)
 
 Reikai's **base** is Mihon. That relationship is a linear "synced through SHA X" frontier with its own process and ledger: [upstream-sync.md](upstream-sync.md).
 
@@ -101,6 +101,9 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 | Chapter title format | `reikai/presentation/reader/ChapterTitle.kt` | 2026-09-14 @ `b04f9a4d3` | Their name, number, and number-and-name choice for the bar. Diverged: the words come from string resources, the default stays the name the bar always showed, and a number the name already opens with is dropped, where theirs prints it twice. Both readers use it, each with its own setting. |
 | Novel tap layouts | `reikai/presentation/reader/NovelTapZones.kt`, `reikai/presentation/reader/navigation/NovelNavigations.kt` | 2026-09-14 @ `b04f9a4d3` | Their `CenterNavigation` and `BottomNavigation` beside Mihon's layouts, and their rule that a zone-only layout leaves a tap outside its zone alone. Diverged: the WebView page forwards taps to the host so both renderers answer from one Kotlin rule, where theirs decides in each viewer; an inversion a layout cannot draw is corrected when the layout is chosen rather than when the viewer reads it. |
 | Per-source engine isolation | `reikai/novel/host/LnPluginHost.kt` (`93d8a0425`) | 2026-08-02 @ `ba62b1937` | The design idea from tsundoku's per-source `JsSource` instances + 60s idle timeout, implemented Reikai-native: per-plugin engine slots plus a shared loader engine for bulk info extraction (tsundoku has no loader equivalent). |
+| Novel extension apps | `reikai/novel/source/TachiyomiNovelSource.kt`, the `tachiyomi.novelextension` kind in `ExtensionLoader` (`ab0d8f2ce`, `3ccf27c39`) | 2026-09-23 @ `b04f9a4d3` | Their host's way of loading NovelSourcery APKs: the novel manifest feature and chapter text through `getPageList` then `fetchPageText`. The contract is `tsundoku-otaku/extensions-lib` v1.6.0-3 rather than a host commit. Diverged: the kind comes from the manifest feature, not their `.novel` flag, and novels keep their own tables. [Plan](plans/content-layer-sources-surface.md). |
+| Source-side tracking | `reikai/domain/track/source/SourceTrackerKernel.kt` (`6ba3f57d2`, `dda3970e5`) | 2026-09-23 @ `b04f9a4d3` | Their `SourceTracker` dispatch, for both content types. Diverged: adds and removes wait and send only the settled state, the interface is matched by type rather than reflection, and NovelUpdates goes to Reikai's tracker instead. |
+| Rate-limit hints | `reikai/novel/download/NovelDownloadPacing.kt` (`a68c7f58b`) | 2026-09-23 @ `b04f9a4d3` | `RateLimited.minimumDelayMillis` floors novel download pacing. Their app-wide request throttle was not taken, since the extensions declaring a minimum pace their own clients at it. |
 
 **Informed by, but implemented independently:** the LN-plugin host runtime work (`226dd7d1b`, `3875e70f3`, `e04d4e5fe`). The *gap list* came from diffing tsundoku's JS runtime against Reikai's, but each fix is Reikai-native: real `setTimeout` delays via a `__lnDelay` async binding (30s cap), `Buffer` / `Blob` / `Response.arrayBuffer()` / fuller headers, an `X-XSRF-TOKEN` header, and a truncated-plugin-cache heal.
 
@@ -119,17 +122,48 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 - **Content-type binary fetch.** Auto-detecting binary responses by Content-Type would garble a mislabeled non-UTF-8 (GBK / Shift-JIS) text source, and no novel plugin fetches raw binary. See ROADMAP "Parked".
 - **LNReader filter -> `FilterList` conversion.** Reikai renders the plugin's raw filter schema directly and that works; the real defect was a member-name mismatch in Reikai's own `filterInputs` shim, fixed in `226dd7d1b`. Adopting tsundoku's model would be a rewrite for no added coverage.
 - **On-device translation stack.** Parked; see ROADMAP.
-- **The source-list system.** Audited 2026-08-02: tsundoku runs six parallel Browse tabs (novel + manga pairs) and adapts its novel state into Mihon's `SourcesScreen`; Reikai's chip-switched tabs with a combined All view are already ahead, so there is nothing structural to take. Their persisted `sources.is_js` type tag matters only if Kotlin novel extensions ever join the JS plugins (see the APK novel-extension ROADMAP item, `unseensnick/Reikai#31`).
+- **The source-list system.** Audited 2026-08-02: tsundoku runs six parallel Browse tabs (novel + manga pairs) and adapts its novel state into Mihon's `SourcesScreen`; Reikai's chip-switched tabs with a combined All view are already ahead, so there is nothing structural to take. Their persisted `sources.is_js` type tag was not needed when APK novel extensions joined the plugins: each novel source carries its format as a typed field ([content-layer-sources-surface.md](plans/content-layer-sources-surface.md)).
 - **The custom-source builder (CSS-selector wizard).** Parked on ROADMAP 2026-08-02: large (~4000 lines with its editor screens), orthogonal, unproven demand.
 
 ### Pass log
 
 | Date | Ref HEAD | Range | Result |
 |---|---|---|---|
+| 2026-09-23 | `b04f9a4d3` | Their host's handling of APK novel extensions, walked for the sources surface's behaviour inventory | **3 ported** (novel extension apps, source-side tracking, rate-limit hints, rows above). Their `getPageList` short-cut for novel sources not needed, since every NovelSourcery extension supplies its own; their request throttle not taken. Full inventory in [content-layer-sources-surface.md](plans/content-layer-sources-surface.md). |
 | 2026-09-14 | `b04f9a4d3` | Every commit from `3bde68a09` on, grounded against Reikai's call sites | **1 ported**, reshaped: the incompatible-extension guard from `bc46a8379`. Their three sites (library update, global search, migration) already catch `Throwable` here, so the guard went where Reikai was exposed instead: `UpdateMangaFromRemote` (which the details refresh reaches) and the browse page loader. **Declined by owner:** their tap-zone modes (`18a0f3c44`) and the paged WebView reader (`3cbd993ba`). Monet `NotFoundException` guard not taken (unreproduced OEM report, Mihon's file). Reported as already covered or ahead by an explorer pass, not re-read: TTS media notification, the WebView outline clip, auto-split HTML detection, JS result unescaping, legacy `QuickJs`, memo on download, custom metadata on refresh. Not applicable: massimport, their extension store and deeplinks, SourceTracker, EPUB import, their library cache, release commits. |
 | 2026-08-02 | `ba62b1937` | Source system + LNReader-plugin execution audit (5 explorers + inline verification) | **Verdict: do not port** the JS host or the source list (Reikai ahead on both, see above). **1 idea ported** (per-source engine isolation, `93d8a0425`). APK novel-extension support promoted to ROADMAP (`unseensnick/Reikai#31`); custom-source wizard parked. Their `b1edfc8f4` (source-API 1.6 compat, `getMangaUpdate` as the only app-side call) is groundwork reading for the APK item. |
 | 2026-07-15 | `11a6ffce3` | Scout of `JsSource` + the JS runtime vs Reikai's LN host | **3 ported** (dates, text sanitizing, next-page probing) plus a tsundoku-informed host-runtime batch. The scout reversed the assumed priority: the runtime gaps that looked urgent (`arrayBuffer` / `Buffer` / `Blob`) had ~zero real plugin demand, while honoring `setTimeout` delays was the actual cause of plugin failures. |
 | 2026-07-14 | (scout) | Port-candidate survey | Candidates promoted to ROADMAP by area; translation stack parked. |
+
+## IReader
+
+[IReader](https://github.com/IReaderorg/IReader), a novel reader with its own compiled-APK extension format and source API. The reference for running those extensions. Ref: `refs/IReader` (branch `main`); the API Reikai runs is the published `source-api` 1.5.1 (`548bd934f`), since `main` has since added copies of `eu.kanade.tachiyomi` classes.
+
+### Ported features
+
+| Feature | Reikai home | Last checked | Notes |
+|---|---|---|---|
+| IReader novel extensions | `reikai/novel/source/ireader/` (`0e9e8fe7b`, `c6647dc6f`, `d64bf2c4d`, `4bf1a7b62`) | 2026-09-23 @ `de8cf8b31` | Loading by the `ireader` manifest feature, library 2 only, built from `Dependencies`; host services as Ktor over the app's OkHttp client, per-package preferences and their WebView browser engine; listings, filter translation and pages to HTML. Koin excluded. [Plan](plans/content-layer-sources-surface.md). |
+| Extension store index | `reikai/data/extension/IReaderStoreIndex.kt` (`07c58be70`) | 2026-09-23 @ `de8cf8b31` | Their flat `index.min.json` read as an extension store, newest copy of each package kept, icons named after the APK. |
+| Page fetch commands | `reikai/novel/source/NovelPageFetcher.kt`, `reikai/presentation/webview/NovelPageActions.kt` (`e65e3256d`) | 2026-09-23 @ `de8cf8b31` | Their `Detail`, `Chapter` and `Content` fetch commands, run from the in-app browser on the page the user loaded; a fetched chapter is saved as its download. |
+
+### Where Reikai is ahead (do NOT port backwards)
+
+- **Trust.** IReader loads any `ireader` APK; Reikai trusts a store by its signing key, IReader's own repo by the key its APKs carry.
+- **Madara chapter lists.** Their Madara theme no longer reaches most sites' chapters; Reikai fetches them from the novel's own address (`b5cef7f73`).
+- **Obsolete and backups.** Their obsolete check only catches a version code below 1, and the extensions option of their backup service is a placeholder that writes an empty file; Reikai flags an extension its store stopped listing and backs up the apps and their settings, through Mihon's pipeline.
+
+### Deliberately not taken
+
+- **The per-book commands sheet.** No published extension reads `Note`, `Text`, `Toggle` or `Range`.
+- **Repo management extras:** a built-in default repo (Reikai ships none), a per-repo switch, installing every extension a repo lists, the health check and security scan, APK folder drop-in and load retry.
+- **Auto-fetch detection** in the in-app browser; the page actions are chosen by the user.
+
+### Pass log
+
+| Date | Ref HEAD | Range | Result |
+|---|---|---|---|
+| 2026-09-23 | `de8cf8b31` (API `548bd934f`) | Extension loading, store, runtime and WebView commands, walked for the sources surface's behaviour inventory | **3 ported** (rows above). Full inventory in [content-layer-sources-surface.md](plans/content-layer-sources-surface.md). |
 
 ## LNReader
 

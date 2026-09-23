@@ -11,7 +11,7 @@ The machine-enforced conventions (commits, CHANGELOG, screen rules) live in [`.c
 | Doc | Owns | Touch it when |
 |---|---|---|
 | [upstream-sync.md](upstream-sync.md) | the Mihon sync process and the frontier (sole owner of "synced through X") | you port a Mihon commit |
-| [feature-ports.md](feature-ports.md) | what was borrowed from Komikku / Tsundoku / LNReader, per feature | you port from a non-Mihon ref |
+| [feature-ports.md](feature-ports.md) | what was borrowed from Komikku / Tsundoku / IReader / LNReader, per feature | you port from a non-Mihon ref |
 | [off-path-manifest.md](off-path-manifest.md) | Mihon files deleted for a `reikai.*` twin, and the sync check that guards them | you delete a Mihon file for a twin |
 | [shipped.md](shipped.md) | terse done-log of what landed, by area | a feature ships |
 | [plans/](plans/README.md) | one per-feature record (how and why), indexed | you build or finish a substantial feature |
@@ -34,7 +34,7 @@ The file-to-file workflow. Do these in order; skip a row's steps that don't appl
 |---|---|
 | Shipped a feature | its [plans/](plans/README.md) doc `Status` → [CHANGELOG](../../CHANGELOG.md) (user-facing headline) → [shipped.md](shipped.md) (one line + short-SHA + plan link) → remove its line from [ROADMAP](../../ROADMAP.md) |
 | Synced a Mihon commit | add a [upstream-sync.md](upstream-sync.md) ledger row → [CHANGELOG](../../CHANGELOG.md) credit (`synced from Mihon, mihonapp/mihon#N`). Do **not** record the frontier anywhere else |
-| Ported from Komikku / Tsundoku / LNReader | a [feature-ports.md](feature-ports.md) row → credit in the commit body, [README](../../README.md), and the [CHANGELOG](../../CHANGELOG.md) headline |
+| Ported from Komikku / Tsundoku / IReader / LNReader | a [feature-ports.md](feature-ports.md) row → credit in the commit body, [README](../../README.md), and the [CHANGELOG](../../CHANGELOG.md) headline |
 | Deleted a Mihon file for a `reikai.*` twin | add a [off-path-manifest.md](off-path-manifest.md) row (or the next sync silently misses upstream's change to it) |
 | Started a substantial feature | a new [plans/](plans/README.md) doc (template in its README) + a [ROADMAP](../../ROADMAP.md) line |
 

@@ -4,7 +4,7 @@
 
 ## Goal
 
-One download queue for manga and light novels: a single list in one saved order, a per-series sheet for chapter-level control, and the same pause, resume, progress and failure handling on both content types. This is the last surface of the content-layer program and the only gate on the 0.4.0 cut.
+One download queue for manga and light novels: a single list in one saved order, a per-series sheet for chapter-level control, and the same pause, resume, progress and failure handling on both content types. This is the last of the six surfaces the content-layer program began with.
 
 ## Why
 

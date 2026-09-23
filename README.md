@@ -135,7 +135,8 @@ Reikai is a personal fork and stands on the work of the projects it builds on an
 - [TachiyomiJ2K](https://github.com/Jays2Kings/tachiyomiJ2K): the single-list library and dynamic-grouping experience.
 - [Komikku](https://github.com/komikku-app/komikku): the related-mangas carousel, the adult-source subsystem, the enhanced source and its tracker, the edit-info editor, library tag search, and auto webtoon mode.
 - [LNReader](https://github.com/LNReader/lnreader): the light-novel source format and reader.
-- [Tsundoku](https://github.com/Cody-Duong/tsundoku): novel chapter-date parsing, plugin text sanitizing, and browse paging behaviour.
+- [Tsundoku](https://github.com/tsundoku-otaku/tsundoku): novel extension apps and their source-side tracking, novel chapter-date parsing, plugin text sanitizing, and browse paging behaviour.
+- [IReader](https://github.com/IReaderorg/IReader): its novel extensions, through its source API, and their page fetch from the browser.
 - [Tachiyomi](https://github.com/tachiyomiorg) and its wider community, where the lineage began.
 
 Thanks to everyone who contributed to those projects.

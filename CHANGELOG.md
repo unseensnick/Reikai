@@ -26,7 +26,8 @@ Feed, History and Updates views, search, swipe actions and category filtering.
 
 Light novels gained three trackers built for novels, a font picker spanning the whole Google Fonts
 library, chapter clean-up rules, find and replace, and a new reader: novels now open in the same
-reader manga uses, drawn as real text or as a web page.
+reader manga uses, drawn as real text or as a web page. Novel extensions from tsundoku and IReader
+now install beside the LNReader plugins, and their novels work like any other.
 
 Manga pages can be drawn by a new high quality renderer, bringing dual page view, page transition
 animations, HDR and a display cutout mode.
@@ -514,7 +515,7 @@ every release now also ships a foss build with neither in it.
 - **Tap a series in the download queue to see its chapters, cancel one, start one now, move one to the bottom, or read why it failed.** A downloading manga chapter shows its page count.
 - **Settings -> Downloads -> Pacing sets the wait between novel chapters, for every source or one source at a time, never below what the source asks for.** Manga sources pace themselves.
 - **The novel download notification now has Pause and Show entry, as manga's does.** A paused queue leaves a notification with Resume and Cancel all.
-- **Novels from novel extension apps, IReader's included, now browse, search, read, download and update like plugin novels, and the apps install and update in Browse -> Extensions like manga extensions.** Where two kinds of one site are listed, each source says JS, APK or IReader.
+- **Novels from novel extension apps, IReader's included, now browse, search, read, download and update like plugin novels, and the apps install and update in Browse -> Extensions like manga extensions.** When a list mixes kinds of novel source, each one says JS, APK or IReader.
 - **Extensions from IReader's own repo load without a trust prompt, as a signed repo's do.**
 
 #### Changed

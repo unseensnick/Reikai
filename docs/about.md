@@ -75,16 +75,15 @@ shorthand in the body. Shorthand list: [built-in sources](built-in-sources.md#re
 
 ## Can I use novel sources from tsundoku (NovelSourcery) or IReader?
 
-Not those repos directly as-is. Reikai's novel sources run as
-[LNReader](https://github.com/LNReader/lnreader)-style JavaScript plugins, while
-tsundoku's NovelSourcery and IReader ship compiled-APK extensions of their own type
-(tsundoku adds a novel-extension flag on top of Mihon that stock Mihon, which has no
-novels at all, does not recognize).
+Yes. Add the repo address each project publishes with **Add repo** under **Repos**, in
+<nav to="browse">, the same way as any other. Their extensions then install and update from
+**Extensions** like manga extensions, and their novels browse, read, download, update, migrate and
+track like any other novel.
 
-The upside: the LNReader plugin format is shared across Reikai, tsundoku, and IReader,
-so any novel source that exists as an LNReader plugin you can add today, add its repo
-with **Add repo** under **Repos**, in <nav to="browse">. Supporting the compiled-APK side is a much bigger piece
-of work: on the backlog, but no timeline.
+Both kinds sit beside [LNReader](https://github.com/LNReader/lnreader)-style plugins. When a list mixes
+kinds of novel source, each one is labelled JS, APK or IReader so you can tell them apart.
+Extensions from a repo that publishes its signing key load without a trust prompt, and so do those from
+IReader's own repo; any other asks before an extension first loads, as it does for manga.
 
 ## Where do I report a bug, request a feature, or ask a question?
 

@@ -30,10 +30,11 @@ External repositories add additional sources to **Reikai**:
 * Add one by going to <nav to="browse"> and tapping **Repos**, then **Add repo**.
 * Paste the address as the repo gives it to you. An extension store's usually ends in `repo.json` or `index.min.json`, and for an older array-format store it has to end in `index.min.json`, because the app derives that store's real address from it.
 
-Novel plugin repos are added the same way. **Reikai** also reads
+Novel repos are added the same way. **Reikai** reads
 [LNReader](https://github.com/LNReader/lnreader)-style plugins, whose repo address points at a
-`plugins.min.json` registry. **Add repo** works out which kind an address is, and turns down one it
-cannot read as either. Each repo's card shows how many extensions or plugins it lists, or that it
+`plugins.min.json` registry, and the novel extensions tsundoku and IReader publish, whose stores are
+added like a manga extension store. **Add repo** works out which kind an address is, and turns down one
+it cannot read. Each repo's card shows how many extensions or plugins it lists, or that it
 could not be reached.
 
 ::: danger Caution

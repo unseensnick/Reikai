@@ -4,11 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## The 0.4.0 cut
 
-One item gates the 0.4.0 cut; once it is done, when to cut is the owner's call.
-
-- **Compiled-APK novel extensions** `[XL]` - the item under Novel sources & LN plugins below.
-
-The light-novel trackers do not gate it; MyNovelList is in [parked.md](docs/dev/parked.md), and the rulings behind both are in [novel-specific-trackers.md](docs/dev/plans/novel-specific-trackers.md).
+Nothing gates the 0.4.0 cut; when to cut is the owner's call.
 
 ## Later
 
@@ -23,10 +19,6 @@ Opportunistic polish:
 - Global search: opening on Pinned-only with nothing pinned shows a bare empty screen, on both content types since the shared screen took over. Default to All, or say the list is empty because nothing is pinned.
 - Details: the scanlator filter on a merged manga lists and excludes only the anchor entry's scanlators, while the unified list shows siblings' chapters, so the dialog and the query disagree about what can be hidden.
 - Novel reader: a tall picture keeps the shrunken stand-in copy it was drawn from once its slices cover it, about 4MB a picture; dropping it is the obvious memory saving. [Record](docs/dev/plans/content-layer-reader-surface.md).
-
-### Novel sources & LN plugins
-
-- **Compiled-APK novel extensions (tsundoku / IReader repos)** `[XL]` - load both APK novel-extension ecosystems beside the LN plugins, with source-side tracking and tracker auto-binding for both content types. Requested in `unseensnick/Reikai#31`; holds the 0.4.0 cut. [Plan](docs/dev/plans/content-layer-sources-surface.md).
 
 ### Data & backup
 
