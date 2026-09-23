@@ -403,6 +403,7 @@ every release now also ships a foss build with neither in it.
 - **The Browse sources filter now covers manga and light novels from one screen, whichever chip you opened it from.** A Manga / Novels chip switches halves; the All and Manga chips used to reach only the manga sources.
 
 #### Fixed
+- **Global search and the feed no longer crash when a source lists the same result twice.**
 - **Forms a source posts through FlareSolverr now reach the site intact, so a novel plugin's chapter list loads there.** A space in a form no longer arrives as a plus sign either.
 - **Pages fetched through a FlareSolverr server on your own network or over HTTPS now come back signed in to the site.** Your cookies are never sent to a solver reached in the clear over the internet.
 - **A Cloudflare bypass that takes over a minute now finishes instead of failing for no visible reason.** Reikai gave up at the very moment it had asked the server to answer by, and the test button called such a server unreachable rather than slow.

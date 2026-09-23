@@ -56,7 +56,9 @@ fun <T> EntrySearchCardRow(
         contentPadding = PaddingValues(MaterialTheme.padding.small),
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
     ) {
-        items(items = entries, key = key) { entry ->
+        // A source can list one entry twice in a page, and a repeated key crashes the row; browse
+        // drops the repeat the same way (NovelPagingSource).
+        items(items = entries.distinctBy(key), key = key) { entry ->
             // Resolved once and used for the card and both gestures, so what a long press acts on is
             // what the card is showing rather than what the source returned.
             val current = resolve(entry)
