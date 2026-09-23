@@ -194,6 +194,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **A series whose page loads its cover lazily keeps its real cover, where a placeholder image used to replace it.** A novel stuck on the placeholder takes its cover back when you open it from its source.
 - **Tapping a series' source name now opens that source to browse.** It used to run a search for the source's own name, and from most screens it did nothing at all.
 - **Page previews on an adult source's details page no longer go blank over time.** Their thumbnails were remembered against links that expire, so a series you had opened before came back as numbered blanks.
 - **A novel's page now shows its artist, when it has one separate from the author.** Manga pages already did; tap it to search, like every other field there.

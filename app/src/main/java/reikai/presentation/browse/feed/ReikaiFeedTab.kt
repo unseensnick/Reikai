@@ -275,12 +275,12 @@ private fun Screen.FeedContent(
                             if (selectionMode) {
                                 onToggleNovel(sourceId, item)
                             } else {
-                                navigator.push(NovelScreen(sourceId, item.path))
+                                navigator.push(NovelScreen(sourceId, item.path, item.cover))
                             }
                         },
                         onLongClickNovel = { sourceId, item ->
                             if (selectionMode) {
-                                navigator.push(NovelScreen(sourceId, item.path))
+                                navigator.push(NovelScreen(sourceId, item.path, item.cover))
                             } else {
                                 model.onLongPressNovel(item, sourceId)
                             }

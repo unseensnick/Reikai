@@ -34,7 +34,7 @@ private fun Navigator.pushDetails(payload: Any) {
 internal fun MigrationCandidate.openDetails(navigator: Navigator) {
     when (val handle = handle) {
         is Manga -> navigator.push(MangaScreen(handle.id, true))
-        is NovelCandidateHandle -> navigator.push(NovelScreen(sourceKey, handle.item.path))
+        is NovelCandidateHandle -> navigator.push(NovelScreen(sourceKey, handle.item.path, handle.item.cover))
     }
 }
 
@@ -57,7 +57,7 @@ internal fun MigrationCandidate.openDetailsAfterCommit(
         is NovelCandidateHandle -> {
             val last = navigator.lastItem as? NovelScreen
             val migratedNovel = migrated.payload as? Novel
-            NovelScreen(sourceKey, handle.item.path) to (
+            NovelScreen(sourceKey, handle.item.path, handle.item.cover) to (
                 handle.stored != null &&
                     last != null &&
                     migratedNovel != null &&

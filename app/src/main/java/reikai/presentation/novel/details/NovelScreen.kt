@@ -66,6 +66,8 @@ class NovelScreen(
     // Public so the migrate flow can identity-check the screen below it before replacing.
     val sourceId: String,
     val novelUrl: String,
+    // The cover a listing showed, which stands in for a placeholder the details page gives.
+    private val listingCover: String? = null,
 ) : Screen() {
 
     @Composable
@@ -74,7 +76,7 @@ class NovelScreen(
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val viewModel = assistedMetroViewModel<NovelDetailsViewModel, NovelDetailsViewModel.Factory> {
-            create(sourceId = sourceId, novelUrl = novelUrl)
+            create(sourceId = sourceId, novelUrl = novelUrl, listingCover = listingCover)
         }
         // Lifecycle-aware so collection pauses when the screen is not resumed (parity with MangaScreen).
         val state by viewModel.state.collectAsStateWithLifecycle()

@@ -243,12 +243,12 @@ class EntryGlobalSearchScreen(
                                     item,
                                 )
                             } else {
-                                navigator.push(NovelScreen(sourceId, item.path))
+                                navigator.push(NovelScreen(sourceId, item.path, item.cover))
                             }
                         },
                         onLongClickNovel = { sourceId, item ->
                             if (selectionMode) {
-                                navigator.push(NovelScreen(sourceId, item.path))
+                                navigator.push(NovelScreen(sourceId, item.path, item.cover))
                             } else {
                                 novelModel.onLongClickItem(item, sourceId)
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)

@@ -4,6 +4,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.source.keptCover
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import tachiyomi.data.Database
@@ -27,7 +28,7 @@ fun mergeRefreshedNovel(existing: Novel, parsed: Novel): Novel = existing.copy(
     genre = parsed.genre?.takeIf { it.isNotEmpty() } ?: existing.genre,
     // Source UNKNOWN (0) doesn't clobber a known stored status.
     status = parsed.status.takeIf { it != NovelStatusCode.UNKNOWN.toLong() } ?: existing.status,
-    thumbnailUrl = parsed.thumbnailUrl?.takeIf { it.isNotBlank() } ?: existing.thumbnailUrl,
+    thumbnailUrl = keptCover(existing.thumbnailUrl, parsed.thumbnailUrl),
     // A partial parse reporting 0 never shrinks a known page count.
     totalPages = parsed.totalPages.takeIf { it > 0L } ?: existing.totalPages,
     initialized = true,

@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -87,6 +88,8 @@ import reikai.domain.novel.model.sortedAndFiltered
 import reikai.domain.novel.novelMissingChapterCount
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
+import reikai.domain.source.isPlaceholderCover
+import reikai.domain.source.keptCover
 import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
@@ -139,6 +142,7 @@ class NovelDetailsViewModel(
     /** A novel source id is a plugin string, so this is Reikai's shape rather than upstream's Long. */
     @Assisted private val sourceId: String,
     @Assisted private val novelUrl: String,
+    @Assisted private val listingCover: String?,
     private val novelRepo: NovelRepository,
     private val updateNovel: UpdateNovel,
     private val sourceTracker: SourceTrackerDispatcher,
@@ -185,7 +189,7 @@ class NovelDetailsViewModel(
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
-        fun create(sourceId: String, novelUrl: String): NovelDetailsViewModel
+        fun create(sourceId: String, novelUrl: String, listingCover: String?): NovelDetailsViewModel
     }
 
     /** Hosts the merge split/remove Undo snackbars; wired into the details Scaffold. */
@@ -262,6 +266,21 @@ class NovelDetailsViewModel(
         observeTrackingCount()
         observeCustomInfo()
         resolveSource()
+        healPlaceholderCover()
+    }
+
+    /**
+     * A row stored with no cover or a placeholder takes the cover of the listing that opened it, once it
+     * exists: a details page can serve a placeholder where its listing served the cover.
+     */
+    private fun healPlaceholderCover() {
+        val cover = listingCover?.takeIf { it.isNotBlank() && !isPlaceholderCover(it) } ?: return
+        viewModelScope.launchIO {
+            val stored = novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId).filterNotNull().first()
+            if (keptCover(cover, stored.thumbnailUrl) != stored.thumbnailUrl) {
+                novelRepo.update(stored.copy(thumbnailUrl = cover))
+            }
+        }
     }
 
     /** Mirror the bound-tracker count (on logged-in services) into [NovelDetailsState.Loaded.trackingCount],
