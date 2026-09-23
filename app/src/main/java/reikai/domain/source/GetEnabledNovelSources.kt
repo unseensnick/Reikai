@@ -3,6 +3,7 @@ package reikai.domain.source
 import dev.zacsweers.metro.Inject
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.isInDisabledLanguage
 
 /**
  * The installed light-novel sources minus the user-disabled ones (per source and per language),
@@ -19,6 +20,6 @@ class GetEnabledNovelSources(
     suspend fun get(): List<NovelSource> {
         val disabledSources = preferences.disabledNovelSources.get()
         val disabledLanguages = preferences.disabledNovelLanguages.get()
-        return manager.getAll().filterNot { it.id in disabledSources || it.lang in disabledLanguages }
+        return manager.getAll().filterNot { it.id in disabledSources || it.isInDisabledLanguage(disabledLanguages) }
     }
 }

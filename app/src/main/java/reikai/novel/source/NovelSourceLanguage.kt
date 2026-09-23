@@ -16,6 +16,20 @@ fun String.toLangCode(): String {
 /** The declared language of an installed plugin, normalised by [toLangCode]. */
 fun NovelSource.langCode(): String = lang.toLangCode()
 
+/**
+ * Whether a language the user switched off covers this source. Compared as codes, since a plugin
+ * names its language ("English") where an app source gives the code ("en"), and a switch saved before
+ * the two were grouped together holds whichever of them its list showed.
+ */
+fun NovelSource.isInDisabledLanguage(disabled: Set<String>): Boolean =
+    langCode() in disabled.mapTo(HashSet()) { it.toLangCode() }
+
+/** [sources] in one group per language code, so a plugin and an app source of one language share it. */
+fun groupByLanguage(sources: List<NovelSource>, order: Comparator<String>): List<Pair<String, List<NovelSource>>> =
+    sources.groupBy { it.langCode() }
+        .toSortedMap(order)
+        .map { (lang, langSources) -> lang to langSources.sortedBy { it.name.lowercase() } }
+
 // The registry's own name-to-language table (lnreader-plugins `scripts/languages.js`), inverted.
 // Multi maps onto Mihon's "all", so a multi-language plugin shares the manga sources' Multi section.
 private val LANGUAGE_CODES = mapOf(

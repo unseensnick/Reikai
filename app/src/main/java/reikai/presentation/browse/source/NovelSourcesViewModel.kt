@@ -17,6 +17,7 @@ import reikai.domain.source.ToggleNovelSource
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.isInDisabledLanguage
 
 /**
  * The installed light-novel sources, as the shared Sources list's novel provider. Loads the
@@ -74,7 +75,7 @@ class NovelSourcesViewModel(
         disabledLangs: Set<String>,
         lastUsedId: String?,
     ): List<NovelSourceEntry> {
-        val enabled = filterNot { it.id in disabled || it.lang in disabledLangs }
+        val enabled = filterNot { it.id in disabled || it.isInDisabledLanguage(disabledLangs) }
         return enabled.flatMap { source ->
             val entry = NovelSourceEntry(source, isPinned = source.id in pinned, isUsedLast = false)
             if (source.id == lastUsedId) listOf(entry, entry.copy(isUsedLast = true)) else listOf(entry)

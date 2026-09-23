@@ -23,6 +23,8 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.groupByLanguage
+import reikai.novel.source.toLangCode
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -48,11 +50,11 @@ class NovelSourcesFilterViewModel(
         sourcePreferences.disabledNovelLanguages.changes(),
     ) { sources, disabled, disabledLanguages ->
         State.Success(
-            items = sources.groupBy { it.lang }
-                .toSortedMap(LocaleHelper.comparator)
-                .map { (lang, langSources) -> lang to langSources.sortedBy { it.name.lowercase() } },
+            // By code: the switch sorts by display name, which "English" and "en" share, and the
+            // sorted map kept only one of the two groups.
+            items = groupByLanguage(sources, LocaleHelper.comparator),
             disabledSources = disabled,
-            disabledLanguages = disabledLanguages,
+            disabledLanguages = disabledLanguages.mapTo(HashSet()) { it.toLangCode() },
         )
     }
         // The plugin host has to be loaded before the source list means anything, and this runs on
@@ -65,10 +67,12 @@ class NovelSourcesFilterViewModel(
 
     fun toggleSource(sourceId: String) = toggleNovelSource.await(sourceId)
 
+    /** [language] is a code; a switch saved under a plugin's own name for it is turned back on too. */
     fun toggleLanguage(language: String) {
         val pref = sourcePreferences.disabledNovelLanguages
         val current = pref.get()
-        pref.set(if (language in current) current - language else current + language)
+        val saved = current.filterTo(HashSet()) { it.toLangCode() == language }
+        pref.set(if (saved.isNotEmpty()) current - saved else current + language)
     }
 
     sealed interface State {

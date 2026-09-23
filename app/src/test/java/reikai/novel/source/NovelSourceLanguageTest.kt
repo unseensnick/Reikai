@@ -41,5 +41,34 @@ class NovelSourceLanguageTest {
         source("T\u00FCrk\u00E7e").langCode() shouldBe "T\u00FCrk\u00E7e".toLangCode()
     }
 
+    /** A plugin says "English" where an app source says "en"; a sort by display name merged the two. */
+    @Test
+    fun `a plugin and an app source of one language share one group`() {
+        val plugin = named("Plugin", "English")
+        val app = named("App", "en")
+
+        groupByLanguage(listOf(plugin, app), naturalOrder()) shouldBe listOf("en" to listOf(app, plugin))
+    }
+
+    @Test
+    fun `a language switched off by its code covers a plugin that names it`() {
+        source("English").isInDisabledLanguage(setOf("en")) shouldBe true
+    }
+
+    @Test
+    fun `a language switched off by a plugin's name for it covers an app source`() {
+        source("en").isInDisabledLanguage(setOf("English")) shouldBe true
+    }
+
+    @Test
+    fun `another language switched off leaves a source on`() {
+        source("en").isInDisabledLanguage(setOf("es")) shouldBe false
+    }
+
     private fun source(lang: String) = mockk<NovelSource> { every { this@mockk.lang } returns lang }
+
+    private fun named(name: String, lang: String) = mockk<NovelSource> {
+        every { this@mockk.lang } returns lang
+        every { this@mockk.name } returns name
+    }
 }
