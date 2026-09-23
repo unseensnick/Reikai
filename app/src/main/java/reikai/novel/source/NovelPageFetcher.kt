@@ -45,12 +45,12 @@ class NovelPageFetcher(
         true
     } ?: false
 
-    /** How many chapters the page listed, or null when it listed none or could not be read. */
+    /** How many chapters the page listed, 0 when it listed none, or null when it could not be read. */
     suspend fun useForChapters(novelId: Long, url: String, html: String): Int? = attempt {
         val novel = novelRepo.getById(novelId) ?: return@attempt null
         val fetch = sourceManager.get(novel.source)?.pageFetch ?: return@attempt null
         val chapters = fetch.chapters(novel.url, url, html)
-        if (chapters.isEmpty()) return@attempt null
+        if (chapters.isEmpty()) return@attempt 0
         syncChaptersWithNovelSource(chapters, novel, chapterRepo, novelRepo, database, libraryPreferences)
         chapters.size
     }

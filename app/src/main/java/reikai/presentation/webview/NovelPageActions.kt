@@ -53,9 +53,11 @@ fun rememberNovelPageActions(
             add(
                 WebPageAction(forChapters) { url, html ->
                     run {
-                        fetcher.useForChapters(novelId, url, html)
-                            ?.let { context.stringResource(MR.strings.novel_page_chapters_found, it) }
-                            ?: unreadable
+                        when (val found = fetcher.useForChapters(novelId, url, html)) {
+                            null -> unreadable
+                            0 -> context.stringResource(MR.strings.novel_page_no_chapters)
+                            else -> context.stringResource(MR.strings.novel_page_chapters_found, found)
+                        }
                     }
                 },
             )
