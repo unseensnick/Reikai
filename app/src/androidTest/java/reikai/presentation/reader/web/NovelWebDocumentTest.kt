@@ -230,11 +230,13 @@ class NovelWebDocumentTest {
         )
     }
 
+    /** Only the text overrides: the picture placeholder's own `!important` styles the reader's box, not the chapter. */
     @Test
     fun sourceCssPriorityLeavesAChaptersStylingAlone() {
+        val css = document(sourceCssPriority = true)
         assertTrue(
             "the reader still forces its styling over the chapter's",
-            !document(sourceCssPriority = true).contains("!important"),
+            listOf("font-size: var(--rk-font-size) !important", "inherit !important").none { it in css },
         )
     }
 
