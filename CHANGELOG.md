@@ -527,6 +527,7 @@ every release now also ships a foss build with neither in it.
 #### Fixed
 
 - **Installing an extension through Shizuku works again.**
+- **An extension row no longer shows a stray dot before its version after an install is cancelled.**
 - **Extensions marked Orphaned lose the mark as soon as you add a repo that lists them, rather than after a restart.**
 - **An extension whose repo publishes no icon now shows the default source icon instead of a broken image.**
 - **A novel source whose icon fails to load shows the placeholder instead of an empty space.**
