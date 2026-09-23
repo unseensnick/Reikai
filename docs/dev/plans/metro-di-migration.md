@@ -4,8 +4,8 @@
 > (`f674e77bf`), and the novel reader tail closed with the reader takeover's cutover (`d6904484d`):
 > the legacy reader was deleted. Since the Mihon sync `b54351849`, `DomainModule` and
 > `MetroInteropModule` are gone: the whole Injekt surface is `MetroInjektRegistrar`, a read-only
-> registrar whose fifteen bindings each read one `AppGraph` accessor, pinned by
-> `MetroInjektRegistrarTest`. What stays on Injekt is permanent: `source-api`, `source-local`, the
+> registrar of fifteen bindings (`Application` and `Context` return the application, the other
+> thirteen each read one `AppGraph` accessor), pinned by `MetroInjektRegistrarTest`. What stays on Injekt is permanent: `source-api`, `source-local`, the
 > three `MetadataSource` contracts, and the ruled holdout below. The proguard
 > keeps were never part of the tail: none of the five goes (see below). Research completed 2026-08-16 against upstream `b2015d1ef`; re-verified 2026-08-17
 > before phase 0; re-measured against current code 2026-08-20.
@@ -63,8 +63,8 @@ sixteen entries and hands back fifteen types, which `di-interop-check.ps1` passe
 
 **Both Injekt modules went with the Mihon sync `b54351849`** (mihonapp/mihon#3965, mihon
 `1c43addec`). `MetroInjektRegistrar` replaced `MetroInteropModule` and `DomainModule`: fifteen
-bindings, each reading one `AppGraph` accessor, every write method throwing, so nothing registers at
-runtime. `MetroInjektRegistrarTest` replaced `DomainModuleTest`, and `di-interop-check.ps1` now parses
+bindings, thirteen reading one `AppGraph` accessor each and two returning the application, every
+write method throwing, so nothing registers at runtime. `MetroInjektRegistrarTest` replaced `DomainModuleTest`, and `di-interop-check.ps1` now parses
 the registrar's binding map.
 
 `source-api` and `source-local` are the permanent half and close never: they are the contract
@@ -729,11 +729,11 @@ contributed model cannot resolve without all three.
 - **The closure-capturing cover factory** in `EntryDetailsDialog` builds a star-projected
   `EntryCoverViewModel<*>` from a captured behaviour object. There is no upstream analogue and no
   graph key for it; design it before touching it.
-- **`App.onCreate` ordering.** Nothing `graph.inject(this)` builds reaches `Database`: both widget
-  managers are lambdas and the migration set is an accessor. This once guarded the removed legacy
-  Yōkai importer ([legacy-yokai-import.md](legacy-yokai-import.md)); what it still buys is that the
-  `:error_handler` process, which returns before calling any of them, never builds the database.
-  Reverting all three to upstream's injected fields is now a free choice rather than a hazard.
+- **`App.onCreate` ordering.** `graph.inject(this)` runs before the `:error_handler` early return
+  and builds both widget managers, which are upstream's injected fields and reach `Database` through
+  `GetUpdates`, so that process builds the database too. The migration set stays an accessor read
+  after the early return, because a migrator in `:error_handler` would stamp a version for
+  migrations it never ran.
 - **The `:error_handler` process.** `CrashActivity` is the only component with `android:process`, so
   `App.onCreate` and therefore graph construction runs there too.
 - **Widget surfaces are system-instantiated**, and the two of them inject from different places.

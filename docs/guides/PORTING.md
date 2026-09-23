@@ -117,17 +117,17 @@ doc that quotes it.
 
 Fixed:
 
-- **Extension repos are Extension stores.** Upstream renamed the screen (`extensionStores`), and the
-  index URL is now a `repo.json` rather than the `index.min.json` the guide told people to paste.
-  Both `getting-started.md` and `backups.md` sent readers looking for a menu item that is not there.
+- **The repo screen is Repos.** Browse opens it as **Repos**, with **Add repo** (the backup option
+  is still labelled **Extension stores**), and the index URL is now a `repo.json` rather than the
+  `index.min.json` the guide told people to paste.
 - **"Viewer for this series" does not exist.** The per-series override is **Reading mode**.
 - **"Download badges" is "Downloaded chapters"**, under **Badges** in the Display tab.
 - **"Download only" is "Downloaded only".**
 - **"Clear cache" is not in Advanced.** The two clears there are **Clear cookies** and **Clear
   WebView data**.
 - **Light novels were missing from `getting-started.md` entirely**, which is the page a new user
-  reads first. Novel repos live in their own section of the same Extension stores screen, and the
-  plugins install from the Extensions tab beside manga extensions.
+  reads first. Novel repos are added from the same Repos screen, where **Add repo** works out which
+  kind an address is, and the plugins install from the Extensions tab beside manga extensions.
 - **Smart updates reach novels, the Upcoming calendar does not.** `NovelUpdateJob` applies all four
   skip rules through the same `smartUpdateSkip` kernel as manga, predicting a novel's next chapter
   from its own chapter history, but the calendar stays manga-only by owner ruling. The pages say so.

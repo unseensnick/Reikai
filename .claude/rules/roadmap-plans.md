@@ -2,6 +2,7 @@
 paths:
   - "ROADMAP.md"
   - "docs/dev/plans/**"
+  - "docs/dev/parked.md"
   - "docs/dev/shipped.md"
 ---
 
@@ -21,7 +22,7 @@ Two artifacts hold the forward plan. Keep them separate: the roadmap is the ters
 2. **Now** (in progress), **Next** (queued, in priority order), **Later** (backlog). Each item: a bold title, a size tag (`[S]` / `[M]` / `[L]` / `[XL]`, one tag, never a range), and up to two sentences of "what", plus a link to its plan doc when one exists. No inline plans: the detail lives in the plan doc.
 3. **Later is grouped by stable area** (Library, Reader, Novels, Recommendations, adult sources, ...), never by phase. Phases are a plan artifact and rot; areas are durable. Only include areas that have open items.
    - **One sanctioned exception to the item format: an "Opportunistic polish" list.** An area may end with a short list of one-line micro-items with no bold title and no size tag, each bundling several unrelated scraps too small to size (`Browse: Latest shortcut, hide-in-library, per-row language`). A size tag means nothing until such a line is split, and splitting it would triple the file for work nobody has committed to. Anything that grows a plan doc, a gate, or a dependency leaves the list and becomes a real item.
-4. **Parked and not building**: a pointer to [docs/dev/parked.md](../../docs/dev/parked.md) and nothing else. Parked items are not forward work, and their entries are where the verbosity collected: what it is, why it is parked, the revive trigger and the evidence behind the ruling, three to six sentences each across roughly sixty items (owner, 2026-09-20, moving them out). An entry there may name sources, since it is a dev record. Reviving one brings a single roadmap-format line back and deletes the entry.
+4. **Parked and not building**: a pointer to [docs/dev/parked.md](../../docs/dev/parked.md) and nothing else. Parked items are not forward work, and their entries are where the verbosity collected: what it is, why it is parked, the revive trigger and the evidence behind the ruling, three to six sentences each across about fifty items (owner, 2026-09-20, moving them out). An entry there may name sources, since it is a dev record. Reviving one brings a single roadmap-format line back and deletes the entry.
 
 **No Status table, no Shipped section, no audit prose in this file.** Shipped work moves to [docs/dev/shipped.md](../../docs/dev/shipped.md): a terse done-log grouped by durable area (never by phase), each area free to carry sub-sections, plus a releases table mapping each version to what it carried. A line cites whatever identifies the work best: a commit short-SHA(s), a `(version)` parenthetical for the release it shipped in, and/or a link to its plan doc for anything with a full record. It is a dev record, so it *may* name sources. Audit reports live in `docs/dev/audits/` (local / gitignored; only their action items become roadmap lines). Decisions and rationale live in `docs/dev/plans/`.
 

@@ -14,6 +14,7 @@ The machine-enforced conventions (commits, CHANGELOG, screen rules) live in [`.c
 | [feature-ports.md](feature-ports.md) | what was borrowed from Komikku / Tsundoku / IReader / LNReader, per feature | you port from a non-Mihon ref |
 | [off-path-manifest.md](off-path-manifest.md) | Mihon files deleted for a `reikai.*` twin, and the sync check that guards them | you delete a Mihon file for a twin |
 | [shipped.md](shipped.md) | terse done-log of what landed, by area | a feature ships |
+| [parked.md](parked.md) | items set aside or declined, with the reason and the revive trigger | you park or decline an item, or revive one |
 | [plans/](plans/README.md) | one per-feature record (how and why), indexed | you build or finish a substantial feature |
 
 **Architecture & reference** (how the code works, cross-linked by the records above):
@@ -42,6 +43,6 @@ The file-to-file workflow. Do these in order; skip a row's steps that don't appl
 
 So two docs never record the same thing and drift apart:
 
-- [ROADMAP](../../ROADMAP.md) is what's **left** (forward only, no shipped log). [CHANGELOG](../../CHANGELOG.md) is what changed **for users**. [shipped.md](shipped.md) is what **shipped** (a dev log, may name sources).
+- [ROADMAP](../../ROADMAP.md) is what's **left** (forward only, no shipped log). [CHANGELOG](../../CHANGELOG.md) is what changed **for users**. [shipped.md](shipped.md) is what **shipped** (a dev log, may name sources). [parked.md](parked.md) is what was **set aside**, with why and what would revive it.
 - [upstream-sync.md](upstream-sync.md) is the **only** place the Mihon frontier is recorded. [feature-ports.md](feature-ports.md) is the only place borrow provenance is recorded.
 - [plans/](plans/README.md) owns per-feature detail; [shipped.md](shipped.md) and the user docs point to it, never restate it.

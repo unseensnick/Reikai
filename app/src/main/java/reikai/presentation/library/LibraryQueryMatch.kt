@@ -162,7 +162,7 @@ fun sourceKeyQuery(sourceKey: String): String = "srcid:\"$sourceKey\""
 /**
  * `source:` / `src:` match the source's display name, upstream's meaning unchanged, plus the `local`
  * keyword. The exact-key form is `srcid:`, which answers identically on both content types: a numeric
- * source id for manga, a plugin slug for novels.
+ * source id for manga; for novels a plugin slug, or `tachiyomi:<id>` / `ireader:<id>` for an app source.
  */
 private fun <T> matchesSource(row: T, fields: LibraryQueryFields<T>, value: String): Boolean =
     fields.sourceName(row).contains(value, ignoreCase = true) ||

@@ -12,7 +12,7 @@ Backlog, grouped by area. Unordered within an area.
 
 ### Novels (manga <-> novel parity)
 
-Remaining manga/novel parity work, smaller enhancements and polish. The write-once rule (`.claude/rules/content-layer.md`) is forward-only, so this pre-existing backlog is labelled rather than blocking: **open gap** is parity Reikai owes with nothing preventing it, **gated** names the mechanism the content type cannot support, and a gate holds only until that mechanism changes.
+Remaining manga/novel parity work, smaller enhancements and polish. The write-once rule (`.claude/rules/content-layer.md`) is forward-only, so this pre-existing backlog does not block other work. Gated parity items, each naming the mechanism the content type cannot support, live in [docs/dev/parked.md](docs/dev/parked.md), and a gate holds only until that mechanism changes.
 
 Opportunistic polish:
 - Browse: map a tapped genre onto a novel plugin's filters; the shared catalogue passes the genre-search hook on the manga branch only, so a novel source falls back to a plain text query.

@@ -144,7 +144,7 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 | Feature | Reikai home | Last checked | Notes |
 |---|---|---|---|
 | IReader novel extensions | `reikai/novel/source/ireader/` (`0e9e8fe7b`, `c6647dc6f`, `d64bf2c4d`, `4bf1a7b62`) | 2026-09-23 @ `de8cf8b31` | Loading by the `ireader` manifest feature, library 2 only, built from `Dependencies`; host services as Ktor over the app's OkHttp client, per-package preferences and their WebView browser engine; listings, filter translation and pages to HTML. Koin excluded. [Plan](plans/content-layer-sources-surface.md). |
-| Extension store index | `reikai/data/extension/IReaderStoreIndex.kt` (`07c58be70`) | 2026-09-23 @ `de8cf8b31` | Their flat `index.min.json` read as an extension store, newest copy of each package kept, icons named after the APK. |
+| Extension store index | `data/.../reikai/data/extension/IReaderStoreIndex.kt` (`07c58be70`) | 2026-09-23 @ `de8cf8b31` | Their flat `index.min.json` read as an extension store, newest copy of each package kept, icons named after the APK. |
 | Page fetch commands | `reikai/novel/source/NovelPageFetcher.kt`, `reikai/presentation/webview/NovelPageActions.kt` (`e65e3256d`) | 2026-09-23 @ `de8cf8b31` | Their `Detail`, `Chapter` and `Content` fetch commands, run from the in-app browser on the page the user loaded; a fetched chapter is saved as its download. |
 
 ### Where Reikai is ahead (do NOT port backwards)
