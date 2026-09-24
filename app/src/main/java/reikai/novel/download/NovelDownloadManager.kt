@@ -221,6 +221,20 @@ class NovelDownloadManager(
         if (renamed) cache.renameChapter(novel, oldChapter, newChapter)
     }
 
+    /**
+     * Moves the novel's downloads to [newTitle]'s folder, the twin of `DownloadManager.renameManga`. As there,
+     * the novel's queued chapters are dropped first, so none is written into the folder being moved.
+     */
+    suspend fun renameNovel(novel: Novel, newTitle: String) {
+        val dir = provider.findNovelDir(novel) ?: return
+        if (dir.name == provider.novelDirName(newTitle)) return
+        cancelDownloads(_queueState.value.filter { it.novelId == novel.id }.map { it.chapterId })
+        if (withIOContext { provider.renameNovel(novel, newTitle) }) {
+            cache.renameNovel(novel, newTitle)
+        } else {
+            logcat(LogPriority.ERROR) { "Failed to rename novel download folder: ${dir.name}" }
+        }
+    }
     fun deleteChapters(chapters: List<NovelChapter>) {
         if (chapters.isEmpty()) return
         dequeueChapters(chapters)

@@ -182,8 +182,8 @@ WHERE _id = :novelId;
 -- NovelUpdate patch writes only the fields it sets (null = leave unchanged). Used for surgical edits
 -- (e.g. notes); the full-row `update` above stays for restore / edit-info, which need to write nulls.
 -- NOTE: `genre` (List<String>) and `update_strategy` (UpdateStrategy) are omitted: SQLDelight does not
--- preserve those custom column adapters through `coalesce` for this table (it emits raw String/Long),
--- so patch them via the full-row `update` instead. Boolean-adapter columns coalesce fine.
+-- preserve those custom column adapters through `coalesce` for this table (it emits raw String/Long).
+-- `genre` is patched through `setGenre` below; `update_strategy` through the full-row `update`.
 partialUpdate:
 UPDATE novels SET
     source = coalesce(:source, source),
@@ -208,6 +208,10 @@ UPDATE novels SET
     calculate_interval = coalesce(:calculateInterval, calculate_interval),
     is_syncing = 0
 WHERE _id = :id;
+
+-- The partial update's genre column, written apart because it keeps its adapter only without coalesce.
+setGenre:
+UPDATE novels SET genre = :genre WHERE _id = :id;
 
 -- Focused single-column stamp written from the reader on every progress save, so it avoids the
 -- full-row read-modify-write the LastRead library sort would otherwise pay on each scroll.

@@ -5,8 +5,8 @@ package reikai.domain.novel.model
  * [tachiyomi.domain.manga.model.MangaUpdate]. Every field but [id] is nullable, null meaning leave
  * unchanged, through the repo's `coalesce`-based `partialUpdate`. The full-row `update(Novel)` stays
  * for the restore and edit-info paths that legitimately write a column back to null, which `coalesce`
- * cannot express. `genre` and `updateStrategy` are deliberately absent: SQLDelight does not preserve
- * their column adapters through that partial update, so patch them through the full-row write.
+ * cannot express. SQLDelight loses the `updateStrategy` and [genre] column adapters through that partial
+ * update, so `updateStrategy` is absent (patch it in full) and the repository writes [genre] on its own.
  */
 data class NovelUpdate(
     val id: Long,
@@ -16,6 +16,7 @@ data class NovelUpdate(
     val author: String? = null,
     val artist: String? = null,
     val description: String? = null,
+    val genre: List<String>? = null,
     val status: Long? = null,
     val thumbnailUrl: String? = null,
     val favorite: Boolean? = null,

@@ -43,7 +43,7 @@ import reikai.data.coil.NovelCover
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.novel.NovelStatusCode
-import reikai.data.novel.mergeRefreshedNovel
+import reikai.data.novel.storeRefreshedNovel
 import reikai.data.novel.predictNovelFetchInterval
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.syncChaptersWithNovelSource
@@ -690,7 +690,7 @@ class NovelDetailsViewModel(
         }
     }
 
-    /** parseNovel + persist metadata (edit-lock + blank safe) + sync the first page's chapters, then
+    /** parseNovel + persist the source's metadata + sync the first page's chapters, then
      *  predict the next update. The reactive flow then re-emits the updated novel/chapter list. A novel
      *  opened from Browse is inserted non-favorite. Returns the persisted novel (carries the refreshed
      *  `totalPages`). */
@@ -698,9 +698,7 @@ class NovelDetailsViewModel(
         val sourceNovel = src.parseNovel(existing?.url ?: novelUrl)
         val target = if (existing != null) {
             val parsed = sourceNovel.toNovel(sourceId = src.id, favorite = existing.favorite)
-            val merged = mergeRefreshedNovel(existing, parsed)
-            if (merged != existing) novelRepo.update(merged)
-            merged
+            storeRefreshedNovel(existing, parsed, novelRepo, libraryPreferences, downloadManager)
         } else {
             // Non-favorite shadow row so a browse-opened novel is viewable without being silently
             // added; insertOrGet reuses a concurrently-created row instead of duplicating.

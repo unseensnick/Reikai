@@ -1143,8 +1143,8 @@
     <string name="action_clear">Clear</string>
     <string name="action_clear_all">Clear all</string>
     <string name="pref_debug_info">Debug info</string>
-    <string name="pref_update_library_manga_titles">Update library manga titles to match source</string>
-    <string name="pref_update_library_manga_titles_summary">Warning: if a manga is renamed, it will be removed from the download queue (if present).</string>
+    <string name="pref_update_library_manga_titles">Update library titles to match source</string>
+    <string name="pref_update_library_manga_titles_summary">Warning: if a series is renamed, it will be removed from the download queue (if present).</string>
 
       <!-- About section -->
     <string name="website">Website</string>

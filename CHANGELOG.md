@@ -292,6 +292,7 @@ every release now also ships a foss build with neither in it.
 - **A slow novel source can no longer stall global search, browsing or updates for every other source.** Each now runs in its own engine, and idle ones free their memory after a minute.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, like manga.**
 - **A novel chapter you have already read now opens at its start, like manga, unless Settings -> Novel reader -> Resume reading position is on.** It used to reopen on its last screen.
+- **A library novel now keeps its title when its source renames it, unless Settings -> Advanced -> Update library titles to match source is on, as for manga.** With it on, the novel's downloaded chapters move to the new title instead of reading as not downloaded.
 
 #### Fixed
 
@@ -326,6 +327,7 @@ every release now also ships a foss build with neither in it.
 - **A novel chapter its source moved to a new address no longer comes back as new in update notifications, or downloads again.**
 - **Covers and chapter pictures from light-novel sources that ask for their own image headers now load, in both reading modes and in downloads.** The WebView reading mode also reuses the pictures the text mode already downloaded.
 - **Ongoing novels from some light-novel sources no longer show as Completed, and library updates no longer skip them.** Refreshing a novel corrects the status it was saved with.
+- **A novel library update no longer undoes a change you make to one of its novels while it runs, such as removing it from the library or editing its notes.**
 - **A novel library update now reports a novel whose source is no longer installed, as manga's does, where it used to skip it in silence.** Update errors, library grouping and search name a removed source as it was last installed rather than by its id.
 
 ### Browse & sources

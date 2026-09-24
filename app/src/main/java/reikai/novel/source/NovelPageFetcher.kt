@@ -6,8 +6,8 @@ import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import logcat.LogPriority
-import reikai.data.novel.mergeRefreshedNovel
 import reikai.data.novel.predictNovelFetchInterval
+import reikai.data.novel.storeRefreshedNovel
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
 import reikai.domain.novel.NovelChapterRepository
@@ -49,8 +49,7 @@ class NovelPageFetcher(
         val source = sourceManager.get(novel.source) ?: return@attempt false
         val fetch = source.pageFetch ?: return@attempt false
         val parsed = fetch.details(novel.url, url, html).toNovel(sourceId = source.id, favorite = novel.favorite)
-        val merged = mergeRefreshedNovel(novel, parsed)
-        if (merged != novel) novelRepo.update(merged)
+        storeRefreshedNovel(novel, parsed, novelRepo, libraryPreferences, novelDownloadManager())
         true
     } ?: false
 

@@ -203,6 +203,21 @@ class NovelDownloadCache(
         }
     }
 
+    /** Follow a novel's folder rename in the index. */
+    fun renameNovel(novel: Novel, newTitle: String) {
+        val source = provider.sourceDirName(novel)
+        val oldDir = provider.novelDirName(novel)
+        val newDir = provider.novelDirName(newTitle)
+        scope.launch {
+            mutex.withLock {
+                tree = tree.mutate { sources ->
+                    val novels = sources[source] ?: return@mutate
+                    novels.remove(oldDir)?.let { novels[newDir] = it }
+                }
+            }
+            notifyChanges()
+        }
+    }
     private fun renewIfStale() {
         if (DownloadIndexRules.isStale(lastRenew, System.currentTimeMillis()) && !renewing.get()) {
             scope.launch { renew() }

@@ -158,6 +158,39 @@ class NovelRepositoryImpl(
     }
 
     override suspend fun update(update: NovelUpdate): Boolean = try {
+        database.transaction { write(update) }
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to partial-update novel id=${update.id}" }
+        false
+    }
+
+    override suspend fun updateAll(updates: List<NovelUpdate>): Boolean = try {
+        database.transaction { updates.forEach { write(it) } }
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to batch-update ${updates.size} novels" }
+        false
+    }
+
+    override suspend fun setLastReadAt(id: Long, at: Long): Boolean = try {
+        database.novelsQueries.setLastReadAt(at, id)
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to set last_read_at on novel id=$id" }
+        false
+    }
+
+    override suspend fun setCategories(novelId: Long, categoryIds: List<Long>) {
+        database.transaction {
+            database.novels_categoriesQueries.delete(novelId)
+            categoryIds.forEach { categoryId ->
+                database.novels_categoriesQueries.insert(novelId, categoryId)
+            }
+        }
+    }
+
+    private suspend fun write(update: NovelUpdate) {
         database.novelsQueries.partialUpdate(
             source = update.source,
             url = update.url,
@@ -181,60 +214,6 @@ class NovelRepositoryImpl(
             calculateInterval = update.fetchInterval?.toLong(),
             id = update.id,
         )
-        true
-    } catch (e: Exception) {
-        logcat(LogPriority.ERROR, e) { "Failed to partial-update novel id=${update.id}" }
-        false
-    }
-
-    override suspend fun updateAll(updates: List<NovelUpdate>): Boolean = try {
-        database.transaction {
-            updates.forEach { update ->
-                database.novelsQueries.partialUpdate(
-                    source = update.source,
-                    url = update.url,
-                    title = update.title,
-                    author = update.author,
-                    artist = update.artist,
-                    description = update.description,
-                    status = update.status,
-                    thumbnailUrl = update.thumbnailUrl,
-                    favorite = update.favorite,
-                    lastUpdate = update.lastUpdate,
-                    initialized = update.initialized,
-                    chapterFlags = update.chapterFlags,
-                    dateAdded = update.dateAdded,
-                    coverLastModified = update.coverLastModified,
-                    totalPages = update.totalPages,
-                    lastReadAt = update.lastReadAt,
-                    notes = update.notes,
-                    viewerFlags = update.viewerFlags,
-                    nextUpdate = update.nextUpdate,
-                    calculateInterval = update.fetchInterval?.toLong(),
-                    id = update.id,
-                )
-            }
-        }
-        true
-    } catch (e: Exception) {
-        logcat(LogPriority.ERROR, e) { "Failed to batch-update ${updates.size} novels" }
-        false
-    }
-
-    override suspend fun setLastReadAt(id: Long, at: Long): Boolean = try {
-        database.novelsQueries.setLastReadAt(at, id)
-        true
-    } catch (e: Exception) {
-        logcat(LogPriority.ERROR, e) { "Failed to set last_read_at on novel id=$id" }
-        false
-    }
-
-    override suspend fun setCategories(novelId: Long, categoryIds: List<Long>) {
-        database.transaction {
-            database.novels_categoriesQueries.delete(novelId)
-            categoryIds.forEach { categoryId ->
-                database.novels_categoriesQueries.insert(novelId, categoryId)
-            }
-        }
+        update.genre?.let { database.novelsQueries.setGenre(genre = it, id = update.id) }
     }
 }

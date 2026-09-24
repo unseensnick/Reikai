@@ -299,7 +299,7 @@ class NovelUpdateJob(
         return collapseNewChapters(newByNovel, groupOf, stitches) { it.id }
     }
 
-    /** Re-parse the novel, persist metadata edit-lock-safely, sync page 1, and walk any newly-opened
+    /** Re-parse the novel, store the source's metadata, sync page 1, and walk any newly-opened
      *  pages. Returns the chapters the syncs report as new, which leaves out a duplicate marked read
      *  and a re-listed chapter, as the manga job's sync result does. */
     private suspend fun checkNovel(

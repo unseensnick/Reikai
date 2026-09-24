@@ -54,7 +54,7 @@ object NovelStatusCode {
 
 /**
  * Translate a freshly-parsed [SourceNovel] (lnreader plugin output) into an unsaved domain [Novel]
- * (`id = -1L`). A refresh overlays it onto the stored row with [mergeRefreshedNovel]; a novel opened
+ * (`id = -1L`). A refresh stores it over the stored row with [storeRefreshedNovel]; a novel opened
  * from Browse is inserted through [reikai.domain.novel.NovelRepository.insertOrGet]. `genres` is a
  * comma-joined string per the lnreader convention, split to a list here.
  */

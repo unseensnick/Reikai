@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import logcat.LogPriority
 import mihon.domain.source.models.RemoteMangaUpdate
 import reikai.domain.source.keptCover
+import reikai.domain.source.refreshedTitle
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
@@ -105,12 +106,8 @@ class UpdateMangaFromRemote(
         }
 
         // if the manga isn't a favorite (or 'update titles' preference is enabled), set its title from source and update in db
-        val title =
-            if (remoteTitle.isNotEmpty() && (!localManga.favorite || libraryPreferences.updateMangaTitles.get())) {
-                remoteTitle
-            } else {
-                null
-            }
+        // RK: the rule is shared with the novel refresh
+        val title = refreshedTitle(remoteTitle, localManga.favorite, libraryPreferences.updateMangaTitles.get())
 
         val thumbnailUrl = keptCover(null, remoteManga.thumbnail_url) // RK: nor a placeholder
 

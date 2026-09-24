@@ -2,6 +2,8 @@ package reikai.data.novel
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.shouldBe
+import io.mockk.coVerify
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.AfterEach
@@ -13,6 +15,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.SourceNovel
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelFilterState
@@ -109,17 +112,66 @@ class NovelRefreshTest {
         )
     }
 
-    private suspend fun refresh(novel: Novel, source: NovelSource, manualFetch: Boolean = false) =
-        refreshNovelFromSource(
-            novel,
-            source,
-            chapters,
-            novels,
-            database,
-            libraryPreferences,
-            manualFetch = manualFetch,
-            fetchWindow = 1_000L to 2_000L,
-        )
+    private suspend fun refresh(
+        novel: Novel,
+        source: NovelSource,
+        manualFetch: Boolean = false,
+        preferences: LibraryPreferences = libraryPreferences,
+        downloadManager: NovelDownloadManager? = null,
+    ) = refreshNovelFromSource(
+        novel,
+        source,
+        chapters,
+        novels,
+        database,
+        preferences,
+        novelDownloadManager = downloadManager,
+        manualFetch = manualFetch,
+        fetchWindow = 1_000L to 2_000L,
+    )
+
+    /** A refresh writes only what the source owns, so a change made to the novel since the job read it stays. */
+    @Test
+    fun `a library change made while a refresh runs survives it`() = runTest {
+        val novel = storedNovel()
+        novels.update(NovelUpdate(id = novel.id, favorite = false, notes = "x"))
+
+        refresh(novel, PagedSource(emptyList(), summary = "New description"))
+
+        novels.getById(novel.id)!!.let { it.favorite to it.notes } shouldBe (false to "x")
+    }
+
+    @Test
+    fun `a refresh stores the source's new genres`() = runTest {
+        val novel = storedNovel()
+
+        refresh(novel, PagedSource(emptyList(), genres = "Fantasy, Drama"))
+
+        novels.getById(novel.id)!!.genre shouldBe listOf("Fantasy", "Drama")
+    }
+
+    @Test
+    fun `a library novel keeps its title while titles are not updated to match the source`() = runTest {
+        val novel = storedNovel()
+
+        refresh(novel, PagedSource(emptyList(), title = "Renamed"))
+
+        novels.getById(novel.id)!!.title shouldBe "Novel"
+    }
+
+    @Test
+    fun `a library novel's downloads follow a title updated to match the source`() = runTest {
+        val novel = storedNovel()
+        val downloads = mockk<NovelDownloadManager>(relaxed = true)
+
+        refresh(novel, PagedSource(emptyList(), title = "Renamed"), preferences = updatingTitles, downloadManager = downloads)
+
+        coVerify { downloads.renameNovel(match { it.title == "Novel" }, "Renamed") }
+    }
+
+    private val updatingTitles = LibraryPreferences(
+        InMemoryPreferenceStore(sequenceOf(InMemoryPreference("pref_update_library_manga_titles", true, false))),
+    )
 
     @Test
     fun `a new copy of a read chapter is not reported as new`() = runTest {
@@ -264,6 +316,9 @@ class NovelRefreshTest {
     private class PagedSource(
         private val firstPage: List<ChapterItem>,
         private val otherPages: Map<String, List<ChapterItem>> = emptyMap(),
+        private val title: String = "Novel",
+        private val summary: String? = null,
+        private val genres: String? = null,
     ) : NovelSource {
         override val id = "src"
         override val name = "Source"
@@ -272,11 +327,18 @@ class NovelRefreshTest {
         override val lang = "en"
         override val iconUrl: String? = null
         override val format = NovelExtensionFormat.JS
-        override val extensionName = name
+        override val extensionName = "Source"
         override val contentWarning = ContentWarning.SAFE
 
         override suspend fun parseNovel(novelPath: String) =
-            SourceNovel(path = novelPath, name = "Novel", chapters = firstPage, totalPages = otherPages.size + 1)
+            SourceNovel(
+                path = novelPath,
+                name = title,
+                summary = summary,
+                genres = genres,
+                chapters = firstPage,
+                totalPages = otherPages.size + 1,
+            )
 
         override suspend fun parsePage(novelPath: String, page: String) =
             SourceNovel(path = novelPath, chapters = otherPages[page])

@@ -4,24 +4,24 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.source.keptCover
+import reikai.domain.source.refreshedTitle
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import tachiyomi.data.Database
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
- * Overlay freshly [parsed] source metadata onto the stored [existing] novel. Edits now live in the
- * non-destructive `custom_novel_info` overlay, so a refresh takes the source value for every
- * source-owned field, including the title (a null/blank parsed value never wipes existing data on a
- * partial parse). A deliberate rename lives in the overlay and still wins on the display; refreshing
- * the row title lets a legacy destructive-era title edit recover its source value. Identity and library
- * state are preserved from [existing]; the edit overlay is applied on read, not here.
+ * Overlay freshly [parsed] source metadata onto the stored [existing] novel. User edits live in the
+ * non-destructive `custom_novel_info` overlay, applied on read, so every source-owned field takes the
+ * source value (a null or blank parsed value never wipes existing data on a partial parse). The title
+ * follows the one rule manga follows, [refreshedTitle]. Identity and library state stay [existing]'s.
  */
-fun mergeRefreshedNovel(existing: Novel, parsed: Novel): Novel = existing.copy(
-    // Track the source title too (the overlay masks it when the user renamed via Edit info). Guard the
-    // toNovel placeholder so a nameless parse doesn't overwrite a real title with "Untitled".
-    title = parsed.title.takeIf { it.isNotBlank() && it != "Untitled" } ?: existing.title,
+private fun mergeRefreshedNovel(existing: Novel, parsed: Novel, updateTitles: Boolean): Novel = existing.copy(
+    // toNovel's placeholder for a nameless parse is not a title.
+    title = refreshedTitle(parsed.title.takeIf { it != "Untitled" }, existing.favorite, updateTitles)
+        ?: existing.title,
     author = parsed.author?.takeIf { it.isNotBlank() } ?: existing.author,
     artist = parsed.artist?.takeIf { it.isNotBlank() } ?: existing.artist,
     description = parsed.description?.takeIf { it.isNotBlank() } ?: existing.description,
@@ -34,6 +34,39 @@ fun mergeRefreshedNovel(existing: Novel, parsed: Novel): Novel = existing.copy(
     initialized = true,
 )
 
+/**
+ * Stores [parsed] over [existing] and returns the novel as merged: the one write every novel refresh
+ * makes. Only the source-owned fields are written, as `UpdateMangaFromRemote` writes a partial
+ * `MangaUpdate`, so a library change made after [existing] was read survives. A new title moves the
+ * download folder with it, as manga's `renameManga` does.
+ */
+suspend fun storeRefreshedNovel(
+    existing: Novel,
+    parsed: Novel,
+    novelRepository: NovelRepository,
+    libraryPreferences: LibraryPreferences,
+    novelDownloadManager: NovelDownloadManager?,
+): Novel {
+    val merged = mergeRefreshedNovel(existing, parsed, libraryPreferences.updateMangaTitles.get())
+    if (merged == existing) return existing
+    val newTitle = merged.title.takeIf { it != existing.title }
+    val stored = novelRepository.update(
+        NovelUpdate(
+            id = existing.id,
+            title = newTitle,
+            author = merged.author,
+            artist = merged.artist,
+            description = merged.description,
+            genre = merged.genre,
+            status = merged.status,
+            thumbnailUrl = merged.thumbnailUrl,
+            totalPages = merged.totalPages,
+            initialized = true,
+        ),
+    )
+    if (stored && newTitle != null) novelDownloadManager?.renameNovel(existing, newTitle)
+    return merged
+}
 /** What [refreshNovelFromSource] left stored: the merged novel, and the chapters its syncs report as new. */
 data class NovelRefreshResult(val novel: Novel, val newChapters: List<NovelChapter>)
 
@@ -58,8 +91,7 @@ suspend fun refreshNovelFromSource(
 ): NovelRefreshResult {
     val sourceNovel = source.parseNovel(novel.url)
     val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = novel.favorite)
-    val merged = mergeRefreshedNovel(novel, parsed)
-    if (merged != novel) novelRepository.update(merged)
+    val merged = storeRefreshedNovel(novel, parsed, novelRepository, libraryPreferences, novelDownloadManager)
 
     var synced: NovelChapterSyncResult? = null
     val firstChapters = sourceNovel.chapters.orEmpty()

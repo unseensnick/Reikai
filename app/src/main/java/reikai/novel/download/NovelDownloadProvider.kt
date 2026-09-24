@@ -126,6 +126,20 @@ class NovelDownloadProvider(
         if (sourceDir?.listFiles()?.isEmpty() == true) sourceDir.delete()
     }
 
+    /**
+     * Moves the novel's folder to [newTitle]'s name, as manga's `DownloadManager.renameManga` does, through a
+     * temporary name when only the letter case changes. False when there was nothing to move or the move failed.
+     */
+    fun renameNovel(novel: Novel, newTitle: String): Boolean {
+        val dir = findNovelDir(novel) ?: return false
+        val newName = novelDirName(newTitle)
+        if (dir.name == newName) return false
+        if (dir.name.equals(newName, ignoreCase = true) && !dir.renameTo(newName + Downloader.TMP_DIR_SUFFIX)) {
+            return false
+        }
+        return dir.renameTo(newName)
+    }
+
     fun isNovelDirEmpty(novel: Novel): Boolean = findNovelDir(novel)?.listFiles()?.isEmpty() == true
 
     /**
