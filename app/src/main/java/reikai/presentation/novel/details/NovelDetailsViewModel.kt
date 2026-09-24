@@ -25,6 +25,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,12 +44,13 @@ import reikai.data.coil.NovelCover
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.novel.NovelStatusCode
-import reikai.data.novel.storeRefreshedNovel
 import reikai.data.novel.predictNovelFetchInterval
 import reikai.data.novel.refreshNovelFromSource
+import reikai.data.novel.storeRefreshedNovel
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
 import reikai.data.novel.updateNovelFetchInterval
+import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.entry.EntryId
@@ -898,26 +900,47 @@ class NovelDetailsViewModel(
      *  re-fetched too if the walk didn't already cover it. Bounded, never a full fetch-all. */
     fun refresh() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        val anchorSrc = source ?: return
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launchIO {
             state.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
             try {
-                // Refresh the anchor first (its refreshed novel drives the viewed-page fix below), then
-                // every other grouped source so the unified list picks up new chapters everywhere.
+                // Every source is refreshed even after one fails, and the first failure is shown, as on manga.
+                var firstError: Exception? = null
                 val toDownload = mutableListOf<NovelChapter>()
-                val anchorUpdated = refreshNovel(anchorSrc, loaded.novel, toDownload)
+                suspend fun refreshOrKeep(novel: Novel, src: suspend () -> NovelSource): Novel? = try {
+                    refreshNovel(src(), novel, toDownload)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    if (firstError == null) firstError = e
+                    null
+                }
+                // Refresh the anchor first (its refreshed novel drives the viewed-page fix below), then
+                // every other grouped source so the unified list picks up new chapters everywhere. A missing
+                // anchor source is reported as manga's stub is; a sibling's is skipped, or an unrelated
+                // uninstalled source would fail every refresh.
+                var anchorSrc = source
+                val anchorUpdated = refreshOrKeep(loaded.novel) {
+                    (anchorSrc ?: sourceManager.getOrThrow(loaded.novel.source)).also { anchorSrc = it }
+                }
                 for (id in mergeGroup.relatedIds) {
                     if (id == loaded.novel.id) continue
                     val novel = novelRepo.getById(id) ?: continue
                     val src = siblingSources.value[id] ?: continue
-                    refreshNovel(src, novel, toDownload)
+                    refreshOrKeep(novel) { src }
                 }
                 if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
                 // Force-refresh the viewed page when viewing the anchor's own (paged) list and the walk
                 // skipped it (a middle page); the unified view has no pages so this is a no-op there.
-                if (loaded.selectedSourceNovelId == null || loaded.selectedSourceNovelId == loaded.novel.id) {
-                    forceRefreshViewedPage(loaded, anchorUpdated, anchorSrc)
+                val viewedAnchor = anchorSrc
+                if (viewedAnchor != null && anchorUpdated != null &&
+                    (loaded.selectedSourceNovelId == null || loaded.selectedSourceNovelId == loaded.novel.id)
+                ) {
+                    forceRefreshViewedPage(loaded, anchorUpdated, viewedAnchor)
+                }
+                firstError?.let { e ->
+                    val message = with(context) { e.refreshFailureMessage() }
+                    viewModelScope.launchUI { snackbarHostState.showSnackbar(message) }
                 }
             } finally {
                 state.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = false) ?: it }
@@ -926,23 +949,19 @@ class NovelDetailsViewModel(
     }
 
     /** Shared favorite-refresh: parseNovel + merge + sync page 1 + walk newly-opened pages. Bounded,
-     *  never a full fetch-all. Keeps the current novel on failure; returns the refreshed novel and adds
-     *  the new chapters the download-new-chapters setting takes to [toDownload]. */
+     *  never a full fetch-all. Returns the refreshed novel and adds the new chapters the
+     *  download-new-chapters setting takes to [toDownload]; a failure is the caller's to report. */
     private suspend fun refreshNovel(src: NovelSource, novel: Novel, toDownload: MutableList<NovelChapter>): Novel =
-        runCatching {
-            refreshNovelFromSource(
-                novel,
-                src,
-                chapterRepo,
-                novelRepo,
-                database,
-                libraryPreferences,
-                novelDownloadManager = downloadManager,
-                manualFetch = true,
-            ).also { toDownload += filterChaptersForDownload.await(it.novel, it.newChapters) }
-        }.getOrNull()?.novel
-            ?: novel
-
+        refreshNovelFromSource(
+            novel,
+            src,
+            chapterRepo,
+            novelRepo,
+            database,
+            libraryPreferences,
+            novelDownloadManager = downloadManager,
+            manualFetch = true,
+        ).also { toDownload += filterChaptersForDownload.await(it.novel, it.newChapters) }.novel
     private suspend fun forceRefreshViewedPage(loaded: NovelDetailsState.Loaded, updated: Novel, src: NovelSource) {
         val newTotalPages = updated.totalPages
         if (newTotalPages <= 1L) return

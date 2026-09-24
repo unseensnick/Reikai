@@ -42,6 +42,7 @@ import mihon.core.metro.metroGraph
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
+import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -75,7 +76,6 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.source.model.SourceNotInstalledException
 import tachiyomi.i18n.MR
 import java.util.concurrent.TimeUnit
 import kotlin.time.Clock
@@ -237,10 +237,8 @@ class NovelUpdateJob(
                 throw e
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e) { "Novel update failed: ${novel.title}" }
-                val message = when (e) {
-                    is SourceNotInstalledException -> context.stringResource(MR.strings.loader_not_implemented_error)
-                    else -> e.message
-                } ?: context.stringResource(MR.strings.unknown)
+                val message = with(context) { e.updateFailureMessage() } ?: context.stringResource(MR.strings.unknown)
+
                 failed += UpdateErrorEntry(novel.title, sourceManager.nameOf(novel.source), message)
                 // Record the failure for the Update errors screen.
                 if (trackErrors) {

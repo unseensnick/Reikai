@@ -49,6 +49,7 @@ import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
+import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.smartUpdateFacts
@@ -67,7 +68,6 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.model.Chapter
-import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
@@ -77,7 +77,6 @@ import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.source.model.SourceNotInstalledException
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import java.util.concurrent.CopyOnWriteArrayList
@@ -324,16 +323,8 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
                                             runCatching { deleteLibraryUpdateErrors.byMangaIds(listOf(manga.id)) }
                                         }
                                     } catch (e: Throwable) {
-                                        val errorMessage = when (e) {
-                                            is NoChaptersException -> context.stringResource(
-                                                MR.strings.no_chapters_error,
-                                            )
-                                            // failedUpdates will already have the source, don't need to copy it into the message
-                                            is SourceNotInstalledException -> context.stringResource(
-                                                MR.strings.loader_not_implemented_error,
-                                            )
-                                            else -> e.message
-                                        }
+                                        // RK: the wording is shared with the novel update job
+                                        val errorMessage = with(context) { e.updateFailureMessage() }
                                         failedUpdates.add(manga to errorMessage)
                                         // RK: record the failure for the Update errors screen
                                         if (reikaiLibraryPreferences.trackUpdateErrors.get()) {

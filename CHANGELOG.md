@@ -328,6 +328,7 @@ every release now also ships a foss build with neither in it.
 - **Covers and chapter pictures from light-novel sources that ask for their own image headers now load, in both reading modes and in downloads.** The WebView reading mode also reuses the pictures the text mode already downloaded.
 - **Ongoing novels from some light-novel sources no longer show as Completed, and library updates no longer skip them.** Refreshing a novel corrects the status it was saved with.
 - **A novel library update no longer undoes a change you make to one of its novels while it runs, such as removing it from the library or editing its notes.**
+- **Refreshing a novel's details now says why it failed, as manga's does, where it used to stop in silence.** A source that lists no chapters now reads as No chapters found there and in library update errors.
 - **A novel library update now reports a novel whose source is no longer installed, as manga's does, where it used to skip it in silence.** Update errors, library grouping and search name a removed source as it was last installed rather than by its id.
 
 ### Browse & sources

@@ -10,6 +10,7 @@ import reikai.domain.source.refreshedTitle
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import tachiyomi.data.Database
+import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -67,6 +68,7 @@ suspend fun storeRefreshedNovel(
     if (stored && newTitle != null) novelDownloadManager?.renameNovel(existing, newTitle)
     return merged
 }
+
 /** What [refreshNovelFromSource] left stored: the merged novel, and the chapters its syncs report as new. */
 data class NovelRefreshResult(val novel: Novel, val newChapters: List<NovelChapter>)
 
@@ -74,9 +76,8 @@ data class NovelRefreshResult(val novel: Novel, val newChapters: List<NovelChapt
  * Re-parse a favorited [novel] from its [source] and bring its stored data up to date: merge the
  * parsed metadata (persisting only on a change), sync the first page's chapters, walk any pages
  * opened since the previous [Novel.totalPages], then predict the next update once over the result.
- * Shared by the background update job and the details refresh. The browse-open path stays on
- * `insertOrGet` in the details model: that inserts a non-favorite shadow row and does not walk, a
- * genuinely different operation.
+ * Shared by the update job and the details refresh; browse-open inserts a shadow row instead. Fails as
+ * manga's refresh does: [NoChaptersException] when the source lists no chapter, else what the source threw.
  */
 suspend fun refreshNovelFromSource(
     novel: Novel,
@@ -93,8 +94,11 @@ suspend fun refreshNovelFromSource(
     val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = novel.favorite)
     val merged = storeRefreshedNovel(novel, parsed, novelRepository, libraryPreferences, novelDownloadManager)
 
-    var synced: NovelChapterSyncResult? = null
     val firstChapters = sourceNovel.chapters.orEmpty()
+    // After the details are stored, as manga's sync throws after its details write.
+    if (firstChapters.isEmpty() && merged.totalPages <= 1L) throw NoChaptersException()
+
+    var synced: NovelChapterSyncResult? = null
     if (firstChapters.isNotEmpty()) {
         // A paged source's first page is page "1"; tag it so the page-"1" query finds these rows.
         val pageTag = if (sourceNovel.totalPages > 1) "1" else null

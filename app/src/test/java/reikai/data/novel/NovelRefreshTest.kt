@@ -1,6 +1,7 @@
 package reikai.data.novel
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -13,9 +14,9 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
-import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.SourceNovel
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelFilterState
@@ -35,6 +36,7 @@ import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.data.Novels
 import tachiyomi.data.StringListColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
+import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /** A library refresh over the real SQL, with the plugin host faked by [PagedSource]. */
@@ -136,7 +138,7 @@ class NovelRefreshTest {
         val novel = storedNovel()
         novels.update(NovelUpdate(id = novel.id, favorite = false, notes = "x"))
 
-        refresh(novel, PagedSource(emptyList(), summary = "New description"))
+        refresh(novel, PagedSource(oneChapter, summary = "New description"))
 
         novels.getById(novel.id)!!.let { it.favorite to it.notes } shouldBe (false to "x")
     }
@@ -145,7 +147,7 @@ class NovelRefreshTest {
     fun `a refresh stores the source's new genres`() = runTest {
         val novel = storedNovel()
 
-        refresh(novel, PagedSource(emptyList(), genres = "Fantasy, Drama"))
+        refresh(novel, PagedSource(oneChapter, genres = "Fantasy, Drama"))
 
         novels.getById(novel.id)!!.genre shouldBe listOf("Fantasy", "Drama")
     }
@@ -154,7 +156,7 @@ class NovelRefreshTest {
     fun `a library novel keeps its title while titles are not updated to match the source`() = runTest {
         val novel = storedNovel()
 
-        refresh(novel, PagedSource(emptyList(), title = "Renamed"))
+        refresh(novel, PagedSource(oneChapter, title = "Renamed"))
 
         novels.getById(novel.id)!!.title shouldBe "Novel"
     }
@@ -164,10 +166,32 @@ class NovelRefreshTest {
         val novel = storedNovel()
         val downloads = mockk<NovelDownloadManager>(relaxed = true)
 
-        refresh(novel, PagedSource(emptyList(), title = "Renamed"), preferences = updatingTitles, downloadManager = downloads)
+        refresh(
+            novel,
+            PagedSource(oneChapter, title = "Renamed"),
+            preferences = updatingTitles,
+            downloadManager = downloads,
+        )
 
         coVerify { downloads.renameNovel(match { it.title == "Novel" }, "Renamed") }
     }
+
+    /** Manga's sync raises the same exception, which both details screens and both update jobs word as "No chapters found". */
+    @Test
+    fun `a refresh that finds no chapters fails with NoChaptersException`() = runTest {
+        shouldThrow<NoChaptersException> { refresh(storedNovel(), PagedSource(emptyList())) }
+    }
+
+    @Test
+    fun `a refresh that finds no chapters still stores the source's details`() = runTest {
+        val novel = storedNovel()
+
+        runCatching { refresh(novel, PagedSource(emptyList(), summary = "New description")) }
+
+        novels.getById(novel.id)!!.description shouldBe "New description"
+    }
+
+    private val oneChapter get() = listOf(chapter("/c/1", 1.0))
 
     private val updatingTitles = LibraryPreferences(
         InMemoryPreferenceStore(sequenceOf(InMemoryPreference("pref_update_library_manga_titles", true, false))),

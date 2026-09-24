@@ -36,7 +36,6 @@ import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
-import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -83,6 +82,7 @@ import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
+import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.entry.EntryId
@@ -149,7 +149,6 @@ import tachiyomi.domain.chapter.interactor.SetMangaDefaultChapterFlags
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
-import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
@@ -635,12 +634,8 @@ class MangaViewModel(
         } catch (_: CancellationException) {
             // ignore
         } catch (e: Exception) {
-            val message = if (e is NoChaptersException) {
-                context.stringResource(MR.strings.no_chapters_error)
-            } else {
-                logcat(LogPriority.ERROR, e)
-                with(context) { e.formattedMessage }
-            }
+            // RK: the wording is shared with the novel details refresh
+            val message = with(context) { e.refreshFailureMessage() }
 
             viewModelScope.launch {
                 snackbarHostState.showSnackbar(message = message)
