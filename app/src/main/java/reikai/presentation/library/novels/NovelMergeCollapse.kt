@@ -33,8 +33,8 @@ object NovelMergeCollapse {
         // Global preferred novel-source ids (plugin slugs), highest priority first; the fallback ranking
         // when a group has no override. Empty means ranking falls through to chapter count then id.
         preferredSourceIds: List<String> = emptyList(),
-        // Group id -> the stored stitch's counts. A stitched group always has an entry, zeros included, so
-        // an absent one has not been stitched and keeps the representative's own counts, as on manga.
+        // Group id -> the stored stitch's counts. Absent for a group not stitched yet or with no unit
+        // placed, which keeps the representative's own counts, as on manga.
         mergedCountsByGroup: Map<Long, MergedGroupCounts> = emptyMap(),
         // Group id -> merged chapters with a copy on disk. Absent keeps the members' own sum, as on manga.
         mergedDownloadsByGroup: Map<Long, Int> = emptyMap(),

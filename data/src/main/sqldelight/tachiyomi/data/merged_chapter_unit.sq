@@ -20,8 +20,8 @@
 -- but it keeps a row so the staleness queries can still see it.
 --
 -- copy_order ranks the sources holding one merged chapter, 0 being the copy the list shows. A reader
--- that hides a copy (an excluded scanlator, a source removed from the library) takes the lowest
--- surviving one, so those stay live filters rather than inputs the stitch has to be rerun for.
+-- that hides a copy for an excluded scanlator takes the lowest surviving one, so that stays a live
+-- filter. A source leaving or rejoining the library is a stitch input instead (see the stale view).
 CREATE TABLE merged_chapter_unit (
     chapter_id INTEGER NOT NULL PRIMARY KEY,
     group_id INTEGER NOT NULL,
@@ -232,10 +232,10 @@ ORDER BY unit, copy_order;
 -- member leaving the library restitches the group instead; the favorite join only covers the moment
 -- before reconciliation runs.
 --
--- CONSUMER CONTRACT: every STITCHED group has a row, carrying 0 read when nothing is read. An absent
--- group means it has not been stitched yet, which the caller must show as its leading source's own
--- counts rather than as zero: reconciliation runs while the library is already on screen, so "no row
--- yet" and "nothing read" have to be told apart or a series reads as untouched for a moment.
+-- CONSUMER CONTRACT: a group with any placed, unfiltered unit has a row, carrying 0 read when nothing
+-- is read. An absent group is one not stitched yet (or with every unit filtered out), which the caller
+-- must show as its leading source's own counts rather than as zero: reconciliation runs while the
+-- library is already on screen, so "no row yet" and "nothing read" have to be told apart.
 countsByGroup:
 SELECT
     group_id AS groupId,

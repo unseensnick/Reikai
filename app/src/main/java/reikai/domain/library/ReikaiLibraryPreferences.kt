@@ -134,7 +134,7 @@ class ReikaiLibraryPreferences(
     // sort and Random seed keys retired the same way (DEAD_NOVEL_SORT_KEY).
     // endregion
 
-    // region Merging (persisted group tables; the pref-based keys below are migrated then kept for backup)
+    // region Merging (persisted group tables; the pref-based keys below stay only for the one-time migration)
 
     /** Master switch for source merging (manga + novels). Off resolves every series standalone and hides
      *  the merge UI without deleting groups, so turning it back on restores them. Lives in Settings. */
@@ -149,7 +149,8 @@ class ReikaiLibraryPreferences(
         emptySet(),
     )
 
-    /** Auto-group favorited series that share a title across sources (guarded by the healing pass). */
+    /** Whether adding a same-titled series offers to group it with the match. Repurposed from silent
+     *  auto-merge; the one-time pref-to-group migration also reads it. */
     val autoMergeSameTitle: Preference<Boolean> = preferenceStore.getBoolean("auto_merge_same_title", true)
 
     /** On a merged library cover, show the grouped sources' icons instead of a numeric group count. */

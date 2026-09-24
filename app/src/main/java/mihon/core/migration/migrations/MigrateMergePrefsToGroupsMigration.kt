@@ -21,9 +21,9 @@ import tachiyomi.domain.manga.interactor.GetFavorites
  * deliberate unmerges) as real rows so grouping survives the move off the derive-on-read pref system,
  * with nothing un-grouping.
  *
- * The old prefs are intentionally left intact: they remain the live source of truth until the
- * resolution cutover, and old backups still carry them. Best-effort per content type, so a failure on
- * one side does not block startup or the other side.
+ * The old prefs are frozen input: this is their only reader, for an install upgrading past 189, and
+ * restore skips them. Best-effort per content type, so a failure on one side does not block startup or
+ * the other side.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)

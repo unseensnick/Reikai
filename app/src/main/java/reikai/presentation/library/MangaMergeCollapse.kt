@@ -10,7 +10,7 @@ import tachiyomi.domain.source.model.Source
 /**
  * Collapses persisted merge groups so a series favorited from several sources renders as ONE library
  * cover with combined counts: each multi-member bucket keeps one primary stamped with the group ids,
- * summed downloads and the grouped sources. Ungrouped items, and all items when merging is off, pass
+ * the merged download count and the grouped sources. Ungrouped items, and all items when merging is off, pass
  * through. The primary is the trunk the merged chapter list uses ([reikai.domain.manga.ChapterAggregation]),
  * so its `isLocal` follows the chosen source: a local trunk locks Download, a remote one does not.
  * Pure; the caller supplies [membership].
@@ -25,11 +25,10 @@ object MangaMergeCollapse {
         // When false, the group's sources are not resolved and the badge falls back to a count.
         showMergeSourceIcons: Boolean,
         resolveSource: suspend (Long) -> Source,
-        // Group id -> the stored stitch's counts. A stitched group always has an entry, zeros included,
-        // so an absent one has not been stitched and keeps the primary's own counts, as on the novel side.
+        // Group id -> the stored stitch's counts. Absent for a group not stitched yet or with every unit
+        // filtered out, which keeps the primary's own counts, as on the novel side.
         mergedCountsByGroup: Map<Long, MergedGroupCounts> = emptyMap(),
-        // Group id -> merged chapters with a copy on disk. A stitched group always has an entry, zero
-        // included, so an absent one has not been stitched and keeps the members' own sum.
+        // Group id -> merged chapters with a copy on disk. Absent keeps the members' own sum, as on novels.
         mergedDownloadsByGroup: Map<Long, Int> = emptyMap(),
         // Mirrors the unread-badge preference, so a merged count never lights a badge the user turned off.
         showUnreadBadge: Boolean = true,
@@ -104,11 +103,11 @@ object MangaMergeCollapse {
         val primary = subGroup.minWith(rankComparator(overrideOrder, preferredSourceIds, recognizedChapterCounts))
         // The real count is one unit per chapter the group covers, unread only when no source's copy is
         // read (see merged_chapter_unit.sq). Summing the members instead would double-count every
-        // chapter they share. Falls back to the primary's own count when the group has not been stitched
-        // yet, which under-reports rather than inventing a number.
+        // chapter they share. Falls back to the primary's own count when the stitch has none for the
+        // group, which under-reports rather than inventing a number.
         val unread = mergedCounts?.unread ?: primary.unreadCount
         // Downloads count the same way: one per chapter the group holds, however many of its sources
-        // hold it. Null is a group nothing has stitched, where the sum is the only answer available.
+        // hold it. Null is a group with no counted units, where the sum is the only answer available.
         val downloads = mergedDownloads ?: subGroup.sumOf { it.downloadCount }
         return primary.copy(
             downloadCount = downloads,
