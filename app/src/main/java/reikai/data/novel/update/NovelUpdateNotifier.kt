@@ -18,10 +18,9 @@ import eu.kanade.tachiyomi.util.system.notify
 import reikai.data.notification.NOTIF_TITLE_MAX_LEN
 import reikai.data.notification.hiddenEntryIds
 import reikai.data.notification.newChaptersDescription
-import reikai.data.notification.shownEntryName
 import reikai.data.updateerror.updateErrorPendingIntent
 import reikai.domain.library.ContentType
-import reikai.domain.novel.isLewd
+import reikai.domain.manga.AdultContentChecker
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.core.common.Constants
@@ -40,6 +39,7 @@ import java.text.NumberFormat
 class NovelUpdateNotifier(
     private val context: Context,
     private val securityPreferences: SecurityPreferences,
+    private val adultChecker: AdultContentChecker,
 ) {
 
     /** The same formatter the manga updater's progress title uses, so both read alike. */
@@ -66,8 +66,8 @@ class NovelUpdateNotifier(
         }
     }
 
-    /** Build the progress notification (also used for the worker's `getForegroundInfo`, with no [novel]). */
-    fun progress(novel: Novel?, current: Int, total: Int): Notification =
+    /** Build the progress notification (also used for the worker's `getForegroundInfo`, with no [name]). */
+    fun progress(name: String?, current: Int, total: Int): Notification =
         progressBuilder
             .setContentTitle(
                 if (total == 0) {
@@ -79,21 +79,13 @@ class NovelUpdateNotifier(
                     )
                 },
             )
-            .setContentText(
-                novel?.let {
-                    shownEntryName(
-                        it.title,
-                        securityPreferences.hideNotificationContent.get(),
-                        securityPreferences.hideAdultNotificationContent.get(),
-                        it.isLewd(),
-                    )
-                },
-            )
+            .setContentText(name)
             .setProgress(total, current, total == 0)
             .build()
 
-    fun showProgress(novel: Novel, current: Int, total: Int) {
-        context.notify(Notifications.ID_NOVEL_LIBRARY_PROGRESS, progress(novel, current, total))
+    suspend fun showProgress(novel: Novel, current: Int, total: Int) {
+        val name = novel.title.takeUnless { novel.id in hiddenNovelIds(listOf(novel)) }
+        context.notify(Notifications.ID_NOVEL_LIBRARY_PROGRESS, progress(name, current, total))
     }
 
     fun dismissProgress() {
@@ -117,11 +109,7 @@ class NovelUpdateNotifier(
     suspend fun showResults(updates: List<Pair<Novel, List<NovelChapter>>>) {
         if (updates.isEmpty()) return
         val hideAll = securityPreferences.hideNotificationContent.get()
-        val hidden = hiddenNovelIds(
-            updates.map { it.first },
-            hideAll,
-            securityPreferences.hideAdultNotificationContent.get(),
-        )
+        val hidden = hiddenNovelIds(updates.map { it.first })
         // Hidden, only the count is posted, as the manga updater posts no per-series entries then.
         val perNovel = if (hideAll) {
             emptyList()
@@ -211,10 +199,12 @@ class NovelUpdateNotifier(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
-}
 
-/** The novels among [novels] a notification must leave unnamed. A novel's only adult signal is its genres. */
-internal suspend fun hiddenNovelIds(novels: List<Novel>, hideAll: Boolean, hideAdult: Boolean): Set<Long> =
-    hiddenEntryIds(novels, hideAll, hideAdult, Novel::id) { among ->
-        among.filter(Novel::isLewd).mapTo(mutableSetOf(), Novel::id)
-    }
+    private suspend fun hiddenNovelIds(novels: List<Novel>): Set<Long> = hiddenEntryIds(
+        novels,
+        securityPreferences.hideNotificationContent.get(),
+        securityPreferences.hideAdultNotificationContent.get(),
+        Novel::id,
+        adultChecker::adultNovelIdsAmong,
+    )
+}

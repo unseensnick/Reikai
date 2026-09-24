@@ -4,6 +4,7 @@ import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.activeNetworkState
 import eu.kanade.tachiyomi.util.system.notificationManager
@@ -21,10 +22,10 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.download.SeriesCompletions
+import reikai.domain.manga.AdultContentChecker
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.isLewd
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
@@ -60,6 +61,8 @@ class NovelDownloadManager(
     private val sourcePreferences: ReikaiSourcePreferences,
     private val novelPreferences: NovelPreferences,
     private val saver: NovelChapterSaver,
+    private val securityPreferences: SecurityPreferences,
+    private val adultChecker: AdultContentChecker,
 ) {
 
     private val store = NovelDownloadStore(context, chapterRepo)
@@ -346,7 +349,9 @@ class NovelDownloadManager(
                 val novel = novelRepo.getById(next.novelId)
                 val chapter = chapterRepo.getById(next.chapterId)
                 val total = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
-                val isAdult = novel?.isLewd() == true
+                // Asked only while the adult switch is on, as manga's downloader asks, since the verdict can wait on the extension scan.
+                val isAdult = novel != null && securityPreferences.hideAdultNotificationContent.get() &&
+                    novel.id in adultChecker.adultNovelIdsAmong(listOf(novel))
                 onProgress(NovelDownloadProgress.Downloading(done, total, novel?.title.orEmpty(), isAdult, novel))
                 // Try a few times before giving up so a transient network blip or a momentarily
                 // rate-limited source doesn't kill the chapter on the first stumble (mirrors the manga

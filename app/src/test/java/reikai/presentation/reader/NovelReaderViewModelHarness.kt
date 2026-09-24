@@ -9,6 +9,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -255,6 +256,7 @@ class NovelReaderViewModelHarness private constructor(
                 every { downloadedOnly } returns this@NovelReaderViewModelHarness.downloadedOnly
             },
             context = context,
+            adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
             io = dispatcher,
         ).also { viewModels.put("novel-$novelId-$chapterId-${viewModels.keys().size}", it) }
     }

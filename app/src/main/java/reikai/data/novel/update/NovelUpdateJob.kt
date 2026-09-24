@@ -48,6 +48,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.ReleaseInterval
 import reikai.domain.library.smartUpdateFacts
 import reikai.domain.library.smartUpdateSkip
+import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.CollapsedArrivals
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -131,7 +132,9 @@ class NovelUpdateJob(
     @Inject private lateinit var mergedChapterUnitRepository: MergedChapterUnitRepository
 
     @Inject private lateinit var securityPreferences: SecurityPreferences
-    private val notifier = NovelUpdateNotifier(context, securityPreferences)
+
+    @Inject private lateinit var adultChecker: AdultContentChecker
+    private val notifier = NovelUpdateNotifier(context, securityPreferences, adultChecker)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = notifier.progress(null, 0, 0)

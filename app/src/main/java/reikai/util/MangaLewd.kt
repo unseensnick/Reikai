@@ -15,9 +15,8 @@ fun Manga.isLewd(sourceName: String?): Boolean {
 }
 
 /**
- * The genre-tag half of the lewd heuristic, shared with the novel library. Novel sources carry no nsfw
- * flag (unlike Mihon manga extensions), so a novel's only lewd signal is its adult genre tags; this is the
- * whole novel check, and the source-name half stays manga-only.
+ * The genre-tag half of the lewd heuristic, shared with novels, where it is the whole library check. The
+ * source-name half stays manga-only.
  */
 fun hasLewdGenre(genres: List<String>?): Boolean = genres.orEmpty().any(::isHentaiTag)
 

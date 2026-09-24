@@ -44,6 +44,7 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.data.coil.NovelCover
 import reikai.data.novel.tts.SystemTtsEngine
+import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.expandToUnits
@@ -58,7 +59,6 @@ import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
-import reikai.domain.novel.isLewd
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryUpdate
@@ -138,6 +138,7 @@ class NovelReaderViewModel(
     private val basePreferences: BasePreferences,
     private val context: Context,
     private val pageFetcher: NovelPageFetcher,
+    private val adultChecker: AdultContentChecker,
     // Dispatchers.IO, which is what launchIO would have used. Passed in so a JVM test can run the
     // whole session on its own scheduler.
     @Assisted private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -762,7 +763,7 @@ class NovelReaderViewModel(
             novelRepo.getById(novelId)?.let {
                 orientationOverride.value = it.readerOrientation.toInt()
                 entryTitle.value = it.title
-                isAdultEntry = it.isLewd()
+                isAdultEntry = it.id in adultChecker.adultNovelIdsAmong(listOf(it))
                 detailsRoute.value = DetailsRoute(it.source, it.url)
                 cover.value = it.thumbnailUrl?.takeIf(String::isNotBlank)?.let { url ->
                     NovelCover(

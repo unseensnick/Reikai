@@ -44,7 +44,6 @@ import reikai.domain.db.Transactions
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.novel.download.NovelDownloadCache
-import reikai.util.hasLewdGenre
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
@@ -327,7 +326,7 @@ class BackupRestorer(
                 restore = { novelRestorer.restore(it, membershipCategories) },
                 title = { it.title },
                 sourceName = { it.source },
-                isAdult = { hasLewdGenre(it.genre) },
+                isAdult = { adultContentChecker.adultNovelIdsAmong(listOf(it.toNovelImpl())).isNotEmpty() },
             )
             restoreIsolated("novel custom info") {
                 summary.legacyCustomInfo.unclaimedNovels().forEach { (ref, info) ->
