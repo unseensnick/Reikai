@@ -22,6 +22,9 @@ interface BackupEntryParts<E, B> {
     /** Series outside the library that still carry read progress, which "All read entries" keeps. */
     suspend fun readNotInLibrary(): List<E>
 
+    /** Series outside the library that are still members of a merge group, whatever their progress. */
+    suspend fun groupMembersOutsideLibrary(): List<E>
+
     /** The series' own fields, plus any part the type writes whatever the options say. */
     suspend fun base(entry: E): B
 
@@ -36,10 +39,15 @@ interface BackupEntryParts<E, B> {
     suspend fun customInfo(entry: E, backup: B)
 }
 
-/** Every series these options back up, one at a time, so a large library is never held whole. */
+/**
+ * Every series these options back up, one at a time, so a large library is never held whole. Merge
+ * group members outside the library always come along: their groups are written whatever the options
+ * say, and a restore resolves a member only against a row it restored.
+ */
 fun <E, B> BackupOptions.backupEntries(parts: BackupEntryParts<E, B>): Flow<B> = flow {
     val readOnly = if (readEntries) parts.readNotInLibrary() else emptyList()
-    for (entry in parts.favorites() + readOnly) {
+    val outsideLibrary = (readOnly + parts.groupMembersOutsideLibrary()).distinct()
+    for (entry in parts.favorites() + outsideLibrary) {
         emit(backupEntry(entry, parts))
         yield()
     }

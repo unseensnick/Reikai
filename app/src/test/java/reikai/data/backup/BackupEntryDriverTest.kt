@@ -30,9 +30,11 @@ class BackupEntryDriverTest {
     private class FakeParts(
         private val favorites: List<String> = listOf("fav"),
         private val readOnly: List<String> = listOf("read"),
+        private val groupMembers: List<String> = emptyList(),
     ) : BackupEntryParts<String, MutableSet<String>> {
         override suspend fun favorites() = favorites
         override suspend fun readNotInLibrary() = readOnly
+        override suspend fun groupMembersOutsideLibrary() = groupMembers
         override suspend fun base(entry: String) = mutableSetOf("base:$entry")
         override suspend fun chapters(entry: String, backup: MutableSet<String>) {
             backup += Part.CHAPTERS.name
@@ -78,6 +80,19 @@ class BackupEntryDriverTest {
     fun `without all read entries only the favorites are backed up`() = runTest {
         BackupOptions(readEntries = false).backupEntries(FakeParts()).toList().map { it.first() } shouldBe
             listOf("base:fav")
+    }
+
+    @Test
+    fun `a merge group member outside the library is backed up without all read entries`() = runTest {
+        // Its group is written whatever that option says, and restore resolves a ref only against a row.
+        BackupOptions(readEntries = false).backupEntries(FakeParts(groupMembers = listOf("member")))
+            .toList().map { it.first() } shouldBe listOf("base:fav", "base:member")
+    }
+
+    @Test
+    fun `a merge group member with read progress is backed up once`() = runTest {
+        BackupOptions().backupEntries(FakeParts(groupMembers = listOf("read")))
+            .toList().map { it.first() } shouldBe listOf("base:fav", "base:read")
     }
 
     @Test

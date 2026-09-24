@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.backup.create.creators
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.async.coroutines.awaitAsOne
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
@@ -18,8 +19,11 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import kotlinx.coroutines.flow.first
 import reikai.data.backup.BackupEntryParts
 import reikai.data.backup.backupEntry
+import reikai.domain.library.ContentType
+import reikai.domain.merge.MergeGroupRepository
 import tachiyomi.data.Database
 import tachiyomi.data.MemoColumnAdapter
+import tachiyomi.data.manga.MangaMapper
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.manga.interactor.GetFavorites
@@ -40,6 +44,8 @@ class MangaBackupCreator(
     // RK: which manga are backed up, read here since the shared driver asks each type for its own.
     private val getFavorites: GetFavorites,
     private val mangaRepository: MangaRepository,
+    // RK: merge group members outside the library are backed up so a restored group keeps them.
+    private val mergeGroupRepository: MergeGroupRepository,
 ) : BackupEntryParts<Manga, BackupManga> { // RK
 
     suspend operator fun invoke(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
@@ -54,6 +60,12 @@ class MangaBackupCreator(
     override suspend fun favorites(): List<Manga> = getFavorites.await()
 
     override suspend fun readNotInLibrary(): List<Manga> = mangaRepository.getReadMangaNotInLibrary()
+
+    // getMangaById on the repository throws on a missing row; a membership whose row has gone is skipped.
+    override suspend fun groupMembersOutsideLibrary(): List<Manga> =
+        mergeGroupRepository.getAllMemberships(ContentType.MANGA).keys
+            .mapNotNull { database.mangasQueries.getMangaById(it, MangaMapper::mapManga).awaitAsOneOrNull() }
+            .filterNot { it.favorite }
 
     override suspend fun base(entry: Manga): BackupManga {
         // Entry for this manga

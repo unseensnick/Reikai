@@ -526,6 +526,7 @@ every release now also ships a foss build with neither in it.
 - **The restore log now names every manga extension a restore could not reinstall, including one whose install failed, was cancelled or timed out.** It used to list only those whose repo was missing.
 - **Your own title, author or cover edits on a series you have read but removed from the library are no longer missing from a backup.** They were dropped whenever the backup included read entries outside the library.
 - **Picking a backup to restore now opens the system file picker, which some devices could not open before (synced from Mihon, mihonapp/mihon#3948).**
+- **A backup now keeps the sources you removed from a merged series, so adding one back after a restore on a new device rejoins its series, on manga and novels.** A two-source series with one removed used to come back not merged at all.
 - **Restoring a backup no longer collapses unrelated series into one.** Two series you had grouped separately came back as a single card whenever your device already had a source of each merged together.
 - **Restoring a backup now leaves merged series it says nothing about untouched.** They keep their group, their order and their leading source.
 - **Restoring a backup no longer re-merges a pair you deliberately split.**

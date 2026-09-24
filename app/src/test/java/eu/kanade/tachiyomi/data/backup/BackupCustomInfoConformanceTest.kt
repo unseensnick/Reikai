@@ -160,6 +160,7 @@ class BackupCustomInfoConformanceTest {
                         coEvery { await() } returns listOf(Manga.create().copy(id = 7, url = "/7", source = 1L))
                     },
                     mangaRepository = mockk(),
+                    mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                 ),
                 preferenceBackupCreator = mockk(relaxed = true),
                 extensionStoresBackupCreator = mockk(relaxed = true),
