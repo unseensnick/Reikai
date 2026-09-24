@@ -28,6 +28,9 @@ interface EntryBrowseBehavior {
     /** Commit [query] as the listing, or clear the search when it is null or blank. */
     fun search(query: String?)
 
+    /** Search [genre] through the source's own filters, or as text when it offers none of that name. */
+    fun searchGenre(genre: String)
+
     fun setDisplayMode(mode: LibraryDisplayMode)
 
     // Filters. The sheet itself is dispatched per type; these are the verbs both sides share.

@@ -172,7 +172,6 @@ class EntryCatalogueScreen(
                 uriHandler.openUri(if (isLocal) LocalSource.HELP_URL else Constants.URL_HELP)
             },
             localSourceHelp = { uriHandler.openUri(LocalSource.HELP_URL) }.takeIf { isLocal },
-            onGenreSearch = viewModel::searchGenre,
         ) { onDismiss ->
             SourceFilterDialog(
                 onDismissRequest = onDismiss,
@@ -264,7 +263,6 @@ class EntryCatalogueScreen(
         onOpenSettings: () -> Unit,
         onHelpClick: () -> Unit,
         localSourceHelp: (() -> Unit)? = null,
-        onGenreSearch: ((String) -> Unit)? = null,
         extraSheets: @Composable () -> Unit = {},
         filterSheet: @Composable (onDismiss: () -> Unit) -> Unit,
     ) {
@@ -302,7 +300,7 @@ class EntryCatalogueScreen(
             queryEvent.receiveAsFlow().collectLatest {
                 when (it) {
                     is SearchType.Text -> behavior.search(it.txt)
-                    is SearchType.Genre -> onGenreSearch?.invoke(it.txt) ?: behavior.search(it.txt)
+                    is SearchType.Genre -> behavior.searchGenre(it.txt)
                 }
             }
         }

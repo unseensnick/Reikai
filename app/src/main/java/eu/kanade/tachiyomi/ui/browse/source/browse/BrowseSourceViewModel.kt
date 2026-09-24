@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
+import reikai.domain.source.filter.selectGenre
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
@@ -58,7 +59,6 @@ import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.interactor.GetRemoteManga
 import tachiyomi.domain.source.repository.SourcePagingSource
 import tachiyomi.domain.source.service.SourceManager
-import eu.kanade.tachiyomi.source.model.Filter as SourceModelFilter
 
 // RK: open, with createSourcePagingSource / combineMetadata as overridable hooks and a `filterable`
 // state flag, so the MangaDex follows screen can subclass this and swap in its own paging source
@@ -230,32 +230,8 @@ open class BrowseSourceViewModel(
 
     fun searchGenre(genreName: String) {
         val defaultFilters = source?.getFilterList() ?: return
-        var genreExists = false
-
-        filter@ for (sourceFilter in defaultFilters) {
-            if (sourceFilter is SourceModelFilter.Group<*>) {
-                for (filter in sourceFilter.state) {
-                    if (filter is SourceModelFilter<*> && filter.name.equals(genreName, true)) {
-                        when (filter) {
-                            is SourceModelFilter.TriState -> filter.state = 1
-                            is SourceModelFilter.CheckBox -> filter.state = true
-                            else -> {}
-                        }
-                        genreExists = true
-                        break@filter
-                    }
-                }
-            } else if (sourceFilter is SourceModelFilter.Select<*>) {
-                val index = sourceFilter.values.filterIsInstance<String>()
-                    .indexOfFirst { it.equals(genreName, true) }
-
-                if (index != -1) {
-                    sourceFilter.state = index
-                    genreExists = true
-                    break
-                }
-            }
-        }
+        // RK: the matcher moved to reikai.domain.source.filter.selectGenre, shared with novel sources
+        val genreExists = defaultFilters.selectGenre(genreName)
 
         state.update {
             val listing = if (genreExists) {

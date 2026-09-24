@@ -177,10 +177,12 @@ every release now also ships a foss build with neither in it.
 
 - **A manga or novel's page now shows the outline of what it is loading instead of a spinner.** It matters most for a novel opened from Browse, which waits on the source before anything appears.
 - **Related-manga suggestions now label where each one came from, in both the carousel and the full grid.** The source, the tracker, or the taste reason behind the pick.
+- **Searching a genre from a novel's page now goes back to its source's catalogue with that genre filtered, as manga does.** Opened from anywhere else, it searches your library.
 
 #### Fixed
 
 - **A series whose site shows a placeholder until its cover loads now keeps its real cover.** A series already stuck on the placeholder takes its cover back from its source's listing.
+- **Searching a genre from a manga's page no longer applies it to a different source's catalogue further back.**
 - **Tapping a series' source name now opens that source to browse.** It used to run a search for the source's own name, and from most screens it did nothing at all.
 - **Page previews on an adult source's details page no longer go blank over time.** Their thumbnails were remembered against links that expire, so a series you had opened before came back as numbered blanks.
 - **A novel's page now shows its artist, when it has one separate from the author.** Manga pages already did; tap it to search, like every other field there.

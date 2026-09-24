@@ -63,6 +63,7 @@ import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.MangaEntryAdapter
 import reikai.presentation.details.openDownloadFolder
+import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
@@ -225,7 +226,7 @@ class MangaScreen(
                         },
                         onMorePreviews = { navigator.push(PagePreviewScreen(successState.manga.id)) },
                         onLibrarySearch = { query ->
-                            scope.launch { performSearch(navigator, query, global = false, library = true) }
+                            scope.launch { performSearch(navigator, query, global = false) }
                         },
                         // The viewed source, and null on a stub: there is no catalogue to open for an
                         // extension that is not installed.
@@ -394,16 +395,11 @@ class MangaScreen(
      * @param query the search query to the parent controller
      */
     // RK --> Walks the back stack rather than looking one screen back, which is upstream's shape: a
-    //        details screen reached from history, updates, a deep link or a related hop has neither
-    //        target directly behind it, so the search silently did nothing. A library search walks past
-    //        any catalogue so it always lands on the library, and carries this entry's content type,
-    //        because the library searches whichever type chip is open.
-    private suspend fun performSearch(
-        navigator: Navigator,
-        query: String,
-        global: Boolean,
-        library: Boolean = false,
-    ) {
+    //        details screen reached from history, updates, a deep link or a related hop has no library
+    //        directly behind it, so the search silently did nothing. It walks past any catalogue so it
+    //        always lands on the library, and carries this entry's content type, because the library
+    //        searches whichever type chip is open. A catalogue is only a genre's target, see below.
+    private suspend fun performSearch(navigator: Navigator, query: String, global: Boolean) {
         if (global) {
             navigator.push(EntryGlobalSearchScreen(query, scopedContentType = ContentType.MANGA))
             return
@@ -413,14 +409,8 @@ class MangaScreen(
             return
         }
 
-        navigator.popUntil { screen ->
-            screen is HomeScreen || (!library && screen is EntryCatalogueScreen)
-        }
-        when (val previousController = navigator.lastItem) {
-            is HomeScreen -> previousController.search(query, ContentType.MANGA)
-            is EntryCatalogueScreen -> previousController.search(query)
-            else -> Unit
-        }
+        navigator.popUntil { it is HomeScreen }
+        (navigator.lastItem as? HomeScreen)?.search(query, ContentType.MANGA)
     }
     // RK <--
 
@@ -429,18 +419,14 @@ class MangaScreen(
      *
      * @param genreName the search genre to the parent controller
      */
-    // RK: the same walk, so a genre tap still reaches a catalogue further back than one screen.
+    // RK: the walk novels share, which only returns to this source's own catalogue.
     private suspend fun performGenreSearch(navigator: Navigator, genreName: String, source: Source) {
-        if (navigator.size < 2) {
-            return
-        }
-
-        if (source is HttpSource && navigator.items.any { it is EntryCatalogueScreen }) {
-            navigator.popUntil { it is EntryCatalogueScreen }
-            (navigator.lastItem as EntryCatalogueScreen).searchGenre(genreName)
-        } else {
-            performSearch(navigator, genreName, global = false)
-        }
+        navigator.searchGenreFromDetails(
+            genreName,
+            SourceKey.Manga(source.id),
+            ContentType.MANGA,
+            filterable = source is HttpSource,
+        )
     }
 
     /**

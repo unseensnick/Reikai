@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelFilters
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -106,6 +107,43 @@ class NovelBrowseFilterRoutingTest {
         model.state.value.query shouldBe ""
     }
 
+    @Test
+    fun `a genre the source offers searches with its filter and no query`() = runTest {
+        val model = open(GENRE_FILTERS)
+        model.search("shadow")
+
+        model.searchGenre("Action")
+
+        model.state.value.pagerInput!!.let { it.query to it.isSearch } shouldBe ("" to true)
+    }
+
+    @Test
+    fun `a genre the source offers is applied to what the pager reads`() = runTest {
+        val model = open(GENRE_FILTERS)
+
+        model.searchGenre("Action")
+
+        val applied = model.state.value.appliedFilters as NovelFilterState.Filters
+        ((applied.list.single() as Filter.Group<*>).state.single() as Filter.CheckBox).state shouldBe true
+    }
+
+    @Test
+    fun `a genre the source does not offer is reported`() = runTest {
+        val model = open(GENRE_FILTERS)
+
+        model.searchGenre("Horror") shouldBe false
+    }
+
+    @Test
+    fun `a genre the source does not offer leaves the search as it was`() = runTest {
+        val model = open(GENRE_FILTERS)
+        model.search("shadow")
+
+        model.searchGenre("Horror")
+
+        model.state.value.query shouldBe "shadow"
+    }
+
     private suspend fun open(filters: NovelFilters): NovelBrowseViewModel {
         val source = mockk<NovelSource>(relaxed = true) {
             every { id } returns SOURCE_ID
@@ -137,5 +175,10 @@ class NovelBrowseFilterRoutingTest {
     private companion object {
         const val SOURCE_ID = "src"
         val MIHON_FILTERS = NovelFilters.FilterListSchema { FilterList(object : Filter.Text("Author") {}) }
+        val GENRE_FILTERS = NovelFilters.FilterListSchema {
+            FilterList(
+                object : Filter.Group<Filter.CheckBox>("Genres", listOf(object : Filter.CheckBox("Action") {})) {},
+            )
+        }
     }
 }

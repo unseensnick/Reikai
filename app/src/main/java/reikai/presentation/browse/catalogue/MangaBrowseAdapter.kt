@@ -167,6 +167,9 @@ class MangaBrowseAdapter(
         if (query.isNullOrBlank()) setListing(EntryBrowseListing.Popular) else model.search(query)
     }
 
+    // The model falls back to a text search itself, and moves the toolbar either way.
+    override fun searchGenre(genre: String) = model.searchGenre(genre)
+
     override fun setDisplayMode(mode: LibraryDisplayMode) = model.setDisplayMode(mode)
 
     override fun openFilterSheet() = model.openFilterSheet()

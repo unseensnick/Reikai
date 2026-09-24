@@ -49,6 +49,7 @@ import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.details.openDownloadFolder
+import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
@@ -163,8 +164,14 @@ class NovelScreen(
                             onBrowseSource = s.browsableSourceId?.let { id ->
                                 { navigator.push(EntryCatalogueScreen(SourceKey.Novel(id))) }
                             },
-                            onTagSearch = {
-                                navigator.push(EntryGlobalSearchScreen(it, scopedContentType = ContentType.NOVELS))
+                            onTagSearch = { genre ->
+                                scope.launch {
+                                    navigator.searchGenreFromDetails(
+                                        genre,
+                                        SourceKey.Novel(s.browsableSourceId ?: sourceId),
+                                        ContentType.NOVELS,
+                                    )
+                                }
                             },
                             onCopyTag = { context.copyToClipboard(it, it) },
                             onTracking = {

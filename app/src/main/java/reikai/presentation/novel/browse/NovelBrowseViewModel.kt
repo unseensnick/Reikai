@@ -186,6 +186,17 @@ class NovelBrowseViewModel(
     }
 
     /**
+     * Search [genre] through the source's own filters, over its defaults and with no query, as manga's
+     * catalogue does. Returns false, changing nothing, when the source offers no filter of that name.
+     */
+    fun searchGenre(genre: String): Boolean {
+        val withGenre = state.value.source?.filters?.defaultsWithGenre(genre) ?: return false
+        state.update { it.copy(query = "", filterDraft = withGenre) }
+        applyFilters()
+        return true
+    }
+
+    /**
      * Run a saved search over the filters already set, with its own query or none, never the one typed
      * before. An LNReader plugin's search takes no options, so a saved query runs as a plain search and
      * saved filters as a listing. A Mihon filter list travels with the query, as manga's does.
