@@ -60,6 +60,14 @@
   }
   setSnippetCss(__CSS_SNIPPETS__);
 
+  // The stylesheets the chapters' sources ship, set as text for the same reason. Ahead of the user's in the
+  // head, so the user's own wins a tie; a merged series adds another source's as its chapter arrives.
+  function addSourceCss(css) {
+    var style = document.getElementById('rk-source-css');
+    if (style && css) style.textContent += css + '\n';
+  }
+  addSourceCss(__SOURCE_CSS__);
+
   var settings = {
     swipe: __SWIPE__,
     bionic: __BIONIC__,
@@ -1001,6 +1009,7 @@
 
   window.rkReader = {
     readAloud: readAloud,
+    addSourceCss: addSourceCss,
     /* Called after any insert, so the next frame measures the shape the reader is actually in. */
     refresh: function () {
       rebuildBoundaries();

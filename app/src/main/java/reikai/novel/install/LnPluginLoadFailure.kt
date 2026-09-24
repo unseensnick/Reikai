@@ -17,6 +17,8 @@ data class LnPluginLoadFailure(
     val iconUrl: String?,
     val lang: String?,
     val version: String?,
+    /** The chapter stylesheet the registry named, fetched again with the script on a reinstall. */
+    val customCssUrl: String?,
     val reason: Reason,
 ) {
     sealed interface Reason {
@@ -55,6 +57,7 @@ data class LnPluginLoadFailure(
                 iconUrl = metadata?.iconUrl ?: seen?.iconUrl,
                 lang = metadata?.lang ?: seen?.lang,
                 version = metadata?.version,
+                customCssUrl = metadata?.customCssUrl,
                 reason = reason,
             )
         }

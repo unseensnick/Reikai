@@ -216,6 +216,7 @@ every release now also ships a foss build with neither in it.
 - **Settings -> Manga reader and Settings -> Novel reader can now hide the progress slider, which moves the chapter buttons to the ends of the button bar.**
 - **Both readers can now put a Scroll to top button on the bottom bar.** It returns a novel to the chapter's start and manga to the chapter's first page.
 - **Both readers' bottom bar can now be edited without leaving the reader, from Edit bottom bar in the top bar's menu.**
+- **Novel chapters in the WebView rendering mode now show the styling their light-novel plugin ships, such as the boxes some chapters draw stats in.** A plugin already installed picks it up on its next update or reinstall.
 
 #### Changed
 

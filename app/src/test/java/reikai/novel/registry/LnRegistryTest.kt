@@ -51,8 +51,27 @@ class LnRegistryTest {
         assertEquals(1, entries.size)
         val e = entries.first()
         assertNull(e.iconUrl)
-        assertNull(e.customJS)
         assertNull(e.customCSS)
+    }
+
+    /** No plugin ships a script beside its code, so the field is not read; its stylesheet is. */
+    @Test
+    fun `a plugin stylesheet is read and a custom script is ignored`() {
+        val entry = LnRegistry.parse(
+            """[{
+                "id": "styled",
+                "name": "Styled",
+                "site": "https://styled.example/",
+                "lang": "English",
+                "version": "1.0",
+                "url": "https://example.com/styled.js",
+                "customJS": "https://example.com/styled.js.custom",
+                "customCSS": "https://example.com/styled.css"
+            }]
+            """.trimIndent(),
+        ).single()
+
+        assertEquals("https://example.com/styled.css", entry.customCSS)
     }
 
     @Test

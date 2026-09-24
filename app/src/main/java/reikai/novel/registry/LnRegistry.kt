@@ -21,9 +21,8 @@ data class LnRegistryEntry(
     /** Compiled `.js` URL for the plugin source. */
     val url: String,
     val iconUrl: String? = null,
-    /** Optional URL to a custom JS file the host should `evaluate` after loading the plugin. */
-    val customJS: String? = null,
-    /** Optional URL to a custom CSS file (only meaningful inside the plugin's WebView contexts). */
+    /** Optional URL to a stylesheet the plugin ships for its chapter markup, which the WebView rendering
+     *  mode applies, as LNReader's reader does. */
     val customCSS: String? = null,
 )
 

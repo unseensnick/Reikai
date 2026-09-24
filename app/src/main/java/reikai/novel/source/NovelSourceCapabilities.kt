@@ -103,3 +103,11 @@ interface NovelPageFetch {
     /** The chapter at [chapterPath] as HTML the readers take, as [NovelSource.parseChapter] returns it. */
     suspend fun chapterText(chapterPath: String, url: String, html: String): String
 }
+
+/**
+ * A stylesheet the source ships for its chapter markup, such as the boxes a LitRPG chapter draws its
+ * stats in. Only an LNReader plugin can carry one, and only the WebView rendering mode applies it,
+ * since the native renderer draws no CSS.
+ */
+@JvmInline
+value class NovelChapterStylesheet(val css: String)

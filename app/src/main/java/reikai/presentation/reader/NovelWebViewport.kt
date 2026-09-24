@@ -31,6 +31,7 @@ import reikai.domain.reader.fraction
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
+import reikai.novel.source.NovelChapterStylesheet
 import reikai.presentation.reader.text.NovelSeam
 import reikai.presentation.reader.web.NovelDocumentGate
 import reikai.presentation.reader.web.NovelWebBridge
@@ -163,6 +164,9 @@ class NovelWebViewport(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val webFonts = NovelWebFonts()
+
+    /** The source stylesheets the document holds, so a merged series adds each source's once. */
+    private val sourceStylesheets = mutableSetOf<NovelChapterStylesheet>()
 
     /** The family the page holds a face for, so a settings push knows when the face has to change. */
     private var faceFamily: String? = null
@@ -300,6 +304,8 @@ class NovelWebViewport(
         val token = gate.open()
         // A new page has run none of them.
         snippetsRan.clear()
+        sourceStylesheets.clear()
+        chapter.sourceStylesheet?.let { sourceStylesheets += it }
         // The document is built with this family's face, and any swap still resolving is for the old page.
         faceJob?.cancel()
         faceFamily = settings.fontFamily
@@ -326,6 +332,7 @@ class NovelWebViewport(
                 useOriginalFonts = useOriginalFonts,
                 sourceCssPriority = sourceCssPriority,
                 textSelectable = textSelectable,
+                sourceStylesheet = chapter.sourceStylesheet?.css,
             )
         }
         val safeBaseUrl = safeBaseUrl(chapter)
@@ -475,6 +482,10 @@ class NovelWebViewport(
                 "${JSONObject.quote(webImages.rewrite(chapter.html, safeBaseUrl(chapter), chapter.sourceId))}, " +
                 "$baseUrl, " +
                 "$seamJs);"
+        }
+        // Ahead of the chapter, so it never draws without the stylesheet its source ships.
+        chapter.sourceStylesheet?.takeIf { sourceStylesheets.add(it) }?.let {
+            runOrQueue("rkReader.addSourceCss(${NovelWebDocument.sourceCssLiteral(it.css)});")
         }
         runOrQueue(js)
         documentSettings?.webSnippets?.js?.filter { it.runOnAppend }?.let(NovelWebSnippets::runner)?.let(::runOrQueue)

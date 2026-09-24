@@ -149,6 +149,7 @@ class LnPluginManagerViewModel(
             iconUrl = failure.iconUrl,
             version = failure.version,
             lang = failure.lang,
+            customCssUrl = failure.customCssUrl,
         ),
     )
 
@@ -195,6 +196,7 @@ class LnPluginManagerViewModel(
         iconUrl = iconUrl,
         version = version,
         lang = lang,
+        customCssUrl = customCSS,
     )
 
     private data class Installs(val inProgress: Set<String> = emptySet(), val errors: Map<String, String> = emptyMap())

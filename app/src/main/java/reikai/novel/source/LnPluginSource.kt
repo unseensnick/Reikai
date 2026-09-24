@@ -19,6 +19,7 @@ import reikai.novel.host.SourceNovel
 class LnPluginSource(
     private val host: LnPluginHost,
     private val info: LnPluginInfo,
+    override val chapterStylesheet: NovelChapterStylesheet? = null,
 ) : NovelSource {
 
     override val id: String = info.id

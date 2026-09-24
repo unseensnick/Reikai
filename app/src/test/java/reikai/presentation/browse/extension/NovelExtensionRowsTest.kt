@@ -126,6 +126,7 @@ class NovelExtensionRowsTest {
         iconUrl = null,
         lang = "en",
         version = "1.0.0",
+        customCssUrl = null,
         reason = LnPluginLoadFailure.Reason.Malformed,
     )
 

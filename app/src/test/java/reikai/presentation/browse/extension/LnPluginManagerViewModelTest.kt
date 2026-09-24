@@ -6,6 +6,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.LnPluginLoadFailure
@@ -196,6 +198,33 @@ class LnPluginManagerViewModelTest {
         installs.get() shouldBe 1
     }
 
+    /** The registry names the stylesheet only at install, so the record has to keep it for a reinstall. */
+    @Test
+    fun `installing a plugin keeps the stylesheet its registry names`() = runTest(dispatcher) {
+        val metadata = slot<LnInstalledPluginMetadata>()
+        coEvery { installer.installFromUrl(any(), capture(metadata)) } returns mockk()
+        val model = model()
+        val before = model.viewModelScope.coroutineContext.job.children.toSet()
+
+        model.install(ENTRY)
+        (model.viewModelScope.coroutineContext.job.children.toSet() - before).joinAll()
+
+        metadata.captured.customCssUrl shouldBe ENTRY.customCSS
+    }
+
+    @Test
+    fun `reinstalling a plugin fetches the stylesheet its record kept`() = runTest(dispatcher) {
+        val metadata = slot<LnInstalledPluginMetadata>()
+        coEvery { installer.installFromUrl(any(), capture(metadata)) } returns mockk()
+        val model = model()
+        val before = model.viewModelScope.coroutineContext.job.children.toSet()
+
+        model.reinstall(FAILURE)
+        (model.viewModelScope.coroutineContext.job.children.toSet() - before).joinAll()
+
+        metadata.captured.customCssUrl shouldBe ENTRY.customCSS
+    }
+
     private companion object {
         const val REPO = "https://example.org/plugins.json"
         const val OTHER_REPO = "https://example.net/plugins.json"
@@ -206,6 +235,7 @@ class LnPluginManagerViewModelTest {
             site = "https://novelbin.example",
             lang = "English",
             url = "https://example.org/novelbin.js",
+            customCSS = "https://example.org/novelbin.css",
         )
         val FAILURE = LnPluginLoadFailure(
             url = ENTRY.url,
@@ -214,6 +244,7 @@ class LnPluginManagerViewModelTest {
             iconUrl = null,
             lang = null,
             version = ENTRY.version,
+            customCssUrl = ENTRY.customCSS,
             reason = LnPluginLoadFailure.Reason.Missing,
         )
     }

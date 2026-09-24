@@ -27,6 +27,7 @@ import reikai.novel.registry.LnRegistry
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
 import reikai.novel.source.LnPluginSource
+import reikai.novel.source.NovelChapterStylesheet
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.ConcurrentHashMap
@@ -141,7 +142,7 @@ class LnPluginInstaller(
         val info = host.loadPlugin(scopeIdFromUrl(canonical), src, metadata?.iconUrl, metadata?.lang)
         // Stored only once it loads, so a broken new version leaves the installed one in place.
         loader.store(canonical, src)
-        val source = LnPluginSource(host, info)
+        val source = LnPluginSource(host, info, refreshStylesheet(canonical, metadata?.customCssUrl))
         manager.register(source)
         rememberSeenSources(listOf(source))
 
@@ -212,7 +213,13 @@ class LnPluginInstaller(
                             metadata[url]?.lang,
                         )
                         if (stored == null) loader.store(url, src)
-                        val source = LnPluginSource(host, info)
+                        // A missing script means the stylesheet went with it, so it is fetched again with it.
+                        val stylesheet = if (stored == null) {
+                            refreshStylesheet(url, metadata[url]?.customCssUrl)
+                        } else {
+                            loader.installedStylesheet(url)?.let(::NovelChapterStylesheet)
+                        }
+                        val source = LnPluginSource(host, info, stylesheet)
                         manager.register(source)
                         LoadResult.Loaded(url, source, info.version)
                     } catch (e: CancellationException) {
@@ -240,6 +247,26 @@ class LnPluginInstaller(
         rememberSeenSources(ok.map { it.source })
         recordLoadedVersions(ok)
         return ok.map { it.source }
+    }
+
+    /**
+     * Stores the chapter stylesheet the registry names for the plugin at [pluginUrl], or removes the stored
+     * one when it names none, as LNReader does on install. A failed fetch keeps the stored one rather than
+     * failing the install over styling.
+     */
+    private suspend fun refreshStylesheet(pluginUrl: String, cssUrl: String?): NovelChapterStylesheet? {
+        val css = cssUrl?.let {
+            try {
+                loader.download(it)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                logcat(LogPriority.WARN, e) { "plugin stylesheet download failed: $it" }
+                return loader.installedStylesheet(pluginUrl)?.let(::NovelChapterStylesheet)
+            }
+        }
+        loader.storeStylesheet(pluginUrl, css)
+        return css?.let(::NovelChapterStylesheet)
     }
 
     /**

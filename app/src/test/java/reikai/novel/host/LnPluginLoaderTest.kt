@@ -73,4 +73,31 @@ class LnPluginLoaderTest {
 
         loader.installed(url) shouldBe null
     }
+
+    @Test
+    fun `a stored stylesheet is loaded with its plugin`() = runTest {
+        loader.storeStylesheet(url, ".box { color: red; }")
+
+        loader.installedStylesheet(url) shouldBe ".box { color: red; }"
+    }
+
+    /** An update whose registry names no stylesheet drops the one the old version shipped, as LNReader does. */
+    @Test
+    fun `storing no stylesheet removes the stored one`() = runTest {
+        loader.storeStylesheet(url, ".box { color: red; }")
+
+        loader.storeStylesheet(url, null)
+
+        loader.installedStylesheet(url) shouldBe null
+    }
+
+    @Test
+    fun `deleting a plugin deletes its stylesheet`() = runTest {
+        loader.store(url, script)
+        loader.storeStylesheet(url, ".box { color: red; }")
+
+        loader.delete(url)
+
+        loader.installedStylesheet(url) shouldBe null
+    }
 }

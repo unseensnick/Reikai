@@ -85,6 +85,9 @@ interface NovelSource {
     /** Reads a page the user loaded in the in-app browser; null when the source cannot be handed one. */
     val pageFetch: NovelPageFetch? get() = null
 
+    /** The stylesheet the source ships for its chapters; null when it ships none. */
+    val chapterStylesheet: NovelChapterStylesheet? get() = null
+
     /**
      * This source can serve a Latest listing, which is why browse offers the chip. The lnreader
      * format declares no such flag, so it is derived rather than read, by looking for

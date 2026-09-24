@@ -45,6 +45,7 @@ class NovelPluginRestorerTest {
         iconUrl = null,
         lang = null,
         version = null,
+        customCssUrl = null,
         reason = reason,
     )
 

@@ -37,6 +37,8 @@ object NovelWebDocument {
         useOriginalFonts: Boolean,
         sourceCssPriority: Boolean,
         textSelectable: Boolean,
+        /** The chapter source's own stylesheet, which the page sets ahead of the user's snippets. */
+        sourceStylesheet: String? = null,
     ): String {
         val css = NovelWebAssets.read(context, "reader.css")
         val js = NovelWebAssets.readWith(
@@ -58,6 +60,7 @@ object NovelWebDocument {
                 "__LABEL_DOWNLOADED__" to jsString(context.stringResource(MR.strings.label_downloaded)),
                 "__LABEL_IMAGE_ERROR__" to jsString(context.stringResource(MR.strings.decode_image_error)),
                 "__LABEL_RETRY__" to jsString(context.stringResource(MR.strings.action_retry)),
+                "__SOURCE_CSS__" to sourceCssLiteral(sourceStylesheet.orEmpty()),
                 // Last, because the tokens are replaced in order and a stylesheet naming one of the
                 // tokens above would otherwise have it filled in, the document token included.
                 "__CSS_SNIPPETS__" to NovelWebSnippets.jsLiteral(settings.webSnippets.css),
@@ -80,6 +83,7 @@ object NovelWebDocument {
             appendLine(overrides(useOriginalFonts, sourceCssPriority))
             appendLine(if (textSelectable) "" else "body { -webkit-user-select: none; user-select: none; }")
             appendLine("</style>")
+            appendLine("<style id=\"rk-source-css\"></style>")
             appendLine("<style id=\"rk-snippets\"></style>")
             append("<script>").append(js).appendLine("</script>")
             appendLine("</head>")
@@ -92,6 +96,13 @@ object NovelWebDocument {
             append("</html>")
         }
     }
+
+    /**
+     * A source's stylesheet as a page string literal. The source is untrusted, so the literal is
+     * [NovelWebSnippets.jsLiteral]'s, which no `</script>` can close, and carries no underscore either:
+     * the tokens are replaced in order, so one named in its text would otherwise be filled in.
+     */
+    fun sourceCssLiteral(css: String): String = NovelWebSnippets.jsLiteral(css).replace("_", "\\u005f")
 
     /**
      * The custom properties the stylesheet reads. Rewriting these is how a settings change reflows in

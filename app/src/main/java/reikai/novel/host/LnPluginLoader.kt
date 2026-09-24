@@ -17,8 +17,9 @@ import java.security.MessageDigest
 
 /**
  * Downloads compiled plugin `.js` files and keeps the installed ones under
- * `context.filesDir/lnplugins/<sha256(url)>.js`. A plugin URL always serves the repo's latest script,
- * so loading reads only the stored file and an installed plugin changes version only through [store].
+ * `context.filesDir/lnplugins/<sha256(url)>.js`, with a chapter stylesheet beside it as `.css`. A plugin
+ * URL always serves the repo's latest script, so loading reads only the stored file and an installed
+ * plugin changes version only through [store].
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -75,6 +76,18 @@ class LnPluginLoader(
 
     suspend fun delete(url: String) = withContext(Dispatchers.IO) {
         fileFor(url).delete()
+        fileFor(url, STYLESHEET_EXTENSION).delete()
+    }
+
+    /** The chapter stylesheet stored for the plugin at [url], or null when it ships none. */
+    suspend fun installedStylesheet(url: String): String? = withContext(Dispatchers.IO) {
+        fileFor(url, STYLESHEET_EXTENSION).takeIf { it.exists() }?.readText()
+    }
+
+    /** Makes [css] the plugin's chapter stylesheet, or removes the stored one when it ships none. */
+    suspend fun storeStylesheet(url: String, css: String?): Unit = withContext(Dispatchers.IO) {
+        val file = fileFor(url, STYLESHEET_EXTENSION)
+        if (css == null) file.delete() else file.writeText(css)
     }
 
     /** Scripts used to live in the cache folder, where Android could clear them and force a download. */
@@ -87,16 +100,18 @@ class LnPluginLoader(
         }
     }
 
-    private fun fileFor(url: String): File {
+    private fun fileFor(url: String, extension: String = SCRIPT_EXTENSION): File {
         val hash = MessageDigest.getInstance("SHA-256")
             .digest(url.toByteArray())
             .joinToString("") { "%02x".format(it) }
             .take(32)
-        return File(File(context.filesDir, DIR_NAME).apply { mkdirs() }, "$hash.js")
+        return File(File(context.filesDir, DIR_NAME).apply { mkdirs() }, "$hash.$extension")
     }
 
     companion object {
         private const val DIR_NAME = "lnplugins"
         private const val PLUGIN_EXPORT_MARKER = "exports.default"
+        private const val SCRIPT_EXTENSION = "js"
+        private const val STYLESHEET_EXTENSION = "css"
     }
 }

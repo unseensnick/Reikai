@@ -82,6 +82,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.EmptyChapterException
+import reikai.novel.source.NovelChapterStylesheet
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelPageFetcher
 import reikai.novel.source.NovelSourceManager
@@ -436,6 +437,8 @@ class NovelReaderViewModel(
         val novelId: Long,
         /** That row's source, which its pictures are fetched with; null when the row is gone. */
         val sourceId: String?,
+        /** The stylesheet that source ships for its chapters, which only the WebView rendering mode applies. */
+        val sourceStylesheet: NovelChapterStylesheet? = null,
         val downloaded: Boolean,
         /** No chapter follows it to step forward to, the answer `chapterAfter` gives, so the end marker
          *  (`NovelSeam.end`) is drawn below it. */
@@ -1023,6 +1026,7 @@ class NovelReaderViewModel(
             chapterNumber = chapterNumber,
             novelId = novelId,
             sourceId = novel?.source,
+            sourceStylesheet = novel?.source?.let { sourceManager.get(it) }?.chapterStylesheet,
             // This copy's own, as manga's transition reads the chapter it will load rather than the group's.
             downloaded = novel?.let { novelDownloadCache.isChapterDownloaded(it, this) } == true,
             // Outside the order, chapterAfter has no index to step from and would call anything the last.
