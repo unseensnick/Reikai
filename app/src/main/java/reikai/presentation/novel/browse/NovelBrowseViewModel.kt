@@ -198,21 +198,34 @@ class NovelBrowseViewModel(
 
     /**
      * Run a saved search over the filters already set, with its own query or none, never the one typed
-     * before. An LNReader plugin's search takes no options, so a saved query runs as a plain search and
-     * saved filters as a listing. A Mihon filter list travels with the query, as manga's does.
+     * before, as [NovelSavedSearchRun] says, which the feed row follows too.
      */
     fun applySavedSearch(query: String?) {
         val source = state.value.source ?: return
-        when {
-            source.filters?.applyToSearch == true -> state.update {
+        when (val run = NovelSavedSearchRun.of(source.filters?.applyToSearch == true, query)) {
+            is NovelSavedSearchRun.SearchWithFilters -> state.update {
                 it.copy(
-                    query = query.orEmpty(),
+                    query = run.query,
                     appliedFilters = it.filterDraft?.freshlyApplied(),
                     filtersApplied = true,
                 )
             }
-            query.isNullOrBlank() -> applyFilters()
-            else -> search(query)
+            is NovelSavedSearchRun.PlainSearch -> state.update {
+                it.copy(
+                    query = run.query,
+                    filterDraft = source.filters?.defaultState(),
+                    appliedFilters = null,
+                    filtersApplied = false,
+                )
+            }
+            NovelSavedSearchRun.FilteredPopular -> state.update {
+                it.copy(
+                    listing = NovelListing.Popular,
+                    query = "",
+                    appliedFilters = it.filterDraft?.freshlyApplied(),
+                    filtersApplied = true,
+                )
+            }
         }
     }
 

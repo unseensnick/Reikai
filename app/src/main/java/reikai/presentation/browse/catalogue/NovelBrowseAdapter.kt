@@ -21,6 +21,7 @@ import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseState
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
+import reikai.presentation.novel.browse.NovelSavedSearchRun
 import reikai.presentation.novel.browse.SelectedNovel
 import reikai.presentation.novel.browse.toNeutral
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -193,9 +194,13 @@ class NovelBrowseAdapter(
 
     override fun captureSearch(): SavedSearchDraft {
         val state = model.state.value
+        val query = state.query.takeIf { it.isNotBlank() }
+        val run = NovelSavedSearchRun.of(state.source?.filters?.applyToSearch == true, query)
         return SavedSearchDraft(
-            query = state.query.takeIf { it.isNotBlank() },
-            filtersJson = state.filterDraft?.let(savedSearchFilters::encode),
+            query = query,
+            filtersJson = state.filterDraft
+                .takeUnless { run is NovelSavedSearchRun.PlainSearch }
+                ?.let(savedSearchFilters::encode),
         )
     }
 

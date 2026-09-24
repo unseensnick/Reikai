@@ -16,6 +16,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.langCode
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
+import reikai.presentation.novel.browse.NovelSavedSearchRun
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -138,17 +139,14 @@ class NovelFeedProvider(
         val stored = savedSearch?.filtersJson
             ?.let { json -> defaults?.let { filters.decode(json, it) } }
             ?: defaults
-        // Where the filters go follows their format, as in the catalogue: an LNReader plugin's search
-        // takes no options, so a saved query is a plain search and saved filters narrow the listing; a
-        // Mihon filter list travels with the search, the manga feed's rule.
-        val query = savedSearch?.query
-        return when {
-            !query.isNullOrBlank() -> source.search(query, page = 1, stored).items
-            savedSearch != null && source.filters?.applyToSearch == true -> source.search("", page = 1, stored).items
-            else -> {
-                val listing = if (source.supportsLatest) NovelListing.Latest else NovelListing.Popular
-                source.browse(listing, page = 1, stored).items
-            }
+        if (savedSearch == null) {
+            val listing = if (source.supportsLatest) NovelListing.Latest else NovelListing.Popular
+            return source.browse(listing, page = 1, defaults).items
+        }
+        return when (val run = NovelSavedSearchRun.of(source.filters?.applyToSearch == true, savedSearch.query)) {
+            is NovelSavedSearchRun.SearchWithFilters -> source.search(run.query, page = 1, stored).items
+            is NovelSavedSearchRun.PlainSearch -> source.search(run.query, page = 1, defaults).items
+            NovelSavedSearchRun.FilteredPopular -> source.browse(NovelListing.Popular, page = 1, stored).items
         }
     }
 

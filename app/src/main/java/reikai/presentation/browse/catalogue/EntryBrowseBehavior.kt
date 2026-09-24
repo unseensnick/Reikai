@@ -80,8 +80,9 @@ interface EntryBrowseBehavior {
  * What a saved search records: the committed query, and the source's filters in whatever form its own
  * content type encodes them. Either may be null, and a draft with neither is not worth saving.
  *
- * A light-novel source takes a query or filters but never both, because its search entry point carries
- * no options; a manga source takes both at once. So both fields are kept, and applying decides.
+ * Where filters go follows the source's filter kind: a manga source or a novel source with a Mihon
+ * filter list takes both at once, while an LNReader plugin takes a query or filters, never both, so
+ * its searches with a query are saved without filters (see `NovelSavedSearchRun`).
  */
 data class SavedSearchDraft(val query: String?, val filtersJson: String?) {
     val isEmpty: Boolean get() = query.isNullOrBlank() && filtersJson == null

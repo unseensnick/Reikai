@@ -75,9 +75,10 @@ is a typed capability each adapter answers for, never a branch inside shared cod
 - **Manga** uses the reflective serializer ported from Komikku (`FilterSerializer` plus its per-type
   serializers). It writes a JSON array positionally parallel to the source's `FilterList`, with each
   filter's values stringified alongside a class-name map so they can be re-parsed.
-- **Novels** need almost nothing. The filter draft is already a `Map<String, JsonElement>` in
-  `NovelBrowseState.filterValues`, and `buildOptions` already turns it into the JSON the plugin reads.
-  A novel saved search stores that map.
+- **Novels** need almost nothing. An LNReader plugin's filter draft is already a
+  `Map<String, JsonElement>` (`NovelFilterState.LnValues` in `NovelBrowseState.filterDraft`), and
+  `buildOptions` (`reikai/novel/source/LnFilterOptions.kt`) turns it into the JSON the plugin reads. A
+  novel saved search stores that map, or the manga encoding for a source with a Mihon filter list.
 
 **Both survive a source changing its filters, and getting there meant fixing the port rather than
 copying it.** TachiyomiSY and Komikku both match the stored array against the live `FilterList` by
@@ -227,8 +228,8 @@ Reikai side, the files this touches:
   `EntrySearchCardRow.kt`.
 - The catalogue: `reikai/presentation/browse/catalogue/EntryCatalogueScreen.kt`,
   `EntryBrowseBehavior.kt`, and the two models `BrowseSourceViewModel` (Mihon's, live and synced, needs
-  an `// RK` fence) and `reikai/presentation/novel/browse/NovelBrowseViewModel.kt` (`buildOptions`,
-  `filterValues`).
+  an `// RK` fence) and `reikai/presentation/novel/browse/NovelBrowseViewModel.kt` (`filterDraft`,
+  `applySavedSearch`), with the saved-search rule in `NovelSavedSearchRun.kt` beside it.
 - The tab host: `eu/kanade/tachiyomi/ui/browse/BrowseTab.kt` (Mihon's, already `// RK` fenced).
 - Backup: `data/backup/models/Backup.kt`, `create/BackupCreator.kt`, `restore/BackupRestorer.kt` and
   `create/BackupOptions.kt`, all Mihon's and all already fenced.
@@ -359,9 +360,11 @@ adult-source saved-search specialization.
 - **A saved search whose filters cannot be read applies what it can, silently.** Komikku toasts and
   aborts. Ours degrades per element by design, so there is nothing to abort, and warning would mean
   threading an error channel through `applySearch` for a case only a corrupt payload reaches.
-- **A novel saved search carrying a query cannot also carry filters.** A plugin's search endpoint takes
-  no options, so the two cannot reach one request; a query wins and the filters stay in the draft.
+- **An LNReader plugin's saved search carrying a query cannot also carry filters** (owner ruling,
+  2026-09-24). A plugin's search endpoint takes no options, so the two cannot reach one request: saving
+  a query drops the filters, and restoring one leaves the defaults in the sheet. A filters-only search
+  pages the Popular listing. A novel source with a Mihon filter list sends both, as manga does.
   Recorded here rather than only in a code comment because the write-once rule requires the mechanism
-  named in the plan doc. The catalogue and the feed apply the same rule, so the surfaces agree.
+  named in the plan doc. The catalogue and the feed both run `NovelSavedSearchRun`, so they agree.
 
 Part of the broader [unified-content-ui](unified-content-ui.md) initiative.
