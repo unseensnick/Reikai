@@ -16,12 +16,12 @@ import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
- * Novel-side parallel of the manga `syncChaptersWithSource`: reconcile a freshly-parsed source chapter
- * list against the stored `novel_chapters` rows, in one transaction. A re-added chapter inherits the
- * read/bookmark state and `dateFetch` of the one it replaces, so it does not bubble up as new. [page]
- * scopes the sync to one page of a paged source, so a novel that flips from unpaged to paged re-tags in
- * place instead of duplicating; null syncs the whole novel. Predicting the next update is the caller's,
- * once per whole-novel sync ([predictNovelFetchInterval]), since one refresh can sync several pages.
+ * Novel-side parallel of the manga `syncChaptersWithSource`, in one transaction. A re-added chapter
+ * inherits the read/bookmark state and `dateFetch` of the one it replaces, so it is not new. A [page]
+ * sync matches against the whole novel, so a chapter that moved pages is re-tagged in place, and never
+ * deletes: one page cannot tell a removed chapter from one that moved to a page this run did not fetch.
+ * Null syncs the whole novel and drops what the source no longer lists. Predicting the next update is
+ * the caller's, once per whole-novel sync ([predictNovelFetchInterval]).
  */
 suspend fun syncChaptersWithNovelSource(
     rawSourceChapters: List<ChapterItem>,
@@ -38,14 +38,7 @@ suspend fun syncChaptersWithNovelSource(
     val novelId = novel.id
     require(novelId > 0L) { "syncChaptersWithNovelSource requires a persisted novel (id > 0)" }
 
-    val dbChapters = if (page != null) {
-        // This page's rows + any unpaged remnants from a prior single-page state; the latter get
-        // re-tagged (toChange) or deduped here rather than left as cross-page duplicates.
-        novelChapterRepository.getByNovelIdAndPage(novelId, page) +
-            novelChapterRepository.getByNovelIdAndPage(novelId, "")
-    } else {
-        novelChapterRepository.getByNovelId(novelId)
-    }
+    val dbChapters = novelChapterRepository.getByNovelId(novelId)
 
     val sourceChapters = rawSourceChapters
         .distinctBy { it.path }
@@ -67,10 +60,13 @@ suspend fun syncChaptersWithNovelSource(
     // (old, new) pairs for chapters whose title changed; their downloaded file is renamed post-commit.
     val downloadRenames = mutableListOf<Pair<NovelChapter, NovelChapter>>()
 
-    val duplicates = dbChapters.groupBy { it.url }
-        .filter { it.value.size > 1 }
-        .flatMap { (_, chapters) -> chapters.drop(1) }
-    val notInSource = dbChapters.filterNot { dbChapter -> sourceChapters.any { it.url == dbChapter.url } }
+    // Earlier page-scoped syncs could store one url on two pages; keep the copy the reader has touched.
+    val keptByUrl = dbChapters.groupBy { it.url }.mapValues { (_, rows) ->
+        rows.firstOrNull { it.read || it.bookmark || it.lastTextProgress > 0L } ?: rows.first()
+    }
+    val duplicates = dbChapters.filterNot { keptByUrl[it.url] === it }
+    val sourceUrls = sourceChapters.mapTo(mutableSetOf()) { it.url }
+    val notInSource = if (page == null) keptByUrl.values.filterNot { it.url in sourceUrls } else emptyList()
     val toDelete = duplicates + notInSource
 
     val managedUrls = mutableSetOf<String>()
@@ -78,7 +74,7 @@ suspend fun syncChaptersWithNovelSource(
         if (sourceChapter.url in managedUrls) continue
         managedUrls += sourceChapter.url
 
-        val dbChapter = dbChapters.find { it.url == sourceChapter.url }
+        val dbChapter = keptByUrl[sourceChapter.url]
         if (dbChapter == null) {
             toAdd.add(sourceChapter)
         } else if (shouldUpdateDbNovelChapter(dbChapter, sourceChapter)) {
@@ -102,10 +98,7 @@ suspend fun syncChaptersWithNovelSource(
     // Sources list newest first, so the kernel counts fetch dates down from now in that order.
     val arrivals = chapterArrivals(
         added = toAdd.map { ArrivingChapter(it.chapterNumber, it.read, it.bookmark) },
-        // The whole novel, not just this page: a chapter read on another page is read here too, as manga's
-        // whole list is. A re-listed twin is still matched within the page, where its old row is deleted.
-        stored = (if (page != null) novelChapterRepository.getByNovelId(novelId) else dbChapters)
-            .map { it.toStoredChapter() },
+        stored = dbChapters.map { it.toStoredChapter() },
         removed = toDelete.map { it.toStoredChapter() },
         markDuplicateAsRead = markDuplicateAsRead,
         now = System.currentTimeMillis(),

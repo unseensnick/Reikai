@@ -84,7 +84,7 @@ class NovelRefreshTest {
         driver.close()
     }
 
-    private suspend fun storedNovel(nextUpdate: Long = 0L): Novel {
+    private suspend fun storedNovel(nextUpdate: Long = 0L, totalPages: Long = 1L): Novel {
         val id = novels.insert(
             Novel.create().copy(
                 source = "src",
@@ -92,6 +92,7 @@ class NovelRefreshTest {
                 title = "Novel",
                 favorite = true,
                 nextUpdate = nextUpdate,
+                totalPages = totalPages,
             ),
         )!!
         return novels.getById(id)!!
@@ -169,6 +170,77 @@ class NovelRefreshTest {
         refresh(storedNovel(nextUpdate = 1L), source, manualFetch = true)
 
         novels.predictions shouldBe 1
+    }
+
+    /**
+     * A newest-first paged source after one release: page 1 was 100..76 and page 2 75..51, and chapter 101
+     * pushed 76 onto page 2. The third page keeps page 2 out of this refresh's walk, as it is for any middle
+     * page, so 76 reaches page 2 only through a later page sync.
+     */
+    private suspend fun novelAfterARelease(): Pair<Novel, PagedSource> {
+        val novel = storedNovel(totalPages = 3L)
+        (100 downTo 76).forEach { storedChapter(novel, "/c/$it", it.toDouble(), read = it == 76, page = "1") }
+        (75 downTo 51).forEach { storedChapter(novel, "/c/$it", it.toDouble(), read = false, page = "2") }
+        val source = PagedSource(
+            (101 downTo 77).map { chapter("/c/$it", it.toDouble()) },
+            mapOf("2" to (76 downTo 52).map { chapter("/c/$it", it.toDouble()) }, "3" to emptyList()),
+        )
+        return novel to source
+    }
+
+    private suspend fun rowsFor(novel: Novel, url: String) = chapters.getByNovelId(novel.id).filter { it.url == url }
+
+    private suspend fun syncPage(novel: Novel, source: PagedSource, page: String) =
+        syncPage(novel, source.parsePage(novel.url, page).chapters!!, page)
+
+    private suspend fun syncPage(novel: Novel, items: List<ChapterItem>, page: String) = syncChaptersWithNovelSource(
+        items,
+        novels.getById(novel.id)!!,
+        chapters,
+        novels,
+        database,
+        libraryPreferences,
+        page = page,
+    )
+
+    @Test
+    fun `a chapter pushed off the first page keeps its row and read state`() = runTest {
+        val (novel, source) = novelAfterARelease()
+        val before = rowsFor(novel, "/c/76").map { it.id to it.read }
+
+        refresh(novel, source)
+
+        rowsFor(novel, "/c/76").map { it.id to it.read } shouldBe before
+    }
+
+    @Test
+    fun `a chapter pushed onto the next page is not reported as new there`() = runTest {
+        val (novel, source) = novelAfterARelease()
+        refresh(novel, source)
+
+        syncPage(novel, source, "2").newChapters shouldBe emptyList()
+    }
+
+    @Test
+    fun `a chapter pushed onto the next page moves there once and stays read`() = runTest {
+        val (novel, source) = novelAfterARelease()
+        val id = rowsFor(novel, "/c/76").single().id
+        refresh(novel, source)
+
+        syncPage(novel, source, "2")
+
+        rowsFor(novel, "/c/76").map { Triple(it.id, it.read, it.page) } shouldBe listOf(Triple(id, true, "2"))
+    }
+
+    @Test
+    fun `a chapter stored on two pages keeps the copy that was read`() = runTest {
+        val novel = storedNovel(totalPages = 2L)
+        storedChapter(novel, "/c/5", 5.0, read = false, page = "1")
+        storedChapter(novel, "/c/5", 5.0, read = true, page = "2")
+
+        syncPage(novel, listOf(chapter("/c/5", 5.0)), "1")
+
+        rowsFor(novel, "/c/5").map { it.read to it.page } shouldBe listOf(true to "1")
     }
 
     private fun chapter(path: String, number: Double) = ChapterItem(

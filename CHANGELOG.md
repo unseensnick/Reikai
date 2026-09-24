@@ -293,6 +293,7 @@ every release now also ships a foss build with neither in it.
 
 - **Pulling down to refresh a novel now downloads its new chapters when Download new chapters is on, as it does for manga.**
 - **A new copy of a novel chapter you already read now arrives read, even when it lands on another page of the chapter list.**
+- **A read chapter on a novel with a paged chapter list no longer comes back unread and announced as new after a refresh.** A chapter that moves to the next page keeps its read state and bookmark.
 - **A novel chapter its source returns empty now says so, where it used to open as a blank page.**
 - **WebView and Share on a light-novel plugin's novel now open the page the plugin names for it.** They joined the stored path to the site, which for some plugins is not a real page.
 - **Light-novel plugins now stay on the installed version until you update them from Browse -> Extensions.** They used to switch to the newest one on their own whenever Android cleared the app's cache.

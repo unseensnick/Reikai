@@ -53,10 +53,10 @@ object NovelStatusCode {
 }
 
 /**
- * Translate a freshly-parsed [SourceNovel] (lnreader plugin output) into a domain [Novel] ready for
- * the novels table. `id = -1L` (the unsaved sentinel) because the caller routes through
- * [reikai.domain.novel.NovelRepository.insertOrGet], which inserts by (url, source) and returns the
- * stored row. `genres` is a comma-joined string per the lnreader convention, split to a list here.
+ * Translate a freshly-parsed [SourceNovel] (lnreader plugin output) into an unsaved domain [Novel]
+ * (`id = -1L`). A refresh overlays it onto the stored row with [mergeRefreshedNovel]; a novel opened
+ * from Browse is inserted through [reikai.domain.novel.NovelRepository.insertOrGet]. `genres` is a
+ * comma-joined string per the lnreader convention, split to a list here.
  */
 fun SourceNovel.toNovel(
     sourceId: String,
@@ -88,10 +88,10 @@ fun SourceNovel.toNovel(
 )
 
 /**
- * Translate a [ChapterItem] (lnreader plugin's chapter list entry) into a domain [NovelChapter]
- * ready for upsert. `id = -1L` because the caller is about to insert; existing rows are looked up
- * via [reikai.domain.novel.NovelChapterRepository.getByUrlAndNovelId] first. `read`/`bookmark`/
- * `lastTextProgress` start cleared; the reader updates them as the user reads.
+ * Translate a [ChapterItem] (lnreader plugin's chapter list entry) into an unsaved domain
+ * [NovelChapter] (`id = -1L`). [syncChaptersWithNovelSource] matches it by URL against the novel's
+ * stored rows, inserting it only when none matches. `read`/`bookmark`/`lastTextProgress` start
+ * cleared; the reader updates them as the user reads.
  */
 fun ChapterItem.toNovelChapter(
     novelId: Long,
