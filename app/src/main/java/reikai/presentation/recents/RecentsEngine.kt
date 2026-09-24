@@ -441,9 +441,15 @@ class RecentsEngine(
 
     fun deleteDownloads(chapters: Set<ChapterRef>) = dispatchAndClear { it.deleteDownloads(chapters) }
 
-    /** Drops every read record of these entries, which is the row action's "all" answer. */
-    fun removeFromHistory(entries: Set<EntryId>) {
-        providers.forEach { it.removeFromHistory(entries) }
+    /**
+     * Drops every read record of these entries, which is the row action's "all" answer. A merged row
+     * stands for its whole group, so this reaches every source in [membership]: clearing only the member
+     * the collapse picked let another source's record draw the row straight back.
+     */
+    fun removeFromHistory(entries: Set<EntryId>, membership: Map<EntryId, Long>) {
+        val groups = entries.mapNotNullTo(HashSet()) { membership[it] }
+        val all = entries + membership.filterValues { it in groups }.keys
+        providers.forEach { it.removeFromHistory(all) }
     }
 
     /** Drops the one record a row stands for, which is the same action's other answer. */

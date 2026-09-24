@@ -309,6 +309,7 @@ fun Screen.RecentsScreen(
 
     RecentsDialogs(
         engine = engine,
+        membership = membership,
         onOpenDetails = ::openDetails,
         onClearHistory = ::clearHistory,
     )
@@ -964,6 +965,7 @@ private fun RecentsBottomBar(
 @Composable
 private fun Screen.RecentsDialogs(
     engine: RecentsEngine,
+    membership: Map<EntryId, Long>,
     onOpenDetails: (EntryId) -> Unit,
     onClearHistory: () -> Unit,
 ) {
@@ -980,7 +982,7 @@ private fun Screen.RecentsDialogs(
             onDismissRequest = onDismiss,
             onDelete = { all ->
                 if (all) {
-                    engine.removeFromHistory(setOf(open.item.entryId))
+                    engine.removeFromHistory(setOf(open.item.entryId), membership)
                 } else {
                     engine.removeHistoryRecord(open.item)
                 }

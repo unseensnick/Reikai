@@ -541,6 +541,30 @@ class RecentsEngineTest {
         manga.removedRecord shouldBe null
     }
 
+    /**
+     * A merged History row stands for its whole group, so its "all" has to reach every source: clearing
+     * only the member the collapse picked let another source's record draw the row straight back.
+     */
+    @Test
+    fun `removing every record of a merged row reaches every source of its group`() {
+        val manga = provider(ContentType.MANGA)
+        val engine = engine(listOf(manga))
+
+        engine.removeFromHistory(setOf(manga1), membership = mapOf(manga1 to 7L, manga2 to 7L))
+
+        manga.removedEntries shouldBe setOf(manga1, manga2)
+    }
+
+    @Test
+    fun `removing every record of an unmerged row stays on that entry`() {
+        val manga = provider(ContentType.MANGA)
+        val engine = engine(listOf(manga))
+
+        engine.removeFromHistory(setOf(manga1), membership = mapOf(manga2 to 7L, EntryId.Manga(3) to 7L))
+
+        manga.removedEntries shouldBe setOf(manga1)
+    }
+
     @Test
     fun `switching mode drops a selection the new mode need not show`() {
         val engine = engine(
@@ -1562,7 +1586,12 @@ private class FakeRecentsProvider(
         override suspend fun deleteDownloads(chapters: Set<ChapterRef>) = Unit
     }
 
-    override fun removeFromHistory(entries: Set<EntryId>) = Unit
+    var removedEntries: Set<EntryId>? = null
+        private set
+
+    override fun removeFromHistory(entries: Set<EntryId>) {
+        removedEntries = entries
+    }
 
     override fun removeHistoryRecord(item: RecentsItem) {
         removedRecord = item
