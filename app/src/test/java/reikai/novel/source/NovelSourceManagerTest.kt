@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
@@ -20,6 +21,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.ireader.IReaderSourceHolder
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.domain.source.model.SourceNotInstalledException
 import ireader.core.source.CatalogSource as IReaderCatalogSource
 
 /** The registry follows the installed novel extension apps as the manga registry follows its extensions. */
@@ -87,6 +89,32 @@ class NovelSourceManagerTest {
         loaded.value = listOf(iReader, app(catalogue(8L)))
 
         manager.sources.first { it.size == 2 }.first { it.id == "ireader:7" } shouldBeSameInstanceAs before
+    }
+
+    /** The novel twin of manga's stub source, which throws the same exception from every call. */
+    @Test
+    fun `a novel source that is not installed resolves to SourceNotInstalledException`() = runTest {
+        shouldThrow<SourceNotInstalledException> { manager.getOrThrow("gone") }
+    }
+
+    @Test
+    fun `an installed source is named by itself`() = runTest {
+        loaded.value = listOf(app(catalogue(7L)))
+        manager.sources.first { it.isNotEmpty() }
+
+        manager.nameOf("tachiyomi:7") shouldBe "App 7"
+    }
+
+    @Test
+    fun `a source no longer installed is named as it was last seen`() = runTest {
+        every { seen.get() } returns mapOf("gone" to LnSourceIdentity(name = "Old Name"))
+
+        manager.nameOf("gone") shouldBe "Old Name"
+    }
+
+    @Test
+    fun `a source never seen is named by its id`() = runTest {
+        manager.nameOf("gone") shouldBe "gone"
     }
 
     private fun iReaderApp(sourceId: Long) = app().copy(

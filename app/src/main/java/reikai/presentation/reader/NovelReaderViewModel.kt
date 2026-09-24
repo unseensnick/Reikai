@@ -1171,7 +1171,7 @@ class NovelReaderViewModel(
     private suspend fun chapterSourceNames(): Map<Long, String> = mergeSourceLabels(
         memberIds.associateWith { id ->
             textLoader.cachedSource(id)?.name
-                ?: novelRepo.getById(id)?.source?.let { sourceManager.get(it)?.name ?: it }
+                ?: novelRepo.getById(id)?.source?.let { sourceManager.nameOf(it) }
                 ?: ""
         },
     )

@@ -75,6 +75,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.source.model.SourceNotInstalledException
 import tachiyomi.i18n.MR
 import java.util.concurrent.TimeUnit
 import kotlin.time.Clock
@@ -191,6 +192,7 @@ class NovelUpdateJob(
     ): Boolean {
         // One load brings every installed plugin into the host; per-novel resolution is then cheap.
         runCatching { installer.ensureLoaded() }
+            .onFailure { logcat(LogPriority.ERROR, it) { "Could not load the novel plugins" } }
 
         // Category scope + smart-update restrictions both need suspend per-novel lookups, so filter in
         // a loop rather than a plain .filter. An explicit [categoryId] (a manual "update this category")
@@ -221,9 +223,8 @@ class NovelUpdateJob(
             currentCoroutineContext().ensureActive()
             // [index] is how many are already done, which is what the bar reports while this one runs.
             notifier.showProgress(novel, index, favorites.size)
-            val source = sourceManager.get(novel.source) ?: return@forEachIndexed
             try {
-                val newChapters = checkNovel(novel, source, fetchWindow)
+                val newChapters = checkNovel(novel, sourceManager.getOrThrow(novel.source), fetchWindow)
                 if (newChapters.isNotEmpty()) {
                     updates.add(novel to newChapters)
                     // Queued after the run rather than here, so a merge group's sources cannot each
@@ -236,8 +237,11 @@ class NovelUpdateJob(
                 throw e
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e) { "Novel update failed: ${novel.title}" }
-                val message = e.message ?: context.stringResource(MR.strings.unknown)
-                failed += UpdateErrorEntry(novel.title, source.name, message)
+                val message = when (e) {
+                    is SourceNotInstalledException -> context.stringResource(MR.strings.loader_not_implemented_error)
+                    else -> e.message
+                } ?: context.stringResource(MR.strings.unknown)
+                failed += UpdateErrorEntry(novel.title, sourceManager.nameOf(novel.source), message)
                 // Record the failure for the Update errors screen.
                 if (trackErrors) {
                     runCatching { upsertNovelUpdateError.await(novel.id, message) }

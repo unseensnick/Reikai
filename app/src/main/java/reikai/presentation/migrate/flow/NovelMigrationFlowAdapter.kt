@@ -133,9 +133,7 @@ class NovelMigrationFlowAdapter(
     }
 
     override suspend fun sourceDisplayName(sourceKey: String): String {
-        return sourceManager.get(sourceKey)?.name
-            ?: novelPreferences.seenNovelSources().get()[sourceKey]?.name
-            ?: sourceKey
+        return sourceManager.nameOf(sourceKey)
     }
 
     override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> {

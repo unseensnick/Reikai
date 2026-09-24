@@ -53,7 +53,7 @@ suspend fun novelDynamicGroupingFeed(
             val novel = novelById[item.id]?.novel ?: return@mapNotNull null
             // The slug is the encoded disambiguator (sourceId() is never read); the name is the label.
             EntryId.Novel(item.id) as EntryId to
-                ((sourceManager.get(novel.source)?.name ?: novel.source) to novel.source)
+                (sourceManager.nameOf(novel.source) to novel.source)
         }.toMap()
     } else {
         emptyMap()

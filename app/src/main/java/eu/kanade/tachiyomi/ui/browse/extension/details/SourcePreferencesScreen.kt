@@ -61,7 +61,7 @@ class SourcePreferencesScreen(
 
         // RK --> only the title is read here, so a novel source contributes just its name
         val source by produceState<Any?>(initialValue = null) {
-            value = novelSourceId?.let { context.appGraph.novelSourceManager.get(it)?.name ?: it }
+            value = novelSourceId?.let { context.appGraph.novelSourceManager.nameOf(it) }
                 ?: context.appGraph.sourceManager.getOrStub(sourceId)
         }
         // RK <--

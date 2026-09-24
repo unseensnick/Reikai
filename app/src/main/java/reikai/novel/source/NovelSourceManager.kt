@@ -26,6 +26,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.ireader.IReaderNovelSource
 import reikai.novel.source.ireader.IReaderSourceHolder
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.source.model.SourceNotInstalledException
 
 /**
  * In-memory registry of installed [NovelSource]s, keyed by `source.id`, over both kinds: LNReader
@@ -97,6 +98,14 @@ class NovelSourceManager(
         ensureLoaded()
         return sourcesFlow.value[id]
     }
+
+    /** The novel twin of manga's `getOrStub`, whose stub throws this same exception from every call. */
+    suspend fun getOrThrow(id: String): NovelSource = get(id) ?: throw SourceNotInstalledException()
+
+    /** A source's name: its own, else the one it had when last seen installed, else its id, as a manga
+     *  stub keeps the name it was stored with. */
+    suspend fun nameOf(id: String): String =
+        get(id)?.name ?: prefs.seenNovelSources().get()[id]?.name ?: id
 
     /** A registered source without loading the plugins first: for a caller only an app's source serves. */
     suspend fun getWithoutPlugins(id: String): NovelSource? {

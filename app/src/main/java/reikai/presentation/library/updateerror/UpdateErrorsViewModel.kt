@@ -72,7 +72,7 @@ class UpdateErrorsViewModel(
                     UpdateErrorEntry.Manga(it, sourceManager.getOrStub(it.sourceId).name)
                 }
                 val novel = novelErrors.map {
-                    UpdateErrorEntry.Novel(it, novelSourceManager.get(it.source)?.name ?: it.source)
+                    UpdateErrorEntry.Novel(it, novelSourceManager.nameOf(it.source))
                 }
                 manga + novel
             }.collectLatest { entries ->

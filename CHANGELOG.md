@@ -326,6 +326,7 @@ every release now also ships a foss build with neither in it.
 - **A novel chapter its source moved to a new address no longer comes back as new in update notifications, or downloads again.**
 - **Covers and chapter pictures from light-novel sources that ask for their own image headers now load, in both reading modes and in downloads.** The WebView reading mode also reuses the pictures the text mode already downloaded.
 - **Ongoing novels from some light-novel sources no longer show as Completed, and library updates no longer skip them.** Refreshing a novel corrects the status it was saved with.
+- **A novel library update now reports a novel whose source is no longer installed, as manga's does, where it used to skip it in silence.** Update errors, library grouping and search name a removed source as it was last installed rather than by its id.
 
 ### Browse & sources
 

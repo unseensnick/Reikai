@@ -648,8 +648,8 @@ class NovelLibraryViewModel(
         reikaiSortCategories(categories.sortedBy { it.order }, sortOrder)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
 
-    /** A novel's human-readable source name for search, or the raw slug when the plugin isn't installed. */
-    private suspend fun novelSourceName(source: String): String = sourceManager.get(source)?.name ?: source
+    /** A novel's human-readable source name for search, by the one rule [NovelSourceManager.nameOf] keeps. */
+    private suspend fun novelSourceName(source: String): String = sourceManager.nameOf(source)
 
     // One novel source as the search terms read it, for the row's own source and every merged member's, so
     // the two cannot resolve a name or language differently. lnreader plugins mostly declare lang as a full
