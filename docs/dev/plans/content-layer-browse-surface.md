@@ -201,17 +201,20 @@ Nine steps, each independently shippable and device-verified before the next.
 - **The Sources list's Komikku polish lands for both types, with one manga-only exit (owner,
   2026-09-16).** The search box, language flag, extension-name suffix, hide-Latest switch, panorama
   grid and per-source incognito are one rule each over the shared row or engine. The suffix shows only
-  when a source's name differs from its extension's, and a plugin is its own extension, so a novel row
-  never shows one by that rule rather than by a branch. **The content-warning badge is manga only**:
-  `LnPluginInfo` has no adult or content-warning field, so there is nothing to read; the warning rides
-  in the manga row's payload (`MangaSourcePayload`) rather than on the shared row, so no novel row
-  carries a value it cannot have. **Incognito is not manga only**, correcting the audit's reading:
+  when a source's name differs from its extension's, and a plugin is its own extension, so a plugin row
+  never shows one by that rule rather than by a branch. **The content-warning badge is one field on the
+  shared row, drawn once for both types** (owner, 2026-09-24, reopening a manga-only ruling whose
+  premise ended when novel extension apps arrived). `NovelSource` carries `extensionName` and
+  `contentWarning`: an app's catalogue answers from its app, which declares a warning as a manga
+  extension does, and an LN plugin answers SAFE, because `LnPluginInfo` has no adult or
+  content-warning field to read. **Incognito is not manga only**, correcting the audit's reading:
   `incognito_extensions` is a set of strings, a plugin's `SourceKey` form cannot collide with a package
   name, and the novel browse and reader paths now ask by `SourceKey`. A manga source still switches
   with its whole extension, as upstream's extension page does. The NSFW-only list filter was dropped,
   since a filter that empties the novel half of a mixed list has no both-types form and the badge
   already marks the adult sources. Custom source categories are parked indefinitely. Pinned by
-  `SourceRowSearchTest` and `SourceIncognitoConformanceTest`.
+  `SourceRowSearchTest`, `SourceIncognitoConformanceTest`, `SourcesProviderTest` and
+  `NovelSourceConformanceTest`.
 
 ### What is deleted and manifested
 
@@ -448,8 +451,9 @@ shared body started reading the column preference itself.
   twins with matching tests.
 - **Parity rulings (owner, 2026-08-02): level up what the plugin format supports, gate the rest.**
   Hide-in-library and enabled-languages level up (both genuinely supportable). NSFW flagging is
-  gated: the LNReader plugin format carries no nsfw field anywhere, so novel lewd filtering stays
-  genre-tag-only.
+  gated for LN plugins only: the LNReader plugin format carries no nsfw field anywhere, so plugin lewd
+  filtering stays genre-tag-only. Novel extension apps declare a content warning, which the Sources
+  row shows.
 - **The two installed-source loaders stay separate, pinned by a named mechanism (2026-08-16).**
   `ExtensionManager` (installed APKs, `PackageManager`, signature trust, dex class loading) and
   `LnPluginInstaller` (URLs, network download, a repo vouching for each, JS eval in the QuickJS

@@ -45,6 +45,7 @@ import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.browse.sourceLanguageLabel
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
+import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.topSmallPaddingValues
@@ -228,26 +229,23 @@ private fun SourceRow(
     modifier: Modifier = Modifier,
 ) {
     val languageLabel = sourceLanguageLabel(row.lang, LocalContext.current)
-    val contentTypeBadge: @Composable () -> Unit = {
+    val badge: @Composable () -> Unit = {
         if (showContentType) ContentTypeBadge(row.key.contentType)
+        ContentWarningBadge(row.contentWarning)
     }
     val latestShown = showLatest && row.supportsLatest
     when (row.key) {
         is SourceKey.Manga -> {
-            val payload = row.source as MangaSourcePayload
             SourceItem(
                 modifier = modifier,
-                source = payload.source,
+                source = row.source as Source,
                 title = row.title,
                 languageLabel = languageLabel,
                 showLatest = latestShown,
                 onClickItem = { _, listing -> onClickItem(row, listing == Listing.Latest) },
                 onLongClickItem = { onLongClickItem(row) },
                 onClickPin = { onClickPin(row) },
-                badge = {
-                    contentTypeBadge()
-                    ContentWarningBadge(payload.contentWarning)
-                },
+                badge = badge,
             )
         }
         is SourceKey.Novel -> {
@@ -263,7 +261,7 @@ private fun SourceRow(
                 iconUrl = source.iconUrl,
                 onClickItem = { onClickItem(row, false) },
                 onLongClickItem = { onLongClickItem(row) },
-                badge = contentTypeBadge,
+                badge = badge,
                 action = {
                     if (latestShown) {
                         NovelSourceLatestButton(onClick = { onClickItem(row, true) })

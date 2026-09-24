@@ -1,6 +1,7 @@
 package reikai.presentation.browse.source
 
 import io.kotest.matchers.shouldBe
+import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -60,6 +61,7 @@ class SourceRowSearchTest {
         isUsedLast = false,
         supportsLatest = false,
         extensionName = extensionName,
+        contentWarning = ContentWarning.SAFE,
         source = Unit,
     )
 

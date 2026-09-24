@@ -19,6 +19,7 @@ import ireader.core.source.model.MangasPageInfo
 import ireader.core.source.model.Text
 import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.novel.host.ChapterItem
@@ -80,6 +81,18 @@ class NovelSourceConformanceTest {
         source(kind).filters shouldBe null
     }
 
+    @ParameterizedTest
+    @EnumSource(Kind::class, names = ["APP", "IREADER"])
+    fun `a catalogue carries its app's name and content warning`(kind: Kind) {
+        source(kind).let { it.extensionName to it.contentWarning } shouldBe ("Pack" to ContentWarning.NSFW)
+    }
+
+    // The plugin format has no adult flag, so a plugin answers SAFE rather than a guess.
+    @Test
+    fun `a plugin is its own extension and warns of nothing`() {
+        source(Kind.PLUGIN).let { it.extensionName to it.contentWarning } shouldBe ("P" to ContentWarning.SAFE)
+    }
+
     private fun source(kind: Kind): NovelSource = when (kind) {
         Kind.PLUGIN -> LnPluginSource(pluginHost(), LnPluginInfo(id = "p", name = "P"))
         Kind.APP -> TachiyomiNovelSource(catalogue(), app())
@@ -138,13 +151,13 @@ class NovelSourceConformanceTest {
     }
 
     private fun app(kind: Extension.Kind = Extension.Kind.TACHIYOMI_NOVEL) = Extension.Loaded(
-        name = "App",
+        name = "Pack",
         pkgName = "eu.kanade.tachiyomi.novelextension.en.app",
         versionName = "1.6.1",
         versionCode = 1,
         libVersion = 1.6,
         lang = "en",
-        contentWarning = ContentWarning.SAFE,
+        contentWarning = ContentWarning.NSFW,
         isShared = true,
         kind = kind,
         pkgFactory = null,

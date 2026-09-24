@@ -2,6 +2,7 @@ package reikai.presentation.browse.source
 
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
+import mihon.domain.extension.model.ContentWarning
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.compareBrowseLanguages
@@ -24,6 +25,8 @@ data class BrowseSourceRow(
     val supportsLatest: Boolean,
     /** What installed this source; a plugin is its own extension, so for one this is [name]. */
     val extensionName: String,
+    /** What installed this source warns of: SAFE for a source with no extension and for a plugin. */
+    val contentWarning: ContentWarning,
     val source: Any,
     /** How a novel source is packaged; null for manga, whose sources come one way only. */
     val format: NovelExtensionFormat? = null,

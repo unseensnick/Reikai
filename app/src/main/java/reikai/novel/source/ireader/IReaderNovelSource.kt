@@ -48,6 +48,8 @@ class IReaderNovelSource(
     override val lang: String = source.lang
     override val iconUrl: String = extensionIconUrl(extension.pkgName)
     override val format = NovelExtensionFormat.IREADER
+    override val extensionName: String = extension.name
+    override val contentWarning = extension.contentWarning
     override val filters: NovelFilters? = source.getFilters().takeIf { toMihonFilters(it).isNotEmpty() }
         ?.let { NovelFilters.FilterListSchema { toMihonFilters(source.getFilters()) } }
     override val supportsLatest: Boolean = source.getListings().size >= 2

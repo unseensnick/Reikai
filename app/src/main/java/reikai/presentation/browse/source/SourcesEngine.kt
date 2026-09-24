@@ -143,7 +143,10 @@ class SourcesEngine(
     data class SourceOptionsDialog(
         val row: BrowseSourceRow,
         val canDisable: Boolean,
-        /** False when there is nothing to store incognito under: a manga source with no extension. */
+        /**
+         * False when there is nothing to store incognito under: a manga source with no extension, or a
+         * novel app's source whose app is not loaded.
+         */
         val canToggleIncognito: Boolean,
         val isIncognito: Boolean,
     )

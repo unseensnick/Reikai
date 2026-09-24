@@ -1,6 +1,7 @@
 package reikai.presentation.browse.source
 
 import io.kotest.matchers.shouldBe
+import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.Test
 import reikai.domain.source.SourceKey
 
@@ -107,10 +108,13 @@ class SectionSourcesTest {
     private var nextId = 0L
 
     private fun manga(name: String, lang: String, isPinned: Boolean = false, isUsedLast: Boolean = false) =
-        BrowseSourceRow(SourceKey.Manga(nextId++), name, lang, isPinned, isUsedLast, false, name, source = Unit)
+        row(SourceKey.Manga(nextId++), name, lang, isPinned, isUsedLast)
 
     private fun novel(name: String, lang: String, isPinned: Boolean = false, isUsedLast: Boolean = false) =
-        BrowseSourceRow(SourceKey.Novel(name), name, lang, isPinned, isUsedLast, false, name, source = Unit)
+        row(SourceKey.Novel(name), name, lang, isPinned, isUsedLast)
+
+    private fun row(key: SourceKey, name: String, lang: String, isPinned: Boolean, isUsedLast: Boolean) =
+        BrowseSourceRow(key, name, lang, isPinned, isUsedLast, false, name, ContentWarning.SAFE, source = Unit)
 
     private fun List<SourcesListItem>.headers() =
         filterIsInstance<SourcesListItem.Header>().map { it.key }

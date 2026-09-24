@@ -39,6 +39,8 @@ class TachiyomiNovelSource(
     override val lang: String = source.lang
     override val iconUrl: String = extensionIconUrl(extension.pkgName)
     override val format = NovelExtensionFormat.APK
+    override val extensionName: String = extension.name
+    override val contentWarning = extension.contentWarning
     override val filters: NovelFilters? = source.getFilterList().takeIf { it.isNotEmpty() }
         ?.let { NovelFilters.FilterListSchema { source.getFilterList() } }
     override val settings: NovelSettings? = (source as? ConfigurableSource)?.let(NovelSettings::PreferenceScreen)

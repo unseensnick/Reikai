@@ -2,6 +2,7 @@ package reikai.novel.source
 
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.SourceTracker
+import mihon.domain.extension.model.ContentWarning
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 
@@ -62,6 +63,12 @@ interface NovelSource {
 
     /** How the source is packaged, which lists name once more than one kind is shown. */
     val format: NovelExtensionFormat
+
+    /** What installed the source: an app's own name, or the plugin's, since a plugin is its own extension. */
+    val extensionName: String
+
+    /** The installing app's content warning. A plugin answers SAFE, since its format has no adult flag. */
+    val contentWarning: ContentWarning
 
     /** The source's filters and where they apply; null when it declares none. */
     val filters: NovelFilters? get() = null

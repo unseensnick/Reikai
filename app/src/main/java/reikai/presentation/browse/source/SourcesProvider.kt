@@ -65,7 +65,8 @@ class MangaSourcesProvider(
                 isUsedLast = source.isUsedLast,
                 supportsLatest = source.supportsLatest,
                 extensionName = extension?.name ?: source.name,
-                source = MangaSourcePayload(source, extension?.contentWarning ?: ContentWarning.SAFE),
+                contentWarning = extension?.contentWarning ?: ContentWarning.SAFE,
+                source = source,
             )
         }
     }
@@ -77,14 +78,8 @@ class MangaSourcesProvider(
     // The local source is always available and has nothing to hide behind.
     override fun canDisable(row: BrowseSourceRow) = !row.mangaSource.isLocal()
 
-    private val BrowseSourceRow.mangaSource get() = (source as MangaSourcePayload).source
+    private val BrowseSourceRow.mangaSource get() = source as Source
 }
-
-/**
- * A manga row's payload. The content warning rides here rather than on the row because a plugin
- * declares none: the plugin format has no adult flag to read one from.
- */
-data class MangaSourcePayload(val source: Source, val contentWarning: ContentWarning)
 
 /** The light-novel half, over [NovelSourcesViewModel]. */
 class NovelSourcesProvider(private val model: NovelSourcesViewModel) : SourcesProvider {
@@ -102,7 +97,8 @@ class NovelSourcesProvider(private val model: NovelSourcesViewModel) : SourcesPr
                 isPinned = isPinned,
                 isUsedLast = isUsedLast,
                 supportsLatest = source.supportsLatest,
-                extensionName = source.name,
+                extensionName = source.extensionName,
+                contentWarning = source.contentWarning,
                 source = source,
                 format = source.format,
             )

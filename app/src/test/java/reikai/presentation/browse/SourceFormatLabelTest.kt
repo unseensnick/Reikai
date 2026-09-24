@@ -3,6 +3,7 @@ package reikai.presentation.browse
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.Test
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelExtensionFormat
@@ -115,6 +116,7 @@ class SourceFormatLabelTest {
             isUsedLast = false,
             supportsLatest = true,
             extensionName = "Site",
+            contentWarning = ContentWarning.SAFE,
             source = Unit,
             format = format,
         ),

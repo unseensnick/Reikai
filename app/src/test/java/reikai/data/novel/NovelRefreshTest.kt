@@ -3,6 +3,7 @@ package reikai.data.novel
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -271,6 +272,8 @@ class NovelRefreshTest {
         override val lang = "en"
         override val iconUrl: String? = null
         override val format = NovelExtensionFormat.JS
+        override val extensionName = name
+        override val contentWarning = ContentWarning.SAFE
 
         override suspend fun parseNovel(novelPath: String) =
             SourceNovel(path = novelPath, name = "Novel", chapters = firstPage, totalPages = otherPages.size + 1)

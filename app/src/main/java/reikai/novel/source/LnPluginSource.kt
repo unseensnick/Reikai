@@ -1,6 +1,7 @@
 package reikai.novel.source
 
 import kotlinx.serialization.json.JsonPrimitive
+import mihon.domain.extension.model.ContentWarning
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginInfo
 import reikai.novel.host.NovelItem
@@ -41,6 +42,8 @@ class LnPluginSource(
     }
     override val supportsLatest: Boolean = info.supportsLatest
     override val format = NovelExtensionFormat.JS
+    override val extensionName: String = info.name
+    override val contentWarning = ContentWarning.SAFE
 
     // Latest is a flag in the same options as the filters, and a plugin with no filters still needs it.
     override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage {

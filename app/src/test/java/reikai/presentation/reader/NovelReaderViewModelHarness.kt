@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
+import mihon.domain.extension.model.ContentWarning
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.merge.MergedChapterUnitRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
@@ -281,6 +282,8 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
     override val lang = "en"
     override val iconUrl: String? = null
     override val format = NovelExtensionFormat.JS
+    override val extensionName = name
+    override val contentWarning = ContentWarning.SAFE
 
     override suspend fun parseChapter(chapterPath: String): String {
         if (chapterPath in failing) throw IOException("no connection")
