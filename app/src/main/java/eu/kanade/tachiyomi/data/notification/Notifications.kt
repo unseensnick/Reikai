@@ -44,6 +44,10 @@ object Notifications {
     const val CHANNEL_NOVEL_LIBRARY_RESULT = "novel_library_result_channel"
     const val ID_NOVEL_LIBRARY_RESULT = -105
     const val GROUP_NOVEL_NEW_CHAPTERS = "eu.kanade.tachiyomi.NOVEL_NEW_CHAPTERS"
+
+    // Per-novel entries post under this tag with novel.id.hashCode(), because Android keys a notification
+    // by (tag, id) and manga ids share that number space: untagged, one type's entry replaced the other's.
+    const val TAG_NOVEL_NEW_CHAPTERS = "novel_new_chapters"
     const val CHANNEL_NOVEL_LIBRARY_ERROR = "novel_library_errors_channel"
     const val ID_NOVEL_LIBRARY_ERROR = -106
 

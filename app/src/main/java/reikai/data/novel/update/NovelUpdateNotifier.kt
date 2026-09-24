@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat.NotificationWithIdAndTag
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
@@ -32,9 +33,8 @@ import java.text.NumberFormat
 
 /**
  * Notifications for the background novel-update job: an ongoing progress entry (with a Cancel action)
- * while favorited novels are checked, plus a one-shot result entry once any gained new chapters.
- * Sibling of [reikai.novel.download.NovelDownloadNotifier]. The result entry opens the library (there
- * is no dedicated novel-updates surface yet).
+ * while favorited novels are checked, then one entry per novel that gained chapters under a summary
+ * that opens Updates, as the manga updater's does. Sibling of [reikai.novel.download.NovelDownloadNotifier].
  */
 class NovelUpdateNotifier(
     private val context: Context,
@@ -128,7 +128,7 @@ class NovelUpdateNotifier(
                 } else {
                     context.newChaptersDescription(newChapters.map { it.chapterNumber }, newChapters.size)
                 }
-                novel.id.hashCode() to context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
+                val notification = context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
                     // Chopped for the same reason the manga twin is: a collapsed group draws the title and
                     // the chapters on one line, and a long title pushed the chapters off the end.
                     setContentTitle(
@@ -166,6 +166,7 @@ class NovelUpdateNotifier(
                         ),
                     )
                 }.build()
+                NotificationWithIdAndTag(Notifications.TAG_NOVEL_NEW_CHAPTERS, novel.id.hashCode(), notification)
             }
         }
         val summary = context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
@@ -174,23 +175,23 @@ class NovelUpdateNotifier(
             setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
             setGroupSummary(true)
             setAutoCancel(true)
-            setContentIntent(openLibraryPendingIntent())
+            setContentIntent(openUpdatesPendingIntent())
         }.build()
         // The summary goes first, as the manga updater's does. Posted last it is the one Android
         // refuses at the package budget, and children with no summary of their own get an invented
         // one drawn with the launcher icon.
         context.notify(Notifications.ID_NOVEL_LIBRARY_RESULT, summary)
-        perNovel.forEach { (id, notification) -> context.notify(id, notification) }
+        context.notify(perNovel)
     }
 
     /** Deep-link a per-novel notification into its details via the [Constants.SHORTCUT_NOVEL] action. */
     private fun openNovelPendingIntent(novel: Novel): PendingIntent =
         NotificationReceiver.openNovelPendingActivity(context, novel)
 
-    private fun openLibraryPendingIntent(): PendingIntent {
+    private fun openUpdatesPendingIntent(): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            action = Constants.SHORTCUT_LIBRARY
+            action = Constants.SHORTCUT_UPDATES
         }
         return PendingIntent.getActivity(
             context,

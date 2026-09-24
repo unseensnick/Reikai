@@ -355,7 +355,8 @@ class ReaderActivity : BaseActivity() {
 
         // RK --> the new-chapters notification of whichever entry opened. Written for manga alone, it
         // cancelled id 0 on a novel launch, which nothing posts, and left the novel's notice up.
-        // Each updater posts per entry under entryId.hashCode(), summarised by its own group id.
+        // Each updater posts per entry under entryId.hashCode(), novels with their own tag, summarised
+        // by its own group id.
         when (launchedEntry) {
             is EntryId.Manga -> NotificationReceiver.dismissNotification(
                 this,
@@ -366,6 +367,7 @@ class ReaderActivity : BaseActivity() {
                 this,
                 launchedEntry.rawId.hashCode(),
                 Notifications.ID_NOVEL_LIBRARY_RESULT,
+                Notifications.TAG_NOVEL_NEW_CHAPTERS,
             )
         }
         // RK <--

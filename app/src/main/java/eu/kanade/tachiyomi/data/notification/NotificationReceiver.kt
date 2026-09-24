@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.core.app.NotificationManagerCompat // RK
 import androidx.core.net.toUri
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
@@ -162,7 +163,12 @@ class NotificationReceiver : BroadcastReceiver() {
     private fun dismissNovelNotification(context: Context, intent: Intent) {
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
         if (notificationId > -1) {
-            dismissNotification(context, notificationId, intent.getIntExtra(EXTRA_GROUP_ID, 0))
+            dismissNotification(
+                context,
+                notificationId,
+                intent.getIntExtra(EXTRA_GROUP_ID, 0),
+                Notifications.TAG_NOVEL_NEW_CHAPTERS,
+            )
         }
     }
 
@@ -421,7 +427,12 @@ class NotificationReceiver : BroadcastReceiver() {
          * @param notificationId id of notification
          * @return [PendingIntent]
          */
-        internal fun dismissNotification(context: Context, notificationId: Int, groupId: Int? = null) {
+        internal fun dismissNotification(
+            context: Context,
+            notificationId: Int,
+            groupId: Int? = null,
+            tag: String? = null, // RK: the novel updater's, whose entries share id numbers with manga's
+        ) {
             /*
             Group notifications always have at least 2 notifications:
             - Group summary notification
@@ -433,7 +444,7 @@ class NotificationReceiver : BroadcastReceiver() {
             When programmatically dismissing this notification, the group notification is not automatically dismissed.
              */
             val groupKey = context.notificationManager.activeNotifications.find {
-                it.id == notificationId
+                it.id == notificationId && it.tag == tag // RK: the tag too
             }?.groupKey
 
             if (groupId != null && groupId != 0 && !groupKey.isNullOrEmpty()) {
@@ -447,7 +458,7 @@ class NotificationReceiver : BroadcastReceiver() {
                 }
             }
 
-            context.cancelNotification(notificationId)
+            NotificationManagerCompat.from(context).cancel(tag, notificationId) // RK: by tag too
         }
 
         /**
