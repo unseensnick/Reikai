@@ -10,16 +10,17 @@ import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.novellist.dto.NLNovel
+import eu.kanade.tachiyomi.data.track.novellist.dto.NLReadingListEntry
 import eu.kanade.tachiyomi.data.track.novellist.dto.NLUpdateRequest
+import eu.kanade.tachiyomi.network.HttpException
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
 /**
  * NovelList (novellist.co), a light-novel directory.
  *
- * Ids are UUID strings, so the real identity lives in `remote_url` and `remote_id` carries only a
- * surrogate. The reference fork hashes the UUID into `remote_id` and hides the real one in a URL
- * fragment; nothing selects on `remote_id`, so the honest column is used instead.
+ * Ids are UUID strings, so the UUID rides in the tracking URL's fragment and `remote_id` carries only
+ * a surrogate (see NovelListIdentity.kt).
  *
  * Every write carries the chapter count, because a body omitting it resets progress to zero.
  */
@@ -94,9 +95,21 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
     }
 
     override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
-        track.status = if (hasReadChapters) READING else PLAN_TO_READ
-        track.score = 0.0
-        write(track)
+        val entry = readingListEntryOrNull(track.uuid)
+        if (entry == null) {
+            track.status = statusOnBind(null, hasReadChapters)
+            track.score = 0.0
+            write(track)
+            return track
+        }
+        // The site's progress and score are adopted; the bind's backfill still moves progress forward
+        // when the app has read further.
+        entry.copyInto(track)
+        val status = statusOnBind(track.status, hasReadChapters)
+        if (status != track.status) {
+            track.status = status
+            write(track)
+        }
         return track
     }
 
@@ -109,10 +122,7 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
     }
 
     override suspend fun refresh(track: Track): Track {
-        val entry = api.getReadingListEntry(track.uuid)
-        track.status = entry.status.toLocalStatus()
-        track.last_chapter_read = entry.chapterCount.toDouble()
-        track.score = entry.rating ?: 0.0
+        api.getReadingListEntry(track.uuid).copyInto(track)
         return track
     }
 
@@ -215,6 +225,21 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
         it.publishing_status = status.orEmpty()
     }
 
+    // A 404 is read as "not on the list". Any other failure stays one, because falling through to the
+    // blind write is what used to overwrite the user's entry.
+    private suspend fun readingListEntryOrNull(uuid: String): NLReadingListEntry? = try {
+        api.getReadingListEntry(uuid)
+    } catch (e: HttpException) {
+        if (e.code != 404) throw e
+        null
+    }
+
+    private fun NLReadingListEntry.copyInto(track: Track) {
+        track.status = status.toLocalStatus()
+        track.last_chapter_read = chapterCount.toDouble()
+        track.score = rating ?: 0.0
+    }
+
     private val NLNovel.displayTitle: String
         get() = englishTitle?.ifBlank { null } ?: rawTitle?.ifBlank { null } ?: slug
 
@@ -231,4 +256,15 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
         PLAN_TO_READ -> "PLANNED"
         else -> "IN_PROGRESS"
     }
+}
+
+/**
+ * MyAnimeList's bind rule over NovelList's statuses. A novel not on the list ([siteStatus] null) is
+ * filed by whether anything was read. One already there keeps its status unless chapters were read and
+ * it is not Completed, which moves it to Reading; with no remote reread state, Dropped reopens.
+ */
+internal fun statusOnBind(siteStatus: Long?, hasReadChapters: Boolean): Long = when {
+    siteStatus == null -> if (hasReadChapters) NovelList.READING else NovelList.PLAN_TO_READ
+    hasReadChapters && siteStatus != NovelList.COMPLETED -> NovelList.READING
+    else -> siteStatus
 }

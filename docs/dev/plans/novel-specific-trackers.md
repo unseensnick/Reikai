@@ -186,7 +186,7 @@ The token stays the better credential and the field stays in the dialog beside t
 PAT has no expiry column, while a Lucia session does. Verify: sign in through the WebView, confirm a
 bind writes, and confirm a logcat capture of the whole login shows no cookie value.
 
-**Step 6, NovelList.** Port the JWT client, storing the UUID in `remote_url` rather than hashing it.
+**Step 6, NovelList.** Port the JWT client. The UUID rides in `remote_url` as a fragment (the site resolves only a slug path) and `remote_id` holds a 64-bit surrogate, not an identity; see `NovelListIdentity.kt`. A bind reads the reading-list entry first and keeps it, a 404 meaning not listed.
 Depends on the per-type capability below, which landed first so the tracker is never offered on a
 manga. Verify: bind and update against a real account, and confirm identity survives an app restart
 and a backup round trip, which is what the hash-and-fragment scheme puts at risk.
