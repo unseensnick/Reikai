@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
  * Detects light-novel plugin updates by diffing each [NovelPreferences.addedRepoUrls] registry's
  * latest `version` against the one each installed plugin last reported when it loaded, stored on its
  * [NovelPreferences.installedPluginMetadata] record, through a single comparator ([LnPluginVersion.compare]). `check` is the pure diff;
- * [runIfStale] wraps it with a 6-hour cache for the on-launch path, while the WorkManager job bypasses
+ * [runIfStale] wraps it with a 6-hour cache for app launch and Browse open, while the WorkManager job bypasses
  * the cache on its own schedule. Individual repo fetch failures do not fail the batch, so a typo'd or
  * temporarily-down registry cannot hide updates from the working ones.
  */
@@ -58,8 +58,8 @@ class LnPluginUpdateChecker(
     }
 
     /**
-     * Cache-gated launch / resume entry point. Skips when the last check was less than 6h ago so
-     * launching the app twice in quick succession doesn't hammer every registry.
+     * Cache-gated entry point for app launch and Browse open. Skips when the last check was less than
+     * 6h ago so launching the app twice in quick succession doesn't hammer every registry.
      */
     suspend fun runIfStale() {
         val now = System.currentTimeMillis()

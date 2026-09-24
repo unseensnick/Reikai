@@ -354,6 +354,8 @@ class MainActivity : BaseActivity() {
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e)
             }
+            // RK: plugin updates feed the same Browse badge, so they refresh at launch too
+            graph.lnPluginUpdateChecker.runIfStale()
         }
     }
 

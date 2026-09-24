@@ -503,6 +503,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **The Browse badge now counts light-novel plugin updates from app launch, as it does extension updates, without Browse being opened first.**
 - **The light-novel plugin update notice now leaves out plugin names under Settings -> Security -> Hide notification content, and goes away once no plugin needs updating, as the extension notice does.**
 - **Installing an extension through Shizuku works again.**
 - **An extension row no longer shows a stray dot before its version after an install is cancelled.**
