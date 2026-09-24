@@ -93,6 +93,7 @@ every release now also ships a foss build with neither in it.
 - **Bulk actions on selected novels now always run to completion.** Marking read, changing categories, downloading or removing could quietly stop partway if the app closed mid-action; manga already ran these to the end.
 - **Deleting a category now clears it from the library and Updates filters.** No filter is left pointing at a category that no longer exists.
 - **The library's continue button and Recents now pass over chapters you hid, on manga and novels.** A hidden chapter still opens when it is the only one left unread.
+- **The continue button on a novel in the library now follows that novel's chapter filters, as manga and the novel's own page do.** Set to bookmarked or downloaded chapters only, it opened the first unread chapter regardless.
 
 ### Merged series
 

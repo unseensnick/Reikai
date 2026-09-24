@@ -72,7 +72,8 @@ suspend fun resumeTarget(
 
 /**
  * The first chapter left to read, for a row that has no recorded chapter to resume from. One rule for
- * both engines: the library applies each entry's own chapter filters when it resolves the same thing,
+ * both engines: the library applies each entry's own chapter filters when it resolves the same thing
+ * (manga through getNextUnread, novels through GetNextNovelChapter.awaitFirstUnreadInGroup),
  * and this surface deliberately does not, because a filter about what to list should not decide where
  * a newly added series starts.
  */

@@ -118,7 +118,7 @@ class HiddenChapterResumeConformanceTest {
             }
             val mergeManager = mockk<NovelMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L) }
             GetNextNovelChapter(chapterRepository, novelRepository, preferences, mergeManager, mockk())
-                .awaitFirstUnreadInGroup(1L)?.id
+                .awaitFirstUnreadInGroup(1L, downloadedOnly = false) { _, _ -> emptySet() }?.id
         }
 
         @JvmStatic

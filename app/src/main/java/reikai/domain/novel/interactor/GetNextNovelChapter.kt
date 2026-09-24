@@ -10,8 +10,10 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.readingOrderComparator
+import reikai.domain.novel.model.sortedAndFiltered
 
 /** A merged novel's chapters in reading order, and the ids another source of the group already read. */
 data class NovelGroupChapters(
@@ -66,12 +68,43 @@ class GetNextNovelChapter(
     suspend fun ownSourceChapters(novelId: Long): List<NovelChapter> =
         chapterRepository.getByNovelId(novelId).sortedWith(readingOrder(novelId))
 
-    /** The group's first unread chapter, skipping what another of its sources has already read, and what
-     *  the user hid unless only hidden chapters are left. */
-    suspend fun awaitFirstUnreadInGroup(novelId: Long): NovelChapter? {
+    /**
+     * The group's first unread chapter among those the novel's own chapter filters list, skipping what
+     * another of its sources has already read, and what the user hid unless only hidden chapters are
+     * left. The filters are the details list's ([sortedAndFiltered]), as the manga library's resume
+     * applies its manga's. [downloadedIds] answers disk membership for one member's chapters.
+     */
+    suspend fun awaitFirstUnreadInGroup(
+        novelId: Long,
+        downloadedOnly: Boolean,
+        downloadedIds: (Novel, List<NovelChapter>) -> Set<Long>,
+    ): NovelChapter? {
         val group = groupChapters(novelId)
-        val shown = ReadingOrder.hiddenLast(group.chapters, hiddenAmong(group.pooledChapters))
+        val listed = listedByFilters(novelId, group, downloadedOnly, downloadedIds)
+        val shown = ReadingOrder.hiddenLast(listed, hiddenAmong(group.pooledChapters))
         return ReadingOrder.nextToRead(shown) { it.read || it.id in group.readInOtherSources }
+    }
+
+    /** [group]'s chapters the filters keep, still in reading order: the filter's own sort is display order. */
+    private suspend fun listedByFilters(
+        novelId: Long,
+        group: NovelGroupChapters,
+        downloadedOnly: Boolean,
+        downloadedIds: (Novel, List<NovelChapter>) -> Set<Long>,
+    ): List<NovelChapter> {
+        val novel = novelRepository.getById(novelId) ?: return group.chapters
+        val downloaded = group.chapters.groupBy { it.novelId }.flatMapTo(HashSet()) { (memberId, chapters) ->
+            novelRepository.getById(memberId)?.let { downloadedIds(it, chapters) }.orEmpty()
+        }
+        val kept = group.chapters.sortedAndFiltered(
+            novel,
+            novelPreferences,
+            downloaded,
+            group.readInOtherSources,
+            flaggedOnAnotherSource(group.pooledChapters, group.chapters, group.stitch, { it.id }, { it.bookmark }),
+            downloadedOnly,
+        ).mapTo(HashSet()) { it.id }
+        return group.chapters.filter { it.id in kept }
     }
 
     /** Whether the user hid a chapter of [chapters], each copy keyed by the source of its own novel. */

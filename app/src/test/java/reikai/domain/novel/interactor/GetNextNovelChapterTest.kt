@@ -40,14 +40,21 @@ class GetNextNovelChapterTest {
         coEvery { novelRepository.getById(any()) } returns Novel.create()
     }
 
-    private fun chapter(id: Long, order: Long, read: Boolean, novelId: Long = 1L, name: String = "Ch $order") =
+    private fun chapter(
+        id: Long,
+        order: Long,
+        read: Boolean,
+        novelId: Long = 1L,
+        name: String = "Ch $order",
+        bookmark: Boolean = false,
+    ) =
         NovelChapter(
             id = id,
             novelId = novelId,
             url = "u$id",
             name = name,
             read = read,
-            bookmark = false,
+            bookmark = bookmark,
             lastTextProgress = 0L,
             chapterNumber = order.toDouble(),
             sourceOrder = order,
@@ -55,6 +62,12 @@ class GetNextNovelChapterTest {
             dateUpload = 0L,
             page = "",
         )
+
+    /** The library's continue button on novel 1, with [downloaded] standing in for the download cache. */
+    private suspend fun resume(downloadedOnly: Boolean = false, downloaded: Set<Long> = emptySet()) =
+        interactor.awaitFirstUnreadInGroup(1L, downloadedOnly) { _, chapters ->
+            chapters.mapNotNullTo(HashSet()) { chapter -> chapter.id.takeIf { it in downloaded } }
+        }?.id
 
     // The group half: what a collapsed recents row and the library's continue button both resolve
     // through. Manga twin: LibraryViewModel.getNextUnreadChapter over MergedChapterProvider.
@@ -77,7 +90,7 @@ class GetNextNovelChapterTest {
             chapter(21, 2, read = false, novelId = 2L),
         )
 
-        interactor.awaitFirstUnreadInGroup(novelId = 1L)?.id shouldBe 21L
+        resume() shouldBe 21L
     }
 
     @Test
@@ -90,7 +103,7 @@ class GetNextNovelChapterTest {
         )
         coEvery { chapterRepository.getByNovelId(2L) } returns listOf(chapter(20, 1, read = true, novelId = 2L))
 
-        interactor.awaitFirstUnreadInGroup(novelId = 1L)?.id shouldBe 11L
+        resume() shouldBe 11L
     }
 
     @Test
@@ -108,7 +121,7 @@ class GetNextNovelChapterTest {
             chapter(20, 1, read = true, novelId = 2L, name = "Alpha"),
         )
 
-        interactor.awaitFirstUnreadInGroup(novelId = 1L)?.id shouldBe 11L
+        resume() shouldBe 11L
     }
 
     @Test
@@ -118,7 +131,7 @@ class GetNextNovelChapterTest {
             chapter(11, 1, read = false),
         )
 
-        interactor.awaitFirstUnreadInGroup(novelId = 1L)?.id shouldBe 11L
+        resume() shouldBe 11L
     }
 
     @Test
@@ -133,6 +146,31 @@ class GetNextNovelChapterTest {
             chapter(11, 2, read = false, name = "Beta"),
         )
 
-        interactor.awaitFirstUnreadInGroup(novelId = 1L)?.id shouldBe 11L
+        resume() shouldBe 11L
+    }
+
+    // The novel's own chapter filters narrow what the button may open, as the manga library's
+    // getNextUnread and the novel details button already do.
+
+    @Test
+    fun `a novel filtered to bookmarked chapters resumes at the first bookmarked unread`() = runTest {
+        coEvery { novelRepository.getById(1L) } returns Novel.create()
+            .copy(chapterFlags = NovelChapterFlags.FILTER_LOCAL or NovelChapterFlags.SHOW_BOOKMARKED)
+        coEvery { chapterRepository.getByNovelId(1L) } returns listOf(
+            chapter(10, 0, read = false),
+            chapter(11, 1, read = false, bookmark = true),
+        )
+
+        resume() shouldBe 11L
+    }
+
+    @Test
+    fun `downloaded only resumes at the first downloaded unread`() = runTest {
+        coEvery { chapterRepository.getByNovelId(1L) } returns listOf(
+            chapter(10, 0, read = false),
+            chapter(11, 1, read = false),
+        )
+
+        resume(downloadedOnly = true, downloaded = setOf(11L)) shouldBe 11L
     }
 }
