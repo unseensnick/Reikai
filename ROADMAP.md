@@ -10,6 +10,10 @@ Nothing gates the 0.4.0 cut; when to cut is the owner's call.
 
 Backlog, grouped by area. Unordered within an area.
 
+### Quality
+
+- **Fix the 2026-09-24 whole-repo audit findings** `[L]` - 491 confirmed defects across every surface (8 high), fixed in eleven owner-ruled batches with proper fixes at the owning layer; the work list and rulings live locally in `docs/dev/audits/2026-09-24-fix-plan.md`.
+
 ### UI & design
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move shape, typography, component styling, spacing and layout off stock Material 3 across the shared `Entry*` surfaces, under whichever theme the reader picked. Exploratory; it starts by seeding tokens in `DESIGN.md`. [Plan](docs/dev/plans/unified-content-ui.md).
