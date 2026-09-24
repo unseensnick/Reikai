@@ -31,19 +31,22 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.yield
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
+import okio.BufferedSink
 import okio.buffer
 import okio.gzip
 import okio.sink
+import reikai.data.backup.backupEntries
+import reikai.data.backup.mergeGroupRefs
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.backup.service.BackupPreferences
-import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.i18n.MR
@@ -60,7 +63,7 @@ class BackupCreator(
     private val context: Context,
 
     private val parser: ProtoBuf,
-    private val getFavorites: GetFavorites,
+    // RK: getFavorites dropped, since the manga creator reads its own favorites for the shared driver.
     private val backupPreferences: BackupPreferences,
     private val mangaRepository: MangaRepository,
     // RK: source of the persisted manga merge groups, serialized as {url,source} refs.
@@ -118,11 +121,8 @@ class BackupCreator(
                 throw IllegalStateException(context.stringResource(MR.strings.create_backup_file_error))
             }
 
-            // Favorites carry no chapters, so the metadata list is light even for a big library; the
-            // chapters (the OOM driver) are only ever resident one batch at a time via the stream.
             val includeManga = options.libraryEntries && options.includeManga
             val includeNovels = options.libraryEntries && options.includeNovels
-            val favorites = if (includeManga) getFavorites.await() else emptyList()
 
             val outputStream = file.openOutputStream()
             // Force overwrite old file
@@ -133,45 +133,15 @@ class BackupCreator(
                 val out = gzipOut.outputStream()
                 val sourceIds = mutableSetOf<Long>()
 
-                // Field 1: manga, streamed. Each is encoded and written on its own, then collected.
+                // Field 1: manga, then field 700 (RK): novels, each streamed through the driver shared
+                // by both types, which decides which series are backed up and what each carries.
                 if (includeManga) {
-                    val nonFavorite = if (options.readEntries) {
-                        mangaRepository.getReadMangaNotInLibrary()
-                    } else {
-                        emptyList()
-                    }
-                    (favorites + nonFavorite).chunked(MANGA_BATCH_SIZE).forEach { batch ->
-                        mangaBackupCreator.backupMangaStream(batch, options).collect { manga ->
-                            sourceIds.add(manga.source)
-                            BackupProtoWriter.writeField(
-                                out,
-                                1,
-                                parser.encodeToByteArray(BackupManga.serializer(), manga),
-                            )
-                            wroteAnything = true
-                        }
-                        // Push the batch's deflated bytes to disk so nothing accumulates across a big backup.
-                        gzipOut.flush()
-                        yield()
+                    writeEntries(out, gzipOut, 1, BackupManga.serializer(), options.backupEntries(mangaBackupCreator)) {
+                        sourceIds.add(it.source)
                     }
                 }
-
-                // Field 700 (RK): novels, streamed the same way.
                 if (includeNovels) {
-                    var written = 0
-                    novelBackupCreator.streamNovels(options).collect { novel ->
-                        BackupProtoWriter.writeField(
-                            out,
-                            700,
-                            parser.encodeToByteArray(BackupNovel.serializer(), novel),
-                        )
-                        wroteAnything = true
-                        if (++written % MANGA_BATCH_SIZE == 0) {
-                            gzipOut.flush()
-                            yield()
-                        }
-                    }
-                    gzipOut.flush()
+                    writeEntries(out, gzipOut, 700, BackupNovel.serializer(), options.backupEntries(novelBackupCreator))
                 }
 
                 // Remaining fields are small (no per-entry chapter payload), so they are gathered and
@@ -231,6 +201,31 @@ class BackupCreator(
         }
     }
 
+    /**
+     * Encode and write each streamed entry on its own, so only one is ever held with its chapters, and push
+     * the deflated bytes to disk every [MANGA_BATCH_SIZE] entries so nothing accumulates across a big backup.
+     */
+    private suspend fun <T> writeEntries(
+        out: OutputStream,
+        gzipOut: BufferedSink,
+        fieldNumber: Int,
+        serializer: SerializationStrategy<T>,
+        entries: Flow<T>,
+        onEntry: (T) -> Unit = {},
+    ) {
+        var written = 0
+        entries.collect { entry ->
+            onEntry(entry)
+            BackupProtoWriter.writeField(out, fieldNumber, parser.encodeToByteArray(serializer, entry))
+            wroteAnything = true
+            if (++written % MANGA_BATCH_SIZE == 0) {
+                gzipOut.flush()
+                yield()
+            }
+        }
+        gzipOut.flush()
+    }
+
     /** Encode each item and write it as a repeated length-delimited field. */
     private fun <T> writeEach(
         out: OutputStream,
@@ -254,26 +249,15 @@ class BackupCreator(
         return preferenceBackupCreator.createApp(includePrivatePreferences = options.privateSettings)
     }
 
-    // RK: serialize the persisted manga merge groups as stable {url, source} refs (the manga twin of
-    // NovelBackupCreator.serializeGroups). Reads the merge_group tables, not the retired prefs; any
-    // member resolves by id (not favorites-only). Gated by libraryEntries (merges are meaningless without
-    // the library). A group is dropped if fewer than two members resolve.
+    // RK: serialize the persisted manga merge groups as stable {url, source} refs, through the kernel
+    // NovelBackupCreator.serializeGroups also calls. Reads the merge_group tables, not the retired prefs;
+    // any member resolves by id (not favorites-only). Gated by libraryEntries (merges are meaningless
+    // without the library).
     private suspend fun backupMangaMergeGroups(options: BackupOptions): List<BackupMangaMergeGroup> {
         if (!options.libraryEntries) return emptyList()
-        val memberships = mergeGroupRepository.getAllMemberships(ContentType.MANGA)
-        if (memberships.isEmpty()) return emptyList()
-        return memberships.entries
-            .groupBy({ it.value }, { it.key })
-            .values
-            .mapNotNull { memberIds ->
-                // A member whose row has gone drops out, matching the novel creator: getMangaById
-                // throws on a missing row, so one stale membership aborted the WHOLE backup.
-                val refs = memberIds.mapNotNull { id ->
-                    val manga = mangaOrNull(id) ?: return@mapNotNull null
-                    BackupMangaSourceRef(url = manga.url, source = manga.source)
-                }
-                refs.takeIf { it.size >= 2 }?.let { BackupMangaMergeGroup(refs = it) }
-            }
+        return mergeGroupRefs(mergeGroupRepository.getAllMemberships(ContentType.MANGA)) { id ->
+            mangaOrNull(id)?.let { BackupMangaSourceRef(url = it.url, source = it.source) }
+        }.map { BackupMangaMergeGroup(refs = it) }
     }
 
     // getMangaById throws on a missing row rather than returning null, so a stale id would abort the

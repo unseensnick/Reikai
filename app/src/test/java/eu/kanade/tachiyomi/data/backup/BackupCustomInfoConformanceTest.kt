@@ -146,9 +146,6 @@ class BackupCustomInfoConformanceTest {
                 isAutoBackup = false,
                 context = mockk(relaxed = true),
                 parser = ProtoBuf,
-                getFavorites = mockk {
-                    coEvery { await() } returns listOf(Manga.create().copy(id = 7, url = "/7", source = 1L))
-                },
                 backupPreferences = mockk(relaxed = true),
                 mangaRepository = mockk(relaxed = true),
                 mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
@@ -159,6 +156,10 @@ class BackupCustomInfoConformanceTest {
                     getHistory = mockk(relaxed = true),
                     mangaMetadataRepository = mockk { coEvery { getMetadataById(7) } returns null },
                     customMangaInfoRepository = mangaCustomInfo,
+                    getFavorites = mockk {
+                        coEvery { await() } returns listOf(Manga.create().copy(id = 7, url = "/7", source = 1L))
+                    },
+                    mangaRepository = mockk(),
                 ),
                 preferenceBackupCreator = mockk(relaxed = true),
                 extensionStoresBackupCreator = mockk(relaxed = true),

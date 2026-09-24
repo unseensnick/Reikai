@@ -20,10 +20,6 @@ Opportunistic polish:
 - Details: the scanlator filter on a merged manga lists and excludes only the anchor entry's scanlators, while the unified list shows siblings' chapters, so the dialog and the query disagree about what can be hidden.
 - Novel reader: a tall picture keeps the shrunken stand-in copy it was drawn from once its slices cover it, about 4MB a picture; dropping it is the obvious memory saving. [Record](docs/dev/plans/content-layer-reader-surface.md).
 
-### Data & backup
-
-- **Share the backup entry loop behind one neutral driver** `[M]` - one adapter answering chapters, categories, tracks and history per `EntryId`, so the option gates and flush cadence are written once rather than per content type. It collapses the gates, never the fields, which the frozen wire format rules out. [Plan](docs/dev/plans/content-layer-architecture.md).
-
 ### UI & design
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move shape, typography, component styling, spacing and layout off stock Material 3 across the shared `Entry*` surfaces, under whichever theme the reader picked. Exploratory; it starts by seeding tokens in `DESIGN.md`. [Plan](docs/dev/plans/unified-content-ui.md).

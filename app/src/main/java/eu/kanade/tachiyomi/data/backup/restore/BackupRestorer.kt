@@ -13,9 +13,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
-import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
-import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
@@ -36,10 +34,13 @@ import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
+import reikai.data.backup.restoreBatch
+import reikai.domain.db.Transactions
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.novel.download.NovelDownloadCache
@@ -79,6 +80,7 @@ class BackupRestorer(
     private val reconcileMergedChapters: ReconcileMergedChapters,
     private val novelDownloadCache: NovelDownloadCache,
     private val adultContentChecker: AdultContentChecker,
+    private val transactions: Transactions,
     // RK <--
 ) {
 
@@ -318,58 +320,15 @@ class BackupRestorer(
         // same-named pre-existing categories either.
         val membershipCategories = if (options.categories) summary.backupNovelCategories else emptyList()
         if (options.libraryEntries) {
-            val batch = ArrayList<BackupNovel>(RESTORE_CHUNK)
-            suspend fun flush() {
-                if (batch.isEmpty()) return
-                // Same batch-failure containment as the manga stream: a per-entry catch inside the
-                // shared transaction cannot stop one bad novel from rolling the whole batch back.
-                val restoredAsBatch = try {
-                    database.transaction {
-                        batch.forEach { backupNovel ->
-                            ensureActive()
-                            novelRestorer.restore(backupNovel, membershipCategories)
-                        }
-                    }
-                    true
-                } catch (e: Exception) {
-                    ensureActive()
-                    logcat(LogPriority.WARN, e) { "Batch novel restore failed, retrying entry by entry" }
-                    false
-                }
-
-                if (restoredAsBatch) {
-                    restoreProgress.addAndFetch(batch.size)
-                } else {
-                    batch.forEach { backupNovel ->
-                        ensureActive()
-                        try {
-                            novelRestorer.restore(backupNovel, membershipCategories)
-                        } catch (e: Exception) {
-                            ensureActive()
-                            errors.add(Date() to "${backupNovel.title} [${backupNovel.source}]: ${e.message}")
-                        }
-                        restoreProgress.incrementAndFetch()
-                    }
-                }
-
-                val last = batch.last()
-                notifier.showRestoreProgress(
-                    last.title,
-                    restoreProgress.load(),
-                    restoreAmount,
-                    isSync,
-                    isAdult = hasLewdGenre(last.genre),
-                )
-                batch.clear()
-            }
-
-            BackupProtoReader(context).read(uri) { fieldNumber, data ->
-                if (fieldNumber != 700) return@read
-                ensureActive()
-                batch.add(summary.legacyCustomInfo.decodeNovel(parser, data))
-                if (batch.size >= RESTORE_CHUNK) flush()
-            }
-            flush()
+            restoreEntryStream(
+                uri,
+                fieldNumber = 700,
+                decode = { summary.legacyCustomInfo.decodeNovel(parser, it) },
+                restore = { novelRestorer.restore(it, membershipCategories) },
+                title = { it.title },
+                sourceName = { it.source },
+                isAdult = { hasLewdGenre(it.genre) },
+            )
             restoreIsolated("novel custom info") {
                 summary.legacyCustomInfo.unclaimedNovels().forEach { (ref, info) ->
                     novelRestorer.restoreCustomInfo(ref.first, ref.second, info)
@@ -405,60 +364,15 @@ class BackupRestorer(
         backupMangaMerges: List<BackupMangaMergeGroup>,
         legacyCustomInfo: LegacyCustomInfo,
     ) = launch {
-        val batch = ArrayList<BackupManga>(RESTORE_CHUNK)
-        suspend fun flush() {
-            if (batch.isEmpty()) return
-            // SQLDelight fails an enclosing transaction when a nested one fails, so catching per entry
-            // inside the shared transaction cannot contain a bad entry: the whole batch rolls back and
-            // those entries are lost. Retry entry by entry instead.
-            val restoredAsBatch = try {
-                database.transaction {
-                    batch.forEach { backupManga ->
-                        ensureActive()
-                        mangaRestorer.restore(backupManga, backupCategories)
-                    }
-                }
-                true
-            } catch (e: Exception) {
-                ensureActive()
-                logcat(LogPriority.WARN, e) { "Batch restore failed, retrying entry by entry" }
-                false
-            }
-
-            if (restoredAsBatch) {
-                restoreProgress.addAndFetch(batch.size)
-            } else {
-                batch.forEach { backupManga ->
-                    ensureActive()
-                    try {
-                        mangaRestorer.restore(backupManga, backupCategories)
-                    } catch (e: Exception) {
-                        ensureActive()
-                        val sourceName = sourceMapping[backupManga.source] ?: backupManga.source.toString()
-                        errors.add(Date() to "${backupManga.title} [$sourceName]: ${e.message}")
-                    }
-                    restoreProgress.incrementAndFetch()
-                }
-            }
-
-            val last = batch.last()
-            notifier.showRestoreProgress(
-                last.title,
-                restoreProgress.load(),
-                restoreAmount,
-                isSync,
-                isAdult = adultContentChecker.adultIdsAmong(listOf(last.getMangaImpl())).isNotEmpty(),
-            )
-            batch.clear()
-        }
-
-        BackupProtoReader(context).read(uri) { fieldNumber, data ->
-            if (fieldNumber != 1) return@read
-            ensureActive()
-            batch.add(legacyCustomInfo.decodeManga(parser, data))
-            if (batch.size >= RESTORE_CHUNK) flush()
-        }
-        flush()
+        restoreEntryStream(
+            uri,
+            fieldNumber = 1,
+            decode = { legacyCustomInfo.decodeManga(parser, it) },
+            restore = { mangaRestorer.restore(it, backupCategories) },
+            title = { it.title },
+            sourceName = { sourceMapping[it.source] ?: it.source.toString() },
+            isAdult = { adultContentChecker.adultIdsAmong(listOf(it.getMangaImpl())).isNotEmpty() },
+        )
         restoreIsolated("manga custom info") {
             legacyCustomInfo.unclaimedManga().forEach { (ref, info) ->
                 mangaRestorer.restoreCustomInfo(ref.first, ref.second, info)
@@ -471,6 +385,45 @@ class BackupRestorer(
         // library and no report.
         ensureActive()
         restoreIsolated("merges") { mangaRestorer.restoreMerges(backupMangaMerges) }
+    }
+
+    // RK: the streamed restore loop both content types run: [fieldNumber]'s entries are decoded one at a
+    // time and restored in bounded batches through restoreBatch, which keeps a bad entry to itself.
+    private suspend fun <B> restoreEntryStream(
+        uri: Uri,
+        fieldNumber: Int,
+        decode: (ByteArray) -> B,
+        restore: suspend (B) -> Unit,
+        title: (B) -> String,
+        sourceName: (B) -> String,
+        isAdult: suspend (B) -> Boolean,
+    ) {
+        val batch = ArrayList<B>(RESTORE_CHUNK)
+        suspend fun flush() {
+            if (batch.isEmpty()) return
+            restoreBatch(batch, transactions, restore).forEach { (entry, e) ->
+                errors.add(Date() to "${title(entry)} [${sourceName(entry)}]: ${e.message}")
+            }
+            restoreProgress.addAndFetch(batch.size)
+
+            val last = batch.last()
+            notifier.showRestoreProgress(
+                title(last),
+                restoreProgress.load(),
+                restoreAmount,
+                isSync,
+                isAdult = isAdult(last),
+            )
+            batch.clear()
+        }
+
+        BackupProtoReader(context).read(uri) { field, data ->
+            if (field != fieldNumber) return@read
+            currentCoroutineContext().ensureActive()
+            batch.add(decode(data))
+            if (batch.size >= RESTORE_CHUNK) flush()
+        }
+        flush()
     }
 
     /** Run a post-loop restore phase, recording a failure instead of taking the whole restore down. */

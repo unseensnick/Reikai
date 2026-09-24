@@ -567,6 +567,7 @@ every release now also ships a foss build with neither in it.
 
 ### Other
 
+- Backing up and restoring the library now runs one loop for manga and novels: which series are backed up, which parts each carries, and how a failed restore batch is retried are each written once, so the two can no longer drift.
 - A novel library update now predicts a paged novel's next update once, after its last page, instead of once for every page it fetched.
 - Keeping merged series in step with the library now costs one pass over the grouped entries on each library write, rather than a walk of the whole library.
 - Smart update skipping, the chapter-sync rules for new chapters and what binding a tracker backfills are now each written once for manga and novels, so the two can no longer drift. The novel library update also decides what to skip from the library's chapter counts, rather than loading every novel's chapters first.
