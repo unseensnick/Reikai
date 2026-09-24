@@ -85,7 +85,39 @@ class RecentsTargetTest {
         id = { it.id },
         fetchedAt = { 0L },
         read = { it.read },
+        isHidden = { false },
     )
+
+    // Chapters 1 and 2 unread, projected the way both providers project theirs, with [hidden] hidden.
+    private fun unreadPair(vararg hidden: Long) = recentsChapters(
+        chapters = listOf(Copy(1, false), Copy(2, false)),
+        pooled = emptyList(),
+        stitch = emptyList(),
+        id = { it.id },
+        fetchedAt = { 0L },
+        read = { it.read },
+        isHidden = { it.id in hidden },
+    )
+
+    @Test
+    fun `a newly added row passes over a hidden chapter`() = runTest {
+        addedTarget(unreadPair(1)) { emptyList() } shouldBe 2L
+    }
+
+    @Test
+    fun `a finished recorded chapter moves on past a hidden one`() = runTest {
+        resumeTarget(listOf(chapter(0, read = true)) + unreadPair(1), recordedId = 0) { emptyList() } shouldBe 2L
+    }
+
+    @Test
+    fun `a burst passes over a hidden chapter`() {
+        firstUnreadInBurst(unreadPair(1), rowChapterId = 2) shouldBe 2L
+    }
+
+    @Test
+    fun `a hidden chapter still opens when every unread chapter is hidden`() = runTest {
+        addedTarget(unreadPair(1, 2)) { emptyList() } shouldBe 1L
+    }
 
     @Test
     fun `a newly added row's own-source fallback skips a copy the group read on another source`() = runTest {

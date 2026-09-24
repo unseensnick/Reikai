@@ -22,10 +22,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
+import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.flaggedOnAnotherSource
@@ -72,6 +74,7 @@ class MangaRecentsAdapter(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val mergeManager: MangaMergeManager,
     private val mergedChapterProvider: MergedChapterProvider,
+    private val mangaPreferences: MangaPreferences,
     private val getManga: GetManga,
     private val mangaLibraryAdder: MangaLibraryAdder,
     private val application: Context,
@@ -212,7 +215,13 @@ class MangaRecentsAdapter(
         suspend fun ownSource(): List<Chapter> =
             readingOrder(manga, getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true))
                 .onEach { chapters[it.id] = it }
-        fun List<Chapter>.forRules() = recentsChapters(this, pooled, stitch, { it.id }, { it.dateFetch }, { it.read })
+        val hidden = mangaPreferences.hiddenChapters().get()
+        val isHidden = { chapter: Chapter ->
+            val owner = group?.mangaById?.get(chapter.mangaId) ?: manga
+            owner != null && hiddenChapterKey(owner.source.toString(), chapter.url) in hidden
+        }
+        fun List<Chapter>.forRules() =
+            recentsChapters(this, pooled, stitch, { it.id }, { it.dateFetch }, { it.read }, isHidden)
 
         val chapterId = when (val lane = item.lane) {
             is RecentsLane.Read -> resumeTarget(groupChapters.forRules(), lane.chapter.chapterId) {

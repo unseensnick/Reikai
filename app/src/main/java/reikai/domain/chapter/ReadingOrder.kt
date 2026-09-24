@@ -16,6 +16,16 @@ object ReadingOrder {
     fun <T> nextToRead(inReadingOrder: List<T>, isRead: (T) -> Boolean): T? =
         inReadingOrder.firstOrNull { !isRead(it) }
 
+    /**
+     * [inReadingOrder] with the chapters the user hid moved behind the rest, each part keeping its order.
+     * A pick that takes the first match then passes over a hidden chapter while any other qualifies, and
+     * still opens one when only hidden chapters are left, so a continue button or a row never goes dead.
+     */
+    fun <T> hiddenLast(inReadingOrder: List<T>, isHidden: (T) -> Boolean): List<T> {
+        val (hidden, shown) = inReadingOrder.partition(isHidden)
+        return if (hidden.isEmpty()) inReadingOrder else shown + hidden
+    }
+
     /** Everything read before [isPointer], empty when the pointer is not in the list at all. */
     fun <T> before(inReadingOrder: List<T>, isPointer: (T) -> Boolean): List<T> {
         val pointer = inReadingOrder.indexOfFirst(isPointer)

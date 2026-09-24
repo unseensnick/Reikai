@@ -85,6 +85,7 @@ import reikai.data.coil.seedColor
 import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.chapter.ReadingOrder
+import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.GetTracksInGroup
@@ -1188,7 +1189,7 @@ class MangaViewModel(
 
     /** Restore-stable hidden-chapter key: the chapter's own source (per-source for a merged group). */
     private fun hiddenKey(chapter: Chapter, manga: Manga, mangaBySource: Map<Long, Manga>): String =
-        "${(mangaBySource[chapter.mangaId] ?: manga).source}|${chapter.url}"
+        hiddenChapterKey((mangaBySource[chapter.mangaId] ?: manga).source.toString(), chapter.url)
 
     private data class HiddenChapters(
         val chapters: List<ChapterList.Item>,

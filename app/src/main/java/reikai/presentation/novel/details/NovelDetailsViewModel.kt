@@ -53,6 +53,7 @@ import reikai.data.novel.updateNovelFetchInterval
 import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.ReadingOrder
+import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.expandToUnits
@@ -1218,7 +1219,7 @@ class NovelDetailsViewModel(
      *  backup restore). Source resolved per the chapter's own novelId for a merged group, else the
      *  anchor's source. */
     private fun hiddenKey(chapter: NovelChapter): String =
-        "${siblingSources.value[chapter.novelId]?.id ?: sourceId}|${chapter.url}"
+        hiddenChapterKey(siblingSources.value[chapter.novelId]?.id ?: sourceId, chapter.url)
 
     fun hideSelected() = withSelection { chapters ->
         hiddenChaptersPref.set(hiddenChaptersPref.get() + chapters.map { hiddenKey(it) })

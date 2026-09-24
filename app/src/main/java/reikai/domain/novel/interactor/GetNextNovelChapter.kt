@@ -2,6 +2,7 @@ package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
 import reikai.domain.chapter.ReadingOrder
+import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.novel.NovelChapterRepository
@@ -65,10 +66,20 @@ class GetNextNovelChapter(
     suspend fun ownSourceChapters(novelId: Long): List<NovelChapter> =
         chapterRepository.getByNovelId(novelId).sortedWith(readingOrder(novelId))
 
-    /** The group's first unread chapter, skipping what another of its sources has already read. */
+    /** The group's first unread chapter, skipping what another of its sources has already read, and what
+     *  the user hid unless only hidden chapters are left. */
     suspend fun awaitFirstUnreadInGroup(novelId: Long): NovelChapter? {
         val group = groupChapters(novelId)
-        return ReadingOrder.nextToRead(group.chapters) { it.read || it.id in group.readInOtherSources }
+        val shown = ReadingOrder.hiddenLast(group.chapters, hiddenAmong(group.pooledChapters))
+        return ReadingOrder.nextToRead(shown) { it.read || it.id in group.readInOtherSources }
+    }
+
+    /** Whether the user hid a chapter of [chapters], each copy keyed by the source of its own novel. */
+    suspend fun hiddenAmong(chapters: List<NovelChapter>): (NovelChapter) -> Boolean {
+        val hidden = novelPreferences.hiddenChapters().get()
+        if (hidden.isEmpty()) return { false }
+        val sourceOf = chapters.mapTo(HashSet()) { it.novelId }.associateWith { novelRepository.getById(it)?.source }
+        return { chapter -> sourceOf[chapter.novelId]?.let { hiddenChapterKey(it, chapter.url) } in hidden }
     }
 
     /** Falls back to source order for a novel that is no longer stored, which only a stale id reaches. */

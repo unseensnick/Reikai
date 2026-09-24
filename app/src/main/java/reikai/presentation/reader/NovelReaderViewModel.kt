@@ -44,6 +44,7 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.data.coil.NovelCover
 import reikai.data.novel.tts.SystemTtsEngine
+import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupChapterFlags
@@ -1310,7 +1311,9 @@ class NovelReaderViewModel(
                 sourceIdByNovel.getOrPut(chapter.novelId) { novelRepo.getById(chapter.novelId)?.source.orEmpty() }
             }
         }
-        val isHidden = { chapter: NovelChapter -> "${sourceIdByNovel[chapter.novelId]}|${chapter.url}" in hidden }
+        val isHidden = { chapter: NovelChapter ->
+            hiddenChapterKey(sourceIdByNovel[chapter.novelId].orEmpty(), chapter.url) in hidden
+        }
         val current = chapters.find { it.id == currentChapterId } ?: return chapters.filterNot(isHidden)
         return chapters.navigableChapters(
             current,

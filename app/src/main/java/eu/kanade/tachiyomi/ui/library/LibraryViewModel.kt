@@ -56,6 +56,7 @@ import reikai.domain.library.librarySortComparator
 import reikai.domain.library.sortForCategory
 import reikai.domain.library.toSortMode
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
@@ -151,6 +152,7 @@ class LibraryViewModel(
     private val mergedChapterProvider: MergedChapterProvider,
     private val mergedChapterUnitRepository: MergedChapterUnitRepository,
     private val reconcileMergedChapters: ReconcileMergedChapters,
+    private val mangaPreferences: MangaPreferences,
     // RK <--
 ) : ViewModel() {
 
@@ -634,7 +636,13 @@ class LibraryViewModel(
         //     details screen shows, and each chapter keeps its own mangaId so the reader opens the right
         //     source. Falls through to the plain per-manga list when the entry is not merged.
         val group = mergedChapterProvider.load(manga)
-        return group.chapters.getNextUnread(manga, downloadManager, group.readInOtherSources, group.mangaById)
+        return group.chapters.getNextUnread(
+            manga,
+            downloadManager,
+            group.readInOtherSources,
+            group.mangaById,
+            mangaPreferences.hiddenChapters().get(),
+        )
     }
 
     /**

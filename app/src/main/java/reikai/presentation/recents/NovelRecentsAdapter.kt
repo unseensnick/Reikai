@@ -199,8 +199,11 @@ class NovelRecentsAdapter(
         // rows arrive in whatever order the table hands them over.
         suspend fun ownSource(): List<NovelChapter> =
             getNextNovelChapter.ownSourceChapters(novelId).onEach { chapters[it.id] = it }
+        val isHidden = getNextNovelChapter.hiddenAmong(group.pooledChapters)
         fun List<NovelChapter>.forRules() =
-            recentsChapters(this, group.pooledChapters, group.stitch, { it.id }, { it.dateFetch }, { it.read })
+            recentsChapters(this, group.pooledChapters, group.stitch, {
+                it.id
+            }, { it.dateFetch }, { it.read }, isHidden)
 
         val chapterId = when (val lane = item.lane) {
             is RecentsLane.Read -> resumeTarget(group.chapters.forRules(), lane.chapter.chapterId) {

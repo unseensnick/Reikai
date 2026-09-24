@@ -1,5 +1,6 @@
 package reikai.presentation.recents
 
+import reikai.domain.chapter.ReadingOrder
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.flaggedOnAnotherSource
 
@@ -8,7 +9,8 @@ import reikai.domain.merge.flaggedOnAnotherSource
  * engine so the data access stays per type while the rules stay one rule. **The list is always ascending
  * reading order**, oldest first: every rule walks it forwards and the two engines' native orders disagree
  * (a merged manga list arrives newest-first), so a provider handing one over unsorted makes "the next
- * chapter" mean the previous one. [read] folds in what another source of a merge group already read.
+ * chapter" mean the previous one, except that the chapters the user hid come last. [read] folds in
+ * what another source of a merge group already read.
  */
 data class RecentsChapter(
     val id: Long,
@@ -21,7 +23,8 @@ data class RecentsChapter(
  * on another source that the stored [stitch] places with it is, among [pooled], every member's
  * chapters. A provider projects the group list and the entry's own list both through here: a copy the
  * stitch dropped from the group list is still that chapter, and carrying only its own flag let the
- * own-source fallback reopen a chapter the group had finished.
+ * own-source fallback reopen a chapter the group had finished. Hidden chapters go last, per
+ * [ReadingOrder.hiddenLast], so the rules below open one only when nothing else is left.
  */
 fun <T> recentsChapters(
     chapters: List<T>,
@@ -30,9 +33,11 @@ fun <T> recentsChapters(
     id: (T) -> Long,
     fetchedAt: (T) -> Long,
     read: (T) -> Boolean,
+    isHidden: (T) -> Boolean,
 ): List<RecentsChapter> {
     val readElsewhere = flaggedOnAnotherSource(pooled, chapters, stitch, id, read)
-    return chapters.map { RecentsChapter(id(it), fetchedAt(it), read(it) || id(it) in readElsewhere) }
+    return ReadingOrder.hiddenLast(chapters, isHidden)
+        .map { RecentsChapter(id(it), fetchedAt(it), read(it) || id(it) in readElsewhere) }
 }
 
 /**
