@@ -146,7 +146,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
                 val after = BaseUpdatesGridGlanceWidget.DateLimit.toEpochMilliseconds()
                 combine(
                     getUpdates.subscribe(read = false, after = after),
-                    novelRepository.getRecentNovelUpdatesAsFlow(after, ROW_LIMIT),
+                    novelRepository.getRecentNovelUpdatesAsFlow(after, UNIFIED_WIDGET_ROW_LIMIT),
                     getCustomMangaInfo.subscribeAll(),
                     getCustomNovelInfo.subscribeAll(),
                 ) { manga, novel, customManga, customNovel ->
@@ -278,10 +278,6 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
             // Distinct PendingIntents, namespaced so a novel id never collides with a manga id.
             addCategory("novel:${row.novelId}")
         }
-
-    companion object {
-        private const val ROW_LIMIT = 500L
-    }
 }
 
 private data class WidgetCover(val bitmap: Bitmap?, val intent: Intent)

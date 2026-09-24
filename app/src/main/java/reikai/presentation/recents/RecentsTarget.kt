@@ -100,11 +100,10 @@ const val BURST_WINDOW_MS: Long = 12 * 60 * 60 * 1000L
 fun firstUnreadInBurst(
     chapters: List<RecentsChapter>,
     rowChapterId: Long,
-    windowMs: Long = BURST_WINDOW_MS,
 ): Long {
     val row = chapters.firstOrNull { it.id == rowChapterId } ?: return rowChapterId
     return chapters
-        .firstOrNull { !it.read && kotlin.math.abs(it.fetchedAt - row.fetchedAt) <= windowMs }
+        .firstOrNull { !it.read && kotlin.math.abs(it.fetchedAt - row.fetchedAt) <= BURST_WINDOW_MS }
         ?.id
         ?: rowChapterId
 }

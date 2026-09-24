@@ -24,9 +24,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.minus
 import reikai.domain.category.RecentsCategoryFilter
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
@@ -34,6 +31,8 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelUpdateWithRelations
+import reikai.domain.recents.RECENTS_FEED_LIMIT
+import reikai.domain.recents.recentsFeedCutoff
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
@@ -42,7 +41,6 @@ import reikai.novel.download.toDownloadState
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.updates.service.UpdatesPreferences
-import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -85,12 +83,9 @@ class NovelUpdatesViewModel(
         .distinctUntilChanged()
         .flatMapLatest { f ->
             novelRepo.getFilteredNovelUpdatesAsFlow(
-                // Recomputed per subscription, like its manga twin, so a long-running process keeps
-                // a three month window from now rather than from whenever the model was built.
-                after = Clock.System.now()
-                    .minus(RECENT_MONTHS, DateTimeUnit.MONTH, TimeZone.currentSystemDefault())
-                    .toEpochMilliseconds(),
-                limit = LIMIT,
+                // Recomputed per subscription, like its manga twin.
+                after = recentsFeedCutoff(),
+                limit = RECENTS_FEED_LIMIT,
                 unread = f.unread.toBooleanOrNull(),
                 started = f.started.toBooleanOrNull(),
                 bookmarked = f.bookmarked.toBooleanOrNull(),
@@ -174,11 +169,6 @@ class NovelUpdatesViewModel(
         val isLoading: Boolean = true,
         val items: List<NovelUpdatesItem> = emptyList(),
     )
-
-    companion object {
-        private const val RECENT_MONTHS = 3L
-        private const val LIMIT = 500L
-    }
 }
 
 @Immutable

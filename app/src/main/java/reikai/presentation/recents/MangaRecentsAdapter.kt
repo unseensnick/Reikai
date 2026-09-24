@@ -33,9 +33,11 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.recents.RECENTS_FEED_LIMIT
 import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.recents.RecentsUnreadRepository
+import reikai.domain.recents.recentsFeedCutoff
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -136,8 +138,8 @@ class MangaRecentsAdapter(
         sourcePreferences.recentsCategoryFilterFlow(surface).flatMapLatest { categories ->
             combine(
                 recentlyAdded.subscribeManga(
-                    after = addedLaneCutoff(),
-                    limit = ADDED_LANE_LIMIT,
+                    after = recentsFeedCutoff(),
+                    limit = RECENTS_FEED_LIMIT,
                     includedCategories = categories.include,
                     excludedCategories = categories.exclude,
                 ),

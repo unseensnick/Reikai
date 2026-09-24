@@ -12,14 +12,14 @@ interface RecentlyAddedRepository {
     fun subscribeManga(
         after: Long,
         limit: Long,
-        includedCategories: List<Long> = emptyList(),
-        excludedCategories: List<Long> = emptyList(),
+        includedCategories: List<Long>,
+        excludedCategories: List<Long>,
     ): Flow<List<RecentlyAddedManga>>
 
     fun subscribeNovels(
         after: Long,
         limit: Long,
-        includedCategories: List<Long> = emptyList(),
-        excludedCategories: List<Long> = emptyList(),
+        includedCategories: List<Long>,
+        excludedCategories: List<Long>,
     ): Flow<List<RecentlyAddedNovel>>
 }

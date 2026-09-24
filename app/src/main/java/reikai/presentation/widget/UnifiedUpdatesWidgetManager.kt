@@ -34,7 +34,7 @@ class UnifiedUpdatesWidgetManager(
         val after = BaseUpdatesGridGlanceWidget.DateLimit.toEpochMilliseconds()
         combine(
             getUpdates.subscribe(read = false, after = after),
-            novelRepository.getRecentNovelUpdatesAsFlow(after, ROW_LIMIT),
+            novelRepository.getRecentNovelUpdatesAsFlow(after, UNIFIED_WIDGET_ROW_LIMIT),
             securityPreferences.useAuthenticator.changes(),
         ) { manga, novel, locked ->
             Triple(
@@ -54,8 +54,10 @@ class UnifiedUpdatesWidgetManager(
             .flowOn(Dispatchers.Default)
             .launchIn(scope)
     }
-
-    companion object {
-        private const val ROW_LIMIT = 500L
-    }
 }
+
+/**
+ * The novel row cap, shared with [UnifiedUpdatesGlanceWidget]: this trigger watches the query the widget
+ * draws, so a different limit would watch a different set of rows than the one on screen.
+ */
+internal const val UNIFIED_WIDGET_ROW_LIMIT = 500L

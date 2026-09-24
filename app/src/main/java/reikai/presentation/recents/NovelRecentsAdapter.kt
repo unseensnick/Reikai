@@ -17,9 +17,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.minus
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
@@ -37,9 +34,11 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.recents.RECENTS_FEED_LIMIT
 import reikai.domain.recents.RecentlyAddedNovel
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.recents.RecentsUnreadRepository
+import reikai.domain.recents.recentsFeedCutoff
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -53,7 +52,6 @@ import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.updates.NovelUpdatesItem
 import reikai.presentation.updates.NovelUpdatesViewModel
-import kotlin.time.Clock
 
 /**
  * The novel twin of [MangaRecentsAdapter], over Reikai's two novel models. Like the manga pair, both
@@ -129,8 +127,8 @@ class NovelRecentsAdapter(
         sourcePreferences.recentsCategoryFilterFlow(surface).flatMapLatest { categories ->
             combine(
                 recentlyAdded.subscribeNovels(
-                    after = addedLaneCutoff(),
-                    limit = ADDED_LANE_LIMIT,
+                    after = recentsFeedCutoff(),
+                    limit = RECENTS_FEED_LIMIT,
                     includedCategories = categories.include,
                     excludedCategories = categories.exclude,
                 ),
@@ -413,14 +411,6 @@ internal fun novelRowUi(item: RecentsItem): RecentsRowUi = when (val payload = i
     )
     else -> EMPTY_RECENTS_ROW
 }
-
-internal const val ADDED_LANE_LIMIT = 500L
-private const val ADDED_LANE_MONTHS = 3L
-
-/** The added lane matches the updated lane's bound; nothing bounds a library on its own. */
-internal fun addedLaneCutoff(): Long = Clock.System.now()
-    .minus(ADDED_LANE_MONTHS, DateTimeUnit.MONTH, TimeZone.currentSystemDefault())
-    .toEpochMilliseconds()
 
 internal fun NovelUpdatesItem.toRecentsItem(): RecentsItem = RecentsItem(
     entryId = EntryId.Novel(update.novelId),
