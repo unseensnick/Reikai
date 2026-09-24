@@ -22,10 +22,6 @@ class UpdateNovel(
         return novelRepository.update(update)
     }
 
-    suspend fun awaitUpdateLastUpdate(novelId: Long): Boolean {
-        return novelRepository.update(NovelUpdate(id = novelId, lastUpdate = Clock.System.now().toEpochMilliseconds()))
-    }
-
     suspend fun awaitUpdateCoverLastModified(novelId: Long): Boolean {
         return novelRepository.update(
             NovelUpdate(
