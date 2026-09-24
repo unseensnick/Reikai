@@ -1,5 +1,6 @@
 package reikai.presentation.recents
 
+import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -95,6 +96,43 @@ class RecentsChapterFiltersTest {
         val read = chapterState(read = true, bookmark = false, progress = probe.at(9))
 
         RecentsChapterFilters(started = TriState.ENABLED_IS).keeps(read) shouldBe true
+    }
+
+    // The bulk bar's two predicates. Every unread row carries a progress value, zero included, so a
+    // null check offered Mark as unread on a chapter nobody had opened.
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("startedProbes")
+    fun `a chapter never opened has nothing to mark unread`(probe: StartedProbe) {
+        offersMarkUnread(listOf(chapterState(read = false, bookmark = false, progress = probe.at(0)))) shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("startedProbes")
+    fun `a chapter opened past its start can be marked unread`(probe: StartedProbe) {
+        offersMarkUnread(listOf(chapterState(read = false, bookmark = false, progress = probe.at(3)))) shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("startedProbes")
+    fun `a finished chapter can be marked unread`(probe: StartedProbe) {
+        offersMarkUnread(listOf(chapterState(read = true, bookmark = false, progress = probe.at(9)))) shouldBe true
+    }
+
+    /** Each row's own control downloads a finished chapter, and so does upstream's Updates bar. */
+    @Test
+    fun `a finished chapter not on disk can be downloaded from the selection`() {
+        offersDownload(listOf(Download.State.NOT_DOWNLOADED)) shouldBe true
+    }
+
+    @Test
+    fun `a selection already on disk offers no download`() {
+        offersDownload(listOf(Download.State.DOWNLOADED)) shouldBe false
+    }
+
+    @Test
+    fun `a selected row with no chapter offers no download`() {
+        offersDownload(listOf(null)) shouldBe false
     }
 
     companion object {

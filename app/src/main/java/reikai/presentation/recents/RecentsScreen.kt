@@ -923,18 +923,15 @@ private fun RecentsBottomBar(
     onDeleteDownloads: () -> Unit,
 ) {
     val targets by engine.targets.collectAsState()
-    // Read state and download state paired per row, because fetching a chapter you have finished is
-    // busywork and the verb has to answer for one chapter being both unread and absent. Read off the
-    // two as separate lists, one row's unread state would license another row's fetch. A resolved
-    // continue-reading row answers from its target, falling back to its record until that lands: what
-    // that changes is which buttons appear, never what they do, since the verbs resolve before they
-    // dispatch.
+    // A resolved row answers from its target, falling back to its record until that lands: what that
+    // changes is which buttons appear, never what they do, since the verbs resolve before they dispatch.
     val perRow = selected.map { item ->
         val target = targets[item.lane]
         val state = target?.state ?: engine.rowUi(item).state
         state to engine.downloadUi(item, target)?.state?.invoke()
     }
     val chapters = perRow.mapNotNull { it.first }
+    val downloads = perRow.map { it.second }
     MangaBottomActionMenu(
         visible = selected.isNotEmpty(),
         modifier = Modifier.fillMaxWidth(),
@@ -946,18 +943,12 @@ private fun RecentsBottomBar(
             .takeIf { chapters.isNotEmpty() && chapters.all { chapter -> chapter.bookmark } },
         onMarkAsReadClicked = { onAct { engine.markReadSelection(it, true) } }
             .takeIf { chapters.any { chapter -> !chapter.read } },
-        // Started counts as readable-back: progress survives only where reading stopped short, so one
-        // expression covers what the two screens each spelled out in their own unit.
         onMarkAsUnreadClicked = { onAct { engine.markReadSelection(it, false) } }
-            .takeIf { chapters.any { chapter -> chapter.read || chapter.progress != null } },
+            .takeIf { offersMarkUnread(chapters) },
         onDownloadClicked = { onAct { engine.downloadSelection(it) } }
-            .takeIf {
-                perRow.any { (state, download) ->
-                    state?.read == false && download != null && download != Download.State.DOWNLOADED
-                }
-            },
+            .takeIf { offersDownload(downloads) },
         onDeleteClicked = onDeleteDownloads
-            .takeIf { perRow.any { (_, download) -> download == Download.State.DOWNLOADED } },
+            .takeIf { downloads.any { it == Download.State.DOWNLOADED } },
     )
 }
 
