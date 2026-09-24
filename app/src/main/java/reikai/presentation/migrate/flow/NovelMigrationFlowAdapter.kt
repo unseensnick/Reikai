@@ -22,6 +22,7 @@ import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
@@ -68,10 +69,6 @@ class NovelMigrationFlowAdapter(
     private val downloadManager: NovelDownloadManager get() = downloadManagerProvider()
 
     override val contentType = ContentType.NOVELS
-
-    /** Suggestions are title-matched (see [SmartNovelSearchEngine]), but the two options built on top
-     *  of the smart-search engines, deep search and prioritize-by-chapters, have no novel equivalent. */
-    override val matchStrategy = MatchStrategy.BestTitleMatch
 
     override suspend fun prepare() {
         // Best-effort, like every other novel surface: a load failure falls through to empty sources.
@@ -124,11 +121,15 @@ class NovelMigrationFlowAdapter(
     }
 
     override fun readTuning(): MigrationTuning = MigrationTuning(
+        deepSearch = novelPreferences.novelMigrationDeepSearch().get(),
+        prioritizeByChapters = novelPreferences.novelMigrationPrioritizeByChapters().get(),
         hideUnmatched = novelPreferences.novelMigrationHideUnmatched().get(),
         hideWithoutUpdates = novelPreferences.novelMigrationHideWithoutUpdates().get(),
     )
 
     override fun persistTuning(tuning: MigrationTuning) {
+        novelPreferences.novelMigrationDeepSearch().set(tuning.deepSearch)
+        novelPreferences.novelMigrationPrioritizeByChapters().set(tuning.prioritizeByChapters)
         novelPreferences.novelMigrationHideUnmatched().set(tuning.hideUnmatched)
         novelPreferences.novelMigrationHideWithoutUpdates().set(tuning.hideWithoutUpdates)
     }
@@ -185,12 +186,23 @@ class NovelMigrationFlowAdapter(
         // does. Filtering first would be worse than not filtering: the engine skips title scoring
         // altogether when a source returns a single candidate, so a plugin repeating one wrong
         // listing would dedupe down to that one hit and have it accepted unscored.
-        val match = SmartNovelSearchEngine(tuning.extraQuery).bestMatch(entry.title) { query ->
+        val match = SmartNovelSearchEngine(tuning.extraQuery).bestMatch(entry.title, tuning.deepSearch) { query ->
             source.search(query, 1, filters = null).items
         } ?: return null
         val currentPath = (entry.payload as? Novel)?.url.takeIf { sourceKey == entry.sourceKey }
         if (match.path == currentPath) return null
-        return match.toCandidate(sourceKey)
+        val candidate = match.toCandidate(sourceKey)
+        // Ranking needs every candidate's count, as manga fetches each one's chapter list here. Only
+        // then: otherwise the count peek after the search fills the one suggestion that is kept.
+        if (!tuning.prioritizeByChapters) return candidate
+        // Best-effort, as manga's chapter fetch is: a failed count leaves the hit unranked, not errored.
+        val chapters = runCatchingCancellable {
+            val parsed = source.parseNovel(match.path)
+            parsed.chapters.orEmpty() + (2..parsed.totalPages).flatMap { page ->
+                runCatchingCancellable { source.parsePage(match.path, page.toString())?.chapters }.getOrNull().orEmpty()
+            }
+        }.getOrNull().orEmpty()
+        return candidate.withCounts(match, chapters)
     }
 
     override suspend fun candidates(
@@ -287,14 +299,17 @@ class NovelMigrationFlowAdapter(
         if (parsed.totalPages > 1) return null
         val chapters = parsed.chapters.orEmpty()
         if (chapters.isEmpty()) return null
-        // Mirrors NovelChapterSync's numbering so the peeked latest matches what a commit stores.
+        return candidate.withCounts(handle.item, chapters)
+    }
+
+    /** Null counts for an empty list, matching every other candidate builder. */
+    private fun MigrationCandidate.withCounts(item: NovelItem, chapters: List<ChapterItem>): MigrationCandidate {
+        if (chapters.isEmpty()) return copy(chapterCount = null, latestChapter = null)
+        // Mirrors NovelChapterSync's numbering so the counted latest matches what a commit stores.
         val latest = chapters.maxOf {
-            ChapterRecognition.parseChapterNumber(handle.item.name, it.name, it.chapterNumber?.takeIf { n -> n > 0.0 })
+            ChapterRecognition.parseChapterNumber(item.name, it.name, it.chapterNumber?.takeIf { n -> n > 0.0 })
         }
-        return candidate.copy(
-            chapterCount = chapters.size,
-            latestChapter = latest.takeIf { it >= 0.0 },
-        )
+        return copy(chapterCount = chapters.size, latestChapter = latest.takeIf { it >= 0.0 })
     }
 
     override suspend fun storedCandidate(id: Long): MigrationCandidate? {

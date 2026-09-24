@@ -420,7 +420,7 @@ every release now also ships a foss build with neither in it.
 - **A finished migration tells you how many entries moved.**
 - **Search a target by hand, or browse a whole source, when the suggested match is wrong.** Every source you chose is searched, and one that fails says so instead of looking empty.
 - **Check a match before you commit to it: long-press any result to open its page, and anything already in your library is marked.** Works the same whether you are picking one entry or working through a batch.
-- **Set how a migration searches before it runs: extra keywords, advanced search mode, and filters for unmatched entries or ones already up to date, as far as a novel's sources support them.**
+- **Set how a migration searches before it runs: extra keywords, advanced search mode, ranking by chapter count, and filters for unmatched entries or ones already up to date, on manga and novels alike.**
 
 #### Changed
 

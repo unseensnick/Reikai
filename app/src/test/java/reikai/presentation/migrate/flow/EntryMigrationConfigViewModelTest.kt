@@ -39,7 +39,6 @@ class EntryMigrationConfigViewModelTest {
         val writes = mutableListOf<List<String>>()
 
         override val contentType = ContentType.MANGA
-        override val matchStrategy = MatchStrategy.BestTitleMatch
 
         override suspend fun enabledSources() = sources.map {
             MigrationSourceUi(it, it.uppercase(), "en", MigrationSourceIcon.NovelUrl(null))

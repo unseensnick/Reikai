@@ -213,26 +213,6 @@ class MigrationRowRulesTest {
     }
 
     @Test
-    fun `a type without smart matching drops the options it cannot run`() {
-        val edited = MigrationTuning(deepSearch = true, prioritizeByChapters = true, extraQuery = "vol 2")
-
-        val normalized = edited.normalizedFor(MatchStrategy.BestTitleMatch)
-
-        // Accepted and persisted nowhere, then read back as false: the sheet hiding the checkboxes
-        // was the only thing stopping it.
-        normalized.deepSearch shouldBe false
-        normalized.prioritizeByChapters shouldBe false
-        normalized.extraQuery shouldBe "vol 2"
-    }
-
-    @Test
-    fun `smart matching keeps them`() {
-        val edited = MigrationTuning(deepSearch = true, prioritizeByChapters = true)
-
-        edited.normalizedFor(MatchStrategy.Smart) shouldBe edited
-    }
-
-    @Test
     fun `a settled search reports settled and a running one does not`() {
         found.isSettled shouldBe true
         SearchPhase.Searching.isSettled shouldBe false

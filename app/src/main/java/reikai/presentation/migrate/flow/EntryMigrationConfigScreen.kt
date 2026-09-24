@@ -252,7 +252,6 @@ class EntryMigrationConfigScreen(
                     query = tuningQuery,
                     onQueryChange = { tuningQuery = it },
                     onCommitQuery = commitQuery,
-                    matchStrategy = viewModel.matchStrategy,
                     onApply = viewModel::applyTuning,
                 )
             }
@@ -395,8 +394,6 @@ class EntryMigrationConfigViewModel(
         fun create(adapter: MigrationFlowAdapter, io: CoroutineDispatcher): EntryMigrationConfigViewModel
     }
 
-    val matchStrategy: MatchStrategy get() = adapter.matchStrategy
-
     /** Serializes the order writes; see [editSelection]. */
     private val persistLock = Mutex()
 
@@ -425,7 +422,7 @@ class EntryMigrationConfigViewModel(
                     isLoading = false,
                     selected = selected,
                     available = enabled.filterNot { source -> source.key in selectedKeys },
-                    tuning = adapter.readTuning().normalizedFor(adapter.matchStrategy),
+                    tuning = adapter.readTuning(),
                 )
             }
         }
@@ -435,12 +432,8 @@ class EntryMigrationConfigViewModel(
      * Save the search options. They are asked for here, before the list exists, so nothing can
      * change what a search returns while one is running: the list reads them once and never rebuilds
      * a row underneath live work.
-     *
-     * Normalized on the way in rather than trusted from the sheet, so an option this content type
-     * cannot run is never persisted.
      */
-    fun applyTuning(edited: MigrationTuning) {
-        val tuning = edited.normalizedFor(adapter.matchStrategy)
+    fun applyTuning(tuning: MigrationTuning) {
         state.update { it.copy(tuning = tuning) }
         viewModelScope.launch(io) { adapter.persistTuning(tuning) }
     }

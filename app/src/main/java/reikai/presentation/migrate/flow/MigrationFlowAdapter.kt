@@ -118,7 +118,7 @@ data class MigrationFavorite(
  *
  * [extraQuery] is transient per run and no adapter reads or writes it: the config screen hands it to
  * the next screen as a constructor argument, as Mihon does, and the model folds it back in. The
- * toggles persist per type, and the smart-match pair only applies under [MatchStrategy.Smart].
+ * toggles persist per type.
  */
 data class MigrationTuning(
     val extraQuery: String? = null,
@@ -126,19 +126,7 @@ data class MigrationTuning(
     val prioritizeByChapters: Boolean = false,
     val hideUnmatched: Boolean = false,
     val hideWithoutUpdates: Boolean = false,
-) {
-    /**
-     * This tuning with the options [strategy] cannot express dropped.
-     *
-     * [deepSearch] and [prioritizeByChapters] run on the smart-search engines, so they mean nothing
-     * under [MatchStrategy.BestTitleMatch]. Normalising here means the model compares and stores what
-     * the type can hold, rather than trusting the sheet to hide the checkboxes.
-     */
-    fun normalizedFor(strategy: MatchStrategy): MigrationTuning = when (strategy) {
-        MatchStrategy.Smart -> this
-        MatchStrategy.BestTitleMatch -> copy(deepSearch = false, prioritizeByChapters = false)
-    }
-}
+)
 
 /**
  * The per-type seam of the unified migration flow: everything above it is shared and written once,
@@ -150,9 +138,6 @@ data class MigrationTuning(
  */
 interface MigrationFlowAdapter {
     val contentType: ContentType
-
-    /** How this type finds a target: a typed slot, not a capability boolean. */
-    val matchStrategy: MatchStrategy
 
     /** One-time readiness work before sources are read (the novel side loads its plugin host here;
      *  without it, entering the flow before the host warms up shows empty sources with no error).
@@ -245,21 +230,6 @@ interface MigrationFlowAdapter {
         flags: Set<MigrationDataFlag>,
         targetJustSynced: Boolean,
     )
-}
-
-/**
- * How a content type matches an entry to a target.
- *
- * A typed slot rather than a `supportsSmartMatch` Boolean: the two tuning options that ride on the
- * smart-search engines are meaningless for a type that has none, and an exhaustive `when` says so at
- * every call site instead of an AND that is easy to forget.
- */
-sealed interface MatchStrategy {
-    /** The source's best title match, with no options on top (the novel plugin sources). */
-    data object BestTitleMatch : MatchStrategy
-
-    /** Mihon's smart-search engines: deep search and prioritize-by-chapters apply. */
-    data object Smart : MatchStrategy
 }
 
 /**

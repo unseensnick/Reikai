@@ -1643,7 +1643,6 @@
     <string name="migrationFlow.browseSource">Browse this source</string>
     <string name="migrationFlow.searchOptionsTitle">Search options</string>
     <string name="migrationFlow.busyToast">Still working. Try again in a moment.</string>
-    <string name="migrationFlow.smartMatchUnavailableNote">Chapter-based search options aren\'t available for these sources.</string>
     <string name="migrationFlow.restoreActionLabel">Restore</string>
     <string name="migrationFlow.acceptedLabel">Accepted, tap to undo</string>
     <string name="migrationFlow.searchFailed">Couldn\'t reach the sources</string>

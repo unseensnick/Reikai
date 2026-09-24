@@ -52,7 +52,6 @@ class MangaMigrationFlowAdapter(
 ) : MigrationFlowAdapter {
 
     override val contentType = ContentType.MANGA
-    override val matchStrategy = MatchStrategy.Smart
 
     override suspend fun enabledSources(): List<MigrationSourceUi> {
         val languages = sourcePreferences.enabledLanguages.get()

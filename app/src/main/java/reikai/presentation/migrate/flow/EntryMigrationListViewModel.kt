@@ -118,9 +118,7 @@ class EntryMigrationListViewModel(
             // Read once, as upstream does: the options were settled on the config screen before any
             // row existed, so nothing can change what a search returns while one is running. The
             // extra query is not one the adapter holds, so it is folded back in from the argument.
-            val tuning = adapter.readTuning()
-                .normalizedFor(adapter.matchStrategy)
-                .copy(extraQuery = extraQuery)
+            val tuning = adapter.readTuning().copy(extraQuery = extraQuery)
             val built = adapter.loadEntries(entryIds).map {
                 MigratingEntryRow(it, viewModelScope.coroutineContext, io)
             }
@@ -261,9 +259,7 @@ class EntryMigrationListViewModel(
         tuning: MigrationTuning,
     ): SearchPhase {
         var errors = 0
-        val hit: Pair<MigrationSourceUi, MigrationCandidate>? = if (
-            tuning.prioritizeByChapters && adapter.matchStrategy is MatchStrategy.Smart
-        ) {
+        val hit: Pair<MigrationSourceUi, MigrationCandidate>? = if (tuning.prioritizeByChapters) {
             val permits = Semaphore(SOURCE_CONCURRENCY)
             val probes = sources.map { source ->
                 row.scope.async {

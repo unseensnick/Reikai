@@ -572,6 +572,13 @@ class NovelPreferences(
     /** Last selection in the migrate dialog, as a [NovelMigrationFlag] bitmask. Defaults to all on. */
     fun novelMigrationFlags() = preferenceStore.getInt("novel_migration_flags", NovelMigrationFlag.DEFAULT_BITS)
 
+    /** Search a migration with Mihon's deep search. Twin of the manga migration pref. */
+    fun novelMigrationDeepSearch() = preferenceStore.getBoolean("novel_migration_deep_search", false)
+
+    /** Rank a migration's matches by chapter count. Twin of the manga migration pref. */
+    fun novelMigrationPrioritizeByChapters() =
+        preferenceStore.getBoolean("novel_migration_prioritize_by_chapters", false)
+
     /** Hide rows whose search found nothing. Twin of the manga migration pref. */
     fun novelMigrationHideUnmatched() = preferenceStore.getBoolean("novel_migration_hide_unmatched", false)
 

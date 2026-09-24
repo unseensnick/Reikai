@@ -78,6 +78,26 @@ class EntryMigrationListViewModelTest {
     }
 
     @Test
+    fun `deep search reaches the search on every content type`() = runTest(dispatcher.scheduler) {
+        // The novel adapter used to declare a match strategy that cleared it on the way in.
+        val adapter = FakeMigrationFlowAdapter(
+            listOf(entry(1)),
+            tuning = MigrationTuning(deepSearch = true, prioritizeByChapters = true),
+        )
+        EntryMigrationListViewModel(
+            entryIds = listOf(1L),
+            adapter = adapter,
+            pickHandoff = MigrationPickHandoff(),
+            extraQuery = null,
+            io = dispatcher,
+        )
+
+        advanceUntilIdle()
+
+        adapter.suggestedWith.map { it.deepSearch } shouldBe listOf(true)
+    }
+
+    @Test
     fun `the picker's strips are on screen before any source is asked`() = runTest(dispatcher.scheduler) {
         // They were published inside the search coroutine, behind a check against a job handle that
         // is only assigned after launch returns, so a search that got going first threw its own

@@ -38,7 +38,6 @@ class FakeMigrationFlowAdapter(
     val candidateQueries = mutableListOf<String>()
 
     override val contentType = ContentType.MANGA
-    override val matchStrategy = MatchStrategy.BestTitleMatch
 
     override suspend fun enabledSources() = listOf(
         MigrationSourceUi("target", "Target", "en", MigrationSourceIcon.NovelUrl(null)),
