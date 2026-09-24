@@ -82,6 +82,7 @@ import reikai.novel.source.NovelPageFetcher
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.ireader.IReaderHostServices
 import reikai.novel.update.LnPluginUpdateChecker
+import reikai.novel.update.LnPluginUpdateNotifier
 import reikai.presentation.details.MangaEntryCoverViewModel
 import reikai.presentation.library.MangaLibraryAdapter
 import reikai.presentation.library.NovelLibraryAdapter
@@ -187,6 +188,7 @@ interface AppGraph : ViewModelGraph {
     val extensionUpdateCounts: ExtensionUpdateCounts // RK: the Browse badge counts plugin updates too
     val reikaiRecommendationPreferences: ReikaiRecommendationPreferences
     val lnPluginUpdateChecker: LnPluginUpdateChecker
+    val lnPluginUpdateNotifier: LnPluginUpdateNotifier // RK: the plugin update job posts and clears its notice
     val refreshTrackerLibrary: RefreshTrackerLibrary
 
     val basePreferences: BasePreferences

@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit
 class LnPluginUpdateChecker(
     private val installer: LnPluginInstaller,
     private val prefs: NovelPreferences,
+    private val notifier: LnPluginUpdateNotifier,
 ) {
 
     suspend fun check(): List<LnPluginUpdate> {
@@ -66,7 +67,7 @@ class LnPluginUpdateChecker(
         if (now < staleAfter) return
         runCatching {
             val updates = check()
-            prefs.pluginUpdatesCount().set(updates.size)
+            notifier.setPendingCount(updates.size)
             prefs.lastLnPluginCheck().set(now)
         }.onFailure {
             logcat(LogPriority.WARN, it) { "update-check: runIfStale failed" }

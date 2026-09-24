@@ -34,6 +34,7 @@ import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.update.LnPluginUpdate
+import reikai.novel.update.LnPluginUpdateNotifier
 import reikai.novel.update.findPluginUpdates
 import tachiyomi.core.common.util.lang.launchIO
 import kotlin.time.Duration.Companion.seconds
@@ -54,6 +55,7 @@ class LnPluginManagerViewModel(
     private val installer: LnPluginInstaller,
     private val registries: LnRepoRegistries,
     private val prefs: NovelPreferences,
+    private val updateNotifier: LnPluginUpdateNotifier,
 ) : ViewModel() {
 
     /** Canonical URLs with an install in flight, and the last error per URL. */
@@ -73,7 +75,7 @@ class LnPluginManagerViewModel(
         ::repoFetch,
     )
         // Keep the Browse badge in sync with what the user is looking at.
-        .onEach { prefs.pluginUpdatesCount().set(it.updates.size) }
+        .onEach { updateNotifier.setPendingCount(it.updates.size) }
         .onStart<RepoFetch?> { emit(null) }
 
     val state: StateFlow<State> = combine(

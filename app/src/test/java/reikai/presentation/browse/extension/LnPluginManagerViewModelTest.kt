@@ -46,7 +46,7 @@ class LnPluginManagerViewModelTest {
     private val manager = mockk<NovelSourceManager> { every { sources } returns flowOf(emptyList()) }
     private val registries = LnRepoRegistries(installer, prefs)
 
-    private fun model() = LnPluginManagerViewModel(manager, installer, registries, prefs)
+    private fun model() = LnPluginManagerViewModel(manager, installer, registries, prefs, mockk(relaxed = true))
 
     @BeforeEach
     fun setUp() {

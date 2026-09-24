@@ -1,34 +1,25 @@
 package reikai.data.novel.update
 
 import android.content.Context
-import androidx.core.app.NotificationCompat
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkerParameters
-import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.data.notification.NotificationReceiver
-import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import mihon.app.di.appGraph
-import reikai.domain.novel.NovelPreferences
 import reikai.novel.update.LnPluginUpdateChecker
-import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.i18n.MR
 import java.util.concurrent.TimeUnit
 
 /**
- * RK: periodic background check for light-novel plugin updates, bypassing the in-app
+ * Periodic background check for light-novel plugin updates, bypassing the in-app
  * [LnPluginUpdateChecker.runIfStale] cache on its own WorkManager schedule. Writes the Browse-tab
- * badge count and posts a notification listing the outdated plugins. Mirrors Mihon's
- * [eu.kanade.tachiyomi.extension.api.ExtensionUpdateNotifier] for manga extensions, on the cadence
- * the Yōkai fork used (12h, 1h flex, network required).
+ * badge count and posts the update notice through [reikai.novel.update.LnPluginUpdateNotifier], on
+ * the cadence the Yōkai fork used (12h, 1h flex, network required).
  */
 class LnPluginUpdateJob(
     context: Context,
@@ -37,33 +28,17 @@ class LnPluginUpdateJob(
 
     override suspend fun doWork(): Result {
         return try {
-            val updates = applicationContext.appGraph.lnPluginUpdateChecker.check()
-            val prefs = applicationContext.appGraph.novelPreferences
-            prefs.pluginUpdatesCount().set(updates.size)
-            prefs.lastLnPluginCheck().set(System.currentTimeMillis())
-
-            if (updates.isNotEmpty()) {
-                val names = updates.joinToString(", ") { it.entry.name }
-                applicationContext.notify(
-                    Notifications.ID_LN_PLUGIN_UPDATES,
-                    Notifications.CHANNEL_LN_PLUGIN_UPDATE,
-                ) {
-                    setContentTitle(
-                        applicationContext.stringResource(MR.strings.ln_plugins_update_available, updates.size),
-                    )
-                    setContentText(names)
-                    setStyle(NotificationCompat.BigTextStyle().bigText(names))
-                    setSmallIcon(R.drawable.ic_extension_24dp)
-                    setContentIntent(NotificationReceiver.openExtensionsPendingActivity(applicationContext))
-                    setAutoCancel(true)
-                }
-            }
+            val graph = applicationContext.appGraph
+            val updates = graph.lnPluginUpdateChecker.check()
+            graph.lnPluginUpdateNotifier.setPendingCount(updates.size)
+            graph.novelPreferences.lastLnPluginCheck().set(System.currentTimeMillis())
+            if (updates.isNotEmpty()) graph.lnPluginUpdateNotifier.promptUpdates(updates.map { it.entry.name })
             Result.success()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            // Log before retrying so a permanent failure (e.g. a malformed registry) leaves a trail
-            // instead of retrying invisibly on WorkManager backoff forever.
+            // Only an unexpected failure lands here: check() already logs and skips a registry that
+            // cannot be fetched or parsed. Logged so a retry on WorkManager backoff is not invisible.
             logcat(LogPriority.ERROR, e) { "LN plugin update check failed" }
             Result.retry()
         }
