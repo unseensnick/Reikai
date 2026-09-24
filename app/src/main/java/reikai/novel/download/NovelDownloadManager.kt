@@ -114,13 +114,13 @@ class NovelDownloadManager(
     fun getChapterText(novel: Novel, chapter: NovelChapter): String? =
         provider.readChapter(novel, chapter)
 
-    fun downloadChapters(chapters: List<NovelChapter>) {
-        // Callers filter out already-downloaded chapters via the cache before enqueuing. There is no
-        // enqueue-time or drain-time disk check (it would need each chapter's owning Novel), so an
-        // unfiltered caller would re-download an already-present chapter.
-        val targets = chapters.map { ch ->
-            NovelDownload(novelId = ch.novelId, chapterId = ch.id, url = ch.url)
-        }
+    /** Queue [chapters], dropping any already on disk, as Mihon's Downloader.queueChapters does, so no
+     *  caller can fetch a downloaded chapter again. Suspends to look up each chapter's own novel. */
+    suspend fun downloadChapters(chapters: List<NovelChapter>) {
+        val novels = novelsOf(chapters)
+        val targets = chapters
+            .filterNot { ch -> novels[ch.novelId]?.let { cache.isChapterDownloaded(it, ch) } == true }
+            .map { ch -> NovelDownload(novelId = ch.novelId, chapterId = ch.id, url = ch.url) }
         if (targets.isEmpty()) return
         _queueState.update { current ->
             val byId = current.associateByTo(LinkedHashMap()) { it.chapterId }
@@ -286,10 +286,13 @@ class NovelDownloadManager(
         completions.retainOnly(_queueState.value.mapTo(HashSet()) { it.novelId })
     }
 
-    private suspend fun deleteChapterFiles(chapters: List<NovelChapter>) {
-        val novelsById = chapters.map { it.novelId }.distinct()
+    private suspend fun novelsOf(chapters: List<NovelChapter>): Map<Long, Novel> =
+        chapters.map { it.novelId }.distinct()
             .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
             .toMap()
+
+    private suspend fun deleteChapterFiles(chapters: List<NovelChapter>) {
+        val novelsById = novelsOf(chapters)
         chapters.forEach { ch ->
             store.remove(ch.id)
             val novel = novelsById[ch.novelId] ?: return@forEach

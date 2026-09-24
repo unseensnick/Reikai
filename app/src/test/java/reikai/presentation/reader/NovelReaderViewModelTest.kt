@@ -2,7 +2,7 @@ package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import io.mockk.verify
+import io.mockk.coVerify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -123,7 +123,7 @@ class NovelReaderViewModelTest {
         harness.open(novel, opened.id)
         advanceUntilIdle()
 
-        verify {
+        coVerify {
             harness.downloadManager.downloadChapters(
                 match { chapters ->
                     chapters.map { it.id } ==

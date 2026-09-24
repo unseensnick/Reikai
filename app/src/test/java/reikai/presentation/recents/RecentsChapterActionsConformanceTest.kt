@@ -178,7 +178,7 @@ class NovelActionsHarness : ActionsHarness {
         }
     }
     private val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
-        every { downloadChapters(any()) } answers { queued += firstArg<List<NovelChapter>>().map { it.id } }
+        coEvery { downloadChapters(any()) } answers { queued += firstArg<List<NovelChapter>>().map { it.id } }
     }
     private val mergedChapterProvider = mockk<NovelMergedChapterProvider> {
         coEvery { stitchOf(RecentsChapterActionsConformanceTest.ENTRY) } returns

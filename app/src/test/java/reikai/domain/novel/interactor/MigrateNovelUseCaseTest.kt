@@ -418,7 +418,7 @@ class MigrateNovelUseCaseTest {
             skipTargetRefresh = true,
         )
 
-        verify(exactly = 0) { downloadManager.downloadChapters(any()) }
+        coVerify(exactly = 0) { downloadManager.downloadChapters(any()) }
     }
 
     private fun chapter(

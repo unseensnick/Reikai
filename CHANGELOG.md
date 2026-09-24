@@ -334,6 +334,7 @@ every release now also ships a foss build with neither in it.
 - **A novel's new-chapter notification no longer replaces or dismisses a manga's, and tapping the novel summary now opens Updates, as manga's does.** The two could share a notification slot, so one silently took the other's place.
 - **Hiding chapter titles on a novel no longer changes its chapter order, and sorting a novel's chapters no longer changes how their titles show.** Each follows your global default until you change it on that novel.
 - **A novel chapter dated month first, like 12/25/2024, now shows that date instead of one months later.** A date that is not a real day now shows no date rather than a rolled-over one.
+- **Downloading a selection of novel chapters no longer fetches the ones already downloaded again.**
 
 ### Browse & sources
 

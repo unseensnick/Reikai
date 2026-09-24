@@ -1370,11 +1370,11 @@ class NovelDetailsViewModel(
 
     fun onChapterDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
         when (action) {
-            ChapterDownloadAction.START -> {
+            ChapterDownloadAction.START -> viewModelScope.launchIO {
                 downloadManager.downloadChapters(listOf(chapter))
                 promptAddToLibraryOnFirstDownload()
             }
-            ChapterDownloadAction.START_NOW -> {
+            ChapterDownloadAction.START_NOW -> viewModelScope.launchIO {
                 downloadManager.downloadChapters(listOf(chapter))
                 downloadManager.startDownloadNow(chapter.id)
                 promptAddToLibraryOnFirstDownload()
