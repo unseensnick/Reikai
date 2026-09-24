@@ -331,6 +331,7 @@ every release now also ships a foss build with neither in it.
 - **Refreshing a novel's details now says why it failed, as manga's does, where it used to stop in silence.** A source that lists no chapters now reads as No chapters found there and in library update errors.
 - **A novel library update now reports a novel whose source is no longer installed, as manga's does, where it used to skip it in silence.** Update errors, library grouping and search name a removed source as it was last installed rather than by its id.
 - **A novel's new-chapter notification no longer replaces or dismisses a manga's, and tapping the novel summary now opens Updates, as manga's does.** The two could share a notification slot, so one silently took the other's place.
+- **Hiding chapter titles on a novel no longer changes its chapter order, and sorting a novel's chapters no longer changes how their titles show.** Each follows your global default until you change it on that novel.
 
 ### Browse & sources
 

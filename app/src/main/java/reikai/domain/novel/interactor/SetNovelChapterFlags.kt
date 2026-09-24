@@ -38,14 +38,15 @@ class SetNovelChapterFlags(
     suspend fun awaitSetHideTitles(novel: Novel, hide: Boolean): Boolean {
         val display = if (hide) NovelChapterFlags.DISPLAY_NUMBER else NovelChapterFlags.DISPLAY_NAME
         var flags = setNovelFlag(novel.chapterFlags, display, NovelChapterFlags.DISPLAY_MASK)
-        flags = setNovelFlag(flags, NovelChapterFlags.SORT_LOCAL, NovelChapterFlags.SORT_LOCAL_MASK)
+        flags = setNovelFlag(flags, NovelChapterFlags.DISPLAY_LOCAL, NovelChapterFlags.DISPLAY_LOCAL_MASK)
         return novelRepository.update(NovelUpdate(id = novel.id, chapterFlags = flags))
     }
 
-    /** Drop this novel's local sort / filter overrides so the global defaults apply again. */
+    /** Drop this novel's local sort, filter and display overrides so the global defaults apply again. */
     suspend fun awaitClearLocalOverrides(novel: Novel): Boolean {
         var flags = setNovelFlag(novel.chapterFlags, 0L, NovelChapterFlags.SORT_LOCAL_MASK)
         flags = setNovelFlag(flags, 0L, NovelChapterFlags.FILTER_LOCAL_MASK)
+        flags = setNovelFlag(flags, 0L, NovelChapterFlags.DISPLAY_LOCAL_MASK)
         return novelRepository.update(NovelUpdate(id = novel.id, chapterFlags = flags))
     }
 }

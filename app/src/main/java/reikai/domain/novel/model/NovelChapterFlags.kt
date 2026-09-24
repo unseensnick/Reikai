@@ -4,11 +4,11 @@ import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.util.lang.compareToWithCollator
 
 /**
- * Per-novel chapter sort / filter / display settings, packed into [Novel.chapterFlags]. Self-contained
- * (its own constants rather than borrowing the manga `Manga.CHAPTER_*` layout) because the novel
- * filter/sort sheet is net-new and nothing shares the encoding. A novel either uses its own local
- * settings or falls back to the global defaults in [NovelPreferences], picked by the [SORT_LOCAL] /
- * [FILTER_LOCAL] bits. [Novel] is immutable, so mutation goes through [setFlag].
+ * Per-novel chapter sort / filter / display settings, packed into [Novel.chapterFlags]. Its own layout
+ * rather than the manga `Manga.CHAPTER_*` one, except the sort-method and display bits, which match
+ * Manga's. A novel either uses its own local settings or falls back to the global defaults in
+ * [NovelPreferences], picked by the [SORT_LOCAL], [FILTER_LOCAL] and [DISPLAY_LOCAL] bits. [Novel] is
+ * immutable, so mutation goes through [setNovelFlag].
  */
 object NovelChapterFlags {
     // Sort direction (bit 0). DESC = bit clear (newest/highest first), matching the manga default.
@@ -44,11 +44,14 @@ object NovelChapterFlags {
     const val DISPLAY_NUMBER = 0x00100000L
     const val DISPLAY_MASK = 0x00100000L
 
-    // Local-override bits: when set, the novel uses its own sort / filter instead of the global default.
+    // Local-override bits: when set, the novel uses its own sort, filter or title display instead of the
+    // global default. Each setting has its own, so changing one leaves the others following the default.
     const val SORT_LOCAL = 0x01000000L
     const val SORT_LOCAL_MASK = 0x01000000L
     const val FILTER_LOCAL = 0x02000000L
     const val FILTER_LOCAL_MASK = 0x02000000L
+    const val DISPLAY_LOCAL = 0x04000000L
+    const val DISPLAY_LOCAL_MASK = 0x04000000L
 }
 
 val Novel.sorting: Long get() = chapterFlags and NovelChapterFlags.SORTING_MASK
@@ -63,6 +66,8 @@ val Novel.usesLocalSort: Boolean
     get() = chapterFlags and NovelChapterFlags.SORT_LOCAL_MASK == NovelChapterFlags.SORT_LOCAL
 val Novel.usesLocalFilter: Boolean
     get() = chapterFlags and NovelChapterFlags.FILTER_LOCAL_MASK == NovelChapterFlags.FILTER_LOCAL
+val Novel.usesLocalDisplay: Boolean
+    get() = chapterFlags and NovelChapterFlags.DISPLAY_LOCAL_MASK == NovelChapterFlags.DISPLAY_LOCAL
 
 // Effective values: the novel's own setting when its local bit is set, else the global default.
 fun Novel.effectiveSorting(prefs: NovelPreferences): Long =
@@ -84,7 +89,7 @@ fun Novel.effectiveDownloadedFilter(prefs: NovelPreferences): Long =
 fun Novel.appliedDownloadedFilter(prefs: NovelPreferences, downloadedOnly: Boolean): Long =
     if (downloadedOnly) NovelChapterFlags.SHOW_DOWNLOADED else effectiveDownloadedFilter(prefs)
 fun Novel.effectiveHideChapterTitles(prefs: NovelPreferences): Boolean =
-    if (usesLocalSort) hideChapterTitles else prefs.defaultChapterHideTitles().get()
+    if (usesLocalDisplay) hideChapterTitles else prefs.defaultChapterHideTitles().get()
 
 /** Replace the [mask] bits of [flags] with [flag]. */
 fun setNovelFlag(flags: Long, flag: Long, mask: Long): Long = (flags and mask.inv()) or (flag and mask)
