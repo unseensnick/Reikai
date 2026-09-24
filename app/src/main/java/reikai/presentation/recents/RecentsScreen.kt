@@ -831,8 +831,7 @@ private fun RecentsEntryRow(
                 downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
                 chapterSwipeStartAction = swipeActions.start,
                 chapterSwipeEndAction = swipeActions.end,
-                // A Named row only ever comes off the updated lane, which only a surface holding the
-                // updates model collects, so the provider behind it always answers these verbs.
+                // Every provider answers these verbs, whichever surface drew the row.
                 onChapterSwipe = { action ->
                     if (ref != null && state != null) {
                         engine.runChapterSwipe(

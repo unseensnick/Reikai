@@ -2,14 +2,15 @@ package reikai.presentation.recents
 
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import reikai.domain.entry.EntryId
+import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.expandToUnits
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 
 /**
- * Acting on the chapters a feed shows, answered only by a surface that renders a lane holding them.
- * A slot rather than members every provider owes: a History surface builds no updates model, and an
- * interface obliging it to answer would have it accept a call and do nothing, which is the silent
- * no-op the capability rule exists to prevent.
+ * Acting on the chapters a feed shows, on every surface: each mode that declares a selection needs
+ * these, so each type answers them from the graph rather than from a model only some surfaces build.
+ * Every verb moves its own work off the main thread, since the engine dispatches where the tap did.
  */
 interface RecentsChapterActions {
     /**
@@ -37,6 +38,23 @@ interface RecentsChapterActions {
     suspend fun deleteDownloads(chapters: Set<ChapterRef>)
 }
 
+/** The chapter ids of the refs of content type [T], so a mixed selection never reaches the other type. */
+internal inline fun <reified T : EntryId> Set<ChapterRef>.ownChapterIds(): List<Long> =
+    filter { it.entryId is T }.map { it.chapterId }
+
+/**
+ * [ownChapterIds] widened to every source's copy of the same merged chapters, off each entry's stored
+ * [stitchOf], so a collapsed row's verb reaches the whole group the way the details list's does. One
+ * kernel for both types' actions, pinned by `RecentsChapterActionsConformanceTest`.
+ */
+internal suspend inline fun <reified T : EntryId> Set<ChapterRef>.groupChapterIds(
+    stitchOf: suspend (entryId: Long) -> List<ChapterUnit>,
+): List<Long> =
+    filter { it.entryId is T }
+        .groupBy { it.entryId.rawId }
+        .flatMap { (entryId, refs) -> expandToUnits(refs.mapTo(HashSet()) { it.chapterId }, stitchOf(entryId)) }
+        .distinct()
+
 /**
  * One content type's action verbs on recent activity, keyed neutrally so a mixed selection dispatches
  * without the caller knowing which engine answers. Every method takes what to act on rather than
@@ -46,8 +64,7 @@ interface RecentsChapterActions {
  * a search query back out of. Reasoning: content-layer-recents-surface.md.
  */
 interface RecentsBehavior {
-    /** Null where this surface renders no lane with chapters to act on. */
-    val chapterActions: RecentsChapterActions?
+    val chapterActions: RecentsChapterActions
 
     /** Drops every read record of these entries. Both types support it; History reaches it. */
     fun removeFromHistory(entries: Set<EntryId>)

@@ -6,7 +6,6 @@ import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
-import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -29,7 +28,6 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.inReadingOrder
-import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.recents.RecentlyAddedManga
@@ -41,7 +39,6 @@ import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.decideAdd
-import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.model.HistoryWithRelations
@@ -55,7 +52,7 @@ import tachiyomi.domain.manga.model.Manga
  *
  * A model is absent where the surface renders no lane needing it, which keeps a History tab from
  * building the updates model and running its query. Nothing reaches an absent one: the engine asks
- * only for the lanes it renders, and [chapterActions] is null without the updates model.
+ * only for the lanes it renders, and [chapterActions] comes from the graph, not from either model.
  */
 @AssistedInject
 class MangaRecentsAdapter(
@@ -78,6 +75,7 @@ class MangaRecentsAdapter(
     private val getManga: GetManga,
     private val mangaLibraryAdder: MangaLibraryAdder,
     private val application: Context,
+    override val chapterActions: MangaRecentsChapterActions,
 ) : RecentsProvider {
 
     /**
@@ -244,45 +242,6 @@ class MangaRecentsAdapter(
         if (manga == null || chapters == null) chapters.orEmpty() else chapters.inReadingOrder(manga)
 
     override suspend fun latestRead(): RecentsItem? = historyModel?.getLast()?.toRecentsItem()
-
-    /** Present only where the updates model is: every verb behind it acts on that model's rows. */
-    override val chapterActions: RecentsChapterActions? = updatesModel?.let(::ModelChapterActions)
-
-    private inner class ModelChapterActions(private val model: UpdatesViewModel) : RecentsChapterActions {
-
-        // Each verb takes the neutral set and hands the model only its own content type's chapters,
-        // so a mixed selection never reaches a provider that cannot act on it. Keyed by chapter id
-        // rather than resolved against the rendered updates feed, which holds no read-lane row.
-        private fun Set<ChapterRef>.ownIds(): List<Long> =
-            filter { it.entryId is EntryId.Manga }.map { it.chapterId }
-
-        // The group's copies of the same merged chapters, off the stored stitch, so a collapsed row's
-        // verb reaches every source the way the details list's does.
-        private suspend fun Set<ChapterRef>.groupChapterIds(): List<Long> = withIOContext {
-            filter { it.entryId is EntryId.Manga }
-                .groupBy { it.entryId.rawId }
-                .flatMap { (mangaId, refs) ->
-                    expandToUnits(refs.mapTo(HashSet()) { it.chapterId }, mergedChapterProvider.stitchOf(mangaId))
-                }
-                .distinct()
-        }
-
-        override suspend fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
-            model.markUpdatesRead(chapters.groupChapterIds(), read)
-        }
-
-        override suspend fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) {
-            model.bookmarkUpdates(chapters.groupChapterIds(), bookmarked)
-        }
-
-        override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
-            model.downloadChapters(chapters.ownIds(), action)
-        }
-
-        override suspend fun deleteDownloads(chapters: Set<ChapterRef>) {
-            model.deleteChapters(chapters.groupChapterIds())
-        }
-    }
 
     override fun removeFromHistory(entries: Set<EntryId>) {
         entries.filterIsInstance<EntryId.Manga>().forEach { historyModel?.removeAllFromHistory(it.rawId) }

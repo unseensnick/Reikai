@@ -516,17 +516,16 @@ class RecentsEngineTest {
     }
 
     @Test
-    fun `a bulk action passes over a provider that acts on no chapters`() {
-        val acting = provider(ContentType.MANGA)
-        val inert = provider(ContentType.NOVELS, actsOnChapters = false)
-        val engine = engine(listOf(acting, inert))
+    fun `a bulk action on the History surface reaches every content type`() {
+        val manga = provider(ContentType.MANGA)
+        val novel = provider(ContentType.NOVELS)
+        val engine = engine(listOf(manga, novel), modes = setOf(RecentsMode.HISTORY))
         val chapter = ref(manga1, 1)
 
         engine.toggleSelection(chapter)
         engine.markReadSelection(setOf(chapter), read = true)
 
-        acting.markedRead shouldBe setOf(chapter)
-        inert.markedRead shouldBe null
+        listOf(manga.markedRead, novel.markedRead) shouldBe listOf(setOf(chapter), setOf(chapter))
     }
 
     @Test
@@ -1353,7 +1352,6 @@ private fun provider(
     updating: Boolean = false,
     decision: AddDecision<RecentsDuplicates>? = AddDecision.Add,
     addResult: AddFavoriteResult = AddFavoriteResult.Added,
-    actsOnChapters: Boolean = true,
     latestRead: RecentsItem? = null,
     historyClears: Boolean = true,
     states: Map<EntryId, RecentsChapterState> = emptyMap(),
@@ -1372,7 +1370,6 @@ private fun provider(
     updating,
     decision,
     addResult,
-    actsOnChapters,
     latestRead,
     historyClears,
     states,
@@ -1410,7 +1407,6 @@ private class FakeRecentsProvider(
     updating: Boolean,
     private val decision: AddDecision<RecentsDuplicates>?,
     private val addResult: AddFavoriteResult,
-    actsOnChapters: Boolean,
     private val latestRead: RecentsItem?,
     private val historyClears: Boolean,
     private val states: Map<EntryId, RecentsChapterState>,
@@ -1516,24 +1512,19 @@ private class FakeRecentsProvider(
 
     override suspend fun latestRead(): RecentsItem? = latestRead
 
-    override val chapterActions: RecentsChapterActions? =
-        if (actsOnChapters) {
-            object : RecentsChapterActions {
-                override suspend fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
-                    markedRead = chapters
-                }
-
-                override suspend fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) = Unit
-
-                override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
-                    downloaded = chapters to action
-                }
-
-                override suspend fun deleteDownloads(chapters: Set<ChapterRef>) = Unit
-            }
-        } else {
-            null
+    override val chapterActions: RecentsChapterActions = object : RecentsChapterActions {
+        override suspend fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
+            markedRead = chapters
         }
+
+        override suspend fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) = Unit
+
+        override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
+            downloaded = chapters to action
+        }
+
+        override suspend fun deleteDownloads(chapters: Set<ChapterRef>) = Unit
+    }
 
     override fun removeFromHistory(entries: Set<EntryId>) = Unit
 

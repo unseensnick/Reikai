@@ -143,19 +143,19 @@ every release now also ships a foss build with neither in it.
 - **History can now be filtered by category.** Its filter icon sits in the toolbar and its selection is its own, so filtering Updates leaves History alone.
 - **Swipe a row in Updates to mark it read, bookmark it or download it, using the actions you already picked under Settings -> Library.** Both swipe directions work, on manga and novels alike.
 - **Settings -> Appearance can now merge Updates and History into one Recents tab, with Grouped, Feed, History and Updates views.** Grouped and Feed show what to read next and leave out series you are caught up on; the tab is off until you turn it on.
+- **The Upcoming calendar can now be filtered by category (synced from Mihon, mihonapp/mihon#3607).** Exclude the categories you don't follow closely and the calendar only shows the rest.
 
 #### Changed
 
-- **History rows can now be long-pressed for bulk actions, the same as everywhere else.** Bookmark, mark as read or unread and download from the selection, the way the combined tab already worked.
-- **History rows now show the chapter, the time and your place in it, each on its own line, with a download button.** Each row says whether it was updated, read or added.
 - **The Updates category filter is now one list covering manga and novels, and the category pick you had there is cleared.** A Manga / Novels chip narrows the list you pick from, and a manga-only category now hides novels, as in the library.
 - **Updates now tells you when a filter is what emptied the feed, with a button straight to it.** It used to say "No recent updates" whether nothing was new or your own filter had hidden everything.
-- **The Upcoming calendar can now be filtered by category (synced from Mihon, mihonapp/mihon#3607).** Exclude the categories you don't follow closely and the calendar only shows the rest.
 - **The Updates and Upcoming filter icons now light up for every filter you have set, not just the chapter ones (synced from Mihon, mihonapp/mihon#3772).** A category filter used to leave them plain, so a narrowed feed looked unfiltered.
 - **A manga chapter you have opened now says how long it is on the Recents rows and in the chapter list, as "Page: 5/38".** The length is only known once you have opened it; novels already showed a percentage.
 
 #### Fixed
 
+- **History rows can now be long-pressed for bulk actions, the same as everywhere else.** Bookmark, mark as read or unread and download from the selection, the way the combined tab already worked.
+- **History rows now show the chapter, the time and your place in it, each on its own line, with a download button.** Each row says whether it was updated, read or added.
 - **With Updates' "Group by series" on, its rows now restack as soon as you merge or unmerge sources.** They used to wait until the screen was rebuilt.
 - **Moving a series to another category now updates the Updates feed straight away.** The feed kept filtering by wherever the series was when you opened the screen, until you left and came back.
 - **Tapping History again now always resumes the most recent thing you read, from the library you are looking at.** A search you had typed in could send it to a different entry, and with the Novels chip on it could pick up a manga instead.

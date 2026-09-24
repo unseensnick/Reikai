@@ -690,7 +690,7 @@ class RecentsEngine(
      *  drop a write the bar has already reported as done. Each provider moves its own work off the main
      *  thread, so this starts where the tap did rather than costing a dispatch. */
     private fun dispatch(action: suspend (RecentsChapterActions) -> Unit) {
-        val targets = activeProviders().mapNotNull { it.chapterActions }
+        val targets = activeProviders().map { it.chapterActions }
         viewModelScope.launch { withContext(NonCancellable) { targets.forEach { action(it) } } }
     }
 

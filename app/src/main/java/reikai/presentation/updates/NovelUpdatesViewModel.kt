@@ -8,7 +8,6 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -29,10 +28,8 @@ import kotlinx.datetime.minus
 import reikai.domain.category.RecentsCategoryFilter
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
-import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
-import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.source.ReikaiSourcePreferences
@@ -41,7 +38,6 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.toDownloadState
 import tachiyomi.core.common.preference.TriState
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import kotlin.time.Clock
@@ -51,17 +47,15 @@ import kotlin.time.Duration.Companion.seconds
  * Drives the light-novel side of the Updates tab, the novel twin of
  * [eu.kanade.tachiyomi.ui.updates.UpdatesViewModel]. Subscribes to the recent-novel-updates feed
  * (chapters fetched after the novel was added) and the download queue, exposing a flat list the
- * shared recents screen groups by date. Chapter-read/bookmark/download actions reuse the
- * novel repos + [NovelDownloadManager]. Novels rely on the manga tab's unread-count badge reset, so
- * there is nothing to reset here.
+ * shared recents screen groups by date. The chapter verbs live in
+ * [reikai.presentation.recents.NovelRecentsChapterActions], which every recents surface builds. Novels
+ * rely on the manga tab's unread-count badge reset, so there is nothing to reset here.
  */
 @Inject
 @ViewModelKey
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class NovelUpdatesViewModel(
     private val novelRepo: NovelRepository,
-    private val chapterRepo: NovelChapterRepository,
-    private val setNovelReadStatus: SetNovelReadStatus,
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val novelDownloadCache: NovelDownloadCache,
     private val sourcePreferences: ReikaiSourcePreferences,
@@ -69,11 +63,6 @@ class NovelUpdatesViewModel(
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
     private val getCustomNovelInfo: GetCustomNovelInfo,
 ) : ViewModel() {
-
-    // Building the manager restores the persisted queue and can start the download worker, so it is
-    // resolved on first read rather than at construction: every read sits inside a coroutine, which
-    // keeps that work off the thread the screen opens on and skips it when nothing reads it at all.
-    private val downloadManager: NovelDownloadManager get() = downloadManagerProvider()
 
     // Reuse Mihon's shared updates filter prefs so one toggle filters both manga and novels.
     // Everything the database can answer rides this flow, so a change re-runs the query.
@@ -167,47 +156,6 @@ class NovelUpdatesViewModel(
                     coverData = item.update.coverData.copy(url = custom.thumbnailUrl ?: item.update.coverData.url),
                 ),
             )
-        }
-    }
-
-    // The four verbs take chapter ids rather than rendered rows, matching the manga model: recents
-    // dispatches over a mixed feed whose read-lane rows have no updates row to look one up by, and
-    // each of these already resolved the chapter from that id.
-    fun markRead(chapterIds: List<Long>, read: Boolean) {
-        viewModelScope.launchIO {
-            // Route through the shared read interactor so mark-read here also deletes downloads when
-            // "delete after read" is on, matching manga (and the novel details/reader/library paths).
-            val chapters = chapterIds.mapNotNull { chapterRepo.getById(it) }
-            setNovelReadStatus.await(read, chapters)
-        }
-    }
-
-    fun bookmark(chapterIds: List<Long>, bookmark: Boolean) {
-        viewModelScope.launchIO {
-            chapterRepo.setBookmarkBulk(chapterIds, bookmark)
-        }
-    }
-
-    fun deleteChapters(chapterIds: List<Long>) {
-        viewModelScope.launchIO {
-            val chapters = chapterIds.mapNotNull { chapterRepo.getById(it) }
-            if (chapters.isNotEmpty()) downloadManager.deleteChapters(chapters)
-        }
-    }
-
-    /** Per-row download icon, mirroring the novel details download-action mapping. */
-    fun onDownloadAction(chapterId: Long, action: ChapterDownloadAction) {
-        viewModelScope.launchIO {
-            val chapter = chapterRepo.getById(chapterId) ?: return@launchIO
-            when (action) {
-                ChapterDownloadAction.START -> downloadManager.downloadChapters(listOf(chapter))
-                ChapterDownloadAction.START_NOW -> {
-                    downloadManager.downloadChapters(listOf(chapter))
-                    downloadManager.startDownloadNow(chapter.id)
-                }
-                ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
-                ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(listOf(chapter))
-            }
         }
     }
 
