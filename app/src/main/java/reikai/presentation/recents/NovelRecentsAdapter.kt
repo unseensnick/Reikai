@@ -56,9 +56,8 @@ import reikai.presentation.updates.NovelUpdatesViewModel
 import kotlin.time.Clock
 
 /**
- * The novel twin of [MangaRecentsAdapter], over Reikai's two novel models. These two dissolve into
- * this adapter at the cutover, where the manga pair stays live behind theirs; until then both sides
- * are wrapped the same way so the seam is symmetric.
+ * The novel twin of [MangaRecentsAdapter], over Reikai's two novel models. Like the manga pair, both
+ * stay live behind this adapter as the feeds, wrapped the same way so the seam is symmetric.
  */
 @AssistedInject
 class NovelRecentsAdapter(
@@ -224,8 +223,7 @@ class NovelRecentsAdapter(
                 ownSource().forRules()
             }
             is RecentsLane.Updated -> firstUnreadInBurst(
-                // Source order is this type's reading order, which is what getByNovelId returns. The
-                // burst stays within one source; only the read-elsewhere carry-over crosses the group.
+                // The burst stays within one source; only the read-elsewhere carry-over crosses the group.
                 chapters = ownSource().forRules(),
                 rowChapterId = lane.chapter.chapterId,
             )
@@ -361,16 +359,16 @@ class NovelRecentsAdapter(
                 else -> Download.State.NOT_DOWNLOADED
             }
         },
-        // Same declaration the updated lane makes: this engine reports no byte progress until the two
-        // download subsystems merge, and a zero would read as a download that has genuinely stalled.
+        // Same declaration the updated lane makes: the novel downloader tracks no per-chapter progress,
+        // and a zero would read as a download that has genuinely stalled.
         progress = RecentsDownloadProgress.Unsupported,
     )
 }
 
 /**
- * The novel row stores a state rather than a provider, and cannot answer byte progress at all until
- * the download subsystems merge, which it declares rather than reporting a zero the renderer could
- * not tell from a download that has genuinely started.
+ * The novel row stores a state rather than a provider, and cannot answer byte progress at all, since
+ * the novel downloader tracks none per chapter. It declares that rather than reporting a zero the
+ * renderer could not tell from a download that has genuinely started.
  */
 internal fun novelDownloadUi(item: RecentsItem): RecentsDownloadUi? = when (val payload = item.payload) {
     is NovelUpdatesItem -> RecentsDownloadUi(

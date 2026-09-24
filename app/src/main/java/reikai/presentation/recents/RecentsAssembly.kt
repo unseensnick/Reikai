@@ -7,7 +7,8 @@ import reikai.domain.merge.dedupeByMergeGroup
  * The two algorithms every recents view is built from: one order, and one collapse. They are separate
  * functions rather than one assembly because the scope of the collapse is a render policy's decision,
  * not the kernel's: the flat modes and the digest both collapse across all lanes, so an entry gets one
- * row, while the Updates mode does not collapse at all. Record: content-layer-recents-surface.md.
+ * row, History collapses a merged series' sources, and the Updates mode does not collapse at all.
+ * Record: content-layer-recents-surface.md.
  */
 
 /**

@@ -1034,9 +1034,8 @@ private fun RecentsRow.contentTypeKey(): String = when (this) {
 }
 
 /**
- * A key unique across the whole list. The item half carries the lane, because the digest collapses
- * within each section rather than across them, so one entry read and updated today is two rows and a
- * key built from its identity alone would repeat.
+ * A key unique across the whole list. The item half carries the lane and the chapter, because Updates
+ * draws a row per updated chapter, so a key built from the entry's identity alone would repeat.
  */
 private fun RecentsRow.listKey(): String = when (this) {
     is RecentsRow.DateHeader -> "date-$date"

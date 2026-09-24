@@ -42,7 +42,7 @@ data class RecentsDownloadUi(
 sealed interface RecentsDownloadProgress {
     data class Live(val percent: () -> Int) : RecentsDownloadProgress
 
-    /** The novel downloader reports none until the two download subsystems merge. */
+    /** The novel downloader, which tracks no per-chapter progress. */
     data object Unsupported : RecentsDownloadProgress
 }
 

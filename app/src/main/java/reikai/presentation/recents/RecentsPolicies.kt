@@ -7,9 +7,9 @@ import reikai.domain.entry.EntryId
 /*
  * The four modes, as pure functions over the one ordered stream the engine emits. Nothing here re-sorts
  * that stream: the kernel owns the order, and a policy re-sorting it would be a second opinion nobody
- * rules on. What each policy does own is its collapse scope (see RecentsAssembly): the flat feed
- * collapses across every lane so a title is one row, the digest collapses inside each lane so a series
- * read and updated today appears under both, and the two single-lane modes never collapse.
+ * rules on. What each policy does own is its collapse scope (see RecentsAssembly): the flat feed and
+ * the digest collapse across every lane so a title is one row, History collapses the sources of a
+ * merged series, and Updates never collapses (its group-by-series rows are a display toggle).
  */
 
 /** Yokai's caps, adopted whole: four rows a section, and one budget of nine across the two chapter ones. */
