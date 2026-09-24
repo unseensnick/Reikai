@@ -9,6 +9,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,7 +39,6 @@ import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import kotlin.coroutines.CoroutineContext
 
 /**
  * Hosts lnreader plugins in headless QuickJS engines (no WebView, no Activity), so novel sources run the same on a
@@ -82,7 +82,7 @@ class LnPluginHost(
     private class EngineSlot(val label: String) {
         val mutex = Mutex()
         var executor: ExecutorService? = null
-        var dispatcher: CoroutineContext? = null
+        var dispatcher: CoroutineDispatcher? = null
         var qjs: QuickJs? = null
         var callSeq = 0L
         var loadArgs: LoadArgs? = null
@@ -94,6 +94,16 @@ class LnPluginHost(
 
         @Volatile
         var lastUsedMs = 0L
+
+        /** Runs [block] on this slot's thread, starting it if an idle close retired it. dokar evaluates on
+         *  the calling thread, so without this a screen's Main ran the plugin. Caller must hold [mutex]. */
+        suspend fun <T> onThread(block: suspend () -> T): T {
+            val disp = dispatcher ?: Executors.newSingleThreadExecutor { r -> Thread(r, "LnPlugin-$label") }
+                .also { executor = it }
+                .asCoroutineDispatcher()
+                .also { dispatcher = it }
+            return withContext(disp) { block() }
+        }
     }
 
     private val loaderSlot = EngineSlot("loader")
@@ -114,12 +124,11 @@ class LnPluginHost(
     private val runtimeScripts: List<String> by lazy { RUNTIME_ASSETS.map(::asset) }
 
     /** Create the slot's engine, load the runtime, and replay the plugin load if the slot has one.
-     *  Caller must hold the slot's mutex. */
+     *  Caller must hold the slot's mutex and be inside [EngineSlot.onThread]. */
     private suspend fun EngineSlot.engine(): QuickJs {
         qjs?.let { return it }
-        val exec = Executors.newSingleThreadExecutor { r -> Thread(r, "LnPlugin-$label") }
-        val disp = exec.asCoroutineDispatcher()
-        val q = engineCreationMutex.withLock { QuickJs.create(disp) }
+        val scripts = runtimeScripts
+        val q = engineCreationMutex.withLock { QuickJs.create(checkNotNull(dispatcher)) }
         q.function("__lnLog") { args ->
             bridge.log(args.getOrNull(0) as? String ?: "info", args.getOrNull(1) as? String ?: "")
             null
@@ -146,9 +155,7 @@ class LnPluginHost(
         // Wrapped in an IIFE so the completion value is undefined, not globalThis (dokar can't
         // marshal the self-referential global back to Kotlin: "circular reference").
         q.evaluate<Any?>("(function(){globalThis.self=globalThis;globalThis.window=globalThis;})()")
-        runtimeScripts.forEach { q.evaluate<Any?>(it) }
-        executor = exec
-        dispatcher = disp
+        scripts.forEach { q.evaluate<Any?>(it) }
         qjs = q
         loadArgs?.let { args ->
             // void: the returned info object was already decoded at loadPlugin time; marshalling it
@@ -174,13 +181,15 @@ class LnPluginHost(
         lang: String? = null,
     ): LnPluginInfo = withTimeout(LOAD_TIMEOUT_MS) {
         val info = loaderSlot.mutex.withLock {
-            val infoJson = loaderSlot.engine().evaluate<String>(
-                "JSON.stringify(globalThis.__lnLoadPlugin(" +
-                    "${jsStr(pluginId)}, ${jsStr(source)}, ${jsStr(iconUrl ?: "")}, ${jsStr(lang ?: "")}))",
-            )
-            loaderSlot.lastUsedMs = System.currentTimeMillis()
-            JSON.decodeFromString(LnPluginInfo.serializer(), infoJson)
-                .copy(supportsLatest = derivesLatestSupport(source))
+            loaderSlot.onThread {
+                val infoJson = loaderSlot.engine().evaluate<String>(
+                    "JSON.stringify(globalThis.__lnLoadPlugin(" +
+                        "${jsStr(pluginId)}, ${jsStr(source)}, ${jsStr(iconUrl ?: "")}, ${jsStr(lang ?: "")}))",
+                )
+                loaderSlot.lastUsedMs = System.currentTimeMillis()
+                JSON.decodeFromString(LnPluginInfo.serializer(), infoJson)
+                    .copy(supportsLatest = derivesLatestSupport(source))
+            }
         }
         // Retain the args under the plugin's CANONICAL id (callMethod is keyed by it, which can
         // differ from the URL-derived pluginId), and drop a live engine still running the previous
@@ -331,42 +340,46 @@ class LnPluginHost(
     ): JsonElement = withTimeout(CALL_TIMEOUT_MS) {
         val slot = pluginSlots[pluginId] ?: throw LnPluginException("plugin not loaded: $pluginId")
         slot.mutex.withLock {
-            val q = slot.engine()
-            slot.fetchFailure = null
-            val argsJson = JSON.encodeToString(ListSerializer(JsonElement.serializer()), args)
-            // __lnCallMethod is async, and evaluate returns the Promise rather than its value, so the
-            // settled result parks on a global the engine fills while evaluate pumps the job queue.
-            //
-            // Each call parks in its OWN slot, keyed by a call id. One shared slot was not safe despite
-            // the mutex: a promise outlives the call that created it, so a slow call that gave up could
-            // settle later into the slot the NEXT call read, handing one novel another's parsed
-            // metadata and writing it over that novel's row.
-            val callId = "c${++slot.callSeq}"
-            q.evaluate<Any?>(
-                "globalThis.__lnResults=globalThis.__lnResults||{};" +
-                    // A call that timed out never collects its slot; bound the leak.
-                    "if(Object.keys(globalThis.__lnResults).length>$MAX_PENDING_SLOTS)" +
-                    "globalThis.__lnResults={};" +
-                    "globalThis.__lnCallMethod(${jsStr(pluginId)}, ${jsStr(method)}, ${jsStr(argsJson)})" +
-                    ".then(function(r){globalThis.__lnResults[${jsStr(callId)}]=r;}," +
-                    "function(e){globalThis.__lnResults[${jsStr(callId)}]=" +
-                    "JSON.stringify({ok:false,error:String((e&&e.message)||e)});});",
-            )
-            // Read this call's slot, and keep pumping the job queue until it settles. Reading once and
-            // trusting whatever was there is what allowed a stale result to be taken as the answer;
-            // waiting turns a not-yet-settled call into the enclosing timeout instead of wrong data.
-            val read = "(function(){var v=globalThis.__lnResults[${jsStr(callId)}];" +
-                "return v===undefined?$PENDING_JS:String(v);})()"
-            var resultJson = q.evaluate<String>(read)
-            while (resultJson == PENDING) {
-                delay(CALL_POLL_MS)
-                resultJson = q.evaluate<String>(read)
+            slot.onThread {
+                val q = slot.engine()
+                slot.fetchFailure = null
+                val argsJson = JSON.encodeToString(ListSerializer(JsonElement.serializer()), args)
+                // __lnCallMethod is async, and evaluate returns the Promise rather than its value, so the
+                // settled result parks on a global the engine fills while evaluate pumps the job queue.
+                //
+                // Each call parks in its OWN slot, keyed by a call id. One shared slot was not safe despite
+                // the mutex: a promise outlives the call that created it, so a slow call that gave up could
+                // settle later into the slot the NEXT call read, handing one novel another's parsed
+                // metadata and writing it over that novel's row.
+                val callId = "c${++slot.callSeq}"
+                q.evaluate<Any?>(
+                    "globalThis.__lnResults=globalThis.__lnResults||{};" +
+                        // A call that timed out never collects its slot; bound the leak.
+                        "if(Object.keys(globalThis.__lnResults).length>$MAX_PENDING_SLOTS)" +
+                        "globalThis.__lnResults={};" +
+                        "globalThis.__lnCallMethod(${jsStr(pluginId)}, ${jsStr(method)}, ${jsStr(argsJson)})" +
+                        ".then(function(r){globalThis.__lnResults[${jsStr(callId)}]=r;}," +
+                        "function(e){globalThis.__lnResults[${jsStr(callId)}]=" +
+                        "JSON.stringify({ok:false,error:String((e&&e.message)||e)});});",
+                )
+                // Read this call's slot, and keep pumping the job queue until it settles. Reading once and
+                // trusting whatever was there is what allowed a stale result to be taken as the answer;
+                // waiting turns a not-yet-settled call into the enclosing timeout instead of wrong data.
+                val read = "(function(){var v=globalThis.__lnResults[${jsStr(callId)}];" +
+                    "return v===undefined?$PENDING_JS:String(v);})()"
+                var resultJson = q.evaluate<String>(read)
+                while (resultJson == PENDING) {
+                    delay(CALL_POLL_MS)
+                    resultJson = q.evaluate<String>(read)
+                }
+                q.evaluate<Any?>("delete globalThis.__lnResults[${jsStr(callId)}];")
+                slot.lastUsedMs = System.currentTimeMillis()
+                val result = JSON.decodeFromString(LnCallResult.serializer(), resultJson)
+                if (!result.ok) {
+                    throw LnPluginException(result.error ?: "$method failed without message", slot.fetchFailure)
+                }
+                result.value ?: JsonNull
             }
-            q.evaluate<Any?>("delete globalThis.__lnResults[${jsStr(callId)}];")
-            slot.lastUsedMs = System.currentTimeMillis()
-            val result = JSON.decodeFromString(LnCallResult.serializer(), resultJson)
-            if (!result.ok) throw LnPluginException(result.error ?: "$method failed without message", slot.fetchFailure)
-            result.value ?: JsonNull
         }
     }
 

@@ -28,7 +28,9 @@ Isolation is per plugin: each plugin has an engine slot (its own single-thread e
 `LnPlugin-<id>`, its own `Mutex`, its own `QuickJs`), created lazily on the plugin's first method
 call and closed again by an idle sweeper after 60s of disuse, so calls to different sources run in
 parallel and an idle plugin holds no native engine or thread. QuickJS is not thread-safe, so a slot
-confines every native call to its executor and serializes through its mutex. `loadPlugin` (info
+confines every native call to its executor and serializes through its mutex. The host makes that hop
+itself, because dokar's `evaluate` runs on the calling thread: no caller needs its own `flowOn` or
+`launchIO` to keep engine creation, the asset read or a plugin's code off the main thread. `loadPlugin` (info
 extraction at install / app start) instead runs on one shared loader slot, so a bulk `ensureLoaded`
 over every installed plugin costs one engine rather than one per plugin; the load args are retained
 per plugin and replayed into the plugin's own engine whenever it is (re)created. Engine creation
