@@ -19,6 +19,7 @@ import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.Tracker
@@ -683,7 +684,7 @@ class NovelDetailsViewModel(
         viewModelScope.launchIO {
             runCatching { fetchAndSync(src, existing) }.onFailure { e ->
                 if (state.value !is NovelDetailsState.Loaded) {
-                    state.value = NovelDetailsState.Failed(e.message ?: "Failed to load novel")
+                    state.value = NovelDetailsState.Failed(with(context) { e.formattedMessage })
                 }
             }
         }

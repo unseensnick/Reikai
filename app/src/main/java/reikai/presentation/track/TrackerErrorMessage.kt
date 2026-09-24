@@ -4,6 +4,7 @@ import android.content.Context
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.util.system.isOnline
+import reikai.util.firstCause
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.net.ConnectException
@@ -21,11 +22,8 @@ sealed interface TrackerError {
     companion object {
         // Named by the tracker rather than the host: a tracker's API host is often a backend the user
         // has never seen, and Mihon's source formatter sends HTTP errors to a WebView trackers lack.
-        // The cause chain is walked because OkHttp's await wraps every network failure in a bare
-        // IOException carrying the real one as its cause.
         fun of(error: Throwable, isOnline: Boolean): TrackerError =
-            generateSequence(error) { it.cause }.firstNotNullOfOrNull { kindOf(it, isOnline) }
-                ?: Other(error.message)
+            error.firstCause { kindOf(it, isOnline) } ?: Other(error.message)
 
         private fun kindOf(error: Throwable, isOnline: Boolean): TrackerError? = when (error) {
             is UnknownHostException, is ConnectException, is SocketTimeoutException ->

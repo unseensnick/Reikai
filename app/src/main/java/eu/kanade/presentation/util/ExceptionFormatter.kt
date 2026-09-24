@@ -3,6 +3,7 @@ package eu.kanade.presentation.util
 import android.content.Context
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.util.system.isOnline
+import reikai.util.firstCause
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.data.source.NoResultsException
 import tachiyomi.domain.source.model.SourceNotInstalledException
@@ -12,6 +13,10 @@ import java.net.UnknownHostException
 context(context: Context)
 val Throwable.formattedMessage: String
     get() {
+        // RK --> an offline source error arrives wrapped, and read off the wrapper it shows the raw text
+        val cause = formattableCause()
+        if (cause !== this) return cause.formattedMessage
+        // RK <--
         when (this) {
             is HttpException -> return context.stringResource(MR.strings.exception_http, code)
             is UnknownHostException -> {
@@ -30,3 +35,14 @@ val Throwable.formattedMessage: String
             else -> "$className: $message"
         }
     }
+
+// RK --> the first throwable in the cause chain the formatter has a message for, or this one
+internal fun Throwable.formattableCause(): Throwable = firstCause {
+    it.takeIf { cause ->
+        cause is HttpException ||
+            cause is UnknownHostException ||
+            cause is NoResultsException ||
+            cause is SourceNotInstalledException
+    }
+} ?: this
+// RK <--

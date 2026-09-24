@@ -37,7 +37,7 @@ class LnHostBridge(
 
     /** One OkHttp call, response shaped as the runtime's `makeResponse` expects. Blocking; callers
      *  must invoke it off the engine thread (the host wraps it in a Dispatchers.IO async binding). */
-    fun runFetch(url: String, optsJson: String): String {
+    fun runFetch(url: String, optsJson: String, onFailure: (Throwable) -> Unit): String {
         return try {
             val opts = parseFetchOpts(optsJson)
             val builder = Request.Builder().url(url)
@@ -96,6 +96,7 @@ class LnHostBridge(
             )
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e) { "fetch($url) failed" }
+            onFailure(e)
             JSON.encodeToString(
                 FetchResponseDto.serializer(),
                 FetchResponseDto(0, "", emptyMap(), "", url, e.message ?: e.javaClass.simpleName, null),

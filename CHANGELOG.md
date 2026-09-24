@@ -365,6 +365,7 @@ every release now also ships a foss build with neither in it.
 - **The Browse sources filter now covers manga and light novels from one screen, whichever chip you opened it from.** A Manga / Novels chip switches halves; the All and Manga chips used to reach only the manga sources.
 
 #### Fixed
+- **Browsing a source or opening a series while offline now says "No Internet connection" instead of a raw host error, on manga and novels.** The manga reader's failed pages say it too.
 - **Global search and the feed no longer crash when a source lists the same result twice.**
 - **Global search no longer shows a blank screen when nothing is pinned or no source found anything.** It says which, and on Pinned offers to search all sources.
 - **Forms a source posts through FlareSolverr now reach the site intact, so a novel plugin's chapter list loads there.** A space in a form no longer arrives as a plus sign either.

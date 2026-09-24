@@ -87,6 +87,11 @@ class LnPluginHost(
         var callSeq = 0L
         var loadArgs: LoadArgs? = null
 
+        // The last fetch this slot's current call saw fail. JS receives only its message, so a failed
+        // call re-attaches it as the cause, which is how an error message tells offline from a plugin bug.
+        @Volatile
+        var fetchFailure: Throwable? = null
+
         @Volatile
         var lastUsedMs = 0L
     }
@@ -126,7 +131,7 @@ class LnPluginHost(
         }
         q.asyncFunction("__lnFetch") { args ->
             withContext(Dispatchers.IO) {
-                bridge.runFetch(args[0] as String, args.getOrNull(1) as? String ?: "{}")
+                bridge.runFetch(args[0] as String, args.getOrNull(1) as? String ?: "{}") { fetchFailure = it }
             }
         }
         // Backs the setTimeout shim in headless.js: plugins use it for rate-limit politeness sleeps and
@@ -327,6 +332,7 @@ class LnPluginHost(
         val slot = pluginSlots[pluginId] ?: throw LnPluginException("plugin not loaded: $pluginId")
         slot.mutex.withLock {
             val q = slot.engine()
+            slot.fetchFailure = null
             val argsJson = JSON.encodeToString(ListSerializer(JsonElement.serializer()), args)
             // __lnCallMethod is async, and evaluate returns the Promise rather than its value, so the
             // settled result parks on a global the engine fills while evaluate pumps the job queue.
@@ -359,7 +365,7 @@ class LnPluginHost(
             q.evaluate<Any?>("delete globalThis.__lnResults[${jsStr(callId)}];")
             slot.lastUsedMs = System.currentTimeMillis()
             val result = JSON.decodeFromString(LnCallResult.serializer(), resultJson)
-            if (!result.ok) throw LnPluginException(result.error ?: "$method failed without message")
+            if (!result.ok) throw LnPluginException(result.error ?: "$method failed without message", slot.fetchFailure)
             result.value ?: JsonNull
         }
     }
@@ -419,7 +425,7 @@ class LnPluginHost(
     }
 }
 
-class LnPluginException(message: String) : Exception(message)
+class LnPluginException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
  * Whether a plugin can serve a Latest listing, derived from its source rather than declared: the
