@@ -339,6 +339,7 @@ every release now also ships a foss build with neither in it.
 - **Hiding chapter titles on a novel no longer changes its chapter order, and sorting a novel's chapters no longer changes how their titles show.** Each follows your global default until you change it on that novel.
 - **A novel chapter dated month first, like 12/25/2024, now shows that date instead of one months later.** A date that is not a real day now shows no date rather than a rolled-over one.
 - **Downloading a selection of novel chapters no longer fetches the ones already downloaded again.**
+- **A light-novel plugin that stops answering now fails with an error after three minutes, so a migration moves on to the next entry instead of searching the stuck one forever.**
 
 ### Browse & sources
 

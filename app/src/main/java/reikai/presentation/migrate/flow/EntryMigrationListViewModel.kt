@@ -153,7 +153,7 @@ class EntryMigrationListViewModel(
     /**
      * Search whatever is eligible, one row at a time, until nothing is. The next row is chosen on
      * each pass rather than iterating a fixed list, so a row skipped mid-run drops out and a
-     * restored row is picked up without a second driver.
+     * row a released commit claim makes searchable again is picked up without a second driver.
      */
     private suspend fun drive() {
         val sources = adapter.sourcesFor().also { cachedSources = it }

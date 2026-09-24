@@ -21,6 +21,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -179,7 +180,7 @@ class LnPluginHost(
         source: String,
         iconUrl: String? = null,
         lang: String? = null,
-    ): LnPluginInfo = withTimeout(LOAD_TIMEOUT_MS) {
+    ): LnPluginInfo = withPluginTimeout(LOAD_TIMEOUT_MS, "loadPlugin") {
         val info = loaderSlot.mutex.withLock {
             loaderSlot.onThread {
                 val infoJson = loaderSlot.engine().evaluate<String>(
@@ -331,7 +332,7 @@ class LnPluginHost(
         pluginId: String,
         method: String,
         args: List<JsonElement>,
-    ): JsonElement = withTimeout(CALL_TIMEOUT_MS) {
+    ): JsonElement = withPluginTimeout(CALL_TIMEOUT_MS, method) {
         val slot = pluginSlots[pluginId] ?: throw LnPluginException("plugin not loaded: $pluginId")
         slot.mutex.withLock {
             slot.onThread {
@@ -443,3 +444,14 @@ class LnPluginException(message: String, cause: Throwable? = null) : Exception(m
  */
 internal fun derivesLatestSupport(pluginSource: String): Boolean =
     "showLatestNovels" in pluginSource
+
+/**
+ * [withTimeout] whose own deadline surfaces as [LnPluginException]. A bare TimeoutCancellationException
+ * reads as the caller being cancelled, so every cancellation clause above the host rethrew it, and the
+ * migration driver took a timed-out row for an abandoned one and searched it again forever.
+ */
+internal suspend fun <T : Any> withPluginTimeout(
+    timeoutMs: Long,
+    what: String,
+    block: suspend CoroutineScope.() -> T,
+): T = withTimeoutOrNull(timeoutMs, block) ?: throw LnPluginException("$what timed out after ${timeoutMs / 1000}s")

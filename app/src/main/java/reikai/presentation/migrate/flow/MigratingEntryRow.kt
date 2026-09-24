@@ -73,7 +73,7 @@ class MigratingEntryRow(
 
     /** The row's search for a target on the configured sources. */
     sealed interface SearchPhase {
-        /** Not started: the driver has not reached this row yet, or a restore re-queued it. */
+        /** Not started: the driver has not reached this row yet, or a search cancelled from inside handed it back. */
         data object Queued : SearchPhase
 
         data object Searching : SearchPhase
