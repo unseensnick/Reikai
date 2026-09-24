@@ -52,6 +52,7 @@ import eu.kanade.presentation.track.TrackStatusSelector
 import eu.kanade.presentation.track.TrackerSearch
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.ui.manga.track.TrackItem
@@ -110,9 +111,10 @@ import kotlin.time.Instant
 /**
  * The single track-info dialog stack for both manga and novels: the same domain [Track] (novels adapt
  * via [reikai.domain.novel.track.toUiTrack]) written through a [TrackWriter], so the two cannot drift.
- * Five things branch on [isNovel]: the track subscription, the entry lookup, the search endpoint, the bind
- * target and the delete scope. A tracker that binds entries from a source it knows ([AutoBindTracker]) matches on a
- * tap instead of searching for those entries; [offerTrackers] decides the rows, for both types.
+ * Whatever is engine-specific branches on [isNovel]: the track subscription, the entry lookup, the
+ * search endpoint, the bind target, the refresh, the delete scope, the writer and the tracker filter.
+ * A tracker that binds entries from a source it knows ([AutoBindTracker]) matches on a tap instead of
+ * searching for those entries; [offerTrackers] decides the rows, for both types.
  */
 data class EntryTrackInfoDialogHomeScreen(
     private val entryId: Long,
@@ -242,20 +244,16 @@ data class EntryTrackInfoDialogHomeScreen(
             val candidate = autoBindTrackers.of(item.tracker) ?: return
             viewModelScope.launchNonCancellable {
                 val entry = autoBindEntry() ?: return@launchNonCancellable
-                try {
-                    val match = candidate.match(entry) ?: throw Exception()
-                    if (isNovel) {
-                        addNovelTrack.bind(
-                            item.tracker,
-                            match,
-                            entryId,
-                        )
-                    } else {
-                        item.tracker.register(match, entryId)
-                    }
+                val match = try {
+                    candidate.match(entry)
                 } catch (_: Exception) {
-                    withUIContext { context.toast(MR.strings.error_no_match) }
+                    null
                 }
+                if (match == null) {
+                    withUIContext { context.toast(MR.strings.error_no_match) }
+                    return@launchNonCancellable
+                }
+                bindTrack(context, addNovelTrack, item.tracker, match, entryId, isNovel)
             }
         }
 
@@ -774,6 +772,7 @@ data class EntryTrackerSearchScreen(
         @Assisted initialQuery: String,
         @Assisted trackerId: Long,
         @Assisted private val isNovel: Boolean,
+        private val context: Context,
         private val addNovelTrack: AddNovelTrack,
         trackerManager: TrackerManager,
     ) : ViewModel() {
@@ -830,11 +829,7 @@ data class EntryTrackerSearchScreen(
 
         fun registerTracking(item: TrackSearch) {
             viewModelScope.launchNonCancellable {
-                if (isNovel) {
-                    addNovelTrack.bind(tracker, item, entryId)
-                } else {
-                    tracker.register(item, entryId)
-                }
+                bindTrack(context, addNovelTrack, tracker, item, entryId, isNovel)
             }
         }
 
@@ -956,5 +951,24 @@ data class EntryTrackerRemoveScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * The one bind both sheets call, with one error path for both types: a failure toasts its own message.
+ * Manga's register already catches and toasts; a novel bind would otherwise reach the crash handler.
+ */
+private suspend fun bindTrack(
+    context: Context,
+    addNovelTrack: AddNovelTrack,
+    tracker: Tracker,
+    item: TrackSearch,
+    entryId: Long,
+    isNovel: Boolean,
+) {
+    try {
+        if (isNovel) addNovelTrack.bind(tracker, item, entryId) else tracker.register(item, entryId)
+    } catch (e: Throwable) {
+        withUIContext { context.toast(e.message) }
     }
 }
