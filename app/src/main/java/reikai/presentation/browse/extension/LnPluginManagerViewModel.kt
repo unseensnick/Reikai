@@ -40,12 +40,11 @@ import tachiyomi.core.common.util.lang.launchIO
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Drives the light-novel plugin manager on the Browse → Extensions tab (Novels chip). Mirrors
- * Mihon's [eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel] sections (Updates /
- * Installed / Available) over the plugin host: [NovelSourceManager] for what's installed, the
- * shared [LnRepoRegistries] for what's available, and a version diff for what has updates. Both
- * lists are derived from the registries already fetched and the installed plugins' records, so an
- * install, an uninstall or a return to the tab downloads nothing.
+ * The plugin half behind [NovelExtensionsProvider]: it produces the updates, not-loaded, installed and
+ * available lists over the plugin host ([NovelSourceManager] for what is installed, the shared
+ * [LnRepoRegistries] for what is available, a version diff for updates), and the shared Extensions
+ * engine sections and filters them. Every list is derived from the registries already fetched and the
+ * installed plugins' records, so an install, an uninstall or a return to the tab downloads nothing.
  */
 @Inject
 @ViewModelKey

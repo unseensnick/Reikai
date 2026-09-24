@@ -1,9 +1,10 @@
 package reikai.novel.update
 
 /**
- * Compares LN plugin version strings. Mirrors lnreader's `src/utils/compareVersion.ts` so the
- * outdated-detection semantics match upstream: digit-or-dot segments are parsed numerically,
- * shorter sides are padded with zeros, and non-parseable input falls back to a string compare.
+ * Compares LN plugin version strings, numerically by digit-or-dot segment. Deliberately not LNReader's
+ * `src/utils/compareVersion.ts`, which compares only the common prefix and has no fallback: here a
+ * shorter side is padded with zeros (`"1"` equals `"1.0.0"`), and input with no digits or a segment
+ * that does not parse falls back to a raw string compare.
  *
  * Numeric (not lexical) compare is load-bearing: `"2.0"` must rank above `"1.99"`.
  */
@@ -12,7 +13,8 @@ object LnPluginVersion {
     private val DIGITS_AND_DOTS = Regex("[^\\d.]")
 
     /**
-     * Returns -1, 0, or 1 (matching `Int.compareTo`). Returns 0 when both inputs are blank.
+     * Negative, zero or positive, as `compareTo`. The numeric path returns -1, 0 or 1; the string
+     * fallback returns [String.compareTo]'s raw difference, so callers compare the sign only.
      */
     fun compare(a: String, b: String): Int {
         val sa = a.replace(DIGITS_AND_DOTS, "")

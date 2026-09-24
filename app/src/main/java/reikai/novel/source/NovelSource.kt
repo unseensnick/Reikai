@@ -53,8 +53,8 @@ interface NovelSource {
     val version: String
     val site: String
 
-    /** lnreader plugin language tag (e.g. `en`, `id`, `zh`). Empty when the plugin doesn't declare
-     *  one. Drives the Language section grouping on the Browse sources list. */
+    /** The source's language as it declares it: an ISO code for an app source, the registry's endonym
+     *  (`English`, `Español`) for an LNReader plugin. Compare and group through [langCode]. */
     val lang: String
 
     /**
