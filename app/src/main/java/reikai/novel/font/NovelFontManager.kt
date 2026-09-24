@@ -163,9 +163,6 @@ class NovelFontManager(
             .getOrNull()
     }
 
-    /** The `file://` URL the WebView renderers load the same font from, or null when its file has gone. */
-    fun webUrl(fileName: String): String? = mirror(fileName)?.let { "file://${it.absolutePath}" }
-
     /** The readable copy, for a caller that needs the file itself. Touches the disk, so off the main
      *  thread: the picker asks for one per font to preview each row in the face it offers. */
     suspend fun localFile(fileName: String): File? = withContext(Dispatchers.IO) { mirror(fileName) }

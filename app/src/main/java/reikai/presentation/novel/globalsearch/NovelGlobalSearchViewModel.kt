@@ -7,16 +7,10 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
@@ -28,13 +22,11 @@ import reikai.presentation.novel.browse.NovelCategoryTarget
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.launchIO
 
-/** Max sources searched concurrently, matching the manga global search's throttle. */
-private const val SEARCH_CONCURRENCY = 5
-
 /**
- * Cross-source light-novel search. Fans [NovelSource.search] out across every installed source
- * under a [Semaphore], updating each source's row independently as it completes so results fill in
- * progressively (mirrors Mihon's `SearchViewModel`).
+ * The novel provider behind the shared global search, which owns the query, the order, the fan-out
+ * and its concurrency ([reikai.presentation.browse.fillEntryRows]) and when a search is worth re-running.
+ * What is left here is the novel sources, the one-source call, and the long-press half, which is per
+ * content type.
  */
 @Inject
 @ViewModelKey
@@ -59,9 +51,6 @@ class NovelGlobalSearchViewModel(
         }
     }
 
-    // Stripped to a provider for the shared global search, which owns the query, the order, how many
-    // sources run at once and when a search is worth re-running. What is left is the novel sources,
-    // the one-source call, and the long-press half below, which is per content type.
     fun isPinned(source: NovelSource): Boolean = source.id in sourcePreferences.pinnedNovelSources.get()
 
     /** The novel sources a search covers. */
