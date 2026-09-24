@@ -139,7 +139,9 @@ class MangaRecentsAdapter(
         }.asLane()
 
     override val unreadEntries: Flow<Set<EntryId>> =
-        recentsUnread.subscribeMangaIdsWithUnread().map { ids -> ids.mapTo(HashSet(), EntryId::Manga) }
+        reikaiLibraryPreferences.seriesMergingEnabled.changes()
+            .flatMapLatest { recentsUnread.subscribeMangaIdsWithUnread(mergingEnabled = it) }
+            .map { ids -> ids.mapTo(HashSet(), EntryId::Manga) }
 
     override val chapterWrites: Flow<Unit> = recentsUnread.mangaChapterWrites()
 

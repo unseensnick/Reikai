@@ -400,8 +400,12 @@ shape exists to avoid.
 
 **A caught-up series drops out of Grouped and Feed**, behind a `recentsShowRead` preference that
 defaults to hiding, matching Yokai's `showReadInAllRecents`. Which entries still have an unread
-chapter is one query per emission (`recentsUnread.sq`), read from the chapter side so the partial
-indexes both chapter tables already carry answer it alone. Deliberately **not** resolved through
+chapter is one query per emission (`recentsUnread.sq`), and it answers the question a tap resolves
+(owner, 2026-09-24): a library member of a stitched merge group is unread while its group has a unit
+with no read copy, counted as the library's group counts are, and everything else by its own chapters,
+with excluded scanlators left out on manga, which the target already leaves out. It judged each member
+alone before that, so a member with unread copies kept a series the group had finished, whose tap then
+opened nothing. Deliberately **not** resolved through
 `RecentsProvider.targetChapter`, whose own KDoc rules that out: it is per rendered row by design, and
 filtering the feed there would put a chapter query per row on every re-emission. The rule itself is
 one pure function, `RecentsRowGate.keeps`, pinned by a test parameterized over both content types.

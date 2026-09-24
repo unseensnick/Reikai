@@ -1,26 +1,74 @@
 -- Which entries still have something left to read, for the recents surface's "show read" filter.
 -- Declares no view or table, so it needs no .sqm: these are queries over the base chapter tables.
 --
--- Read from the chapter side rather than from mangas/novels so the partial indexes carry the whole
--- query (chapters_unread_by_manga_index and novel_chapters_unread_by_novel_index are both
--- WHERE read = 0). Scanning the entry tables instead would touch every row in the library to ask a
--- question the index already answers.
---
--- One query per emission, never one per row: RecentsProvider.targetChapter is deliberately resolved
--- per rendered row, and filtering the feed cannot pay that per row on every re-emission.
+-- The answer has to be the one a tap on the row resolves, or the filter keeps a row whose tap opens
+-- nothing and drops one with chapters left. The tap resolves over the merge group with excluded
+-- scanlators left out, so this does too: a library member of a stitched group answers with its group,
+-- unread while any unit has no read copy, counted as merged_chapter_unit.sq's countsByGroup counts.
+-- Everything else answers with its own chapters: an entry in no group, a member outside the library
+-- (the group counts read library members only), a group not stitched yet, and every entry while
+-- series merging is off.
 --
 -- Not restricted to favorites. The read lane shows entries that are no longer in the library, and
 -- excluding them here would file them as caught up and hide them.
+--
+-- One query per emission, never one per row: RecentsProvider.targetChapter is deliberately resolved
+-- per rendered row, and filtering the feed cannot pay that per row on every re-emission.
 
 getMangaIdsWithUnread:
-SELECT DISTINCT chapters.manga_id AS mangaId
-FROM chapters
-WHERE chapters.read = 0;
+WITH
+unitCopies AS (
+    SELECT U.group_id AS groupId, sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies
+    FROM merged_chapter_unit U
+    JOIN chapters C ON C._id = U.chapter_id
+    JOIN mangas M ON M._id = C.manga_id AND M.favorite = 1
+    LEFT JOIN excluded_scanlators ES ON C.manga_id = ES.manga_id AND C.scanlator = ES.scanlator
+    WHERE U.unit IS NOT NULL
+    AND ES.scanlator IS NULL
+    GROUP BY U.group_id, U.unit
+),
+groupJudged AS (
+    SELECT MGM.manga_id AS mangaId, max(CASE WHEN UC.readCopies = 0 THEN 1 ELSE 0 END) AS hasUnread
+    FROM merge_group_manga MGM
+    JOIN mangas M ON M._id = MGM.manga_id
+    JOIN unitCopies UC ON UC.groupId = MGM.group_id
+    WHERE :mergingEnabled AND M.favorite = 1
+    GROUP BY MGM.manga_id
+)
+SELECT mangaId FROM groupJudged WHERE hasUnread = 1
+UNION
+SELECT C.manga_id
+FROM chapters C
+LEFT JOIN excluded_scanlators ES ON C.manga_id = ES.manga_id AND C.scanlator = ES.scanlator
+WHERE C.read = 0
+AND ES.scanlator IS NULL
+AND C.manga_id NOT IN (SELECT mangaId FROM groupJudged);
 
+-- Novel twin. No scanlator join: novels have no scanlators.
 getNovelIdsWithUnread:
-SELECT DISTINCT novel_chapters.novel_id AS novelId
-FROM novel_chapters
-WHERE novel_chapters.read = 0;
+WITH
+unitCopies AS (
+    SELECT U.group_id AS groupId, sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies
+    FROM merged_novel_chapter_unit U
+    JOIN novel_chapters C ON C._id = U.chapter_id
+    JOIN novels N ON N._id = C.novel_id AND N.favorite = 1
+    WHERE U.unit IS NOT NULL
+    GROUP BY U.group_id, U.unit
+),
+groupJudged AS (
+    SELECT MGN.novel_id AS novelId, max(CASE WHEN UC.readCopies = 0 THEN 1 ELSE 0 END) AS hasUnread
+    FROM merge_group_novel MGN
+    JOIN novels N ON N._id = MGN.novel_id
+    JOIN unitCopies UC ON UC.groupId = MGN.group_id
+    WHERE :mergingEnabled AND N.favorite = 1
+    GROUP BY MGN.novel_id
+)
+SELECT novelId FROM groupJudged WHERE hasUnread = 1
+UNION
+SELECT C.novel_id
+FROM novel_chapters C
+WHERE C.read = 0
+AND C.novel_id NOT IN (SELECT novelId FROM groupJudged);
 
 -- A write signal per content type, for the recents surface's continue-reading memo: a subscription is
 -- told of every write to the tables a query names, so these two exist for their FROM lists, covering

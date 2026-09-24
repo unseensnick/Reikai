@@ -239,7 +239,7 @@ emulator's sources do not download), and delete-downloads on a resolved row.
 - **A SQL answer would also be a second definition of reading order.** The rule reads the list in the
   entry's own reading order, which `getChapterSort` derives from the entry's sort flags, and it honours
   the scanlator exclusion, which lives in a join table. `recentsUnread.sq` deliberately answers only
-  the boolean question and says so.
+  the boolean question, over the same group and scanlator scope as the rule, and says so.
 - **A bulk action on a large selection pays for its own resolution.** Select-all over a Feed on a
   fully-read library resolves a target per selected read row. That is the same class of cost as the
   writes the action then performs, it happens once on a deliberate action rather than per emission, and
@@ -262,8 +262,11 @@ emulator's sources do not download), and delete-downloads on a resolved row.
 - **History is not touched.** Its rows name, dim and act on the record. The two tabs name different
   chapters because they answer different questions, and a row's capabilities follow the chapter it
   names in both.
-- **The caught-up filter is unchanged.** It asks once per emission whether an entry has any unread
-  chapter. The reversed target rule is what made that promise keepable, and nothing here weakens it.
+- **The caught-up filter asks the question the target answers.** It asks once per emission whether an
+  entry has anything left to read, over the merge group and without excluded scanlators, the way the
+  target resolves (owner, 2026-09-24). The reversed target rule is what made that promise keepable.
+  The group half reads the stored stitch's units rather than deduping chapter numbers, which is what
+  the 88 ms measurement above priced.
 
 ## The progress line names the chapter's length (`48f3fe85a`)
 

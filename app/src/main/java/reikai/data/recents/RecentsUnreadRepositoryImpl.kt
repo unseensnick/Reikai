@@ -18,13 +18,13 @@ class RecentsUnreadRepositoryImpl(
     private val database: Database,
 ) : RecentsUnreadRepository {
 
-    override fun subscribeMangaIdsWithUnread(): Flow<Set<Long>> =
-        database.recentsUnreadQueries.getMangaIdsWithUnread()
+    override fun subscribeMangaIdsWithUnread(mergingEnabled: Boolean): Flow<Set<Long>> =
+        database.recentsUnreadQueries.getMangaIdsWithUnread(mergingEnabled)
             .subscribeToList()
             .map { it.toSet() }
 
-    override fun subscribeNovelIdsWithUnread(): Flow<Set<Long>> =
-        database.recentsUnreadQueries.getNovelIdsWithUnread()
+    override fun subscribeNovelIdsWithUnread(mergingEnabled: Boolean): Flow<Set<Long>> =
+        database.recentsUnreadQueries.getNovelIdsWithUnread(mergingEnabled)
             .subscribeToList()
             .map { it.toSet() }
 

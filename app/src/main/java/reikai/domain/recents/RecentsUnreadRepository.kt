@@ -11,9 +11,14 @@ import kotlinx.coroutines.flow.Flow
  * Ids are each type's own row ids, wrapped into an `EntryId` by the adapter that asked.
  */
 interface RecentsUnreadRepository {
-    fun subscribeMangaIdsWithUnread(): Flow<Set<Long>>
+    /**
+     * Answered the way a tap on the row resolves: a library member of a stitched merge group by its
+     * group, with excluded scanlators left out. [mergingEnabled] is the series-merging switch, and with
+     * it off every entry answers for itself. The rule is written out in recentsUnread.sq.
+     */
+    fun subscribeMangaIdsWithUnread(mergingEnabled: Boolean): Flow<Set<Long>>
 
-    fun subscribeNovelIdsWithUnread(): Flow<Set<Long>>
+    fun subscribeNovelIdsWithUnread(mergingEnabled: Boolean): Flow<Set<Long>>
 
     /**
      * Emits on every write to this type's chapters or its merge stitch, and once on collection. A
