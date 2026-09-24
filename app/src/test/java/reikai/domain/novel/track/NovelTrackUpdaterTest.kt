@@ -29,7 +29,7 @@ class NovelTrackUpdaterTest {
 
     private val inserted = mutableListOf<NovelTrack>()
     private val repository = mockk<NovelTrackRepository> {
-        coEvery { insert(any()) } answers { inserted += firstArg<NovelTrack>() }
+        coEvery { insert(any()) } answers { inserted.add(firstArg<NovelTrack>()) }
     }
 
     // Only reached to toast a remote failure, which none of these cases takes.

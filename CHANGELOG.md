@@ -546,6 +546,7 @@ every release now also ships a foss build with neither in it.
 - **A problem while restoring merged series or edited details no longer stops the rest of the restore.** It is recorded in the restore log instead, and the other content type finishes.
 - **One bad entry in a restore no longer takes a hundred others down with it (synced from Mihon, mihonapp/mihon#3667).** The rest of the batch is retried one at a time, so only the entry that actually failed is reported.
 - **A backup holding the same series twice under one source now restores instead of failing (synced from Mihon, mihonapp/mihon#3667).**
+- **A light novel that fails to save during a restore is now named in the restore log instead of silently going missing with other novels restored alongside it.**
 - **Restoring a backup now keeps your novel category filters and default category instead of quietly dropping them.**
 - **A backup made with Categories on but Library entries off now includes your novel categories.** Manga backups already did.
 - **Restoring with the Categories option unticked no longer files your novels into categories anyway.** Manga restores already left them alone.

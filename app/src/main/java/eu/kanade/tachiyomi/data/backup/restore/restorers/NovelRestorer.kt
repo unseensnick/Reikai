@@ -110,7 +110,7 @@ class NovelRestorer(
         val novel = backupNovel.toNovelImpl()
 
         val novelId = if (dbNovel == null) {
-            novelRepository.insert(novel) ?: return
+            checkNotNull(novelRepository.insert(novel)) { "Failed to insert novel ${novel.url}" }
         } else {
             // Keep the newer copy (higher version), the novel twin of MangaRestorer: take details from
             // whichever side has the larger edit count, preserve the other's local fields. isSyncing =
@@ -120,7 +120,9 @@ class NovelRestorer(
             } else {
                 novel.copyFrom(dbNovel)
             }
-            novelRepository.update(merged.copy(id = dbNovel.id), isSyncing = true)
+            check(novelRepository.update(merged.copy(id = dbNovel.id), isSyncing = true)) {
+                "Failed to update novel ${novel.url}"
+            }
             dbNovel.id
         }
 
@@ -160,7 +162,7 @@ class NovelRestorer(
             val incoming = backupChapter.toChapterImpl(novelId)
             val dbChapter = dbChaptersByUrl[backupChapter.url]
             if (dbChapter == null) {
-                novelChapterRepository.insert(incoming)
+                checkNotNull(novelChapterRepository.insert(incoming)) { "Failed to insert chapter ${incoming.url}" }
             } else {
                 // Keep the device's structural fields; only fold in read state from the backup.
                 val merged = dbChapter.copy(
@@ -168,7 +170,9 @@ class NovelRestorer(
                     bookmark = dbChapter.bookmark || incoming.bookmark,
                     lastTextProgress = max(dbChapter.lastTextProgress, incoming.lastTextProgress),
                 )
-                if (merged != dbChapter) novelChapterRepository.update(merged)
+                if (merged != dbChapter) {
+                    check(novelChapterRepository.update(merged)) { "Failed to update chapter ${merged.url}" }
+                }
             }
         }
     }
@@ -207,7 +211,7 @@ class NovelRestorer(
             } else {
                 incoming.copy(lastChapterRead = max(dbTrack.lastChapterRead, incoming.lastChapterRead))
             }
-            novelTrackRepository.insert(toInsert)
+            check(novelTrackRepository.insert(toInsert)) { "Failed to insert track ${toInsert.trackerId}" }
         }
     }
 

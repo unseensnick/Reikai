@@ -15,8 +15,9 @@ interface NovelTrackRepository {
 
     suspend fun delete(novelId: Long, trackerId: Long)
 
-    suspend fun insert(track: NovelTrack)
+    /** False when the write failed, which is logged rather than thrown. */
+    suspend fun insert(track: NovelTrack): Boolean
 
-    /** Insert every track in one transaction, so a multi-tracker carry cannot half apply. */
-    suspend fun insertAll(tracks: List<NovelTrack>)
+    /** Insert every track in one transaction, so a multi-tracker carry cannot half apply. False when it failed. */
+    suspend fun insertAll(tracks: List<NovelTrack>): Boolean
 }

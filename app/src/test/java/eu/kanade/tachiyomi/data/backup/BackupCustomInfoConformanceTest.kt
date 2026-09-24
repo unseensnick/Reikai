@@ -366,6 +366,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             coEvery { getByUrlAndSource("u", "s") } returns
                 Novel.create().copy(id = BackupCustomInfoConformanceTest.LOCAL_ID, url = "u", source = "s")
             coEvery { getById(BackupCustomInfoConformanceTest.LOCAL_ID) } returns null
+            coEvery { update(any<Novel>(), any()) } returns true
         }
         val restorer = NovelRestorer(
             novelRepository = novels,
