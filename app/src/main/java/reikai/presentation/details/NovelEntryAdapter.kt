@@ -19,6 +19,7 @@ import reikai.presentation.components.mergeSourceLabels
 import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.presentation.novel.details.NovelDetailsState
 import reikai.presentation.novel.details.NovelDetailsViewModel
+import reikai.presentation.selection.EntrySelection
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
 
@@ -90,7 +91,7 @@ class NovelEntryAdapter(
             hasActiveFilter = readFilter != 0L || bookmarkedFilter != 0L || downloadedFilter != 0L ||
                 downloadedFilterLocked,
             isRefreshing = isRefreshing,
-            selection = selection,
+            selection = EntrySelection.selectedAmong(selection, chapters.map { it.id }),
             resumeChapterId = resumeChapter?.id,
             hasStarted = hasStarted,
             // Novels have no local/stub source concept, so downloads always apply.

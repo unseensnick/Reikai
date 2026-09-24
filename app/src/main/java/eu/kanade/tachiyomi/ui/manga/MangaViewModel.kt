@@ -379,7 +379,7 @@ class MangaViewModel(
                     )
                     val hidden = applyHiddenChapters(items, mc.manga, mc.mangaBySource)
                     updateSuccessState {
-                        it.copy(
+                        val next = it.copy(
                             manga = mc.manga,
                             chapters = hidden.chapters,
                             showHidden = hidden.showHidden,
@@ -393,6 +393,10 @@ class MangaViewModel(
                                 mc.mangaBySource.values.ifEmpty { listOf(mc.manga) },
                             ),
                         )
+                        // A rebuilt list drops selected rows its filters no longer show, as novels do.
+                        val visibleIds = next.processedChapters.map { item -> item.id }
+                        chapterSelection = EntrySelection.retain(chapterSelection, visibleIds)
+                        next.withChapterSelection()
                     }
                 }
             // RK <--
@@ -1215,7 +1219,7 @@ class MangaViewModel(
 
     fun hideSelected() {
         val state = successState ?: return
-        val keys = state.chapters.filter { it.selected }
+        val keys = state.processedChapters.filter { it.selected }
             .map { hiddenKey(it.chapter, state.manga, state.mergedMangaById) }
         if (keys.isEmpty()) return
         hiddenChaptersPref.set(hiddenChaptersPref.get() + keys)
@@ -1225,7 +1229,7 @@ class MangaViewModel(
     /** Only reachable while hidden chapters are being shown. */
     fun unhideSelected() {
         val state = successState ?: return
-        val keys = state.chapters.filter { it.selected }
+        val keys = state.processedChapters.filter { it.selected }
             .mapTo(HashSet()) { hiddenKey(it.chapter, state.manga, state.mergedMangaById) }
         if (keys.isEmpty()) return
         hiddenChaptersPref.set(hiddenChaptersPref.get().filterNotTo(HashSet()) { it in keys })
@@ -1622,7 +1626,7 @@ class MangaViewModel(
     fun toggleAllSelection(selected: Boolean) {
         updateSuccessState { successState ->
             chapterSelection = if (selected) {
-                EntrySelection.selectAll(chapterSelection, successState.chapters.map { it.id })
+                EntrySelection.selectAll(chapterSelection, successState.processedChapters.map { it.id })
             } else {
                 EntrySelection.clear()
             }
@@ -1632,7 +1636,7 @@ class MangaViewModel(
 
     fun invertSelection() {
         updateSuccessState { successState ->
-            chapterSelection = EntrySelection.invert(chapterSelection, successState.chapters.map { it.id })
+            chapterSelection = EntrySelection.invert(chapterSelection, successState.processedChapters.map { it.id })
             successState.withChapterSelection()
         }
     }

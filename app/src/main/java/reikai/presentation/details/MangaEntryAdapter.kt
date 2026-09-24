@@ -19,6 +19,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.merge.ChapterGap
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
+import reikai.presentation.selection.EntrySelection
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
@@ -117,7 +118,7 @@ class MangaEntryAdapter(
             selectedSourceId = selectedSourceMangaId,
             hasActiveFilter = filterActive,
             isRefreshing = isRefreshingData,
-            selection = chapters.filter { it.selected }.mapTo(mutableSetOf()) { it.id },
+            selection = visibleSelection(),
             resumeChapterId = model.getNextUnreadChapter()?.id,
             hasStarted = chapters.any { it.isRead },
             chaptersDownloadable = !source.isLocalOrStub(),
@@ -155,8 +156,17 @@ class MangaEntryAdapter(
 
     private fun chapterById(id: Long): Chapter? = itemById(id)?.chapter
 
-    private fun selectedItems(): List<ChapterList.Item> =
-        successState()?.chapters?.filter { it.selected }.orEmpty()
+    /** The selection over the filtered rows on screen, never over the full chapter list behind them. */
+    private fun MangaViewModel.State.Success.visibleSelection(): Set<Long> = EntrySelection.selectedAmong(
+        chapters.filter { it.selected }.mapTo(HashSet()) { it.id },
+        processedChapters.map { it.id },
+    )
+
+    private fun selectedItems(): List<ChapterList.Item> {
+        val state = successState() ?: return emptyList()
+        val ids = state.visibleSelection()
+        return state.chapters.filter { it.id in ids }
+    }
 
     private fun selectedChapters(): List<Chapter> = selectedItems().map { it.chapter }
 

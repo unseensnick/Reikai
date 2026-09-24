@@ -624,7 +624,7 @@ class NovelDetailsViewModel(
                 trackingCount = currentTrackingCount,
                 customInfo = currentCustomInfo,
                 dialog = loaded?.dialog,
-                selection = retainChapterSelection(chapters),
+                selection = retainChapterSelection(display),
                 resumeChapter = resume,
                 hasStarted = chapters.any { it.read || it.id in readInOtherSources },
                 seedColor = loaded?.seedColor,

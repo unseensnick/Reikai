@@ -102,6 +102,14 @@ object EntrySelection {
     fun <T> clear(): SelectionState<T> = SelectionState()
 
     /**
+     * The selected rows among [visible], in list order: what a details screen counts and acts on. A
+     * row a filter hides can still sit in the selection until the next rebuild [retain]s it away, and
+     * no counter or bulk action may reach it.
+     */
+    fun <T> selectedAmong(selection: Set<T>, visible: List<T>): Set<T> =
+        visible.filterTo(LinkedHashSet()) { it in selection }
+
+    /**
      * Drop everything the list no longer contains, for when a filter or a refresh rebuilds it. The
      * anchor is pruned with the selection: a range measured from a row that is gone would silently
      * fall back to selecting one row, which reads as a broken long press rather than a stale anchor.

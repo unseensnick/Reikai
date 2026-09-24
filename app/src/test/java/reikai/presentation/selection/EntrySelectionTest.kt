@@ -217,6 +217,11 @@ class EntrySelectionTest {
     }
 
     @Test
+    fun `the selection a details screen counts and acts on is only its visible rows`() {
+        EntrySelection.selectedAmong(setOf(1L, 5L, 9L), listOf(1L, 2L, 5L)) shouldBe setOf(1L, 5L)
+    }
+
+    @Test
     fun `select all leaves a row selected that is no longer visible`() {
         EntrySelection.selectAll(state(9L, anchor = 9L), listOf(1L, 2L)).selection shouldBe setOf(1L, 2L, 9L)
     }
