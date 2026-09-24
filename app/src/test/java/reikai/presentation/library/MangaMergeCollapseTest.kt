@@ -237,12 +237,13 @@ class MangaMergeCollapseTest {
 
     @Test
     fun `the lowest id wins the primary when counts tie and no ranking is set`() = runTest {
-        // Same chapters, no override, no preferred list: the tiebreak is the lowest id (the aggregation's
-        // deterministic tiebreak), NOT date_added. Member 2 was added later but member 1 (lower id) wins.
+        // Same chapters, no override, no preferred list: the tiebreak is the lowest id (the stitch's own
+        // tiebreak). Member 2 is listed first and added earlier, so neither input order nor date_added
+        // can pass this in the id rule's place.
         val result = collapse(
             listOf(
-                item(1, totalChapters = 5, dateAdded = 100),
-                item(2, totalChapters = 5, dateAdded = 200),
+                item(2, totalChapters = 5, dateAdded = 100),
+                item(1, totalChapters = 5, dateAdded = 200),
             ),
             membership = mapOf(1L to 7L, 2L to 7L),
         )

@@ -78,6 +78,20 @@ class NovelMergeCollapseTest {
     }
 
     @Test
+    fun `the lowest id wins the representative when counts tie and no ranking is set`() {
+        // Novel 2 is listed first and added earlier, so neither input order nor date_added can pass this
+        // in the id rule's place.
+        val result = collapse(
+            listOf(
+                libNovel(2, "B", chapters = 5, dateAdded = 100),
+                libNovel(1, "A", chapters = 5, dateAdded = 200),
+            ),
+            membership = mapOf(1L to 7L, 2L to 7L),
+        )
+        result.single().representative.novel.id shouldBe 1L
+    }
+
+    @Test
     fun `the global preferred-source list picks the representative when no override is set`() {
         // Source "b" outranks "a" in the global list, so its member is the representative even with fewer
         // chapters. The override map is empty, so this is the fallback ranking.
