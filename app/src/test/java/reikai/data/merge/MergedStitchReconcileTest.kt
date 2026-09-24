@@ -254,6 +254,33 @@ class MergedStitchReconcileTest {
         units.isStale(type, group) shouldBe false
     }
 
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a deletion that leaves another member with more chapters restitches on it`(type: ContentType) = runTest {
+        val fixture = fixture(type)
+        val group = fixture.group(listOf(ALPHA, BRAVO, CHARLIE), listOf(ALPHA, BRAVO))
+        val reconcile = fixture.reconcile()
+        reconcile.await()
+
+        fixture.chapterIdsOf(fixture.membersOf(group).first()).drop(1).forEach { fixture.deleteChapter(it) }
+        reconcile.await()
+
+        fixture.ownerOfFirstChapter(group) shouldBe SECOND
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a chapterless member ranked first still leaves the group stitched`(type: ContentType) = runTest {
+        val fixture = fixture(type)
+        // The unnumbered chapter is one only a trunk keeps, so it is lost if the empty member leads.
+        val group = fixture.group(emptyList(), listOf(ALPHA, BRAVO, "Extra: Omake" to -1.0), listOf(ALPHA, BRAVO))
+        groups.setSourceOrder(type, group, fixture.membersOf(group))
+
+        fixture.reconcile().await()
+
+        units.getStitch(type, group).map { it.unit }.distinct().size shouldBe 3
+    }
+
     /** Holds its first stitch, already read, until [gate] opens: a rebuild slower than one started after. */
     private class GatedStitcher(
         private val inner: MergedGroupStitcher,
@@ -315,12 +342,14 @@ class MergedStitchReconcileTest {
          * A group of two members carrying the same two chapters, the first from [FIRST_SOURCE] and the
          * second from [SECOND_SOURCE]. Nothing tells them apart, so with no ranking the lower id leads.
          */
-        suspend fun twoSourceGroup(): Long {
-            val ids = listOf(FIRST_SOURCE, SECOND_SOURCE).map { source ->
+        suspend fun twoSourceGroup(): Long = group(listOf(ALPHA, BRAVO), listOf(ALPHA, BRAVO))
+
+        /** One member per list, the first from [FIRST_SOURCE] and each next one a source further on. */
+        suspend fun group(vararg chapters: List<Pair<String, Double>>): Long {
+            val ids = chapters.mapIndexed { index, memberChapters ->
                 val id = nextEntryId++
-                insertEntry(id, source)
-                addChapter(id, "Chapter 1: Alpha", 1.0)
-                addChapter(id, "Chapter 2: Bravo", 2.0)
+                insertEntry(id, FIRST_SOURCE + index * (SECOND_SOURCE - FIRST_SOURCE))
+                memberChapters.forEach { (name, number) -> addChapter(id, name, number) }
                 id
             }
             val group = groups.createGroup(type, ids)!!
@@ -342,7 +371,17 @@ class MergedStitchReconcileTest {
             renumberLoaded(chapterId, number)
         }
 
+        /** What a source sync does when the source stops listing a chapter: the row goes. */
+        suspend fun deleteChapter(chapterId: Long) {
+            driver.execute(null, "DELETE FROM $chapterTable WHERE _id = $chapterId", 0).await()
+            forgetLoaded(chapterId)
+        }
+
         abstract val chapterTable: String
+
+        abstract fun chapterIdsOf(owner: Long): List<Long>
+
+        abstract fun forgetLoaded(chapterId: Long)
 
         abstract fun renumberLoaded(chapterId: Long, number: Double)
 
@@ -415,6 +454,12 @@ class MergedStitchReconcileTest {
 
         override val chapterTable = "chapters"
 
+        override fun chapterIdsOf(owner: Long) = chapters.filter { it.mangaId == owner }.map { it.id }
+
+        override fun forgetLoaded(chapterId: Long) {
+            chapters.removeAll { it.id == chapterId }
+        }
+
         override fun renumberLoaded(chapterId: Long, number: Double) {
             chapters.replaceAll { if (it.id == chapterId) it.copy(chapterNumber = number) else it }
         }
@@ -483,6 +528,12 @@ class MergedStitchReconcileTest {
 
         override val chapterTable = "novel_chapters"
 
+        override fun chapterIdsOf(owner: Long) = chapters.filter { it.novelId == owner }.map { it.id }
+
+        override fun forgetLoaded(chapterId: Long) {
+            chapters.removeAll { it.id == chapterId }
+        }
+
         override fun renumberLoaded(chapterId: Long, number: Double) {
             chapters.replaceAll { if (it.id == chapterId) it.copy(chapterNumber = number) else it }
         }
@@ -497,5 +548,8 @@ class MergedStitchReconcileTest {
         private const val SECOND = 1L
         private const val FIRST_SOURCE = 100L
         private const val SECOND_SOURCE = 200L
+        private val ALPHA = "Chapter 1: Alpha" to 1.0
+        private val BRAVO = "Chapter 2: Bravo" to 2.0
+        private val CHARLIE = "Chapter 3: Charlie" to 3.0
     }
 }

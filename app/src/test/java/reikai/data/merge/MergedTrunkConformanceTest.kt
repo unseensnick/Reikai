@@ -3,6 +3,8 @@ package reikai.data.merge
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
+import io.mockk.mockk
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
@@ -12,10 +14,18 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.ChapterAggregation
+import reikai.domain.manga.MangaGroupStitcher
+import reikai.domain.manga.MangaMergeManager
+import reikai.domain.merge.MergedGroupStitcher
+import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.NovelChapterAggregation
+import reikai.domain.novel.NovelGroupStitcher
+import reikai.domain.novel.NovelMergeManager
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.novels.NovelMergeCollapse
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.data.Chapters
 import tachiyomi.data.Custom_manga_info
 import tachiyomi.data.Custom_novel_info
@@ -29,6 +39,8 @@ import tachiyomi.data.StringListColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
 import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.manga.MangaRepositoryImpl
+import tachiyomi.domain.manga.interactor.GetMangaWithChapters
+import tachiyomi.domain.source.service.SourceManager
 
 /**
  * The collapsed library row leads on the member the stitch makes the trunk, for both content types:
@@ -98,18 +110,71 @@ class MergedTrunkConformanceTest {
         side.libraryPrimary(preferred = listOf(200L)) shouldBe side.stitchTrunk(preferred = listOf(200L))
     }
 
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a deletion that flips the chapter counts moves the library and the stored stitch together`(
+        type: ContentType,
+    ) = runTest {
+        val side = side(type)
+        side.entry(id = LARGER, source = 100L, chapters = 10)
+        side.entry(id = SMALLER, source = 200L, chapters = 5)
+        groups.createGroup(type, listOf(LARGER, SMALLER))
+        side.storedLead()
+
+        exec("DELETE FROM ${side.chapterTable} WHERE ${side.ownerColumn} = $LARGER AND chapter_number > 2")
+
+        side.libraryPrimary(preferred = emptyList()) shouldBe side.storedLead()
+    }
+
     private fun side(type: ContentType): Side = if (type == ContentType.NOVELS) NovelSide() else MangaSide()
 
     private interface Side {
+        val chapterTable: String
+
+        val ownerColumn: String
+
         suspend fun entry(id: Long, source: Long, chapters: Int, hidden: Int = 0)
 
         suspend fun libraryPrimary(preferred: List<Long>): Long
 
         suspend fun stitchTrunk(preferred: List<Long>): Long
+
+        /** Reconciles the stored stitch, then names the member whose copy it shows first. */
+        suspend fun storedLead(): Long
     }
+
+    private suspend fun storedLead(stitcher: MergedGroupStitcher, ownerOf: suspend (Long) -> Long): Long {
+        val units = MergedChapterUnitRepositoryImpl(database)
+        ReconcileMergedChapters(units, setOf(stitcher)).await()
+        val group = groups.getAllMemberships(stitcher.contentType).values.distinct().single()
+        return ownerOf(
+            units.getStitch(stitcher.contentType, group).first {
+                it.unit == 0 && it.copyOrder == 0
+            }.chapterId,
+        )
+    }
+
+    private val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
 
     private inner class MangaSide : Side {
         private val members = mutableMapOf<Long, Long>()
+
+        override val chapterTable = "chapters"
+
+        override val ownerColumn = "manga_id"
+
+        override suspend fun storedLead(): Long {
+            val chapters = ChapterRepositoryImpl(database)
+            val sourceManager = mockk<SourceManager> { coEvery { get(any<Long>()) } returns null }
+            val stitcher = MangaGroupStitcher(
+                groups,
+                GetMangaWithChapters(MangaRepositoryImpl(database), chapters),
+                MangaMergeManager(groups, preferences) {},
+                sourceManager,
+                preferences,
+            )
+            return storedLead(stitcher) { chapters.getChapterById(it)!!.mangaId }
+        }
 
         override suspend fun entry(id: Long, source: Long, chapters: Int, hidden: Int) {
             members[id] = source
@@ -169,6 +234,22 @@ class MergedTrunkConformanceTest {
 
     private inner class NovelSide : Side {
         private val members = mutableMapOf<Long, String>()
+
+        override val chapterTable = "novel_chapters"
+
+        override val ownerColumn = "novel_id"
+
+        override suspend fun storedLead(): Long {
+            val chapters = NovelChapterRepositoryImpl(database)
+            val stitcher = NovelGroupStitcher(
+                groups,
+                NovelRepositoryImpl(database),
+                chapters,
+                NovelMergeManager(groups, preferences) {},
+                preferences,
+            )
+            return storedLead(stitcher) { chapters.getById(it)!!.novelId }
+        }
 
         override suspend fun entry(id: Long, source: Long, chapters: Int, hidden: Int) {
             members[id] = source.toString()

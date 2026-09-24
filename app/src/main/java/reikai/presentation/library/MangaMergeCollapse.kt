@@ -2,6 +2,7 @@ package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.merge.sourcePriority
+import reikai.domain.merge.trunkOrder
 import tachiyomi.domain.source.model.Source
 
 /**
@@ -76,19 +77,16 @@ object MangaMergeCollapse {
         return result
     }
 
-    // The trunk order [ChapterAggregation.rank] applies, so the library row and the details chapter list
-    // lead on the same source: [sourcePriority] first, then the most distinct recognized numbers, then the
-    // lowest id. With no ranking configured every member ties on the first key, so the count IS the
-    // decision, which is why it has to be the count the stitch uses.
+    // The stitch's [trunkOrder] over the same distinct recognized-number count it ranks on.
     private fun rankComparator(
         overrideOrder: List<Long>,
         preferredSourceIds: List<Long>,
         recognizedChapterCounts: Map<Long, Long>,
-    ): Comparator<LibraryItem> = compareBy<LibraryItem> { item ->
-        sourcePriority(item.libraryManga.manga.id, item.libraryManga.manga.source, preferredSourceIds, overrideOrder)
-    }
-        .thenByDescending { recognizedChapterCounts[it.libraryManga.manga.id] ?: 0L }
-        .thenBy { it.libraryManga.manga.id }
+    ): Comparator<LibraryItem> = trunkOrder(
+        { sourcePriority(it.libraryManga.manga.id, it.libraryManga.manga.source, preferredSourceIds, overrideOrder) },
+        { recognizedChapterCounts[it.libraryManga.manga.id] ?: 0L },
+        { it.libraryManga.manga.id },
+    )
 
     private suspend fun mergePrimary(
         subGroup: List<LibraryItem>,

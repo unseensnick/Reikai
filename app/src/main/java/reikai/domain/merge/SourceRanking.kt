@@ -15,6 +15,22 @@ fun <S> sourcePriority(memberId: Long, sourceId: S?, preferredSourceIds: List<S>
     return position.takeIf { it >= 0 } ?: Int.MAX_VALUE
 }
 
+/**
+ * The order a merge group's members lead in, trunk first: [sourcePriority], then the most chapters,
+ * then the lowest id. Both stitchers and both library collapses sort by it, so the library row cannot
+ * lead on a different member than the stored stitch. [chapterCount] must be the stitch's own count:
+ * with no ranking set every member ties on priority, and the count alone decides.
+ */
+fun <T> trunkOrder(priority: (T) -> Int, chapterCount: (T) -> Long, id: (T) -> Long): Comparator<T> =
+    compareBy(priority).thenByDescending(chapterCount).thenBy(id)
+
+/**
+ * [ranked] in the order a stitch walks it: a member with no chapters moves last, so the stitch starts
+ * at the first member that has any. Only the stitch skips it; the library row and the manage-sources
+ * badge still lead on the ranked member, since that is the ranking the user chose.
+ */
+fun <T> stitchOrder(ranked: List<T>, hasChapters: (T) -> Boolean): List<T> = ranked.sortedBy { !hasChapters(it) }
+
 /** One library member of a merge group and what ranks it. Rows of a group arrive in its own member
  *  order, which is the override order whenever [overridden] is set. */
 class RankedMember<S>(val groupId: Long, val memberId: Long, val sourceId: S, val overridden: Boolean)

@@ -51,6 +51,27 @@ class SourceRankingTest {
         rankingStamps(members, listOf(200L))[GROUP] shouldNotBe rankingStamps(members, emptyList())[GROUP]
     }
 
+    /** A member as the trunk order sees it: its priority, its chapter count, its id. */
+    private data class Member(val priority: Int, val chapters: Long, val id: Long)
+
+    private fun leader(vararg members: Member) =
+        members.sortedWith(trunkOrder({ it.priority }, { it.chapters }, { it.id })).first().id
+
+    @Test
+    fun `a ranked member leads one with more chapters`() {
+        leader(Member(priority = 1, chapters = 9, id = 1), Member(priority = 0, chapters = 1, id = 2)) shouldBe 2L
+    }
+
+    @Test
+    fun `with priority tied the member with more chapters leads`() {
+        leader(Member(priority = 0, chapters = 1, id = 1), Member(priority = 0, chapters = 9, id = 2)) shouldBe 2L
+    }
+
+    @Test
+    fun `with priority and chapters tied the lower id leads`() {
+        leader(Member(priority = 0, chapters = 5, id = 2), Member(priority = 0, chapters = 5, id = 1)) shouldBe 1L
+    }
+
     private companion object {
         const val GROUP = 7L
     }

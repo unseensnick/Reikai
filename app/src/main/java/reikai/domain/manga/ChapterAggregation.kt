@@ -3,6 +3,8 @@ package reikai.domain.manga
 import reikai.domain.merge.MergedChapterOrder
 import reikai.domain.merge.MergedChapters
 import reikai.domain.merge.sourcePriority
+import reikai.domain.merge.stitchOrder
+import reikai.domain.merge.trunkOrder
 import reikai.domain.merge.unstitchedChapters
 import tachiyomi.domain.chapter.model.Chapter
 
@@ -42,7 +44,9 @@ object ChapterAggregation {
             return unstitchedChapters(chaptersBySource.values.firstOrNull().orEmpty()) { it.id }
         }
 
-        val ranked = rank(chaptersBySource, sourceIdByManga, preferredSourceIds, memberRanking)
+        val ranked = stitchOrder(rank(chaptersBySource, sourceIdByManga, preferredSourceIds, memberRanking)) {
+            it.chapters.isNotEmpty()
+        }
 
         val order = MergedChapterOrder<Chapter> { chapter ->
             // Narrowed to Float so a float-origin and a double-origin "1.1" key to the same value
@@ -100,8 +104,7 @@ object ChapterAggregation {
         memberRanking: List<Long> = emptyList(),
     ): List<Long> = rank(chaptersBySource, sourceIdByManga, preferredSourceIds, memberRanking).map { it.mangaId }
 
-    // Rank by the group's source priority first (a ranked source wins the trunk regardless of count),
-    // then distinct recognized numbers desc, then manga id asc for a deterministic, stable order.
+    // The shared trunk order, counting distinct recognized numbers.
     private fun rank(
         chaptersBySource: Map<Long, List<Chapter>>,
         sourceIdByManga: Map<Long, Long>,
@@ -117,11 +120,7 @@ object ChapterAggregation {
                 prefRank,
             )
         }
-        .sortedWith(
-            compareBy<RankedSource> { it.prefRank }
-                .thenByDescending { it.distinctCount }
-                .thenBy { it.mangaId },
-        )
+        .sortedWith(trunkOrder({ it.prefRank }, { it.distinctCount.toLong() }, { it.mangaId }))
 
     /** How many chapters [numbers] name, each narrowed to Float as the stitch keys them. */
     fun distinctChapterNumberCount(numbers: List<Double>): Int = numbers.distinctBy { it.toFloat() }.size

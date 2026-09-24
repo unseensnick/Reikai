@@ -3,6 +3,8 @@ package reikai.domain.novel
 import reikai.domain.merge.MergedChapterOrder
 import reikai.domain.merge.MergedChapters
 import reikai.domain.merge.sourcePriority
+import reikai.domain.merge.stitchOrder
+import reikai.domain.merge.trunkOrder
 import reikai.domain.merge.unstitchedChapters
 import reikai.domain.novel.model.NovelChapter
 
@@ -40,7 +42,9 @@ object NovelChapterAggregation {
             return unstitchedChapters(chaptersByNovel.values.firstOrNull().orEmpty()) { it.id }
         }
 
-        val ranked = rank(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking)
+        val ranked = stitchOrder(rank(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking)) {
+            it.chapters.isNotEmpty()
+        }
 
         // No usable keys on the trunk -> no reliable cross-source matching, so just show its full list.
         val trunk = ranked.first()
@@ -95,8 +99,7 @@ object NovelChapterAggregation {
         memberRanking: List<Long> = emptyList(),
     ): List<Long> = rank(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking).map { it.novelId }
 
-    // Rank by the group's source priority first (a ranked source wins the trunk regardless of count),
-    // then chapter count desc, then novel id asc for a stable order.
+    // The shared trunk order, counting rows: novels have no scanlator variants to collapse.
     private fun rank(
         chaptersByNovel: Map<Long, List<NovelChapter>>,
         sourceIdByNovel: Map<Long, String>,
@@ -107,11 +110,7 @@ object NovelChapterAggregation {
             val prefRank = sourcePriority(novelId, sourceIdByNovel[novelId], preferredSourceIds, memberRanking)
             RankedSource(novelId, chapters, prefRank)
         }
-        .sortedWith(
-            compareBy<RankedSource> { it.prefRank }
-                .thenByDescending { it.chapters.size }
-                .thenBy { it.novelId },
-        )
+        .sortedWith(trunkOrder({ it.prefRank }, { it.chapters.size.toLong() }, { it.novelId }))
 
     /**
      * The cross-source identity of a chapter, or null when it has none. Prefers the normalized title

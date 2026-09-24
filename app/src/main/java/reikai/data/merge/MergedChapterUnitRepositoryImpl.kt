@@ -89,7 +89,6 @@ class MergedChapterUnitRepositoryImpl(
         val novels = contentType == ContentType.NOVELS
         database.transaction {
             if (novels) queries.deleteNovelGroup(groupId) else queries.deleteGroup(groupId)
-            if (ranking == null) queries.deleteRanking(groupId) else queries.insertRanking(groupId, ranking)
             units.forEach {
                 val unit = it.unit?.toLong()
                 val copyOrder = it.copyOrder.toLong()
@@ -98,6 +97,11 @@ class MergedChapterUnitRepositoryImpl(
                 } else {
                     queries.insert(it.chapterId, groupId, unit, copyOrder, it.chapterNumber)
                 }
+            }
+            when {
+                ranking == null -> queries.deleteRanking(groupId)
+                novels -> queries.insertNovelRanking(groupId, ranking)
+                else -> queries.insertRanking(groupId, ranking)
             }
         }
     }
