@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -29,7 +30,9 @@ import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
@@ -65,6 +68,7 @@ class NovelRecentsAdapter(
     @Assisted private val surface: RecentsSurface,
     private val sourcePreferences: ReikaiSourcePreferences,
     private val recentlyAdded: RecentlyAddedRepository,
+    private val getCustomNovelInfo: GetCustomNovelInfo,
     private val recentsUnread: RecentsUnreadRepository,
     private val getNextNovelChapter: GetNextNovelChapter,
     private val novelPreferences: NovelPreferences,
@@ -124,12 +128,18 @@ class NovelRecentsAdapter(
 
     override val addedLane: Flow<RecentsLaneRows> =
         sourcePreferences.recentsCategoryFilterFlow(surface).flatMapLatest { categories ->
-            recentlyAdded.subscribeNovels(
-                after = addedLaneCutoff(),
-                limit = ADDED_LANE_LIMIT,
-                includedCategories = categories.include,
-                excludedCategories = categories.exclude,
-            ).map { rows -> rows.map { it.toRecentsItem() } }
+            combine(
+                recentlyAdded.subscribeNovels(
+                    after = addedLaneCutoff(),
+                    limit = ADDED_LANE_LIMIT,
+                    includedCategories = categories.include,
+                    excludedCategories = categories.exclude,
+                ),
+                getCustomNovelInfo.subscribeAll(),
+            ) { rows, customInfo ->
+                val overlay = customInfo.associateBy { it.novelId }
+                rows.map { it.withCustomInfo(overlay[it.novelId]).toRecentsItem() }
+            }
         }.asLane()
 
     override val unreadEntries: Flow<Set<EntryId>> =
@@ -427,6 +437,15 @@ internal fun NovelHistoryWithRelations.toRecentsItem(): RecentsItem = RecentsIte
     lane = RecentsLane.Read(ChapterRef(EntryId.Novel(novelId), chapterId)),
     payload = this,
 )
+
+/** The novel twin of the manga overlay, which [RecentsMappingTest] pins over both. */
+internal fun RecentlyAddedNovel.withCustomInfo(custom: CustomNovelInfo?): RecentlyAddedNovel {
+    if (custom == null) return this
+    return copy(
+        title = custom.title ?: title,
+        coverData = coverData.copy(url = custom.thumbnailUrl ?: coverData.url),
+    )
+}
 
 internal fun RecentlyAddedNovel.toRecentsItem(): RecentsItem = RecentsItem(
     entryId = EntryId.Novel(novelId),

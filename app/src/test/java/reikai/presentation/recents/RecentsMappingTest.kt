@@ -11,6 +11,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.coil.NovelCover
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.reader.ChapterProgress
@@ -20,6 +21,7 @@ import reikai.presentation.components.pageProgressLabel
 import reikai.presentation.components.percentProgressLabel
 import reikai.presentation.updates.NovelUpdatesItem
 import tachiyomi.domain.history.model.HistoryWithRelations
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.model.UpdatesWithRelations
 import tachiyomi.i18n.MR
@@ -180,6 +182,23 @@ class RecentsMappingTest {
         probe.rowUi(probe.added()).chapter shouldBe null
     }
 
+    // Search matches the row's title, so an added row without the overlay cannot be found by the
+    // name every other lane shows.
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a recently added row shows the user's custom title`(probe: RecentsMappingProbe) {
+        probe.rowUi(probe.addedWithCustomInfo(title = "custom", thumbnailUrl = "cover")).title shouldBe "custom"
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a recently added row shows the user's custom cover`(probe: RecentsMappingProbe) {
+        val row = probe.rowUi(probe.addedWithCustomInfo(title = "custom", thumbnailUrl = "cover"))
+
+        probe.coverUrl(row) shouldBe "cover"
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `a row on a favorite-gated lane reports itself in the library`(probe: RecentsMappingProbe) {
@@ -237,7 +256,12 @@ interface RecentsMappingProbe {
 
     fun added(): RecentsItem
 
+    /** An added row with the user's overrides laid over it, the way the added lane does. */
+    fun addedWithCustomInfo(title: String, thumbnailUrl: String): RecentsItem
+
     fun rowUi(item: RecentsItem): RecentsRowUi
+
+    fun coverUrl(row: RecentsRowUi): String?
 
     /** What a started chapter reports, in this engine's own unit. */
     fun startedProgress(): ChapterProgress
@@ -295,7 +319,14 @@ class MangaRecentsMappingProbe : RecentsMappingProbe {
     override fun added() =
         RecentlyAddedManga(mangaId = 7, title = "t", dateAdded = 99, coverData = cover).toRecentsItem()
 
+    override fun addedWithCustomInfo(title: String, thumbnailUrl: String) =
+        RecentlyAddedManga(mangaId = 7, title = "t", dateAdded = 99, coverData = cover)
+            .withCustomInfo(CustomMangaInfo(mangaId = 7, title = title, thumbnailUrl = thumbnailUrl))
+            .toRecentsItem()
+
     override fun rowUi(item: RecentsItem) = mangaRowUi(item)
+
+    override fun coverUrl(row: RecentsRowUi) = (row.cover as MangaCover).url
 
     override fun startedProgress() = ChapterProgress.Pages(5L, 38L)
 }
@@ -352,7 +383,14 @@ class NovelRecentsMappingProbe : RecentsMappingProbe {
         coverData = cover,
     ).toRecentsItem()
 
+    override fun addedWithCustomInfo(title: String, thumbnailUrl: String) =
+        RecentlyAddedNovel(novelId = 7, title = "t", dateAdded = 99, coverData = cover)
+            .withCustomInfo(CustomNovelInfo(novelId = 7, title = title, thumbnailUrl = thumbnailUrl))
+            .toRecentsItem()
+
     override fun rowUi(item: RecentsItem) = novelRowUi(item)
+
+    override fun coverUrl(row: RecentsRowUi) = (row.cover as NovelCover).url
 
     override fun startedProgress() = ChapterProgress.Percent(5000L)
 }

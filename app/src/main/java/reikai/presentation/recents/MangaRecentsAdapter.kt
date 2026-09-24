@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -45,7 +46,9 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -64,6 +67,7 @@ class MangaRecentsAdapter(
     @Assisted private val surface: RecentsSurface,
     private val sourcePreferences: ReikaiSourcePreferences,
     private val recentlyAdded: RecentlyAddedRepository,
+    private val getCustomMangaInfo: GetCustomMangaInfo,
     private val recentsUnread: RecentsUnreadRepository,
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val downloadManager: DownloadManager,
@@ -130,12 +134,18 @@ class MangaRecentsAdapter(
     // The only lane with no model behind it: nothing rendered a newly-added feed before this surface.
     override val addedLane: Flow<RecentsLaneRows> =
         sourcePreferences.recentsCategoryFilterFlow(surface).flatMapLatest { categories ->
-            recentlyAdded.subscribeManga(
-                after = addedLaneCutoff(),
-                limit = ADDED_LANE_LIMIT,
-                includedCategories = categories.include,
-                excludedCategories = categories.exclude,
-            ).map { rows -> rows.map { it.toRecentsItem() } }
+            combine(
+                recentlyAdded.subscribeManga(
+                    after = addedLaneCutoff(),
+                    limit = ADDED_LANE_LIMIT,
+                    includedCategories = categories.include,
+                    excludedCategories = categories.exclude,
+                ),
+                getCustomMangaInfo.subscribeAll(),
+            ) { rows, customInfo ->
+                val overlay = customInfo.associateBy { it.mangaId }
+                rows.map { it.withCustomInfo(overlay[it.mangaId]).toRecentsItem() }
+            }
         }.asLane()
 
     override val unreadEntries: Flow<Set<EntryId>> =
@@ -441,6 +451,15 @@ internal fun HistoryWithRelations.toRecentsItem(): RecentsItem = RecentsItem(
     lane = RecentsLane.Read(ChapterRef(EntryId.Manga(mangaId), chapterId)),
     payload = this,
 )
+
+/** The overlay every other feed applies to its rows, so an added row reads and searches the same. */
+internal fun RecentlyAddedManga.withCustomInfo(custom: CustomMangaInfo?): RecentlyAddedManga {
+    if (custom == null) return this
+    return copy(
+        title = custom.title ?: title,
+        coverData = coverData.copy(url = custom.thumbnailUrl ?: coverData.url),
+    )
+}
 
 internal fun RecentlyAddedManga.toRecentsItem(): RecentsItem = RecentsItem(
     entryId = EntryId.Manga(mangaId),
