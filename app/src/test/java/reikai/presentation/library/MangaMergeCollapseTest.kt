@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import mihon.domain.library.model.search.QueryNode
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
@@ -217,6 +218,21 @@ class MangaMergeCollapseTest {
         val merged = result.single()
         merged.isLocal shouldBe false
         merged.badges.isLocal shouldBe false
+    }
+
+    @Test
+    fun `a merged entry is found by searching a source other than its primary`() = runTest {
+        // Member 2 has more chapters, so it is the primary; the search names member 1's source.
+        val merged = collapse(
+            listOf(item(1, source = 100L, totalChapters = 3), item(2, source = 200L, totalChapters = 10)),
+            membership = mapOf(1L to 7L, 2L to 7L),
+        ).single()
+        val fields = libraryItemQueryFields(
+            sourceKey = { it.libraryManga.manga.source.toString() },
+            fetchInterval = { null },
+            nextUpdate = { null },
+        )
+        libraryQueryMatches(QueryNode.from(sourceKeyQuery("100")), merged, fields) shouldBe true
     }
 
     @Test

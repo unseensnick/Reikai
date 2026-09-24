@@ -67,6 +67,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.category.toLongIdSet
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
+import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
@@ -413,18 +414,16 @@ class NovelLibraryViewModel(
         // shared kernels at the same point in the type chain (the manga library already builds first).
         val allItems = groups.map { group ->
             val rep = group.representative
-            // lnreader plugins mostly declare lang as a full English name ("English"); the badge wants a
-            // 2-char code like the manga side, so reduce it (codes pass through unchanged).
             val source = sourceManager.get(rep.novel.source)
-            val lang = languageCodeOf(source?.lang.orEmpty())
+            val repSource = querySource(rep.novel.source)
             val item = rep.toLibraryItem(
                 settings.badges.download,
                 settings.badges.unread,
                 settings.badges.language,
-                lang,
+                repSource.language.orEmpty(),
                 sourceBadge = settings.badges.source,
                 sourceIconUrl = source?.iconUrl,
-                sourceName = novelSourceName(rep.novel.source),
+                sourceName = repSource.name,
             )
             if (group.memberIds.size > 1) {
                 // Stamp the merge badge (group member ids) + summed downloads onto the rep.
@@ -442,6 +441,8 @@ class NovelLibraryViewModel(
                     // the sort all report the same number for a merged entry.
                     unreadCount = group.unreadCount,
                     relatedMangaIds = group.memberIds,
+                    memberSources = group.memberIds.mapNotNull { sourceByNovelId[it] }.distinct()
+                        .map { querySource(it) },
                     badges = item.badges.copy(
                         downloadCount = if (settings.badges.download) group.totalDownloadCount.toInt() else 0,
                         unreadCount = if (settings.badges.unread) group.unreadCount else 0,
@@ -652,6 +653,16 @@ class NovelLibraryViewModel(
 
     /** A novel's human-readable source name for search, or the raw slug when the plugin isn't installed. */
     private suspend fun novelSourceName(source: String): String = sourceManager.get(source)?.name ?: source
+
+    // One novel source as the search terms read it, for the row's own source and every merged member's, so
+    // the two cannot resolve a name or language differently. lnreader plugins mostly declare lang as a full
+    // English name ("English"); the badge wants a 2-char code like the manga side, so it is reduced here.
+    private suspend fun querySource(source: String) = LibraryQuerySource(
+        key = source,
+        name = novelSourceName(source).lowercase(),
+        language = languageCodeOf(sourceManager.get(source)?.lang.orEmpty()),
+        isLocal = false,
+    )
 
     private data class BadgePrefs(
         val download: Boolean,

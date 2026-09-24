@@ -62,10 +62,7 @@ fun libraryItemQueryFields(
     description = { overlay[it.id]?.description ?: it.libraryManga.manga.description },
     notes = { it.libraryManga.manga.notes },
     genre = { overlay[it.id]?.genre ?: it.libraryManga.manga.genre },
-    sourceName = { it.sourceName },
-    sourceKey = sourceKey,
-    sourceLanguage = { it.sourceLanguage },
-    isLocal = { it.isLocal },
+    sources = { item -> item.memberSources.ifEmpty { listOf(item.querySource(sourceKey(item))) } },
     // The deduplicated group counts, matching what the badges and the sort read.
     unreadCount = { it.unreadCount },
     readCount = { it.libraryManga.readCount },
@@ -80,6 +77,9 @@ fun libraryItemQueryFields(
         chapterMatches[term]?.let { ids -> item.id in ids || item.relatedMangaIds.any { it in ids } }
     },
 )
+
+/** This row's own source as the search terms read it; [key] is per content type, see [LibraryQuerySource.key]. */
+fun LibraryItem.querySource(key: String) = LibraryQuerySource(key, sourceName, sourceLanguage, isLocal)
 
 // The two custom-info rows differ only in their id field's name, so each maps onto the neutral overlay
 // here rather than either content type learning about the query kernel.

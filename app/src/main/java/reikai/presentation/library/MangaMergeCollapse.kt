@@ -122,6 +122,7 @@ object MangaMergeCollapse {
             // filter reads. The count lives on LibraryItem instead, and the filter and sort read it there.
             libraryManga = primary.libraryManga.copy(lastRead = subGroup.maxOf { it.libraryManga.lastRead }),
             relatedMangaIds = subGroup.map { it.libraryManga.manga.id },
+            memberSources = subGroup.map { it.querySource(it.libraryManga.manga.source.toString()) }.distinct(),
             badges = primary.badges.copy(
                 // Zero when the badge is off, which is how every member reports it then.
                 downloadCount = if (subGroup.any { it.badges.downloadCount > 0 }) downloads else 0,

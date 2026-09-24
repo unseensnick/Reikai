@@ -32,12 +32,11 @@ class LibraryQueryFields<T>(
     val description: (T) -> String?,
     val notes: (T) -> String?,
     val genre: (T) -> List<String>?,
-    val sourceName: (T) -> String,
-    /** The source's own identity: the numeric id for manga, the plugin slug for novels, hence String. */
-    val sourceKey: (T) -> String,
-    val sourceLanguage: (T) -> String?,
-    /** Backs `source:local`. Always false for novels, which have no local-source concept. */
-    val isLocal: (T) -> Boolean,
+    /**
+     * Every source the entry reads from: one, or each member of a merged series. A source term matches
+     * when any of them does, so a merged series is found from any of its sources, not just its lead.
+     */
+    val sources: (T) -> List<LibraryQuerySource>,
     val unreadCount: (T) -> Long,
     val readCount: (T) -> Long,
     val totalChapters: (T) -> Long,
@@ -65,6 +64,16 @@ class LibraryQueryOverlay(
     val artist: String? = null,
     val description: String? = null,
     val genre: List<String>? = null,
+)
+
+/** What the source terms (`source:`, `srcid:`, `lang:`) read about one of an entry's sources. */
+data class LibraryQuerySource(
+    /** The numeric id for manga; for novels a plugin slug, or `tachiyomi:<id>` / `ireader:<id>`. */
+    val key: String,
+    val name: String,
+    val language: String?,
+    /** Backs `source:local`. Always false for novels, which have no local-source concept. */
+    val isLocal: Boolean,
 )
 
 /**
@@ -127,11 +136,21 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
             if (value.isEmpty()) genre.isNullOrEmpty() else genre?.any { it.contains(value, true) } ?: false
         }
 
+        // An empty value asks for an absent one, which a merged series has only when every source lacks it.
         MangaField.SOURCE -> {
-            if (value.isEmpty()) fields.sourceName(row).isEmpty() else matchesSource(row, fields, value)
+            if (value.isEmpty()) fields.sources(row).all { it.name.isEmpty() } else matchesSource(row, fields, value)
         }
 
-        MangaField.SOURCE_ID -> fields.sourceKey(row).equals(value, ignoreCase = true)
+        MangaField.SOURCE_ID -> fields.sources(row).any { it.key.equals(value, ignoreCase = true) }
+
+        MangaField.LANGUAGE -> {
+            val languages = fields.sources(row).map { it.language }
+            if (value.isEmpty()) {
+                languages.all { it.isNullOrEmpty() }
+            } else {
+                languages.any { it?.contains(value, ignoreCase = true) ?: false }
+            }
+        }
 
         MangaField.CHAPTER -> if (value.isEmpty()) false else fields.matchesChapter(row, value) ?: false
 
@@ -142,10 +161,11 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
                 MangaField.ARTIST -> fields.artist(row)
                 MangaField.DESCRIPTION -> fields.description(row)
                 MangaField.NOTES -> fields.notes(row)
-                MangaField.LANGUAGE -> fields.sourceLanguage(row)
 
                 // unreachable; listed to keep the `when` exhaustive
-                MangaField.GENRE, MangaField.SOURCE, MangaField.SOURCE_ID, MangaField.CHAPTER -> null
+                MangaField.GENRE, MangaField.SOURCE, MangaField.SOURCE_ID, MangaField.LANGUAGE,
+                MangaField.CHAPTER,
+                -> null
             }
             if (value.isEmpty()) text.isNullOrEmpty() else text?.contains(value, ignoreCase = true) ?: false
         }
@@ -161,12 +181,13 @@ fun sourceKeyQuery(sourceKey: String): String = "srcid:\"$sourceKey\""
 
 /**
  * `source:` / `src:` match the source's display name, upstream's meaning unchanged, plus the `local`
- * keyword. The exact-key form is `srcid:`, which answers identically on both content types: a numeric
- * source id for manga; for novels a plugin slug, or `tachiyomi:<id>` / `ireader:<id>` for an app source.
+ * keyword. The exact-key form is `srcid:`, which answers identically on both content types; see
+ * [LibraryQuerySource.key].
  */
 private fun <T> matchesSource(row: T, fields: LibraryQueryFields<T>, value: String): Boolean =
-    fields.sourceName(row).contains(value, ignoreCase = true) ||
-        (value.equals("local", ignoreCase = true) && fields.isLocal(row))
+    fields.sources(row).any { source ->
+        source.name.contains(value, ignoreCase = true) || (value.equals("local", ignoreCase = true) && source.isLocal)
+    }
 
 private fun <T> ComparisonQueryNode.matches(row: T, fields: LibraryQueryFields<T>): Boolean {
     fun compareDates(timestamp: Long): Boolean? {

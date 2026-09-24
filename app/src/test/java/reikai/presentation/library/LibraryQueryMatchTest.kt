@@ -16,8 +16,7 @@ class LibraryQueryMatchTest {
         val title: String = "Lord of the Mysteries",
         val author: String? = "Cuttlefish",
         val genre: List<String>? = listOf("Fantasy"),
-        val sourceName: String = "novel arrow",
-        val sourceKey: String = "novelarrow",
+        val sources: List<LibraryQuerySource> = listOf(source()),
         val notes: String? = "",
         val unread: Long = 3L,
         /** Null models a novel, which has neither concept. */
@@ -36,10 +35,7 @@ class LibraryQueryMatchTest {
         description = { null },
         notes = { it.notes },
         genre = { it.genre },
-        sourceName = { it.sourceName },
-        sourceKey = { it.sourceKey },
-        sourceLanguage = { "en" },
-        isLocal = { false },
+        sources = { it.sources },
         unreadCount = { it.unread },
         readCount = { 0L },
         totalChapters = { 10L },
@@ -47,6 +43,11 @@ class LibraryQueryMatchTest {
         fetchInterval = { it.interval },
         nextUpdate = { it.nextUpdate },
         matchesChapter = { row, term -> chapterMatches[term]?.contains(row.id) },
+    )
+
+    /** A merged series led by the default source, with a local Japanese member. */
+    private val merged = Row(
+        sources = listOf(source(), source(key = "member", name = "member site", language = "ja", isLocal = true)),
     )
 
     private fun matches(query: String, row: Row = Row()) =
@@ -61,10 +62,7 @@ class LibraryQueryMatchTest {
         description = fields.description,
         notes = fields.notes,
         genre = { if (it.id == 1L) listOf("Renamed Genre") else it.genre },
-        sourceName = fields.sourceName,
-        sourceKey = fields.sourceKey,
-        sourceLanguage = fields.sourceLanguage,
-        isLocal = fields.isLocal,
+        sources = fields.sources,
         unreadCount = fields.unreadCount,
         readCount = fields.readCount,
         totalChapters = fields.totalChapters,
@@ -101,12 +99,58 @@ class LibraryQueryMatchTest {
 
     @Test
     fun `a source's own query finds entries on that source, whatever its key holds`() {
-        matches(sourceKeyQuery("ireader:42"), Row(sourceKey = "ireader:42")) shouldBe true
+        matches(sourceKeyQuery("ireader:42"), Row(sources = listOf(source(key = "ireader:42")))) shouldBe true
     }
 
     @Test
     fun `a source's own query leaves a source whose key only begins the same way`() {
-        matches(sourceKeyQuery("ireader:4"), Row(sourceKey = "ireader:42")) shouldBe false
+        matches(sourceKeyQuery("ireader:4"), Row(sources = listOf(source(key = "ireader:42")))) shouldBe false
+    }
+
+    @Test
+    fun `a merged series is found from a source other than its lead`() {
+        matches(sourceKeyQuery("member"), merged) shouldBe true
+    }
+
+    @Test
+    fun `excluding a merged series' member source excludes the series`() {
+        matches("-srcid:member", merged) shouldBe false
+    }
+
+    @Test
+    fun `a merged series matches a member's source name`() {
+        matches("source:\"member site\"", merged) shouldBe true
+    }
+
+    @Test
+    fun `a merged series matches a plain word naming a member's source`() {
+        matches("\"member site\"", merged) shouldBe true
+    }
+
+    @Test
+    fun `a merged series with a local member matches source local`() {
+        matches("source:local", merged) shouldBe true
+    }
+
+    @Test
+    fun `a merged series matches a member's language`() {
+        matches("lang:ja", merged) shouldBe true
+    }
+
+    @Test
+    fun `an absent language needs every source of a merged series to lack one`() {
+        matches("lang:\"\"", Row(sources = listOf(source(language = ""), source(key = "b")))) shouldBe false
+    }
+
+    @Test
+    fun `a merged series whose sources all lack a language matches an absent one`() {
+        matches("lang:\"\"", Row(sources = listOf(source(language = ""), source(key = "b", language = null)))) shouldBe
+            true
+    }
+
+    @Test
+    fun `an absent source name needs every source of a merged series to lack one`() {
+        matches("source:\"\"", Row(sources = listOf(source(name = ""), source(key = "b")))) shouldBe false
     }
 
     @Test
@@ -208,6 +252,15 @@ class LibraryQueryMatchTest {
     fun `date comparisons parse and compare`() {
         matches("added<2030-01-01") shouldBe true
         matches("added>2030-01-01") shouldBe false
+    }
+
+    private companion object {
+        fun source(
+            key: String = "novelarrow",
+            name: String = "novel arrow",
+            language: String? = "en",
+            isLocal: Boolean = false,
+        ) = LibraryQuerySource(key, name, language, isLocal)
     }
 
     @Test

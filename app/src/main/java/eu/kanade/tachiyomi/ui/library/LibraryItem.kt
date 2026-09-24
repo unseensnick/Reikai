@@ -6,6 +6,7 @@ import exh.search.Namespace
 import exh.search.QueryComponent
 import exh.search.Text
 import reikai.domain.entry.EntryId
+import reikai.presentation.library.LibraryQuerySource
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.model.Source
 
@@ -37,6 +38,9 @@ data class LibraryItem(
     // from the AST's lowercased source name, so they stay separate rather than one changing the other.
     // Non-null only for metadata/gallery sources, which is also what selects the tag-search path.
     val metadataSourceName: String? = null,
+    // RK: every member's source on a merged series, for the source search terms. Empty when not merged,
+    // where the row's own source fields answer instead.
+    val memberSources: List<LibraryQuerySource> = emptyList(),
 ) {
     val id: Long = libraryManga.id
 
