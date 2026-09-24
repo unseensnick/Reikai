@@ -119,6 +119,7 @@ fun Screen.RecentsScreen(
     // Collected, never read as `value`: shared while subscribed, it answers its seed to nobody.
     val lastUpdated by engine.lastUpdated.collectAsStateWithLifecycle()
     val filterActive by engine.filterActive.collectAsState()
+    val chipShowsManga by engine.chipShowsManga.collectAsState()
     val selection by engine.selection.collectAsState()
     val swipeActions by engine.swipeActions.collectAsState()
     // Null until the assembly catches up with the chip, which is drawn as loading.
@@ -303,6 +304,7 @@ fun Screen.RecentsScreen(
     if (filterSheetOpen) {
         RecentsFilterSheet(
             surface = engine.surface,
+            showsScanlatorFilter = chipShowsManga,
             onDismissRequest = { filterSheetOpen = false },
         )
     }

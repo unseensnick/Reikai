@@ -261,6 +261,14 @@ class RecentsEngine(
     }
 
     /**
+     * Whether the chip shows a manga provider. Scanlator exclusion reaches nothing else, since a novel
+     * chapter has no scanlator, so the filter sheet hides its switch off this and [filterActive] ignores it.
+     */
+    val chipShowsManga: StateFlow<Boolean> by lazy {
+        contentType.map(::showsManga).stateIn(viewModelScope, SharingStarted.Eagerly, showsManga(contentType.value))
+    }
+
+    /**
      * Whether a filter is narrowing this surface, so an empty feed can say why. Asked of the mode on
      * screen rather than of every mode the surface renders: a surface drawing several of them always
      * has the updated lane somewhere, which would report a history feed as filtered by a filter that
@@ -272,7 +280,7 @@ class RecentsEngine(
             sourcePreferences.recentsCategoryFilterFlow(surface).map { it.active },
             rawChapterFilters.map { it.isActive },
             updatesPreferences.filterExcludedScanlators.changes(),
-            contentType.map { chip -> activeIndices(chip).any { providers[it].contentType == ContentType.MANGA } },
+            chipShowsManga,
             mode,
         ) { byCategory, byChapterState, byScanlator, chipShowsManga, mode ->
             recentsFilterActive(byCategory, byChapterState, byScanlator, chipShowsManga, mode)
@@ -745,6 +753,9 @@ class RecentsEngine(
 
     private fun activeIndices(chip: ContentType): List<Int> =
         providers.indices.filter { chip == ContentType.ALL || providers[it].contentType == chip }
+
+    private fun showsManga(chip: ContentType): Boolean =
+        activeIndices(chip).any { providers[it].contentType == ContentType.MANGA }
 }
 
 /**

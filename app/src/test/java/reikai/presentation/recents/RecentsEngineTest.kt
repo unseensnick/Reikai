@@ -880,6 +880,26 @@ class RecentsEngineTest {
         ) shouldBe false
     }
 
+    // The filter sheet draws the scanlator switch off this, so it is hidden exactly where the rule
+    // above says the switch reaches nothing.
+
+    @Test
+    fun `a novels-only chip shows no manga`() = runTest {
+        val engine = engine(
+            listOf(provider(ContentType.MANGA), provider(ContentType.NOVELS)),
+            chip = ContentType.NOVELS,
+        )
+
+        settled(engine.chipShowsManga) shouldBe false
+    }
+
+    @Test
+    fun `the All chip shows manga`() = runTest {
+        val engine = engine(listOf(provider(ContentType.MANGA), provider(ContentType.NOVELS)))
+
+        settled(engine.chipShowsManga) shouldBe true
+    }
+
     /**
      * The rule and the filtering must ask one question. They agree on all four views today, so this
      * is what would catch them diverging: a view that judged rows it reported as unfiltered would

@@ -41,11 +41,14 @@ import tachiyomi.presentation.core.util.collectAsState as collectAsPrefState
  * The filter sheet every recents surface opens. Every control is drawn from every mode, tabbed by what
  * it acts on, so a setting is never somewhere you must switch section to reach. Each tab states the
  * sections it reaches, which is the scope the old sheet stated by hiding things. The selection it
- * edits belongs to [surface], so two separate tabs cannot move each other's filters.
+ * edits belongs to [surface], so two separate tabs cannot move each other's filters. The one control
+ * hidden is the scanlator switch when the chip shows no manga ([showsScanlatorFilter]): that is a
+ * content type lacking the capability, not a mode, and a novel chapter has no scanlator.
  */
 @Composable
 fun RecentsFilterSheet(
     surface: RecentsSurface,
+    showsScanlatorFilter: Boolean,
     onDismissRequest: () -> Unit,
     initialTab: Int = 0,
 ) {
@@ -69,7 +72,7 @@ fun RecentsFilterSheet(
         ) {
             when (page) {
                 0 -> GeneralPage(viewModel)
-                1 -> ChaptersPage(viewModel)
+                1 -> ChaptersPage(viewModel, showsScanlatorFilter)
                 2 -> UpdatesPage(viewModel)
             }
         }
@@ -85,10 +88,10 @@ private fun ColumnScope.GeneralPage(viewModel: UpdatesSettingsViewModel) {
 
 /** The chapter-state filters, which narrow the updated lane and both combined modes. */
 @Composable
-private fun ColumnScope.ChaptersPage(viewModel: UpdatesSettingsViewModel) {
+private fun ColumnScope.ChaptersPage(viewModel: UpdatesSettingsViewModel, showsScanlatorFilter: Boolean) {
     ScopeCaption(stringResource(MR.strings.recents_filter_scope_chapters))
     ChapterStateFilters(viewModel)
-    ExcludedScanlatorsSwitch(viewModel)
+    if (showsScanlatorFilter) ExcludedScanlatorsSwitch(viewModel)
 }
 
 /** What only the updated lane has: how its several-chapters-in-a-day rows are drawn. */
