@@ -319,10 +319,15 @@ class LnPluginHost(
                             slot.mutex.unlock()
                         }
                     }
-                    if (!anyLive) {
-                        synchronized(sweeperLock) { sweeperJob = null }
-                        return@launch
+                    // Re-checked under the lock ensureSweeper takes: an engine created after this pass
+                    // read its slot saw this job still active and started no sweeper of its own, so
+                    // exiting on the pass alone left that engine and its thread open for good.
+                    val exiting = !anyLive && synchronized(sweeperLock) {
+                        val nothingLive = (pluginSlots.values + loaderSlot).none { it.qjs != null }
+                        if (nothingLive) sweeperJob = null
+                        nothingLive
                     }
+                    if (exiting) return@launch
                 }
             }
         }
