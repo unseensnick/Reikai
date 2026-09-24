@@ -27,9 +27,17 @@ data class RecentsChapterFilters(
      */
     fun matches(state: RecentsChapterState, isDownloaded: () -> Boolean): Boolean =
         applyFilter(unread) { !state.read } &&
-            applyFilter(started) { state.hasStarted } &&
+            matchesStarted(state) &&
             applyFilter(bookmarked) { state.bookmark } &&
             applyFilter(downloaded, isDownloaded)
+
+    /**
+     * Mihon's Started, as the updated lane's query asks it: in progress, or not yet opened, and either
+     * answer is about an unread chapter, so a finished one passes neither. Negating one predicate cannot
+     * say that. Pinned against the query by RecentsStartedConformanceTest.
+     */
+    private fun matchesStarted(state: RecentsChapterState): Boolean =
+        started == TriState.DISABLED || (!state.read && applyFilter(started) { state.progress?.hasStarted == true })
 
     companion object {
         val NONE = RecentsChapterFilters()

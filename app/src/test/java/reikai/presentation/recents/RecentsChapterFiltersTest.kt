@@ -85,17 +85,13 @@ class RecentsChapterFiltersTest {
         RecentsChapterFilters(started = TriState.ENABLED_IS).keeps(state(progress = probe.at(1))) shouldBe true
     }
 
-    /**
-     * A read row keeps no progress (that is a display rule: a finished chapter says nothing about how
-     * far in you are), so reading the stored value alone would report every finished chapter as never
-     * started, which is the one thing "started" cannot mean.
-     */
+    /** Started is Mihon's in-progress question, which the updated lane's query asks the same way. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("startedProbes")
-    fun `a chapter read to the end has started`(probe: StartedProbe) {
+    fun `a chapter read to the end is not in progress`(probe: StartedProbe) {
         val read = chapterState(read = true, bookmark = false, progress = probe.at(9))
 
-        RecentsChapterFilters(started = TriState.ENABLED_IS).keeps(read) shouldBe true
+        RecentsChapterFilters(started = TriState.ENABLED_IS).keeps(read) shouldBe false
     }
 
     // The bulk bar's two predicates. Every unread row carries a progress value, zero included, so a
