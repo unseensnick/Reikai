@@ -167,11 +167,15 @@ class RecentsEngine(
     val assembled: StateFlow<RecentsAssembled?> by lazy {
         combine(
             contentType,
-            // The memo is emptied here rather than on the assembly, which folds the search query in as
-            // well: a keystroke must not throw away resolutions, while a chapter write must, because
-            // it re-runs the lane queries and the target it resolved to may now be read.
-            combine(providers.map(::collectedLanes)) { it.toList() }
-                .onEach { mutableTargets.value = emptyMap() },
+            // The memo is emptied on a chapter write, since the target a row resolved to may now be read.
+            // Not on a lane emission, which a download tick causes too, and not on a keystroke. A write
+            // re-sends the same lanes, which the distinct check drops, so it costs no assembly pass.
+            combine(
+                combine(providers.map(::collectedLanes)) { it.toList() },
+                merge(*providers.map { it.chapterWrites }.toTypedArray())
+                    .onEach { mutableTargets.value = emptyMap() },
+            ) { lanes, _ -> lanes }
+                .distinctUntilChanged(),
             // Every provider's, not just the active ones': the keys are EntryIds and group ids are
             // unique across both content types, so one map serves whatever the chip ends up showing.
             combine(providers.map { it.membership }) { maps -> maps.fold(emptyMap<EntryId, Long>()) { a, b -> a + b } },

@@ -1290,16 +1290,33 @@ class RecentsEngineTest {
         engine.targets.value shouldBe mapOf(row.lane to target)
     }
 
+    /**
+     * A lane re-emits on every download tick, which says nothing about whether a target was read, and
+     * clearing on it re-resolved every drawn row several times a second while a download ran.
+     */
     @Test
-    fun `a lane re-emission drops the resolved rows, because the target may now be read`() = runTest {
+    fun `a lane re-emission with no chapter write keeps the resolved rows`() = runTest {
         val row = readRow(manga1, chapterId = 5)
-        val fake = resolvingProvider(row, targetRow(ref(manga1, 2), readState(read = false)))
+        val target = targetRow(ref(manga1, 2), readState(read = false))
+        val fake = resolvingProvider(row, target)
         val engine = resolvedFeed(fake, row)
 
         fake.readLaneRows.value = rows(readRow(manga1, chapterId = 5, at = 200))
         engine.assemblyWhere { assembly -> assembly.items.any { it.timestamp == 200L } }
 
-        engine.targets.value shouldBe emptyMap()
+        engine.targets.value shouldBe mapOf(row.lane to target)
+    }
+
+    @Test
+    fun `a chapter write drops the resolved rows, because the target may now be read`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val fake = resolvingProvider(row, targetRow(ref(manga1, 2), readState(read = false)))
+        val engine = resolvedFeed(fake, row)
+        fake.awaitChapterWriteWatcher()
+
+        fake.writeChapter()
+
+        engine.targets.first { it.isEmpty() } shouldBe emptyMap()
     }
 
     @Test
@@ -1535,6 +1552,18 @@ private class FakeRecentsProvider(
     // Named apart from the property on purpose: a same-named constructor parameter reads back as the
     // property here, which is null while the object is still being built.
     override val unreadEntries: Flow<Set<EntryId>> = flowOf(unread)
+
+    private val chapterWriteSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+    override val chapterWrites: Flow<Unit> = chapterWriteSignal.onStart { emit(Unit) }
+
+    /** A chapter or stitch write, reported the way the database's subscription reports one. */
+    fun writeChapter() {
+        chapterWriteSignal.tryEmit(Unit)
+    }
+
+    suspend fun awaitChapterWriteWatcher() {
+        chapterWriteSignal.subscriptionCount.first { it > 0 }
+    }
 
     override fun rowUi(item: RecentsItem): RecentsRowUi =
         EMPTY_RECENTS_ROW.copy(title = titles[item.entryId].orEmpty(), state = states[item.entryId])

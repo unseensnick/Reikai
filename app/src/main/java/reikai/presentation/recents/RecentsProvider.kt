@@ -63,6 +63,13 @@ interface RecentsProvider : RecentsBehavior {
      */
     val unreadEntries: Flow<Set<EntryId>>
 
+    /**
+     * Emits whenever this type's chapter data may have changed: a chapter row or the merge stitch. It
+     * is what invalidates a resolved target, which a lane emission cannot do, since a lane re-emits on
+     * every download tick as well as on a write.
+     */
+    val chapterWrites: Flow<Unit>
+
     /** When this type's library last finished updating. Each type has its own update job and key. */
     val lastUpdated: Flow<Long>
 

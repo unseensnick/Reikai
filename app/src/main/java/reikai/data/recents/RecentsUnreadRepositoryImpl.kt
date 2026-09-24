@@ -1,5 +1,6 @@
 package reikai.data.recents
 
+import app.cash.sqldelight.coroutines.asFlow
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -26,4 +27,9 @@ class RecentsUnreadRepositoryImpl(
         database.recentsUnreadQueries.getNovelIdsWithUnread()
             .subscribeToList()
             .map { it.toSet() }
+
+    // asFlow hands over the query on each write without running it, and nothing here runs it either.
+    override fun mangaChapterWrites(): Flow<Unit> = database.recentsUnreadQueries.mangaChapterWrites().asFlow().map { }
+
+    override fun novelChapterWrites(): Flow<Unit> = database.recentsUnreadQueries.novelChapterWrites().asFlow().map { }
 }

@@ -21,3 +21,19 @@ getNovelIdsWithUnread:
 SELECT DISTINCT novel_chapters.novel_id AS novelId
 FROM novel_chapters
 WHERE novel_chapters.read = 0;
+
+-- A write signal per content type, for the recents surface's continue-reading memo: a subscription is
+-- told of every write to the tables a query names, so these two exist for their FROM lists, covering
+-- the chapter rows a target is read from and the stitch a merged one is resolved over. The caller
+-- never runs them, which is why the select is only something valid to name the tables with.
+mangaChapterWrites:
+SELECT chapters._id
+FROM chapters
+JOIN merged_chapter_unit ON merged_chapter_unit.chapter_id = chapters._id
+LIMIT 1;
+
+novelChapterWrites:
+SELECT novel_chapters._id
+FROM novel_chapters
+JOIN merged_novel_chapter_unit ON merged_novel_chapter_unit.chapter_id = novel_chapters._id
+LIMIT 1;

@@ -141,6 +141,8 @@ class MangaRecentsAdapter(
     override val unreadEntries: Flow<Set<EntryId>> =
         recentsUnread.subscribeMangaIdsWithUnread().map { ids -> ids.mapTo(HashSet(), EntryId::Manga) }
 
+    override val chapterWrites: Flow<Unit> = recentsUnread.mangaChapterWrites()
+
     override val lastUpdated: Flow<Long> = libraryPreferences.lastUpdatedTimestamp.changes()
 
     override val updating: Flow<Boolean> = LibraryUpdateJob.isRunningFlow(application)

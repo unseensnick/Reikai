@@ -100,13 +100,14 @@ The key is the lane rather than the bare chapter ref because updated rows in the
 too (their burst's first unread), and a read row and an updated row naming one chapter resolve by
 different rules.
 
-The memo is emptied when the lane data changes rather than when the assembly emits. The assembly folds
-the search query in with the lanes, and the lane combination is already its own sub-flow, so the clear
-hangs there and a keystroke leaves the memo alone. Hanging it on the lanes is also what invalidates a
-row after its chapter is marked read: the write lands, the lane queries re-run, the memo empties. The
-history views do re-emit on a chapter write, confirmed on device: marking a row's target read moves
-the row straight on to the next chapter. A mode switch empties it too, so a memo filled in Grouped
-cannot answer for a History row, which is about its record.
+The memo is emptied on a chapter write, told by each provider's `chapterWrites` signal: a subscription
+on a query naming that type's chapter table and its stitch table, which the database notifies on every
+write to either and which is never itself run. It used to be emptied on every lane emission instead,
+which was wrong twice over: the manga updated lane re-emits on every download tick, so a running
+download re-resolved every drawn row several times a second, and a lane emission is not what says a
+target was read. A keystroke leaves the memo alone, and a write re-sends the same lanes, which a
+distinct check drops so it costs no assembly pass. A mode switch empties it too, so a memo filled in
+Grouped cannot answer for a History row, which is about its record.
 
 ### The row and the bar read it
 
