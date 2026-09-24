@@ -695,17 +695,15 @@
     var enc = raw.bodyBase64 || "";
     var resp = new Uint8Array(b64.length(enc));
     b64.decode(enc, resp, 0);
+    return decodeGrpcWebBody(root.lookupType(protoInit.responseType), resp);
+  }
+
+  // The decoded message itself, as LNReader's fetchProto returns it (refs/lnreader-main
+  // src/plugins/helpers/fetch.ts): plugins switch on numeric enums, and toObject turned them into names.
+  function decodeGrpcWebBody(RespT, resp) {
     if (resp.length < 5) throw new Error("Empty gRPC-web response");
     var rlen = (resp[1] << 24) | (resp[2] << 16) | (resp[3] << 8) | resp[4];
-    var RespT = root.lookupType(protoInit.responseType);
-    return RespT.toObject(RespT.decode(resp.subarray(5, 5 + rlen)), {
-      longs: String,
-      enums: String,
-      bytes: String,
-      defaults: true,
-      arrays: true,
-      objects: true,
-    });
+    return RespT.decode(resp.subarray(5, 5 + rlen));
   }
 
   // -- @libs/storage shim -----------------------------------------------------
@@ -994,6 +992,8 @@
 
   globalThis.__lnLoadPlugin = loadPlugin;
   globalThis.__lnCallMethod = callMethod;
+  // Reached only by HeadlessJsIntegrationTest, which has no gRPC-web server to fetch from.
+  globalThis.__lnDecodeGrpcWebBody = decodeGrpcWebBody;
   log(
     "info",
     "lnhost headless runtime ready; vendor present: cheerio=" +

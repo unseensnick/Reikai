@@ -105,20 +105,8 @@ class LnPluginHost(
     private val hostScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var sweeperJob: Job? = null
 
-    // Vendor bundles + runtime, read from assets once and evaluated into every engine, in order.
-    // headless.js last: it wires the shims over the vendor globals.
-    private val runtimeScripts: List<String> by lazy {
-        listOf(
-            "lnhost/vendor/dayjs.min.js",
-            "lnhost/vendor/htmlparser2.min.js",
-            "lnhost/vendor/cheerio.min.js",
-            // protobuf powers @libs/fetch's fetchProto for gRPC-web sources e.g. WuxiaWorld.
-            "lnhost/vendor/protobuf.min.js",
-            // @noble/ciphers AES-GCM, backs @libs/aes (wtrlab decrypts chapter bodies with it).
-            "lnhost/vendor/noble-ciphers.min.js",
-            "lnhost/headless.js",
-        ).map(::asset)
-    }
+    // Read from assets once and evaluated into every engine, in order.
+    private val runtimeScripts: List<String> by lazy { RUNTIME_ASSETS.map(::asset) }
 
     /** Create the slot's engine, load the runtime, and replay the plugin load if the slot has one.
      *  Caller must hold the slot's mutex. */
@@ -410,6 +398,18 @@ class LnPluginHost(
         // re-creates it and replays the plugin load. Mirrors tsundoku's 60s instance timeout.
         private const val IDLE_CLOSE_MS = 60_000L
         private const val SWEEP_INTERVAL_MS = 30_000L
+
+        // headless.js last: it wires the shims over the vendor globals.
+        internal val RUNTIME_ASSETS = listOf(
+            "lnhost/vendor/dayjs.min.js",
+            "lnhost/vendor/htmlparser2.min.js",
+            "lnhost/vendor/cheerio.min.js",
+            // protobuf powers @libs/fetch's fetchProto for gRPC-web sources e.g. WuxiaWorld.
+            "lnhost/vendor/protobuf.min.js",
+            // @noble/ciphers AES-GCM, backs @libs/aes (wtrlab decrypts chapter bodies with it).
+            "lnhost/vendor/noble-ciphers.min.js",
+            "lnhost/headless.js",
+        )
 
         val JSON: Json = Json {
             ignoreUnknownKeys = true

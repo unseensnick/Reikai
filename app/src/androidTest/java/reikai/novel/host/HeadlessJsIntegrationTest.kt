@@ -4,8 +4,10 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.cash.quickjs.QuickJs
+import com.dokar.quickjs.binding.function
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import okhttp3.Request
@@ -18,6 +20,7 @@ import reikai.novel.source.buildOptions
 import reikai.novel.source.defaultFilterValues
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import com.dokar.quickjs.QuickJs as DokarQuickJs
 
 /**
  * On-device integration test for the headless QuickJS stack, not a CI test: it is network-dependent
@@ -270,6 +273,41 @@ class HeadlessJsIntegrationTest {
         // Number marshalling: tolerate Int/Long/Double across the JNI boundary.
         val product = js.evaluate<Any?>("6 * 7").toString()
         assertTrue("expected 42, got '$product'", product == "42" || product == "42.0")
+    }
+
+    /**
+     * fetchProto hands the decoded message over as LNReader does, so an enum stays a number: WuxiaWorld
+     * switches on the numeric status and filed every novel as Completed when it arrived as a name.
+     */
+    @Test
+    fun grpcWebBodyKeepsEnumsNumeric() = runBlocking {
+        val q = DokarQuickJs.create(Dispatchers.IO)
+        try {
+            q.function("__lnLog") { null }
+            q.evaluate<Any?>("(function(){globalThis.self=globalThis;globalThis.window=globalThis;})()")
+            LnPluginHost.RUNTIME_ASSETS.forEach { path ->
+                q.evaluate<Any?>(context.assets.open(path).bufferedReader().use { it.readText() })
+            }
+            val status = q.evaluate<String>(
+                """
+                (function () {
+                  var root = protobuf.parse(
+                    'syntax = "proto3"; enum Status { Finished = 0; Active = 1; } message Item { Status status = 1; }'
+                  ).root;
+                  var Item = root.lookupType("Item");
+                  var msg = Item.encode({ status: 1 }).finish();
+                  var framed = new Uint8Array(5 + msg.length);
+                  framed[4] = msg.length;
+                  framed.set(msg, 5);
+                  var status = globalThis.__lnDecodeGrpcWebBody(Item, framed).status;
+                  return typeof status + ":" + status;
+                })()
+                """.trimIndent(),
+            )
+            assertEquals("number:1", status)
+        } finally {
+            q.close()
+        }
     }
 
     /**

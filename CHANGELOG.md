@@ -320,6 +320,7 @@ every release now also ships a foss build with neither in it.
 - **A new novel chapter numbered like one you have already read now arrives read, when the duplicate-chapter setting asks for it, and is no longer announced or downloaded as new.** The setting only reached manga before.
 - **A novel chapter its source moved to a new address no longer comes back as new in update notifications, or downloads again.**
 - **Covers and chapter pictures from light-novel sources that ask for their own image headers now load, in both reading modes and in downloads.** The WebView reading mode also reuses the pictures the text mode already downloaded.
+- **Ongoing novels from some light-novel sources no longer show as Completed, and library updates no longer skip them.** Refreshing a novel corrects the status it was saved with.
 
 ### Browse & sources
 
