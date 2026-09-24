@@ -4,7 +4,7 @@ import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.HttpException
-import reikai.presentation.migrate.flow.runCatchingCancellable
+import reikai.util.runCatchingCancellable
 import tachiyomi.domain.track.model.Track
 
 /**

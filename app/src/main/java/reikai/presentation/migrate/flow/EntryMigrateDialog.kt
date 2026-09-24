@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.update
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR

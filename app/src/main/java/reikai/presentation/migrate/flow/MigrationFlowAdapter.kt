@@ -3,23 +3,12 @@ package reikai.presentation.migrate.flow
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.migrate.PickMember
 import tachiyomi.domain.source.model.Source
-
-/** [runCatching] that rethrows [CancellationException]: the flow's search/commit coroutines must die
- *  on cancellation instead of reporting a cancelled call as "no match" or a row failure. */
-internal inline fun <T> runCatchingCancellable(block: () -> T): Result<T> = try {
-    Result.success(block())
-} catch (e: CancellationException) {
-    throw e
-} catch (e: Throwable) {
-    Result.failure(e)
-}
 
 /**
  * Content-type-neutral data flags for the migration confirm dialog. Both per-type enums carry the

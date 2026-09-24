@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import reikai.domain.entry.EntryId
+import reikai.util.runCatchingCancellable
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 

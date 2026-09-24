@@ -124,6 +124,7 @@ import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
@@ -353,9 +354,7 @@ class NovelDetailsViewModel(
 
     private fun resolveSource() {
         viewModelScope.launchIO {
-            try {
-                installer.ensureLoaded()
-            } catch (_: Throwable) {}
+            runCatchingCancellable { installer.ensureLoaded() }
             val resolved = sourceManager.get(sourceId)
             if (resolved == null) {
                 if (state.value !is NovelDetailsState.Loaded) {
@@ -434,7 +433,7 @@ class NovelDetailsViewModel(
             siblingSources.value = emptyMap()
             return emptyList()
         }
-        runCatching { installer.ensureLoaded() }
+        runCatchingCancellable { installer.ensureLoaded() }
         val resolved = HashMap<Long, NovelSource>()
         val chips = mutableListOf<EntryMergeSource>()
         for (id in ids) {
@@ -685,7 +684,7 @@ class NovelDetailsViewModel(
         val src = source ?: return // defer until resolveSource sets it
         firstFetchTried = true
         viewModelScope.launchIO {
-            runCatching { fetchAndSync(src, existing) }.onFailure { e ->
+            runCatchingCancellable { fetchAndSync(src, existing) }.onFailure { e ->
                 if (state.value !is NovelDetailsState.Loaded) {
                     state.value = NovelDetailsState.Failed(with(context) { e.formattedMessage })
                 }
@@ -756,6 +755,8 @@ class NovelDetailsViewModel(
                         novelDownloadManager = downloadManager,
                     )
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Throwable) {
             } finally {
                 state.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = false) ?: it }
@@ -970,7 +971,7 @@ class NovelDetailsViewModel(
         val curPage = loaded.pages.getOrNull(loaded.pageIndex)?.toLongOrNull() ?: return
         if (curPage > 1L && curPage !in walkFrom..newTotalPages) {
             val key = curPage.toString()
-            runCatching {
+            runCatchingCancellable {
                 src.parsePage(updated.url, key)?.chapters?.takeIf { it.isNotEmpty() }?.let {
                     syncChaptersWithNovelSource(
                         it,

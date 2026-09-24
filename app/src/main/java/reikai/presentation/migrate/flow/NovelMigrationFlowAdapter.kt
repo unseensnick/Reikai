@@ -29,6 +29,7 @@ import reikai.novel.source.SmartNovelSearchEngine
 import reikai.novel.source.langCode
 import reikai.presentation.migrate.PickMember
 import reikai.presentation.migrate.memberSubtitle
+import reikai.util.runCatchingCancellable
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.library.service.LibraryPreferences

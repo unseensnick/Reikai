@@ -5,6 +5,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
+import reikai.util.runCatchingCancellable
 import tachiyomi.data.Database
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -31,9 +32,9 @@ suspend fun walkNovelPages(
     if (toPage <= 1L) return walked
     for (p in maxOf(fromPage, 1L)..toPage) {
         val key = p.toString()
-        val chapters = runCatching { source.parsePage(novel.url, key)?.chapters }.getOrNull().orEmpty()
+        val chapters = runCatchingCancellable { source.parsePage(novel.url, key)?.chapters }.getOrNull().orEmpty()
         if (chapters.isNotEmpty()) {
-            runCatching {
+            runCatchingCancellable {
                 syncChaptersWithNovelSource(
                     chapters,
                     novel,

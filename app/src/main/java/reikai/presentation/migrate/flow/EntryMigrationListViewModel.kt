@@ -31,6 +31,7 @@ import reikai.domain.entry.EntryId
 import reikai.presentation.migrate.flow.MigratingEntryRow.Acceptance
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
 /** Sources probed at once while ranking one row's matches by chapter count. */
