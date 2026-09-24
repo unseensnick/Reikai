@@ -118,17 +118,10 @@ object NovelChapterAggregation {
      * falls back to the recognized chapter number for numeric-only names. What the stitch pairs sources'
      * chapters on before it places the rest by position.
      */
-    fun matchKey(chapter: NovelChapter): String? = matchKey(chapter.name, chapter.chapterNumber)
-
-    /**
-     * Value-based overload, for callers that hold a chapter's fields without the row (the match-key
-     * reconciliation reads them straight out of SQL). Keeps one definition of the identity rather
-     * than a second copy that can drift.
-     */
-    fun matchKey(name: String, chapterNumber: Double): String? {
-        val title = normalizedTitle(name)
+    fun matchKey(chapter: NovelChapter): String? {
+        val title = normalizedTitle(chapter.name)
         if (title.isNotEmpty()) return "$TITLE_KEY_PREFIX$title"
-        if (chapterNumber > 0.0) return "n:$chapterNumber"
+        if (chapter.chapterNumber > 0.0) return "n:${chapter.chapterNumber}"
         return null
     }
 

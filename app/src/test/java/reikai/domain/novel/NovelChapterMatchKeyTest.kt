@@ -13,43 +13,34 @@ class NovelChapterMatchKeyTest {
 
     @Test
     fun `the novel key ignores the chapter-number prefix in a title`() {
-        val fromOneSource = NovelChapterAggregation.matchKey("Chapter 12: The Duel", 12.0)
-        val fromAnother = NovelChapterAggregation.matchKey("12. The Duel", 12.0)
+        val fromOneSource = NovelChapterAggregation.matchKey(chapter("Chapter 12: The Duel", 12.0))
+        val fromAnother = NovelChapterAggregation.matchKey(chapter("12. The Duel", 12.0))
 
         fromOneSource shouldBe fromAnother
     }
 
     @Test
     fun `the novel key falls back to the number for a numeric-only title`() {
-        NovelChapterAggregation.matchKey("42", 42.0) shouldBe "n:42.0"
+        NovelChapterAggregation.matchKey(chapter("42", 42.0)) shouldBe "n:42.0"
     }
 
     @Test
     fun `a novel chapter with neither a title nor a number has no identity`() {
-        NovelChapterAggregation.matchKey("", 0.0).shouldBeNull()
+        NovelChapterAggregation.matchKey(chapter("", 0.0)).shouldBeNull()
     }
 
-    @Test
-    fun `the value overload matches the row overload`() {
-        val name = "Chapter 3: Homecoming"
-        val number = 3.0
-
-        NovelChapterAggregation.matchKey(name, number) shouldBe
-            NovelChapterAggregation.matchKey(
-                NovelChapter(
-                    id = 1,
-                    novelId = 1,
-                    url = "url",
-                    name = name,
-                    read = false,
-                    bookmark = false,
-                    lastTextProgress = 0,
-                    chapterNumber = number,
-                    sourceOrder = 0,
-                    dateFetch = 0,
-                    dateUpload = 0,
-                    page = "",
-                ),
-            )
-    }
+    private fun chapter(name: String, number: Double) = NovelChapter(
+        id = 1,
+        novelId = 1,
+        url = "url",
+        name = name,
+        read = false,
+        bookmark = false,
+        lastTextProgress = 0,
+        chapterNumber = number,
+        sourceOrder = 0,
+        dateFetch = 0,
+        dateUpload = 0,
+        page = "",
+    )
 }
