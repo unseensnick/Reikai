@@ -5,17 +5,20 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import reikai.presentation.library.novels.NovelMergeCollapse
+import reikai.presentation.library.novels.toLibraryItem
+import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.Source
 
 /**
- * A merged group's unread and download counts, pinned once over both library collapses. Group 7 holds
- * entries 1 (leading, the most chapters) and 2; group 8 holds 3 and 4 and is always stitched, so the
- * stitched maps are never empty and an absent group 7 means it has not been stitched yet.
+ * A merged group's counts, pinned once over both library collapses. Group 7 holds entries 1 (leading,
+ * the most chapters, nothing read or bookmarked) and 2; group 8 holds 3 and 4 and is always stitched,
+ * so the stitched maps are never empty and an absent group 7 means it has not been stitched yet.
  */
 class MergeGroupCountsConformanceTest {
 
@@ -23,25 +26,65 @@ class MergeGroupCountsConformanceTest {
     @MethodSource("collapses")
     fun `a group not stitched yet keeps its leading source's own unread count`(collapse: GroupCountCollapse) =
         runTest {
-            collapse.group7(stitchedUnread = null, stitchedDownloads = null).unread shouldBe 5L
+            collapse.group7(stitched = null, stitchedDownloads = null).unreadCount shouldBe 10L
         }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("collapses")
     fun `a stitched group reports its deduplicated unread count`(collapse: GroupCountCollapse) = runTest {
-        collapse.group7(stitchedUnread = 6L, stitchedDownloads = null).unread shouldBe 6L
+        collapse.group7(stitched = counts(total = 6), stitchedDownloads = null).unreadCount shouldBe 6L
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("collapses")
     fun `a group not stitched yet sums its members' downloads`(collapse: GroupCountCollapse) = runTest {
-        collapse.group7(stitchedUnread = null, stitchedDownloads = null).downloads shouldBe 5L
+        collapse.group7(stitched = null, stitchedDownloads = null).downloadCount shouldBe 5
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("collapses")
     fun `a stitched group counts each chapter it holds on disk once`(collapse: GroupCountCollapse) = runTest {
-        collapse.group7(stitchedUnread = null, stitchedDownloads = 2).downloads shouldBe 2L
+        collapse.group7(stitched = null, stitchedDownloads = 2).downloadCount shouldBe 2
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("collapses")
+    fun `a group read only on a sibling source is started`(collapse: GroupCountCollapse) = runTest {
+        val row = collapse.group7(stitched = readAndBookmarkedOnSibling, stitchedDownloads = null)
+
+        libraryFilterMatches(row, filterPrefs(started = TriState.ENABLED_NOT), filterFields) shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("collapses")
+    fun `a group bookmarked only on a sibling source is bookmarked`(collapse: GroupCountCollapse) = runTest {
+        val row = collapse.group7(stitched = readAndBookmarkedOnSibling, stitchedDownloads = null)
+
+        libraryFilterMatches(row, filterPrefs(bookmarked = TriState.ENABLED_IS), filterFields) shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("collapses")
+    fun `a stitched group searches on its read count`(collapse: GroupCountCollapse) = runTest {
+        val row = collapse.group7(stitched = readAndBookmarkedOnSibling, stitchedDownloads = null)
+
+        queryFields.readCount(row) shouldBe 1L
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("collapses")
+    fun `a stitched group searches on its chapter count`(collapse: GroupCountCollapse) = runTest {
+        val row = collapse.group7(stitched = readAndBookmarkedOnSibling, stitchedDownloads = null)
+
+        queryFields.totalChapters(row) shouldBe 11L
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("collapses")
+    fun `a stitched group sorts on its chapter count`(collapse: GroupCountCollapse) = runTest {
+        val row = collapse.group7(stitched = readAndBookmarkedOnSibling, stitchedDownloads = null)
+
+        sortFields.totalChapters(row) shouldBe 11L
     }
 
     companion object {
@@ -50,24 +93,47 @@ class MergeGroupCountsConformanceTest {
     }
 }
 
-data class GroupCounts(val unread: Long, val downloads: Long)
-
-/** One type's collapse over the fixture the test describes, returning group 7's counts. */
+/** One type's collapse over the fixture the test describes, returning group 7's library row. */
 interface GroupCountCollapse {
-    suspend fun group7(stitchedUnread: Long?, stitchedDownloads: Int?): GroupCounts
+    suspend fun group7(stitched: MergedGroupCounts?, stitchedDownloads: Int?): LibraryItem
 }
+
+private fun counts(total: Long, read: Long = 0, bookmarked: Long = 0) = MergedGroupCounts(total, read, bookmarked)
+
+/** The lead has nothing read or bookmarked; its sibling carries one read and one bookmarked chapter. */
+private val readAndBookmarkedOnSibling = counts(total = 11, read = 1, bookmarked = 1)
+
+private val filterFields = libraryItemFilterFields(lewdSourceName = { null }, trackerIds = { emptyList() })
+private val queryFields = libraryItemQueryFields(sourceKey = { "" }, fetchInterval = { null }, nextUpdate = { null })
+private val sortFields = libraryItemSortFields(trackerMean = { 0.0 })
+
+private fun filterPrefs(started: TriState = TriState.DISABLED, bookmarked: TriState = TriState.DISABLED) =
+    LibraryFilterPrefs(
+        downloaded = TriState.DISABLED,
+        unread = TriState.DISABLED,
+        started = started,
+        bookmarked = bookmarked,
+        completed = TriState.DISABLED,
+        intervalCustom = TriState.DISABLED,
+        lewd = TriState.DISABLED,
+        includedTracks = emptySet(),
+        excludedTracks = emptySet(),
+        categoriesActive = false,
+        categoriesInclude = emptySet(),
+        categoriesExclude = emptySet(),
+    )
 
 /** Entry id to (chapters, unread, downloads). */
 private val members = mapOf(
-    1L to Triple(10L, 5L, 2),
+    1L to Triple(10L, 10L, 2),
     2L to Triple(4L, 3L, 3),
     3L to Triple(1L, 0L, 0),
     4L to Triple(1L, 0L, 0),
 )
 private val membership = mapOf(1L to 7L, 2L to 7L, 3L to 8L, 4L to 8L)
 
-private fun stitched(group7: Long?) = buildMap {
-    put(8L, 0L)
+private fun <T : Any> stitched(group7: T?, group8: T): Map<Long, T> = buildMap {
+    put(8L, group8)
     group7?.let { put(7L, it) }
 }
 
@@ -75,7 +141,7 @@ class MangaGroupCountCollapse : GroupCountCollapse {
 
     override fun toString() = "manga"
 
-    override suspend fun group7(stitchedUnread: Long?, stitchedDownloads: Int?): GroupCounts {
+    override suspend fun group7(stitched: MergedGroupCounts?, stitchedDownloads: Int?): LibraryItem {
         val items = members.map { (id, counts) ->
             val (chapters, unread, downloads) = counts
             LibraryItem(
@@ -100,16 +166,15 @@ class MangaGroupCountCollapse : GroupCountCollapse {
                 ),
             )
         }
-        val group = MangaMergeCollapse.collapse(
+        return MangaMergeCollapse.collapse(
             items,
             membership,
             mergingEnabled = true,
             showMergeSourceIcons = false,
             resolveSource = { Source(id = it, lang = "en", name = "", supportsLatest = false, isStub = false) },
-            mergedUnreadByGroup = stitched(stitchedUnread),
-            mergedDownloadsByGroup = stitched(stitchedDownloads?.toLong()).mapValues { it.value.toInt() },
+            mergedCountsByGroup = stitched(stitched, counts(total = 1, read = 1)),
+            mergedDownloadsByGroup = stitched(stitchedDownloads, 0),
         ).single { 1L in it.relatedMangaIds }
-        return GroupCounts(group.unreadCount, group.downloadCount.toLong())
     }
 }
 
@@ -117,7 +182,7 @@ class NovelGroupCountCollapse : GroupCountCollapse {
 
     override fun toString() = "novel"
 
-    override suspend fun group7(stitchedUnread: Long?, stitchedDownloads: Int?): GroupCounts {
+    override suspend fun group7(stitched: MergedGroupCounts?, stitchedDownloads: Int?): LibraryItem {
         val library = members.map { (id, counts) ->
             val (chapters, unread, downloads) = counts
             LibraryNovel(
@@ -135,9 +200,19 @@ class NovelGroupCountCollapse : GroupCountCollapse {
             library,
             membership,
             mergingEnabled = true,
-            mergedUnreadByGroup = stitched(stitchedUnread),
-            mergedDownloadsByGroup = stitched(stitchedDownloads?.toLong()).mapValues { it.value.toInt() },
+            mergedCountsByGroup = stitched(stitched, counts(total = 1, read = 1)),
+            mergedDownloadsByGroup = stitched(stitchedDownloads, 0),
         ).single { 1L in it.memberIds }
-        return GroupCounts(group.unreadCount, group.totalDownloadCount)
+        // The row the novel library builds from a merged group: the representative's, then the group's
+        // deduplicated downloads stamped on, as NovelLibraryViewModel does.
+        return group.representative.toLibraryItem(
+            downloadBadge = false,
+            unreadBadge = false,
+            languageBadge = false,
+            sourceLanguage = "",
+            sourceBadge = false,
+            sourceIconUrl = null,
+            sourceName = "",
+        ).copy(downloadCount = group.totalDownloadCount.toInt())
     }
 }

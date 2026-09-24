@@ -40,6 +40,7 @@ import reikai.domain.library.toSortMode
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
+import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.flaggedOnAnotherSource
@@ -260,9 +261,9 @@ class NovelLibraryViewModel(
             },
             // Folded in rather than read while collapsing: reconciliation writes the stitch while the
             // library is already on screen, and nothing else makes this flow re-emit when it lands.
-            mergedChapterUnitRepository.getUnreadCountsAsFlow(ContentType.NOVELS),
+            mergedChapterUnitRepository.getGroupCountsAsFlow(ContentType.NOVELS),
             mergedChapterUnitRepository.getDownloadUnitsAsFlow(ContentType.NOVELS),
-        ) { merge, unread, units -> merge.copy(mergedUnread = unread, downloadUnits = units) }
+        ) { merge, counts, units -> merge.copy(mergedCounts = counts, downloadUnits = units) }
         // No group-by input: grouping is LibraryEngine's, and re-running this whole pipeline on a
         // group-mode change would rebuild the filtered list for a decision it no longer makes.
         return combine(
@@ -352,7 +353,7 @@ class NovelLibraryViewModel(
             settings.merge.mergingEnabled,
             settings.merge.overrideRankings,
             settings.merge.preferredSources,
-            mergedUnreadByGroup = settings.merge.mergedUnread,
+            mergedCountsByGroup = settings.merge.mergedCounts,
             mergedDownloadsByGroup = if (settings.merge.mergingEnabled) {
                 mergedDownloadCounts(withCounts, settings.merge.downloadUnits)
             } else {
@@ -437,15 +438,11 @@ class NovelLibraryViewModel(
                 }
                 item.copy(
                     downloadCount = group.totalDownloadCount.toInt(),
-                    // The group's deduplicated unread, so the badge, the continue button, the filter and
-                    // the sort all report the same number for a merged entry.
-                    unreadCount = group.unreadCount,
                     relatedMangaIds = group.memberIds,
                     memberSources = group.memberIds.mapNotNull { sourceByNovelId[it] }.distinct()
                         .map { querySource(it) },
                     badges = item.badges.copy(
                         downloadCount = if (settings.badges.download) group.totalDownloadCount.toInt() else 0,
-                        unreadCount = if (settings.badges.unread) group.unreadCount else 0,
                         mergedSourceIconUrls = iconUrls,
                     ),
                 )
@@ -699,9 +696,9 @@ class NovelLibraryViewModel(
         // row leads on the user's chosen trunk. A reorder writes these and re-collapses the library live.
         val overrideRankings: Map<Long, List<Long>>,
         val preferredSources: List<String>,
-        /** Per group, one unit per chapter it covers that no source has read. A group absent from the
-         *  map has not been stitched yet, which is not the same as having nothing left to read. */
-        val mergedUnread: Map<Long, Long> = emptyMap(),
+        /** Per group, the stored stitch's counts. A group absent from the map has not been stitched yet,
+         *  which is not the same as having nothing read or nothing left to read. */
+        val mergedCounts: Map<Long, MergedGroupCounts> = emptyMap(),
         /** Per group, its member chapters, for the download badge to probe. Rides the flow rather than
          *  being read per emission: it changes only when a group's chapters do. */
         val downloadUnits: Map<Long, List<DownloadUnitRow>> = emptyMap(),

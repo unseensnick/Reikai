@@ -62,6 +62,7 @@ import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
+import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.flaggedOnAnotherSource
@@ -520,7 +521,7 @@ class LibraryViewModel(
                 mergingEnabled = mergePrefs.mergingEnabled,
                 showMergeSourceIcons = mergePrefs.showMergeSourceIcons,
                 resolveSource = ::resolveMergeSource,
-                mergedUnreadByGroup = if (mergePrefs.mergingEnabled) mergePrefs.mergedUnread else emptyMap(),
+                mergedCountsByGroup = if (mergePrefs.mergingEnabled) mergePrefs.mergedCounts else emptyMap(),
                 // RK: the same treatment for downloads, which summing the members double-counted for
                 //     every chapter two of them hold.
                 mergedDownloadsByGroup = if (mergePrefs.mergingEnabled) {
@@ -551,9 +552,9 @@ class LibraryViewModel(
         // leads on the user's chosen trunk. A reorder writes these tables/prefs and re-collapses live.
         val overrideRankings: Map<Long, List<Long>>,
         val preferredSources: List<Long>,
-        /** Per group, one unit per chapter it covers that no source has read. A group absent from the
-         *  map has not been stitched yet, which is not the same as having nothing left to read. */
-        val mergedUnread: Map<Long, Long> = emptyMap(),
+        /** Per group, the stored stitch's counts. A group absent from the map has not been stitched yet,
+         *  which is not the same as having nothing read or nothing left to read. */
+        val mergedCounts: Map<Long, MergedGroupCounts> = emptyMap(),
         /** Per group, its member chapters, for the download badge to probe. Rides the flow rather than
          *  being read per emission: it changes only when a group's chapters do. */
         val downloadUnits: Map<Long, List<DownloadUnitRow>> = emptyMap(),
@@ -571,9 +572,9 @@ class LibraryViewModel(
         },
         // Folded in rather than read in the transform: reconciliation writes the stitch while the
         // library is already on screen, and nothing else makes this flow re-emit when it lands.
-        mergedChapterUnitRepository.getUnreadCountsAsFlow(ContentType.MANGA),
+        mergedChapterUnitRepository.getGroupCountsAsFlow(ContentType.MANGA),
         mergedChapterUnitRepository.getDownloadUnitsAsFlow(ContentType.MANGA),
-    ) { prefs, unread, units -> prefs.copy(mergedUnread = unread, downloadUnits = units) }
+    ) { prefs, counts, units -> prefs.copy(mergedCounts = counts, downloadUnits = units) }
 
     /**
      * RK: merged chapters with a copy on disk, per group. Members that have downloaded nothing are

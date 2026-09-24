@@ -14,6 +14,7 @@ import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.MergedChapterUnitRepository.StoredUnit
+import reikai.domain.merge.MergedGroupCounts
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
 
@@ -51,19 +52,21 @@ class MergedChapterUnitRepositoryImpl(
             }
         }.awaitAsList()
 
-    override suspend fun getUnreadCounts(contentType: ContentType): Map<Long, Long> =
-        when (contentType) {
-            ContentType.NOVELS ->
-                queries.unreadCountsByGroupNovel().awaitAsList().associate { it.groupId to it.unreadCount }
-            else ->
-                queries.unreadCountsByGroup().awaitAsList().associate { it.groupId to it.unreadCount }
-        }
+    override suspend fun getGroupCounts(contentType: ContentType): Map<Long, MergedGroupCounts> =
+        groupCountsQuery(contentType).awaitAsList().toMap()
 
-    override fun getUnreadCountsAsFlow(contentType: ContentType): Flow<Map<Long, Long>> =
+    override fun getGroupCountsAsFlow(contentType: ContentType): Flow<Map<Long, MergedGroupCounts>> =
+        groupCountsQuery(contentType).subscribeToList().map { it.toMap() }
+
+    private fun groupCountsQuery(contentType: ContentType) =
         when (contentType) {
-            ContentType.NOVELS -> queries.unreadCountsByGroupNovel { groupId, unread -> groupId to unread }
-            else -> queries.unreadCountsByGroup { groupId, unread -> groupId to unread }
-        }.subscribeToList().map { it.toMap() }
+            ContentType.NOVELS -> queries.countsByGroupNovel { groupId, total, read, bookmarked ->
+                groupId to MergedGroupCounts(total, read, bookmarked)
+            }
+            else -> queries.countsByGroup { groupId, total, read, bookmarked ->
+                groupId to MergedGroupCounts(total, read, bookmarked)
+            }
+        }
 
     override fun getDownloadUnitsAsFlow(contentType: ContentType): Flow<Map<Long, List<DownloadUnitRow>>> =
         when (contentType) {

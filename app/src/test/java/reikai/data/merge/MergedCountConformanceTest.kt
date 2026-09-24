@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.manga.ChapterAggregation
+import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.merge.storedUnitsOf
 import reikai.domain.novel.NovelChapterAggregation
@@ -47,6 +48,7 @@ class MergedCountConformanceTest {
         val name: String,
         val number: Double,
         val read: Boolean = false,
+        val bookmark: Boolean = false,
     )
 
     @BeforeEach
@@ -135,7 +137,7 @@ class MergedCountConformanceTest {
         )
 
         novelBadgeCount(rows) shouldBe 0
-        units.getUnreadCounts(ContentType.NOVELS).size shouldBe 1
+        units.getGroupCounts(ContentType.NOVELS).size shouldBe 1
     }
 
     @Test
@@ -146,7 +148,7 @@ class MergedCountConformanceTest {
         groups.createGroup(ContentType.NOVELS, listOf(1, 2))!!
         insertNovelChapter(Row(id = 10, owner = 1, name = "Chapter 1: Anchor", number = 1.0))
 
-        units.getUnreadCounts(ContentType.NOVELS).isEmpty() shouldBe true
+        units.getGroupCounts(ContentType.NOVELS).isEmpty() shouldBe true
     }
 
     @Test
@@ -198,6 +200,30 @@ class MergedCountConformanceTest {
         mangaBadgeCount(rows) shouldBe mangaListCount(rows)
     }
 
+    @Test
+    @DisplayName("manga: a chapter read and bookmarked only on a sibling counts as read and bookmarked")
+    fun mangaGroupCountsReadAnyCopy() = runTest {
+        val rows = listOf(
+            Row(id = 10, owner = 1, name = "Chapter 1", number = 1.0),
+            Row(id = 11, owner = 1, name = "Chapter 2", number = 2.0),
+            Row(id = 20, owner = 2, name = "Chapter 1", number = 1.0, read = true, bookmark = true),
+        )
+
+        mangaGroupCounts(rows) shouldBe MergedGroupCounts(total = 2, read = 1, bookmarked = 1)
+    }
+
+    @Test
+    @DisplayName("novels: a chapter read and bookmarked only on a sibling counts as read and bookmarked")
+    fun novelGroupCountsReadAnyCopy() = runTest {
+        val rows = listOf(
+            Row(id = 10, owner = 1, name = "Chapter 1: Anchor", number = 1.0),
+            Row(id = 11, owner = 1, name = "Chapter 2: Second", number = 2.0),
+            Row(id = 20, owner = 2, name = "Chapter 8: Anchor", number = 8.0, read = true, bookmark = true),
+        )
+
+        novelGroupCounts(rows) shouldBe MergedGroupCounts(total = 2, read = 1, bookmarked = 1)
+    }
+
     // The list's answer: one row per chapter the merged list shows, dropping those a member source
     // has already read, which is what the badge claims to count.
 
@@ -221,7 +247,11 @@ class MergedCountConformanceTest {
 
     // The badge's answer: the same stitch, stored the way reconciliation stores it, then counted.
 
-    private suspend fun novelBadgeCount(rows: List<Row>): Int {
+    private suspend fun novelBadgeCount(rows: List<Row>): Int = novelGroupCounts(rows)?.unread?.toInt() ?: 0
+
+    private suspend fun mangaBadgeCount(rows: List<Row>): Int = mangaGroupCounts(rows)?.unread?.toInt() ?: 0
+
+    private suspend fun novelGroupCounts(rows: List<Row>): MergedGroupCounts? {
         val owners = rows.map { it.owner }.distinct()
         owners.forEach { insertNovel(it) }
         val group = groups.createGroup(ContentType.NOVELS, owners)!!
@@ -234,10 +264,10 @@ class MergedCountConformanceTest {
             storedUnitsOf(chapters, merged, { it.id }, { it.name }, { it.chapterNumber }),
             ranking = null,
         )
-        return units.getUnreadCounts(ContentType.NOVELS)[group]?.toInt() ?: 0
+        return units.getGroupCounts(ContentType.NOVELS)[group]
     }
 
-    private suspend fun mangaBadgeCount(rows: List<Row>): Int {
+    private suspend fun mangaGroupCounts(rows: List<Row>): MergedGroupCounts? {
         val owners = rows.map { it.owner }.distinct()
         owners.forEach { insertManga(it) }
         val group = groups.createGroup(ContentType.MANGA, owners)!!
@@ -250,7 +280,7 @@ class MergedCountConformanceTest {
             storedUnitsOf(chapters, merged, { it.id }, { it.name }, { it.chapterNumber }),
             ranking = null,
         )
-        return units.getUnreadCounts(ContentType.MANGA)[group]?.toInt() ?: 0
+        return units.getGroupCounts(ContentType.MANGA)[group]
     }
 
     private fun Row.toNovelChapter() = NovelChapter(
@@ -303,7 +333,7 @@ class MergedCountConformanceTest {
             "INSERT INTO chapters(_id, manga_id, url, name, scanlator, read, bookmark, " +
                 "last_page_read, chapter_number, source_order, date_fetch, date_upload) " +
                 "VALUES (${row.id}, ${row.owner}, '/${row.owner}/${row.id}', '${row.name}', NULL, " +
-                "${if (row.read) 1 else 0}, 0, 0, ${row.number}, ${row.id}, 0, 0)",
+                "${if (row.read) 1 else 0}, ${if (row.bookmark) 1 else 0}, 0, ${row.number}, ${row.id}, 0, 0)",
             0,
         ).await()
     }
@@ -314,7 +344,7 @@ class MergedCountConformanceTest {
             "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, chapter_number, " +
                 "source_order, date_fetch, date_upload) " +
                 "VALUES (${row.id}, ${row.owner}, '/${row.owner}/${row.id}', '${row.name}', " +
-                "${if (row.read) 1 else 0}, 0, ${row.number}, ${row.id}, 0, 0)",
+                "${if (row.read) 1 else 0}, ${if (row.bookmark) 1 else 0}, ${row.number}, ${row.id}, 0, 0)",
             0,
         ).await()
     }

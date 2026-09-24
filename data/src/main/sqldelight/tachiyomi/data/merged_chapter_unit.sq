@@ -222,26 +222,32 @@ WHERE group_id = :groupId
 AND unit IS NOT NULL
 ORDER BY unit, copy_order;
 
--- Deduplicated unread count per merge group: one unit per chapter the group covers, unread only when
--- no member source's copy of it is read, which is what makes the number independent of which source
--- currently leads. Nothing here restates the stitch; it reads what the stitch decided, so this cannot
--- come to a different answer than the chapter list.
+-- Deduplicated chapter counts per merge group: one unit per chapter the group covers, read or
+-- bookmarked when any member source's copy is, unread only when no copy is read. That makes each
+-- number independent of which source currently leads. Nothing here restates the stitch; it reads what
+-- the stitch decided, so this cannot come to a different answer than the chapter list.
 --
--- Members that have left the library and excluded scanlators are dropped HERE rather than before the
--- stitch, so both stay instant: a unit whose every row is filtered out disappears from this count and
--- from the list together.
+-- Excluded scanlators are dropped HERE rather than before the stitch, so hiding one stays instant: a
+-- unit whose every row is filtered out disappears from these counts and from the list together. A
+-- member leaving the library restitches the group instead; the favorite join only covers the moment
+-- before reconciliation runs.
 --
--- CONSUMER CONTRACT: every STITCHED group has a row, carrying 0 when it is fully read. An absent group
--- means it has not been stitched yet, which the caller must show as its leading source's own count
--- rather than as zero: reconciliation runs while the library is already on screen, so "no row yet" and
--- "nothing left to read" have to be told apart or a series reads as finished for a moment.
-unreadCountsByGroup:
-SELECT group_id AS groupId, coalesce(sum(CASE WHEN readCopies = 0 THEN 1 ELSE 0 END), 0) AS unreadCount
+-- CONSUMER CONTRACT: every STITCHED group has a row, carrying 0 read when nothing is read. An absent
+-- group means it has not been stitched yet, which the caller must show as its leading source's own
+-- counts rather than as zero: reconciliation runs while the library is already on screen, so "no row
+-- yet" and "nothing read" have to be told apart or a series reads as untouched for a moment.
+countsByGroup:
+SELECT
+    group_id AS groupId,
+    count(*) AS totalCount,
+    coalesce(sum(CASE WHEN readCopies > 0 THEN 1 ELSE 0 END), 0) AS readCount,
+    coalesce(sum(CASE WHEN bookmarkedCopies > 0 THEN 1 ELSE 0 END), 0) AS bookmarkCount
 FROM (
     SELECT
         U.group_id AS group_id,
         U.unit AS unit,
-        sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies
+        sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies,
+        sum(CASE WHEN C.bookmark = 1 THEN 1 ELSE 0 END) AS bookmarkedCopies
     FROM merged_chapter_unit U
     JOIN chapters C
     ON C._id = U.chapter_id
@@ -258,13 +264,18 @@ FROM (
 GROUP BY G.group_id;
 
 -- Novel twin. No scanlator join: novels have no scanlators (see novelLibraryView).
-unreadCountsByGroupNovel:
-SELECT group_id AS groupId, coalesce(sum(CASE WHEN readCopies = 0 THEN 1 ELSE 0 END), 0) AS unreadCount
+countsByGroupNovel:
+SELECT
+    group_id AS groupId,
+    count(*) AS totalCount,
+    coalesce(sum(CASE WHEN readCopies > 0 THEN 1 ELSE 0 END), 0) AS readCount,
+    coalesce(sum(CASE WHEN bookmarkedCopies > 0 THEN 1 ELSE 0 END), 0) AS bookmarkCount
 FROM (
     SELECT
         U.group_id AS group_id,
         U.unit AS unit,
-        sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies
+        sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies,
+        sum(CASE WHEN C.bookmark = 1 THEN 1 ELSE 0 END) AS bookmarkedCopies
     FROM merged_novel_chapter_unit U
     JOIN novel_chapters C
     ON C._id = U.chapter_id

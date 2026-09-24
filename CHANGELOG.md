@@ -118,6 +118,7 @@ every release now also ships a foss build with neither in it.
 - **Migrating one source of a merged series no longer breaks that series' page.** With that source's chip selected, the chapter list could crash on manga and show the old source on novels.
 - **Change categories on a merged series no longer drops categories that only some of its sources were in.** Those categories now show as partly ticked, and are left alone unless you change them.
 - **Reading or bookmarking a chapter on a grouped series now lands on that same chapter across its sources, and shows as read there too.** It matched by chapter number, which two sources rarely agree on, so a mark could hit a neighbour or spread between unrelated works on a gallery source.
+- **The library's Started and Bookmarked filters now count a merged series as started or bookmarked when any of its sources is, on manga and novels.** The Total chapters sort and the read and total search terms count the combined chapter list too, not the leading source's.
 - **A merged series' unread count now counts each chapter once across its sources, instead of only the leading source's.** The library badge, the unread filter, the sort and the Continue button all follow the number its chapter list shows.
 - **Marking a merged series read, or moving it between categories, now applies to every source in the group.**
 - **A merged novel's combined chapter list no longer hides a chapter whose title differs only by a trailing number.**

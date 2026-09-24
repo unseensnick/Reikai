@@ -29,7 +29,7 @@ Fixing only the visible surfaces would make it worse, not better: a badge readin
 
 **Group-aware download means the deduplicated list, never a fan-out.** Downloading every member would fetch each chapter once per source and waste the storage on near-duplicates, so the target is one row per canonical chapter, downloaded from its own source. The details screen already does exactly this, acting on the visible list and grouping by each chapter's `mangaId`. Library download-next resolves the same list, and skips a chapter any member already holds on disk.
 
-**The unread count moves as a set.** The badge, the unread filter predicate and the unread sort all read the same number. They change together or the library contradicts itself.
+**The group counts move as a set.** The badge, the unread, Started and Bookmarked filters, the unread and Total chapters sorts and the read/total search terms all read one set of numbers, the stitch's total, read and bookmarked unit counts, written into the collapsed row. They change together or the library contradicts itself. Writing read and total together is what keeps the unread they imply equal to the badge (owner, 2026-09-24).
 
 **The count is cached as a mapping, never as a count.** Read status is not an input to either aggregator, so reading can never change which chapters are duplicates, but it changes the count constantly. `merged_chapter_unit` (with a novel twin) holds the stitch's own output per merge group: every member chapter, the merged chapter it belongs to, and where it ranks among the sources holding that chapter. The count is a live SQL join over that and the `read` column, the same cost class as the aggregates `libraryView` already computes. Members that have left the library and excluded scanlators are filtered at read time rather than before the stitch, so neither forces a rebuild and both stay instant.
 
@@ -42,7 +42,7 @@ Fixing only the visible surfaces would make it worse, not better: a badge readin
 - Where every surface reads it: `reikai/domain/manga/MergedChapterProvider.kt` and `reikai/domain/novel/NovelMergedChapterProvider.kt` (`stitchOf`), and the read-side kernels in `reikai/domain/merge/StoredStitch.kt` (`renderStoredStitch`, `flaggedOnAnotherSource`, `expandToUnits`). `NovelDetailsViewModel` only calls `rankedMemberIds`, to order the Manage sources dialog.
 - Details list item to widen: the chapter item model in `MangaViewModel`, and the novel twin on `EntryDetailsScreenState`.
 - Next-unread callers: `LibraryViewModel` (`getNextUnreadChapter`, `downloadNextChapters`), `ReaderViewModel` (`GetNextChapters`), `HistoryViewModel`.
-- Unread count set: the badge in `MangaMergeCollapse` / `NovelMergeCollapse`, the filter predicate and the sort in both library models.
+- Group count set: `countsByGroup` in `merged_chapter_unit.sq`, written into the row by `MangaMergeCollapse` / `NovelMergeCollapse` and read through `LibraryItemFields`; pinned by `MergeGroupCountsConformanceTest` and `MergedCountConformanceTest`.
 - Persistence: `data/src/main/sqldelight/tachiyomi/data/merged_chapter_unit.sq` (the stored stitch, the ranking it was built under, and the staleness views), created by migrations 42, 43 and 45; the ranking inputs are read from `merge_group.sq`.
 
 ## Status

@@ -1,8 +1,10 @@
 package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.sourcePriority
 import reikai.domain.merge.trunkOrder
+import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.model.Source
 
 /**
@@ -23,9 +25,9 @@ object MangaMergeCollapse {
         // When false, the group's sources are not resolved and the badge falls back to a count.
         showMergeSourceIcons: Boolean,
         resolveSource: suspend (Long) -> Source,
-        // Group id -> deduplicated unread count. A stitched group always has an entry, zero included,
-        // so an absent one has not been stitched and keeps the primary's own count, as on the novel side.
-        mergedUnreadByGroup: Map<Long, Long> = emptyMap(),
+        // Group id -> the stored stitch's counts. A stitched group always has an entry, zeros included,
+        // so an absent one has not been stitched and keeps the primary's own counts, as on the novel side.
+        mergedCountsByGroup: Map<Long, MergedGroupCounts> = emptyMap(),
         // Group id -> merged chapters with a copy on disk. A stitched group always has an entry, zero
         // included, so an absent one has not been stitched and keeps the members' own sum.
         mergedDownloadsByGroup: Map<Long, Int> = emptyMap(),
@@ -66,7 +68,7 @@ object MangaMergeCollapse {
                         preferredSourceIds = preferredSourceIds,
                         showMergeSourceIcons = showMergeSourceIcons,
                         resolveSource = resolveSource,
-                        mergedUnread = groupId?.let { mergedUnreadByGroup[it] },
+                        mergedCounts = groupId?.let { mergedCountsByGroup[it] },
                         mergedDownloads = groupId?.let { mergedDownloadsByGroup[it] },
                         showUnreadBadge = showUnreadBadge,
                         recognizedChapterCounts = recognizedChapterCounts,
@@ -94,7 +96,7 @@ object MangaMergeCollapse {
         preferredSourceIds: List<Long>,
         showMergeSourceIcons: Boolean,
         resolveSource: suspend (Long) -> Source,
-        mergedUnread: Long?,
+        mergedCounts: MergedGroupCounts?,
         mergedDownloads: Int?,
         showUnreadBadge: Boolean,
         recognizedChapterCounts: Map<Long, Long>,
@@ -104,7 +106,7 @@ object MangaMergeCollapse {
         // read (see merged_chapter_unit.sq). Summing the members instead would double-count every
         // chapter they share. Falls back to the primary's own count when the group has not been stitched
         // yet, which under-reports rather than inventing a number.
-        val unread = mergedUnread ?: primary.unreadCount
+        val unread = mergedCounts?.unread ?: primary.unreadCount
         // Downloads count the same way: one per chapter the group holds, however many of its sources
         // hold it. Null is a group nothing has stitched, where the sum is the only answer available.
         val downloads = mergedDownloads ?: subGroup.sumOf { it.downloadCount }
@@ -113,12 +115,8 @@ object MangaMergeCollapse {
             unreadCount = unread,
             // LastRead sorts by the most recent read across all members, not just the primary's own, so
             // reading any source bubbles the merged entry up.
-            //
-            // The merged unread count is deliberately NOT written back into LibraryManga by deriving a
-            // readCount from it: a group can cover more chapters than its primary (the others gap-fill),
-            // which makes that subtraction negative and silently breaks hasStarted, which the "started"
-            // filter reads. The count lives on LibraryItem instead, and the filter and sort read it there.
-            libraryManga = primary.libraryManga.copy(lastRead = subGroup.maxOf { it.libraryManga.lastRead }),
+            libraryManga = primary.libraryManga.copy(lastRead = subGroup.maxOf { it.libraryManga.lastRead })
+                .withGroupCounts(mergedCounts),
             relatedMangaIds = subGroup.map { it.libraryManga.manga.id },
             memberSources = subGroup.map { it.querySource(it.libraryManga.manga.source.toString()) }.distinct(),
             badges = primary.badges.copy(
@@ -133,4 +131,10 @@ object MangaMergeCollapse {
             ),
         )
     }
+
+    // The stitch's own total, read and bookmarked counts, all three from one query so the unread they
+    // imply matches the badge. Started, Bookmarked, the Total chapters sort and the read/total search
+    // terms read these. An unstitched group keeps the primary's own.
+    private fun LibraryManga.withGroupCounts(counts: MergedGroupCounts?): LibraryManga =
+        counts?.let { copy(totalChapters = it.total, readCount = it.read, bookmarkCount = it.bookmarked) } ?: this
 }

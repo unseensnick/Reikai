@@ -33,15 +33,15 @@ interface MergedChapterUnitRepository {
     suspend fun replaceGroup(contentType: ContentType, groupId: Long, units: List<StoredUnit>, ranking: String?)
 
     /**
-     * Unread chapters per merge group: one per chapter the group covers, counted only when no member
-     * source's copy is read. Every stitched group has an entry, zero when it is fully read. A missing
-     * group has not been stitched yet, which a caller must show as its leading source's own count.
+     * Chapter counts per merge group, keyed by group. Every stitched group has an entry, zeros included.
+     * A missing group has not been stitched yet, which a caller must show as its leading source's own
+     * counts.
      */
-    suspend fun getUnreadCounts(contentType: ContentType): Map<Long, Long>
+    suspend fun getGroupCounts(contentType: ContentType): Map<Long, MergedGroupCounts>
 
-    /** Reactive [getUnreadCounts]: re-emits when the stitch or any chapter behind it changes, so a
+    /** Reactive [getGroupCounts]: re-emits when the stitch or any chapter behind it changes, so a
      *  badge is not left showing what the group looked like before it was stitched. */
-    fun getUnreadCountsAsFlow(contentType: ContentType): Flow<Map<Long, Long>>
+    fun getGroupCountsAsFlow(contentType: ContentType): Flow<Map<Long, MergedGroupCounts>>
 
     /**
      * Every merged group's member chapters, keyed by group, with what a download probe needs to find
