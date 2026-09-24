@@ -127,6 +127,9 @@ import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
+import reikai.presentation.details.scanlatorFilterView
+import reikai.presentation.details.scanlatorTargets
+import reikai.presentation.details.scanlatorWrites
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.selection.EntrySelection
@@ -395,25 +398,37 @@ class MangaViewModel(
             // RK <--
         }
 
+        // RK --> the filter covers the sources on screen: the chip's, or every source of a merged series
+        // under All, whose unified list shows all their chapters (see scanlatorTargets). Started once the
+        // page has loaded: an earlier value finds no state to land in, and the load's own seed is only the
+        // opened entry's, which the distinct stream would then never correct.
         viewModelScope.launchIO {
-            getExcludedScanlators.subscribe(mangaId)
+            state.first { it is State.Success }
+            mergeGroup.state
+                .flatMapLatest { group ->
+                    val targets = scanlatorTargets(group)
+                    val perTarget = targets.map { id ->
+                        combine(
+                            getAvailableScanlators.subscribe(id),
+                            getExcludedScanlators.subscribe(id),
+                        ) { available, excluded -> Triple(id, available, excluded) }
+                    }
+                    combine(perTarget) { rows ->
+                        scanlatorFilterView(
+                            targets,
+                            availableById = rows.associate { (id, available, _) -> id to available },
+                            excludedById = rows.associate { (id, _, excluded) -> id to excluded },
+                        )
+                    }
+                }
                 .distinctUntilChanged()
-                .collectLatest { excludedScanlators ->
+                .collectLatest { view ->
                     updateSuccessState {
-                        it.copy(excludedScanlators = excludedScanlators)
+                        it.copy(availableScanlators = view.available, excludedScanlators = view.excluded)
                     }
                 }
         }
-
-        viewModelScope.launchIO {
-            getAvailableScanlators.subscribe(mangaId)
-                .distinctUntilChanged()
-                .collectLatest { availableScanlators ->
-                    updateSuccessState {
-                        it.copy(availableScanlators = availableScanlators)
-                    }
-                }
-        }
+        // RK <--
 
         // RK: mirror the manga's custom-info overlay into state; a save re-emits and the display layer
         // re-applies it via Manga.withCustomInfo (the raw `manga` field stays source-accurate).
@@ -1936,9 +1951,16 @@ class MangaViewModel(
     }
 
     fun setExcludedScanlators(excludedScanlators: Set<String>) {
+        // RK --> written to each source on screen, applying only what the dialog changed
+        val shown = successState?.excludedScanlators ?: return
+        val targets = scanlatorTargets(mergeGroup.state.value)
         viewModelScope.launchIO {
-            setExcludedScanlators.await(mangaId, excludedScanlators)
+            val current = targets.associateWith { getExcludedScanlators.await(it) }
+            scanlatorWrites(targets, current, shown, excludedScanlators).forEach { (id, excluded) ->
+                setExcludedScanlators.await(id, excluded)
+            }
         }
+        // RK <--
     }
 
     sealed interface State {

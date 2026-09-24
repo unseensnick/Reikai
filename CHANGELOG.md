@@ -119,6 +119,7 @@ every release now also ships a foss build with neither in it.
 - **A merged series' unread count now counts each chapter once across its sources, instead of only the leading source's.** The library badge, the unread filter, the sort and the Continue button all follow the number its chapter list shows.
 - **Marking a merged series read, or moving it between categories, now applies to every source in the group.**
 - **A merged novel's combined chapter list no longer hides a chapter whose title differs only by a trailing number.**
+- **A merged manga's scanlator filter now covers the source chip you have selected, or every source under All.** It used to list and hide only the source the series was opened from, so a sibling's chapters by a hidden scanlator still showed.
 - **Library search now finds a merged series by any of its sources' names, ids or languages, not only its leading source's.** So does the library search you open from a source chip on the series' page.
 - **Saving Edit info on a merged novel with a source chip selected no longer stores that source's details as your edits.** Opening the editor from a selected source and saving untouched used to keep its differing title, tags and cover as permanent overrides.
 - **Share and Open in WebView now follow the source chip you have selected, on novels as well as manga.**
