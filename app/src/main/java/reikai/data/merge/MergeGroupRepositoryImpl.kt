@@ -60,22 +60,6 @@ class MergeGroupRepositoryImpl(
         }
     }
 
-    override suspend fun removeMembers(contentType: ContentType, entryIds: List<Long>) {
-        database.transaction {
-            entryIds.forEach { id ->
-                when (contentType) {
-                    ContentType.MANGA -> queries.deleteMangaMember(id)
-                    ContentType.NOVELS -> queries.deleteNovelMember(id)
-                    ContentType.ALL -> error(ALL_UNSUPPORTED)
-                }
-            }
-        }
-    }
-
-    override suspend fun dissolveGroup(groupId: Long) {
-        queries.deleteGroup(groupId)
-    }
-
     override suspend fun getAllMemberships(contentType: ContentType): Map<Long, Long> =
         when (contentType) {
             ContentType.MANGA -> queries.allMangaMemberships { id, groupId -> id to groupId }.awaitAsList().toMap()
@@ -342,14 +326,10 @@ class MergeGroupRepositoryImpl(
     private fun mapGroup(
         id: Long,
         contentType: Long,
-        titleOverride: String?,
-        coverOverride: String?,
         overrideSourceRanking: Long,
     ) = MergeGroup(
         id = id,
         contentType = contentType.toContentType(),
-        titleOverride = titleOverride,
-        coverOverride = coverOverride,
         overrideSourceRanking = overrideSourceRanking != 0L,
     )
 

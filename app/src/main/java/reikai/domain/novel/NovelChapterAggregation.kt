@@ -115,8 +115,8 @@ object NovelChapterAggregation {
     /**
      * The cross-source identity of a chapter, or null when it has none. Prefers the normalized title
      * text (drops "chapter"/"vol" label words, the leading chapter-number tokens, and punctuation);
-     * falls back to the recognized chapter number for numeric-only names. Used for both the unified merge
-     * and the read/bookmark propagation across grouped sources.
+     * falls back to the recognized chapter number for numeric-only names. What the stitch pairs sources'
+     * chapters on before it places the rest by position.
      */
     fun matchKey(chapter: NovelChapter): String? = matchKey(chapter.name, chapter.chapterNumber)
 

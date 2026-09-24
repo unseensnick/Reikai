@@ -6,7 +6,6 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.merge.ChapterMatchKeys
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository.StoredUnit
 import reikai.domain.merge.MergedGroupStitcher
@@ -43,7 +42,7 @@ class MangaGroupStitcher(
         // treat each chapter as a whole standalone gallery numbered 1, so exempt them from cross-source
         // number dedup: merging two keeps both instead of collapsing on "1".
         val gallerySourceMangaIds = sourceIdByManga
-            .filterValues { sourceId -> ChapterMatchKeys.isGallerySource(sourceId, sourceManager) }
+            .filterValues { sourceId -> GallerySources.isGallerySource(sourceId, sourceManager) }
             .keys
         val merged = ChapterAggregation.merge(
             // The stitched order follows each source's own, so that order is stated here rather than

@@ -5,7 +5,6 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import mihon.domain.extension.model.ContentWarning
-import reikai.domain.merge.ChapterMatchKeys
 import reikai.util.isLewd
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -16,7 +15,7 @@ import kotlin.time.Duration.Companion.seconds
  * Any one signal qualifies: an extension warned as mixed or 18+, a built-in gallery source (which has no
  * extension to carry that warning), or the [isLewd] genre-tag and source-name heuristic.
  *
- * The gallery signal asks [ChapterMatchKeys.isGallerySource] rather than testing for a metadata
+ * The gallery signal asks [GallerySources.isGallerySource] rather than testing for a metadata
  * source, which the enhanced MangaDex also is: keying on that hid every MangaDex title.
  */
 @Inject
@@ -43,7 +42,7 @@ class AdultContentChecker(
     }
 
     private suspend fun isAdult(manga: Manga, nsfwSourceIds: Set<Long>): Boolean =
-        ChapterMatchKeys.isGallerySource(manga.source, sourceManager) ||
+        GallerySources.isGallerySource(manga.source, sourceManager) ||
             manga.source in nsfwSourceIds ||
             manga.isLewd(sourceManager.get(manga.source)?.name)
 }

@@ -172,19 +172,6 @@ class MergeGroupRepositoryTest {
     }
 
     @Test
-    fun `dissolveGroup removes the group and all members`() = runTest {
-        insertManga(1)
-        insertManga(2)
-        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
-
-        repository.dissolveGroup(groupId)
-
-        repository.getGroup(groupId).shouldBeNull()
-        repository.getMembers(ContentType.MANGA, groupId) shouldBe emptyList()
-        repository.getGroupId(ContentType.MANGA, 1).shouldBeNull()
-    }
-
-    @Test
     fun `novel groups persist and cascade like manga`() = runTest {
         insertNovel(1)
         insertNovel(2)

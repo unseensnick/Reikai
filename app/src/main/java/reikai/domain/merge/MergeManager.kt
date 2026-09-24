@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
  * [reikai.presentation.details.EntryMergeActionHost] can drive source split / remove / reorder for either
  * content type. Both [reikai.domain.manga.MangaMergeManager] and [reikai.domain.novel.NovelMergeManager]
  * implement it over the shared [MergeGroupRepository]; the richer per-type operations (duplicate grouping,
- * series keys, unmerge, related-id resolution) deliberately stay off this interface.
+ * unmerge, related-id resolution) deliberately stay off this interface.
  */
 interface MergeManager {
 
@@ -46,8 +46,6 @@ data class GroupSnapshot(
     val orderedMemberIds: List<Long>,
     val overrideSourceRanking: Boolean,
 ) {
-    val isEmpty: Boolean get() = orderedMemberIds.size < 2
-
     companion object {
         val EMPTY = GroupSnapshot(emptyList(), overrideSourceRanking = false)
     }

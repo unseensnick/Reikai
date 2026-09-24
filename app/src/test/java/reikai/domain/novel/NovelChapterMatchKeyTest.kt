@@ -1,16 +1,15 @@
-package reikai.domain.merge
+package reikai.domain.novel
 
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
-import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.model.NovelChapter
 
 /**
  * The novel side's cross-source chapter identity: two sources' rows share a key when they are the
  * same chapter, which is what the stitch pairs them on before it places the rest by position.
  */
-class ChapterMatchKeysTest {
+class NovelChapterMatchKeyTest {
 
     @Test
     fun `the novel key ignores the chapter-number prefix in a title`() {

@@ -36,12 +36,6 @@ interface MergeGroupRepository {
      */
     suspend fun createGroup(contentType: ContentType, entryIds: List<Long>): Long?
 
-    /** Remove [entryIds] from whatever group each is in. */
-    suspend fun removeMembers(contentType: ContentType, entryIds: List<Long>)
-
-    /** Delete the group row; its member rows cascade away. */
-    suspend fun dissolveGroup(groupId: Long)
-
     /** All memberships of [contentType] as entry-id -> group-id, for batch reads (collapse, group-by-series). */
     suspend fun getAllMemberships(contentType: ContentType): Map<Long, Long>
 

@@ -3,8 +3,8 @@
 -- a stored fact resolved by id lookup, not re-derived per call from prefs plus a same-title
 -- scan. The FK cascade from the member tables removes a member automatically when its entry
 -- row is deleted, which closes the stale-pref id-reuse capture the pref system had.
--- Group-owned display + source-order override live on this row; the per-chapter reading
--- order table lands in a later phase.
+-- The source-order override lives on this row. title_override and cover_override are unused
+-- columns kept to spare a table rebuild; getGroup does not read them.
 CREATE TABLE merge_group (
     _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     content_type INTEGER NOT NULL,
@@ -54,7 +54,7 @@ selectLastInsertedRowId:
 SELECT last_insert_rowid();
 
 getGroup:
-SELECT *
+SELECT _id, content_type, override_source_ranking
 FROM merge_group
 WHERE _id = :groupId;
 
