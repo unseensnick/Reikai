@@ -8,6 +8,7 @@ import logcat.LogPriority
 import reikai.domain.novel.interactor.InsertNovelTrack
 import reikai.domain.track.TrackFieldMutations
 import reikai.domain.track.TrackWriter
+import reikai.presentation.track.trackerErrorMessage
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -64,7 +65,7 @@ class NovelTrackUpdater(
             }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to update remote novel track id=${tracker.id}" }
-            withUIContext { context.toast(e.message) }
+            withUIContext { context.toast(context.trackerErrorMessage(tracker, e)) }
         }
     }
 }

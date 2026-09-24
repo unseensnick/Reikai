@@ -955,7 +955,7 @@ data class EntryTrackerRemoveScreen(
 }
 
 /**
- * The one bind both sheets call, with one error path for both types: a failure toasts its own message.
+ * The one bind both sheets call, with one error path for both types: a failure toasts what went wrong.
  * Manga's register already catches and toasts; a novel bind would otherwise reach the crash handler.
  */
 private suspend fun bindTrack(
@@ -969,6 +969,6 @@ private suspend fun bindTrack(
     try {
         if (isNovel) addNovelTrack.bind(tracker, item, entryId) else tracker.register(item, entryId)
     } catch (e: Throwable) {
-        withUIContext { context.toast(e.message) }
+        withUIContext { context.toast(context.trackerErrorMessage(tracker, e)) }
     }
 }

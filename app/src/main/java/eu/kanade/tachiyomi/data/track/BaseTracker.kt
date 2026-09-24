@@ -22,6 +22,7 @@ import mihon.app.di.appGraph
 import okhttp3.OkHttpClient
 import reikai.domain.track.TrackFieldMutations
 import reikai.domain.track.sendsProgressTo
+import reikai.presentation.track.trackerErrorMessage
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -138,7 +139,9 @@ abstract class BaseTracker(
         try {
             addTracks.bind(this, item, mangaId)
         } catch (e: Throwable) {
-            withUIContext { context.toast(e.message) }
+            // RK --> the tracker-worded message both content types' binds share
+            withUIContext { context.toast(context.trackerErrorMessage(this@BaseTracker, e)) }
+            // RK <--
         }
     }
 
@@ -194,7 +197,9 @@ abstract class BaseTracker(
             }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to update remote track data id=$id" }
-            withUIContext { context.toast(e.message) }
+            // RK --> the tracker-worded message both content types' updates share
+            withUIContext { context.toast(context.trackerErrorMessage(this@BaseTracker, e)) }
+            // RK <--
         }
     }
 }

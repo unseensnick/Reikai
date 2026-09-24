@@ -457,7 +457,7 @@ every release now also ships a foss build with neither in it.
 - **A MyAnimeList entry dated with only a year, or a year and month, no longer errors out (synced from Mihon, mihonapp/mihon#3573).**
 - **A score you pick on MangaBaka is now saved as that score, at every step size (synced from Mihon, mihonapp/mihon#3740).** With steps larger than 1 it was sending the score's position in the list instead.
 - **A MangaBaka score no longer skews your library's tracker-score sort and your statistics.** Its 0 to 100 scale was being read as if it were out of 10, so one scored entry floated to the top and pulled the average with it.
-- **A novel tracker bind that fails, for example with no connection, now shows the error instead of crashing the app or claiming no match was found.** Manga already showed it.
+- **When linking or updating a tracker fails, on manga or novels, the message now says why in plain words, such as No Internet connection or Log in to NovelList again.** A failed novel link used to crash the app, and a failed auto-match said no match was found.
 - **Binding a novel that is already on your NovelList reading list now keeps its status, progress and score there.** It used to reset them; a novel with chapters read locally moves to Reading unless it is Completed.
 
 ### Downloads & extensions
