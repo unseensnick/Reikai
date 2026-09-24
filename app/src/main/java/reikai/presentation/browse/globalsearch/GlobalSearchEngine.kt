@@ -38,6 +38,8 @@ class GlobalSearchEngine(
     @Assisted initialQuery: String,
     /** The content type this search is scoped to, or null to open on the Browse chip. */
     @Assisted private val scopedContentType: ContentType?,
+    /** Sources to cover for this search only, or null to open on the last choice. */
+    @Assisted private val initialSourceFilter: SearchSourceFilter?,
     private val sourcePreferences: ReikaiSourcePreferences,
     private val mihonSourcePreferences: SourcePreferences,
 ) : ViewModel() {
@@ -57,7 +59,10 @@ class GlobalSearchEngine(
             // Read once rather than followed: nothing else can move the Browse chip while this
             // screen is up, and a search opened from a manga or a novel is scoped to that instead.
             state.update {
-                it.copy(contentType = scopedContentType ?: sourcePreferences.browseContentType.get())
+                it.copy(
+                    contentType = scopedContentType ?: sourcePreferences.browseContentType.get(),
+                    sourceFilter = initialSourceFilter ?: sourcePreferences.globalSearchSourceFilter.get(),
+                )
             }
             search(state.value.query)
         }
@@ -83,6 +88,7 @@ class GlobalSearchEngine(
     }
 
     fun setSourceFilter(filter: SearchSourceFilter) {
+        sourcePreferences.globalSearchSourceFilter.set(filter)
         state.update { it.copy(sourceFilter = filter) }
         search(state.value.query)
     }
@@ -163,7 +169,17 @@ class GlobalSearchEngine(
 
         /** Novel sources of more than one packaging are on screen, so each heading names its own. */
         val showsFormat: Boolean = NovelExtensionFormat.tellsApart(visibleRows.map { it.format })
+
+        /** Why a finished search shows no rows, or null while there are rows or nothing has run. */
+        val emptyReason: EmptyReason? = when {
+            query.isBlank() || !searched || visibleRows.isNotEmpty() -> null
+            rows.isEmpty() -> EmptyReason.NoPinnedSources.takeIf { sourceFilter == SearchSourceFilter.PinnedOnly }
+            progress == total -> EmptyReason.NoResults
+            else -> null
+        }
     }
+
+    enum class EmptyReason { NoPinnedSources, NoResults }
 
     @AssistedFactory
     @ManualViewModelAssistedFactoryKey
@@ -173,6 +189,7 @@ class GlobalSearchEngine(
             providers: List<GlobalSearchProvider>,
             initialQuery: String,
             scopedContentType: ContentType?,
+            initialSourceFilter: SearchSourceFilter?,
         ): GlobalSearchEngine
     }
 }

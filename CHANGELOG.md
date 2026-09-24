@@ -346,6 +346,7 @@ every release now also ships a foss build with neither in it.
 - **The Migrate list now shows manga and light-novel sources in one list, sorted together.** The sort controls cover the whole list instead of vanishing when both kinds are showing.
 - **Global search now searches manga and light-novel sources in one run, with All / Manga / Novels tabs at the top.** Sources are ordered together, so whichever kind found something rises above the ones still working.
 - **A global search selection can now add manga and novels to your library together.** Categories are asked for once per kind, because the two libraries keep their own.
+- **Global search now remembers whether you last searched pinned sources or all sources.**
 - **A light-novel source now browses in your chosen grid column count, like manga does.** Both kinds of source draw their results through one grid, so the display mode means the same thing on either.
 - **Backing out of a source's search now returns to the source instead of leaving it.** The grid goes back to the source's listing, and backing out again leaves as before.
 - **Choosing what a manga migrates to now browses the source the normal way, with chips, filters and your grid layout.** It used to open a stripped-down grid, while light novels already used the full one.
@@ -355,6 +356,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 - **Global search and the feed no longer crash when a source lists the same result twice.**
+- **Global search no longer shows a blank screen when nothing is pinned or no source found anything.** It says which, and on Pinned offers to search all sources.
 - **Forms a source posts through FlareSolverr now reach the site intact, so a novel plugin's chapter list loads there.** A space in a form no longer arrives as a plus sign either.
 - **Pages fetched through a FlareSolverr server on your own network or over HTTPS now come back signed in to the site.** Your cookies are never sent to a solver reached in the clear over the internet.
 - **A Cloudflare bypass that takes over a minute now finishes instead of failing for no visible reason.** Reikai gave up at the very moment it had asked the server to answer by, and the test button called such a server unreachable rather than slow.

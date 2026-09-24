@@ -6,6 +6,7 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.source.service.SourcePreferences
 import mihon.domain.extension.model.ContentWarning
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.globalsearch.SearchSourceFilter
 import reikai.presentation.recents.RecentsMode
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -29,6 +30,13 @@ class ReikaiSourcePreferences(
      */
     val browseContentType: Preference<ContentType> =
         preferenceStore.getEnum("browse_content_type", ContentType.ALL)
+
+    /**
+     * Whether global search covers pinned sources or all of them, as last chosen. Pinned by default,
+     * which is where upstream always opens.
+     */
+    val globalSearchSourceFilter: Preference<SearchSourceFilter> =
+        preferenceStore.getEnum("global_search_source_filter", SearchSourceFilter.PinnedOnly)
 
     /** The download queue's card order across manga and novels, as card keys joined by commas. */
     val downloadQueueOrder: Preference<String> =

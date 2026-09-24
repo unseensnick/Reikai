@@ -1,6 +1,7 @@
 package reikai.presentation.browse.globalsearch
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +24,8 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchViewModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchViewModel
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.TravelExplore
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
@@ -47,6 +50,8 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.screens.EmptyScreen
+import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 /**
@@ -80,12 +85,10 @@ class EntryGlobalSearchScreen(
             listOf(MangaGlobalSearchProvider(mangaModel), NovelGlobalSearchProvider(novelModel))
         }
         val engine = assistedMetroViewModel<GlobalSearchEngine, GlobalSearchEngine.Factory> {
-            create(providers, searchQuery, scopedContentType)
-        }
-        // A deep link names one extension, so every source of it is in scope whether or not it is
-        // pinned; the chip is moved to match what is actually being searched.
-        LaunchedEffect(Unit) {
-            if (!extensionFilter.isNullOrEmpty()) engine.setSourceFilter(SearchSourceFilter.All)
+            // A deep link names one extension, so every source of it is in scope whether or not it is
+            // pinned. Handed in for this search only, so it never replaces the filter you last chose.
+            val deepLinkFilter = SearchSourceFilter.All.takeUnless { extensionFilter.isNullOrEmpty() }
+            create(providers, searchQuery, scopedContentType, deepLinkFilter)
         }
         val state by engine.state.collectAsStateWithLifecycle()
         val mangaState by mangaModel.state.collectAsStateWithLifecycle()
@@ -196,6 +199,25 @@ class EntryGlobalSearchScreen(
                 )
             },
         ) { contentPadding ->
+            when (state.emptyReason) {
+                GlobalSearchEngine.EmptyReason.NoPinnedSources -> {
+                    EmptyScreen(
+                        stringRes = MR.strings.no_pinned_sources,
+                        modifier = Modifier.padding(contentPadding),
+                        actions = listOf(
+                            EmptyScreenAction(MR.strings.all_sources, MaterialSymbols.Rounded.TravelExplore) {
+                                engine.setSourceFilter(SearchSourceFilter.All)
+                            },
+                        ),
+                    )
+                    return@Scaffold
+                }
+                GlobalSearchEngine.EmptyReason.NoResults -> {
+                    EmptyScreen(MR.strings.no_results_found, modifier = Modifier.padding(contentPadding))
+                    return@Scaffold
+                }
+                null -> Unit
+            }
             LazyColumn(contentPadding = contentPadding) {
                 items(state.visibleRows.size, key = { state.visibleRows[it].key.toString() }) { index ->
                     SearchResultSection(
