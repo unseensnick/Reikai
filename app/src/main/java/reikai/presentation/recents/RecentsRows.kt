@@ -64,14 +64,13 @@ import tachiyomi.presentation.core.util.selectedBackground
  * included; Updates keeps EntryUpdatesRow, which it shares with the screen it replaced.
  */
 
-/** The height every top-level recents row draws at, taken from History so a mixed feed is uniform. */
+/** The height the flat row draws at in every mode but Updates, taken from History so a mixed feed is uniform. */
 val RECENTS_ROW_HEIGHT = 96.dp
 
 /**
- * Collapsed "N new chapters" row for a series with several updates on one day. Shares
- * [RECENTS_ROW_HEIGHT] with the flat row: Grouped draws both kinds in one list, so a group sitting at
- * a different height than the single row below it is the same spliced-lists effect one row shape
- * exists to avoid.
+ * Collapsed "N new chapters" row for a series with several updates on one day. Only the Updates mode
+ * groups, so this sits among EntryUpdatesRow's single rows and takes their height and square cover: a
+ * group at a different height than the row beside it is the spliced-lists effect one shape avoids.
  */
 @Composable
 fun RecentsGroupRow(
@@ -98,12 +97,14 @@ fun RecentsGroupRow(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 },
             )
-            .height(RECENTS_ROW_HEIGHT)
-            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
+            .height(56.dp)
+            .padding(horizontal = MaterialTheme.padding.medium),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MangaCover.Book(
-            modifier = Modifier.fillMaxHeight(),
+        MangaCover.Square(
+            modifier = Modifier
+                .padding(vertical = 6.dp)
+                .fillMaxHeight(),
             data = cover,
             onClick = onClickCover,
         )
