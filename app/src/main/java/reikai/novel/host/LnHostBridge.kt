@@ -123,15 +123,6 @@ class LnHostBridge(
         }
     }
 
-    /** Wipe a plugin's @libs/storage scope. Called on uninstall (so a reinstall doesn't pick up
-     *  stale login state) and from the Clear data overflow action. */
-    fun clearPluginStorage(pluginId: String) {
-        val prefix = scopePrefix(pluginId)
-        preferenceStore.getAll().keys
-            .filter { it.startsWith(prefix) }
-            .forEach { preferenceStore.getString(it).delete() }
-    }
-
     private fun scopePrefix(pluginId: String): String = "ln_storage::$pluginId::"
 
     private fun scopedKey(pluginId: String, key: String): String = "${scopePrefix(pluginId)}$key"

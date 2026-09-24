@@ -388,7 +388,8 @@ class LnPluginInstaller(
      * plugin id (a plugin can have several if it was installed from more than one repo or carried in by
      * a restore), so uninstall fully removes it instead of leaving a sibling URL that reloads on the
      * next launch. The loaded plugin instance stays in the host until the host is destroyed; that's
-     * fine because the source is no longer reachable through the manager.
+     * fine because the source is no longer reachable through the manager. Its settings and logins stay
+     * for a reinstall, as a Mihon extension's source preferences outlive its uninstall.
      */
     suspend fun uninstall(pluginId: String, pluginJsUrl: String? = null) {
         // Resolve the URL(s) to drop from the plugin id against FRESH metadata, not a caller-cached
@@ -424,8 +425,9 @@ class LnPluginInstaller(
     }
 
     /**
-     * Derive a stable per-URL identifier used as the `@libs/storage` scope at load time. Unrelated
-     * to the plugin's canonical id (which the host resolves from the plugin's own source).
+     * A per-URL id the host loads a plugin under before it knows the plugin's own. Storage is scoped by
+     * the plugin's own id, which `headless.js` discovers on a first pass; this one scopes it only when
+     * that discovery throws.
      */
     private fun scopeIdFromUrl(url: String): String =
         url.substringAfterLast('/').substringBeforeLast('.')

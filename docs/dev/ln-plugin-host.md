@@ -73,8 +73,10 @@ request rather than at construction, because reading it loads the WebView provid
 seconds on a cold device while the host's Metro singleton lock is held.
 
 Per-plugin storage is namespaced keys over `PreferenceStore` (raw SharedPreferences is forbidden),
-keyed `ln_storage::<pluginId>::<key>`. `clearPluginStorage` deletes every key with that prefix; the
-uninstall flow and a Clear-data action call it. `getSetting` / `setSetting` on the host read and write
+keyed `ln_storage::<pluginId>::<key>`, where the id is the plugin's own, discovered by `headless.js` on
+a first pass (the URL-derived id stands in only when that discovery throws). Uninstalling a plugin
+leaves its keys in place (owner, 2026-09-24), as Mihon leaves an extension's source preferences, so a reinstall picks its
+settings and logins back up. `getSetting` / `setSetting` on the host read and write
 the same `storage:` scope a plugin reads through `@libs/storage`, wrapped in lnreader's `{value: ...}`
 envelope, so a value the settings UI writes is exactly what the plugin sees at runtime.
 

@@ -254,12 +254,6 @@ class LnPluginHost(
         return JSON.decodeFromJsonElement(ListSerializer(NovelItem.serializer()), raw)
     }
 
-    /** Wipe a plugin's @libs/storage scope without unloading it from the host. Used by the
-     *  uninstall flow and by a standalone Clear data action. */
-    fun clearPluginStorage(pluginId: String) {
-        bridge.clearPluginStorage(pluginId)
-    }
-
     /** Per-plugin settings live in the same `storage:` scope a plugin reads via `@libs/storage`, in
      *  lnreader's StoredItem envelope (`{value: ...}`), so a value the settings UI writes here is
      *  exactly what the plugin sees at runtime. Values are typed JsonElements (string / bool / array). */
