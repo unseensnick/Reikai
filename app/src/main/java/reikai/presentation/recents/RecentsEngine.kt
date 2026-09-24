@@ -533,9 +533,21 @@ class RecentsEngine(
     suspend fun detailsScreen(entry: EntryId): Screen? =
         providersByType[entry.contentType]?.detailsScreen(entry)
 
-    /** How a tap on [item] opens its chapter, or null when there is nothing left to open. */
-    suspend fun open(item: RecentsItem): Intent? =
-        providersByType[item.entryId.contentType]?.open(item)
+    /**
+     * How a tap on [item] opens its chapter in [mode], or null when there is nothing left to open. One
+     * decision with the row's label: a row whose label moved onto a resolved chapter opens that same
+     * chapter, an Updates row opens the chapter it names, and any other row takes its lane's rule.
+     */
+    suspend fun open(item: RecentsItem, mode: RecentsMode, membership: Map<EntryId, Long>): Intent? {
+        val provider = providersByType[item.entryId.contentType] ?: return null
+        val lane = item.lane
+        val chapter = when {
+            resolvesTarget(item, mode, membership) -> targetRow(item)?.ref
+            lane is RecentsLane.Updated -> lane.chapter
+            else -> provider.targetChapter(item)
+        } ?: return null
+        return provider.open(item, chapter)
+    }
 
     /**
      * The newest read across the content types the chip is showing, opened the way its row would be.
@@ -544,8 +556,10 @@ class RecentsEngine(
      * that existed. Ordering is the feed's own, so the tie-break is not a second opinion.
      */
     suspend fun resumeLatest(): Intent? {
-        val latest = orderRecents(activeProviders().mapNotNull { it.latestRead() }).firstOrNull()
-        return latest?.let { open(it) }
+        val latest = orderRecents(activeProviders().mapNotNull { it.latestRead() }).firstOrNull() ?: return null
+        val provider = providersByType[latest.entryId.contentType] ?: return null
+        val chapter = provider.targetChapter(latest) ?: return null
+        return provider.open(latest, chapter)
     }
 
     // The render projection, forwarded because the providers themselves stay private: a renderer asks
@@ -599,28 +613,32 @@ class RecentsEngine(
         )
     }
 
-    // The resolved continue-reading rows, keyed by the chapter each row was recorded from. That key is
-    // unique among the rows using this memo: only read-lane rows resolve, and every mode that draws
-    // one collapses its read lane to a row per entry before anything is drawn.
+    // The resolved rows, keyed by the lane each row was recorded from, chapter included. The lane rather
+    // than the chapter, because a read row and an updated row naming one chapter resolve by different
+    // rules. Unique among drawn rows: only the combined modes resolve, and they collapse to a row per
+    // entry before anything is drawn.
 
-    private val mutableTargets = MutableStateFlow<Map<ChapterRef, RecentsTargetRow>>(emptyMap())
-    val targets: StateFlow<Map<ChapterRef, RecentsTargetRow>> = mutableTargets.asStateFlow()
+    private val mutableTargets = MutableStateFlow<Map<RecentsLane, RecentsTargetRow>>(emptyMap())
+    val targets: StateFlow<Map<RecentsLane, RecentsTargetRow>> = mutableTargets.asStateFlow()
 
     /**
-     * Whether [item] can name a chapter other than the one it was recorded from, which is the only
-     * reason to pay a resolution: both providers load the entry's whole chapter list before any rule
-     * runs, one list per member for a merged entry. A record that reads as unread resumes itself,
-     * unless the entry is merged, where a chapter another source of the group has read counts as read
-     * to the rule and not to this row's own flag. An unmerged entry cannot be in that state.
+     * Whether [item]'s label moves onto the chapter its tap opens, which only the combined modes do:
+     * History names the record it logs, and an Updates row opens the chapter it names. Paid only where
+     * the target can differ, since both providers load the entry's whole chapter list to answer. A read
+     * record still unread resumes itself unless the entry is merged, where another source's read counts
+     * to the rule and not to this row's flag. An update's burst can start at any chapter of its fetch.
      */
     fun resolvesTarget(item: RecentsItem, mode: RecentsMode, membership: Map<EntryId, Long>): Boolean =
         mode.isCombined &&
-            item.lane is RecentsLane.Read &&
-            (rowUi(item).state?.read == true || item.entryId in membership)
+            when (item.lane) {
+                is RecentsLane.Read -> rowUi(item).state?.read == true || item.entryId in membership
+                is RecentsLane.Updated -> true
+                RecentsLane.Added -> false
+            }
 
     /** The resolved row for [item], from the memo where it is warm and by resolving where it is not. */
     suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
-        val recorded = item.lane.chapterRef ?: return null
+        val recorded = item.lane.takeIf { it.chapterRef != null } ?: return null
         mutableTargets.value[recorded]?.let { return it }
         val resolved = providersByType[item.entryId.contentType]?.targetRow(item) ?: return null
         mutableTargets.update { it + (recorded to resolved) }

@@ -162,7 +162,7 @@ class NovelRecentsAdapter(
         val owner = novelRepository.getById(chapter.novelId) ?: return null
         return RecentsTargetRow(
             ref = ChapterRef(EntryId.Novel(owner.id), chapter.id),
-            chapter = RecentsChapterUi.Number(chapter.chapterNumber),
+            chapter = item.lane.chapterLabel(chapter.name, chapter.chapterNumber),
             state = chapterState(
                 read = chapter.read || chapter.id in resolved.readElsewhere,
                 bookmark = chapter.bookmark || chapter.id in resolved.bookmarkedElsewhere,
@@ -299,15 +299,12 @@ class NovelRecentsAdapter(
     }
 
     // No lookup, unlike detailsScreen: the novel reader is keyed by id, not by source and url.
-    override suspend fun open(item: RecentsItem): Intent? {
-        val target = targetChapter(item) ?: return null
-        return ReaderActivity.newNovelIntent(
-            application,
-            item.entryId.rawId,
-            target.chapterId,
-            sourceScoped = item.lane.sourceScoped,
-        )
-    }
+    override fun open(item: RecentsItem, chapter: ChapterRef): Intent = ReaderActivity.newNovelIntent(
+        application,
+        item.entryId.rawId,
+        chapter.chapterId,
+        sourceScoped = item.lane.sourceScoped,
+    )
 
     override fun rowUi(item: RecentsItem): RecentsRowUi = novelRowUi(item)
 

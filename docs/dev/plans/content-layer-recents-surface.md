@@ -83,8 +83,10 @@ There is one rule: **one row per merge group, falling back to one row per entry 
 The row a user sees and the chapter a tap opens are different things, and the rule is the lane's, not one global winner. This is why the item model separates them.
 
 - **Read lane**: reopen the recorded chapter while it is unfinished, otherwise the oldest chapter still unread. This reverses the forward-only rule the surface shipped with, on 2026-08-13; the reasoning is in the second feedback round below.
-- **Updated lane**: the first unread chapter of the update burst, Yokai's rule (the first unread chapter fetched within twelve hours of the row's own chapter), falling back to the row's own chapter.
+- **Updated lane**: in the combined modes, the first unread chapter of the update burst, Yokai's rule (the first unread chapter fetched within twelve hours of the row's own chapter), falling back to the row's own chapter. In the Updates mode a row opens the chapter it names, flat or a group's child (owner, 2026-09-24), which is what upstream, pre-cutover Reikai and Yokai's own gate on its Updates view all do; the cutover had dropped that gate.
 - **Added lane**: the first unread chapter.
+
+**What a row names and what its tap opens are one decision** (owner, 2026-09-24). `RecentsEngine.open` asks `resolvesTarget`, the same predicate the label reads: a combined-mode row whose label moved onto a resolved chapter opens that chapter out of the one memo, so the two cannot disagree, and an updated row in the combined modes now moves its label onto its burst's first unread the way a continue-reading row does, named the way an update names its chapter (`chapterLabel`). History is the one place the two still differ, by ruling: its row names the record it logs, and its tap resumes, as upstream's does.
 
 Per content type the mechanics stay behind the provider: manga resolves through `GetNextChapters` with the scanlator filter, novels through `GetNextNovelChapter` in source order. Both are merge-unaware today; step 6 closes that.
 

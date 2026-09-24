@@ -91,12 +91,14 @@ A row whose target turns out to be the recorded chapter draws exactly as it does
 
 ### The engine remembers it
 
-A `StateFlow<Map<ChapterRef, RecentsTargetRow>>` keyed by the recorded ref, filled as rows resolve.
+A `StateFlow<Map<RecentsLane, RecentsTargetRow>>` keyed by the lane each row was recorded from, which
+carries its chapter ref, filled as rows resolve.
 
-The recorded ref is unique among the rows that use this memo, which is what makes it a safe key: only
-read-lane rows resolve a target, and `collapseByEntry` reduces each lane to one row per entry before
-anything is drawn, so no drawn list holds two read rows for one entry. A read row and an updated row
-can share a chapter ref in Grouped, and that costs nothing here, because the updated row never asks.
+The recorded lane is unique among the rows that use this memo, which is what makes it a safe key: only
+the combined modes resolve a target, and they collapse to one row per entry before anything is drawn.
+The key is the lane rather than the bare chapter ref because updated rows in the combined modes resolve
+too (their burst's first unread), and a read row and an updated row naming one chapter resolve by
+different rules.
 
 The memo is emptied when the lane data changes rather than when the assembly emits. The assembly folds
 the search query in with the lanes, and the lane combination is already its own sub-flow, so the clear
@@ -218,8 +220,8 @@ emulator's sources do not download), and delete-downloads on a resolved row.
 
 - **The selection is not re-keyed.** An earlier shape of this plan moved it from chapter refs to row
   keys, on the grounds that a Grouped read row and updated row can share a chapter ref. They can, but
-  it costs nothing here: only read rows resolve targets, and each lane is collapsed to one row per
-  entry before drawing, so the memo cannot collide. The ambiguity affects one thing only, selecting one
+  it costs nothing here: the memo is keyed by lane, and the combined modes collapse to one row per
+  entry before drawing, so it cannot collide. The ambiguity affects one thing only, selecting one
   of those two rows highlights both, which is how the surface behaves today and is not what this work
   is for. Leaving the selection alone removes a step that would have changed visible behaviour, altered
   the delete-downloads dialog, made added rows selectable unless re-guarded, and moved twelve test call

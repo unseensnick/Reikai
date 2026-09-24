@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.coil.NovelCover
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelUpdateWithRelations
@@ -56,6 +57,15 @@ class RecentsMappingTest {
     @MethodSource("probes")
     fun `a recently added row has no chapter to open`(probe: RecentsMappingProbe) {
         probe.added().lane shouldBe RecentsLane.Added
+    }
+
+    /** Both adapters label a resolved chapter through this, so one case covers the two of them. */
+    @Test
+    fun `an update resolved onto another chapter still names it the way an update does`() {
+        val update = RecentsLane.Updated(ChapterRef(EntryId.Manga(1), 15))
+
+        update.chapterLabel(name = "Chapter 10: The start", number = 10.0) shouldBe
+            RecentsChapterUi.Named("Chapter 10: The start")
     }
 
     @ParameterizedTest(name = "{0}")

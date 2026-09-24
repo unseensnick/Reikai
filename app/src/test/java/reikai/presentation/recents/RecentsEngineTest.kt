@@ -1013,6 +1013,47 @@ class RecentsEngineTest {
         (manga.openedItem to novel.openedItem) shouldBe (null to null)
     }
 
+    // What a tap opens, which is one decision with what the row names.
+
+    private fun updatedRow(entry: EntryId, chapterId: Long) =
+        item(entry, at = 100, lane = RecentsLane.Updated(ChapterRef(entry, chapterId)))
+
+    /** Chapters 10 to 15 from one fetch, all unread: the burst starts at 10 and the row names 15. */
+    private fun burstProvider(row: RecentsItem) = provider(
+        ContentType.MANGA,
+        updated = rows(row),
+        states = mapOf(manga1 to readState()),
+        targetRows = mapOf(ref(manga1, 15) to targetRow(ref(manga1, 10), readState())),
+    )
+
+    @Test
+    fun `an Updates row opens the chapter it names, not its burst's first unread`() = runTest {
+        val row = updatedRow(manga1, chapterId = 15)
+        val fake = burstProvider(row)
+
+        engine(listOf(fake)).open(row, RecentsMode.UPDATES, membership = emptyMap())
+
+        fake.openedChapter shouldBe ref(manga1, 15)
+    }
+
+    @Test
+    fun `a combined view's updated row names the chapter its tap opens`() = runTest {
+        val row = updatedRow(manga1, chapterId = 15)
+
+        feedEngine(burstProvider(row)).resolvesTarget(row, RecentsMode.FEED, membership = emptyMap()) shouldBe true
+    }
+
+    @Test
+    fun `a tap on a resolved row opens the chapter its label moved onto`() = runTest {
+        val row = updatedRow(manga1, chapterId = 15)
+        val fake = burstProvider(row)
+        val engine = feedEngine(fake)
+
+        engine.open(row, RecentsMode.FEED, membership = emptyMap())
+
+        (fake.openedChapter to engine.targets.value[row.lane]?.ref) shouldBe (ref(manga1, 10) to ref(manga1, 10))
+    }
+
     @Test
     fun `a group add's confirm hands the provider the group to join`() = runTest {
         val manga = provider(ContentType.MANGA)
@@ -1161,16 +1202,6 @@ class RecentsEngineTest {
     }
 
     @Test
-    fun `an updated row resolves nothing, whatever its state`() = runTest {
-        val row = item(manga1, at = 100, lane = RecentsLane.Updated(ChapterRef(manga1, 5)))
-        val engine = feedEngine(
-            provider(ContentType.MANGA, updated = rows(row), states = mapOf(manga1 to readState(read = true))),
-        )
-
-        engine.resolvesTarget(row, RecentsMode.FEED, membership = emptyMap()) shouldBe false
-    }
-
-    @Test
     fun `a resolved row is remembered, so a second reader pays nothing`() = runTest {
         val row = readRow(manga1, chapterId = 5)
         val target = targetRow(ref(manga1, 2), readState(read = false))
@@ -1185,7 +1216,7 @@ class RecentsEngineTest {
         engine.targetRow(row)
         engine.targetRow(row)
 
-        engine.targets.value shouldBe mapOf(ref(manga1, 5) to target)
+        engine.targets.value shouldBe mapOf(row.lane to target)
         fake.targetRowResolutions shouldBe 1
     }
 
@@ -1232,7 +1263,7 @@ class RecentsEngineTest {
         engine.search("nothing this row is called")
         engine.assemblyWhere { it.items.isEmpty() }
 
-        engine.targets.value shouldBe mapOf(ref(manga1, 5) to target)
+        engine.targets.value shouldBe mapOf(row.lane to target)
     }
 
     @Test
@@ -1289,13 +1320,12 @@ class RecentsEngineTest {
     @Test
     fun `a selection mixing lanes maps only the rows that name a target`() = runTest {
         val read = readRow(manga1, chapterId = 5)
-        val updated = item(manga2, at = 50, lane = RecentsLane.Updated(ChapterRef(manga2, 9)))
+        val stillUnread = readRow(manga2, chapterId = 9)
         val engine = feedEngine(
             provider(
                 ContentType.MANGA,
-                read = rows(read),
-                updated = rows(updated),
-                states = mapOf(manga1 to readState(read = true), manga2 to readState(read = true)),
+                read = rows(read, stillUnread),
+                states = mapOf(manga1 to readState(read = true), manga2 to readState(read = false)),
                 targetRows = mapOf(
                     ref(manga1, 5) to targetRow(ref(manga1, 2), readState()),
                     ref(manga2, 9) to targetRow(ref(manga2, 3), readState()),
@@ -1303,7 +1333,7 @@ class RecentsEngineTest {
             ),
         )
 
-        engine.actingChapters(listOf(read, updated), RecentsMode.FEED, membership = emptyMap()) shouldBe
+        engine.actingChapters(listOf(read, stillUnread), RecentsMode.FEED, membership = emptyMap()) shouldBe
             setOf(ref(manga1, 2), ref(manga2, 9))
     }
 
@@ -1490,7 +1520,10 @@ private class FakeRecentsProvider(
         progress = RecentsDownloadProgress.Unsupported,
     )
 
-    override suspend fun targetChapter(item: RecentsItem): ChapterRef? = null
+    // The same answer [targetRow] gives, since both adapters resolve the two through one lane rule; a
+    // row with no canned target resumes its own record.
+    override suspend fun targetChapter(item: RecentsItem): ChapterRef? =
+        targetRows[item.lane.chapterRef]?.ref ?: item.lane.chapterRef
 
     /** How many times the engine paid for a resolution, which is what the memo is meant to bound. */
     var targetRowResolutions = 0
@@ -1504,10 +1537,13 @@ private class FakeRecentsProvider(
     /** What the engine asked this provider to open, which is how a resume test says who answered. */
     var openedItem: RecentsItem? = null
         private set
+    var openedChapter: ChapterRef? = null
+        private set
 
-    override suspend fun open(item: RecentsItem): Intent? {
+    override fun open(item: RecentsItem, chapter: ChapterRef): Intent {
         openedItem = item
-        return null
+        openedChapter = chapter
+        return mockk()
     }
 
     override suspend fun latestRead(): RecentsItem? = latestRead

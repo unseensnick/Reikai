@@ -73,6 +73,15 @@ sealed interface RecentsChapterUi {
 }
 
 /**
+ * How a row resolved onto another chapter labels it: the way its lane labels its own, so a resolved
+ * update still reads as an update rather than switching to a read row's number.
+ */
+fun RecentsLane.chapterLabel(name: String, number: Double): RecentsChapterUi = when (this) {
+    is RecentsLane.Updated -> RecentsChapterUi.Named(name)
+    is RecentsLane.Read, RecentsLane.Added -> RecentsChapterUi.Number(number)
+}
+
+/**
  * The chapter state a row's actions, icons and dimming read. Held apart from [RecentsChapterUi] since
  * the label a lane picks says nothing about what its chapter can do: keeping the two together is what
  * left a read row unable to say whether it was bookmarked, so every verb aimed at one did nothing.

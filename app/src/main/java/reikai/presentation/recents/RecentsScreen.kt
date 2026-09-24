@@ -134,9 +134,13 @@ fun Screen.RecentsScreen(
     val showsUpdated = RecentsLaneKind.UPDATED in mode.lanes
     val showsRead = RecentsLaneKind.READ in mode.lanes
 
+    // The membership behind the rows being drawn, which decides whether a row can name a chapter other
+    // than its record. Off the rendered emission, so the gate and the rows describe the same pass.
+    val membership = rendered?.membership.orEmpty()
+
     fun open(item: RecentsItem) {
         scope.launchIO {
-            val target = engine.open(item)
+            val target = engine.open(item, mode, membership)
             withUIContext {
                 // Every path that opens a chapter says so when there is none left; this one is the
                 // only one a recents row has.
@@ -146,10 +150,6 @@ fun Screen.RecentsScreen(
             }
         }
     }
-
-    // The membership behind the rows being drawn, which decides whether a row can name a chapter other
-    // than its record. Off the rendered emission, so the gate and the rows describe the same pass.
-    val membership = rendered?.membership.orEmpty()
 
     /**
      * Run a bulk verb on what the selected rows are actually about. Resolved here rather than in the
@@ -462,15 +462,15 @@ private fun RecentsMixedLaneRow(
     onOpenDetails: (EntryId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // A continue-reading row is about the chapter a tap opens, not the one its record was written
-    // from, so its name, its state and its download control all come from the target once that
-    // resolves. Null until then, and for every row whose record is what a tap would reopen anyway;
-    // both fall back to the record, so the row never blanks.
+    // A row here is about the chapter a tap opens, not the one its record was written from, so its
+    // name, its state and its controls all come from the target once that resolves. Null until then,
+    // and for every row whose record is what a tap would reopen anyway; both fall back to the record,
+    // so the row never blanks.
     val target = rememberTargetRow(engine, item, mode, membership)
     val state = target?.state ?: ui.state
     val download = engine.downloadUi(item, target)
-    // The record keys the selection and the history verbs; the target is what the download control
-    // acts on, so that button cannot fetch a different chapter than the one the row names.
+    // The record keys the selection and the history verbs; the target is what the swipe and the
+    // download control act on, so neither can touch a different chapter than the one the row names.
     val ref = item.lane.chapterRef
     val actingRef = target?.ref ?: ref
     // Swipe stays on the updated lane by ruling rather than by capability: the read lane carries its
@@ -509,8 +509,8 @@ private fun RecentsMixedLaneRow(
         chapterSwipeStartAction = swipe.start,
         chapterSwipeEndAction = swipe.end,
         onChapterSwipe = { action ->
-            if (state != null && ref != null) {
-                engine.runChapterSwipe(ref, state, { downloadState }, action)
+            if (state != null && actingRef != null) {
+                engine.runChapterSwipe(actingRef, state, { downloadState }, action)
             }
         },
         downloadState = downloadState,
@@ -521,11 +521,11 @@ private fun RecentsMixedLaneRow(
                 // row carrying the same control is the point, and one row silently missing it is the
                 // raggedness this row shape exists to remove.
                 is RecentsLane.Updated -> ChapterDownloadIndicator(
-                    enabled = ref != null && !selectionActive,
+                    enabled = actingRef != null && !selectionActive,
                     modifier = Modifier.padding(start = 4.dp),
                     downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
                     downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
-                    onClick = { action -> ref?.let { engine.download(setOf(it), action) } },
+                    onClick = { action -> actingRef?.let { engine.download(setOf(it), action) } },
                 )
                 // Both go quiet during a sweep, like every other control on this row: the read lane
                 // is not favorite-gated, so a row here may be an entry the library does not hold.
@@ -582,7 +582,7 @@ private fun rememberTargetRow(
     membership: Map<EntryId, Long>,
 ): RecentsTargetRow? {
     val resolves = engine.resolvesTarget(item, mode, membership)
-    val recorded = item.lane.chapterRef
+    val recorded = item.lane
     val targets by engine.targets.collectAsState()
     val target by remember(recorded, resolves) {
         derivedStateOf { if (resolves) targets[recorded] else null }
@@ -929,7 +929,7 @@ private fun RecentsBottomBar(
     // that changes is which buttons appear, never what they do, since the verbs resolve before they
     // dispatch.
     val perRow = selected.map { item ->
-        val target = targets[item.lane.chapterRef]
+        val target = targets[item.lane]
         val state = target?.state ?: engine.rowUi(item).state
         state to engine.downloadUi(item, target)?.state?.invoke()
     }

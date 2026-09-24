@@ -130,9 +130,9 @@ interface RecentsProvider : RecentsBehavior {
     }
 
     /**
-     * The chapter a tap on [item] opens, resolved per lane: resume where you were on read, the first
-     * unread of the burst on updated, the first unread on added. Null when nothing is left to open.
-     * Which lanes resolve over the merge group rather than in-source is what [sourceScoped] pairs to.
+     * The chapter [item]'s lane rule picks: resume where you were on read, the first unread of the
+     * burst on updated, the first unread on added, or null when nothing is left. An Updates row never
+     * asks, since it opens the chapter it names. [sourceScoped] pairs to which lanes resolve in-source.
      *
      * Suspend and called per rendered row on purpose: resolving at assembly would put one chapter query
      * per row on every emission of a feed that can run to hundreds of rows.
@@ -156,8 +156,8 @@ interface RecentsProvider : RecentsBehavior {
     suspend fun latestRead(): RecentsItem?
 
     /**
-     * How a tap on [item] opens whatever [targetChapter] resolved, or null when nothing is left to
-     * open. The provider builds it because only it knows which reader its content type has.
+     * How a tap on [item] opens [chapter], which the engine decided. The provider builds it because
+     * only it knows which reader its content type has.
      */
-    suspend fun open(item: RecentsItem): Intent?
+    fun open(item: RecentsItem, chapter: ChapterRef): Intent
 }

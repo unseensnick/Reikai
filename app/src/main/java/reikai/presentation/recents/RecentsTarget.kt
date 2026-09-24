@@ -91,10 +91,10 @@ suspend fun addedTarget(group: List<RecentsChapter>, ownSource: suspend () -> Li
 const val BURST_WINDOW_MS: Long = 12 * 60 * 60 * 1000L
 
 /**
- * The chapter an updated row opens: the first unread chapter of the same burst (everything fetched
- * within [BURST_WINDOW_MS] of the row's chapter), falling back to the row's own. That is what makes a
- * "5 new chapters" row open the first of the five. [chapters] arrives in reading order, because
- * "first" means first to read, not first fetched, and only the provider knows its type's order.
+ * The chapter an updated row in a combined view opens: the first unread chapter of the same burst
+ * (everything fetched within [BURST_WINDOW_MS] of the row's chapter), falling back to the row's own.
+ * That is what makes a "5 new chapters" row open the first of the five. [chapters] arrives in reading
+ * order, because "first" means first to read, not first fetched, and only the provider knows its order.
  */
 fun firstUnreadInBurst(
     chapters: List<RecentsChapter>,

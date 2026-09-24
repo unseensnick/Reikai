@@ -167,7 +167,7 @@ class MangaRecentsAdapter(
         val owner = resolved.mangaById[chapter.mangaId] ?: return null
         return RecentsTargetRow(
             ref = ChapterRef(EntryId.Manga(owner.id), chapter.id),
-            chapter = RecentsChapterUi.Number(chapter.chapterNumber),
+            chapter = item.lane.chapterLabel(chapter.name, chapter.chapterNumber),
             state = chapterState(
                 read = chapter.read || chapter.id in resolved.readElsewhere,
                 bookmark = chapter.bookmark || chapter.id in resolved.bookmarkedElsewhere,
@@ -314,15 +314,12 @@ class MangaRecentsAdapter(
     override suspend fun detailsScreen(entry: EntryId): Screen? =
         (entry as? EntryId.Manga)?.let { MangaScreen(it.rawId) }
 
-    override suspend fun open(item: RecentsItem): Intent? {
-        val target = targetChapter(item) ?: return null
-        return ReaderActivity.newIntent(
-            application,
-            item.entryId.rawId,
-            target.chapterId,
-            sourceScoped = item.lane.sourceScoped,
-        )
-    }
+    override fun open(item: RecentsItem, chapter: ChapterRef): Intent = ReaderActivity.newIntent(
+        application,
+        item.entryId.rawId,
+        chapter.chapterId,
+        sourceScoped = item.lane.sourceScoped,
+    )
 
     override fun rowUi(item: RecentsItem): RecentsRowUi = mangaRowUi(item)
 
