@@ -15,16 +15,15 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
-import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
-import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
+import reikai.domain.category.RecentsSurface
 import reikai.presentation.history.NovelHistoryViewModel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -76,9 +75,9 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
         val mode by engine.mode.collectAsState()
         // Held for the badge reset and the two feeds' own error reports. The engine builds these same
         // instances out of this tab's store, so none of them is a second model.
-        val updatesModel = metroViewModel<UpdatesViewModel>()
-        val mangaHistory = metroViewModel<HistoryViewModel>()
-        val novelHistory = metroViewModel<NovelHistoryViewModel>()
+        val updatesModel = mangaUpdatesModel(RecentsSurface.RECENTS)
+        val mangaHistory = mangaHistoryModel(RecentsSurface.RECENTS)
+        val novelHistory = novelHistoryModel(RecentsSurface.RECENTS)
 
         RecentsTabBody(
             engine = engine,

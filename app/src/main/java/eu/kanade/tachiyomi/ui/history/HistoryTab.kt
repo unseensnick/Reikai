@@ -10,15 +10,17 @@ import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
-import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
+import reikai.domain.category.RecentsSurface
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.recents.RecentsTabBody
 import reikai.presentation.recents.launch
+import reikai.presentation.recents.mangaHistoryModel
+import reikai.presentation.recents.novelHistoryModel
 import reikai.presentation.recents.rememberHistoryEngine
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -52,8 +54,8 @@ data object HistoryTab : Tab {
         val engine = rememberHistoryEngine()
         // RK: both models stay resolved for their event channels, which report a failed write and a
         //     cleared history. The engine builds these same two out of this tab's store.
-        val viewModel = metroViewModel<HistoryViewModel>()
-        val novelViewModel = metroViewModel<NovelHistoryViewModel>()
+        val viewModel = mangaHistoryModel(RecentsSurface.HISTORY)
+        val novelViewModel = novelHistoryModel(RecentsSurface.HISTORY)
 
         RecentsTabBody(
             engine = engine,

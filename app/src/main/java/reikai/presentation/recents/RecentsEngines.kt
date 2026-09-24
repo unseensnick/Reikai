@@ -3,7 +3,6 @@ package reikai.presentation.recents
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
-import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import mihon.app.di.appGraph
@@ -21,8 +20,8 @@ import reikai.presentation.updates.NovelUpdatesViewModel
 /** Updates: the updated lane alone, so neither history model is built. */
 @Composable
 fun rememberUpdatesEngine(): RecentsEngine {
-    val manga = metroViewModel<UpdatesViewModel>()
-    val novel = metroViewModel<NovelUpdatesViewModel>()
+    val manga = mangaUpdatesModel(RecentsSurface.UPDATES)
+    val novel = novelUpdatesModel(RecentsSurface.UPDATES)
     val graph = LocalContext.current.appGraph
     return recentsEngine(RecentsSurface.UPDATES, setOf(RecentsMode.UPDATES)) {
         listOf(
@@ -35,8 +34,8 @@ fun rememberUpdatesEngine(): RecentsEngine {
 /** History: the read lane alone, so neither updates model is built. */
 @Composable
 fun rememberHistoryEngine(): RecentsEngine {
-    val manga = metroViewModel<HistoryViewModel>()
-    val novel = metroViewModel<NovelHistoryViewModel>()
+    val manga = mangaHistoryModel(RecentsSurface.HISTORY)
+    val novel = novelHistoryModel(RecentsSurface.HISTORY)
     val graph = LocalContext.current.appGraph
     return recentsEngine(RecentsSurface.HISTORY, setOf(RecentsMode.HISTORY)) {
         listOf(
@@ -53,10 +52,10 @@ fun rememberHistoryEngine(): RecentsEngine {
  */
 @Composable
 fun rememberRecentsEngine(): RecentsEngine {
-    val mangaUpdates = metroViewModel<UpdatesViewModel>()
-    val novelUpdates = metroViewModel<NovelUpdatesViewModel>()
-    val mangaHistory = metroViewModel<HistoryViewModel>()
-    val novelHistory = metroViewModel<NovelHistoryViewModel>()
+    val mangaUpdates = mangaUpdatesModel(RecentsSurface.RECENTS)
+    val novelUpdates = novelUpdatesModel(RecentsSurface.RECENTS)
+    val mangaHistory = mangaHistoryModel(RecentsSurface.RECENTS)
+    val novelHistory = novelHistoryModel(RecentsSurface.RECENTS)
     val graph = LocalContext.current.appGraph
     return recentsEngine(RecentsSurface.RECENTS, RecentsMode.entries.toSet()) {
         listOf(
@@ -65,6 +64,28 @@ fun rememberRecentsEngine(): RecentsEngine {
         )
     }
 }
+
+/*
+ * The four feed models, each told whose category selection it reads. Only the first call for a store
+ * builds one and later calls get that instance whatever they pass, so every call in a tab, the tab's
+ * own beside its engine included, passes the surface that tab renders.
+ */
+
+@Composable
+fun mangaUpdatesModel(surface: RecentsSurface): UpdatesViewModel =
+    assistedMetroViewModel<UpdatesViewModel, UpdatesViewModel.Factory> { create(surface) }
+
+@Composable
+fun novelUpdatesModel(surface: RecentsSurface): NovelUpdatesViewModel =
+    assistedMetroViewModel<NovelUpdatesViewModel, NovelUpdatesViewModel.Factory> { create(surface) }
+
+@Composable
+fun mangaHistoryModel(surface: RecentsSurface): HistoryViewModel =
+    assistedMetroViewModel<HistoryViewModel, HistoryViewModel.Factory> { create(surface) }
+
+@Composable
+fun novelHistoryModel(surface: RecentsSurface): NovelHistoryViewModel =
+    assistedMetroViewModel<NovelHistoryViewModel, NovelHistoryViewModel.Factory> { create(surface) }
 
 @Composable
 private fun recentsEngine(

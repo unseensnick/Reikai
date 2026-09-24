@@ -5,10 +5,12 @@ import androidx.compose.ui.util.fastFilter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
-import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.binding
-import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -46,10 +48,11 @@ import tachiyomi.domain.updates.service.UpdatesPreferences
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 
-@Inject
-@ViewModelKey
-@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+// RK --> assisted, so the tab building this feed says whose category selection it reads.
+@AssistedInject
 class UpdatesViewModel(
+    @Assisted private val surface: RecentsSurface,
+    // RK <--
     // RK: no chapter verbs and none of their interactors. They moved to MangaRecentsChapterActions,
     //     which every recents surface builds, History included.
     private val downloadManager: DownloadManager,
@@ -59,9 +62,18 @@ class UpdatesViewModel(
     private val getCustomMangaInfo: GetCustomMangaInfo,
     private val libraryPreferences: LibraryPreferences,
     private val updatesPreferences: UpdatesPreferences,
-    // RK: the Updates tab's category filter, one selection covering both content types, applied in SQL.
+    // RK: the building surface's category filter, one selection covering both content types, in SQL.
     private val reikaiSourcePreferences: ReikaiSourcePreferences,
 ) : ViewModel() {
+
+    // RK --> the factory the assisted surface needs, so a bare metroViewModel() cannot build this.
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(surface: RecentsSurface): UpdatesViewModel
+    }
+    // RK <--
 
     /**
      * Live download progress, held beside the feed rather than patched into it. The feed is derived
@@ -76,7 +88,7 @@ class UpdatesViewModel(
         //     subscription re-runs on. Re-categorizing a series now reflects without reopening.
         combine(
             getUpdatesItemPreferenceFlow(),
-            reikaiSourcePreferences.recentsCategoryFilterFlow(RecentsSurface.UPDATES),
+            reikaiSourcePreferences.recentsCategoryFilterFlow(surface),
             ::Pair,
         )
             .distinctUntilChanged()

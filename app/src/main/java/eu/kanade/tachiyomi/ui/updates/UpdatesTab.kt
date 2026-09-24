@@ -8,12 +8,13 @@ import androidx.compose.runtime.DisposableEffect
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
-import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
+import reikai.domain.category.RecentsSurface
 import reikai.presentation.recents.RecentsTabBody
 import reikai.presentation.recents.ShowsUpdatesBadge
+import reikai.presentation.recents.mangaUpdatesModel
 import reikai.presentation.recents.rememberUpdatesEngine
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -41,8 +42,8 @@ data object UpdatesTab : Tab, ShowsUpdatesBadge {
     override fun Content() {
         val engine = rememberUpdatesEngine()
         // RK: held only for the badge reset below. The engine resolves the same instance out of this
-        //     tab's store, so this costs no second model.
-        val viewModel = metroViewModel<UpdatesViewModel>()
+        //     tab's store, so this costs no second model, and asks for it with the same surface.
+        val viewModel = mangaUpdatesModel(RecentsSurface.UPDATES)
 
         RecentsTabBody(
             engine = engine,

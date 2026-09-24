@@ -4,10 +4,12 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
-import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.binding
-import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -35,17 +37,27 @@ import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import kotlin.time.Duration.Companion.seconds
 
-@Inject
-@ViewModelKey
-@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+// RK --> assisted, so the tab building this feed says whose category selection it reads.
+@AssistedInject
 class HistoryViewModel(
+    @Assisted private val surface: RecentsSurface,
+    // RK <--
     // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
     private val getCustomMangaInfo: GetCustomMangaInfo,
     private val getHistory: GetHistory,
     private val removeHistory: RemoveHistory,
-    // RK: the History tab's category filter, one selection covering both content types.
+    // RK: the building surface's category filter, one selection covering both content types.
     private val reikaiSourcePreferences: ReikaiSourcePreferences,
 ) : ViewModel() {
+
+    // RK --> the factory the assisted surface needs, so a bare metroViewModel() cannot build this.
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(surface: RecentsSurface): HistoryViewModel
+    }
+    // RK <--
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
     val events: Flow<Event> = _events.receiveAsFlow()
@@ -53,7 +65,7 @@ class HistoryViewModel(
     // RK: the recents category filter is a query parameter, so the subscription re-runs on it. Search
     //     is not one: the engine matches the rows it already holds, so this feed asks for all of them.
     private val history: StateFlow<List<HistoryWithRelations>?> =
-        reikaiSourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY)
+        reikaiSourcePreferences.recentsCategoryFilterFlow(surface)
             .distinctUntilChanged()
             .flatMapLatest { categories ->
                 // RK: overlay the display-only custom title/cover onto each row, keyed by the real manga id.

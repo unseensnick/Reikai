@@ -4,10 +4,12 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
-import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.binding
-import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -42,10 +44,10 @@ import kotlin.time.Duration.Companion.seconds
  * most-recently-read chapter; the recents engine searches, interleaves and dates it, so what leaves
  * here is the raw list and nothing else.
  */
-@Inject
-@ViewModelKey
-@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+@AssistedInject
 class NovelHistoryViewModel(
+    // Whose category selection this feed reads: the tab building it, History or the combined one.
+    @Assisted private val surface: RecentsSurface,
     private val getNovelHistory: GetNovelHistory,
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
     private val getCustomNovelInfo: GetCustomNovelInfo,
@@ -53,13 +55,21 @@ class NovelHistoryViewModel(
     private val sourcePreferences: ReikaiSourcePreferences,
 ) : ViewModel() {
 
+    /** Assisted, so a bare metroViewModel() cannot build this; the surface is the tab's. */
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(surface: RecentsSurface): NovelHistoryViewModel
+    }
+
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
     val events: Flow<Event> = _events.receiveAsFlow()
 
     // The category filter is a query parameter, so the subscription re-runs on it. Search is not one:
     // the engine matches the rows it has already been handed, so this feed asks for all of them.
     private val history: StateFlow<List<NovelHistoryWithRelations>?> =
-        sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY)
+        sourcePreferences.recentsCategoryFilterFlow(surface)
             .distinctUntilChanged()
             .flatMapLatest { categories ->
                 // Overlay the display-only custom title/cover onto each row, keyed by the real novel id.

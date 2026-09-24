@@ -4,10 +4,12 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
-import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.binding
-import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -51,10 +53,10 @@ import kotlin.time.Duration.Companion.seconds
  * [reikai.presentation.recents.NovelRecentsChapterActions], which every recents surface builds. Novels
  * rely on the manga tab's unread-count badge reset, so there is nothing to reset here.
  */
-@Inject
-@ViewModelKey
-@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+@AssistedInject
 class NovelUpdatesViewModel(
+    // Whose category selection this feed reads: the tab building it, Updates or the combined one.
+    @Assisted private val surface: RecentsSurface,
     private val novelRepo: NovelRepository,
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val novelDownloadCache: NovelDownloadCache,
@@ -64,13 +66,21 @@ class NovelUpdatesViewModel(
     private val getCustomNovelInfo: GetCustomNovelInfo,
 ) : ViewModel() {
 
+    /** Assisted, so a bare metroViewModel() cannot build this; the surface is the tab's. */
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(surface: RecentsSurface): NovelUpdatesViewModel
+    }
+
     // Reuse Mihon's shared updates filter prefs so one toggle filters both manga and novels.
     // Everything the database can answer rides this flow, so a change re-runs the query.
     private fun feedFlow(): Flow<List<NovelUpdateWithRelations>> = combine(
         updatesPreferences.filterUnread.changes(),
         updatesPreferences.filterStarted.changes(),
         updatesPreferences.filterBookmarked.changes(),
-        sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.UPDATES),
+        sourcePreferences.recentsCategoryFilterFlow(surface),
     ) { unread, started, bookmarked, categories -> SqlFilters(unread, started, bookmarked, categories) }
         .distinctUntilChanged()
         .flatMapLatest { f ->
