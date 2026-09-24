@@ -16,7 +16,6 @@ import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
-import tachiyomi.core.common.util.lang.withIOContext
 
 /**
  * [NovelSource] over one catalogue of a novel extension app, a class the app loaded from the apk rather
@@ -55,7 +54,7 @@ class TachiyomiNovelSource(
 
     // A listing takes no filters here, as a manga source's Popular and Latest take none.
     override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage =
-        withIOContext {
+        appSourceCall {
             when (listing) {
                 NovelListing.Popular -> source.getPopularManga(page)
                 NovelListing.Latest -> source.getLatestUpdates(page)
@@ -63,12 +62,12 @@ class TachiyomiNovelSource(
         }
 
     override suspend fun search(query: String, page: Int, filters: NovelFilterState?): NovelItemsPage =
-        withIOContext {
+        appSourceCall {
             val filterList = (filters as? NovelFilterState.Filters)?.list ?: source.getFilterList()
             source.getSearchManga(page, query, filterList).toPage()
         }
 
-    override suspend fun parseNovel(novelPath: String): SourceNovel = withIOContext {
+    override suspend fun parseNovel(novelPath: String): SourceNovel = appSourceCall {
         val update = source.getMangaUpdate(
             SManga.create().apply { url = novelPath },
             chapters = emptyList(),
@@ -92,7 +91,7 @@ class TachiyomiNovelSource(
     }
 
     // Strip control characters only, as the plugin adapter does: the text is HTML the reader renders.
-    override suspend fun parseChapter(chapterPath: String): String = withIOContext {
+    override suspend fun parseChapter(chapterPath: String): String = appSourceCall {
         val chapter = SChapter.create().apply { url = chapterPath }
         val text = source.getPageList(chapter).map { source.fetchPageText(it.addressed()) }.joinToString("\n")
         NovelTextSanitizer.stripInvalidChars(text)

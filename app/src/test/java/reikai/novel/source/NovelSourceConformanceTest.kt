@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -28,6 +29,7 @@ import reikai.novel.host.LnPluginInfo
 import reikai.novel.host.SourceNovel
 import reikai.novel.source.ireader.IReaderNovelSource
 import ireader.core.source.CatalogSource as IReaderCatalogSource
+import ireader.core.source.model.Filter as IReaderFilter
 
 /**
  * What every novel source owes the app, whatever format it comes in. Each kind is fed its format's own
@@ -91,6 +93,58 @@ class NovelSourceConformanceTest {
     @Test
     fun `a plugin is its own extension and warns of nothing`() {
         source(Kind.PLUGIN).let { it.extensionName to it.contentWarning } shouldBe ("P" to ContentWarning.SAFE)
+    }
+
+    // An app built against a class this build no longer ships throws a LinkageError, which is not an
+    // Exception, so every caller let it crash the app. A plugin is out of scope: it runs in QuickJS, and
+    // the host bridge already turns any Throwable into a failed call.
+    @ParameterizedTest
+    @EnumSource(Kind::class, names = ["APP", "IREADER"])
+    fun `an outdated app fails a listing, not the app`(kind: Kind) = runTest {
+        shouldThrow<Exception> { linkBroken(kind).browse(NovelListing.Popular, page = 1, filters = null) }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class, names = ["APP", "IREADER"])
+    fun `an outdated app fails a search, not the app`(kind: Kind) = runTest {
+        shouldThrow<Exception> { linkBroken(kind).search("query", page = 1, filters = null) }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class, names = ["APP", "IREADER"])
+    fun `an outdated app fails a novel's details, not the app`(kind: Kind) = runTest {
+        shouldThrow<Exception> { linkBroken(kind).parseNovel("novel") }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class, names = ["APP", "IREADER"])
+    fun `an outdated app fails a chapter, not the app`(kind: Kind) = runTest {
+        shouldThrow<Exception> { linkBroken(kind).parseChapter("c1") }
+    }
+
+    private fun linkBroken(kind: Kind): NovelSource {
+        val missing = NoSuchMethodError("a method this build no longer ships")
+        return when (kind) {
+            Kind.APP -> TachiyomiNovelSource(
+                catalogue().also {
+                    coEvery { it.getPopularManga(any()) } throws missing
+                    coEvery { it.getSearchManga(any(), any(), any()) } throws missing
+                    coEvery { it.getMangaUpdate(any(), any(), any(), any()) } throws missing
+                    coEvery { it.getPageList(any()) } throws missing
+                },
+                app(),
+            )
+            Kind.IREADER -> IReaderNovelSource(
+                iReaderCatalogue().also {
+                    coEvery { it.getMangaList(any<Listing>(), any()) } throws missing
+                    coEvery { it.getMangaList(any<List<IReaderFilter<*>>>(), any()) } throws missing
+                    coEvery { it.getMangaDetails(any(), any()) } throws missing
+                    coEvery { it.getPageList(any(), any()) } throws missing
+                },
+                app(Extension.Kind.IREADER),
+            )
+            Kind.PLUGIN -> error("out of scope, see above")
+        }
     }
 
     private fun source(kind: Kind): NovelSource = when (kind) {

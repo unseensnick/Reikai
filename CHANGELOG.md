@@ -513,7 +513,7 @@ every release now also ships a foss build with neither in it.
 - **A resumed image download now shows the right progress instead of restarting from zero.**
 - **Cancel on the novel download notification now cancels instead of pausing.** The queue came back and carried on the next time you opened the app.
 - **A novel chapter that failed to download can be started again, by Resume or by Start downloading now, and keeps its place after a restart.** Resume skipped it, so it sat in the queue as an error with no way to get it going short of queueing it afresh.
-- **An outdated manga extension no longer crashes the app when you open one of its series or browse it.** It shows an error instead, as a library update already did.
+- **An outdated manga or novel extension no longer crashes the app when you browse it or open one of its series.** It shows an error instead, as a library update already did, and a novel extension's chapters fail the same way when read or downloaded.
 - **A downloaded novel chapter with pictures now keeps the line breaks the source draws.** Saving it folded them into spaces, so a chapter laid out with its own breaks read as one run-on block offline.
 - **A downloaded novel chapter's pictures now show offline even when the source offers them in several sizes.** Both readers went back to the source for the larger ones.
 - **Tapping install, update or reinstall twice on a light-novel plugin no longer shows a false install error.**

@@ -24,9 +24,9 @@ import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelPageFetch
 import reikai.novel.source.NovelPageKind
+import reikai.novel.source.appSourceCall
 import reikai.novel.source.chapterNumberOf
 import reikai.novel.source.releaseTimeOf
-import tachiyomi.core.common.util.lang.withIOContext
 
 /**
  * [reikai.novel.source.NovelSource] over the catalogue of an IReader extension. IReader lists chapters
@@ -55,7 +55,7 @@ class IReaderNovelSource(
     override val supportsLatest: Boolean = source.getListings().size >= 2
 
     override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage =
-        withIOContext {
+        appSourceCall {
             val listings = source.getListings()
             val chosen: Listing? = when (listing) {
                 NovelListing.Popular -> listings.firstOrNull()
@@ -65,18 +65,18 @@ class IReaderNovelSource(
         }
 
     override suspend fun search(query: String, page: Int, filters: NovelFilterState?): NovelItemsPage =
-        withIOContext {
+        appSourceCall {
             val picked = (filters as? NovelFilterState.Filters)?.list ?: toMihonFilters(source.getFilters())
             source.getMangaList(toIReaderFilters(picked, query), page).toPage()
         }
 
-    override suspend fun parseNovel(novelPath: String): SourceNovel = withIOContext {
+    override suspend fun parseNovel(novelPath: String): SourceNovel = appSourceCall {
         val novel = source.getMangaDetails(MangaInfo(key = novelPath, title = ""), emptyList())
         val chapters = source.getChapterList(novel.copy(key = novelPath), emptyList())
         novel.toSourceNovel(novelPath, chapters.map { it.toChapterItem() })
     }
 
-    override suspend fun parseChapter(chapterPath: String): String = withIOContext {
+    override suspend fun parseChapter(chapterPath: String): String = appSourceCall {
         chapterHtml(chapterPath, emptyList())
     }
 
@@ -86,17 +86,17 @@ class IReaderNovelSource(
         object : NovelPageFetch {
             override val kinds = kinds
 
-            override suspend fun details(novelPath: String, url: String, html: String) = withIOContext {
+            override suspend fun details(novelPath: String, url: String, html: String) = appSourceCall {
                 source.getMangaDetails(MangaInfo(key = novelPath, title = ""), listOf(Command.Detail.Fetch(url, html)))
                     .toSourceNovel(novelPath, chapters = null)
             }
 
-            override suspend fun chapters(novelPath: String, url: String, html: String) = withIOContext {
+            override suspend fun chapters(novelPath: String, url: String, html: String) = appSourceCall {
                 source.getChapterList(MangaInfo(key = novelPath, title = ""), listOf(Command.Chapter.Fetch(url, html)))
                     .map { it.toChapterItem() }
             }
 
-            override suspend fun chapterText(chapterPath: String, url: String, html: String) = withIOContext {
+            override suspend fun chapterText(chapterPath: String, url: String, html: String) = appSourceCall {
                 chapterHtml(chapterPath, listOf(Command.Content.Fetch(url, html)))
             }
         }

@@ -2,9 +2,11 @@ package reikai.novel.source
 
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.SourceTracker
+import kotlinx.coroutines.CoroutineScope
 import mihon.domain.extension.model.ContentWarning
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
+import tachiyomi.core.common.util.lang.withIOContext
 
 /** The id prefix of a novel source packaged as a tachiyomi-format APK, whose own id is a number. */
 const val TACHIYOMI_NOVEL_SOURCE_PREFIX = "tachiyomi:"
@@ -145,6 +147,21 @@ interface NovelSource {
  */
 interface AppNovelSource : NovelSource {
     val appSource: Any
+}
+
+/**
+ * Runs [block], a call into an app's catalogue, off the caller's thread, since an older extension fetches
+ * on whichever thread asks. An app built against a class or method this build no longer ships throws a
+ * LinkageError, which callers let through because it is not an Exception, so it leaves here as one: an
+ * outdated app fails its call rather than crashing the whole app. The manga guard is in Mihon's own
+ * files, at `UpdateMangaFromRemote` and `SourcePagingSource`.
+ */
+internal suspend fun <T> appSourceCall(block: suspend CoroutineScope.() -> T): T = withIOContext {
+    try {
+        block()
+    } catch (e: LinkageError) {
+        throw Exception(e.toString(), e)
+    }
 }
 
 /**
