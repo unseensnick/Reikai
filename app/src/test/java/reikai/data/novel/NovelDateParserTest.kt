@@ -44,6 +44,24 @@ class NovelDateParserTest {
     }
 
     @Test
+    fun `a month-first date past the twelfth is read month first`() {
+        // Read leniently as day-first, month 25 rolled forward into January 2026.
+        val expected = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse("2024-12-25")!!.time
+        NovelDateParser.parse("12/25/2024") shouldBe expected
+    }
+
+    @Test
+    fun `an ambiguous slash date stays day first`() {
+        val expected = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse("2024-04-03")!!.time
+        NovelDateParser.parse("03/04/2024") shouldBe expected
+    }
+
+    @Test
+    fun `an out-of-range date is unknown`() {
+        NovelDateParser.parse("2024-13-45") shouldBe 0L
+    }
+
+    @Test
     fun `null releaseTime is unknown`() {
         NovelDateParser.parse(null) shouldBe 0L
     }
