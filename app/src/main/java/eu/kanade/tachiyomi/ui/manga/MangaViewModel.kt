@@ -1410,24 +1410,20 @@ class MangaViewModel(
         toggleAllSelection(false)
         if (chapters.isEmpty()) return
         viewModelScope.launchIO {
-            setReadStatus.await(
-                read = read,
-                // RK: also mark the matching chapter in every grouped source
-                chapters = expandToGroup(chapters).toTypedArray(),
-            )
-
-            if (!read) return@launchIO
-            // RK: the push itself is the shared step both details models run
-            autoTrackOnMarkRead.await(mangaId, chapters.map { it.chapterNumber })
+            // RK: the write across the merge group and the tracker push are the step both details models run
+            autoTrackOnMarkRead.setRead(mangaId, chapters, read)
         }
     }
 
     // RK --> shared with the novel details model, so a change to the tracker push reaches both
-    private val autoTrackOnMarkRead = EntryAutoTrackOnMarkRead(
+    private val autoTrackOnMarkRead = EntryAutoTrackOnMarkRead<Chapter>(
         context = context,
         snackbarHostState = snackbarHostState,
         trackerManager = trackerManager,
         trackPreferences = trackPreferences,
+        expandToGroup = { expandToGroup(it) },
+        writeRead = { chapters, read -> setReadStatus.await(read = read, chapters = chapters.toTypedArray()) },
+        chapterNumber = Chapter::chapterNumber,
         refresh = { refreshTracks.await(it) },
         lastReadPerTracker = { getTracksInGroup.await(it).map(Track::lastChapterRead) },
         pushProgress = { id, chapterNumber -> trackChapter.await(context, id, chapterNumber) },

@@ -1234,19 +1234,15 @@ class NovelDetailsViewModel(
         showHiddenFlow.value = !showHiddenFlow.value
     }
 
-    fun markSelectedRead(read: Boolean) = withSelection { chapters ->
-        val expanded = expandToGroup(chapters)
-        setNovelReadStatus.await(read, expanded)
-        if (read) autoTrackOnMarkRead(expanded)
-    }
+    fun markSelectedRead(read: Boolean) = withSelection { chapters -> setRead(chapters, read) }
 
     fun bookmarkSelected(bookmark: Boolean) = withSelection { chapters ->
         chapterRepo.setBookmarkBulk(expandToGroup(chapters).map { it.id }, bookmark)
     }
 
-    /** Mark every chapter the reader passes before the earliest selected one read/unread. Spans all
-     *  fetched pages (operates on stored rows), not just the page on screen. */
-    fun markPreviousRead(read: Boolean) {
+    /** Mark every chapter the reader passes before the earliest selected one read. Spans all fetched
+     *  pages (operates on stored rows), not just the page on screen. */
+    fun markPreviousRead() {
         viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             // In the unified ("All") view the selection can be a sibling-source chapter that the anchor's
@@ -1262,21 +1258,8 @@ class NovelDetailsViewModel(
                     .sortedWith(readingOrderComparator(loaded.novel, novelPreferences))
             }
             val previous = ReadingOrder.before(ascending) { it.id in loaded.selection }
-            if (previous.isNotEmpty()) {
-                val expanded = expandToGroup(previous)
-                setNovelReadStatus.await(read, expanded)
-                if (read) autoTrackOnMarkRead(expanded)
-            }
+            if (previous.isNotEmpty()) setRead(previous, read = true)
             clearSelection()
-        }
-    }
-
-    fun markAllRead(read: Boolean) {
-        viewModelScope.launchIO {
-            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            val all = expandToGroup(chapterRepo.getByNovelId(loaded.displayNovel.id))
-            setNovelReadStatus.await(read, all)
-            if (read) autoTrackOnMarkRead(all)
         }
     }
 
@@ -1289,13 +1272,7 @@ class NovelDetailsViewModel(
         }
     }
 
-    fun markChapterRead(chapter: NovelChapter, read: Boolean) {
-        viewModelScope.launchIO {
-            val expanded = expandToGroup(listOf(chapter))
-            setNovelReadStatus.await(read, expanded)
-            if (read) autoTrackOnMarkRead(expanded)
-        }
-    }
+    fun markChapterRead(chapter: NovelChapter, read: Boolean) = setRead(listOf(chapter), read)
 
     /** Expand [chapters] to every grouped source's copy of the same merged chapters, so read /
      *  bookmark applies across the whole group. No-op when not merged. Mirrors
@@ -1315,21 +1292,23 @@ class NovelDetailsViewModel(
     fun showTrackDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.TrackSheet) }
 
     /**
-     * Hook 2: after chapters are marked read from the details list, push progress to bound trackers.
-     * The step itself is [EntryAutoTrackOnMarkRead], shared with the manga details model.
+     * Marks [chapters] read or unread across the merge group, then pushes a read to bound trackers, through
+     * [EntryAutoTrackOnMarkRead], the step shared with the manga details model. Its own coroutine, as
+     * manga's is, so an Ask snackbar does not hold the selection open.
      */
-    private fun autoTrackOnMarkRead(chapters: List<NovelChapter>) {
+    private fun setRead(chapters: List<NovelChapter>, read: Boolean) {
         val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
-        viewModelScope.launchIO {
-            autoTrackOnMarkRead.await(novel.id, chapters.map { it.chapterNumber })
-        }
+        viewModelScope.launchIO { autoTrackOnMarkRead.setRead(novel.id, chapters, read) }
     }
 
-    private val autoTrackOnMarkRead = EntryAutoTrackOnMarkRead(
+    private val autoTrackOnMarkRead = EntryAutoTrackOnMarkRead<NovelChapter>(
         context = context,
         snackbarHostState = snackbarHostState,
         trackerManager = trackerManager,
         trackPreferences = trackPreferences,
+        expandToGroup = { expandToGroup(it) },
+        writeRead = { chapters, read -> setNovelReadStatus.await(read, chapters) },
+        chapterNumber = NovelChapter::chapterNumber,
         refresh = { refreshNovelTracks.await(it) },
         lastReadPerTracker = { getNovelTracks.awaitGroup(it).map(NovelTrack::lastChapterRead) },
         pushProgress = { id, chapterNumber -> trackNovelChapter.await(context, id, chapterNumber) },
@@ -1409,8 +1388,7 @@ class NovelDetailsViewModel(
         }
     }
 
-    /** Toolbar download dropdown. Operates on the full stored chapter list (all fetched pages), not the
-     *  page on screen, the same way [markAllRead] does. Selection logic is shared with the library. */
+    /** Toolbar download dropdown. Selection logic is shared with the library. */
     fun runDownloadAction(action: DownloadAction) {
         viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO

@@ -16,24 +16,37 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 
 /**
- * Pushes progress to an entry's trackers after chapters are marked read from its details list, for both
- * content types. Refreshes first, so the ask / always decision is made against current remote values.
+ * Marks chapters read or unread from an entry's details list and then pushes progress to its trackers,
+ * for both content types. Refreshes first, so the ask / always decision is made against current values.
  *
  * The per-type halves come in as lambdas, since manga and novel tracks live in different tables. Both
  * [refresh] and [lastReadPerTracker] must read the whole merge group, so a tracker bound on one source
  * still advances when a chapter of a sibling source is read.
  */
-class EntryAutoTrackOnMarkRead(
+class EntryAutoTrackOnMarkRead<C>(
     private val context: Context,
     private val snackbarHostState: SnackbarHostState,
     private val trackerManager: TrackerManager,
     private val trackPreferences: TrackPreferences,
+    private val expandToGroup: suspend (chapters: List<C>) -> List<C>,
+    private val writeRead: suspend (chapters: List<C>, read: Boolean) -> Unit,
+    private val chapterNumber: (C) -> Double,
     private val refresh: suspend (entryId: Long) -> List<Pair<Tracker?, Throwable>>,
     private val lastReadPerTracker: suspend (entryId: Long) -> List<Double>,
     private val pushProgress: suspend (entryId: Long, chapterNumber: Double) -> Unit,
 ) {
 
-    suspend fun await(entryId: Long, chapterNumbers: List<Double>) {
+    /**
+     * Writes [read] to [chapters] and every merge-group copy of them, then on a read pushes the furthest
+     * of [chapters] themselves. Never the copies: a sibling source numbers its copy of a chapter its own
+     * way, and a higher number set the tracker past what the user marked.
+     */
+    suspend fun setRead(entryId: Long, chapters: List<C>, read: Boolean) {
+        writeRead(expandToGroup(chapters), read)
+        if (read) push(entryId, chapters.map(chapterNumber))
+    }
+
+    private suspend fun push(entryId: Long, chapterNumbers: List<Double>) {
         if (chapterNumbers.isEmpty() || trackerManager.loggedInTrackers().isEmpty()) return
         val autoTrackState = trackPreferences.autoUpdateTrackOnMarkRead.get()
         if (autoTrackState == AutoTrackState.NEVER) return

@@ -472,6 +472,7 @@ every release now also ships a foss build with neither in it.
 - **A MangaBaka score no longer skews your library's tracker-score sort and your statistics.** Its 0 to 100 scale was being read as if it were out of 10, so one scored entry floated to the top and pulled the average with it.
 - **When linking or updating a tracker fails, on manga or novels, the message now says why in plain words, such as No Internet connection or Log in to NovelList again.** A failed novel link used to crash the app, and a failed auto-match said no match was found.
 - **Binding a novel that is already on your NovelList reading list now keeps its status, progress and score there.** It used to reset them; a novel with chapters read locally moves to Reading unless it is Completed.
+- **Marking a chapter read on a merged novel now sets your trackers to that chapter, not to a higher number another of its sources gave its copy.**
 
 ### Downloads & extensions
 

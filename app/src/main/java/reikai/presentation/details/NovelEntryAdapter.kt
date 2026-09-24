@@ -152,7 +152,7 @@ class NovelEntryAdapter(
         model.bookmarkSelected(bookmark)
     }
     override fun markPreviousRead() {
-        model.markPreviousRead(true)
+        model.markPreviousRead()
     }
 
     override fun runDownloadAction(action: DownloadAction) {
