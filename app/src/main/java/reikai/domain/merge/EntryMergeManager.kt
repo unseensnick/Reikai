@@ -22,22 +22,17 @@ open class EntryMergeManager(
     private val isNovel: Boolean get() = contentType == ContentType.NOVELS
 
     /**
-     * The group [targetId] belongs to, or just itself when it is ungrouped or merging is disabled.
-     *
-     * Library members only. Removing an entry from the library keeps its group, so a re-add rejoins
-     * it, but the entry must stop feeding what the group shows: its chapters, its counts, its source
-     * chip. Every display and aggregation read resolves through here, so that holds everywhere rather
-     * than at each call site. Data operations read [MergeGroupRepository.getMembers] instead.
+     * The group [targetId] belongs to, or just itself when ungrouped, merging is off, or it has left
+     * the library. Library members only: a removed entry keeps its group so a re-add rejoins it, but
+     * stops feeding what the group shows, and opened from History or Browse it resolves on its own.
+     * Every display and aggregation read resolves through here; data operations read
+     * [MergeGroupRepository.getMembers] instead. See merge-system-rebuild.md "two member reads".
      */
     suspend fun computeRelatedIds(targetId: Long): LongArray {
         if (!preferences.seriesMergingEnabled.get()) return longArrayOf(targetId)
         val groupId = repository.getGroupId(contentType, targetId) ?: return longArrayOf(targetId)
-        // A group whose members have all left the library still answers with the target, so a caller
-        // resolving an entry it is holding never gets an empty list back.
-        return repository.getFavoriteMembers(contentType, groupId)
-            .takeIf { it.isNotEmpty() }
-            ?.toLongArray()
-            ?: longArrayOf(targetId)
+        val members = repository.getFavoriteMembers(contentType, groupId)
+        return if (targetId in members) members.toLongArray() else longArrayOf(targetId)
     }
 
     /** [computeRelatedIds] as a `List` for callers (the novel reader / tracking path) that want one. */

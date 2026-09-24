@@ -111,6 +111,7 @@ every release now also ships a foss build with neither in it.
 
 - **A merged series' combined chapter list and unread count now catch up after anything that changes its chapters or its sources.** Removing a source or adding it back, a renamed, renumbered or removed chapter, a half-finished update, a follows sync, a gallery import, a detail repair.
 - **A merged series whose top-ranked source has no chapters now lists its other sources' chapters in full.** Novels showed none of them, and manga dropped the ones with no chapter number.
+- **A source you removed from a merged series now opens on its own from History or Browse, on manga and novels.** From a group of three or more, its page listed the other sources' chapters and a manga failed to open in the reader.
 - **A merged manga's library cover, title and badge now come from the source its chapter list leads with.** A source with most of its chapters under a hidden scanlator could lead one and not the other.
 - **Removing a merged series no longer overstates how many sources it will take with it.** The count now covers the grouped sources it can actually reach, so it matches the number of entries you selected.
 - **Splitting or removing the source you are currently viewing no longer leaves the series' page showing another source's chapters.** The title and cover stayed the one you opened while the chapter list quietly became someone else's.
