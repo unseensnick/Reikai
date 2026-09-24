@@ -79,6 +79,7 @@ every release now also ships a foss build with neither in it.
 - **A big novel library update no longer loses its summary notification.** Past a certain number Android refuses the rest, which cost novel updates their summary and left a stray system-drawn icon in the status bar.
 - **You can now move manga into a hidden category from the library's Change categories action.** Hidden categories were missing from that list, so there was no way to pick them.
 - **Grouping the library by source now shows real source names on the category tabs, not the raw internal key.**
+- **Novels in the library now show their real language on the language badge and in group by language.** Polish and Portuguese novels shared one "Po" group, and most other languages showed a clipped name instead of the code manga uses.
 - **Grouping the library by tag or author no longer splits one tag into two groups.** Sources that spell a tag differently, like Adult and ADULT or Sci-Fi and Sci Fi, now land in a single group.
 - **The library settings sheet now offers its adult-content filter on novels too, based on genre tags.** It is less reliable than the manga one, which can use a source's own flag.
 - **Novel library sorting now matches manga: ties stay A to Z under a descending sort, fully-read novels sink under the unread sort, and titles order by your device language.**

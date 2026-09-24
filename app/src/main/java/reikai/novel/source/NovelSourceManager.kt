@@ -74,10 +74,16 @@ class NovelSourceManager(
         }
     }
 
-    /** Load every installed plugin that is not registered yet, then return. Cheap and safe to call
-     *  repeatedly: the installer holds its own mutex and retries only what failed. */
+    /** Load every installed plugin that is not registered yet, retrying any that failed, then return.
+     *  Called where a novel screen opens or an update or download run starts, which are the only retry
+     *  points: a lookup never retries. */
     suspend fun ensureLoaded() {
         installer().ensureLoaded()
+        appsRegistered.await()
+    }
+
+    private suspend fun awaitFirstLoad() {
+        installer().awaitFirstLoad()
         appsRegistered.await()
     }
 
@@ -90,12 +96,13 @@ class NovelSourceManager(
     }
 
     /**
-     * Loads the plugins before answering, so a read before the first [ensureLoaded] gets a slow
-     * answer rather than a wrong one. Suspending matches the manga registry, which upstream made
-     * suspend for the same reason (mihonapp/mihon#3869).
+     * Awaits the first plugin load before answering, so a read before any load gets a slow answer
+     * rather than a wrong one, and never retries a failed plugin, as the manga registry awaits its
+     * first extension scan once (mihonapp/mihon#3869). Runs once per novel of an update and per
+     * chapter of a download, so a retry here would cost a plugin load each time.
      */
     suspend fun get(id: String): NovelSource? {
-        ensureLoaded()
+        awaitFirstLoad()
         return sourcesFlow.value[id]
     }
 
@@ -114,7 +121,7 @@ class NovelSourceManager(
     }
 
     suspend fun getAll(): List<NovelSource> {
-        ensureLoaded()
+        awaitFirstLoad()
         return sourcesFlow.value.values.toList()
     }
 

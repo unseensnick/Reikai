@@ -74,17 +74,36 @@ class LnPluginInstaller(
     val failures: StateFlow<Map<String, LnPluginLoadFailure>>
         field = MutableStateFlow<Map<String, LnPluginLoadFailure>>(emptyMap())
 
+    /** Whether a load pass has run this process, whatever it loaded; see [awaitFirstLoad]. */
+    @Volatile
+    private var firstLoadDone = false
+
     /** Load any installed plugins not yet registered this process, in parallel. Retries previously
      *  failed ones on each call, so navigating to a novel screen self-heals a transient load failure. */
     suspend fun ensureLoaded() {
-        loadMutex.withLock {
-            // Plugin URLs from a restored backup are untrusted until a currently-added repo vouches
-            // for them; if a repo is unreachable, load nothing this pass so an injected URL can't slip
-            // through, and retry on the next open.
-            val needsTrust = prefs.pluginsNeedRevalidation().get()
-            if (needsTrust && revalidateInstalledAgainstReposLocked() is Revalidated.Unreachable) return
+        loadMutex.withLock { loadPendingLocked() }
+    }
+
+    /**
+     * Runs the first load pass if none has run yet, then returns without retrying anything, as Mihon's
+     * source manager awaits its first extension scan. A lookup calls this, so a broken plugin is not
+     * loaded again per novel or per chapter; [ensureLoaded] at a screen or run start does the retrying.
+     */
+    suspend fun awaitFirstLoad() {
+        if (firstLoadDone) return
+        loadMutex.withLock { if (!firstLoadDone) loadPendingLocked() }
+    }
+
+    // Not marked done when cancelled, so a screen closed mid-load leaves the next lookup to load.
+    private suspend fun loadPendingLocked() {
+        // Plugin URLs from a restored backup are untrusted until a currently-added repo vouches
+        // for them; if a repo is unreachable, load nothing this pass so an injected URL can't slip
+        // through, and retry on the next open.
+        val needsTrust = prefs.pluginsNeedRevalidation().get()
+        if (!needsTrust || revalidateInstalledAgainstReposLocked() !is Revalidated.Unreachable) {
             loadUrlsLocked(prefs.installedPluginUrls().get() - loadedUrls)
         }
+        firstLoadDone = true
     }
 
     /**

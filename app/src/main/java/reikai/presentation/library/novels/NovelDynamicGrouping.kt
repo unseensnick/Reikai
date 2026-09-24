@@ -11,6 +11,7 @@ import reikai.domain.library.toSortMode
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelTrack
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.langCode
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.DynamicGroupingFeed
 import reikai.presentation.library.LibraryDynamicGrouping
@@ -21,8 +22,6 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.i18n.MR
-import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Resolve the novel library's per-item metadata (source, language, status, tracking status) into a
@@ -62,7 +61,7 @@ suspend fun novelDynamicGroupingFeed(
     val languageCodes = if (groupType == LibraryGroup.BY_LANGUAGE) {
         items.mapNotNull { item ->
             val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-            val lang = languageCodeOf(sourceManager.get(novel.source)?.lang.orEmpty()).takeUnless { it.isBlank() }
+            val lang = sourceManager.get(novel.source)?.langCode()?.takeUnless { it.isBlank() }
                 ?: return@mapNotNull null
             EntryId.Novel(item.id) as EntryId to lang
         }.toMap()
@@ -100,21 +99,3 @@ suspend fun novelDynamicGroupingFeed(
         trackStatuses = trackStatuses,
     )
 }
-
-/**
- * A plugin reports its language as an English display name ("English") where the shared code expects an
- * ISO code ("en"), so reverse-map it.
- *
- * Memoized: the name to code mapping is static, but this runs for every novel on every library rebuild
- * (including each selection tap), and the reverse-map scans ~180 ISO languages per uncached name.
- */
-internal fun languageCodeOf(value: String): String {
-    if (value.isBlank() || value.length <= 3) return value
-    return languageCodeCache.getOrPut(value) {
-        Locale.getISOLanguages().firstOrNull {
-            Locale.forLanguageTag(it).getDisplayLanguage(Locale.ENGLISH).equals(value, ignoreCase = true)
-        } ?: value.take(2)
-    }
-}
-
-private val languageCodeCache = ConcurrentHashMap<String, String>()

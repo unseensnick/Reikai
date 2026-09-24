@@ -78,7 +78,8 @@ class NovelChapterTextLoader(
     private val sourcesByNovel: MutableMap<Long, NovelSource> =
         Collections.synchronizedMap(HashMap())
 
-    /** [LnPluginInstaller.ensureLoaded] needs to run once before the first source resolve. */
+    /** The reader's retry point: a lookup never retries a plugin that failed to load, so the session
+     *  runs [LnPluginInstaller.ensureLoaded] once before its first source resolve. */
     @Volatile
     private var pluginsLoaded = false
 
