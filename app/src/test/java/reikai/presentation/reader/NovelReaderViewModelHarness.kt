@@ -250,6 +250,7 @@ class NovelReaderViewModelHarness private constructor(
                 categories,
                 { downloadManager },
                 chapterRepo,
+                mockk(relaxed = true),
             ),
             // Only the Downloaded only switch; BasePreferences itself cannot be built on the JVM.
             basePreferences = mockk<BasePreferences> {

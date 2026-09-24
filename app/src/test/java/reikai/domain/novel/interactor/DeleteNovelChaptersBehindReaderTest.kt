@@ -3,8 +3,8 @@ package reikai.domain.novel.interactor
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.category.GetNovelCategories
@@ -12,12 +12,14 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.download.NovelDownloadPendingDeleter
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.category.model.Category
 
 /**
- * The rolling download buffer behind the reader. Which chapter gets retired for a given slot count is
- * the whole rule: an off-by-one here deletes the chapter the reader is sitting on.
+ * "After reading automatically delete" in the novel reader, as Mihon's reader runs it: finishing a
+ * chapter queues the one the slots retire, and leaving the reader deletes what was queued. Which chapter
+ * that is, is the shared kernel's rule, pinned in DeleteBehindReaderTest.
  */
 class DeleteNovelChaptersBehindReaderTest {
 
@@ -38,13 +40,21 @@ class DeleteNovelChaptersBehindReaderTest {
         page = "",
     )
 
+    private val queued = mutableListOf<NovelChapter>()
+    private val pending = mockk<NovelDownloadPendingDeleter> {
+        every { addChapters(any()) } answers { queued += firstArg<List<NovelChapter>>() }
+        every { takePendingChapterIds() } answers { queued.map { it.id }.also { queued.clear() } }
+    }
+    private val manager = mockk<NovelDownloadManager>(relaxed = true)
+    private var managerBuilt = false
+
     private fun subject(
-        slots: Int,
+        slots: Int = 1,
         chapters: Map<Long, NovelChapter> = order.associateWith { chapter(it) },
         allowRemovingBookmarked: Boolean = false,
         excludedCategoryIds: Set<String> = emptySet(),
         novelCategoryIds: List<Long> = emptyList(),
-    ): Pair<DeleteNovelChaptersBehindReader, NovelDownloadManager> {
+    ): DeleteNovelChaptersBehindReader {
         // Seeded rather than set(): InMemoryPreferenceStore holds an immutable map, so a set() never
         // reaches the next read.
         val store = InMemoryPreferenceStore(
@@ -60,100 +70,93 @@ class DeleteNovelChaptersBehindReaderTest {
         )
         val repo = mockk<NovelChapterRepository>()
         coEvery { repo.getById(any()) } answers { chapters[firstArg<Long>()] }
-        val manager = mockk<NovelDownloadManager>(relaxed = true)
         val categories = mockk<GetNovelCategories>()
         coEvery { categories.awaitByNovelId(any()) } returns novelCategoryIds.map {
             Category(id = it, name = "c$it", order = it, flags = 0L)
         }
-        val interactor = DeleteNovelChaptersBehindReader(
+        return DeleteNovelChaptersBehindReader(
             novelPreferences = NovelPreferences(store),
             getNovelCategories = categories,
-            downloadManager = { manager },
+            downloadManager = {
+                managerBuilt = true
+                manager
+            },
             chapterRepository = repo,
+            pendingDeleter = pending,
         )
-        return interactor to manager
     }
 
     @Test
-    fun `a buffer of one retires the chapter one position back`() = runTest {
-        val (interactor, manager) = subject(slots = 1)
-        val deleted = slot<List<NovelChapter>>()
-        interactor.await(novelId = 7L, orderedIds = order, readChapterId = 4L)
-        coVerify { manager.deleteChapters(capture(deleted)) }
-        deleted.captured.single().id shouldBe 3L
+    fun `finishing a chapter queues the one the slots retire`() = runTest {
+        subject(slots = 1).await(novelId = 7L, orderedIds = order, readChapterId = 4L)
+
+        queued.map { it.id } shouldBe listOf(3L)
     }
 
     @Test
-    fun `a buffer of zero retires the chapter just read`() = runTest {
-        val (interactor, manager) = subject(slots = 0)
-        val deleted = slot<List<NovelChapter>>()
-        interactor.await(novelId = 7L, orderedIds = order, readChapterId = 4L)
-        coVerify { manager.deleteChapters(capture(deleted)) }
-        deleted.captured.single().id shouldBe 4L
-    }
+    fun `finishing a chapter deletes nothing while the reader is open`() = runTest {
+        subject(slots = 0).await(novelId = 7L, orderedIds = order, readChapterId = 4L)
 
-    @Test
-    fun `a negative slot count deletes nothing at all`() = runTest {
-        val (interactor, manager) = subject(slots = -1)
-        interactor.await(novelId = 7L, orderedIds = order, readChapterId = 4L)
         coVerify(exactly = 0) { manager.deleteChapters(any()) }
     }
 
     @Test
-    fun `nothing is retired before the buffer has filled`() = runTest {
-        val (interactor, manager) = subject(slots = 3)
-        interactor.await(novelId = 7L, orderedIds = order, readChapterId = 2L)
-        coVerify(exactly = 0) { manager.deleteChapters(any()) }
+    fun `leaving the reader deletes the queued chapters`() = runTest {
+        val interactor = subject(slots = 1)
+        interactor.await(novelId = 7L, orderedIds = order, readChapterId = 4L)
+
+        interactor.deletePending()
+
+        coVerify { manager.deleteChapters(listOf(chapter(3L))) }
+    }
+
+    /** Building the manager resumes the persisted download queue, which closing a reader must not do. */
+    @Test
+    fun `leaving the reader with nothing queued leaves the download manager alone`() = runTest {
+        subject().deletePending()
+
+        managerBuilt shouldBe false
     }
 
     @Test
-    fun `a chapter that is not read yet is left on disk`() = runTest {
+    fun `a chapter that is not read yet is not queued`() = runTest {
         val chapters = order.associateWith { chapter(it, read = it != 3L) }
-        val (interactor, manager) = subject(slots = 1, chapters = chapters)
-        interactor.await(novelId = 7L, orderedIds = order, readChapterId = 4L)
-        coVerify(exactly = 0) { manager.deleteChapters(any()) }
+        subject(chapters = chapters).await(novelId = 7L, orderedIds = order, readChapterId = 4L)
+
+        queued shouldBe emptyList()
     }
 
     @Test
     fun `a bookmarked chapter is kept by default`() = runTest {
         val chapters = order.associateWith { chapter(it, bookmark = it == 3L) }
-        val (interactor, manager) = subject(slots = 1, chapters = chapters)
-        interactor.await(novelId = 7L, orderedIds = order, readChapterId = 4L)
-        coVerify(exactly = 0) { manager.deleteChapters(any()) }
+        subject(chapters = chapters).await(novelId = 7L, orderedIds = order, readChapterId = 4L)
+
+        queued shouldBe emptyList()
     }
 
     @Test
-    fun `a bookmarked chapter is retired once the user allows removing them`() = runTest {
+    fun `a bookmarked chapter is queued once the user allows removing them`() = runTest {
         val chapters = order.associateWith { chapter(it, bookmark = it == 3L) }
-        val (interactor, manager) = subject(slots = 1, chapters = chapters, allowRemovingBookmarked = true)
-        val deleted = slot<List<NovelChapter>>()
-        interactor.await(novelId = 7L, orderedIds = order, readChapterId = 4L)
-        coVerify { manager.deleteChapters(capture(deleted)) }
-        deleted.captured.single().id shouldBe 3L
+        subject(chapters = chapters, allowRemovingBookmarked = true)
+            .await(novelId = 7L, orderedIds = order, readChapterId = 4L)
+
+        queued.map { it.id } shouldBe listOf(3L)
     }
 
     @Test
     fun `a novel in an excluded category keeps its chapters`() = runTest {
-        val (interactor, manager) = subject(
-            slots = 1,
-            excludedCategoryIds = setOf("11"),
-            novelCategoryIds = listOf(11L),
-        )
-        interactor.await(novelId = 7L, orderedIds = order, readChapterId = 4L)
-        coVerify(exactly = 0) { manager.deleteChapters(any()) }
+        subject(excludedCategoryIds = setOf("11"), novelCategoryIds = listOf(11L))
+            .await(novelId = 7L, orderedIds = order, readChapterId = 4L)
+
+        queued shouldBe emptyList()
     }
 
     /** The other half: a set with something in it must not stop every novel, only its members. */
     @Test
-    fun `a novel outside the excluded categories is still retired`() = runTest {
-        val (interactor, manager) = subject(
-            slots = 1,
-            excludedCategoryIds = setOf("11"),
-            novelCategoryIds = listOf(12L),
-        )
-        val deleted = slot<List<NovelChapter>>()
-        interactor.await(novelId = 7L, orderedIds = order, readChapterId = 4L)
-        coVerify { manager.deleteChapters(capture(deleted)) }
-        deleted.captured.single().id shouldBe 3L
+    fun `a novel outside the excluded categories is still queued`() = runTest {
+        subject(excludedCategoryIds = setOf("11"), novelCategoryIds = listOf(12L))
+            .await(novelId = 7L, orderedIds = order, readChapterId = 4L)
+
+        queued.map { it.id } shouldBe listOf(3L)
     }
 }

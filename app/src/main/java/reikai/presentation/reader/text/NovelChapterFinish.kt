@@ -52,8 +52,8 @@ class NovelChapterFinish(
                 ownerOf = { it.novelId },
             )
         }
-        // SetNovelReadStatus also honours "delete after marked as read".
-        setNovelReadStatus.await(true, listOf(chapter) + duplicates)
+        // Without "delete after marked as read", as in Mihon's reader: the trim behind is the reader's rule.
+        setNovelReadStatus.awaitFinishedInReader(listOf(chapter) + duplicates)
         if (trackPreferences.autoUpdateTrack.get()) {
             trackNovelChapter.await(context, chapter.novelId, chapter.chapterNumber)
         }

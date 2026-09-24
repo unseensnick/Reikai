@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.track.TrackNovelChapter
@@ -38,6 +39,7 @@ class NovelChapterFinishTest {
     }
 
     private val trackNovelChapter = mockk<TrackNovelChapter>(relaxed = true)
+    private val deleteAfterRead = mockk<DeleteNovelChaptersAfterRead>(relaxed = true)
 
     private fun subject(
         libraryStore: InMemoryPreferenceStore = InMemoryPreferenceStore(),
@@ -46,7 +48,7 @@ class NovelChapterFinishTest {
         chapterRepo = repo,
         setNovelReadStatus = SetNovelReadStatus(
             repo,
-            mockk(relaxed = true),
+            deleteAfterRead,
             mockk(relaxed = true),
             mockk(relaxed = true),
         ),
@@ -124,6 +126,14 @@ class NovelChapterFinishTest {
         subject().finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) { markedWhenTrimmed += marked }
 
         markedWhenTrimmed shouldBe listOf(true)
+    }
+
+    /** Mihon's reader never runs its manual-mark deletion; its own slot rule trims behind it instead. */
+    @Test
+    fun `finishing a chapter in the reader does not delete it as if marked read by hand`() = runTest {
+        subject().finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) {}
+
+        coVerify(exactly = 0) { deleteAfterRead.await(any(), any()) }
     }
 
     @Test

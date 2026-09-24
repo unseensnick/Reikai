@@ -228,6 +228,8 @@ every release now also ships a foss build with neither in it.
 - **The reader's quick reading-mode menu now highlights the mode you are reading in, and just opening it no longer sets that mode for the series.** A series following your default used to show an empty grid.
 - **Manhwa, manhua and webtoons now open in webtoon mode on their own, and can be switched off under Settings -> Manga reader.** It reads each source's own genre tags, so a series none of your sources tags keeps using your default reading mode.
 - **The hardware bitmap threshold, legacy long strip decoding and custom display profile settings are gone from Settings -> Advanced (synced from Mihon, mihonapp/mihon#3786).** All three configured the legacy decoder, which manga pages no longer use.
+- **Novel chapters that "After reading automatically delete" removes now stay downloaded until you leave the reader, as manga chapters do.** Paging back to one offline used to fail.
+- **Finishing a novel chapter in the reader no longer deletes it under "After manually marked as read", which now applies only to marking by hand, as for manga.**
 
 #### Fixed
 

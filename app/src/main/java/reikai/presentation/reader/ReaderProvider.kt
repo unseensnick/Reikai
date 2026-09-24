@@ -87,6 +87,10 @@ interface ReaderProvider {
     /** Starts the read clock again. The host calls it on resume, since pausing stopped it. */
     fun restartReadTimer()
 
+    /** Told when the user leaves the reader, which is when both types delete the chapters "after reading
+     *  automatically delete" queued while it was open. */
+    fun onActivityFinish()
+
     /** Steps a chapter. Both types resolve their own neighbour, since what is next depends on the
      *  reading order and skip settings of that type's own chapter list. */
     suspend fun previousChapter()

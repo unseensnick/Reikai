@@ -84,6 +84,7 @@ import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.withOpenedChapter
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReaderPosition
+import reikai.domain.reader.chapterToDeleteBehind
 import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.downloadedOrCurrent
 import reikai.domain.reader.duplicatesOfRead
@@ -816,13 +817,10 @@ class ReaderViewModel(
         if (removeAfterReadSlots == -1) return
 
         // Determine which chapter should be deleted and enqueue
-        // RK: positioned in the full list, matched by id. The reader pages over that list, so indexing
-        //     the skip-filtered one would not find the current chapter at all and silently never delete.
-        val currentChapterPosition = fullChapterList.indexOfFirst { it.chapter.id == currentChapter.chapter.id }
-        val chapterToDelete = if (currentChapterPosition < 0) {
-            null
-        } else {
-            fullChapterList.getOrNull(currentChapterPosition - removeAfterReadSlots)
+        // RK: by the slot rule the novel reader shares, positioned in the full list by id. The reader pages
+        //     over that list, so indexing the skip-filtered one would not find the current chapter at all.
+        val chapterToDelete = fullChapterList.chapterToDeleteBehind(currentChapter.chapter.id!!, removeAfterReadSlots) {
+            it.chapter.id!!
         }
 
         // If chapter is completely read, no need to download it

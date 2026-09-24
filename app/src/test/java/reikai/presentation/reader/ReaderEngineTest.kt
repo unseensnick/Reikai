@@ -812,6 +812,8 @@ private class FakeReaderProvider(
 
     override fun restartReadTimer() = Unit
 
+    override fun onActivityFinish() = Unit
+
     var retried = 0
         private set
 

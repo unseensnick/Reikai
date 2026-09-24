@@ -146,6 +146,8 @@ class NovelReaderProvider(
 
     override fun restartReadTimer() = viewModel.restartReadTimer()
 
+    override fun onActivityFinish() = viewModel.onActivityFinish()
+
     override suspend fun previousChapter() = viewModel.previousChapter()
 
     override suspend fun nextChapter() = viewModel.nextChapter()

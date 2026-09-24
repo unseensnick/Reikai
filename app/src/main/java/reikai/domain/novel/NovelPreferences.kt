@@ -493,12 +493,12 @@ class NovelPreferences(
 
     // Downloads. Renaming a key needs a migration that moves the value (see the class KDoc).
 
-    /** Delete a downloaded chapter's offline copy once it's marked read. */
+    /** Delete a downloaded chapter's offline copy once it's marked read by hand, not by finishing it in the reader. */
     fun removeAfterMarkedAsRead() = preferenceStore.getBoolean("novel_remove_after_marked_as_read", false)
 
-    /** Keep only the last N read chapters downloaded (a rolling buffer), the novel twin of manga's
-     *  `removeAfterReadSlots`. -1 = off; 0 = delete the just-read chapter; 1 = keep 1 back, etc. When
-     *  set (>= 0) it takes precedence over [removeAfterMarkedAsRead]. */
+    /** Keep only the last N chapters finished in the reader downloaded (a rolling buffer), deleted on
+     *  leaving it; the novel twin of manga's `removeAfterReadSlots`. -1 = off; 0 = delete the just-read
+     *  chapter; 1 = keep 1 back, etc. Independent of [removeAfterMarkedAsRead], which is for marking by hand. */
     fun removeAfterReadSlots() = preferenceStore.getInt("novel_remove_after_read_slots", -1)
 
     /** When false (default), never auto-delete a bookmarked chapter on read. Twin of manga's

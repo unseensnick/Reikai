@@ -795,7 +795,8 @@ class ReaderActivity : BaseActivity() {
      * delegated to the presenter.
      */
     override fun finish() {
-        viewModel.onActivityFinish()
+        // RK: the session runs its own deferred deletions; a rejected launch built no session to ask.
+        if (!launchRejected) engine.provider.onActivityFinish()
         super.finish()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             overrideActivityTransition(

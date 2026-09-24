@@ -1096,6 +1096,12 @@ class NovelReaderViewModel(
         chapterReadStartTime = System.currentTimeMillis()
     }
 
+    /** Called through [ReaderProvider.onActivityFinish] on leaving the reader, which is when the
+     *  chapters finishing queued for deletion go, as in manga's `ReaderViewModel.onActivityFinish`. */
+    fun onActivityFinish() {
+        viewModelScope.launchNonCancellable { deleteChaptersBehindReader.deletePending() }
+    }
+
     private fun currentMargins() = ReaderMargins(
         top = novelPreferences.readerMarginTop().get(),
         bottom = novelPreferences.readerMarginBottom().get(),
