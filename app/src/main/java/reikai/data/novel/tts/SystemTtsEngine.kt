@@ -13,8 +13,8 @@ import java.util.Locale
 /**
  * [NovelTtsEngine] backed by Android's [TextToSpeech]. Initialization is asynchronous, so callers
  * must wait for [onInit] before [speak]; [onInit] reports failure too, since an
- * engine that never starts would otherwise leave the caller waiting. One utterance is in flight at a
- * time (each [speak] flushes the previous), so a single pending callback slot is enough.
+ * engine that never starts would otherwise leave the caller waiting. One paragraph (queued as several
+ * utterances) is in flight at a time, each [speak] flushing the last, so one pending callback slot is enough.
  * [TextToSpeech] fires its progress callbacks on a binder thread, and the caller marshals to the main
  * thread itself before touching the renderer.
  */

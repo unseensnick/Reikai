@@ -22,10 +22,9 @@ import tachiyomi.core.common.preference.getEnum
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
- * Net-new preferences for the light-novel vertical. Only the subset the plugin host / source /
- * install / update layers need lands here; later stages (reader, library, merge) grow this
- * holder. Key strings are stored on every install and restored verbatim from backups, so renaming
- * one needs a migration that moves the value.
+ * Net-new preferences for light novels: sources, installs, updates, the reader and the library. Key
+ * strings are stored on every install and restored verbatim from backups, so renaming one needs a
+ * migration that moves the value.
  */
 @Inject
 @SingleIn(AppScope::class)

@@ -10,8 +10,7 @@ import reikai.domain.novel.model.NovelWithChapterCount
 
 /**
  * Parallel of [tachiyomi.domain.manga.repository.MangaRepository] holding novels in a separate
- * table. Library-view reads (`getLibraryNovel*`) land with the Novels library stage; this layer is
- * CRUD plus the category junction write.
+ * table: CRUD, the library and recent-update reads, and the category junction write.
  */
 interface NovelRepository {
     suspend fun getAll(): List<Novel>

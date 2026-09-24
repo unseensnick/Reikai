@@ -14,8 +14,8 @@ import java.io.Serializable
 /**
  * Domain mirror of the `novels` SQLDelight table. Held disjoint from [tachiyomi.domain.manga.model.Manga]
  * because the source-id space differs (lnreader plugin.id is a [String], not a [Long]) and the
- * content is text rather than images, so most manga-only fields (scanlators, fetch interval) don't
- * apply. [viewerFlags] is the one carried over: it stores the per-novel reader orientation only.
+ * content is text rather than images, so manga-only fields (scanlators, reading mode) don't apply.
+ * [viewerFlags] carries only the per-novel reader orientation.
  */
 @Immutable
 data class Novel(
