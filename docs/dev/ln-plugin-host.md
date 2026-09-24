@@ -238,7 +238,8 @@ quickjs-kt dependency is wired in `app/build.gradle.kts` (`implementation(libs.q
   (`fetchProto`), `WTRLAB` (`@libs/aes` via noble-ciphers + `atob`). It asserts every fetched plugin
   loads and at least one completes the full search -> parseNovel -> parseChapter chain headlessly. Read
   the per-plugin breakdown from logcat tag `HeadlessJsTest`. A second test,
-  `javaScriptEngineEvaluatesSyncSnippets`, covers the manga-side `JavaScriptEngine` (now dokar-backed).
+  `javaScriptEngineEvaluatesSyncSnippets`, covers the manga-side `JavaScriptEngine`, which runs on the
+  same dokar engine through the `app.cash.quickjs` shim; `appCashQuickJsCompatShimWorks` covers the shim.
 
 ## Extending: add a shim or vendor bundle
 

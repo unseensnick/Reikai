@@ -380,6 +380,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 - **Browsing a source or opening a series while offline now says "No Internet connection" instead of a raw host error, on manga and novels.** The manga reader's failed pages say it too.
+- **Manga sources that work out their pages with JavaScript now show those pages again, where some opened chapters empty or failed to load.**
 - **Global search and the feed no longer crash when a source lists the same result twice.**
 - **Global search no longer shows a blank screen when nothing is pinned or no source found anything.** It says which, and on Pinned offers to search all sources.
 - **Forms a source posts through FlareSolverr now reach the site intact, so a novel plugin's chapter list loads there.** A space in a form no longer arrives as a plus sign either.

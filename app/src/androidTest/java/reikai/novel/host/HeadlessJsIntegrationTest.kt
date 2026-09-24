@@ -321,6 +321,9 @@ class HeadlessJsIntegrationTest {
             assertEquals("ab", qjs.evaluate("'a' + 'b'"))
             assertEquals("HELLO", qjs.evaluate("'hello'.toUpperCase()"))
             assertEquals("42", qjs.evaluate("String(6 * 7)"))
+            // Cash returned arrays as Object[], which extensions test for with `is Array<*>`.
+            val nested = qjs.evaluate("[['a'], 'b']") as Array<*>
+            assertEquals(listOf("a"), (nested[0] as Array<*>).toList())
         }
         // Mangago compiles a helper on one (throwaway) engine, then executes that "bytecode" on the
         // engine that actually runs the page-descrambling code.
