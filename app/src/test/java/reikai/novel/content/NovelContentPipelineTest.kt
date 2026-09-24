@@ -206,8 +206,13 @@ class NovelContentPipelineTest {
         shouldThrow<EmptyChapterException> { loader.load(chapter(url = "/book/ch1.html")) }
     }
 
-    private fun lowercased(raw: String) =
-        pipeline.preTranslate(raw, config("/book/ch1.html").copy(forceLowercase = true)).text
+    @Test
+    fun `force lowercase reaches the chapter`() {
+        pipeline.process("<p>Hello</p>", config("/book/ch1.html").copy(forceLowercase = true)).text shouldBe
+            "<p>hello</p>"
+    }
+
+    private fun lowercased(raw: String) = NovelHtmlUtils.lowercaseText(raw)
 
     /** Attribute values are case-sensitive: a lowercased URL can point at a file that does not exist. */
     @Test

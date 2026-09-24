@@ -171,10 +171,6 @@ object NovelHtmlUtils {
 
     fun normalizeContentForHtml(content: String, chapterUrl: String?): String {
         val normalized = content.replace("\u0000", "")
-        if (isPlainTextChapter(chapterUrl)) {
-            logcat(LogPriority.DEBUG) { "normalizeContentForHtml: PLAIN_TEXT (forced by extension)" }
-            return plainTextToHtml(normalized)
-        }
         val kind = detectTextKind(chapterUrl, normalized)
         logcat(LogPriority.DEBUG) { "normalizeContentForHtml: $kind len=${normalized.length}" }
         return when (kind) {
@@ -189,7 +185,6 @@ object NovelHtmlUtils {
 
         return when (ext) {
             "md", "markdown" -> ChapterTextKind.MARKDOWN
-            "txt", "text" -> ChapterTextKind.PLAIN_TEXT
             "html", "htm", "xhtml", "epub" -> ChapterTextKind.HTML
             else -> {
                 if (htmlTagRegex.containsMatchIn(content) || closingTagRegex.containsMatchIn(content)) {

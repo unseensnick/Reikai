@@ -5,20 +5,14 @@ import reikai.domain.novel.NovelPreferences
 
 /**
  * Stage order is user-visible and fixed: strip title, normalize, remove extra spacing, regex
- * replacements, lowercase, auto-split, translate, sanitize. Each stage sees what the previous one
- * produced (a regex rule matches post-normalization markup, auto-split counts words after those
- * rules ran), so reordering changes the rendered output for some chapters.
+ * replacements, lowercase, auto-split, sanitize. Each stage sees what the previous one produced (a
+ * regex rule matches post-normalization markup, auto-split counts words after those rules ran), so
+ * reordering changes the rendered output for some chapters.
  */
 class NovelContentPipeline(private val preferences: NovelPreferences) {
 
-    suspend fun process(
-        raw: String,
-        config: NovelContentConfig,
-        translator: (suspend (String) -> String)? = null,
-    ): NovelChapterContent = finalize(preTranslate(raw, config), config, translator)
-
     @WorkerThread
-    fun preTranslate(raw: String, config: NovelContentConfig): PreTranslated {
+    fun process(raw: String, config: NovelContentConfig): NovelChapterContent {
         var content = raw
         val plainTextMode = NovelHtmlUtils.isPlainTextChapter(config.chapterUrl)
 
@@ -52,18 +46,7 @@ class NovelContentPipeline(private val preferences: NovelPreferences) {
             )
         }
 
-        return PreTranslated(content, plainTextMode)
-    }
-
-    suspend fun finalize(
-        pre: PreTranslated,
-        config: NovelContentConfig,
-        translator: (suspend (String) -> String)? = null,
-    ): NovelChapterContent {
-        var content = pre.text
-        if (translator != null) content = translator(content)
-
-        if (!pre.isPlainText) {
+        if (!plainTextMode) {
             // Before the sanitiser, which must see the markup it lets through as the final markup.
             content = NovelHtmlUtils.wrapBareParagraphs(content)
             content = NovelHtmlUtils.sanitizeForRender(
@@ -75,14 +58,6 @@ class NovelContentPipeline(private val preferences: NovelPreferences) {
             )
         }
 
-        return NovelChapterContent(
-            text = content,
-            isPlainText = pre.isPlainText,
-        )
+        return NovelChapterContent(text = content, isPlainText = plainTextMode)
     }
-
-    data class PreTranslated(
-        val text: String,
-        val isPlainText: Boolean,
-    )
 }
