@@ -293,6 +293,16 @@ class PreferenceRestorerTest {
         novelPreferences.readerBottomButtons().get() shouldBe customised
     }
 
+    /** The flag is a plain key, so a backup taken after a revalidation carries it as false. */
+    @ParameterizedTest(name = "flag listed {0}")
+    @MethodSource("pluginFlagOrders")
+    @DisplayName("restored plugins are revalidated whatever the backup says about the flag")
+    fun restoredPluginsAreRevalidated(order: String, entries: List<BackupPreference>) = runTest {
+        restorer.restoreApp(entries, backupCategories = null)
+
+        novelPreferences.pluginsNeedRevalidation().get() shouldBe true
+    }
+
     @Test
     @DisplayName("a live preference is still restored")
     fun aLivePreferenceIsRestored() = runTest {
@@ -310,5 +320,18 @@ class PreferenceRestorerTest {
             Arguments.of(DEAD_READER_TTS_ENABLED_KEY, BooleanPreferenceValue(true)),
             Arguments.of(ReikaiSourcePreferences.DEAD_DOWNLOAD_CONTENT_TYPE_KEY, StringPreferenceValue("NOVELS")),
         ) + DEAD_READER_TTS_BUTTON_KEYS.map { Arguments.of(it, IntPreferenceValue(120)) }
+
+        @JvmStatic
+        fun pluginFlagOrders(): List<Arguments> {
+            val urls = BackupPreference(
+                NovelPreferences.INSTALLED_PLUGIN_URLS_KEY,
+                StringSetPreferenceValue(setOf("https://example.com/plugin.js")),
+            )
+            val flag = BackupPreference(NovelPreferences.PLUGINS_NEED_REVALIDATION_KEY, BooleanPreferenceValue(false))
+            return listOf(
+                Arguments.of("after the urls", listOf(urls, flag)),
+                Arguments.of("before the urls", listOf(flag, urls)),
+            )
+        }
     }
 }

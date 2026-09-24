@@ -153,6 +153,9 @@ class PreferenceRestorer(
             // RK: the WebView developer tools let any computer with debugging rights inspect the app's
             // WebViews, so a backup never turns them on. Not written, which leaves them off.
             if (key == NovelPreferences.WEBVIEW_DEV_TOOLS_KEY) return@forEach
+            // RK: the plugin revalidation flag is armed below and cleared only by a revalidation, so a
+            // backup's own value (false once it was taken after one) must never reach the store.
+            if (key == NovelPreferences.PLUGINS_NEED_REVALIDATION_KEY) return@forEach
             // RK: upstream's retired extension NSFW switch, carried into the allowed content warnings.
             if (key == ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY) {
                 (value as? BooleanPreferenceValue)?.let { extensionSourcePreferences.carryShowNsfwSource(it.value) }
