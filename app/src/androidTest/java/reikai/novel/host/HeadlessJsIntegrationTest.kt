@@ -311,6 +311,29 @@ class HeadlessJsIntegrationTest {
     }
 
     /**
+     * A stored undefined reads back as undefined, as LNReader's Storage.get returns item.value
+     * (refs/lnreader-main/src/plugins/helpers/storage.ts). JSON drops the undefined, so the envelope
+     * carried only its timestamp and came back whole. Inline plugin: no network.
+     */
+    @Test
+    fun storageReadsBackAStoredUndefined() = runBlocking {
+        val host = LnPluginHost(context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        val plugin = """
+            var storage = require('@libs/storage').storage;
+            module.exports.default = {
+              id: 'storage-undefined-test', name: 'T', site: 'https://example.org', version: '1.0.0',
+              parseChapter: async function () {
+                storage.set('k', undefined);
+                return String(typeof storage.get('k'));
+              },
+            };
+        """.trimIndent()
+        host.loadPlugin("storage-undefined-test", plugin)
+
+        assertEquals("undefined", host.parseChapter("storage-undefined-test", "/c"))
+    }
+
+    /**
      * The `app.cash.quickjs.QuickJs` compat class, used directly by extensions like Mangago
      * (issue #26). Covers plain evaluate plus the cross-instance compile -> execute -> evaluate
      * roundtrip those extensions rely on. Synchronous, exactly as extensions call it.

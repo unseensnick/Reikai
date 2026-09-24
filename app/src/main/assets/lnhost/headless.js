@@ -732,7 +732,9 @@
         } catch (e) {
           return stored;
         } // legacy plain value
-        if (item && typeof item === "object" && "value" in item) {
+        // An envelope is known by either key: JSON drops a value of undefined, which LNReader then
+        // returns as undefined (item.value), not as the envelope.
+        if (item && typeof item === "object" && ("value" in item || "created" in item)) {
           if (item.expires && Date.now() > item.expires) {
             __lnSetStorage(pluginId, prefix + key, null);
             return undefined;
