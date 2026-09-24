@@ -216,6 +216,7 @@ every release now also ships a foss build with neither in it.
 
 - **The reader's settings button now opens the same sheet for manga and novels, with Reading, Appearance, Controls and Filters tabs, plus Read aloud for novels.** Manga keeps every setting it had, and a novel gets its own, rendering mode and text selection among them.
 - **With Theme based on cover on, the novel reader's bars now take the novel's cover colours, as manga's do.**
+- **The novel reader now holds far less memory for chapters with tall pictures.** A part scrolled onto quickly can look blurry for a moment until its sharp slice loads.
 - **Novels now keep their own brightness, colour filter, grayscale and inverted colours, set from the novel reader's Filters tab.** A brightness or colour filter set in the old novel reader comes back.
 - **The novel reader's button bar now starts with text size and theme buttons, unless you have already chosen its buttons.** They are the quickest way to change either while reading.
 - **Reader settings are now two entries, Manga reader and Novel reader, each holding only that reader's options.** The single Reader screen had grown to 68 rows with the novel options scattered through it under "· Novels" labels.

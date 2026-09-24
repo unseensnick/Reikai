@@ -251,7 +251,9 @@ class NovelImageGetter(
             return
         }
         // Read in slices like a fetched one, so a stored strip is as sharp offline as it is online.
-        val replacement = sliced(TileReader.of(picture.bytes), drawn, box, wrapper) ?: drawn
+        val replacement = sliced(TileReader.of(picture.bytes), drawn, box, wrapper) { options ->
+            BitmapFactory.decodeByteArray(picture.bytes, 0, picture.bytes.size, options)
+        } ?: drawn
         wrapper.innerDrawable = replacement
         wrapper.bounds = replacement.bounds
     }
@@ -306,7 +308,38 @@ class NovelImageGetter(
         val box = bounds?.let { (width, height) -> pictureBox(width, height, contentWidth, density) }
         val picture = fitted(drawable, box) ?: return@withContext null
         val slice = box != null && bounds != null && worthSlicing(bounds.first, picture.intrinsicWidth, box.width)
-        Landed(picture, box, if (slice) readerFor(imageUrl) else null)
+        val reader = if (slice) readerFor(imageUrl) else null
+        val standIn = if (reader != null && box != null) {
+            smallStandIn(reader, box) { options ->
+                cachedFile(imageUrl)?.let { BitmapFactory.decodeFile(it.path, options) }
+            }
+        } else {
+            null
+        }
+        // The loader keeps its own copy of what it decoded, so letting ours go frees nothing until it drops it.
+        if (standIn != null) {
+            context.imageLoader.memoryCache?.let { cache ->
+                cache.keys.filter { it.key == imageUrl }.forEach(cache::remove)
+            }
+        }
+        Landed(standIn ?: picture, box, reader)
+    }
+
+    /**
+     * What a sliced picture draws under the slices it has not got yet, in place of the copy the loader
+     * decoded: that copy is as large as a 4096px side allows and would be held until the chapter unloads.
+     * A one-off decode, so nothing of it stays with the [reader] the slices keep open. Null when [decode]
+     * gives nothing, which leaves the loader's copy standing.
+     */
+    private fun smallStandIn(
+        reader: TileReader,
+        box: PictureBox,
+        decode: (BitmapFactory.Options) -> Bitmap?,
+    ): Drawable? {
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = previewSampleSize(reader.sourceWidth, reader.sourceHeight, STAND_IN_BUDGET_PX)
+        }
+        return decode(options)?.let { fitted(it.toDrawable(context.resources), box) }
     }
 
     /**
@@ -334,19 +367,24 @@ class NovelImageGetter(
         picture: Drawable,
         box: PictureBox?,
         wrapper: DrawableWrapper,
+        decodeStandIn: (BitmapFactory.Options) -> Bitmap?,
     ): TiledPicture? {
         if (box == null || reader == null) return null
         if (!worthSlicing(reader.sourceWidth, picture.intrinsicWidth, box.width)) {
             reader.close()
             return null
         }
-        return TiledPicture(reader, box, picture, scope, onTileReady = { redraw(wrapper) })
+        val standIn = smallStandIn(reader, box, decodeStandIn) ?: picture
+        return TiledPicture(reader, box, standIn, scope, onTileReady = { redraw(wrapper) })
     }
 
     /** Slices read from the file the fetch cached, which outlives the fetch itself. */
-    private fun readerFor(imageUrl: String): TileReader? = runCatching {
+    private fun readerFor(imageUrl: String): TileReader? = cachedFile(imageUrl)?.let(TileReader::of)
+
+    /** The file the fetch cached the picture in, or null once the cache has dropped it. */
+    private fun cachedFile(imageUrl: String): File? = runCatching {
         context.imageLoader.diskCache?.openSnapshot(imageUrl)?.use { it.data.toFile() }
-    }.getOrNull()?.takeIf { it.exists() }?.let(TileReader::of)
+    }.getOrNull()?.takeIf { it.exists() }
 
     private fun queueSwap(wrapper: DrawableWrapper, replacement: Drawable) {
         wrapper.bounds = replacement.bounds
@@ -477,5 +515,8 @@ class NovelImageGetter(
 
         /** What the loader caps a fetched picture at (coil3 `maxBitmapSize`), so a stored one matches. */
         const val MAX_DECODE_SIDE_PX = 4_096
+
+        /** A sliced picture's stand-in, in pixels: about 1 MB, a blurry fill until its slice lands. */
+        const val STAND_IN_BUDGET_PX = 262_144L
     }
 }

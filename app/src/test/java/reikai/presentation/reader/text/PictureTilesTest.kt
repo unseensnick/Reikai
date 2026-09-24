@@ -100,4 +100,26 @@ class PictureTilesTest {
         tilesFor(visibleTopPx = -5_000, visibleBottomPx = 0, drawnHeightPx = 19_733, tileCount = 10, ahead = 1)
             .shouldBe(IntRange.EMPTY)
     }
+
+    @Test
+    fun aLongStripsStandInFitsTheBudget() {
+        val sample = previewSampleSize(sourceWidth = 800, sourceHeight = 20_000, budgetPx = 262_144)
+        ((800L / sample) * (20_000 / sample) <= 262_144).shouldBe(true)
+    }
+
+    @Test
+    fun aStandInIsNotShrunkFurtherThanTheBudgetNeeds() {
+        // Sample 8 gives 100x2500 = 250,000 pixels, inside the budget; sample 4 would be 1,000,000.
+        previewSampleSize(sourceWidth = 800, sourceHeight = 20_000, budgetPx = 262_144).shouldBe(8)
+    }
+
+    @Test
+    fun aPictureInsideTheBudgetIsNotShrunk() {
+        previewSampleSize(sourceWidth = 400, sourceHeight = 600, budgetPx = 262_144).shouldBe(1)
+    }
+
+    @Test
+    fun aPictureWithNoSizeIsNotShrunk() {
+        previewSampleSize(sourceWidth = 0, sourceHeight = 0, budgetPx = 262_144).shouldBe(1)
+    }
 }

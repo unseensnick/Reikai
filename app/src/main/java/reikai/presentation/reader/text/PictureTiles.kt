@@ -80,3 +80,14 @@ internal fun inlineSampleSize(sourceWidth: Int, sourceHeight: Int, columnPx: Int
     if (maxSidePx > 0) while (sourceWidth / sample > maxSidePx || sourceHeight / sample > maxSidePx) sample *= 2
     return sample
 }
+
+/**
+ * How far down a sliced picture's stand-in is decoded: to at most [budgetPx] pixels. It only fills rows
+ * whose slice has not landed, yet it is held for as long as the chapter is loaded, so it is kept small.
+ */
+internal fun previewSampleSize(sourceWidth: Int, sourceHeight: Int, budgetPx: Long): Int {
+    if (sourceWidth <= 0 || sourceHeight <= 0 || budgetPx <= 0) return 1
+    var sample = 1
+    while ((sourceWidth.toLong() / sample) * (sourceHeight / sample) > budgetPx) sample *= 2
+    return sample
+}
