@@ -10,12 +10,12 @@ import reikai.domain.novel.model.NovelTrack
 import reikai.domain.track.canonicalTracksPerTracker
 
 /**
- * Novel twin of [reikai.domain.manga.PropagateTrackerLinks]. Group-aware reads already share one track row
- * across a merged group, so we keep a single row while merged and only copy it onto each member when the
- * group is split, so every source keeps the tracker after an unmerge. Gated by
- * [ReikaiLibraryPreferences.syncTrackerLinksGrouped]; a tracker whose remote id disagrees across the group
- * is skipped. A member that is missing the group's furthest-read row, or behind it, is written; one that
- * already carries it is left alone.
+ * Novel twin of [reikai.domain.manga.PropagateTrackerLinks], pinned by the [canonicalTracksPerTracker]
+ * kernel both call. Group-aware reads already share one track row across a merged group, so we keep a
+ * single row while merged and copy it onto each member only when the group is split, so every source
+ * keeps the tracker after an unmerge. Gated by [ReikaiLibraryPreferences.syncTrackerLinksGrouped]; a
+ * tracker whose remote id disagrees across the group is skipped. A member missing the group's
+ * furthest-read row, or behind it, is written; one that already carries it is left alone.
  */
 @Inject
 class PropagateNovelTrackerLinks(
