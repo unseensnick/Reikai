@@ -178,7 +178,6 @@
     <string name="merge_sources_removed">Removed from library</string>
     <string name="merge_sources_all">All</string>
     <string name="merge_unified">Unified</string>
-    <string name="action_merge_same_title">Merge same-title series across sources</string>
     <string name="action_merge_source_icons">Show source icons on merged covers</string>
     <!-- RK: master merging switch (Phase 5) -->
     <string name="action_series_merging">Group series across sources</string>
@@ -190,7 +189,6 @@
     <string name="pref_suggest_group_same_title">Suggest grouping same-titled series</string>
     <string name="pref_suggest_group_same_title_summary">Offer to group a new series with a matching library entry</string>
     <!-- RK: novel merge (P5 S8) -->
-    <string name="action_merge_require_author">Also require matching author</string>
     <string name="pref_clear_merges">Clear all merges</string>
     <string name="pref_clear_merges_summary">Split every merged series back into separate per-source entries</string>
     <string name="merges_cleared">Merged series cleared</string>
@@ -359,7 +357,6 @@
     <string name="ln_plugins_update_available">%d light novel plugin update(s) available</string>
     <!-- RK: light-novel chapter updates (P5 S7) -->
     <string name="novel_library_update">Light novel updates</string>
-    <string name="novel_library_update_only_ongoing">Only update ongoing novels</string>
     <string name="novel_new_chapters_available">%d novel(s) have new chapters</string>
     <!-- missing undo feature after Compose rewrite #7454 -->
     <string name="action_undo">Undo</string>
@@ -661,7 +658,6 @@
     <string name="pref_skip_filtered_chapters">Skip filtered chapters</string>
     <string name="pref_skip_dupe_chapters">Skip duplicate chapters</string>
     <!-- RK --><string name="pref_mark_read_on_skip">Mark chapter read when skipping ahead</string>
-    <string name="pref_mark_read_on_skip_summary">When you jump to the next chapter, mark the chapter you skipped as read</string>
     <string name="pref_auto_webtoon_mode">Auto webtoon mode</string>
     <string name="pref_auto_webtoon_mode_summary">Read manhwa, manhua and webtoons in webtoon mode, unless you change the reading mode</string>
     <string name="auto_webtoon_snack">Reading webtoon style</string>
@@ -1461,8 +1457,6 @@
     <string name="migrate">Migrate</string>
     <!-- Accept the suggested migration target on a novel's row. -->
     <string name="action_accept">Accept</string>
-    <!-- Override/change the chosen migration target on a novel's row. -->
-    <string name="action_change">Change</string>
     <!-- Make a copy (noun) when migrating. Don't use for copying to clipboard. -->
     <string name="copy">Copy</string>
     <string name="empty_screen">Well, this is awkward</string>
@@ -1641,12 +1635,8 @@
     <string name="migrationFlow.tracksNote">Tracking always carries over.</string>
     <string name="migrationFlow.showEntry">Show</string>
     <string name="migrationFlow.acceptAllLabel">Accept all matches</string>
-    <string name="migrationFlow.skippedChip">Skipped</string>
     <string name="migrationFlow.commitFailed">Migration failed</string>
-    <string name="migrationFlow.browseSource">Browse this source</string>
     <string name="migrationFlow.searchOptionsTitle">Search options</string>
-    <string name="migrationFlow.busyToast">Still working. Try again in a moment.</string>
-    <string name="migrationFlow.restoreActionLabel">Restore</string>
     <string name="migrationFlow.acceptedLabel">Accepted, tap to undo</string>
     <string name="migrationFlow.searchFailed">Couldn\'t reach the sources</string>
     <string name="migrationFlow.emptyNoEntries">Nothing left to migrate</string>
