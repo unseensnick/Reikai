@@ -24,7 +24,7 @@ sealed interface RecentsLane {
     /** Read: the chapter the user last opened. Resumes where they were. */
     data class Read(val chapter: ChapterRef) : RecentsLane
 
-    /** Updated: the newest chapter of the update burst, which is not necessarily what a tap opens. */
+    /** Updated: the newest chapter of the update burst, which is also what a tap opens. */
     data class Updated(val chapter: ChapterRef) : RecentsLane
 
     /** Added: the entry entered the library. There is no chapter, which is why this carries none. */

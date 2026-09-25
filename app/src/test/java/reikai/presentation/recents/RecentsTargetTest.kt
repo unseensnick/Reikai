@@ -6,16 +6,14 @@ import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
 
 /**
- * The updated lane's target rule, and the read lane's. They are one function each rather than one per
+ * The read lane's target rule, and the added lane's. They are one function each rather than one per
  * provider precisely because the two content types drifted on a shared predicate once already (the
  * "started" filter's negated branch), so both sides call these and only the chapter fetch stays per
  * type. A chapter another source of the group already read arrives here as read.
  */
 class RecentsTargetTest {
 
-    private val hour = 60 * 60 * 1000L
-
-    private fun chapter(id: Long, read: Boolean = false) = RecentsChapter(id = id, fetchedAt = 0, read = read)
+    private fun chapter(id: Long, read: Boolean = false) = RecentsChapter(id = id, read = read)
 
     @Test
     fun `resume reopens the recorded chapter while it is unfinished`() {
@@ -83,7 +81,6 @@ class RecentsTargetTest {
         pooled = pooled,
         stitch = stitch,
         id = { it.id },
-        fetchedAt = { 0L },
         read = { it.read },
         isHidden = { false },
     )
@@ -94,7 +91,6 @@ class RecentsTargetTest {
         pooled = emptyList(),
         stitch = emptyList(),
         id = { it.id },
-        fetchedAt = { 0L },
         read = { it.read },
         isHidden = { it.id in hidden },
     )
@@ -107,11 +103,6 @@ class RecentsTargetTest {
     @Test
     fun `a finished recorded chapter moves on past a hidden one`() = runTest {
         resumeTarget(listOf(chapter(0, read = true)) + unreadPair(1), recordedId = 0) { emptyList() } shouldBe 2L
-    }
-
-    @Test
-    fun `a burst passes over a hidden chapter`() {
-        firstUnreadInBurst(unreadPair(1), rowChapterId = 2) shouldBe 2L
     }
 
     @Test
@@ -201,55 +192,5 @@ class RecentsTargetTest {
         }
 
         fetched shouldBe false
-    }
-
-    @Test
-    fun `a burst opens its first unread chapter, not the newest`() {
-        val chapters = listOf(
-            RecentsChapter(id = 1, fetchedAt = 100 * hour, read = true),
-            RecentsChapter(id = 2, fetchedAt = 100 * hour, read = false),
-            RecentsChapter(id = 3, fetchedAt = 100 * hour, read = false),
-        )
-
-        firstUnreadInBurst(chapters, rowChapterId = 3) shouldBe 2L
-    }
-
-    @Test
-    fun `a chapter fetched outside the window is not part of the burst`() {
-        val chapters = listOf(
-            RecentsChapter(id = 1, fetchedAt = 0, read = false),
-            RecentsChapter(id = 2, fetchedAt = 100 * hour, read = false),
-        )
-
-        firstUnreadInBurst(chapters, rowChapterId = 2) shouldBe 2L
-    }
-
-    @Test
-    fun `a fully read burst falls back to the row's own chapter`() {
-        val chapters = listOf(
-            RecentsChapter(id = 1, fetchedAt = 100 * hour, read = true),
-            RecentsChapter(id = 2, fetchedAt = 100 * hour, read = true),
-        )
-
-        firstUnreadInBurst(chapters, rowChapterId = 2) shouldBe 2L
-    }
-
-    @Test
-    fun `an unknown row chapter falls back to itself rather than picking a stranger`() {
-        val chapters = listOf(RecentsChapter(id = 1, fetchedAt = 100 * hour, read = false))
-
-        firstUnreadInBurst(chapters, rowChapterId = 99) shouldBe 99L
-    }
-
-    @Test
-    fun `reading order decides which unread chapter is first, not fetch order`() {
-        // The provider hands chapters in its own reading order; a source that fetched chapter 2 before
-        // chapter 1 must still open chapter 1.
-        val chapters = listOf(
-            RecentsChapter(id = 1, fetchedAt = 101 * hour, read = false),
-            RecentsChapter(id = 2, fetchedAt = 100 * hour, read = false),
-        )
-
-        firstUnreadInBurst(chapters, rowChapterId = 2) shouldBe 1L
     }
 }

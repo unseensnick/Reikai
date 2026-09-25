@@ -137,9 +137,9 @@ interface RecentsProvider : RecentsBehavior {
     }
 
     /**
-     * The chapter [item]'s lane rule picks: resume where you were on read, the first unread of the
-     * burst on updated, the first unread on added, or null when nothing is left. An Updates row never
-     * asks, since it opens the chapter it names. [sourceScoped] pairs to which lanes resolve in-source.
+     * The chapter [item]'s lane rule picks: resume where you were on read, the row's own chapter on
+     * updated, the first unread on added, or null when nothing is left. An updated row never asks,
+     * since it opens the chapter it names. [sourceScoped] pairs to which lanes resolve in-source.
      *
      * Suspend and called per rendered row on purpose: resolving at assembly would put one chapter query
      * per row on every emission of a feed that can run to hundreds of rows.

@@ -30,6 +30,9 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.RecentsSurface
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -1062,40 +1065,48 @@ class RecentsEngineTest {
     private fun updatedRow(entry: EntryId, chapterId: Long) =
         item(entry, at = 100, lane = RecentsLane.Updated(ChapterRef(entry, chapterId)))
 
-    /** Chapters 10 to 15 from one fetch, all unread: the burst starts at 10 and the row names 15. */
-    private fun burstProvider(row: RecentsItem) = provider(
-        ContentType.MANGA,
+    /**
+     * Chapters 10 to 15 from one update, all unread, the row naming 15. The fake resolves 15 to 10, so a
+     * view that moved an updated row onto another chapter would open 10.
+     */
+    private fun updatedProvider(type: ContentType, row: RecentsItem) = provider(
+        type,
         updated = rows(row),
-        states = mapOf(manga1 to readState()),
-        targetRows = mapOf(ref(manga1, 15) to targetRow(ref(manga1, 10), readState())),
+        states = mapOf(row.entryId to readState()),
+        targetRows = mapOf(ref(row.entryId, 15) to targetRow(ref(row.entryId, 10), readState())),
     )
 
-    @Test
-    fun `an Updates row opens the chapter it names, not its burst's first unread`() = runTest {
-        val row = updatedRow(manga1, chapterId = 15)
-        val fake = burstProvider(row)
+    @ParameterizedTest
+    @MethodSource("updatedRowViews")
+    fun `an updated row opens the chapter it names, in every view and for both types`(
+        type: ContentType,
+        mode: RecentsMode,
+    ) = runTest {
+        val entry = if (type == ContentType.MANGA) manga1 else novel1
+        val row = updatedRow(entry, chapterId = 15)
+        val fake = updatedProvider(type, row)
+        val engine = engine(listOf(fake), chip = type, modes = setOf(mode))
 
-        engine(listOf(fake)).open(row, RecentsMode.UPDATES, membership = emptyMap())
+        engine.open(row, mode, membership = emptyMap())
 
-        fake.openedChapter shouldBe ref(manga1, 15)
-    }
-
-    @Test
-    fun `a combined view's updated row names the chapter its tap opens`() = runTest {
-        val row = updatedRow(manga1, chapterId = 15)
-
-        feedEngine(burstProvider(row)).resolvesTarget(row, RecentsMode.FEED, membership = emptyMap()) shouldBe true
+        (fake.openedChapter to engine.resolvesTarget(row, mode, membership = emptyMap())) shouldBe
+            (ref(entry, 15) to false)
     }
 
     @Test
     fun `a tap on a resolved row opens the chapter its label moved onto`() = runTest {
-        val row = updatedRow(manga1, chapterId = 15)
-        val fake = burstProvider(row)
+        val row = readRow(manga1, chapterId = 5)
+        val fake = provider(
+            ContentType.MANGA,
+            read = rows(row),
+            states = mapOf(manga1 to readState(read = true)),
+            targetRows = mapOf(ref(manga1, 5) to targetRow(ref(manga1, 6), readState())),
+        )
         val engine = feedEngine(fake)
 
         engine.open(row, RecentsMode.FEED, membership = emptyMap())
 
-        (fake.openedChapter to engine.targets.value[row.lane]?.ref) shouldBe (ref(manga1, 10) to ref(manga1, 10))
+        (fake.openedChapter to engine.targets.value[row.lane]?.ref) shouldBe (ref(manga1, 6) to ref(manga1, 6))
     }
 
     @Test
@@ -1427,6 +1438,15 @@ class RecentsEngineTest {
 
         engine.actingChapters(listOf(row), RecentsMode.FEED, membership = emptyMap()) shouldBe
             setOf(ref(manga1, 5))
+    }
+
+    companion object {
+        /** Every view an updated row is drawn in, for both content types. */
+        @JvmStatic
+        fun updatedRowViews(): List<Arguments> =
+            listOf(ContentType.MANGA, ContentType.NOVELS).flatMap { type ->
+                listOf(RecentsMode.DIGEST, RecentsMode.FEED, RecentsMode.UPDATES).map { Arguments.of(type, it) }
+            }
     }
 }
 

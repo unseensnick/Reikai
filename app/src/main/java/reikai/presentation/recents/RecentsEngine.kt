@@ -555,7 +555,8 @@ class RecentsEngine(
     /**
      * How a tap on [item] opens its chapter in [mode], or null when there is nothing left to open. One
      * decision with the row's label: a row whose label moved onto a resolved chapter opens that same
-     * chapter, an Updates row opens the chapter it names, and any other row takes its lane's rule.
+     * chapter, an updated row opens the chapter it names in every view, as Mihon's Updates tab does,
+     * and any other row takes its lane's rule.
      */
     suspend fun open(item: RecentsItem, mode: RecentsMode, membership: Map<EntryId, Long>): Intent? {
         val provider = providersByType[item.entryId.contentType] ?: return null
@@ -632,28 +633,24 @@ class RecentsEngine(
         )
     }
 
-    // The resolved rows, keyed by the lane each row was recorded from, chapter included. The lane rather
-    // than the chapter, because a read row and an updated row naming one chapter resolve by different
-    // rules. Unique among drawn rows: only the combined modes resolve, and they collapse to a row per
-    // entry before anything is drawn.
+    // The resolved rows, keyed by the lane each row was recorded from, chapter included. Unique among
+    // drawn rows: only the combined modes' read rows resolve, and they collapse to a row per entry
+    // before anything is drawn.
 
     private val mutableTargets = MutableStateFlow<Map<RecentsLane, RecentsTargetRow>>(emptyMap())
     val targets: StateFlow<Map<RecentsLane, RecentsTargetRow>> = mutableTargets.asStateFlow()
 
     /**
-     * Whether [item]'s label moves onto the chapter its tap opens, which only the combined modes do:
-     * History names the record it logs, and an Updates row opens the chapter it names. Paid only where
-     * the target can differ, since both providers load the entry's whole chapter list to answer. A read
-     * record still unread resumes itself unless the entry is merged, where another source's read counts
-     * to the rule and not to this row's flag. An update's burst can start at any chapter of its fetch.
+     * Whether [item]'s label moves onto the chapter its tap opens, which only a combined mode's read row
+     * does: History names the record it logs, and an updated row opens the chapter it names. Paid only
+     * where the target can differ, since both providers load the entry's whole chapter list to answer. A
+     * read record still unread resumes itself unless the entry is merged, where another source's read
+     * counts to the rule and not to this row's flag.
      */
     fun resolvesTarget(item: RecentsItem, mode: RecentsMode, membership: Map<EntryId, Long>): Boolean =
         mode.isCombined &&
-            when (item.lane) {
-                is RecentsLane.Read -> rowUi(item).state?.read == true || item.entryId in membership
-                is RecentsLane.Updated -> true
-                RecentsLane.Added -> false
-            }
+            item.lane is RecentsLane.Read &&
+            (rowUi(item).state?.read == true || item.entryId in membership)
 
     /** The resolved row for [item], from the memo where it is warm and by resolving where it is not. */
     suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {

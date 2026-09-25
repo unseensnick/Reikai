@@ -14,7 +14,6 @@ import reikai.domain.merge.flaggedOnAnotherSource
  */
 data class RecentsChapter(
     val id: Long,
-    val fetchedAt: Long,
     val read: Boolean,
 )
 
@@ -31,13 +30,12 @@ fun <T> recentsChapters(
     pooled: List<T>,
     stitch: List<ChapterUnit>,
     id: (T) -> Long,
-    fetchedAt: (T) -> Long,
     read: (T) -> Boolean,
     isHidden: (T) -> Boolean,
 ): List<RecentsChapter> {
     val readElsewhere = flaggedOnAnotherSource(pooled, chapters, stitch, id, read)
     return ReadingOrder.hiddenLast(chapters, isHidden)
-        .map { RecentsChapter(id(it), fetchedAt(it), read(it) || id(it) in readElsewhere) }
+        .map { RecentsChapter(id(it), read(it) || id(it) in readElsewhere) }
 }
 
 /**
@@ -87,23 +85,3 @@ fun firstUnreadOf(chapters: List<RecentsChapter>): Long? = chapters.firstOrNull 
  */
 suspend fun addedTarget(group: List<RecentsChapter>, ownSource: suspend () -> List<RecentsChapter>): Long? =
     firstUnreadOf(group) ?: firstUnreadOf(ownSource())
-
-/** How far either side of a row's own chapter still counts as the same update burst. */
-const val BURST_WINDOW_MS: Long = 12 * 60 * 60 * 1000L
-
-/**
- * The chapter an updated row in a combined view opens: the first unread chapter of the same burst
- * (everything fetched within [BURST_WINDOW_MS] of the row's chapter), falling back to the row's own.
- * That is what makes a "5 new chapters" row open the first of the five. [chapters] arrives in reading
- * order, because "first" means first to read, not first fetched, and only the provider knows its order.
- */
-fun firstUnreadInBurst(
-    chapters: List<RecentsChapter>,
-    rowChapterId: Long,
-): Long {
-    val row = chapters.firstOrNull { it.id == rowChapterId } ?: return rowChapterId
-    return chapters
-        .firstOrNull { !it.read && kotlin.math.abs(it.fetchedAt - row.fetchedAt) <= BURST_WINDOW_MS }
-        ?.id
-        ?: rowChapterId
-}

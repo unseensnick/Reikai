@@ -95,10 +95,9 @@ A `StateFlow<Map<RecentsLane, RecentsTargetRow>>` keyed by the lane each row was
 carries its chapter ref, filled as rows resolve.
 
 The recorded lane is unique among the rows that use this memo, which is what makes it a safe key: only
-the combined modes resolve a target, and they collapse to one row per entry before anything is drawn.
-The key is the lane rather than the bare chapter ref because updated rows in the combined modes resolve
-too (their burst's first unread), and a read row and an updated row naming one chapter resolve by
-different rules.
+the combined modes' read rows resolve a target, and they collapse to one row per entry before anything
+is drawn. Updated rows resolved too while the combined modes followed Yokai's burst rule; since that was
+retired (owner, 2026-09-25) an updated row opens the chapter it names and never asks.
 
 The memo is emptied on a chapter write, told by each provider's `chapterWrites` signal: a subscription
 on a query naming that type's chapter table and its stitch table, which the database notifies on every

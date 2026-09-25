@@ -237,18 +237,13 @@ class MangaRecentsAdapter(
             owner != null && hiddenChapterKey(owner.source.toString(), chapter.url) in hidden
         }
         fun List<Chapter>.forRules() =
-            recentsChapters(this, pooled, stitch, { it.id }, { it.dateFetch }, { it.read }, isHidden)
+            recentsChapters(this, pooled, stitch, { it.id }, { it.read }, isHidden)
 
         val chapterId = when (val lane = item.lane) {
             is RecentsLane.Read -> resumeTarget(groupChapters.forRules(), lane.chapter.chapterId) {
                 ownSource().forRules()
             }
-            is RecentsLane.Updated -> firstUnreadInBurst(
-                // The burst is one source's: fetch times do not line up across sources, so only the
-                // read-elsewhere carry-over crosses the group here.
-                chapters = ownSource().forRules(),
-                rowChapterId = lane.chapter.chapterId,
-            )
+            is RecentsLane.Updated -> lane.chapter.chapterId
             RecentsLane.Added -> addedTarget(groupChapters.forRules()) { ownSource().forRules() }
         } ?: return null
         // Over both lists, so a row naming a copy the stitch dropped says what the group says of it.
