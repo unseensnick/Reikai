@@ -1163,10 +1163,13 @@ class NovelDetailsViewModel(
     fun setHideChapterTitles(hide: Boolean) =
         withLoadedNovel { setNovelChapterFlags.awaitSetHideTitles(it, hide) }
 
-    /** Write the current view as the global chapter-settings default and drop this novel's overrides. */
-    fun setChapterSettingsAsDefault() {
-        viewModelScope.launchIO {
-            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+    /**
+     * Write the current view as the global chapter-settings default and drop this novel's overrides, and
+     * with [applyToLibrary] every library novel's, as manga's setCurrentSettingsAsDefault does.
+     */
+    fun setChapterSettingsAsDefault(applyToLibrary: Boolean) {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        viewModelScope.launchNonCancellable {
             novelPreferences.defaultChapterSortOrder().set(loaded.sorting)
             novelPreferences.defaultChapterSortDescending().set(loaded.sortDescending)
             novelPreferences.defaultChapterHideTitles().set(loaded.hideChapterTitles)
@@ -1174,6 +1177,8 @@ class NovelDetailsViewModel(
             novelPreferences.defaultChapterFilterBookmarked().set(loaded.bookmarkedFilter)
             novelPreferences.defaultChapterFilterDownloaded().set(loaded.downloadedFilter)
             setNovelChapterFlags.awaitClearLocalOverrides(loaded.novel)
+            if (applyToLibrary) setNovelChapterFlags.awaitClearLibraryLocalOverrides()
+            snackbarHostState.showSnackbar(message = context.stringResource(MR.strings.chapter_settings_updated))
         }
     }
 

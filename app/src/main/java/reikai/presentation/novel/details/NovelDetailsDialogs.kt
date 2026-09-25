@@ -16,13 +16,18 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
+import eu.kanade.presentation.manga.SetAsDefaultDialog
 import reikai.domain.novel.model.NovelChapterFlags
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.i18n.MR
@@ -45,9 +50,14 @@ fun NovelChapterSettingsDialog(
     onSortChange: (Long, Boolean) -> Unit,
     onFilterChange: (read: Long, bookmarked: Long, downloaded: Long) -> Unit,
     onDisplayChange: (Boolean) -> Unit,
-    onSetAsDefault: () -> Unit,
+    onSetAsDefault: (applyToLibrary: Boolean) -> Unit,
     onReset: () -> Unit,
 ) {
+    var showSetAsDefaultDialog by rememberSaveable { mutableStateOf(false) }
+    if (showSetAsDefaultDialog) {
+        SetAsDefaultDialog(onDismissRequest = { showSetAsDefaultDialog = false }, onConfirmed = onSetAsDefault)
+    }
+
     TabbedDialog(
         onDismissRequest = onDismiss,
         tabTitles = listOf(
@@ -59,7 +69,7 @@ fun NovelChapterSettingsDialog(
             DropdownMenuItem(
                 text = { Text(stringResource(MR.strings.set_chapter_settings_as_default)) },
                 onClick = {
-                    onSetAsDefault()
+                    showSetAsDefaultDialog = true
                     closeMenu()
                 },
             )

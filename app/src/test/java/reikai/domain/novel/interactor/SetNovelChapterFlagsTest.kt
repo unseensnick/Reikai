@@ -76,4 +76,19 @@ class SetNovelChapterFlagsTest {
         SetNovelChapterFlags(repository).awaitClearLocalOverrides(displayed)
         displayed.copy(chapterFlags = sent.captured.chapterFlags!!).effectiveHideChapterTitles(prefs) shouldBe true
     }
+
+    @Test
+    fun `applying the defaults to the library returns every library novel to them`() = runTest {
+        val sorted = NovelChapterFlags.SORT_LOCAL or NovelChapterFlags.SORTING_ALPHABET
+        val library = listOf(1L, 2L).map { Novel.create().copy(id = it, favorite = true, chapterFlags = sorted) }
+        val sent = mutableListOf<NovelUpdate>()
+        val repository = mockk<NovelRepository> {
+            coEvery { getFavorites() } returns library
+            coEvery { update(capture(sent)) } returns true
+        }
+        SetNovelChapterFlags(repository).awaitClearLibraryLocalOverrides()
+        sent.map { update -> library.first { it.id == update.id }.copy(chapterFlags = update.chapterFlags!!) }
+            .map { it.effectiveSorting(prefs) } shouldBe
+            listOf(NovelChapterFlags.SORTING_NUMBER, NovelChapterFlags.SORTING_NUMBER)
+    }
 }

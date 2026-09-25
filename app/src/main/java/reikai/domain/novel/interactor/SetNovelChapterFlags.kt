@@ -49,4 +49,9 @@ class SetNovelChapterFlags(
         flags = setNovelFlag(flags, 0L, NovelChapterFlags.DISPLAY_LOCAL_MASK)
         return novelRepository.update(NovelUpdate(id = novel.id, chapterFlags = flags))
     }
+
+    /** Return every library novel to the global defaults, as manga's apply-to-library does for favorites. */
+    suspend fun awaitClearLibraryLocalOverrides() {
+        novelRepository.getFavorites().forEach { awaitClearLocalOverrides(it) }
+    }
 }

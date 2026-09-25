@@ -226,8 +226,9 @@ private fun ColumnScope.DisplayPage(
     }
 }
 
+// RK: internal, so the novel chapter settings ask the same way.
 @Composable
-private fun SetAsDefaultDialog(
+internal fun SetAsDefaultDialog(
     onDismissRequest: () -> Unit,
     onConfirmed: (optionalChecked: Boolean) -> Unit,
 ) {

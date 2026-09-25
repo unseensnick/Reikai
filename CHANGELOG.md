@@ -187,6 +187,7 @@ every release now also ships a foss build with neither in it.
 - **Related-manga suggestions now label where each one came from, in both the carousel and the full grid.** The source, the tracker, or the taste reason behind the pick.
 - **Searching a genre from a novel's page now goes back to its source's catalogue with that genre filtered, as manga does.** Opened from anywhere else, it searches your library.
 - **A novel's Download menu now leaves out chapters your filters hide while Settings -> Novel reader -> Skip filtered chapters is on, as manga's does.** With it off, it picks from every page of chapters stored.
+- **Set as default in a novel's chapter settings now asks first and can apply the settings to your whole library, as manga's does.** A message confirms the change.
 
 #### Fixed
 
