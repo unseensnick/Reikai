@@ -24,6 +24,10 @@ fun NovelSource.langCode(): String = lang.toLangCode()
 fun NovelSource.isInDisabledLanguage(disabled: Set<String>): Boolean =
     langCode() in disabled.mapTo(HashSet()) { it.toLangCode() }
 
+/** Whether the user switched this source off, by its own id or by its language. */
+fun NovelSource.isDisabled(disabledIds: Set<String>, disabledLangs: Set<String>): Boolean =
+    id in disabledIds || isInDisabledLanguage(disabledLangs)
+
 /** [sources] in one group per language code, so a plugin and an app source of one language share it. */
 fun groupByLanguage(sources: List<NovelSource>, order: Comparator<String>): List<Pair<String, List<NovelSource>>> =
     sources.groupBy { it.langCode() }

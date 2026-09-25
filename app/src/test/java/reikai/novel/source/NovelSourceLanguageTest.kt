@@ -76,7 +76,27 @@ class NovelSourceLanguageTest {
         source("en").isInDisabledLanguage(setOf("es")) shouldBe false
     }
 
+    @Test
+    fun `a source switched off by its id is disabled`() {
+        withId("s1", "en").isDisabled(disabledIds = setOf("s1"), disabledLangs = emptySet()) shouldBe true
+    }
+
+    @Test
+    fun `a source whose language is switched off by name is disabled`() {
+        withId("s1", "en").isDisabled(disabledIds = emptySet(), disabledLangs = setOf("English")) shouldBe true
+    }
+
+    @Test
+    fun `a source with neither its id nor its language switched off is enabled`() {
+        withId("s1", "en").isDisabled(disabledIds = setOf("s2"), disabledLangs = setOf("es")) shouldBe false
+    }
+
     private fun source(lang: String) = mockk<NovelSource> { every { this@mockk.lang } returns lang }
+
+    private fun withId(id: String, lang: String) = mockk<NovelSource> {
+        every { this@mockk.id } returns id
+        every { this@mockk.lang } returns lang
+    }
 
     private fun named(name: String, lang: String) = mockk<NovelSource> {
         every { this@mockk.lang } returns lang

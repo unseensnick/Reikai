@@ -3,14 +3,12 @@ package reikai.domain.source
 import dev.zacsweers.metro.Inject
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
-import reikai.novel.source.isInDisabledLanguage
+import reikai.novel.source.isDisabled
 
 /**
- * The installed light-novel sources minus the user-disabled ones (per source and per language),
- * used by the novel global search to exclude them. One place defines the
- * [ReikaiSourcePreferences.disabledNovelSources] + [ReikaiSourcePreferences.disabledNovelLanguages]
- * filter; the Sources tab applies the same filter through its own screen model, and the filter
- * screen is where both are re-enabled.
+ * The installed light-novel sources the user has not switched off, per source or per language, for
+ * global search, the feed and novel migration. The Sources tab applies the same [isDisabled] rule to
+ * its own list, and the filter screen is where both are turned back on.
  */
 @Inject
 class GetEnabledNovelSources(
@@ -20,6 +18,6 @@ class GetEnabledNovelSources(
     suspend fun get(): List<NovelSource> {
         val disabledSources = preferences.disabledNovelSources.get()
         val disabledLanguages = preferences.disabledNovelLanguages.get()
-        return manager.getAll().filterNot { it.id in disabledSources || it.isInDisabledLanguage(disabledLanguages) }
+        return manager.getAll().filterNot { it.isDisabled(disabledSources, disabledLanguages) }
     }
 }
