@@ -39,6 +39,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import reikai.novel.download.NovelDownloadManager
+import reikai.presentation.download.EngineQueueStatus // RK
+import reikai.presentation.download.downloadQueueState // RK
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -110,23 +112,23 @@ class MoreViewModel(
     init {
         // Handle running/paused status change and queue progress updating
         viewModelScope.launchIO {
+            // RK --> both downloaders, through the queue-status rule the queue screen reads too
+            val novels = novelDownloadManager()
             combine(
                 downloadManager.isDownloaderRunning,
                 downloadManager.queueState,
-                // RK: fold the novel download queue into the More badge, so its count covers both types
-                novelDownloadManager().queueState,
-            ) { isRunning, downloadQueue, novelQueue ->
-                Triple(isRunning, downloadQueue.size, novelQueue.size)
+                novels.isDownloaderRunning,
+                novels.queueState,
+            ) { mangaRunning, mangaQueue, novelRunning, novelQueue ->
+                downloadQueueState(
+                    listOf(
+                        EngineQueueStatus(mangaQueue.size, mangaRunning),
+                        EngineQueueStatus(novelQueue.size, novelRunning),
+                    ),
+                )
             }
-                .collectLatest { (isDownloading, mangaSize, novelSize) ->
-                    val pending = mangaSize + novelSize
-                    _downloadQueueState.value = when {
-                        pending == 0 -> DownloadQueueState.Stopped
-                        // RK: novels auto-drain with no user pause, so any pending novel is active
-                        !isDownloading && novelSize == 0 -> DownloadQueueState.Paused(pending)
-                        else -> DownloadQueueState.Downloading(pending)
-                    }
-                }
+                .collectLatest { _downloadQueueState.value = it }
+            // RK <--
         }
     }
 }

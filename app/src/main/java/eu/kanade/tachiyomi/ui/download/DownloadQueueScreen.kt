@@ -33,6 +33,7 @@ import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.ui.more.DownloadQueueState // RK
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.roundedfilled.Pause
@@ -58,10 +59,10 @@ object DownloadQueueScreen : Screen() {
         // RK --> one list over both content types, on the shared card list (see EntryDownloadQueueViewModel)
         val screenModel = metroViewModel<EntryDownloadQueueViewModel>()
         val state by screenModel.state.collectAsStateWithLifecycle()
-        val running by screenModel.isRunning.collectAsStateWithLifecycle()
+        val queueState by screenModel.queueState.collectAsStateWithLifecycle()
         val sheet by screenModel.sheet.collectAsStateWithLifecycle()
         val scope = rememberCoroutineScope()
-        val isRunning = running.values.any { it }
+        val isRunning = queueState is DownloadQueueState.Downloading
         val hasQueue = state.cards.isNotEmpty()
         var showSortSheet by remember { mutableStateOf(false) }
         // RK <--

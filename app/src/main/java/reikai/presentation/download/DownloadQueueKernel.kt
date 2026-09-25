@@ -1,6 +1,24 @@
 package reikai.presentation.download
 
+import eu.kanade.tachiyomi.ui.more.DownloadQueueState
 import reikai.domain.library.ContentType
+
+/** One downloader's share of the queue: how many chapters it holds and whether it is running. */
+data class EngineQueueStatus(val pending: Int, val isRunning: Boolean)
+
+/**
+ * The queue's state across both downloaders, the one answer the More row and the queue screen's
+ * pause button read. Downloading while any downloader with something queued runs, so a paused novel
+ * queue beside an idle manga one reads Paused on both screens.
+ */
+fun downloadQueueState(engines: List<EngineQueueStatus>): DownloadQueueState {
+    val pending = engines.sumOf { it.pending }
+    return when {
+        pending == 0 -> DownloadQueueState.Stopped
+        engines.any { it.pending > 0 && it.isRunning } -> DownloadQueueState.Downloading(pending)
+        else -> DownloadQueueState.Paused(pending)
+    }
+}
 
 /** A queued chapter's state in the terms both downloaders share. */
 enum class QueuedChapterStatus { QUEUED, DOWNLOADING, ERROR }

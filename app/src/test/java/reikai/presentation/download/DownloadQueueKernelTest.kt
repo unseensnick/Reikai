@@ -1,5 +1,6 @@
 package reikai.presentation.download
 
+import eu.kanade.tachiyomi.ui.more.DownloadQueueState
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -203,4 +204,40 @@ class DownloadQueueKernelTest {
         chapters.sortedWithinSeries({ it.first }, { it.second }, descending = true) shouldBe
             listOf(9L to 3.0, 9L to 1.0, 4L to 2.0, 4L to 0.5)
     }
+
+    @Test
+    fun `an empty queue is stopped`() {
+        queueState(EngineQueueStatus(pending = 0, isRunning = true)) shouldBe DownloadQueueState.Stopped
+    }
+
+    @Test
+    fun `a queue whose downloader runs is downloading`() {
+        queueState(
+            EngineQueueStatus(pending = 2, isRunning = true),
+            EngineQueueStatus(pending = 1, isRunning = false),
+        ) shouldBe
+            DownloadQueueState.Downloading(3)
+    }
+
+    @Test
+    fun `a paused queue beside an idle empty one is paused`() {
+        // Manga idle and empty, novels queued with their downloader paused: the More row used to read
+        // Downloading while the queue screen offered Resume.
+        queueState(
+            EngineQueueStatus(pending = 0, isRunning = false),
+            EngineQueueStatus(pending = 3, isRunning = false),
+        ) shouldBe
+            DownloadQueueState.Paused(3)
+    }
+
+    @Test
+    fun `a downloader running with nothing queued does not make a paused queue downloading`() {
+        queueState(
+            EngineQueueStatus(pending = 0, isRunning = true),
+            EngineQueueStatus(pending = 3, isRunning = false),
+        ) shouldBe
+            DownloadQueueState.Paused(3)
+    }
+
+    private fun queueState(vararg engines: EngineQueueStatus) = downloadQueueState(engines.toList())
 }

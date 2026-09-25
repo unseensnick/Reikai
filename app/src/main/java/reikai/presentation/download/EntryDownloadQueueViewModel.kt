@@ -9,6 +9,7 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import eu.kanade.tachiyomi.ui.more.DownloadQueueState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -83,11 +84,21 @@ class EntryDownloadQueueViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 
-    val isRunning: StateFlow<Map<ContentType, Boolean>> = combine(
+    private val isRunning: StateFlow<Map<ContentType, Boolean>> = combine(
         mangaProvider.isRunning,
         novelProvider.isRunning,
     ) { manga, novels -> mapOf(ContentType.MANGA to manga, ContentType.NOVELS to novels) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), emptyMap())
+
+    /** The same answer the More row gives, so the pause button and that row never disagree. */
+    val queueState: StateFlow<DownloadQueueState> = combine(snapshots, isRunning) { snapshotsByType, running ->
+        downloadQueueState(
+            snapshotsByType.map { (type, snapshot) ->
+                EngineQueueStatus(snapshot.chapters.size, running[type] == true)
+            },
+        )
+    }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), DownloadQueueState.Stopped)
 
     /** Commit a new card order: save it, then hand each downloader its share where that changed. */
     fun reorder(cardKeysInOrder: List<String>) {
@@ -111,7 +122,7 @@ class EntryDownloadQueueViewModel(
     /** Pause every running downloader, or start every one with something queued. */
     fun togglePause() {
         val running = isRunning.value
-        if (running.values.any { it }) {
+        if (queueState.value is DownloadQueueState.Downloading) {
             providers.filterKeys { running[it] == true }.values.forEach { it.pause() }
         } else {
             val queuedTypes = state.value.cards.mapTo(HashSet()) { it.contentType }
