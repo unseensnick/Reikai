@@ -53,6 +53,8 @@ class LnPluginInstaller(
     // Serializes the bulk load so two ensureLoaded calls don't double-load. Deliberately NOT held by
     // install/uninstall, so a tap-to-install never blocks behind an in-progress (possibly slow, e.g. a
     // down repo) ensureLoaded; those serialize their own writes on registryMutex instead.
+    // ExtensionManager.loadMutex holds the app scans the same way, so a reload cannot be overwritten by
+    // an in-flight load on either side (content-layer-browse-surface.md).
     private val loadMutex = Mutex()
 
     // Guards every read-modify-write of the two persisted registries (installed urls, installed

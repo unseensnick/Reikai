@@ -132,9 +132,9 @@ class LnPluginManagerViewModel(
     }
 
     /**
-     * Force a re-load of the installed novel plugins (retrying any that failed). The novel twin of
-     * manga's ExtensionManager.reloadInstalledExtensions(), wired into the shared "Re-check
-     * extensions" action on this tab so it re-checks both verticals.
+     * Force a re-load of the installed LN plugins (retrying any that failed). The shared "Re-check
+     * extensions" action fires this beside ExtensionManager.reloadInstalledExtensions(), which reloads
+     * the installed apps; the two split by source kind and differ by design, so neither twins the other.
      */
     fun reloadInstalled() {
         viewModelScope.launchIO { installer.loadInstalled() }
