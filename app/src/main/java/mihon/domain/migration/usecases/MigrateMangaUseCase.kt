@@ -107,6 +107,10 @@ class MigrateMangaUseCase(
                             updatedChapter = updatedChapter.copy(
                                 dateFetch = prevChapter.dateFetch,
                                 bookmark = prevChapter.bookmark,
+                                // RK --> the page position carries as the novel engine's does, and
+                                // only ever rises; MigrateEngineConformanceTest pins both engines.
+                                lastPageRead = maxOf(updatedChapter.lastPageRead, prevChapter.lastPageRead),
+                                // RK <--
                             )
                         }
 

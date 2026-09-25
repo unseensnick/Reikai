@@ -1,379 +1,53 @@
 package reikai.domain.novel.interactor
 
-import eu.kanade.tachiyomi.data.cache.CoverCache
-import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
-import io.kotest.matchers.shouldBe
-import io.mockk.CapturingSlot
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.coVerifyOrder
-import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.db.PassThroughTransactions
-import reikai.domain.db.Transactions
-import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelMigrationFlag
-import reikai.domain.novel.model.NovelTrack
-import reikai.domain.novel.model.NovelUpdate
-import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownloadManager
-import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
-import java.io.File
 
+/**
+ * What only the novel engine does. Every rule both engines share is pinned once, over both, by
+ * MigrateEngineConformanceTest.
+ */
 class MigrateNovelUseCaseTest {
 
-    private fun novel(id: Long, notes: String = "") = Novel.create().copy(id = id, notes = notes)
-
-    private fun novelTrack(novelId: Long) = NovelTrack(
-        id = 0, novelId = novelId, trackerId = 1, remoteId = 1, libraryId = null, title = "t",
-        lastChapterRead = 0.0, totalChapters = 0, status = 0, score = 0.0, remoteUrl = "",
-        startDate = 0, finishDate = 0, private = false,
-    )
-
-    // Relaxed mockk can't synthesize a primitive LongArray return, so stub the always-called resolver
-    // to an empty group (no merge) by default; merge tests override it.
-    private fun defaultMerge() = mockk<NovelMergeManager>(relaxed = true) {
-        coEvery { computeRelatedIds(any()) } returns longArrayOf()
-    }
-
-    // A relaxed Boolean mock answers false, which the engine's check() treats as failure, so the two
-    // batched writes default to success here; failure-contract tests override them.
-    private fun defaultNovelRepo() = mockk<NovelRepository>(relaxed = true) {
-        coEvery { updateAll(any()) } returns true
-    }
+    private fun novel(id: Long) = Novel.create().copy(id = id)
 
     private fun useCase(
-        coverCache: CoverCache = mockk(relaxed = true),
-        updateNovel: UpdateNovel = mockk(relaxed = true),
-        novelMergeManager: NovelMergeManager = defaultMerge(),
-        getNovelTracks: GetNovelTracks = mockk(relaxed = true),
-        insertNovelTrack: InsertNovelTrack = mockk(relaxed = true),
-        novelChapterRepository: NovelChapterRepository = mockk(relaxed = true),
-        novelDownloadManager: NovelDownloadManager = mockk(relaxed = true),
-        novelRepository: NovelRepository = defaultNovelRepo(),
-        sourceManager: NovelSourceManager = mockk(relaxed = true),
-        transactions: Transactions = PassThroughTransactions,
-        sourceTracker: SourceTrackerDispatcher = mockk(relaxed = true),
+        novelChapterRepository: NovelChapterRepository,
+        novelDownloadManager: NovelDownloadManager,
     ) = MigrateNovelUseCase(
         novelChapterRepository = novelChapterRepository,
         getNovelCategories = mockk(relaxed = true),
         setNovelCategories = mockk(relaxed = true),
-        novelMergeManager = novelMergeManager,
+        novelMergeManager = mockk<NovelMergeManager>(relaxed = true) {
+            coEvery { computeRelatedIds(any()) } returns longArrayOf()
+        },
         novelDownloadManagerProvider = { novelDownloadManager },
-        updateNovel = updateNovel,
-        coverCache = coverCache,
-        getNovelTracks = getNovelTracks,
-        insertNovelTrack = insertNovelTrack,
-        // Every test that isn't about the refresh passes skipTargetRefresh = true and asserts
-        // against its pre-synced target chapters; the refresh-contract test injects its own manager.
-        sourceManager = sourceManager,
-        novelRepository = novelRepository,
+        updateNovel = mockk(relaxed = true),
+        coverCache = mockk(relaxed = true),
+        getNovelTracks = mockk(relaxed = true),
+        insertNovelTrack = mockk(relaxed = true),
+        sourceManager = mockk(relaxed = true),
+        novelRepository = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(any()) } returns true },
         database = mockk(relaxed = true),
         libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
-        transactions = transactions,
-        sourceTracker = sourceTracker,
+        transactions = PassThroughTransactions,
+        sourceTracker = mockk(relaxed = true),
     )
-
-    // The twins of the manga suite's two engine guards. Both guards existed here already; neither was
-    // pinned, and the target-source one was sitting inside a branch the commit path skips.
-
-    @Test
-    fun `migrating an entry onto itself does nothing at all`() = runTest {
-        val repo = defaultNovelRepo()
-
-        useCase(novelRepository = repo)(novel(1), novel(1), emptySet(), replace = true, skipTargetRefresh = true)
-
-        coVerify(exactly = 0) { repo.updateAll(any()) }
-    }
-
-    @Test
-    fun `a missing target source fails the row instead of returning as if migrated`() = runTest {
-        val sources = mockk<NovelSourceManager>()
-        coEvery { sources.get(any<String>()) } returns null
-
-        shouldThrow<IllegalStateException> {
-            useCase(sourceManager = sources)(
-                novel(1),
-                novel(2),
-                emptySet(),
-                replace = true,
-                // The point of the twin: the check has to hold on the path the flow actually uses,
-                // which skips the refresh the check used to be nested inside.
-                skipTargetRefresh = true,
-            )
-        }
-    }
-
-    /** Twin of the manga suite's: observes where the engine put its writes, which a pass-through
-     *  fake cannot tell apart from two separate transactions. */
-    private class RecordingTransactions : Transactions {
-        var entered = 0
-        var completed = 0
-        var inside = false
-
-        override suspend fun <T> run(block: suspend () -> T): T {
-            entered++
-            inside = true
-            try {
-                return block().also { completed++ }
-            } finally {
-                inside = false
-            }
-        }
-    }
-
-    @Test
-    fun `cover flag copies the custom cover onto the target and bumps its timestamp`() = runTest {
-        val src = File.createTempFile("mig-src", ".0").apply {
-            writeText("COVER-BYTES")
-            deleteOnExit()
-        }
-        val dst = File.createTempFile("mig-dst", ".0").apply {
-            writeText("")
-            deleteOnExit()
-        }
-        val coverCache = mockk<CoverCache> {
-            every { getCustomCoverFile(EntryId.Novel(1L)) } returns src
-            every { getCustomCoverFile(EntryId.Novel(2L)) } returns dst
-        }
-        val updateNovel = mockk<UpdateNovel>(relaxed = true)
-
-        useCase(coverCache, updateNovel)(
-            novel(1),
-            novel(2),
-            setOf(NovelMigrationFlag.COVER),
-            replace = false,
-            skipTargetRefresh = true,
-        )
-
-        dst.readText() shouldBe "COVER-BYTES"
-        coVerify { updateNovel.awaitUpdateCoverLastModified(2L) }
-    }
-
-    /** The target's NovelUpdate out of the batched favorite swap. */
-    private fun capturedTargetUpdate(updates: CapturingSlot<List<NovelUpdate>>): NovelUpdate =
-        updates.captured.single { it.favorite == true }
-
-    @Test
-    fun `notes flag carries the source notes onto the target`() = runTest {
-        val updates = slot<List<NovelUpdate>>()
-        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(capture(updates)) } returns true }
-
-        useCase(novelRepository = repo)(
-            novel(1, notes = "my note"),
-            novel(2),
-            setOf(NovelMigrationFlag.NOTES),
-            replace = false,
-            skipTargetRefresh = true,
-        )
-
-        capturedTargetUpdate(updates).notes shouldBe "my note"
-    }
-
-    @Test
-    fun `without the cover or notes flags neither is carried`() = runTest {
-        val updates = slot<List<NovelUpdate>>()
-        val coverCache = mockk<CoverCache>(relaxed = true)
-        val updateNovel = mockk<UpdateNovel>(relaxed = true)
-        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(capture(updates)) } returns true }
-
-        useCase(coverCache, updateNovel, novelRepository = repo)(
-            novel(1, notes = "my note"),
-            novel(2),
-            emptySet(),
-            replace = false,
-            skipTargetRefresh = true,
-        )
-
-        capturedTargetUpdate(updates).notes shouldBe null
-        verify(exactly = 0) { coverCache.getCustomCoverFile(any<EntryId>()) }
-        coVerify(exactly = 0) { updateNovel.awaitUpdateCoverLastModified(any()) }
-    }
-
-    @Test
-    fun `replace swaps the source out of its group and the target in atomically`() = runTest {
-        val merge = mockk<NovelMergeManager>(relaxed = true) {
-            coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 3L)
-        }
-
-        useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = true, skipTargetRefresh = true)
-
-        coVerify { merge.replaceInGroup(1L, 2L) }
-        coVerify(exactly = 0) { merge.merge(any()) }
-    }
-
-    @Test
-    fun `a replace swaps both entries in one write, so neither can be left out of the library`() = runTest {
-        val updates = slot<List<NovelUpdate>>()
-        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(capture(updates)) } returns true }
-
-        useCase(novelRepository = repo)(novel(1), novel(2), emptySet(), replace = true, skipTargetRefresh = true)
-
-        // One write: were it split in two, a failure between them would leave neither favorited.
-        coVerify(exactly = 1) { repo.updateAll(any()) }
-        updates.captured.size shouldBe 2
-        updates.captured.single { it.id == 1L }.let {
-            it.favorite shouldBe false
-            it.dateAdded shouldBe 0
-        }
-    }
-
-    @Test
-    fun `a copy leaves the source favorited`() = runTest {
-        val updates = slot<List<NovelUpdate>>()
-        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(capture(updates)) } returns true }
-
-        useCase(novelRepository = repo)(novel(1), novel(2), emptySet(), replace = false, skipTargetRefresh = true)
-
-        updates.captured.map { it.id } shouldBe listOf(2L)
-    }
-
-    @Test
-    fun `copy of a merged novel adds the target alongside the source`() = runTest {
-        val merge = mockk<NovelMergeManager>(relaxed = true) {
-            coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 3L)
-        }
-
-        useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = false, skipTargetRefresh = true)
-
-        coVerify { merge.merge(listOf(1L, 3L, 2L)) }
-        coVerify(exactly = 0) { merge.replaceInGroup(any(), any()) }
-    }
-
-    @Test
-    fun `copy of an unmerged novel is never grouped on migration`() = runTest {
-        val merge = mockk<NovelMergeManager>(relaxed = true) {
-            coEvery { computeRelatedIds(1L) } returns longArrayOf(1L)
-        }
-
-        useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = false, skipTargetRefresh = true)
-
-        coVerify(exactly = 0) { merge.merge(any()) }
-    }
-
-    @Test
-    fun `migration carries tracker links onto the target`() = runTest {
-        val getTracks = mockk<GetNovelTracks> { coEvery { await(1L) } returns listOf(novelTrack(novelId = 1L)) }
-        val insert = mockk<InsertNovelTrack>(relaxed = true)
-
-        useCase(getNovelTracks = getTracks, insertNovelTrack = insert)(
-            novel(1),
-            novel(2),
-            emptySet(),
-            replace = false,
-            skipTargetRefresh = true,
-        )
-
-        // One batched write, so a multi-tracker carry cannot land some links and drop others.
-        coVerify(exactly = 1) { insert.awaitAll(match { tracks -> tracks.all { it.novelId == 2L } }) }
-        coVerify(exactly = 0) { insert.await(any()) }
-    }
-
-    @Test
-    fun `migration carries the chapter and viewer flags onto the target`() = runTest {
-        val updates = slot<List<NovelUpdate>>()
-        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(capture(updates)) } returns true }
-        val source = novel(1).copy(chapterFlags = 0b1010L, viewerFlags = 0b0100L)
-
-        useCase(novelRepository = repo)(source, novel(2), emptySet(), replace = false, skipTargetRefresh = true)
-
-        capturedTargetUpdate(updates).chapterFlags shouldBe 0b1010L
-        capturedTargetUpdate(updates).viewerFlags shouldBe 0b0100L
-    }
-
-    @Test
-    fun `a failed favorite swap fails the migration instead of passing silently`() = runTest {
-        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(any()) } returns false }
-
-        shouldThrow<IllegalStateException> {
-            useCase(novelRepository = repo)(novel(1), novel(2), emptySet(), replace = true, skipTargetRefresh = true)
-        }
-    }
-
-    @Test
-    fun `the group rewrite and the favorite swap are one unit of work`() = runTest {
-        val transactions = RecordingTransactions()
-        var groupMovedInsideUnit = false
-        var swapInsideUnit = false
-        val merge = mockk<NovelMergeManager>(relaxed = true) {
-            coEvery { computeRelatedIds(any()) } returns longArrayOf(1L, 3L)
-            coEvery { replaceInGroup(any(), any()) } answers { groupMovedInsideUnit = transactions.inside }
-        }
-        val repo = mockk<NovelRepository>(relaxed = true) {
-            coEvery { updateAll(any()) } answers {
-                swapInsideUnit = transactions.inside
-                true
-            }
-        }
-
-        useCase(novelMergeManager = merge, novelRepository = repo, transactions = transactions)(
-            novel(1),
-            novel(2),
-            emptySet(),
-            replace = true,
-            skipTargetRefresh = true,
-        )
-
-        // Manga's contract, and for the same reason: two transactions with a suspension point between
-        // them let a cancelled batch commit the swap and never reach the rewrite.
-        groupMovedInsideUnit shouldBe true
-        swapInsideUnit shouldBe true
-        transactions.completed shouldBe 1
-        // Ordered, like manga's twin: "both inside one unit" leaves the half that matters unpinned.
-        // The swap has to be LAST, or the departing member is unfavorited before the group dissolves
-        // and the tracker hand-out skips it.
-        coVerifyOrder {
-            merge.replaceInGroup(1L, 2L)
-            repo.updateAll(any())
-        }
-    }
-
-    @Test
-    fun `a failing swap aborts the unit that moved the merge group`() = runTest {
-        val transactions = RecordingTransactions()
-        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(any()) } returns false }
-        val merge = mockk<NovelMergeManager>(relaxed = true) {
-            coEvery { computeRelatedIds(any()) } returns longArrayOf(1L, 3L)
-        }
-
-        shouldThrow<IllegalStateException> {
-            useCase(novelMergeManager = merge, novelRepository = repo, transactions = transactions)(
-                novel(1),
-                novel(2),
-                emptySet(),
-                replace = true,
-                skipTargetRefresh = true,
-            )
-        }
-
-        transactions.entered shouldBe 1
-        transactions.completed shouldBe 0
-    }
-
-    @Test
-    fun `a failed refresh onto a chapterless target fails the migration`() = runTest {
-        // Source unavailable and the relaxed chapter repository reports no target chapters: the
-        // manga getOrThrow contract applies and the row must fail rather than migrate onto nothing.
-        // (Stubbed outside the mockk block: a bare get(any()) in there binds to MockKMatcherScope.)
-        val sources = mockk<NovelSourceManager>()
-        coEvery { sources.get(any()) } returns null
-
-        shouldThrow<IllegalStateException> {
-            useCase(sourceManager = sources)(novel(1), novel(2), emptySet(), replace = true)
-        }
-    }
 
     @Test
     fun `remove-download flag drops the whole source entry, not its downloaded chapters`() = runTest {
@@ -398,169 +72,27 @@ class MigrateNovelUseCaseTest {
         verify(exactly = 0) { downloadManager.deleteChapters(any()) }
     }
 
-    @Test
-    fun `migration never auto re-downloads chapters onto the target`() = runTest {
-        // The source chapter is downloaded and matches a target chapter, the case the retired
-        // re-download carry used to fire on; a silent re-fetch costs metered data, so it never runs.
-        val repo = mockk<NovelChapterRepository>(relaxed = true) {
-            coEvery { getByNovelId(1L) } returns listOf(chapter(1, 1.0))
-            coEvery { getByNovelId(2L) } returns listOf(chapter(3, 1.0))
-        }
-        val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
-            every { isChapterDownloaded(any(), match { it.id == 1L }) } returns true
-        }
-
-        useCase(novelChapterRepository = repo, novelDownloadManager = downloadManager)(
-            novel(1),
-            novel(2),
-            setOf(NovelMigrationFlag.CHAPTER),
-            replace = false,
-            skipTargetRefresh = true,
-        )
-
-        coVerify(exactly = 0) { downloadManager.downloadChapters(any()) }
-    }
-
-    private fun chapter(
-        id: Long,
-        number: Double,
-        read: Boolean = false,
-        bookmark: Boolean = false,
-        progress: Long = 0,
-        dateFetch: Long = 0,
-    ) = NovelChapter(
+    private fun chapter(id: Long, number: Double, read: Boolean = false) = NovelChapter(
         id = id,
         novelId = 1L,
         url = "u$id",
         name = "Chapter $number",
         read = read,
-        bookmark = bookmark,
-        lastTextProgress = progress,
+        bookmark = false,
+        lastTextProgress = 0,
         chapterNumber = number,
         sourceOrder = id,
-        dateFetch = dateFetch,
+        dateFetch = 0,
         dateUpload = 0,
         page = "",
     )
 
     @Test
-    fun `an exact number match copies read bookmark and progress onto the target chapter`() {
-        val current = listOf(chapter(1, 1.0, read = true, bookmark = true, progress = 4200))
-        val target = listOf(chapter(10, 1.0))
-
-        val result = computeChapterMigration(current, target)
-
-        result.single().let {
-            it.id shouldBe 10L
-            it.read shouldBe true
-            it.bookmark shouldBe true
-            it.lastTextProgress shouldBe 4200
-        }
-    }
-
-    @Test
-    fun `a read target chapter stays read when the matching source chapter is unread`() {
-        // Nothing read in the source, so maxChapterRead is null and the sweep cannot mask the
-        // carry: with the state taken straight from the match this un-reads the target chapter.
-        val current = listOf(chapter(1, 1.0, read = false))
-        val target = listOf(chapter(10, 1.0, read = true))
-
-        computeChapterMigration(current, target).shouldContainExactlyInAnyOrder(emptyList())
-    }
-
-    @Test
-    fun `the further of the two text positions wins`() {
-        val current = listOf(chapter(1, 1.0, progress = 1500), chapter(2, 2.0, progress = 9000))
-        val target = listOf(chapter(10, 1.0, progress = 8000), chapter(11, 2.0, progress = 200))
-
-        val result = computeChapterMigration(current, target)
-
-        result.map { it.id to it.lastTextProgress } shouldBe listOf(11L to 9000L)
-    }
-
-    @Test
-    fun `an exact number match carries the source chapter's fetch date`() {
-        val current = listOf(chapter(1, 1.0, dateFetch = 1234))
-        val target = listOf(chapter(10, 1.0, dateFetch = 9999))
-
-        computeChapterMigration(current, target).single().dateFetch shouldBe 1234
-    }
-
-    @Test
-    fun `unmatched target chapters at or below the highest read number are marked read`() {
-        // Source read up to chapter 3; target numbers chapters differently but 1 and 2 fall under 3.
-        val current = listOf(
-            chapter(1, 1.0, read = true),
-            chapter(2, 2.0, read = true),
-            chapter(3, 3.0, read = true),
-        )
-        val target = listOf(chapter(10, 1.5), chapter(11, 2.5), chapter(12, 9.0))
-
-        val result = computeChapterMigration(current, target)
-
-        result.filter { it.read }.map { it.id } shouldContainExactlyInAnyOrder listOf(10L, 11L)
-    }
-
-    @Test
-    fun `unrecognized target chapter numbers are skipped`() {
-        val current = listOf(chapter(1, 1.0, read = true))
-        val target = listOf(chapter(10, -1.0))
-
-        computeChapterMigration(current, target).shouldContainExactlyInAnyOrder(emptyList())
-    }
-
-    @Test
     fun `a target chapter whose state already matches is not returned`() {
+        // The novel carry writes only what changes, where manga's rewrites every target chapter.
         val current = listOf(chapter(1, 1.0, read = false))
         val target = listOf(chapter(10, 1.0, read = false))
 
         computeChapterMigration(current, target).shouldContainExactlyInAnyOrder(emptyList())
-    }
-
-    @Test
-    fun `with nothing read in the source no extra chapters are swept to read`() {
-        val current = listOf(chapter(1, 1.0, bookmark = true))
-        val target = listOf(chapter(10, 1.0), chapter(11, 2.0))
-
-        val result = computeChapterMigration(current, target)
-
-        // Only the matched chapter changes (gains the bookmark); chapter 2 stays untouched.
-        result.single().id shouldBe 10L
-    }
-
-    @Test
-    fun `a committed migration is passed to the source tracker`() = runTest {
-        val tracker = mockk<SourceTrackerDispatcher>(relaxed = true)
-        val chapters = mockk<NovelChapterRepository>(relaxed = true) {
-            coEvery { getByNovelId(any()) } returns emptyList()
-        }
-
-        useCase(novelChapterRepository = chapters, sourceTracker = tracker)(
-            novel(1),
-            novel(2),
-            setOf(NovelMigrationFlag.CHAPTER),
-            replace = true,
-            skipTargetRefresh = true,
-        )
-
-        verify { tracker.migrated(EntryId.Novel(1), EntryId.Novel(2), replace = true, carriedChapters = true) }
-    }
-
-    @Test
-    fun `a failed swap tells the source tracker nothing`() = runTest {
-        val tracker = mockk<SourceTrackerDispatcher>(relaxed = true)
-        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(any()) } returns false }
-
-        shouldThrow<IllegalStateException> {
-            useCase(novelRepository = repo, sourceTracker = tracker)(
-                novel(1),
-                novel(2),
-                emptySet(),
-                replace = true,
-                skipTargetRefresh = true,
-            )
-        }
-
-        verify(exactly = 0) { tracker.migrated(any(), any(), any(), any()) }
     }
 }

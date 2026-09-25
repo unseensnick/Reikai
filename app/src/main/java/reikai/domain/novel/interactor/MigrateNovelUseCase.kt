@@ -26,11 +26,11 @@ import kotlin.time.Clock
 
 /**
  * Move a favorited novel's state onto a [target] novel from another source, the novel twin of
- * [mihon.domain.migration.usecases.MigrateMangaUseCase]. The target is already materialised and
- * chapter-synced by the picker, so this is mostly DB work: per-chapter read, bookmark and progress
- * matched by chapter number, categories, the custom cover and notes when their flags are set,
- * favoriting, tracker links re-pointed to the target, and the merge group kept consistent (the target
- * takes the source's place on [replace], or joins it on copy). History is not carried, matching Mihon.
+ * [mihon.domain.migration.usecases.MigrateMangaUseCase], pinned to it by MigrateEngineConformanceTest.
+ * Mostly DB work: per-chapter read, bookmark and progress matched by chapter number, categories, the
+ * custom cover and notes when their flags are set, favoriting, tracker links re-pointed to the target,
+ * and the merge group kept consistent (the target takes the source's place on [replace], or joins it
+ * on copy). History is not carried, matching Mihon.
  */
 @Inject
 class MigrateNovelUseCase(

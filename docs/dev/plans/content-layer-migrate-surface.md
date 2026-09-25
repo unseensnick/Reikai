@@ -335,6 +335,15 @@ novel list had. Both read `MigrationRowRules`: `target()` is the one answer to w
 names, taps and counts, and `shortfall()` shares its comparison with hide-without-updates. The ruled
 expand-to-compare view is still unbuilt.
 
+**One conformance suite for both engines (2026-09-25).** The hand-kept twin suites are gone:
+`MigrateEngineConformanceTest` runs every shared rule over `MigrateMangaUseCase` and `MigrateNovelUseCase`
+through one in-memory harness per engine and reads back what landed (target chapter state, the cover's
+bytes, whose downloads went), so a check can no longer pass by matching `any()`. It is the pin the novel
+engine's twin KDoc names. It also covers the target refresh with `skipTargetRefresh = false`, which
+neither old suite reached. Manga now carries each matched chapter's page position, rising only, as the
+novel carry does (owner ruling), in an `// RK` island inside Mihon's carry. `MigrateNovelUseCaseTest`
+keeps only what the novel engine alone does.
+
 ## Decisions & tradeoffs
 
 - Takeover over parity-patching: options assessed were (a) full flow takeover, (b) partial UI-only takeover, (c) no takeover with parity fixes, (d) reshape Mihon's flow in place via `// RK`. (b) keeps the step fork because the fork lives in orchestration; (d) is maximum sync tax on the highest-churn files; (c) leaves the divergence permanent, and history shows the novel side never receives flow improvements. (a) accepted with the churn price stated in the amendment.
