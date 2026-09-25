@@ -1,11 +1,15 @@
 package reikai.presentation.library
 
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import kotlinx.coroutines.flow.StateFlow
+import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
+import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.i18n.MR
 
 /**
  * One tri-state row on the settings sheet's Filter tab.
@@ -19,6 +23,27 @@ data class LibraryFilterAxis(
     val preference: Preference<TriState>,
     val lockedByDownloadedOnly: Boolean = false,
 )
+
+/**
+ * The Filter tab's axes, in manga's order, for both content types; the preferences are library-wide.
+ * [updateRestrictions] is the type's own smart-update set: upstream keeps custom intervals out of stable,
+ * so that axis is debug-only and follows the release-period restriction that produces it.
+ */
+fun libraryFilterAxes(
+    libraryPreferences: LibraryPreferences,
+    reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    updateRestrictions: Set<String>,
+) = buildList {
+    add(LibraryFilterAxis(MR.strings.label_downloaded, libraryPreferences.filterDownloaded, true))
+    add(LibraryFilterAxis(MR.strings.action_filter_unread, libraryPreferences.filterUnread))
+    add(LibraryFilterAxis(MR.strings.label_started, libraryPreferences.filterStarted))
+    add(LibraryFilterAxis(MR.strings.action_filter_bookmarked, libraryPreferences.filterBookmarked))
+    add(LibraryFilterAxis(MR.strings.completed, libraryPreferences.filterCompleted))
+    if (!isReleaseBuildType && LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in updateRestrictions) {
+        add(LibraryFilterAxis(MR.strings.action_filter_interval_custom, libraryPreferences.filterIntervalCustom))
+    }
+    add(LibraryFilterAxis(MR.strings.lewd, reikaiLibraryPreferences.filterLewd))
+}
 
 /**
  * The include/exclude category filter's own preferences. The category list it picks from is

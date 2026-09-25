@@ -90,12 +90,6 @@ Dates are written year-month-day, like `2026-08-01`.
 | `added>2026-01-01` | added this year |
 | `id=1425` | that exact entry, though on **All** a manga and a novel can share a number, so you may get one of each |
 
-::: warning Two of these skip light novels entirely
-`nextupdate` and `fetchinterval` are manga-only, because novels have no update schedule.
-A query using either **never matches a novel**, not even negated: `nu<2026-12-01` and `-nu<2026-12-01` both return manga only.
-That is deliberate, so a comparison a novel cannot answer never quietly pads your results on **All**.
-:::
-
 ## Excluding and combining
 
 Terms sitting next to each other mean "and", `||` means "or", a leading `-` excludes, and parentheses group.

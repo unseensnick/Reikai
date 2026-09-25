@@ -42,8 +42,11 @@ fun LibraryNovel.toLibraryItem(
         initialized = n.initialized,
         chapterFlags = n.chapterFlags,
         updateStrategy = n.updateStrategy,
-        // Carried so the shared query kernel can answer `notes:` on a novel exactly as on a manga.
+        // Carried so the shared query kernel and filter answer `notes:`, `nextupdate:`, `fetchinterval:`
+        // and the custom-interval filter on a novel exactly as on a manga.
         notes = n.notes,
+        nextUpdate = n.nextUpdate,
+        fetchInterval = n.fetchInterval,
     )
     val libraryManga = LibraryManga(
         manga = synthetic,

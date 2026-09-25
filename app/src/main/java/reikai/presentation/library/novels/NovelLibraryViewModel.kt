@@ -42,6 +42,7 @@ import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.merge.stitchInputChanges
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
@@ -117,6 +118,7 @@ class NovelLibraryViewModel(
     private val trackerManager: TrackerManager,
     private val getNovelTracks: GetNovelTracks,
     private val getNextNovelChapter: GetNextNovelChapter,
+    private val novelPreferences: NovelPreferences,
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow<String?>(null)
@@ -215,16 +217,25 @@ class NovelLibraryViewModel(
             val exc = exclude.toLongIdSet()
             Triple(categoryFilterActive(enabled, inc, exc), inc, exc)
         }
+        // The custom-interval axis applies only while the release-period restriction is on, as manga's does.
+        val lewdAndIntervalFlow = combine(
+            reikaiLibraryPreferences.filterLewd.changes(),
+            libraryPreferences.filterIntervalCustom.changes(),
+            novelPreferences.novelUpdateRestrictions().changes(),
+        ) { lewd, interval, restrictions ->
+            lewd to if (LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in restrictions) interval else TriState.DISABLED
+        }
         val filterFlow = combine(
             triStateFilterFlow,
             categoryFilterFlow,
             basePreferences.downloadedOnly.changes(),
             trackingFilterFlow(),
-            reikaiLibraryPreferences.filterLewd.changes(),
-        ) { base, (active, inc, exc), downloadedOnly, trackingFilter, lewd ->
+            lewdAndIntervalFlow,
+        ) { base, (active, inc, exc), downloadedOnly, trackingFilter, (lewd, intervalCustom) ->
             FilterSettings(
                 base.copy(
                     lewd = lewd,
+                    intervalCustom = intervalCustom,
                     categoriesActive = active,
                     categoriesInclude = inc,
                     categoriesExclude = exc,
@@ -362,8 +373,8 @@ class NovelLibraryViewModel(
             trackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id },
         )
         // The one shared library filter (tracker axis folded in), so a filter change reaches manga and
-        // novels at once. The per-type seams live in the accessors: novels have no local-source or
-        // fetch-interval concept, and their lewd check is genre-only.
+        // novels at once. The per-type seams live in the accessors: novels have no local-source concept,
+        // and their lewd check is genre-only.
         val f = settings.filters
         val filterPrefs = LibraryFilterPrefs(
             downloaded = if (settings.downloadedOnly) TriState.ENABLED_IS else f.downloaded,
@@ -371,7 +382,7 @@ class NovelLibraryViewModel(
             started = f.started,
             bookmarked = f.bookmarked,
             completed = f.completed,
-            intervalCustom = TriState.DISABLED,
+            intervalCustom = f.intervalCustom,
             lewd = f.lewd,
             includedTracks = settings.trackingFilter.filterValues { it == TriState.ENABLED_IS }.keys,
             excludedTracks = settings.trackingFilter.filterValues { it == TriState.ENABLED_NOT }.keys,
@@ -435,14 +446,11 @@ class NovelLibraryViewModel(
             trackerIds = { item -> tracksByRep[item.id].orEmpty().map { it.trackerId } },
         )
         // The search twin of the filter binding above, and the same kernel the manga library runs, so one
-        // typed query means one thing on every row of the All list. The seams: a novel's source key is its
-        // plugin slug (manga supply a numeric id), and neither time comparison applies, so both are gated
-        // null rather than answered from the synthetic row's zero defaults.
+        // typed query means one thing on every row of the All list. The seam: a novel's source key is its
+        // plugin slug (manga supply a numeric id).
         val queryNode = query?.takeUnless { it.isBlank() }?.let(QueryNode::from)
         val queryFields = libraryItemQueryFields(
             sourceKey = { item -> novelById[item.id]?.novel?.source.orEmpty() },
-            fetchInterval = { null },
-            nextUpdate = { null },
             chapterMatches = chapterMatches,
             // Search matches what the card shows, so a renamed novel is findable by the name you gave it.
             // The rows stay override-free: filter, sort and grouping deliberately read the source values.
@@ -637,6 +645,7 @@ class NovelLibraryViewModel(
         val completed: TriState,
         val bookmarked: TriState,
         val lewd: TriState = TriState.DISABLED,
+        val intervalCustom: TriState = TriState.DISABLED,
         val categoriesActive: Boolean = false,
         val categoriesInclude: Set<Long> = emptySet(),
         val categoriesExclude: Set<Long> = emptySet(),
@@ -677,7 +686,10 @@ class NovelLibraryViewModel(
 
     private val NovelFilters.hasActive: Boolean
         get() = categoriesActive ||
-            listOf(downloaded, unread, started, completed, bookmarked, lewd).any { it != TriState.DISABLED }
+            listOf(downloaded, unread, started, completed, bookmarked, lewd, intervalCustom).any {
+                it !=
+                    TriState.DISABLED
+            }
 
     data class State(
         val isLoading: Boolean = true,

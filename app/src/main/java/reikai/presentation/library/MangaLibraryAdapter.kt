@@ -11,7 +11,6 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.library.LibraryViewModel
-import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,7 +29,6 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import kotlin.time.Duration.Companion.seconds
 
@@ -79,19 +77,8 @@ class MangaLibraryAdapter(
         )
     }
 
-    private fun filterAxes(updateRestrictions: Set<String>) = buildList {
-        add(LibraryFilterAxis(MR.strings.label_downloaded, libraryPreferences.filterDownloaded, true))
-        add(LibraryFilterAxis(MR.strings.action_filter_unread, libraryPreferences.filterUnread))
-        add(LibraryFilterAxis(MR.strings.label_started, libraryPreferences.filterStarted))
-        add(LibraryFilterAxis(MR.strings.action_filter_bookmarked, libraryPreferences.filterBookmarked))
-        add(LibraryFilterAxis(MR.strings.completed, libraryPreferences.filterCompleted))
-        // Upstream keeps custom intervals out of stable, so this axis is debug-only and follows the
-        // restriction that produces it. Novels have no equivalent and simply omit it.
-        if (!isReleaseBuildType && LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in updateRestrictions) {
-            add(LibraryFilterAxis(MR.strings.action_filter_interval_custom, libraryPreferences.filterIntervalCustom))
-        }
-        add(LibraryFilterAxis(MR.strings.lewd, reikaiLibraryPreferences.filterLewd))
-    }
+    private fun filterAxes(updateRestrictions: Set<String>) =
+        libraryFilterAxes(libraryPreferences, reikaiLibraryPreferences, updateRestrictions)
 
     // Shared while subscribed, not eagerly: an eager share here is a permanent subscriber on the model,
     // which would hold its own WhileSubscribed window open for the model's whole life and make its

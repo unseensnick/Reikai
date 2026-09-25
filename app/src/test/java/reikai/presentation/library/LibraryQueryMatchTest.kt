@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test
 
 /**
  * The shared query kernel, exercised over a plain row type rather than `LibraryItem`, since the kernel is
- * pure over its accessors. Pins the two things that are Reikai's rather than upstream's: an inapplicable
- * field is false before negation, and the source key is matched as a String on both content types.
+ * pure over its accessors. Pins what is Reikai's rather than upstream's: the source key is matched as a
+ * String on both content types.
  */
 class LibraryQueryMatchTest {
 
@@ -19,9 +19,6 @@ class LibraryQueryMatchTest {
         val sources: List<LibraryQuerySource> = listOf(source()),
         val notes: String? = "",
         val unread: Long = 3L,
-        /** Null models a novel, which has neither concept. */
-        val interval: Int? = null,
-        val nextUpdate: Long? = null,
     )
 
     /** Stands in for the id set each library resolves once per query from its own chapter table. */
@@ -40,8 +37,8 @@ class LibraryQueryMatchTest {
         readCount = { 0L },
         totalChapters = { 10L },
         dateAdded = { 0L },
-        fetchInterval = { it.interval },
-        nextUpdate = { it.nextUpdate },
+        fetchInterval = { 0 },
+        nextUpdate = { 0L },
         matchesChapter = { row, term -> chapterMatches[term]?.contains(row.id) },
     )
 
@@ -81,18 +78,7 @@ class LibraryQueryMatchTest {
     }
 
     @Test
-    fun `an inapplicable comparison is false`() {
-        matches("nu<2030-01-01") shouldBe false
-    }
-
-    @Test
-    fun `an inapplicable comparison stays false when negated`() {
-        // The whole point of the gate: a novel must not be pulled in by a field it cannot answer.
-        matches("-nu<2030-01-01") shouldBe false
-    }
-
-    @Test
-    fun `a field the row can answer still follows the absent-then-negate convention`() {
+    fun `an absent field follows the absent-then-negate convention`() {
         // artist is null here, so `-artist:x` keeps the row, matching upstream's semantics.
         matches("-artist:hoshino") shouldBe true
     }

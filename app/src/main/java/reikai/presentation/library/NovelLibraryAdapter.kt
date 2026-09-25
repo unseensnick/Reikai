@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
@@ -23,12 +22,12 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.groupedSourceIdsOf
+import reikai.domain.novel.NovelPreferences
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.novels.novelDynamicGroupingFeed
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.i18n.MR
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -46,6 +45,7 @@ class NovelLibraryAdapter(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val trackerManager: TrackerManager,
     private val novelSourceManager: NovelSourceManager,
+    private val novelPreferences: NovelPreferences,
 ) : LibraryProvider {
 
     @AssistedFactory
@@ -57,19 +57,18 @@ class NovelLibraryAdapter(
 
     override val settings: LibraryProviderSettings =
         LibraryProviderSettings(
-            // The library-wide filter preferences (shared with manga since the filter unification), in
-            // manga's axis order. Novels have no interval-custom axis and simply omit it; the novel
-            // pipeline neutralizes that axis rather than reading it, so it can never empty this library.
-            filterAxes = MutableStateFlow(
-                listOf(
-                    LibraryFilterAxis(MR.strings.label_downloaded, libraryPreferences.filterDownloaded, true),
-                    LibraryFilterAxis(MR.strings.action_filter_unread, libraryPreferences.filterUnread),
-                    LibraryFilterAxis(MR.strings.label_started, libraryPreferences.filterStarted),
-                    LibraryFilterAxis(MR.strings.action_filter_bookmarked, libraryPreferences.filterBookmarked),
-                    LibraryFilterAxis(MR.strings.completed, libraryPreferences.filterCompleted),
-                    LibraryFilterAxis(MR.strings.lewd, reikaiLibraryPreferences.filterLewd),
+            // The custom-interval axis follows the novel smart-update restrictions, as manga's follows its own.
+            filterAxes = novelPreferences.novelUpdateRestrictions().changes()
+                .map { libraryFilterAxes(libraryPreferences, reikaiLibraryPreferences, it) }
+                .stateIn(
+                    model.viewModelScope,
+                    SharingStarted.Eagerly,
+                    libraryFilterAxes(
+                        libraryPreferences,
+                        reikaiLibraryPreferences,
+                        novelPreferences.novelUpdateRestrictions().get(),
+                    ),
                 ),
-            ),
             categories = model.filterPickerCategories,
             // Novels have no local sources, so nothing is ever local and the badge would never light up.
             showLocalBadge = false,

@@ -32,8 +32,6 @@ fun libraryItemFilterFields(
     hasStarted = { it.libraryManga.hasStarted },
     hasBookmarks = { it.libraryManga.hasBookmarks },
     isCompleted = { it.libraryManga.manga.status.toInt() == SManga.COMPLETED },
-    // Novels have no fetch interval, and their synthetic row carries the factory default 0, so this
-    // reads false for them without needing a per-type branch.
     matchesIntervalCustom = { it.libraryManga.manga.fetchInterval < 0 },
     isLewd = { it.libraryManga.manga.isLewd(lewdSourceName(it)) },
     trackerIds = trackerIds,
@@ -42,16 +40,13 @@ fun libraryItemFilterFields(
 
 /**
  * The search twin of [libraryItemFilterFields], binding the shared query kernel onto the library row.
- * Five seams: [sourceKey] is a String on both sides (a numeric id for manga, a plugin slug for novels);
- * [fetchInterval] and [nextUpdate] are null for novels, and a null makes the term false before negation
- * so an inapplicable comparison never pulls a novel in from either direction; [chapterMatches] is the
- * per-term id set each side resolved once; and [overlay] supplies custom-info overrides by row id, as a
- * map lookup rather than a copied row, since filter, sort and grouping all read the source values.
+ * Three seams: [sourceKey] is a String on both sides (a numeric id for manga, a plugin slug for novels);
+ * [chapterMatches] is the per-term id set each side resolved once; and [overlay] supplies custom-info
+ * overrides by row id, as a map lookup rather than a copied row, since filter, sort and grouping all read
+ * the source values.
  */
 fun libraryItemQueryFields(
     sourceKey: (LibraryItem) -> String,
-    fetchInterval: (LibraryItem) -> Int?,
-    nextUpdate: (LibraryItem) -> Long?,
     chapterMatches: Map<String, Set<Long>> = emptyMap(),
     overlay: Map<Long, LibraryQueryOverlay> = emptyMap(),
 ) = LibraryQueryFields<LibraryItem>(
@@ -68,8 +63,8 @@ fun libraryItemQueryFields(
     readCount = { it.libraryManga.readCount },
     totalChapters = { it.libraryManga.totalChapters },
     dateAdded = { it.libraryManga.manga.dateAdded },
-    fetchInterval = fetchInterval,
-    nextUpdate = nextUpdate,
+    fetchInterval = { it.libraryManga.manga.fetchInterval },
+    nextUpdate = { it.libraryManga.manga.nextUpdate },
     // Keyed by the row's own raw id: each side resolved the set from its own chapter table, so the
     // two id spaces never meet here. A collapsed merge group also matches through its members'
     // ids, since their chapters render as the entry's own but their rows are not in the list.

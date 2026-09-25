@@ -227,11 +227,7 @@ class MangaMergeCollapseTest {
             listOf(item(1, source = 100L, totalChapters = 3), item(2, source = 200L, totalChapters = 10)),
             membership = mapOf(1L to 7L, 2L to 7L),
         ).single()
-        val fields = libraryItemQueryFields(
-            sourceKey = { it.libraryManga.manga.source.toString() },
-            fetchInterval = { null },
-            nextUpdate = { null },
-        )
+        val fields = libraryItemQueryFields(sourceKey = { it.libraryManga.manga.source.toString() })
         libraryQueryMatches(QueryNode.from(sourceKeyQuery("100")), merged, fields) shouldBe true
     }
 

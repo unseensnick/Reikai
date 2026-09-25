@@ -30,9 +30,8 @@ data class LibraryFilterPrefs(
  * Per-entry accessors [libraryFilterMatches] reads, so the filter never depends on the concrete row type
  * (the manga `LibraryItem` vs the novel `CollapsedNovel`). Each library supplies getters over its own row.
  * The per-type seams live here: [isDownloaded] folds in manga's local-source concept (novels have none),
- * [isLewd] folds in manga's source-name check (novels are genre-only), [matchesIntervalCustom] is always
- * false for novels (they have no fetch interval, and the axis is DISABLED for them anyway), and
- * [trackerIds] is each side's merge-group union.
+ * [isLewd] folds in manga's source-name check (novels are genre-only), and [trackerIds] is each side's
+ * merge-group union.
  */
 class LibraryFilterFields<T>(
     val isDownloaded: (T) -> Boolean,

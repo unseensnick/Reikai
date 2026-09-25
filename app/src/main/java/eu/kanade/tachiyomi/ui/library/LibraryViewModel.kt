@@ -366,14 +366,12 @@ class LibraryViewModel(
     // RK <--
 
     // RK: the manga binding of the shared query kernel. The source key is the numeric source id as a
-    // string (novels supply a plugin slug), and manga answer both time comparisons, so neither is gated.
+    // string (novels supply a plugin slug).
     private fun mangaQueryFields(
         chapterMatches: Map<String, Set<Long>>,
         customInfo: List<CustomMangaInfo>,
     ) = libraryItemQueryFields(
         sourceKey = { it.libraryManga.manga.source.toString() },
-        fetchInterval = { it.libraryManga.manga.fetchInterval },
-        nextUpdate = { it.libraryManga.manga.nextUpdate },
         chapterMatches = chapterMatches,
         // Search matches what the card shows, so a renamed entry is findable by the name you gave it.
         // The rows stay override-free: filter, sort and grouping deliberately read the source values.

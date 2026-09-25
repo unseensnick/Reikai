@@ -104,7 +104,7 @@ private fun counts(total: Long, read: Long = 0, bookmarked: Long = 0) = MergedGr
 private val readAndBookmarkedOnSibling = counts(total = 11, read = 1, bookmarked = 1)
 
 private val filterFields = libraryItemFilterFields(lewdSourceName = { null }, trackerIds = { emptyList() })
-private val queryFields = libraryItemQueryFields(sourceKey = { "" }, fetchInterval = { null }, nextUpdate = { null })
+private val queryFields = libraryItemQueryFields(sourceKey = { "" })
 private val sortFields = libraryItemSortFields(trackerMean = { 0.0 })
 
 private fun filterPrefs(started: TriState = TriState.DISABLED, bookmarked: TriState = TriState.DISABLED) =

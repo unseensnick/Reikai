@@ -20,9 +20,6 @@ import kotlin.time.Instant
  * Per-entry accessors [libraryQueryMatches] reads, so search never depends on the concrete row type.
  * The twin of [LibraryFilterFields]: each library supplies getters over its own row while the grammar
  * stays upstream and unpatched, so one typed query means one thing on every row of the mixed list.
- * A null return means the content type CANNOT ANSWER that field at all, which is not an absent value:
- * it makes the whole term false before negation, so neither `nu<x` nor `-nu<x` pulls those rows in.
- * Upstream's absent-then-negate convention still applies to fields the type can answer.
  */
 class LibraryQueryFields<T>(
     val id: (T) -> Long,
@@ -41,10 +38,8 @@ class LibraryQueryFields<T>(
     val readCount: (T) -> Long,
     val totalChapters: (T) -> Long,
     val dateAdded: (T) -> Long,
-    /** Null for a content type with no fetch-interval concept (novels). */
-    val fetchInterval: (T) -> Int?,
-    /** Null for a content type with no next-update estimate (novels). */
-    val nextUpdate: (T) -> Long?,
+    val fetchInterval: (T) -> Int,
+    val nextUpdate: (T) -> Long,
     /**
      * Whether [T] owns a chapter matching the term, answered from a set resolved once per query by
      * [chapterSearchTerms]. Null when the term was never resolved, which is a caller bug rather than a
@@ -196,21 +191,12 @@ private fun <T> ComparisonQueryNode.matches(row: T, fields: LibraryQueryFields<T
         return queryComparator.apply(rowDate, inputDate)
     }
 
-    // Split from the value comparison below: a field this content type cannot answer is false whether or
-    // not the term is negated, so an inapplicable comparison never pulls the row in from either side.
-    val applicable = when (field) {
-        ComparisonField.FETCH_INTERVAL -> fields.fetchInterval(row) != null
-        ComparisonField.NEXT_UPDATE -> fields.nextUpdate(row) != null
-        else -> true
-    }
-    if (!applicable) return false
-
     val match = when (field) {
         ComparisonField.ID -> value.toLongOrNull()?.let { queryComparator.apply(fields.id(row), it) }
         ComparisonField.DATE_ADDED -> compareDates(fields.dateAdded(row))
         ComparisonField.FETCH_INTERVAL -> value.toIntOrNull()
-            ?.let { queryComparator.apply(abs(fields.fetchInterval(row)!!), it) }
-        ComparisonField.NEXT_UPDATE -> compareDates(fields.nextUpdate(row)!!)
+            ?.let { queryComparator.apply(abs(fields.fetchInterval(row)), it) }
+        ComparisonField.NEXT_UPDATE -> compareDates(fields.nextUpdate(row))
         ComparisonField.UNREAD -> value.toLongOrNull()?.let { queryComparator.apply(fields.unreadCount(row), it) }
         ComparisonField.READ -> value.toLongOrNull()?.let { queryComparator.apply(fields.readCount(row), it) }
         ComparisonField.TOTAL -> value.toLongOrNull()?.let { queryComparator.apply(fields.totalChapters(row), it) }
