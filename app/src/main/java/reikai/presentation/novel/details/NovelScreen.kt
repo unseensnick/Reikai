@@ -1,7 +1,6 @@
 package reikai.presentation.novel.details
 
 import android.content.Intent
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -104,9 +103,6 @@ class NovelScreen(
             ) {
                 // The page Share and WebView open, so a merged novel offers the selected chip's.
                 LaunchedEffect(s.novelWebUrl) { assistUrl = s.novelWebUrl }
-
-                // Back clears an active chapter selection before popping the screen (mirrors MangaScreen).
-                BackHandler(enabled = s.selectionMode) { viewModel.clearSelection() }
 
                 val onWebView: () -> Unit = {
                     s.novelWebUrl?.takeIf { it.isNotBlank() }?.let { url ->
@@ -236,7 +232,7 @@ class NovelScreen(
 }
 
 /** The novel dialogs that stay per-type (their data genuinely diverges); the shared ones go through
- *  [EntryDetailsDialogHost]. A `Screen` extension so the duplicate dialog can resolve the migrate controller. */
+ *  [EntryDetailsDialogHost]. A `Screen` extension because the Migrate case calls [EntryMigrateFor]. */
 @Composable
 private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewModel: NovelDetailsViewModel) {
     val navigator = LocalNavigator.currentOrThrow
@@ -300,7 +296,8 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
 }
 
 // Map a novel dialog to the shared union for the dialogs both content types render (EntryDetailsDialogHost);
-// the per-type ones (change-category, duplicate, chapter-settings, page-selector) stay in NovelDetailsDialogs.
+// the per-type ones (change-category, duplicate, chapter-settings, source-settings, page-selector, migrate)
+// stay in NovelDetailsDialogs.
 private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabled: Boolean): EntryDetailsDialog? =
     when (val d = dialog) {
         NovelDetailsDialog.SetFetchInterval -> EntryDetailsDialog.SetFetchInterval(
