@@ -25,12 +25,12 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.BulkCategoryDialog
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.catalogue.EntryBrowseCatalogue
 import reikai.presentation.browse.catalogue.EntryBrowseScreenState
 import reikai.presentation.browse.catalogue.MangaBrowseAdapter
 import reikai.presentation.browse.catalogue.manga
-import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
@@ -182,9 +182,6 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
             else -> {}
         }
 
-        BulkFavoriteDialogs(
-            bulkFavoriteViewModel = bulkFavoriteViewModel,
-            dialog = bulkFavoriteState.dialog,
-        )
+        bulkFavoriteState.dialog?.let { BulkCategoryDialog(bulkFavoriteViewModel, it) }
     }
 }

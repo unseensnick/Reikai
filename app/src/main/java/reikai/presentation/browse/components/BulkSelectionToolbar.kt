@@ -12,8 +12,8 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Top bar shown while bulk-selecting manga in a browse surface: the count, select-all / invert, and
- * an "add to library" action. Cancelling clears the selection.
+ * Top bar shown while bulk-selecting in a browse surface, for either content type or both: the count,
+ * select-all / invert, and an "add to library" action. Cancelling clears the selection.
  */
 @Composable
 fun BulkSelectionToolbar(

@@ -64,23 +64,37 @@ fun BulkCategoryDialogs(
     /** Whether the batch spans both types, so each prompt says which one it is filing. */
     namePrompts: Boolean,
 ) {
-    val navigator = LocalNavigator.currentOrThrow
     when {
-        mangaDialog is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> ChangeCategoryDialog(
-            initialSelection = mangaDialog.initialSelection,
-            onDismissRequest = { mangaBulk.setDialog(null) },
-            onEditCategories = { navigator.push(CategoryScreen()) },
-            onConfirm = { include, _ -> mangaBulk.setCategories(mangaDialog.items, include) },
+        mangaDialog != null -> BulkCategoryDialog(
+            bulk = mangaBulk,
+            dialog = mangaDialog,
             title = stringResource(MR.strings.categories_for_type, stringResource(MR.strings.content_type_manga))
                 .takeIf { namePrompts },
         )
-        novelDialog is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> ChangeCategoryDialog(
-            initialSelection = novelDialog.initialSelection,
-            onDismissRequest = { novelBulk.setDialog(null) },
-            onEditCategories = { navigator.push(CategoryScreen()) },
-            onConfirm = { include, _ -> novelBulk.setCategories(novelDialog.items, include) },
+        novelDialog != null -> BulkCategoryDialog(
+            bulk = novelBulk,
+            dialog = novelDialog,
             title = stringResource(MR.strings.categories_for_type, stringResource(MR.strings.content_type_novels))
                 .takeIf { namePrompts },
+        )
+    }
+}
+
+/** One content type's batch category prompt, for a surface that lists that type alone or both. */
+@Composable
+fun <T : Any> BulkCategoryDialog(
+    bulk: EntryBulkFavoriteViewModel<T>,
+    dialog: EntryBulkFavoriteViewModel.Dialog<T>,
+    title: String? = null,
+) {
+    val navigator = LocalNavigator.currentOrThrow
+    when (dialog) {
+        is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> ChangeCategoryDialog(
+            initialSelection = dialog.initialSelection,
+            onDismissRequest = { bulk.setDialog(null) },
+            onEditCategories = { navigator.push(CategoryScreen()) },
+            onConfirm = { include, _ -> bulk.setCategories(dialog.items, include) },
+            title = title,
         )
     }
 }
