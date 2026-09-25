@@ -1148,15 +1148,16 @@ class NovelDetailsViewModel(
 
     /** Clear every override; the source row shows through again (no re-fetch needed, it was never overwritten). */
     fun resetNovelInfo() {
-        viewModelScope.launchIO {
-            val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+        val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
+        // Non-cancellable, as the save and manga's reset are, so leaving the screen cannot stop it halfway.
+        viewModelScope.launchNonCancellable {
             setCustomNovelInfo.set(CustomNovelInfo(novelId = n.id))
             // A cover set from the picker is a cached file, not a row field, so clearing the row
             // alone leaves it in place and winning (NovelCoverKeyer).
             coverCache.deleteCustomCover(EntryId.Novel(n.id))
             updateNovel.awaitUpdateCoverLastModified(n.id)
-            dismissDialog()
         }
+        dismissDialog()
     }
 
     /** Bound trackers eligible for "Fill from tracker", spanning the merge group (mirrors RefreshNovelTracks). */
