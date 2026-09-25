@@ -62,6 +62,9 @@ import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.MoreVert
 import mihon.icons.materialsymbols.rounded.RemoveDone
 import mihon.icons.materialsymbols.rounded.SwapCalls
+import reikai.presentation.icons.CallSplit
+import reikai.presentation.icons.Merge
+import reikai.presentation.icons.ReikaiIcons
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.time.Duration.Companion.seconds
@@ -236,11 +239,11 @@ fun LibraryBottomActionMenu(
     onMarkAsUnreadClicked: () -> Unit,
     onDownloadClicked: ((DownloadAction) -> Unit)?,
     onDeleteClicked: () -> Unit,
-    // RK: nullable so the novel action bar can hide Migrate (novel migration is deferred)
+    // RK: nullable so the bar can hide Migrate for a selection mixing manga and novels
     onMigrateClicked: (() -> Unit)? = null,
-    // RK: merge the selected manga into one group (only when 2+ are selected)
+    // RK: merge the selected entries into one group (only when 2+ of one type are selected)
     onMergeClicked: (() -> Unit)? = null,
-    // RK: split the selected manga out of their merge groups (only when a merged one is selected)
+    // RK: split the selected entries out of their merge groups (only when a merged one is selected)
     onUnmergeClicked: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -256,7 +259,8 @@ fun LibraryBottomActionMenu(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
             val haptic = LocalHapticFeedback.current
-            val confirm = remember { mutableStateListOf(false, false, false, false, false, false) }
+            // RK: two more slots, for Merge and Unmerge
+            val confirm = remember { mutableStateListOf(false, false, false, false, false, false, false, false) }
             var resetJob by remember { mutableStateOf<Job?>(null) }
             val onLongClickItem: (Int) -> Unit = { toConfirmIndex ->
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -297,23 +301,23 @@ fun LibraryBottomActionMenu(
                     onLongClick = { onLongClickItem(2) },
                     onClick = onMarkAsUnreadClicked,
                 )
-                // RK: merge selected manga (shown only when 2+ are selected)
+                // RK: merge the selected entries (shown only when 2+ of one type are selected)
                 if (onMergeClicked != null) {
                     Button(
                         title = stringResource(MR.strings.action_merge),
-                        icon = MaterialSymbols.Rounded.SwapCalls,
-                        toConfirm = false,
-                        onLongClick = {},
+                        icon = ReikaiIcons.Merge,
+                        toConfirm = confirm[6],
+                        onLongClick = { onLongClickItem(6) },
                         onClick = onMergeClicked,
                     )
                 }
-                // RK: unmerge selected manga (shown only when a merged one is selected)
+                // RK: unmerge the selected entries (shown only when a merged one is selected)
                 if (onUnmergeClicked != null) {
                     Button(
                         title = stringResource(MR.strings.action_unmerge),
-                        icon = MaterialSymbols.Rounded.SwapCalls,
-                        toConfirm = false,
-                        onLongClick = {},
+                        icon = ReikaiIcons.CallSplit,
+                        toConfirm = confirm[7],
+                        onLongClick = { onLongClickItem(7) },
                         onClick = onUnmergeClicked,
                     )
                 }
