@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
@@ -109,8 +110,11 @@ class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerPar
     companion object {
         private const val TAG = "EhFavoritesBackup"
 
+        // Unique, so a second tap while a backup runs does not start another that pushes the same favorites.
         fun startNow(context: Context) {
-            context.workManager.enqueue(
+            context.workManager.enqueueUniqueWork(
+                TAG,
+                ExistingWorkPolicy.KEEP,
                 OneTimeWorkRequestBuilder<EhFavoritesBackupJob>()
                     .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                     .addTag(TAG)

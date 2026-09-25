@@ -397,6 +397,7 @@ every release now also ships a foss build with neither in it.
 - **The Browse sources filter now covers manga and light novels from one screen, whichever chip you opened it from.** A Manga / Novels chip switches halves; the All and Manga chips used to reach only the manga sources.
 
 #### Fixed
+- **Tapping "Back up all favorites now" again while an adult source's favorites backup runs no longer starts a second one.** Two at once pushed every favorite twice.
 - **Browsing a source or opening a series while offline now says "No Internet connection" instead of a raw host error, on manga and novels.** The manga reader's failed pages say it too.
 - **Manga sources that work out their pages with JavaScript now show those pages again, where some opened chapters empty or failed to load.**
 - **Global search and the feed no longer crash when a source lists the same result twice.**
