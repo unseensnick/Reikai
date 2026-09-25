@@ -28,7 +28,6 @@ import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.sortForCategory
 import reikai.presentation.category.CategoryFilterRow
-import reikai.presentation.category.CategoryFilterSection
 import reikai.presentation.category.toLongIdSet
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
@@ -150,18 +149,13 @@ private fun ColumnScope.CategoriesFilter(
     CategoryFilterRow(
         enabled = enabled,
         onToggleEnabled = categoryFilter.enabled::set,
-        sections = listOf(
-            CategoryFilterSection(
-                headingRes = null,
-                categories = categories,
-                included = included.toLongIdSet(),
-                excluded = excluded.toLongIdSet(),
-                onConfirm = { include, exclude ->
-                    categoryFilter.included.set(include.mapTo(mutableSetOf()) { it.toString() })
-                    categoryFilter.excluded.set(exclude.mapTo(mutableSetOf()) { it.toString() })
-                },
-            ),
-        ),
+        categories = categories,
+        included = included.toLongIdSet(),
+        excluded = excluded.toLongIdSet(),
+        onConfirm = { include, exclude ->
+            categoryFilter.included.set(include.mapTo(mutableSetOf()) { it.toString() })
+            categoryFilter.excluded.set(exclude.mapTo(mutableSetOf()) { it.toString() })
+        },
         onManageCategories = onManageCategories,
     )
 }

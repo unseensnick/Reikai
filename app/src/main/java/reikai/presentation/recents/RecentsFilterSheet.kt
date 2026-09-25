@@ -26,7 +26,6 @@ import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.updates.UpdatesSettingsViewModel
 import reikai.domain.category.RecentsSurface
 import reikai.presentation.category.CategoryFilterRow
-import reikai.presentation.category.CategoryFilterSection
 import reikai.presentation.category.toLongIdSet
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.domain.updates.service.UpdatesPreferences
@@ -169,15 +168,10 @@ private fun ColumnScope.CategoryFilter(viewModel: UpdatesSettingsViewModel) {
     CategoryFilterRow(
         enabled = enabled,
         onToggleEnabled = viewModel::setFilterCategories,
-        sections = listOf(
-            CategoryFilterSection(
-                headingRes = null,
-                categories = categories,
-                included = include.toLongIdSet(),
-                excluded = exclude.toLongIdSet(),
-                onConfirm = viewModel::setCategorySelections,
-            ),
-        ),
+        categories = categories,
+        included = include.toLongIdSet(),
+        excluded = exclude.toLongIdSet(),
+        onConfirm = viewModel::setCategorySelections,
         showContentTypeChip = true,
     )
 }
