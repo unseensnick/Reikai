@@ -64,7 +64,6 @@ class BackupRestorer(
     @Assisted private val notifier: BackupNotifier,
     @Assisted private val isSync: Boolean,
     private val context: Context,
-
     private val database: Database,
     private val downloadCache: DownloadCache,
     private val categoriesRestorer: CategoriesRestorer,
@@ -132,7 +131,7 @@ class BackupRestorer(
     }
 
     // RK: restore streams the backup instead of decoding the whole file into memory (which OOMs on a
-    // large library, the read side of Issue #53). Pass 1 (readBackupSummary) gathers the small fields
+    // large library, the read side of unseensnick/Reikai#53). Pass 1 (readBackupSummary) gathers the small fields
     // and counts the library entries; the entries themselves are streamed and restored one bounded
     // batch at a time in restoreMangaStream / restoreNovelsStream.
     private suspend fun restoreFromFile(uri: Uri, options: RestoreOptions) {
@@ -433,7 +432,7 @@ class BackupRestorer(
         flush()
     }
 
-    /** Run a post-loop restore phase, recording a failure instead of taking the whole restore down. */
+    // RK: run a post-loop restore phase, recording a failure instead of taking the whole restore down.
     private suspend fun restoreIsolated(phase: String, block: suspend () -> Unit) {
         try {
             block()
@@ -478,10 +477,10 @@ class BackupRestorer(
 
     private fun CoroutineScope.restoreExtensionStores(
         backupExtensionStores: List<BackupExtensionStore>,
-        backupExtensions: List<BackupExtension>,
+        backupExtensions: List<BackupExtension>, // RK
     ) = launch {
         backupExtensionStores
-            .chunked(RESTORE_CHUNK)
+            .chunked(RESTORE_CHUNK) // RK
             .forEach { chunk ->
                 database.transaction {
                     chunk.forEach {
@@ -531,7 +530,7 @@ class BackupRestorer(
                 }
                 return file
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Empty
         }
         return File("")

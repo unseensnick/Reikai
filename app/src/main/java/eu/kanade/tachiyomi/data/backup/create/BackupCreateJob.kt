@@ -29,7 +29,6 @@ import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.backup.service.BackupPreferences
 import tachiyomi.domain.storage.service.StorageManager
 import java.util.concurrent.TimeUnit
 
@@ -38,7 +37,11 @@ class BackupCreateJob(private val context: Context, workerParams: WorkerParamete
 
     private val graph: AppGraph = context.metroGraph()
 
-    @Inject private lateinit var backupCreatorFactory: BackupCreator.Factory
+    @Inject
+    private lateinit var backupCreatorFactory: BackupCreator.Factory
+
+    @Inject
+    private lateinit var storageManager: StorageManager
 
     @Inject private lateinit var notifier: BackupNotifier
 
@@ -64,9 +67,9 @@ class BackupCreateJob(private val context: Context, workerParams: WorkerParamete
                 notifier.showBackupComplete(UniFile.fromUri(context, location.toUri())!!)
             }
             Result.success()
+            // RK: Throwable, not Exception: an out-of-memory backup fails with an Error, which the old
+            // Exception-only catch skipped, so the job died silently with no error shown (unseensnick/Reikai#53).
         } catch (e: Throwable) {
-            // Throwable, not Exception: an out-of-memory backup fails with an Error, which the old
-            // Exception-only catch skipped, so the job died silently with no error shown (Issue #53).
             logcat(LogPriority.ERROR, e)
             if (!isAutoBackup) notifier.showBackupError(e.message)
             Result.failure()
@@ -88,7 +91,6 @@ class BackupCreateJob(private val context: Context, workerParams: WorkerParamete
     }
 
     private fun getAutomaticBackupLocation(): Uri? {
-        val storageManager = applicationContext.appGraph.storageManager
         return storageManager.getAutomaticBackupsDirectory()?.uri
     }
 

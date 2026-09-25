@@ -28,13 +28,13 @@ class BackupFileValidator(
      *
      * RK: streams the backup field by field (via [BackupProtoReader]) and decodes only the manga,
      * source, and novel entries it needs, instead of re-inflating the whole file, which OOMs on a
-     * large backup (Issue #53).
+     * large backup (unseensnick/Reikai#53).
      *
      * @return List of missing sources or missing trackers.
      */
     suspend fun validate(uri: Uri): Results {
-        // RK: the novel registry is empty until something loads the plugins, and a cold open straight to
-        //     restore is one, so without this every installed novel source reports as missing.
+        // RK --> the novel registry is empty until something loads the plugins, and a cold open straight to
+        // restore is one, so without this every installed novel source reports as missing.
         novelSourceManager.ensureLoaded()
 
         val backupSources = mutableListOf<BackupSource>()
@@ -58,11 +58,12 @@ class BackupFileValidator(
                     }
                 }
             }
+            // RK <--
         } catch (e: Exception) {
             throw IllegalStateException(e)
         }
 
-        val sources = backupSources.associate { it.sourceId to it.name }
+        val sources = backupSources.associate { it.sourceId to it.name } // RK: streamed
         val missingSources = sources
             .filterKeys { sourceManager.get(it) == null }
             .values.map {
@@ -76,7 +77,7 @@ class BackupFileValidator(
             .distinct()
             .sorted()
 
-        val missingTrackers = mangaTrackerIds
+        val missingTrackers = mangaTrackerIds // RK: streamed
             .mapNotNull { trackerManager.get(it.toLong()) }
             .filter { !it.isLoggedIn }
             .map { it.name }

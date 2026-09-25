@@ -62,14 +62,12 @@ import kotlin.time.Clock
 class BackupCreator(
     @Assisted private val isAutoBackup: Boolean,
     private val context: Context,
-
     private val parser: ProtoBuf,
     // RK: getFavorites dropped, since the manga creator reads its own favorites for the shared driver.
     private val backupPreferences: BackupPreferences,
     private val mangaRepository: MangaRepository,
     // RK: source of the persisted manga merge groups, serialized as {url,source} refs.
     private val mergeGroupRepository: MergeGroupRepository,
-
     private val categoriesBackupCreator: CategoriesBackupCreator,
     private val mangaBackupCreator: MangaBackupCreator,
     private val preferenceBackupCreator: PreferenceBackupCreator,
@@ -82,7 +80,6 @@ class BackupCreator(
     private val feedBackupCreator: FeedBackupCreator,
     // RK <--
 ) {
-
     @AssistedFactory
     fun interface Factory {
         fun create(isAutoBackup: Boolean): BackupCreator
@@ -96,8 +93,8 @@ class BackupCreator(
     // RK: the backup is streamed field by field straight to the gzip sink instead of building the
     // whole Backup object graph and encoding it in one ByteArray. The one-shot encode peaked at
     // (object graph + a ~2x transient copy) and OutOfMemoryError'd on large chapter counts
-    // (Issue #53). A protobuf message is just its length-delimited fields concatenated in any order,
-    // so per-field streaming is wire-identical: old backups still decode, new ones stay in-format.
+    // (unseensnick/Reikai#53). A protobuf message is just its length-delimited fields concatenated in
+    // any order, so per-field streaming is wire-identical: old backups still decode, new ones stay in-format.
     suspend fun backup(uri: Uri, options: BackupOptions): String {
         var file: UniFile? = null
         try {
@@ -122,6 +119,7 @@ class BackupCreator(
                 throw IllegalStateException(context.stringResource(MR.strings.create_backup_file_error))
             }
 
+            // RK -->
             val includeManga = options.libraryEntries && options.includeManga
             val includeNovels = options.libraryEntries && options.includeNovels
 
@@ -161,7 +159,6 @@ class BackupCreator(
                 writeEach(out, 104, BackupPreference.serializer(), backupAppPreferences(options))
                 writeEach(out, 105, BackupSourcePreferences.serializer(), backupSourcePreferences(options))
                 writeEach(out, 106, BackupExtensionStore.serializer(), backupExtensionStores(options))
-                // RK -->
                 writeEach(out, 710, BackupExtension.serializer(), backupExtensions(options))
                 writeEach(out, 717, BackupNovelSource.serializer(), novelBackupCreator.sources(novelSourceIds))
                 if (includeManga) {
@@ -178,7 +175,6 @@ class BackupCreator(
                     writeEach(out, 715, BackupSavedSearch.serializer(), feedBackupCreator.savedSearches())
                     writeEach(out, 716, BackupFeedRow.serializer(), feedBackupCreator.feedRows())
                 }
-                // RK <--
 
                 gzipOut.flush()
             } finally {
@@ -188,10 +184,11 @@ class BackupCreator(
             if (!wroteAnything) {
                 throw IllegalStateException(context.stringResource(MR.strings.empty_backup_error))
             }
+            // RK <--
 
             val fileUri = file.uri
 
-            // Make sure it's a valid backup file (streamed, so it doesn't re-inflate the whole file).
+            // Make sure it's a valid backup file
             backupFileValidator.validate(fileUri)
 
             if (isAutoBackup) {
@@ -199,18 +196,21 @@ class BackupCreator(
             }
 
             return fileUri.toString()
+            // RK --> Throwable, not Exception: an OutOfMemoryError is an Error, and catching only Exception
+            // left the blank half-written file behind and swallowed the failure (unseensnick/Reikai#53).
         } catch (e: Throwable) {
-            // Throwable, not Exception: an OutOfMemoryError is an Error, and catching only Exception
-            // left the blank half-written file behind and swallowed the failure (Issue #53).
             logcat(LogPriority.ERROR, e)
             try {
                 file?.delete()
             } catch (deleteError: Exception) {
                 logcat(LogPriority.WARN, deleteError) { "Failed to delete partial backup file" }
             }
+            // RK <--
             throw e
         }
     }
+
+    // RK -->
 
     /**
      * Encode and write each streamed entry on its own, so only one is ever held with its chapters, and push
@@ -247,6 +247,7 @@ class BackupCreator(
         if (items.isNotEmpty()) wroteAnything = true
         items.forEach { BackupProtoWriter.writeField(out, fieldNumber, parser.encodeToByteArray(serializer, it)) }
     }
+    // RK <--
 
     private suspend fun backupCategories(options: BackupOptions): List<BackupCategory> {
         if (!options.categories) return emptyList()
@@ -260,7 +261,7 @@ class BackupCreator(
         return preferenceBackupCreator.createApp(includePrivatePreferences = options.privateSettings)
     }
 
-    // RK: serialize the persisted manga merge groups as stable {url, source} refs, through the kernel
+    // RK --> serialize the persisted manga merge groups as stable {url, source} refs, through the kernel
     // NovelBackupCreator.serializeGroups also calls. Reads the merge_group tables, not the retired prefs;
     // any member resolves by id (not favorites-only). Gated by libraryEntries (merges are meaningless
     // without the library).
@@ -280,6 +281,7 @@ class BackupCreator(
     } catch (_: Exception) {
         null
     }
+    // RK <--
 
     private suspend fun backupExtensionStores(options: BackupOptions): List<BackupExtensionStore> {
         if (!options.extensionStores) return emptyList()
