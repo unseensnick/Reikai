@@ -98,7 +98,7 @@ class GalleryAdder(
             // A gallery already grouped with another source has a stored stitch its chapters leave stale.
             manga = reconcileMergedChapters.afterPass {
                 retry(retry) {
-                    updateMangaFromRemote(httpSource, manga, fetchDetails = true, fetchChapters = true).getOrThrow()
+                    updateMangaFromRemote(manga, fetchDetails = true, fetchChapters = true).getOrThrow()
                 }.manga
             }
 

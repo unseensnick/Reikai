@@ -252,7 +252,7 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
                     // UpdateMangaFromRemote runs the enhanced metadata round-trip, so it persists the rich
                     // flat metadata (rating, tags). Do NOT insert the follows-list metadata afterwards: it
                     // only carries followStatus and would blank the rating until a manual refresh.
-                    local = updateMangaFromRemote(mangaDex, local, fetchDetails = true, fetchChapters = true)
+                    local = updateMangaFromRemote(local, fetchDetails = true, fetchChapters = true)
                         .getOrThrow().manga
                     if (!local.favorite) {
                         updateManga.awaitUpdateFavorite(local.id, true)
