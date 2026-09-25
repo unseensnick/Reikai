@@ -13,7 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
+import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * Page / volume selector for a paged light-novel source. Lists each page key; tapping one switches
@@ -33,7 +35,7 @@ internal fun NovelPageSelectorSheet(
             itemsIndexed(pages) { index, key ->
                 val selected = index == selectedIndex
                 Text(
-                    text = key.toIntOrNull()?.let { "Page $it" } ?: key,
+                    text = key.toIntOrNull()?.let { stringResource(MR.strings.novel_chapter_list_page, it) } ?: key,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                     color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,

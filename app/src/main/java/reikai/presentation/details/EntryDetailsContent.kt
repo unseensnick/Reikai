@@ -501,7 +501,7 @@ private fun NovelPageBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = "Page ${pageIndex + 1} / $pageCount",
+            text = stringResource(MR.strings.novel_chapter_list_page_of, pageIndex + 1, pageCount),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.weight(1f),

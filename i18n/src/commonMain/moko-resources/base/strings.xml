@@ -289,6 +289,9 @@
     <string name="novel_page_chapter_saved">Chapter saved from this page</string>
     <string name="novel_page_no_chapter_text">No chapter text on this page</string>
     <string name="novel_page_unreadable">Couldn\'t read this page</string>
+    <!-- RK: a paged novel source's chapter-list pages, on details -->
+    <string name="novel_chapter_list_page">Page %1$d</string>
+    <string name="novel_chapter_list_page_of">Page %1$d / %2$d</string>
     <string name="content_type_with_format">%1$s · %2$s</string>
     <!-- RK: backup toggle for the non-destructive custom-info overlay (title/author/cover edits) -->
     <string name="custom_entry_info">Custom entry info</string>
