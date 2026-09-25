@@ -5,6 +5,10 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
+import reikai.domain.source.SourceKey
+import reikai.novel.host.NovelItem
+import reikai.presentation.browse.globalsearch.BrowseSearchRow
+import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.SelectedNovel
 import tachiyomi.domain.manga.model.Manga
@@ -12,8 +16,27 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 
-// What a batch add owes on any surface that lists both content types: how the selection is named, and
-// how the categories are asked for. Shared so the two surfaces cannot answer either one differently.
+// What a batch add owes on any surface that lists both content types: what select-all acts on, how
+// the selection is named, and how the categories are asked for. Shared so the two surfaces cannot
+// answer any of them differently.
+
+/**
+ * Every result [this] lists, split back into the two halves each bulk model owns, for select-all and
+ * invert. Unwrapped with filterIsInstance rather than a cast: the entries are typed Any, so a wrong
+ * cast would compile and only fail once a source returned rows.
+ */
+fun List<BrowseSearchRow>.listedEntries(): Pair<List<Manga>, List<SelectedNovel>> {
+    val manga = mutableListOf<Manga>()
+    val novels = mutableListOf<SelectedNovel>()
+    forEach { row ->
+        val results = (row.state as? EntrySearchState.Success)?.entries.orEmpty()
+        when (val key = row.key) {
+            is SourceKey.Manga -> manga += results.filterIsInstance<Manga>()
+            is SourceKey.Novel -> novels += results.filterIsInstance<NovelItem>().map { SelectedNovel(key.id, it) }
+        }
+    }
+    return manga to novels
+}
 
 /** "3 Manga, 1 Novel" while the selection holds both, otherwise the plain count the bar shows. */
 @Composable

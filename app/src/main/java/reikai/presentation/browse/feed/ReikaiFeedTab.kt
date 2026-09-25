@@ -29,7 +29,6 @@ import mihon.icons.materialsymbols.automirroredrounded.Sort
 import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.SelectAll
-import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
 import reikai.presentation.browse.BulkCategoryDialogs
 import reikai.presentation.browse.BulkFavoriteViewModel
@@ -38,6 +37,7 @@ import reikai.presentation.browse.SearchResultSection
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.globalsearch.EntrySearchState
+import reikai.presentation.browse.listedEntries
 import reikai.presentation.browse.selectionTitle
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.SelectedNovel
@@ -97,14 +97,12 @@ fun Screen.reikaiFeedTab(): TabContent {
                         novelBulk.addFavorite(state.favoritedKeys)
                     },
                     onSelectAll = {
-                        val (manga, novels) = state.listedEntries()
+                        val (manga, novels) = state.entries.map { it.row }.listedEntries()
                         manga.forEach { mangaBulk.select(it) }
-                        // Spelled out: NovelBulkFavoriteViewModel also has a (sourceId, item)
-                        // select, so a callable reference here picks between overloads.
-                        novels.forEach { novelBulk.select(it) }
+                        novels.forEach(novelBulk::select)
                     },
                     onReverseSelection = {
-                        val (manga, novels) = state.listedEntries()
+                        val (manga, novels) = state.entries.map { it.row }.listedEntries()
                         mangaBulk.reverseSelection(manga)
                         novelBulk.reverseSelection(novels)
                     },
@@ -171,25 +169,6 @@ fun Screen.reikaiFeedTab(): TabContent {
             )
         },
     )
-}
-
-/**
- * Every result the feed is currently showing, split back into the two halves each bulk model owns.
- * Unwrapped with filterIsInstance rather than a cast: the entries are typed Any, so a wrong cast
- * would compile and only fail once a source returned rows.
- */
-internal fun FeedState.listedEntries(): Pair<List<Manga>, List<SelectedNovel>> {
-    val manga = mutableListOf<Manga>()
-    val novels = mutableListOf<SelectedNovel>()
-    entries.forEach { entry ->
-        val results = (entry.row.state as? EntrySearchState.Success)?.entries.orEmpty()
-        when (val key = entry.row.key) {
-            is SourceKey.Manga -> manga += results.filterIsInstance<Manga>()
-            is SourceKey.Novel ->
-                novels += results.filterIsInstance<NovelItem>().map { SelectedNovel(key.id, it) }
-        }
-    }
-    return manga to novels
 }
 
 @Composable

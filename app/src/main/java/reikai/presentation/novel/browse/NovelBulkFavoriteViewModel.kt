@@ -43,8 +43,6 @@ class NovelBulkFavoriteViewModel(
         }
     }
 
-    fun select(sourceId: String, item: NovelItem) = select(SelectedNovel(sourceId, item))
-
     fun toggleSelection(sourceId: String, item: NovelItem) = toggleSelection(SelectedNovel(sourceId, item))
 
     /** [favoritedKeys] comes from the host screen (a NovelItem has no favorite flag), so
