@@ -193,26 +193,26 @@ object Notifications {
                 },
                 // RK --> light-novel chapter update job
                 buildNotificationChannel(CHANNEL_NOVEL_LIBRARY_PROGRESS, IMPORTANCE_LOW) {
-                    setName(context.stringResource(MR.strings.channel_progress))
+                    setName(context.stringResource(MR.strings.channel_novel_update_progress))
                     setGroup(GROUP_LIBRARY)
                     setShowBadge(false)
                 },
                 buildNotificationChannel(CHANNEL_NOVEL_LIBRARY_RESULT, IMPORTANCE_DEFAULT) {
-                    setName(context.stringResource(MR.strings.channel_new_chapters))
+                    setName(context.stringResource(MR.strings.channel_novel_new_chapters))
                     setGroup(GROUP_LIBRARY)
                 },
                 buildNotificationChannel(CHANNEL_NOVEL_LIBRARY_ERROR, IMPORTANCE_LOW) {
-                    setName(context.stringResource(MR.strings.channel_errors))
+                    setName(context.stringResource(MR.strings.channel_novel_update_errors))
                     setGroup(GROUP_LIBRARY)
                     setShowBadge(false)
                 },
                 buildNotificationChannel(CHANNEL_LIBRARY_EHENTAI, IMPORTANCE_LOW) {
-                    setName(context.stringResource(MR.strings.channel_progress))
+                    setName(context.stringResource(MR.strings.channel_ehentai_updates))
                     setGroup(GROUP_LIBRARY)
                     setShowBadge(false)
                 },
                 buildNotificationChannel(CHANNEL_MANGADEX, IMPORTANCE_LOW) {
-                    setName(context.stringResource(MR.strings.channel_progress))
+                    setName(context.stringResource(MR.strings.channel_mangadex_sync))
                     setGroup(GROUP_LIBRARY)
                     setShowBadge(false)
                 },
@@ -232,7 +232,7 @@ object Notifications {
                 },
                 // RK --> light-novel chapter downloader
                 buildNotificationChannel(CHANNEL_NOVEL_DOWNLOADER, IMPORTANCE_LOW) {
-                    setName(context.stringResource(MR.strings.channel_progress))
+                    setName(context.stringResource(MR.strings.channel_novel_downloads))
                     setGroup(GROUP_DOWNLOADER)
                     setShowBadge(false)
                 },

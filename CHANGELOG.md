@@ -616,6 +616,7 @@ every release now also ships a foss build with neither in it.
 
 #### Changed
 
+- **Each of Reikai's own notification categories in Android's settings now has its own name, so novel updates, novel downloads and each background sync can be told apart.**
 - **Settings -> Advanced now opens on Debugging and Help headers, and the two Track update errors switches moved to the end of Settings -> Library -> Global update.** Manage notifications sits under Background activity.
 - **Settings search now finds what is on the About screen, like the licenses and the update check.** About is also sorted into Legal and Links sections instead of one flat list.
 - **The two "Hide missing chapter indicators" settings now sit together under Settings -> Library -> Behavior, each saying which content type it affects.** The novel one used to sit in the novel update group, with nothing telling the two rows apart.

@@ -343,6 +343,12 @@
     <string name="ln_no_sources">No light novel sources installed. Install one from the Extensions tab.</string>
     <string name="channel_ln_plugin_updates">Light novel plugin updates</string>
     <string name="channel_novel_tts">Novel read aloud</string>
+    <string name="channel_novel_update_progress">Novel update progress</string>
+    <string name="channel_novel_update_errors">Novel update errors</string>
+    <string name="channel_novel_new_chapters">New novel chapters</string>
+    <string name="channel_novel_downloads">Novel downloads</string>
+    <string name="channel_ehentai_updates">E-Hentai updates</string>
+    <string name="channel_mangadex_sync">MangaDex sync</string>
     <!-- RK: novel read-aloud notification and sleep timer -->
     <string name="tts_reading_aloud">Reading aloud</string>
     <string name="tts_novel_read_aloud">Novel read aloud</string>
