@@ -333,7 +333,9 @@ line opens the target's page, as upstream's result card does, and the count line
 shortfall in the error colour when its latest chapter is behind the entry's, the warning the pre-takeover
 novel list had. Both read `MigrationRowRules`: `target()` is the one answer to which candidate the row
 names, taps and counts, and `shortfall()` shares its comparison with hide-without-updates. The ruled
-expand-to-compare view is still unbuilt.
+expand-to-compare view is still unbuilt. A third inventory miss is restored too: the tuning sheet's deep
+search, prioritize-by-chapters and hide-without-updates rows carry upstream's explanation line again, as
+a checkbox with a supporting line rather than upstream's switch.
 
 **One conformance suite for both engines (2026-09-25).** The hand-kept twin suites are gone:
 `MigrateEngineConformanceTest` runs every shared rule over `MigrateMangaUseCase` and `MigrateNovelUseCase`
