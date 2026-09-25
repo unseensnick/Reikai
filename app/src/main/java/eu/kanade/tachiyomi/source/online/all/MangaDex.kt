@@ -88,6 +88,8 @@ class MangaDex(delegate: HttpSource, val context: Context) :
 
     override fun newMetaInstance() = MangaDexSearchMetadata()
 
+    override fun tagSearchQuery(namespace: String, tag: String) = tag
+
     override suspend fun parseIntoMetadata(
         metadata: MangaDexSearchMetadata,
         input: Triple<MangaDto, List<String>, StatisticsMangaDto?>,

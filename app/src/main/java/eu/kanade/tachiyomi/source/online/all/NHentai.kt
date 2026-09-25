@@ -22,6 +22,7 @@ import exh.metadata.metadata.NHentaiSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
+import exh.util.SourceTagsUtil
 import exh.util.trimOrNull
 import exh.util.urlImportFetchSearchMangaSuspend
 import kotlinx.serialization.SerialName
@@ -39,6 +40,8 @@ class NHentai(delegate: HttpSource, val context: Context) :
     PagePreviewSource {
     override val metaClass = NHentaiSearchMetadata::class
     override fun newMetaInstance() = NHentaiSearchMetadata()
+
+    override fun tagSearchQuery(namespace: String, tag: String) = SourceTagsUtil.wrapTagNHentai(namespace, tag)
     override val lang = delegate.lang
 
     private val sourcePreferences: SharedPreferences by lazy {

@@ -21,6 +21,8 @@ class HentaiFox(delegate: HttpSource, context: Context) :
     NamespaceSource {
     override val metaClass = HentaiFoxSearchMetadata::class
     override fun newMetaInstance() = HentaiFoxSearchMetadata()
+
+    override fun tagSearchQuery(namespace: String, tag: String) = tag
     override val lang = delegate.lang
 
     // capture gallery metadata on the details fetch, delegate chapters to the stock source.

@@ -44,6 +44,7 @@ import exh.metadata.metadata.RaisedSearchMetadata.Companion.TAG_TYPE_VIRTUAL
 import exh.metadata.metadata.RaisedSearchMetadata.Companion.toGenreString
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.ExhPreferences
+import exh.util.SourceTagsUtil
 import exh.util.UriFilter
 import exh.util.UriGroup
 import exh.util.dropBlank
@@ -680,6 +681,8 @@ class EHentai(
     }
 
     override fun newMetaInstance() = EHentaiSearchMetadata()
+
+    override fun tagSearchQuery(namespace: String, tag: String) = SourceTagsUtil.wrapTag(namespace, tag)
 
     override suspend fun parseIntoMetadata(metadata: EHentaiSearchMetadata, input: Document) {
         with(metadata) {

@@ -21,6 +21,8 @@ class Koharu(delegate: HttpSource, context: Context) :
     NamespaceSource {
     override val metaClass = KoharuSearchMetadata::class
     override fun newMetaInstance() = KoharuSearchMetadata()
+
+    override fun tagSearchQuery(namespace: String, tag: String) = tag
     override val lang = delegate.lang
 
     // capture gallery metadata on the details fetch, delegate chapters to the stock source.

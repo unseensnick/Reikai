@@ -40,6 +40,12 @@ interface MetadataSource<M : RaisedSearchMetadata, I> : CatalogueSource {
      */
     fun newMetaInstance(): M
 
+    /**
+     * The search query that finds this source's entries carrying [tag] under [namespace], in the
+     * source's own grammar, so a tag chip on the details page searches the source it came from.
+     */
+    fun tagSearchQuery(namespace: String, tag: String): String
+
     suspend fun parseToManga(manga: SManga, input: I): SManga {
         val mangaId = manga.id()
         val metadata = if (mangaId != null) {

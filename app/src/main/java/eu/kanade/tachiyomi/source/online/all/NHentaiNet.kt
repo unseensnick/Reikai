@@ -24,6 +24,7 @@ import exh.metadata.metadata.NHentaiSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.NHENTAI_NET_SOURCE_ID
+import exh.util.SourceTagsUtil
 import exh.util.trimOrNull
 import exh.util.urlImportFetchSearchMangaSuspend
 import kotlinx.serialization.SerialName
@@ -55,6 +56,8 @@ class NHentaiNet(private val context: Context) :
 
     override val metaClass = NHentaiSearchMetadata::class
     override fun newMetaInstance() = NHentaiSearchMetadata()
+
+    override fun tagSearchQuery(namespace: String, tag: String) = SourceTagsUtil.wrapTagNHentai(namespace, tag)
 
     // Throttle calls to the API host to stay well under nhentai's rate limits; the image CDNs
     // (i*.nhentai.net) are left unthrottled so reading stays fast.

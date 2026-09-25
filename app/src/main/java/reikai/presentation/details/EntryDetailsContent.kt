@@ -329,7 +329,7 @@ private fun LazyListScope.entryInfoBlock(
         onCopyTagToClipboard = nav.onCopyTag,
         onEditNotes = nav.onEditNotes,
         // Namespaced, grouped tag chips for the active source's gallery metadata (or its namespaced genre).
-        searchMetadataChips = gallery?.let { SearchMetadataChips(it.metadata, it.sourceId, it.rawGenre) },
+        searchMetadataChips = gallery?.let { SearchMetadataChips(it.metadata, it.sourceId, it.rawGenre, it.tagQuery) },
         // Per-source gallery-info card above the description, once the metadata object has loaded.
         aboveDescription = gallery?.metadata?.let { meta ->
             {

@@ -7,10 +7,12 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.source.isLocalOrStub
+import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import eu.kanade.tachiyomi.ui.manga.MangaViewModel
 import eu.kanade.tachiyomi.ui.manga.PagePreviewState
 import exh.metadata.metadata.RaisedSearchMetadata
+import exh.source.getMainSource
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -109,6 +111,7 @@ class MangaEntryAdapter(
                     sourceId = displaySource.id,
                     rawGenre = shown.genre,
                     metadata = galleryMetadata,
+                    tagQuery = displaySource.getMainSource<MetadataSource<*, *>>()?.let { it::tagSearchQuery },
                 ),
             ),
             mergeSources = mergeSources,
@@ -332,10 +335,12 @@ data class MangaRelatedCarouselCapability(
  * A manga's namespaced-tag + gallery inputs. Present for every manga; the grouped tag chips build from
  * [rawGenre] (an adult source stores genre as "namespace:tag") even before [metadata] loads, and the
  * gallery-info card renders only once [metadata] is non-null. Both produce nothing for a normal manga.
+ * [tagQuery] is the viewed metadata source's own tag grammar, null for any other source.
  */
 @Immutable
 data class MangaGalleryCapability(
     val sourceId: Long,
     val rawGenre: List<String>?,
     val metadata: RaisedSearchMetadata?,
+    val tagQuery: ((namespace: String, tag: String) -> String)?,
 )

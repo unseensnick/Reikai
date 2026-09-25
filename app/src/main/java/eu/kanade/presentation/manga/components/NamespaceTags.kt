@@ -27,8 +27,8 @@ import exh.util.SourceTagsUtil
  * Namespaced tag chips for adult/metadata galleries on the details screen. Ported from Komikku's
  * SearchMetadataChips/NamespaceTags, reimplemented on Mihon's Material3 SuggestionChip (Komikku's
  * version pulls in its own chip components). Groups a gallery's tags by namespace, border-weights
- * E-Hentai tags by tag type, and builds each chip's tap-search query via SourceTagsUtil. Tapping a
- * chip drives the caller's shared search/copy menu, same as the flat genre chips.
+ * E-Hentai tags by tag type, and builds each chip's tap-search query in the source's own grammar.
+ * Tapping a chip drives the caller's shared search/copy menu, same as the flat genre chips.
  */
 @Immutable
 data class DisplayTag(
@@ -44,11 +44,18 @@ value class SearchMetadataChips(
     val tags: Map<String, List<DisplayTag>>,
 ) {
     companion object {
+        /** [tagQuery] is the viewed metadata source's own tag grammar; without one a chip searches the bare name. */
         operator fun invoke(
             meta: RaisedSearchMetadata?,
             sourceId: Long,
             genre: List<String>?,
+            tagQuery: ((namespace: String, tag: String) -> String)?,
         ): SearchMetadataChips? {
+            fun search(namespace: String?, name: String): String {
+                val parsed = if (namespace.isNullOrEmpty()) SourceTagsUtil.parseTag(name) else null
+                val tagNamespace = parsed?.namespace ?: namespace?.takeIf { it.isNotEmpty() } ?: return name
+                return tagQuery?.invoke(tagNamespace, (parsed?.name ?: name).substringBefore('|').trim()) ?: name
+            }
             if (meta != null) {
                 val grouped = meta.tags
                     .filterNot { it.type == RaisedSearchMetadata.TAG_TYPE_VIRTUAL }
@@ -56,11 +63,7 @@ value class SearchMetadataChips(
                         DisplayTag(
                             namespace = tag.namespace,
                             text = tag.name,
-                            search = if (!tag.namespace.isNullOrEmpty()) {
-                                SourceTagsUtil.getWrappedTag(sourceId, namespace = tag.namespace, tag = tag.name)
-                            } else {
-                                SourceTagsUtil.getWrappedTag(sourceId, fullTag = tag.name)
-                            } ?: tag.name,
+                            search = search(tag.namespace, tag.name),
                             border = if (sourceId in eHentaiSourceIds) {
                                 when (tag.type) {
                                     EHentaiSearchMetadata.TAG_TYPE_NORMAL -> 2
@@ -87,7 +90,7 @@ value class SearchMetadataChips(
                     DisplayTag(
                         namespace = namespace,
                         text = name,
-                        search = SourceTagsUtil.getWrappedTag(sourceId, namespace = namespace, tag = name) ?: raw,
+                        search = search(namespace, name),
                         border = null,
                     )
                 }.groupBy { it.namespace.orEmpty() }

@@ -28,6 +28,8 @@ class EightMuses(delegate: HttpSource, val context: Context) :
     NamespaceSource {
     override val metaClass = EightMusesSearchMetadata::class
     override fun newMetaInstance() = EightMusesSearchMetadata()
+
+    override fun tagSearchQuery(namespace: String, tag: String) = tag
     override val lang = "en"
 
     // capture gallery metadata on the details fetch, delegate chapters to the stock source.

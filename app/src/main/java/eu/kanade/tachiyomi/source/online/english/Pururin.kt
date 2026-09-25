@@ -46,6 +46,8 @@ class Pururin(private val context: Context) :
     override val metaClass = PururinSearchMetadata::class
     override fun newMetaInstance() = PururinSearchMetadata()
 
+    override fun tagSearchQuery(namespace: String, tag: String) = tag
+
     // Throttle calls to pururin.me; the image host (i.pururin.me) is left unthrottled for reading.
     override val client = network.client.newBuilder()
         .rateLimitHost(PururinSearchMetadata.BASE_URL, 5)

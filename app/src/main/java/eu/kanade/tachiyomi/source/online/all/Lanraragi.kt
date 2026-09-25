@@ -20,6 +20,7 @@ import exh.metadata.MetadataUtil
 import exh.metadata.metadata.LanraragiSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
+import exh.util.SourceTagsUtil
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -41,6 +42,8 @@ class Lanraragi(delegate: HttpSource, val context: Context) :
     PagePreviewSource {
     override val metaClass = LanraragiSearchMetadata::class
     override fun newMetaInstance() = LanraragiSearchMetadata()
+
+    override fun tagSearchQuery(namespace: String, tag: String) = SourceTagsUtil.wrapTag(namespace, tag)
     override val lang = delegate.lang
 
     private fun getApiUriBuilder(path: String): Uri.Builder {

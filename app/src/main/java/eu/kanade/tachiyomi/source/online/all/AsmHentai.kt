@@ -21,6 +21,8 @@ class AsmHentai(delegate: HttpSource, context: Context) :
     NamespaceSource {
     override val metaClass = AsmHentaiSearchMetadata::class
     override fun newMetaInstance() = AsmHentaiSearchMetadata()
+
+    override fun tagSearchQuery(namespace: String, tag: String) = tag
     override val lang = delegate.lang
 
     // capture gallery metadata on the details fetch, delegate chapters to the stock source.

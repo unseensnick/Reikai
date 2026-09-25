@@ -4,8 +4,6 @@ import android.graphics.Color
 import androidx.annotation.ColorInt
 import androidx.core.graphics.toColorInt
 import exh.metadata.metadata.base.RaisedTag
-import exh.source.NHENTAI_NET_SOURCE_ID
-import exh.source.PURURIN_SOURCE_ID
 import java.util.Locale
 
 object SourceTagsUtil {
@@ -46,39 +44,15 @@ object SourceTagsUtil {
         else -> null
     }
 
-    /** Build a source-specific browse-search query for a namespaced tag, so tapping a details tag
-     *  chip filters that source. Only the metadata sources Reikai ships are handled: E-Hentai/ExHentai
-     *  (namespace:"tag"$), the built-in nhentai.net, and Pururin (bare tag name); other metadata
-     *  sources fall through to the E-Hentai grammar. MangaDex wrapping is intentionally omitted
-     *  (source not built in; see ROADMAP "MangaDex as an adult metadata source"). */
-    fun getWrappedTag(
-        sourceId: Long?,
-        namespace: String? = null,
-        tag: String? = null,
-        fullTag: String? = null,
-    ): String? {
-        val parsed = when {
-            fullTag != null -> parseTag(fullTag)
-            namespace != null && tag != null -> RaisedTag(namespace, tag, TAG_TYPE_DEFAULT)
-            else -> null
-        }
-        val parsedNamespace = parsed?.namespace ?: return null
-        val name = parsed.name.substringBefore('|').trim()
-        return when {
-            sourceId == NHENTAI_NET_SOURCE_ID -> wrapTagNHentai(parsedNamespace, name)
-            sourceId == PURURIN_SOURCE_ID -> name
-            // Every other source (E-Hentai included) uses the E-Hentai tag grammar.
-            else -> wrapTag(parsedNamespace, name)
-        }
-    }
-
-    private fun wrapTag(namespace: String, tag: String) = if (tag.contains(spaceRegex)) {
+    /** The E-Hentai tag grammar, which Lanraragi also accepts: namespace:tag$, quoted when it has a space. */
+    fun wrapTag(namespace: String, tag: String) = if (tag.contains(spaceRegex)) {
         "$namespace:\"$tag$\""
     } else {
         "$namespace:$tag$"
     }
 
-    private fun wrapTagNHentai(namespace: String, tag: String) = if (tag.contains(spaceRegex)) {
+    /** The nhentai tag grammar: a bare quoted name for the plain tag namespace. */
+    fun wrapTagNHentai(namespace: String, tag: String) = if (tag.contains(spaceRegex)) {
         if (namespace == "tag") """"$tag"""" else """$namespace:"$tag""""
     } else {
         "$namespace:$tag"
