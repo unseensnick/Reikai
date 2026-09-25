@@ -2,8 +2,8 @@ import kotlin.Boolean;
 
 -- Parallel of chapters. Three divergences from the manga chapter table:
 -- 1. No `scanlator` (novels don't have scanlator groups).
--- 2. `last_text_progress` replaces `last_page_read` + `pages_left`. A hundredths scroll percent
---    (0..10000) so the reader resumes mid-chapter without snapping to a paragraph boundary.
+-- 2. `last_text_progress` replaces `last_page_read` + `pages_left`. Scroll progress in hundredths of a
+--    percent (0..10000), though the reader writes and resumes it in whole-percent steps.
 -- 3. `page` labels the volume / section / arc a chapter belongs to (e.g. "Volume 3"). Used by
 --    paged-novel sources whose chapter lists span multiple endpoints; empty string when the
 --    source doesn't expose this metadata.

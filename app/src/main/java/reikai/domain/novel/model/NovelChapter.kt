@@ -7,8 +7,8 @@ import java.io.Serializable
  * Domain mirror of the `novel_chapters` table. Two divergences from manga chapter semantics:
  *
  * - No `scanlator` (novels don't have scanlator groups).
- * - [lastTextProgress] replaces the manga side's `lastPageRead`. A hundredths scroll percent
- *   (0..10000) so the text reader can resume mid-chapter.
+ * - [lastTextProgress] replaces the manga side's `lastPageRead`. Scroll progress in hundredths of a
+ *   percent (0..10000), though the reader writes and resumes it in whole-percent steps.
  */
 @Immutable
 data class NovelChapter(
