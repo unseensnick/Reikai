@@ -347,6 +347,14 @@ neither old suite reached. Manga now carries each matched chapter's page positio
 novel carry does (owner ruling), in an `// RK` island inside Mihon's carry. `MigrateNovelUseCaseTest`
 keeps only what the novel engine alone does.
 
+**Favorites picker selection on back (2026-09-25).** An inventory item the takeover dropped: Mihon's
+picker (`MigrateMangaScreen`) clears a live selection on system back and on the up arrow instead of
+leaving, where the shared picker left and discarded it. Present again, for both types, through
+`EntryMigrationFavoritesViewModel.clearSelection`. **Deliberately dropped: upstream also clears the
+selection on Continue** (owner ruling). Backing out of config is the only way to adjust a large set, and
+the list exits the whole flow on back rather than returning here, so the stale selection Mihon's clear
+guards against cannot reach this screen.
+
 ## Decisions & tradeoffs
 
 - Takeover over parity-patching: options assessed were (a) full flow takeover, (b) partial UI-only takeover, (c) no takeover with parity fixes, (d) reshape Mihon's flow in place via `// RK`. (b) keeps the step fork because the fork lives in orchestration; (d) is maximum sync tax on the highest-churn files; (c) leaves the divergence permanent, and history shows the novel side never receives flow improvements. (a) accepted with the churn price stated in the amendment.

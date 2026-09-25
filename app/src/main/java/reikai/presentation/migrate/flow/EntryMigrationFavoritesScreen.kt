@@ -1,5 +1,6 @@
 package reikai.presentation.migrate.flow
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
@@ -62,11 +63,12 @@ import tachiyomi.presentation.core.util.shouldExpandFAB
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The library entries of one source, to pick which of them to migrate away from it. This is the
- * route in from the Migrate tab, where a source is chosen first and its entries second.
+ * The library entries of one source, to pick which to migrate away from it (the Migrate tab's route:
+ * source first, entries second). Continue goes straight to the source picker, since choosing the
+ * source already answered the merge-group question this flow otherwise asks.
  *
- * Continue goes straight to the source picker: the entries here all come from the same source, so
- * the merge-group question this flow otherwise asks has already been answered by choosing it.
+ * Back and the up arrow clear a selection before they leave, as Mihon's picker does; Continue keeps
+ * it where Mihon clears it, since backing out of config is the only way to adjust the set.
  */
 class EntryMigrationFavoritesScreen(
     private val contentType: ContentType,
@@ -92,11 +94,21 @@ class EntryMigrationFavoritesScreen(
             return
         }
 
+        BackHandler(enabled = state.selected.isNotEmpty()) {
+            viewModel.clearSelection()
+        }
+
         Scaffold(
             topBar = { scrollBehavior ->
                 AppBar(
                     title = state.sourceName,
-                    navigateUp = navigator::pop,
+                    navigateUp = {
+                        if (state.selected.isNotEmpty()) {
+                            viewModel.clearSelection()
+                        } else {
+                            navigator.pop()
+                        }
+                    },
                     scrollBehavior = scrollBehavior,
                     actions = {
                         if (state.entries.isNotEmpty()) {
@@ -228,6 +240,8 @@ class EntryMigrationFavoritesViewModel(
         val ids = state.value.entries.mapTo(HashSet()) { it.id }
         selected.update { ids }
     }
+
+    fun clearSelection() = selected.update { emptySet() }
 
     fun invertSelection() {
         val entries = state.value.entries

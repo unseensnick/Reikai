@@ -27,6 +27,8 @@ class FakeMigrationFlowAdapter(
     private val suggestionLatestChapter: Double? = 2.0,
     /** What the count peek fills in, or null for a peek that answers nothing. */
     private val peekLatestChapter: Double? = null,
+    /** The library entries the favorites picker lists for any source. */
+    private val favorites: List<MigrationFavorite> = emptyList(),
 ) : MigrationFlowAdapter {
     val migrated = mutableListOf<EntryId>()
     val blocked = CompletableDeferred<Unit>()
@@ -48,7 +50,7 @@ class FakeMigrationFlowAdapter(
     override fun pinnedKeys(): Set<String> = emptySet()
     override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> = emptyList()
     override suspend fun sourceDisplayName(sourceKey: String) = sourceKey
-    override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> = flowOf(emptyList())
+    override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> = flowOf(favorites)
     override fun readTuning() = tuning
     override fun persistTuning(tuning: MigrationTuning) = Unit
     override suspend fun loadEntries(ids: List<Long>) = entries.filter { it.id.rawId in ids }
