@@ -28,9 +28,7 @@ class DeepLinkScreen(
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
 
-        val viewModel = assistedMetroViewModel<DeepLinkViewModel, DeepLinkViewModel.Factory> {
-            create(query = query)
-        }
+        val viewModel = assistedMetroViewModel<DeepLinkViewModel, DeepLinkViewModel.Factory> { create(query = query) }
         val state by viewModel.state.collectAsState()
         Scaffold(
             topBar = { scrollBehavior ->

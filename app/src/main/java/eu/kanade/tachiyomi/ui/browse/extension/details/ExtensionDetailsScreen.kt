@@ -21,9 +21,10 @@ data class ExtensionDetailsScreen(
 
     @Composable
     override fun Content() {
-        val viewModel = assistedMetroViewModel<ExtensionDetailsViewModel, ExtensionDetailsViewModel.Factory> {
-            create(pkgName = pkgName)
-        }
+        val viewModel =
+            assistedMetroViewModel<ExtensionDetailsViewModel, ExtensionDetailsViewModel.Factory> {
+                create(pkgName = pkgName)
+            }
         val state by viewModel.state.collectAsStateWithLifecycle()
 
         val navigator = LocalNavigator.currentOrThrow

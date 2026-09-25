@@ -58,9 +58,8 @@ class RestoreBackupScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<RestoreBackupViewModel, RestoreBackupViewModel.Factory> {
-            create(uri = uri)
-        }
+        val viewModel =
+            assistedMetroViewModel<RestoreBackupViewModel, RestoreBackupViewModel.Factory> { create(uri = uri) }
         val state by viewModel.state.collectAsState()
 
         Scaffold(
@@ -178,9 +177,9 @@ class RestoreBackupScreen(
 
 @AssistedInject
 class RestoreBackupViewModel(
-    private val context: Context,
-    private val backupFileValidator: BackupFileValidator,
     @Assisted private val uri: String,
+    private val backupFileValidator: BackupFileValidator,
+    private val context: Context,
 ) : ViewModel() {
 
     val state: StateFlow<RestoreBackupViewModel.State>

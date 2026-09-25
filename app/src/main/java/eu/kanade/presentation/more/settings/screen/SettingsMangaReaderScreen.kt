@@ -80,16 +80,14 @@ object SettingsMangaReaderScreen : SearchableSettings {
             getEInkGroup(readerPreferences = readerPref),
             getReadingGroup(readerPreferences = readerPref),
             getPagedGroup(readerPreferences = readerPref),
-            getWebtoonGroup(readerPreferences = readerPref, highQualityRenderer = highQualityRenderer),
+            getWebtoonGroup(readerPreferences = readerPref, highQualityRenderer = highQualityRenderer), // RK
             getNavigationGroup(readerPreferences = readerPref),
             getActionsGroup(readerPreferences = readerPref),
         )
     }
 
     @Composable
-    private fun getDisplayGroup(
-        readerPreferences: ReaderPreferences,
-    ): Preference.PreferenceGroup {
+    private fun getDisplayGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
         val fullscreen by readerPreferences.fullscreen.collectAsState()
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_display),
@@ -190,10 +188,8 @@ object SettingsMangaReaderScreen : SearchableSettings {
     }
 
     @Composable
-    private fun getReadingGroup(
-        readerPreferences: ReaderPreferences,
-    ): Preference.PreferenceGroup {
-        // Collected for the preload slider
+    private fun getReadingGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+        // RK: collected for the preload slider
         val preloadSizePref = readerPreferences.preloadSize
         val preloadSize by preloadSizePref.collectAsState()
         return Preference.PreferenceGroup(
@@ -339,7 +335,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
     @Composable
     private fun getWebtoonGroup(
         readerPreferences: ReaderPreferences,
-        highQualityRenderer: Boolean,
+        highQualityRenderer: Boolean, // RK
     ): Preference.PreferenceGroup {
         val numberFormat = remember { NumberFormat.getPercentInstance() }
 
@@ -347,13 +343,13 @@ object SettingsMangaReaderScreen : SearchableSettings {
         val dualPageSplitPref = readerPreferences.dualPageSplitWebtoon
         val rotateToFitPref = readerPreferences.dualPageRotateToFitWebtoon
         val webtoonSidePaddingPref = readerPreferences.webtoonSidePadding
-        val continuousMinWidthPref = readerPreferences.continuousMinWidth
+        val continuousMinWidthPref = readerPreferences.continuousMinWidth // RK
 
         val navMode by navModePref.collectAsState()
         val dualPageSplit by dualPageSplitPref.collectAsState()
         val rotateToFit by rotateToFitPref.collectAsState()
         val webtoonSidePadding by webtoonSidePaddingPref.collectAsState()
-        val continuousMinWidth by continuousMinWidthPref.collectAsState()
+        val continuousMinWidth by continuousMinWidthPref.collectAsState() // RK
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.webtoon_viewer),
@@ -377,6 +373,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_read_with_tapping_inverted),
                     enabled = navMode != 5,
                 ),
+                // RK --> Min width under the high quality renderer, upstream's side padding otherwise
                 if (highQualityRenderer) {
                     Preference.PreferenceItem.SliderPreference(
                         value = continuousMinWidth,
@@ -396,6 +393,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                         onValueChanged = { webtoonSidePaddingPref.set(it) },
                     )
                 },
+                // RK <--
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.readerHideThreshold,
                     entries = mapOf(
@@ -459,8 +457,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
         val volumeScrollPercent = (volumeScrollAmount * 100).roundToInt()
 
         val verticalNavigator by readerPreferences.verticalNavigator.collectAsState()
-        // RK
-        val showNavigator by readerPreferences.showNavigator.collectAsState()
+        val showNavigator by readerPreferences.showNavigator.collectAsState() // RK
         val verticalNavigatorHeightPref = readerPreferences.verticalNavigatorHeight
         val verticalNavigatorHeight by verticalNavigatorHeightPref.collectAsState()
 
