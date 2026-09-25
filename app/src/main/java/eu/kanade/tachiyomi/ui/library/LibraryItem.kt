@@ -31,8 +31,8 @@ data class LibraryItem(
     // can carry the same row id. Defaults to the manga id; NovelLibraryItem.toLibraryItem sets the
     // novel case.
     val entryId: EntryId = EntryId.Manga(libraryManga.id),
-    // Upstream fields for the query AST. Defaulted because the novel adapter builds this type too and
-    // novels filter through their own matcher, never the AST.
+    // RK: upstream fields for the query AST, defaulted because the novel adapter builds this type too.
+    // It fills them as well, since the shared query kernel reads both content types off the row.
     val sourceName: String = "",
     val sourceLanguage: String = "",
     // RK: the source name the EXH tag-search grammar matches against. getNameForMangaInfo() differs
@@ -45,12 +45,12 @@ data class LibraryItem(
 ) {
     val id: Long = libraryManga.id
 
-    // RK --> tag-search engine for adult/metadata sources. Upstream matches every entry through the
-    // query AST (mihon.feature.library.matches); a gallery entry ALSO gets this structured grammar
-    // (namespace:tag, wildcards, exclusion, exact), which the AST has no equivalent for. The caller
-    // (LibraryViewModel's search filter) ORs the two grammars for positive queries and ANDs them
-    // for exclusion-only ones, because an excluded component this grammar cannot resolve passes
-    // vacuously and an OR would then keep rows the AST kernel excluded.
+    // RK --> tag-search engine for adult/metadata sources. Every entry matches through the query AST
+    // (libraryQueryMatches, which replaced upstream's matcher); a gallery entry ALSO gets this
+    // structured grammar (namespace:tag, wildcards, exclusion, exact), which the AST has no equivalent
+    // for. The caller (LibraryViewModel's search filter) ORs the two grammars for positive queries and
+    // ANDs them for exclusion-only ones, because an excluded component this grammar cannot resolve
+    // passes vacuously and an OR would then keep rows the AST kernel excluded.
     fun matchesMetadataQuery(parsedQuery: List<QueryComponent>): Boolean =
         parsedQuery.all { matchesComponent(it, metadataSourceName.orEmpty()) }
 

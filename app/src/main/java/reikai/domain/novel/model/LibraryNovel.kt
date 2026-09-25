@@ -22,6 +22,6 @@ data class LibraryNovel(
 
     val hasStarted: Boolean get() = readCount > 0
 
-    /** Denormalized off the novel row (no history table), for the LastRead library sort. */
+    /** Stamped on the novel row by the reader on each progress save, for the LastRead library sort. */
     val lastRead: Long get() = novel.lastReadAt ?: 0L
 }

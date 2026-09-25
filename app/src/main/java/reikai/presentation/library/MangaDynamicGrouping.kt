@@ -78,7 +78,7 @@ suspend fun mangaDynamicGroupingFeed(
 
     return DynamicGroupingFeed(
         items = library.map {
-            DynItem<EntryId>(EntryId.Manga(it.manga.id), it.manga.genre, it.manga.author, it.manga.artist)
+            DynItem(EntryId.Manga(it.manga.id), it.manga.genre, it.manga.author, it.manga.artist)
         },
         sourceMeta = sourceMeta,
         languageCodes = languageCodes,

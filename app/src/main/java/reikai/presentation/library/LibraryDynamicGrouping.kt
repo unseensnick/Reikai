@@ -4,14 +4,12 @@ import reikai.domain.entry.EntryId
 
 /**
  * Minimal per-item view the dynamic grouping needs, decoupled from the manga / novel domain types so
- * one kernel serves both libraries. [id] is generic because a row id is only unique WITHIN a content
- * type: a manga and a novel can share the id 12. A single-type caller buckets by its own `Long` row
- * id; a mixed caller buckets by the neutral [EntryId][reikai.domain.entry.EntryId]. Keying a mixed
- * call by `Long` would silently merge the two rows and cross-read one's metadata for the other, since
- * every metadata map below is keyed by this id.
+ * one kernel serves both libraries. [id] is the neutral [EntryId] because a row id is only unique
+ * WITHIN a content type: a manga and a novel can share the id 12, and every metadata map below is
+ * keyed by this id.
  */
-data class DynItem<K>(
-    val id: K,
+data class DynItem(
+    val id: EntryId,
     val genre: List<String>?,
     val author: String?,
     val artist: String?,
@@ -19,14 +17,13 @@ data class DynItem<K>(
 
 /**
  * One provider's pre-resolved inputs for [LibraryDynamicGrouping.build], keyed by the neutral
- * [EntryId][reikai.domain.entry.EntryId] exactly as the kernel's own KDoc prescribes for a mixed call:
- * raw row ids collide across content types, and every map below is id-keyed. Each provider resolves its
- * own metadata (different source managers, different track tables); the engine concatenates the active
- * feeds and runs the kernel once, so the under-All merge and the group ordering come from the kernel's
- * existing logic rather than a hand-written list merge.
+ * [EntryId] like the kernel: raw row ids collide across content types, and every map below is
+ * id-keyed. Each provider resolves its own metadata (different source managers, different track
+ * tables); the engine concatenates the active feeds and runs the kernel once, so the under-All merge
+ * and the group ordering come from the kernel's existing logic rather than a hand-written list merge.
  */
 class DynamicGroupingFeed(
-    val items: List<DynItem<EntryId>>,
+    val items: List<DynItem>,
     val sourceMeta: Map<EntryId, Pair<String, String>> = emptyMap(),
     val languageCodes: Map<EntryId, String> = emptyMap(),
     val statusNames: Map<EntryId, String> = emptyMap(),
@@ -66,8 +63,8 @@ object LibraryDynamicGrouping {
     )
 
     @Suppress("LongParameterList")
-    fun <K> build(
-        items: List<DynItem<K>>,
+    fun build(
+        items: List<DynItem>,
         groupType: Int,
         collapsedDynamicCategories: Set<String>,
         collapsedDynamicAtBottom: Boolean,
@@ -75,13 +72,13 @@ object LibraryDynamicGrouping {
         notTrackedLabel: String,
         ungroupedLabel: String = "",
         categorySortOrder: Int = 0,
-        sourceMeta: Map<K, Pair<String, String>> = emptyMap(),
-        trackStatuses: Map<K, String> = emptyMap(),
-        languageCodes: Map<K, String> = emptyMap(),
-        statusNames: Map<K, String> = emptyMap(),
+        sourceMeta: Map<EntryId, Pair<String, String>> = emptyMap(),
+        trackStatuses: Map<EntryId, String> = emptyMap(),
+        languageCodes: Map<EntryId, String> = emptyMap(),
+        statusNames: Map<EntryId, String> = emptyMap(),
         languageDisplay: (langCode: String) -> String = { it },
         trackingStatusOrder: (statusName: String) -> String = { it },
-    ): Map<LibraryBucket.Dynamic, List<K>> {
+    ): Map<LibraryBucket.Dynamic, List<EntryId>> {
         if (items.isEmpty()) return emptyMap()
 
         // UNGROUPED: one flat synthetic bucket holding every item, no per-item metadata lookups.
@@ -102,7 +99,7 @@ object LibraryDynamicGrouping {
         // one tag several ways ("Adult" against "ADULT"), and an exact-string key renders those as two
         // adjacent groups. Normalizing the label would mangle acronyms (BL, NTR). Callers concatenate
         // the manga feed first, which keeps the choice stable.
-        val idsByKey = LinkedHashMap<String, MutableList<K>>()
+        val idsByKey = LinkedHashMap<String, MutableList<EntryId>>()
         val encodedByKey = LinkedHashMap<String, String>()
         for (item in deduplicated) {
             val names = categoryNamesFor(
@@ -157,15 +154,15 @@ object LibraryDynamicGrouping {
         else -> encodedName
     }
 
-    private fun <K> categoryNamesFor(
-        item: DynItem<K>,
+    private fun categoryNamesFor(
+        item: DynItem,
         groupType: Int,
         unknownLabel: String,
         notTrackedLabel: String,
-        sourceMeta: Map<K, Pair<String, String>>,
-        trackStatuses: Map<K, String>,
-        languageCodes: Map<K, String>,
-        statusNames: Map<K, String>,
+        sourceMeta: Map<EntryId, Pair<String, String>>,
+        trackStatuses: Map<EntryId, String>,
+        languageCodes: Map<EntryId, String>,
+        statusNames: Map<EntryId, String>,
         languageDisplay: (langCode: String) -> String,
     ): List<String> {
         val itemId = item.id

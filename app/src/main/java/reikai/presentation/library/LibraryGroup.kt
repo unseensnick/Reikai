@@ -4,8 +4,7 @@ package reikai.presentation.library
  * Library grouping modes (dynamic grouping). The values are stored in the `group_library_by`
  * preference and restored verbatim from backups, so renumbering one needs a migration.
  *
- * Only the constants live here; the group-picker's string/drawable resources are wired in the
- * settings sheet.
+ * Only the constants live here; the group picker's labels are wired in the settings sheet.
  */
 object LibraryGroup {
 

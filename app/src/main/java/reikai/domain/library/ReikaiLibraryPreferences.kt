@@ -24,7 +24,7 @@ class ReikaiLibraryPreferences(
 
     // region Grouping
 
-    /** Dynamic grouping mode, library-wide (eu.kanade.tachiyomi.ui.library.LibraryGroup; 0 = BY_DEFAULT). */
+    /** Dynamic grouping mode, library-wide (reikai.presentation.library.LibraryGroup; 0 = BY_DEFAULT). */
     val groupLibraryBy: Preference<Int> = preferenceStore.getInt("group_library_by", 0)
 
     // The "group_novel_library_by" key is retired (DEAD_NOVEL_GROUP_BY_KEY): grouping describes the list,

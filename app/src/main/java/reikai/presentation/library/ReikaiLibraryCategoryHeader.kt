@@ -48,8 +48,8 @@ fun ReikaiLibraryCategoryHeader(
     onToggleSelectAll: () -> Unit = {},
     // Per-category affordances; null = hidden (e.g. dynamic groups, which have no real category).
     // The caller passes the EFFECTIVE sort (a category's override, or the global sort it follows): the
-    // label via [sortLabel] and the arrow via [sortAscending], both content-type-decoded upstream so the
-    // header never touches the raw flag bits (manga and novel encode different enums into them).
+    // label via [sortLabel] and the arrow via [sortAscending], decoded by the caller so the header never
+    // touches the raw flag bits.
     sortLabel: StringResource? = null,
     sortAscending: Boolean? = null,
     onClickSort: (() -> Unit)? = null,
@@ -128,7 +128,7 @@ fun ReikaiLibraryCategoryHeader(
     }
 }
 
-/** The display label for a manga sort mode, reusing Mihon's Sort-tab strings. */
+/** The display label for a library sort mode, reusing Mihon's Sort-tab strings. */
 internal fun sortLabelRes(type: LibrarySort.Type): StringResource = when (type) {
     LibrarySort.Type.Alphabetical -> MR.strings.action_sort_alpha
     LibrarySort.Type.TotalChapters -> MR.strings.action_sort_total

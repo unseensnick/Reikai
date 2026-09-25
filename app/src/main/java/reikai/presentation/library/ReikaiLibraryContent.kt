@@ -134,10 +134,10 @@ fun ReikaiLibraryContent(
     onClickCategorySort: (Category) -> Unit,
     onRefreshCategory: (Category) -> Unit,
     onSelectAllInCategory: (LibraryBucket) -> Unit,
-    // The effective sort per category (its override, or the global sort it follows), decoded per content
-    // type upstream: the header label via [sortLabelFor] and the arrow direction via [sortAscendingFor].
-    sortLabelFor: ((Category) -> StringResource?)? = null,
-    sortAscendingFor: ((Category) -> Boolean?)? = null,
+    // The effective sort per category (its override, or the global sort it follows): the header label via
+    // [sortLabelFor] and the arrow direction via [sortAscendingFor].
+    sortLabelFor: (Category) -> StringResource,
+    sortAscendingFor: (Category) -> Boolean,
     // continue-reading button on covers, single-list parity with the pager; null = hidden
     onClickContinueReading: ((LibraryItem) -> Unit)? = null,
 ) {
@@ -242,8 +242,8 @@ fun ReikaiLibraryContent(
                             selectionMode = selection.isNotEmpty(),
                             allSelected = items.isNotEmpty() && items.all { it.entryId in selection },
                             onToggleSelectAll = { onSelectAllInCategory(bucket) },
-                            sortLabel = category?.let { sortLabelFor?.invoke(it) },
-                            sortAscending = category?.let { sortAscendingFor?.invoke(it) },
+                            sortLabel = category?.let(sortLabelFor),
+                            sortAscending = category?.let(sortAscendingFor),
                             onClickSort = category?.let { { onClickCategorySort(it) } },
                             onClickRefresh = category?.let { { onRefreshCategory(it) } },
                         )

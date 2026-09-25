@@ -452,8 +452,8 @@ class LibraryEngine(
     }
 
     // Category collapse, library-wide rather than per provider: a collapsed category is one row in one
-    // list, and a dynamic group is one bucket that will hold both content types once the chips are only
-    // filters, so the collapse belongs to the row and not to whichever chip is filtering the view. Both
+    // list, and a dynamic group is one bucket holding both content types under All, so the collapse
+    // belongs to the row and not to whichever chip is filtering the view. Both
     // sets are persisted, and the tab reads them back through [display].
 
     fun toggleDefaultCategoryCollapse(headerKey: String) {
@@ -471,7 +471,7 @@ class LibraryEngine(
     /**
      * Switch the chip. The selection is dropped because it is shared across content types, so keeping it
      * would carry rows into a view that does not list them, leaving a count on the action bar and actions
-     * that hit nothing. Revisit when the All chip lands: All -> Manga could keep the manga part.
+     * that hit nothing. Leaving All for Manga clears it too, by decision, rather than keeping the manga part.
      */
     fun setContentType(type: ContentType) {
         clearSelection()

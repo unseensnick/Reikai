@@ -334,21 +334,23 @@ class LibraryDynamicGroupingTest {
         collapsedDynamicCategories: Set<String> = emptySet(),
         collapsedDynamicAtBottom: Boolean = false,
         categorySortOrder: Int = 0,
-    ) = LibraryDynamicGrouping.build(
-        items = library.map { DynItem(it.manga.id, it.manga.genre, it.manga.author, it.manga.artist) },
+    ): Map<LibraryBucket.Dynamic, List<Long>> = LibraryDynamicGrouping.build(
+        items = library.map { DynItem(EntryId.Manga(it.manga.id), it.manga.genre, it.manga.author, it.manga.artist) },
         groupType = groupType,
         collapsedDynamicCategories = collapsedDynamicCategories,
         collapsedDynamicAtBottom = collapsedDynamicAtBottom,
         categorySortOrder = categorySortOrder,
         unknownLabel = "Unknown",
         notTrackedLabel = "Not tracked",
-        sourceMeta = sourceMeta.mapValues { (_, v) -> v.first to v.second.toString() },
-        trackStatuses = trackStatuses,
-        languageCodes = languageCodes,
-        statusNames = statusNames,
+        sourceMeta = sourceMeta.byEntry().mapValues { (_, v) -> v.first to v.second.toString() },
+        trackStatuses = trackStatuses.byEntry(),
+        languageCodes = languageCodes.byEntry(),
+        statusNames = statusNames.byEntry(),
         languageDisplay = languageDisplay,
         trackingStatusOrder = trackingStatusOrder,
-    )
+    ).mapValues { (_, ids) -> ids.map { (it as EntryId.Manga).rawId } }
+
+    private fun <V> Map<Long, V>.byEntry(): Map<EntryId, V> = mapKeys { (id, _) -> EntryId.Manga(id) }
 
     private fun libraryManga(
         id: Long,

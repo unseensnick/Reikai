@@ -44,7 +44,7 @@ suspend fun novelDynamicGroupingFeed(
 ): DynamicGroupingFeed {
     val dynItems = items.mapNotNull { item ->
         val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-        DynItem<EntryId>(EntryId.Novel(item.id), novel.genre, novel.author, novel.artist)
+        DynItem(EntryId.Novel(item.id), novel.genre, novel.author, novel.artist)
     }
 
     val sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
