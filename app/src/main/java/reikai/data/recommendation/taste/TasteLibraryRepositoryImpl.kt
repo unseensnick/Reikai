@@ -9,6 +9,7 @@ import dev.zacsweers.metro.SingleIn
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.recommendation.taste.TrackStatus
 import reikai.domain.recommendation.taste.TrackedEntry
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.data.Database
 
 @Inject
@@ -18,34 +19,40 @@ class TasteLibraryRepositoryImpl(
     private val database: Database,
 ) : TasteLibraryRepository {
 
-    override suspend fun getAll(): List<TrackedEntry> =
+    override suspend fun getAll(): List<TrackedEntry> = withIOContext {
         database.taste_libraryQueries.getAll(::mapEntry).awaitAsList()
+    }
 
+    // On IO whatever the caller: the settings screen's Refresh now runs on the main thread, and this
+    // transaction rewrites a whole tracker library.
     override suspend fun replaceTracker(trackerId: Long, entries: List<TrackedEntry>, fetchedAt: Long) {
-        database.transaction {
-            database.taste_libraryQueries.deleteByTracker(trackerId)
-            for (entry in entries) {
-                database.taste_libraryQueries.insert(
-                    trackerId = entry.trackerId,
-                    remoteId = entry.remoteId,
-                    title = entry.title,
-                    score = entry.score,
-                    status = entry.status.name,
-                    tags = entry.tags.joinToString(TAG_SEPARATOR),
-                    malId = entry.malId,
-                    anilistId = entry.anilistId,
-                    fetchedAt = fetchedAt,
-                )
+        withIOContext {
+            database.transaction {
+                database.taste_libraryQueries.deleteByTracker(trackerId)
+                for (entry in entries) {
+                    database.taste_libraryQueries.insert(
+                        trackerId = entry.trackerId,
+                        remoteId = entry.remoteId,
+                        title = entry.title,
+                        score = entry.score,
+                        status = entry.status.name,
+                        tags = entry.tags.joinToString(TAG_SEPARATOR),
+                        malId = entry.malId,
+                        anilistId = entry.anilistId,
+                        fetchedAt = fetchedAt,
+                    )
+                }
             }
         }
     }
 
     override suspend fun deleteTracker(trackerId: Long) {
-        database.taste_libraryQueries.deleteByTracker(trackerId)
+        withIOContext { database.taste_libraryQueries.deleteByTracker(trackerId) }
     }
 
-    override suspend fun lastFetch(trackerId: Long): Long? =
+    override suspend fun lastFetch(trackerId: Long): Long? = withIOContext {
         database.taste_libraryQueries.lastFetchByTracker(trackerId).awaitAsOne().last_fetch
+    }
 
     private fun mapEntry(
         trackerId: Long,
