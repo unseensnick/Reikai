@@ -35,7 +35,6 @@ class NovelBackupRoundTripTest {
         restoreMergeGroups = RestoreMergeGroups(repository, PassThroughTransactions),
         setCustomNovelInfo = mockk(relaxed = true),
         database = mockk(relaxed = true),
-        categoryIdPreferences = mockk(relaxed = true),
     )
 
     @Test

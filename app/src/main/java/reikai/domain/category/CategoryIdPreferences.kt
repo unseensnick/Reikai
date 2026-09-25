@@ -44,9 +44,9 @@ class CategoryIdPreferences(
     /**
      * Sets that may hold ids of EITHER content type: the include/exclude library filter, and one pair
      * per rendered recents surface (see `RecentsSurface`). Scrubbed against the union of valid ids,
-     * and a delete of any content type scrubs them. On restore they are remapped inline on the manga
-     * pass only (manga + universal names); a backup's novel ids in them are dropped, since novel
-     * categories do not exist yet at preference-restore time, and a filter is cheaply re-picked.
+     * and a delete of any content type scrubs them. On restore they are remapped on the manga pass only
+     * (manga + universal names), so a backup's novel ids in them are dropped; a filter is cheaply
+     * re-picked.
      */
     val sharedSets: List<Preference<Set<String>>> = listOf(
         reikaiLibraryPreferences.filterCategoriesInclude,
@@ -82,18 +82,15 @@ const val DEAD_LAST_USED_NOVEL_CATEGORY_KEY = "last_used_novel_category"
 /**
  * Translate a set of backup category ids to the freshly restored local ids, matched by category name.
  * A restore mints new rowids, so a stored id only survives if some restored category still carries the
- * same name; anything unmatched is dropped, except an id in [currentIds]: that names a live local
- * category the backup never knew (the pref kept its on-device value), so it is left alone. Shared by
- * the manga (inline, in PreferenceRestorer) and novel (post-restore) remap paths so the two can't
- * diverge; the manga path translates values it just wrote from the backup, so it passes no currentIds.
+ * same name; anything unmatched is dropped. PreferenceRestorer runs it on both content types' keys as
+ * it writes them, so a key the backup left out is never translated and keeps its live value.
  */
 fun translateCategoryIds(
     ids: Set<String>,
     backupIdToName: Map<String, String>,
     nameToNewId: Map<String, String>,
-    currentIds: Set<String> = emptySet(),
 ): Set<String> = ids.mapNotNullTo(mutableSetOf()) { id ->
-    translateCategoryId(id, backupIdToName, nameToNewId, currentIds)
+    translateCategoryId(id, backupIdToName, nameToNewId)
 }
 
 /**
@@ -104,11 +101,10 @@ fun translateCategoryId(
     id: String,
     backupIdToName: Map<String, String>,
     nameToNewId: Map<String, String>,
-    currentIds: Set<String> = emptySet(),
 ): String? = if (id == Category.UNCATEGORIZED_ID.toString()) {
     id
 } else {
-    backupIdToName[id]?.let(nameToNewId::get) ?: id.takeIf { it in currentIds }
+    backupIdToName[id]?.let(nameToNewId::get)
 }
 
 /**

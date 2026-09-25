@@ -24,15 +24,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
-import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -70,6 +69,7 @@ class CategoryPreferenceRestoreTest {
         novelPreferences = NovelPreferences(store),
         extensionSourcePreferences = SourcePreferences(store),
         networkPreferences = NetworkPreferences(store, isDebugBuild = false),
+        getNovelCategories = mockk<GetNovelCategories> { coEvery { await() } returns deviceCategories },
     )
 
     @BeforeEach
@@ -100,8 +100,11 @@ class CategoryPreferenceRestoreTest {
         BackupCategory(name = "Completed", order = 2, id = 12),
     )
 
-    private suspend fun restore(categories: List<BackupCategory>, vararg preferences: BackupPreference) =
-        restorer.restoreApp(preferences.toList(), categories)
+    private suspend fun restore(
+        categories: List<BackupCategory>,
+        vararg preferences: BackupPreference,
+        novelCategories: List<BackupNovelCategory> = emptyList(),
+    ) = restorer.restoreApp(preferences.toList(), categories, novelCategories)
 
     @Test
     fun `a Yokai backup's Default category stays the Default category`() = runTest {
@@ -134,32 +137,18 @@ class CategoryPreferenceRestoreTest {
         libraryPreferences.defaultCategory.get() shouldBe 0
     }
 
-    // Novel categories restore after the app settings, so the novel default is remapped in a second pass.
-    private val novelRestorer = NovelRestorer(
-        novelRepository = mockk(relaxed = true),
-        novelChapterRepository = mockk(relaxed = true),
-        categoryRepository = mockk<CategoryRepository> {
-            coEvery { getAll(CategoryContentType.NOVEL) } returns deviceCategories
-        },
-        novelTrackRepository = mockk(relaxed = true),
-        restoreMergeGroups = mockk(relaxed = true),
-        setCustomNovelInfo = mockk(relaxed = true),
-        database = mockk(relaxed = true),
-        categoryIdPreferences = categoryIdPreferences,
-    )
-
     /** The default category a restore leaves for [kind], from a backup whose categories may [repeatIds]. */
     private suspend fun restoredDefault(kind: String, repeatIds: Boolean, backupDefault: Int): Int? {
         val ids = if (repeatIds) listOf(0L, 0L) else listOf(11L, 12L)
         val names = listOf("Reading", "Completed")
         val preference = if (kind == "manga") categoryIdPreferences.mangaDefault else categoryIdPreferences.novelDefault
         val backupCategories = ids.zip(names) { id, name -> BackupCategory(name = name, id = id) }
+        val novelCategories = ids.zip(names) { id, name -> BackupNovelCategory(name, id = id) }
         restore(
             if (kind == "manga") backupCategories else emptyList(),
             BackupPreference(preference.key(), IntPreferenceValue(backupDefault)),
+            novelCategories = if (kind == "novel") novelCategories else emptyList(),
         )
-        val novelCategories = ids.zip(names) { id, name -> BackupNovelCategory(name, id = id) }
-        if (kind == "novel") novelRestorer.remapCategoryPreferences(novelCategories)
         return preference.get().takeIf { preference.isSet() }
     }
 
@@ -173,6 +162,43 @@ class CategoryPreferenceRestoreTest {
     @ValueSource(strings = ["manga", "novel"])
     fun `a default category maps through its name to the same category here`(kind: String) = runTest {
         restoredDefault(kind, repeatIds = false, backupDefault = 12) shouldBe 200
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["manga", "novel"])
+    fun `a default category set to ask on each add is restored as asking`(kind: String) = runTest {
+        restoredDefault(kind, repeatIds = false, backupDefault = -1) shouldBe -1
+    }
+
+    @Test
+    fun `a novel setting the backup never carried keeps naming its live category`() = runTest {
+        val novelUpdate = categoryIdPreferences.novelSets.first()
+        novelUpdate.set(setOf("100"))
+
+        restore(emptyList(), novelCategories = listOf(BackupNovelCategory("Completed", id = 100)))
+
+        novelUpdate.get() shouldBe setOf("100")
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["manga", "novel"])
+    fun `a category setting restored without its categories keeps the device's own`(kind: String) = runTest {
+        val preference = if (kind ==
+            "manga"
+        ) {
+            categoryIdPreferences.mangaSets.first()
+        } else {
+            categoryIdPreferences.novelSets.first()
+        }
+        preference.set(setOf("100"))
+
+        restorer.restoreApp(
+            listOf(BackupPreference(preference.key(), StringSetPreferenceValue(setOf("12")))),
+            backupCategories = null,
+            backupNovelCategories = null,
+        )
+
+        preference.get() shouldBe setOf("100")
     }
 
     /** The Backup field 2 of each app, alone. */

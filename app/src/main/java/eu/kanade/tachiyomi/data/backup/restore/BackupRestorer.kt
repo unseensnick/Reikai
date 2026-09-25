@@ -164,11 +164,15 @@ class BackupRestorer(
             // the categories job to those two restorers to await; we await it once here instead, because
             // the novel stream below needs the same wait and would have to be threaded separately.
             if (options.categories) {
-                restoreCategories(summary.backupCategories).join()
+                restoreCategories(summary.backupCategories, summary.backupNovelCategories).join()
             }
             // RK: kept, so the plugin restore below can wait for the plugin and repo URLs this writes
             val appPreferences = if (options.appSettings) {
-                restoreAppPreferences(summary.backupPreferences, summary.backupCategories.takeIf { options.categories })
+                restoreAppPreferences(
+                    summary.backupPreferences,
+                    summary.backupCategories.takeIf { options.categories },
+                    summary.backupNovelCategories.takeIf { options.categories },
+                )
             } else {
                 null
             }
@@ -217,13 +221,6 @@ class BackupRestorer(
             // RK <--
 
             // TODO: optionally trigger online library + tracker update
-        }
-
-        // RK: the novel category-id preferences still name the backup's category ids after the restore.
-        // Manga remaps them inline in PreferenceRestorer, but novel categories are not restored until the
-        // novel stream above, so it happens here, once both the prefs and the novel categories are in place.
-        if (options.categories && options.appSettings) {
-            novelRestorer.remapCategoryPreferences(summary.backupNovelCategories)
         }
     }
 
@@ -311,17 +308,13 @@ class BackupRestorer(
         val novelSourceNames: Map<String, String>,
     )
 
-    // RK: restore the light-novel library, streamed. Categories first, then each novel in bounded
-    // batches, then the merge groups (re-keyed from {url,source}).
+    // RK: restore the light-novel library, streamed: each novel in bounded batches, then the merge
+    // groups (re-keyed from {url,source}). Its categories restored with the manga ones, up front.
     private fun CoroutineScope.restoreNovelsStream(
         uri: Uri,
         summary: BackupSummary,
         options: RestoreOptions,
     ) = launch {
-        if (options.categories) {
-            ensureActive()
-            novelRestorer.restoreCategories(summary.backupNovelCategories)
-        }
         // Mirrors the manga stream's gate: with Categories off, novels must not be assigned to
         // same-named pre-existing categories either.
         val membershipCategories = if (options.categories) summary.backupNovelCategories else emptyList()
@@ -347,9 +340,14 @@ class BackupRestorer(
         }
     }
 
-    private fun CoroutineScope.restoreCategories(backupCategories: List<BackupCategory>) = launch {
+    private fun CoroutineScope.restoreCategories(
+        backupCategories: List<BackupCategory>,
+        // RK: before the app settings, so both content types' category-id settings translate inline
+        backupNovelCategories: List<BackupNovelCategory>,
+    ) = launch {
         ensureActive()
         categoriesRestorer(backupCategories)
+        novelRestorer.restoreCategories(backupNovelCategories) // RK
 
         val progress = restoreProgress.incrementAndFetch()
         notifier.showRestoreProgress(
@@ -447,11 +445,13 @@ class BackupRestorer(
     private fun CoroutineScope.restoreAppPreferences(
         preferences: List<BackupPreference>,
         categories: List<BackupCategory>?,
+        novelCategories: List<BackupNovelCategory>?, // RK
     ) = launch {
         ensureActive()
         preferenceRestorer.restoreApp(
             preferences,
             categories,
+            novelCategories, // RK
         )
 
         val progress = restoreProgress.incrementAndFetch()

@@ -4,10 +4,10 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
 /**
- * Pins the shared old-id -> name -> new-id translation both restore paths run (manga inline in
- * PreferenceRestorer, novel post-restore in NovelRestorer). The silent-failure risk is dropping vs keeping
- * an id: a category that came back under the same name must survive with its fresh local id, and one that
- * did not must be dropped rather than left dangling.
+ * Pins the shared old-id -> name -> new-id translation PreferenceRestorer runs on both content types'
+ * category-id settings. The silent-failure risk is dropping vs keeping an id: a category that came back
+ * under the same name must survive with its fresh local id, and one that did not must be dropped rather
+ * than left dangling.
  */
 class TranslateCategoryIdsTest {
 

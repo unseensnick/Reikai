@@ -92,7 +92,6 @@ class NovelRestorerWriteFailureTest {
         restoreMergeGroups = mockk(relaxed = true),
         setCustomNovelInfo = mockk(relaxed = true),
         database = mockk(relaxed = true),
-        categoryIdPreferences = mockk(relaxed = true),
     )
 
     private val backup = BackupNovel(

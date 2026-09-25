@@ -101,6 +101,7 @@ class SourcePreferencesBackupTest {
             novelPreferences = mockk(),
             extensionSourcePreferences = mockk(),
             networkPreferences = mockk(),
+            getNovelCategories = mockk(),
         )
 
         restorer.restoreSource(

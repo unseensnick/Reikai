@@ -19,11 +19,7 @@ import reikai.data.backup.RestoredTrackLink
 import reikai.data.backup.foldBackup
 import reikai.data.novel.updateNovelFetchInterval
 import reikai.domain.category.CategoryContentType
-import reikai.domain.category.CategoryIdPreferences
-import reikai.domain.category.backupCategoryIdToName
 import reikai.domain.category.byNamePreferring
-import reikai.domain.category.translateCategoryId
-import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelChapterRepository
@@ -45,7 +41,6 @@ class NovelRestorer(
     private val restoreMergeGroups: RestoreMergeGroups,
     private val setCustomNovelInfo: SetCustomNovelInfo,
     private val database: Database,
-    private val categoryIdPreferences: CategoryIdPreferences,
 ) {
 
     /** Create any novel categories the backup has that the device doesn't, matched by name. */
@@ -69,42 +64,6 @@ class NovelRestorer(
                     CategoryContentType.NOVEL,
                 )
             }
-    }
-
-    /**
-     * Remap the novel category-id preferences to the freshly restored local ids, matched by name. The
-     * manga equivalent runs inline in PreferenceRestorer, but novel categories are not restored until after
-     * app preferences, so the novel prefs still name the backup's ids until this runs. Mirrors the manga
-     * behavior: a stored id survives only if a restored category kept its name; the default's 0 (uncategorized)
-     * and -1 (prompt) sentinels are left alone. Call once, after [restoreCategories].
-     */
-    suspend fun remapCategoryPreferences(backupCategories: List<BackupNovelCategory>) {
-        if (backupCategories.isEmpty()) return
-        val backupIdToName = backupCategoryIdToName(backupCategories.map { it.id to it.name })
-        val novelVisible = categoryRepository.getAll(CategoryContentType.NOVEL)
-        // On a name shared by a novel-typed and a universal row, bind to the novel-typed one (the
-        // same rule CategoriesRestorer applies); associateBy silently kept whichever came last.
-        val nameToNewId = novelVisible.byNamePreferring(CategoryContentType.NOVEL).mapValues { it.value.id.toString() }
-        // Live local ids survive untranslated: a pref key absent from the backup kept its on-device
-        // value, and running that through backup-id translation dropped or remapped valid ids.
-        val currentIds = novelVisible.mapTo(mutableSetOf()) { it.id.toString() }
-
-        categoryIdPreferences.novelSets.forEach { preference ->
-            val current = preference.get()
-            if (current.isNotEmpty()) {
-                preference.set(translateCategoryIds(current, backupIdToName, nameToNewId, currentIds))
-            }
-        }
-
-        val defaultPreference = categoryIdPreferences.novelDefault
-        val currentDefault = defaultPreference.get()
-        if (currentDefault > 0) {
-            // An id no restored category took is dropped rather than left naming whatever has that id here.
-            translateCategoryId(currentDefault.toString(), backupIdToName, nameToNewId, currentIds)
-                ?.toIntOrNull()
-                ?.let(defaultPreference::set)
-                ?: defaultPreference.delete()
-        }
     }
 
     suspend fun restore(backupNovel: BackupNovel, backupCategories: List<BackupNovelCategory>) {

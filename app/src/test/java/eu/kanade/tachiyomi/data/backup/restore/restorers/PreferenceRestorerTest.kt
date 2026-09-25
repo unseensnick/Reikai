@@ -62,6 +62,7 @@ class PreferenceRestorerTest {
         novelPreferences = novelPreferences,
         extensionSourcePreferences = sourcePreferences,
         networkPreferences = networkPreferences,
+        getNovelCategories = mockk(),
     )
 
     /** Both are WorkManager scheduling the restore does on its way out, which needs a real app. */

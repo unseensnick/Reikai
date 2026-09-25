@@ -383,7 +383,6 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
             setCustomNovelInfo = SetCustomNovelInfo(repository),
             database = mockk(relaxed = true),
-            categoryIdPreferences = mockk(relaxed = true),
         )
         backup.backupNovels.forEach {
             restorer.restore(

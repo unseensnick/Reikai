@@ -370,6 +370,5 @@ class NovelMergeRestorer : MergeRestorer {
         restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
         setCustomNovelInfo = mockk(relaxed = true),
         database = mockk(relaxed = true),
-        categoryIdPreferences = mockk(relaxed = true),
     )
 }

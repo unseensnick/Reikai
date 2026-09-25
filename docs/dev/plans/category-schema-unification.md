@@ -143,18 +143,20 @@ both sides, unchanged.
   2. **Delete-scrub** extended to the library and Updates-tab filter prefs on both types. The novel delete passes
      the registry's `novelSets`; the manga delete scrubs the registry's `mangaSets` after Mihon's `DeleteCategory`
      (domain can't see the app-module `ReikaiLibraryPreferences`/`ReikaiSourcePreferences`).
-  3. **Restore remap**: manga stays inline in `PreferenceRestorer` (its remapped key list now comes from the
-     registry, so it covers the filter/Updates prefs too); novel is remapped in `NovelRestorer.remapCategoryPreferences`
-     after the restore's `coroutineScope` settles, since novel categories aren't restored yet when app prefs are.
-     Both run the shared `translateCategoryIds` (old-id -> name -> new-id).
+  3. **Restore remap**: both types translate inline in `PreferenceRestorer`, key by key from the registry, as each
+     backed-up value is written, through the shared `translateCategoryIds` (old-id -> name -> new-id). Novel
+     categories restore beside the manga ones, before the app settings, so they exist when the novel keys land. A key
+     the backup did not carry is never translated, so its live value cannot be re-pointed by an id the backup reuses,
+     and with Categories off the novel keys keep the device's values exactly as manga's do. A negative default (ask on
+     each add) is a sentinel and restores unchanged for both.
 
   Three corrections to the original plan surfaced during the work: Mihon's `PreferenceRestorer` already remapped
   the manga default/update/download prefs by name (the real gaps were the filter prefs and all novel prefs, not
   "membership only"); `last_used_category` is a library tab index (app-state, never backed up), so it is excluded
   from the scrub; and an old backup could resurrect the dead `last_used_novel_category` key after the migration removed
-  it, so `PreferenceRestorer` now also skips that key on restore. The one deliberate manga/novel difference:
-  restoring over an existing library, manga unions the backup filter into the current one while novel replaces it
-  (novel prefs pass through the raw restore first); on a fresh-install restore they are identical.
+  it, so `PreferenceRestorer` now also skips that key on restore. Restoring over an existing library, both types
+  union the backup's translated ids into the current setting. Novel used to replace it, an artifact of its
+  post-restore pass rather than a choice, and that pass went when the novel keys moved inline.
 - **User-creatable universal categories. SHIPPED except backup** (`f54320f49`..`2caa678b2`), device-verified on
   the A57. A category can now be created
   as universal (`content_type = 0`), manga-only or novel-only, picked from a radio group in the Add-category
