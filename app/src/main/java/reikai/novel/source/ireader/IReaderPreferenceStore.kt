@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
+import reikai.novel.source.ireaderStorageScope
 import tachiyomi.core.common.preference.PreferenceStore
 import ireader.core.prefs.Preference as IReaderPreference
 import ireader.core.prefs.PreferenceStore as IReaderStore
@@ -19,7 +20,7 @@ class IReaderPreferenceStore(
     packageName: String,
 ) : IReaderStore {
 
-    private val prefix = "ireader_storage::$packageName::"
+    private val prefix = ireaderStorageScope(packageName)
 
     override fun getString(key: String, defaultValue: String): IReaderPreference<String> =
         store.getString(prefix + key, defaultValue).bridged(key)

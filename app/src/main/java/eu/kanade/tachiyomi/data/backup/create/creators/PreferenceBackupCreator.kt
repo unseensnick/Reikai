@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.preferenceKey
 import eu.kanade.tachiyomi.source.sourcePreferences
 import kotlinx.coroutines.flow.first
+import reikai.novel.source.pluginStorageScope
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.source.service.SourceManager
@@ -30,7 +31,9 @@ class PreferenceBackupCreator(
 ) {
 
     fun createApp(includePrivatePreferences: Boolean): List<BackupPreference> {
-        return preferenceStore.getAll().toBackupPreferences()
+        return preferenceStore.getAll()
+            .filterKeys { pluginStorageScope(it) == null } // RK: they ride Source settings, below
+            .toBackupPreferences()
             .withPrivatePreferences(includePrivatePreferences)
     }
 
@@ -44,8 +47,23 @@ class PreferenceBackupCreator(
                         .withPrivatePreferences(includePrivatePreferences),
                 )
             }
+            // RK: plugins and IReader extensions keep theirs in the app store, one entry per plugin
+            .plus(pluginStorageSettings(includePrivatePreferences))
             .filter { it.prefs.isNotEmpty() }
     }
+
+    // RK -->
+    private fun pluginStorageSettings(includePrivatePreferences: Boolean): List<BackupSourcePreferences> =
+        preferenceStore.getAll().entries
+            .groupBy({ pluginStorageScope(it.key) }, { it.key to it.value })
+            .mapNotNull { (scope, entries) ->
+                scope ?: return@mapNotNull null
+                BackupSourcePreferences(
+                    scope,
+                    entries.toMap().toBackupPreferences().withPrivatePreferences(includePrivatePreferences),
+                )
+            }
+    // RK <--
 
     @Suppress("UNCHECKED_CAST")
     private fun Map<String, *>.toBackupPreferences(): List<BackupPreference> {

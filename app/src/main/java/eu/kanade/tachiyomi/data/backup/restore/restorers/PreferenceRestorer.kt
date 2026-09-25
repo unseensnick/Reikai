@@ -33,6 +33,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.carryShowNsfwSource
 import reikai.novel.content.NovelSnippets
+import reikai.novel.source.pluginStorageScope
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.plusAssign
@@ -68,6 +69,18 @@ class PreferenceRestorer(
 
     suspend fun restoreSource(preferences: List<BackupSourcePreferences>) {
         preferences.forEach {
+            // RK --> a plugin's settings go back to the app store, and only the keys in its own scope,
+            // so a backup cannot reach any other app setting through Source settings.
+            if (pluginStorageScope(it.sourceKey) == it.sourceKey) {
+                restorePreferences(
+                    it.prefs.filter { pref ->
+                        pluginStorageScope(pref.key) == it.sourceKey
+                    },
+                    preferenceStore,
+                )
+                return@forEach
+            }
+            // RK <--
             val sourcePrefs = AndroidPreferenceStore(sourcePreferences(it.sourceKey))
             restorePreferences(it.prefs, sourcePrefs)
         }

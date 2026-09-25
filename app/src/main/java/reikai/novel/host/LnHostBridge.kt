@@ -15,6 +15,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import reikai.novel.network.applyNovelDefaults
+import reikai.novel.source.lnStorageScope
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.system.logcat
 import java.net.URLDecoder
@@ -123,7 +124,7 @@ class LnHostBridge(
         }
     }
 
-    private fun scopePrefix(pluginId: String): String = "ln_storage::$pluginId::"
+    private fun scopePrefix(pluginId: String): String = lnStorageScope(pluginId)
 
     private fun scopedKey(pluginId: String, key: String): String = "${scopePrefix(pluginId)}$key"
 
