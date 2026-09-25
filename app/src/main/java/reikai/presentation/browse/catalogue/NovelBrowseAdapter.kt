@@ -37,6 +37,7 @@ class NovelBrowseAdapter(
     private val bulk: NovelBulkFavoriteViewModel,
     private val sourceId: String,
     migrateForId: Long? = null,
+    private val onPickUnavailable: () -> Unit = {},
     private val onMigrationPicked: () -> Unit = {},
 ) : EntryBrowseBehavior {
 
@@ -56,10 +57,15 @@ class NovelBrowseAdapter(
     private val capabilities = EntryBrowseCapabilities(
         migrationPick = migrateForId?.let { id ->
             MigrationPickCapability(id) { row, onPicked ->
-                model.pickAsMigrationTarget(row.item, id) {
-                    onPicked()
-                    onMigrationPicked()
-                }
+                model.pickAsMigrationTarget(
+                    row.item,
+                    id,
+                    onPicked = {
+                        onPicked()
+                        onMigrationPicked()
+                    },
+                    onUnavailable = onPickUnavailable,
+                )
             }
         },
     )

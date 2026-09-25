@@ -48,6 +48,7 @@ import eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import eu.kanade.tachiyomi.util.system.toast
 import exh.md.follows.MangaDexFollowsScreen
 import exh.source.getMainSource
 import kotlinx.coroutines.channels.Channel
@@ -190,13 +191,20 @@ class EntryCatalogueScreen(
     @Composable
     private fun NovelCatalogue(sourceId: String) {
         val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
         val uriHandler = LocalUriHandler.current
         val viewModel = assistedMetroViewModel<NovelBrowseViewModel, NovelBrowseViewModel.Factory> {
             create(sourceId = sourceId, initialQuery = initialQuery.orEmpty(), startLatest = startLatest)
         }
         val bulk = metroViewModel<NovelBulkFavoriteViewModel>()
         val adapter = remember(viewModel, bulk) {
-            NovelBrowseAdapter(viewModel, bulk, sourceId, migrateForId) { navigator.pop() }
+            NovelBrowseAdapter(
+                viewModel,
+                bulk,
+                sourceId,
+                migrateForId,
+                onPickUnavailable = { context.toast(MR.strings.migrationFlow_pickUnavailable) },
+            ) { navigator.pop() }
         }
         val modelState by viewModel.state.collectAsState()
         val source = modelState.source

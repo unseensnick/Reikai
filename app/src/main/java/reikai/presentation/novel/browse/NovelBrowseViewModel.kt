@@ -260,14 +260,17 @@ class NovelBrowseViewModel(
      * [onPicked] (which pops back to the migration screen waiting for it).
      *
      * The row is stored first, unfavorited, because a migration target has to be something the
-     * library can point at; the migrate step does the rest.
+     * library can point at; the migrate step does the rest. A row that cannot be stored runs
+     * [onUnavailable] instead and stays here, so the reader can pick another result.
      */
-    fun pickAsMigrationTarget(item: NovelItem, entryRawId: Long, onPicked: () -> Unit) {
+    fun pickAsMigrationTarget(item: NovelItem, entryRawId: Long, onPicked: () -> Unit, onUnavailable: () -> Unit) {
         viewModelScope.launchIO {
             val stored = libraryAdder.materialize(item, sourceId)
-            if (stored != null) {
-                pickHandoff.offer(EntryId.Novel(entryRawId), stored.id)
+            if (stored == null) {
+                withUIContext { onUnavailable() }
+                return@launchIO
             }
+            pickHandoff.offer(EntryId.Novel(entryRawId), stored.id)
             withUIContext { onPicked() }
         }
     }
