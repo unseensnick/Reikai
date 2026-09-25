@@ -457,6 +457,10 @@ challenge by injecting an isolated-world probe into every frame and having each 
   solve runs on those events alone, adding nothing to the page, and loses only the markup fallback.
   Taken from mihonapp/mihon#3858, which degrades where we declined. Measured against three hosts with
   the branch forced: `complete` to accept in 252, 259 and 261ms, against 165 to 802ms with the probe.
+  Every `interactiveBegin` presses on this path, not only the first, because the caller keeps an
+  interactive solve alive through a `fail` and a reissued round is visible only as another event;
+  the press cooldown still gates a repeat. Whether Cloudflare re-posts the event on a reissue has not
+  been measured on device yet.
 - **A solve with no probe has to poll for the clearance itself.** The clearance lands with the
   navigation after `complete`, not with the event, so the one acceptance attempt made on the event is
   always too early. With a probe the next tick asks again; without one nothing does, and the first

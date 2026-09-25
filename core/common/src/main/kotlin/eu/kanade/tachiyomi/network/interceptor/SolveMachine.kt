@@ -48,13 +48,16 @@ internal class SolveMachine(
      *
      * `fail` is deliberately absent: the caller acts on it until the challenge turns interactive and
      * then stops, because Cloudflare reissues after a failed round often enough that pressing
-     * through pays.
+     * through pays. With no probe, a reissue is only visible as another `interactiveBegin`.
      */
     fun onEvent(event: String) {
-        if (phase == Phase.Watching && event == INTERACTIVE_BEGIN) {
-            phase = Phase.Interactive
-            log("interactive began")
-            // With no probe there are no ticks to press on, so the transition is the trigger.
+        if (event == INTERACTIVE_BEGIN) {
+            if (phase == Phase.Watching) {
+                phase = Phase.Interactive
+                log("interactive began")
+            }
+            // With no probe there are no ticks to press on, so the event itself is the trigger, and
+            // the cooldown in [pressWhenDue] still gates a repeat.
             if (!watching) pressWhenDue(hasToken = false)
         }
 
@@ -164,7 +167,7 @@ internal class SolveMachine(
 }
 
 /** Byparr and Solverr both measured that pressing again mid-verification restarts it. */
-private const val PRESS_COOLDOWN_MS = 4000L
+internal const val PRESS_COOLDOWN_MS = 4000L
 
 /**
  * How long a solve gets before the request is failed, measured from arming and pushed out once by

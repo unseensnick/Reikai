@@ -243,4 +243,17 @@ class SolveMachineTest {
 
         fake.presses shouldBe 1
     }
+
+    @Test
+    fun `with no probe a reissued challenge is pressed again`() {
+        val fake = Fake()
+        val m = machine(fake, watching = false)
+        m.arm()
+        m.onEvent("interactiveBegin")
+        fake.advance(PRESS_COOLDOWN_MS)
+
+        m.onEvent("interactiveBegin")
+
+        fake.presses shouldBe 2
+    }
 }
