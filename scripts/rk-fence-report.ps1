@@ -15,7 +15,8 @@
     run of changed lines, or sits right under an RK note (blank lines between allowed). A hunk of five
     lines or fewer with a marker anywhere in it is fenced whole, and a fenced hunk's note carries over a
     gap of two unchanged lines. A removal counts as fenced when an RK note stands within two lines of
-    where the removed lines were. These are heuristics: read a reported hunk before fencing it.
+    where the removed lines were. These are heuristics: read a reported hunk before fencing it. A file
+    whose first lines carry a `// RK: whole file` header is a recorded rewrite, listed but not hunk-checked.
 
     A Reikai-owned file is one refs/mihon does not have at that path, so a file Reikai renamed from a
     Mihon one reports its markers as strays; judge those by hand.
@@ -46,6 +47,8 @@ $marker = '(?<!`)(//|/\*|\*|#|--|<!--)\s*RK\b'
 $islandOpen = '(?<!`)(//|#|--|<!--)\s*RK\s*-->'
 $islandClose = '(?<!`)(//|#|--|<!--)\s*RK\s*<--'
 $exempt = '^\s*$|^\s*import\s'
+# A whole-file rewrite carries this header instead of islands, and is hand-merged whole at a sync.
+$wholeFileHeader = '^\s*//\s*RK:\s*whole file\b'
 
 function Test-Wanted([string]$path) { $Extensions -contains [IO.Path]::GetExtension($path) }
 
@@ -67,10 +70,15 @@ $differing = for ($i = 0; $i -lt $shared.Count; $i++) {
 
 $tmp = [IO.Path]::GetTempFileName()
 $unfenced = [ordered]@{}
+$rewrites = New-Object System.Collections.Generic.List[string]
 try {
     foreach ($path in $differing) {
         $full = Join-Path $repoRoot $path
         $lines = @(Get-Content -LiteralPath $full)
+        if (@($lines | Select-Object -First 5 | Where-Object { $_ -cmatch $wholeFileHeader }).Count -gt 0) {
+            $rewrites.Add($path)
+            continue
+        }
         # 1-based: island[n] is true for line n inside an island, both marker lines included.
         $island = New-Object bool[] ($lines.Count + 2)
         $open = $false
@@ -157,6 +165,9 @@ foreach ($path in $unfenced.Keys) {
     Write-Host "  $path"
     foreach ($line in $unfenced[$path]) { Write-Host "    $line" }
 }
+Write-Host ''
+Write-Host "Whole-file rewrites, hand-merged whole (not hunk-checked): $($rewrites.Count)"
+$rewrites | ForEach-Object { Write-Host "  $_" }
 Write-Host ''
 Write-Host "RK markers in Reikai-owned files: $(@($strays).Count)"
 $strays | ForEach-Object { Write-Host $_ }
