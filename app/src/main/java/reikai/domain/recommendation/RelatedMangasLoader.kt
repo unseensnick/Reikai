@@ -15,18 +15,17 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import logcat.LogPriority
 import reikai.domain.recommendation.taste.TasteCandidateFetcher
-import reikai.domain.recommendation.taste.TasteProfile
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.model.Track
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Orchestrates the related-mangas carousel: candidates from every stream are deduped into one pool
- * and ranked, with intermediate snapshots pushed so the UI renders progressively. The source-native
+ * Orchestrates the related-mangas carousel: candidates from every stream are deduped into one
+ * unranked pool, with intermediate snapshots pushed so the UI renders progressively. The source-native
  * and tracker-recommendation streams run concurrently into ONE shared [Accumulator], so a title
  * surfaced by both dedups to a single candidate whose agreement counts across them. Dedup is
  * two-keyed: by [SManga.url] for a source's own duplicate rows, and by normalized title set for one
- * series listed under different titles. Agreement (times a key appeared before dedup) feeds the ranker.
+ * series listed under different titles. The pool carries agreement (times a key was seen) for ranking.
  */
 @Inject
 class RelatedMangasLoader(
@@ -41,12 +40,10 @@ class RelatedMangasLoader(
         manga: SManga,
         source: CatalogueSource,
         tracks: List<Track>,
-        ranker: RecommendationRanker,
-        taste: TasteProfile,
         currentGenres: List<String>,
-        onUpdate: suspend (List<RelatedMangaCandidate>) -> Unit,
-    ): List<RelatedMangaCandidate> {
-        val accumulator = Accumulator(manga, ranker, taste)
+        onUpdate: suspend (RelatedPool) -> Unit,
+    ): RelatedPool {
+        val accumulator = Accumulator(manga)
 
         coroutineScope {
             launch {
@@ -63,7 +60,6 @@ class RelatedMangasLoader(
                         val candidates = mangas.map { m ->
                             RelatedMangaCandidate(
                                 sourceId = source.id,
-                                trackerName = null,
                                 manga = m,
                                 origin = RecommendationOrigin.SourceNative(source.name),
                             )
@@ -146,13 +142,9 @@ class RelatedMangasLoader(
 
     /**
      * Mutex-guarded dedup + agreement bookkeeping shared by both streams. [add] returns a fresh
-     * ranked snapshot when it accepted at least one new candidate, else null (nothing changed).
+     * snapshot when it accepted at least one new candidate, else null (nothing changed).
      */
-    private class Accumulator(
-        manga: SManga,
-        private val ranker: RecommendationRanker,
-        private val taste: TasteProfile,
-    ) {
+    private class Accumulator(manga: SManga) {
         private val mutex = Mutex()
         private val accumulated = LinkedHashSet<RelatedMangaCandidate>()
         private val seenTitleKeys = HashSet<String>()
@@ -164,7 +156,7 @@ class RelatedMangasLoader(
             TitleNormalizer.normalize(manga.title).takeIf { it.isNotEmpty() }?.let { seenTitleKeys += it }
         }
 
-        suspend fun add(candidates: List<RelatedMangaCandidate>): List<RelatedMangaCandidate>? =
+        suspend fun add(candidates: List<RelatedMangaCandidate>): RelatedPool? =
             mutex.withLock {
                 var added = false
                 // Count each title key at most once per push, not once per candidate: a stream that
@@ -182,16 +174,16 @@ class RelatedMangasLoader(
                     added = true
                 }
                 batchKeys.forEach { agreementByKey.merge(it, 1, Int::plus) }
-                if (added) rankSnapshot() else null
+                if (added) poolSnapshot() else null
             }
 
-        suspend fun snapshot(): List<RelatedMangaCandidate> = mutex.withLock { rankSnapshot() }
+        suspend fun snapshot(): RelatedPool = mutex.withLock { poolSnapshot() }
 
-        private fun rankSnapshot(): List<RelatedMangaCandidate> {
+        private fun poolSnapshot(): RelatedPool {
             val agreementByUrl = accumulated.associate { c ->
                 c.manga.url to (c.titleKeys().maxOfOrNull { agreementByKey[it] ?: 1 } ?: 1)
             }
-            return ranker.rank(accumulated.toList(), taste, agreementByUrl)
+            return RelatedPool(accumulated.toList(), agreementByUrl)
         }
     }
 }

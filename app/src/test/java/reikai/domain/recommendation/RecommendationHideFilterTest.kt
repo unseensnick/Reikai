@@ -12,7 +12,6 @@ class RecommendationHideFilterTest {
     private fun candidate(title: String, trackerId: Long? = null, remoteId: Long? = null) =
         RelatedMangaCandidate(
             sourceId = 99L,
-            trackerName = null,
             manga = SManga.create().apply {
                 this.url = title
                 this.title = title

@@ -26,10 +26,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import mihon.domain.manga.model.toDomainManga
 import reikai.domain.category.resolveDefaultCategoryIds
-import reikai.domain.recommendation.BuildRecommendationHideFilter
+import reikai.domain.recommendation.PrepareRecommendationAssembly
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
+import reikai.domain.recommendation.RelatedPool
 import reikai.presentation.browse.finishAdd
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
@@ -48,7 +49,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 
 /**
- * "See all" browse grid for the related-mangas carousel. Re-reads the full ranked pool from
+ * "See all" browse grid for the related-mangas carousel. Re-reads the whole pool from
  * [RelatedMangaCache] by manga id (never passed through the Voyager constructor, which only takes
  * serializable args) and offers multi-select bulk add-to-library + an origin-grouping toggle.
  *
@@ -68,7 +69,7 @@ class RelatedMangasBrowseViewModel(
     private val updateManga: UpdateManga,
     private val networkToLocalManga: NetworkToLocalManga,
     private val libraryPreferences: LibraryPreferences,
-    private val buildRecommendationHideFilter: BuildRecommendationHideFilter,
+    private val prepareRecommendationAssembly: PrepareRecommendationAssembly,
 ) : ViewModel() {
 
     val state: StateFlow<RelatedMangasBrowseViewModel.State>
@@ -88,7 +89,7 @@ class RelatedMangasBrowseViewModel(
 
     init {
         viewModelScope.launchIO {
-            val hideFilter = buildRecommendationHideFilter.await()
+            val assembly = prepareRecommendationAssembly.await()
             // Live off the cache, so a grid opened mid-load (the menu placement opens it before the load
             // finishes) fills as the pool streams, and off the library, so a title added here or anywhere
             // else stays marked through every later emission.
@@ -97,10 +98,17 @@ class RelatedMangasBrowseViewModel(
                 .distinctUntilChanged()
                 .flatMapLatest(::libraryKeys)
             combine(pool, library) { entry, libraryKeys ->
-                Triple(entry?.fullPool.orEmpty(), entry?.isComplete, libraryKeys)
-            }.collect { (candidates, isComplete, libraryKeys) ->
-                val items = candidates.map {
-                    BrowseItem(it, (it.manga.url to it.sourceId) in libraryKeys, hidden = hideFilter.shouldHide(it))
+                Triple(entry?.pool ?: RelatedPool.EMPTY, entry?.isComplete, libraryKeys)
+            }.collect { (related, isComplete, libraryKeys) ->
+                val candidates = related.candidates
+                // The carousel's assembly without its cap, then what the filters hide, behind the eye toggle.
+                val shown = assembly.assemble(related) + candidates.filter(assembly.hideFilter::shouldHide)
+                val items = shown.map {
+                    BrowseItem(
+                        it,
+                        (it.manga.url to it.sourceId) in libraryKeys,
+                        hidden = assembly.hideFilter.shouldHide(it),
+                    )
                 }
                 // No entry is a finished, empty pool: a source with no related list, or one lost with the process.
                 state.update { it.copy(items = items, loading = isComplete == false && candidates.isEmpty()) }

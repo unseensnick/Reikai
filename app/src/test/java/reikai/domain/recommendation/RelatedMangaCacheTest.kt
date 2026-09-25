@@ -11,7 +11,6 @@ class RelatedMangaCacheTest {
     private fun candidates(vararg urls: String) = urls.map { url ->
         RelatedMangaCandidate(
             sourceId = 1L,
-            trackerName = null,
             manga = SManga.create().apply {
                 this.url = url
                 title = url
@@ -22,13 +21,15 @@ class RelatedMangaCacheTest {
 
     private val full = candidates("a", "b", "c")
 
+    private fun pool(candidates: List<RelatedMangaCandidate>) = RelatedPool(candidates, emptyMap())
+
     @Test
     fun `a streamed snapshot of a refresh does not replace a complete pool`() {
         val cache = RelatedMangaCache()
-        cache.put(ID, full.take(2), full)
+        cache.put(ID, pool(full))
         val seeded = cache.get(ID)
 
-        cache.put(ID, candidates("x"), candidates("x"), isComplete = false)
+        cache.put(ID, pool(candidates("x")), isComplete = false)
 
         cache.get(ID) shouldBeSameInstanceAs seeded
     }
@@ -36,10 +37,10 @@ class RelatedMangaCacheTest {
     @Test
     fun `an empty refresh keeps the pool and its fetch time, so the next open retries`() {
         val cache = RelatedMangaCache()
-        cache.put(ID, full.take(2), full)
+        cache.put(ID, pool(full))
         val seeded = cache.get(ID)
 
-        cache.put(ID, emptyList(), emptyList())
+        cache.put(ID, RelatedPool.EMPTY)
 
         cache.get(ID) shouldBeSameInstanceAs seeded
     }
@@ -47,9 +48,9 @@ class RelatedMangaCacheTest {
     @Test
     fun `a complete refresh replaces the pool`() {
         val cache = RelatedMangaCache()
-        cache.put(ID, full.take(2), full)
+        cache.put(ID, pool(full))
 
-        cache.put(ID, candidates("x"), candidates("x"))
+        cache.put(ID, pool(candidates("x")))
 
         cache.get(ID)?.fullPool shouldBe candidates("x")
     }
@@ -58,7 +59,7 @@ class RelatedMangaCacheTest {
     fun `an empty result is stored when nothing was cached`() {
         val cache = RelatedMangaCache()
 
-        cache.put(ID, emptyList(), emptyList())
+        cache.put(ID, RelatedPool.EMPTY)
 
         cache.get(ID)!!.fullPool.shouldBeEmpty()
     }

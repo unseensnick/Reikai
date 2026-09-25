@@ -20,11 +20,15 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
+import reikai.domain.recommendation.RecommendationAssembly
 import reikai.domain.recommendation.RecommendationHideFilter
 import reikai.domain.recommendation.RecommendationOrigin
+import reikai.domain.recommendation.RecommendationRanker
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
+import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.TitleNormalizer
+import reikai.domain.recommendation.taste.TasteProfile
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
@@ -45,7 +49,6 @@ class RelatedMangasBrowseViewModelTest {
     /** Tracker-origin, so an add skips it without resolving anything and goes straight to finishing. */
     private fun candidate(url: String, sourceId: Long = RECOMMENDS_SOURCE) = RelatedMangaCandidate(
         sourceId = sourceId,
-        trackerName = "tracker",
         manga = SManga.create().apply {
             this.url = url
             title = url
@@ -58,7 +61,7 @@ class RelatedMangasBrowseViewModelTest {
 
     private fun viewModel(
         cache: RelatedMangaCache = RelatedMangaCache().apply {
-            put(MANGA_ID, carousel = emptyList(), fullPool = listOf(candidate("a"), candidate("b")))
+            put(MANGA_ID, RelatedPool(listOf(candidate("a"), candidate("b")), emptyMap()))
         },
         hiddenTitles: Set<String> = emptySet(),
     ): RelatedMangasBrowseViewModel = RelatedMangasBrowseViewModel(
@@ -85,12 +88,16 @@ class RelatedMangasBrowseViewModelTest {
             coEvery { this@mockk.invoke(any<Manga>()) } answers { firstArg<Manga>().copy(id = 10L) }
         },
         libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
-        buildRecommendationHideFilter = mockk {
-            coEvery { await() } returns RecommendationHideFilter(
-                RecommendationHideFilter.Index(emptySet(), emptySet(), emptySet(), hiddenTitles),
-                RecommendationHideFilter.Index.EMPTY,
-                anilistTrackerId = 1L,
-                malTrackerId = 2L,
+        prepareRecommendationAssembly = mockk {
+            coEvery { await() } returns RecommendationAssembly(
+                RecommendationHideFilter(
+                    RecommendationHideFilter.Index(emptySet(), emptySet(), emptySet(), hiddenTitles),
+                    RecommendationHideFilter.Index.EMPTY,
+                    anilistTrackerId = 1L,
+                    malTrackerId = 2L,
+                ),
+                RecommendationRanker(),
+                TasteProfile.EMPTY,
             )
         },
     )
@@ -123,7 +130,7 @@ class RelatedMangasBrowseViewModelTest {
     @Test
     fun `an added title stays marked in the library when the pool updates`() = runTest {
         val cache = RelatedMangaCache().apply {
-            put(MANGA_ID, emptyList(), listOf(candidate("a", SOURCE_ID)), isComplete = false)
+            put(MANGA_ID, RelatedPool(listOf(candidate("a", SOURCE_ID)), emptyMap()), isComplete = false)
         }
         val viewModel = viewModel(cache = cache)
         settle { viewModel.state.first { it.items.isNotEmpty() } }
@@ -131,7 +138,7 @@ class RelatedMangasBrowseViewModelTest {
         viewModel.addSelectedToLibrary()
         settle { viewModel.state.first { it.selectedUrls.isEmpty() } }
 
-        cache.put(MANGA_ID, emptyList(), listOf(candidate("a", SOURCE_ID), candidate("b", SOURCE_ID)))
+        cache.put(MANGA_ID, RelatedPool(listOf(candidate("a", SOURCE_ID), candidate("b", SOURCE_ID)), emptyMap()))
 
         settle { viewModel.state.first { it.items.size == 2 } }
             .items.first { it.candidate.manga.url == "a" }.inLibrary shouldBe true

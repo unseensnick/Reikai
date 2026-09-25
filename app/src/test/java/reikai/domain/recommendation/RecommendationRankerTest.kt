@@ -15,7 +15,6 @@ class RecommendationRankerTest {
         }
         return RelatedMangaCandidate(
             sourceId = 1L,
-            trackerName = null,
             manga = manga,
             origin = RecommendationOrigin.SourceNative("test"),
         )

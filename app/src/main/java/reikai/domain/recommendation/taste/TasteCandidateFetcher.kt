@@ -124,7 +124,7 @@ class TasteCandidateFetcher(
     }
 
     private fun candidate(source: CatalogueSource, manga: SManga, origin: RecommendationOrigin) =
-        RelatedMangaCandidate(sourceId = source.id, trackerName = null, manga = manga, origin = origin)
+        RelatedMangaCandidate(sourceId = source.id, manga = manga, origin = origin)
 
     private fun handleFailure(e: Throwable, exceptionHandler: (Throwable) -> Unit, message: () -> String) {
         when (e) {

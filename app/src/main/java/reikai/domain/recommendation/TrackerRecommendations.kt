@@ -50,7 +50,6 @@ abstract class TrackerRecommendations {
         altTitles: List<String> = emptyList(),
     ): RelatedMangaCandidate = RelatedMangaCandidate(
         sourceId = RECOMMENDS_SOURCE,
-        trackerName = trackerName,
         manga = SManga.create().apply {
             this.url = url
             this.title = title

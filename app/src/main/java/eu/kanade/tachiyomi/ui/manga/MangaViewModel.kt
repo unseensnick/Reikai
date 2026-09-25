@@ -98,17 +98,16 @@ import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.merge.toGapNeighbour
-import reikai.domain.recommendation.BuildRecommendationHideFilter
+import reikai.domain.recommendation.PrepareRecommendationAssembly
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
-import reikai.domain.recommendation.RecommendationHideFilter
+import reikai.domain.recommendation.RecommendationAssembly
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedMangasLoader
 import reikai.domain.recommendation.RelatedPlacement
-import reikai.domain.recommendation.taste.GetTasteProfile
+import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
-import reikai.domain.recommendation.taste.TasteProfile
 import reikai.domain.track.autobind.AutoBindOnAdd // RK
 import reikai.domain.track.supportingContent
 import reikai.presentation.browse.AddOutcome
@@ -219,9 +218,8 @@ class MangaViewModel(
     private val relatedMangasLoader: RelatedMangasLoader,
     private val recommendationPreferences: ReikaiRecommendationPreferences,
     private val relatedMangaCache: RelatedMangaCache,
-    private val getTasteProfile: GetTasteProfile,
     private val refreshTrackerLibrary: RefreshTrackerLibrary,
-    private val buildRecommendationHideFilter: BuildRecommendationHideFilter,
+    private val prepareRecommendationAssembly: PrepareRecommendationAssembly,
     private val getFavorites: GetFavorites,
     private val networkToLocalManga: NetworkToLocalManga,
     private val uiPreferences: UiPreferences,
@@ -1864,18 +1862,17 @@ class MangaViewModel(
         relatedLoadStarted = true
         // An empty, incomplete entry marks the load as running, so "See all" spins only while one is.
         val cached = relatedMangaCache.get(state.manga.id)
-        if (cached == null) relatedMangaCache.put(state.manga.id, emptyList(), emptyList(), isComplete = false)
+        if (cached == null) relatedMangaCache.put(state.manga.id, RelatedPool.EMPTY, isComplete = false)
         // Bootstrap / refresh the taste cache out of band (never on the carousel's critical path);
         // the profile read below uses whatever is already cached, the pull lands for the next open.
         viewModelScope.launchIO { refreshTrackerLibrary.refreshIfStale() }
         viewModelScope.launchIO {
             val favorites = getFavorites.await()
             val favoriteKeys = favorites.mapTo(HashSet()) { it.url to it.source }
-            // Anti-echo: opt-in filter that hides suggestions the user already has/tracks (by id, then
-            // title). No-op when no filter is enabled.
-            val hideFilter = buildRecommendationHideFilter.await()
+            // Hide filter, ranker and taste, applied on read so a settings change is never baked into the cache.
+            val assembly = prepareRecommendationAssembly.await()
             if (cached != null) {
-                applyRelated(cached.fullPool, favoriteKeys, hideFilter)
+                applyRelated(cached.pool, favoriteKeys, assembly)
                 if (cached.isComplete && relatedMangaCache.isFresh(cached)) return@launchIO
             } else {
                 updateSuccessState { it.copy(relatedLoading = true) }
@@ -1890,40 +1887,29 @@ class MangaViewModel(
                 manga = state.manga.toSManga(),
                 source = source,
                 tracks = getTracksInGroup.await(state.manga.id),
-                ranker = recommendationPreferences.buildRanker(),
-                // Rerank off -> empty profile, which collapses the ranker to popularity order.
-                taste = if (recommendationPreferences.enableRecommendationRerank.get()) {
-                    getTasteProfile.await()
-                } else {
-                    TasteProfile.EMPTY
-                },
                 currentGenres = state.manga.genre.orEmpty(),
                 // Each snapshot is cached (incomplete) so "See all" fills mid-load. Both puts show what the
                 // cache kept, so a stale refresh never shrinks a full pool mid-stream or empties it.
                 onUpdate = {
-                    val kept = relatedMangaCache.put(mangaId, it.take(CAROUSEL_CAP), it, isComplete = false)
-                    applyRelated(kept.fullPool, favoriteKeys, hideFilter)
+                    val kept = relatedMangaCache.put(mangaId, it, isComplete = false)
+                    applyRelated(kept.pool, favoriteKeys, assembly)
                 },
             )
-            applyRelated(
-                relatedMangaCache.put(mangaId, pool.take(CAROUSEL_CAP), pool).fullPool,
-                favoriteKeys,
-                hideFilter,
-            )
+            applyRelated(relatedMangaCache.put(mangaId, pool).pool, favoriteKeys, assembly)
             updateSuccessState { it.copy(relatedLoading = false) }
         }
     }
 
     private fun applyRelated(
-        pool: List<RelatedMangaCandidate>,
+        pool: RelatedPool,
         favoriteKeys: Set<Pair<String, Long>>,
-        hideFilter: RecommendationHideFilter,
+        assembly: RecommendationAssembly,
     ) {
-        val items = pool
-            .filterNot { hideFilter.shouldHide(it) }
+        val items = assembly.assemble(pool, cap = CAROUSEL_CAP)
             .map { RelatedMangaItem(it, (it.manga.url to it.sourceId) in favoriteKeys) }
-        // Cap the carousel; the full pool stays in the cache for the "See all" browse grid.
-        updateSuccessState { it.copy(relatedItems = items.take(CAROUSEL_CAP), relatedTotalCount = items.size) }
+        // The count is of everything "See all" shows, which is the same assembly without the cap.
+        val total = pool.candidates.count { !assembly.hideFilter.shouldHide(it) }
+        updateSuccessState { it.copy(relatedItems = items, relatedTotalCount = total) }
     }
 
     /** Resolve a tapped candidate to a local manga id to open, or null for a tracker-origin card

@@ -10,22 +10,25 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.updateAndGet
 
 /**
- * In-memory cache of the related-mangas carousel pool, keyed by manga id, so reopening a manga shows
- * its carousel instantly instead of re-querying the source and every tracker endpoint. A stale entry
- * is still served immediately while a background fetch updates it, so the carousel can be up to
- * [FRESH_MS] out of date. Cleared on process death.
+ * In-memory cache of the related-mangas pool, keyed by manga id, so reopening a manga shows its
+ * carousel instantly instead of re-querying the source and every tracker endpoint. The pool is kept
+ * unranked, since [RecommendationAssembly] filters and ranks it on read. A stale entry is still served
+ * immediately while a background fetch updates it, so the carousel can be up to [FRESH_MS] out of
+ * date. Cleared on process death.
  */
 @Inject
 @SingleIn(AppScope::class)
 class RelatedMangaCache {
     data class Entry(
-        val carousel: List<RelatedMangaCandidate>,
         val fullPool: List<RelatedMangaCandidate>,
+        val agreementByUrl: Map<String, Int>,
         val fetchedAt: Long,
         // False while the load is still streaming; a partial entry is served (so "See all" isn't
         // empty mid-load) but never treated as fresh, so it still refreshes to completion.
         val isComplete: Boolean = true,
-    )
+    ) {
+        val pool: RelatedPool get() = RelatedPool(fullPool, agreementByUrl)
+    }
 
     private val entries = MutableStateFlow<Map<Long, Entry>>(emptyMap())
 
@@ -43,11 +46,10 @@ class RelatedMangaCache {
      */
     fun put(
         mangaId: Long,
-        carousel: List<RelatedMangaCandidate>,
-        fullPool: List<RelatedMangaCandidate>,
+        pool: RelatedPool,
         isComplete: Boolean = true,
     ): Entry {
-        val entry = Entry(carousel, fullPool, System.currentTimeMillis(), isComplete)
+        val entry = Entry(pool.candidates, pool.agreementByUrl, System.currentTimeMillis(), isComplete)
         return entries.updateAndGet { if (replaces(it[mangaId], entry)) it + (mangaId to entry) else it }
             .getValue(mangaId)
     }

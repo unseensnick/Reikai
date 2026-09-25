@@ -73,6 +73,7 @@ Turning a tracker's pull off drops its cached entries, so it stops shaping the r
 
 With **Rerank by taste** <Badge type="info" text="On" /> the source's suggestions are reordered toward your taste.
 Tracker recommendations keep the order they arrived in, since they are already personal.
+The row holds 30, and up to 12 of those places are kept for tracker recommendations, taken in turn from each tracker, so a source with plenty of its own suggestions cannot crowd them out.
 
 Two sliders shape it, and both are hidden while reranking is off.
 

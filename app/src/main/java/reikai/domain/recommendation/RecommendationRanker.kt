@@ -21,7 +21,7 @@ class RecommendationRanker(
 ) {
 
     /**
-     * @param pool merged, already library-filtered carousel list.
+     * @param pool the merged pool, with what the hide filter hides already dropped.
      * @param taste user's taste profile; an empty profile bypasses scoring.
      * @param agreementByUrl per-candidate count of how many streams surfaced its title; higher
      *   counts are boosted (a count of 1 adds nothing).
