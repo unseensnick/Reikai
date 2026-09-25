@@ -35,7 +35,6 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSortItem
-import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.SortItem
@@ -80,21 +79,7 @@ fun LibrarySettingsSheet(
             when (page) {
                 0 -> FilterPage(settings, settingsViewModel, onManageCategories)
                 1 -> SortPage(settings, settingsViewModel, categoryId)
-                2 -> EntryDisplayPage(
-                    viewModel = settingsViewModel,
-                    showLocalBadge = settings.showLocalBadge,
-                    mergeToggles = {
-                        // Master switch (also in Settings); the same-title suggestion moved there too.
-                        CheckboxItem(
-                            label = stringResource(MR.strings.action_series_merging),
-                            pref = settingsViewModel.reikaiLibraryPreferences.seriesMergingEnabled,
-                        )
-                        CheckboxItem(
-                            label = stringResource(MR.strings.action_merge_source_icons),
-                            pref = settings.mergeSourceIcons,
-                        )
-                    },
-                )
+                2 -> EntryDisplayPage(viewModel = settingsViewModel, showLocalBadge = settings.showLocalBadge)
                 3 -> GroupPage(settings)
             }
         }

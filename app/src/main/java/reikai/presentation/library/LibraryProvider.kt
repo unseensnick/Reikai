@@ -16,11 +16,11 @@ interface LibraryProvider : LibraryBehavior {
     val contentType: ContentType
 
     /**
-     * This content type's settings sheet, described rather than rendered, so one shared sheet serves both.
-     * It sits here rather than on [LibraryBehavior] because it is per-content-type data, not an action on
-     * entries, and because a mixed view has no single settings scope to answer with.
+     * The part of the settings sheet this content type answers for; [LibraryEngine] adds the library-wide
+     * rest. It sits here rather than on [LibraryBehavior] because it is per-content-type data, not an
+     * action on entries.
      */
-    val settings: LibrarySettingsBinding
+    val settings: LibraryProviderSettings
 
     /**
      * This content type's library rows: filtered, search-matched and merge-collapsed, but unsorted and

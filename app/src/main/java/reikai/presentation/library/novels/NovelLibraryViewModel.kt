@@ -82,7 +82,6 @@ import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -620,16 +619,7 @@ class NovelLibraryViewModel(
             downloadedIds = novelDownloadCache::downloadedChapterIds,
         )
 
-    // --- settings sheet (sort / filter), rendered from the engine's dialog ---
-    // Sort writes live in NovelLibraryAdapter, routed through the shared SetSortModeForCategory exactly
-    // like the manga side, since the global sort and Random seed are one library-wide preference pair.
-
-    // The filter axes read the library-wide preferences directly in NovelLibraryAdapter's
-    // LibrarySettingsBinding since the filter unification; only the genuinely per-type members remain.
-
-    /** Dynamic grouping mode, for the settings sheet's Group tab. Library-wide since the grouping
-     *  unification, so setting it under either chip groups the whole library. */
-    val groupLibraryBy: Preference<Int> get() = reikaiLibraryPreferences.groupLibraryBy
+    // --- settings sheet: LibraryEngine builds the library-wide part, this model only lists categories ---
 
     /** Full novel category list (the Default row 0 + user categories, sorted) for the filter picker.
      *  Not [State.displayedCategories]: that drops empty categories and is replaced by dynamic groups

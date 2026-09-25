@@ -64,6 +64,7 @@ class LibraryEngineTest {
             reikaiLibraryPreferences = ReikaiLibraryPreferences(store),
             libraryPreferences = LibraryPreferences(store),
             categoryRepository = repository,
+            setSortModeForCategory = mockk(relaxed = true),
             // Only the dynamic-grouping assembly reaches these, which no case here exercises.
             context = mockk(relaxed = true),
             trackerManager = mockk(relaxed = true),

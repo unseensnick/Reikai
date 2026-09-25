@@ -31,16 +31,13 @@ private val displayModes = listOf(
 
 /**
  * The single library-settings Display tab for both manga and novels: display mode, columns, badges,
- * continue-reading, the tabs section, and the Reikai category/hopper settings. The two per-type
- * divergences are parameters, so the tab can't drift: [showLocalBadge] gates the manga-only local
- * badge, and [mergeToggles] is the per-type merge checkbox block (it runs inside this column, so a
- * type's stacked or conditional toggles drop in unchanged).
+ * continue-reading, the tabs section, and the Reikai category/hopper settings. The one per-type
+ * divergence is a parameter, so the tab can't drift: [showLocalBadge] gates the manga-only local badge.
  */
 @Composable
 fun ColumnScope.EntryDisplayPage(
     viewModel: LibrarySettingsViewModel,
     showLocalBadge: Boolean,
-    mergeToggles: @Composable ColumnScope.() -> Unit,
 ) {
     val displayMode by viewModel.libraryPreferences.displayMode.collectAsState()
     SettingsChipRow(MR.strings.action_display_mode) {
@@ -101,7 +98,15 @@ fun ColumnScope.EntryDisplayPage(
         label = stringResource(MR.strings.action_display_source_badge),
         pref = viewModel.reikaiLibraryPreferences.sourceBadge,
     )
-    mergeToggles()
+    // Master switch (also in Settings); the same-title suggestion moved there too.
+    CheckboxItem(
+        label = stringResource(MR.strings.action_series_merging),
+        pref = viewModel.reikaiLibraryPreferences.seriesMergingEnabled,
+    )
+    CheckboxItem(
+        label = stringResource(MR.strings.action_merge_source_icons),
+        pref = viewModel.reikaiLibraryPreferences.showMergeSourceIcons,
+    )
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_continue_reading_button),
         pref = viewModel.libraryPreferences.showContinueReadingButton,

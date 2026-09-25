@@ -42,7 +42,7 @@ class LibrarySettingsViewModel(
     }
 
     // RK --> Reikai settings-sheet actions still on the Display tab. The filter, sort and group actions
-    // that used to live here moved to MangaLibraryAdapter's LibrarySettingsBinding, which the one shared
+    // that used to live here moved to LibraryEngine's LibrarySettingsBinding, which the one shared
     // sheet drives, so upstream's own toggleFilter / toggleTracker / setSort went with them.
 
     /** Category list order (0 = manual, 1 = A->Z, 2 = Z->A). */

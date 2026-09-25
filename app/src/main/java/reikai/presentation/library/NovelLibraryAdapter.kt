@@ -20,17 +20,13 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.entry.EntryId
-import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.groupedSourceIdsOf
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.novels.novelDynamicGroupingFeed
-import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.domain.category.interactor.SetSortModeForCategory
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import kotlin.time.Duration.Companion.seconds
@@ -49,8 +45,6 @@ class NovelLibraryAdapter(
     private val context: Context,
     private val libraryPreferences: LibraryPreferences,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
-    private val setSortModeForCategory: SetSortModeForCategory,
-    private val categoryRepository: CategoryRepository,
     private val trackerManager: TrackerManager,
     private val novelSourceManager: NovelSourceManager,
 ) : LibraryProvider {
@@ -62,9 +56,8 @@ class NovelLibraryAdapter(
 
     override val contentType = ContentType.NOVELS
 
-    // `by lazy` for the same reason as the injections above: nothing here is resolved until a sheet asks.
-    override val settings: LibrarySettingsBinding by lazy {
-        LibrarySettingsBinding(
+    override val settings: LibraryProviderSettings =
+        LibraryProviderSettings(
             // The library-wide filter preferences (shared with manga since the filter unification), in
             // manga's axis order. Novels have no interval-custom axis and simply omit it; the novel
             // pipeline neutralizes that axis rather than reading it, so it can never empty this library.
@@ -78,35 +71,10 @@ class NovelLibraryAdapter(
                     LibraryFilterAxis(MR.strings.lewd, reikaiLibraryPreferences.filterLewd),
                 ),
             ),
-            trackerFilter = libraryPreferences::filterTracking,
-            categoryFilter = LibraryCategoryFilter(
-                enabled = reikaiLibraryPreferences.filterCategories,
-                included = reikaiLibraryPreferences.filterCategoriesInclude,
-                excluded = reikaiLibraryPreferences.filterCategoriesExclude,
-            ),
             categories = model.filterPickerCategories,
-            groupMode = model.groupLibraryBy,
-            // One library-wide global sort (the manga preference), mirroring MangaLibraryAdapter, so the
-            // Sort tab writes the same preference whichever chip is up.
-            globalSort = libraryPreferences.sortingMode.changes()
-                .stateIn(model.viewModelScope, SharingStarted.Eagerly, libraryPreferences.sortingMode.get()),
-            setSort = { categoryId, type, direction ->
-                model.viewModelScope.launchIO { setSortModeForCategory.await(categoryId, type, direction) }
-            },
-            resetSort = { categoryId ->
-                model.viewModelScope.launchIO {
-                    val category = categoryRepository.get(categoryId) ?: return@launchIO
-                    categoryRepository.updateFlags(
-                        categoryId = categoryId,
-                        flags = category.flags and CATEGORY_SORT_CUSTOMIZED.inv(),
-                    )
-                }
-            },
             // Novels have no local sources, so nothing is ever local and the badge would never light up.
             showLocalBadge = false,
-            mergeSourceIcons = reikaiLibraryPreferences.showMergeSourceIcons,
         )
-    }
 
     // Shared while subscribed, not eagerly: an eager share here is a permanent subscriber on the model,
     // which would hold its own WhileSubscribed window open for the model's whole life and make its

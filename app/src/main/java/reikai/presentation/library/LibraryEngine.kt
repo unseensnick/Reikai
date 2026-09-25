@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.update
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.categoryDiff
 import reikai.domain.entry.EntryId
+import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -40,6 +41,7 @@ import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.category.interactor.SetSortModeForCategory
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -67,6 +69,7 @@ class LibraryEngine(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val libraryPreferences: LibraryPreferences,
     private val categoryRepository: CategoryRepository,
+    private val setSortModeForCategory: SetSortModeForCategory,
     // Only the dynamic-grouping assembly needs these: the group labels and the track-status ordering.
     private val context: Context,
     private val trackerManager: TrackerManager,
@@ -390,29 +393,62 @@ class LibraryEngine(
     }
 
     /**
-     * The settings sheet a [contentType] describes. Since the filter unification every axis writes a
-     * library-wide preference, so the All description is the manga binding (the axis superset: novels
-     * only omit the debug interval axis) with the remaining per-type member answered for a mixed
-     * view: a union category list, re-sorted by the category-sort-order preference.
+     * The settings sheet a [contentType] describes: the library-wide members, built here once for every
+     * view, plus the view's own [LibraryProviderSettings]. Built once per view and kept, since the All
+     * view's category union is a flow on this scope.
      */
-    fun settingsFor(contentType: ContentType): LibrarySettingsBinding =
-        providersFor(contentType).singleOrNull()?.settings ?: allSettings
+    fun settingsFor(contentType: ContentType): LibrarySettingsBinding = settingsBindings.getValue(contentType).value
 
-    private val allSettings: LibrarySettingsBinding by lazy {
-        val manga = providersFor(ContentType.MANGA).single()
-        val novel = providersFor(ContentType.NOVELS).single()
-        manga.settings.copy(
+    private val settingsBindings: Map<ContentType, Lazy<LibrarySettingsBinding>> =
+        ContentType.entries.associateWith { type -> lazy { settingsBinding(providerSettingsFor(type)) } }
+
+    private fun settingsBinding(view: LibraryProviderSettings) = LibrarySettingsBinding(
+        filterAxes = view.filterAxes,
+        trackerFilter = libraryPreferences::filterTracking,
+        categoryFilter = LibraryCategoryFilter(
+            enabled = reikaiLibraryPreferences.filterCategories,
+            included = reikaiLibraryPreferences.filterCategoriesInclude,
+            excluded = reikaiLibraryPreferences.filterCategoriesExclude,
+        ),
+        categories = view.categories,
+        groupMode = reikaiLibraryPreferences.groupLibraryBy,
+        globalSort = globalSort,
+        setSort = ::setSort,
+        resetSort = ::resetSort,
+        showLocalBadge = view.showLocalBadge,
+    )
+
+    /**
+     * Since the filter unification every axis writes a library-wide preference, so the All view is the
+     * manga part (the axis superset: novels only omit the debug interval axis) over a union category list.
+     */
+    private fun providerSettingsFor(contentType: ContentType): LibraryProviderSettings {
+        providersFor(contentType).singleOrNull()?.let { return it.settings }
+        val manga = providersFor(ContentType.MANGA).single().settings
+        val novel = providersFor(ContentType.NOVELS).single().settings
+        return manga.copy(
             // Re-apply the category-sort-order pref after the union: both inputs arrive pref-sorted,
             // but the order-column re-sort (needed to interleave the two lists) discards it, which
             // left the All sheet in manual order while the other chips honoured A-Z / Z-A.
             categories = combine(
-                manga.settings.categories,
-                novel.settings.categories,
+                manga.categories,
+                novel.categories,
                 reikaiLibraryPreferences.categorySortOrder.changes(),
             ) { m, n, sortOrder ->
                 reikaiSortCategories((m + n).distinctBy { it.id }.sortedBy { it.order }, sortOrder)
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
         )
+    }
+
+    private fun setSort(categoryId: Long?, type: LibrarySort.Type, direction: LibrarySort.Direction) {
+        viewModelScope.launchIO { setSortModeForCategory.await(categoryId, type, direction) }
+    }
+
+    private fun resetSort(categoryId: Long) {
+        viewModelScope.launchIO {
+            val category = categoryRepository.get(categoryId) ?: return@launchIO
+            categoryRepository.updateFlags(categoryId, category.flags and CATEGORY_SORT_CUSTOMIZED.inv())
+        }
     }
 
     // Category collapse, library-wide rather than per provider: a collapsed category is one row in one

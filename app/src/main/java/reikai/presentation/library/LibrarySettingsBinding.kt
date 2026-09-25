@@ -31,12 +31,22 @@ data class LibraryCategoryFilter(
 )
 
 /**
+ * What a settings sheet needs from one content type, the part that genuinely differs per view. A
+ * provider omits a filter axis it lacks rather than the sheet branching on content type. [filterAxes]
+ * is a flow because manga's interval-custom row comes and goes with a preference, and [categories]
+ * is the FULL list, since the picker must offer categories the current filters hide.
+ */
+data class LibraryProviderSettings(
+    val filterAxes: StateFlow<List<LibraryFilterAxis>>,
+    val categories: StateFlow<List<Category>>,
+    /** Whether the Display tab offers the Local badge. Only manga has a local-source concept. */
+    val showLocalBadge: Boolean,
+)
+
+/**
  * One view's settings sheet, described rather than rendered, so a sheet change is written once for
- * both content types. Every filter axis now writes ONE library-wide preference, leaving the binding
- * for what genuinely differs per view; a provider omits an axis it lacks rather than the sheet
- * branching on content type. [filterAxes] is a flow because manga's interval-custom row comes and goes
- * with a preference. A null category id in [setSort] is the global scope, and [categories] is the FULL
- * list, since the picker must offer categories the current filters hide.
+ * both content types. [LibraryEngine] builds it from the library-wide members, which every view
+ * shares, and the view's [LibraryProviderSettings]. A null category id in [setSort] is the global scope.
  */
 data class LibrarySettingsBinding(
     val filterAxes: StateFlow<List<LibraryFilterAxis>>,
@@ -47,9 +57,5 @@ data class LibrarySettingsBinding(
     val globalSort: StateFlow<LibrarySort>,
     val setSort: (categoryId: Long?, type: LibrarySort.Type, direction: LibrarySort.Direction) -> Unit,
     val resetSort: (categoryId: Long) -> Unit,
-    /** Whether the Display tab offers the Local badge. Only manga has a local-source concept. */
     val showLocalBadge: Boolean,
-    /** Show grouped sources' icons instead of a count on a merged cover. One shared key; both
-     *  adapters pass [reikai.domain.library.ReikaiLibraryPreferences.showMergeSourceIcons]. */
-    val mergeSourceIcons: Preference<Boolean>,
 )

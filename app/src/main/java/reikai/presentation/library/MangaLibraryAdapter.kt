@@ -22,15 +22,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.entry.EntryId
-import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.groupedSourceIdsOf
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.GetCategories
-import tachiyomi.domain.category.interactor.SetSortModeForCategory
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.source.service.SourceManager
@@ -52,8 +48,6 @@ class MangaLibraryAdapter(
     private val context: Context,
     private val libraryPreferences: LibraryPreferences,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
-    private val setSortModeForCategory: SetSortModeForCategory,
-    private val categoryRepository: CategoryRepository,
     private val trackerManager: TrackerManager,
     private val sourceManager: SourceManager,
 ) : LibraryProvider {
@@ -65,9 +59,9 @@ class MangaLibraryAdapter(
 
     override val contentType = ContentType.MANGA
 
-    // `by lazy` for the same reason as the injections above: nothing here is resolved until a sheet asks.
-    override val settings: LibrarySettingsBinding by lazy {
-        LibrarySettingsBinding(
+    // `by lazy` because these flows start on the model's scope, which should not happen until a sheet asks.
+    override val settings: LibraryProviderSettings by lazy {
+        LibraryProviderSettings(
             filterAxes = libraryPreferences.autoUpdateMangaRestrictions.changes()
                 .map(::filterAxes)
                 .stateIn(
@@ -75,35 +69,13 @@ class MangaLibraryAdapter(
                     SharingStarted.Eagerly,
                     filterAxes(libraryPreferences.autoUpdateMangaRestrictions.get()),
                 ),
-            trackerFilter = libraryPreferences::filterTracking,
-            categoryFilter = LibraryCategoryFilter(
-                enabled = reikaiLibraryPreferences.filterCategories,
-                included = reikaiLibraryPreferences.filterCategoriesInclude,
-                excluded = reikaiLibraryPreferences.filterCategoriesExclude,
-            ),
             categories = combine(
                 getCategories.subscribe(),
                 reikaiLibraryPreferences.categorySortOrder.changes(),
             ) { categories, sortOrder ->
                 reikaiSortCategories(categories.sortedBy { it.order }, sortOrder)
             }.stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
-            groupMode = reikaiLibraryPreferences.groupLibraryBy,
-            globalSort = libraryPreferences.sortingMode.changes()
-                .stateIn(model.viewModelScope, SharingStarted.Eagerly, libraryPreferences.sortingMode.get()),
-            setSort = { categoryId, type, direction ->
-                model.viewModelScope.launchIO { setSortModeForCategory.await(categoryId, type, direction) }
-            },
-            resetSort = { categoryId ->
-                model.viewModelScope.launchIO {
-                    val category = categoryRepository.get(categoryId) ?: return@launchIO
-                    categoryRepository.updateFlags(
-                        categoryId = categoryId,
-                        flags = category.flags and CATEGORY_SORT_CUSTOMIZED.inv(),
-                    )
-                }
-            },
             showLocalBadge = true,
-            mergeSourceIcons = reikaiLibraryPreferences.showMergeSourceIcons,
         )
     }
 
