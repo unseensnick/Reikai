@@ -3,6 +3,8 @@ package reikai.domain.merge
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 /** The gap rule, pinned once for both content types. */
 class ChapterGapTest {
@@ -72,6 +74,25 @@ class ChapterGapTest {
         val lower = at(516.0, name = "Chapter 516: Ever His Humble Servant")
 
         ChapterGap.between(higher, lower) shouldBe 0
+    }
+
+    @ParameterizedTest(name = "{0} / {1}")
+    @CsvSource(
+        "'Ch. 14', 'Ch. 10'",
+        "'Ch.14', 'Ch.10'",
+        "'Chapter 14.', 'Chapter 10.'",
+        "'Vol.1 Ch.14', 'Vol.1 Ch.10'",
+        "'Vol 2 Chapter 14', 'Volume 2 Chapter 10'",
+    )
+    @DisplayName("a label written with a period or behind a volume is believed")
+    fun punctuatedLabelIsBelieved(higherName: String, lowerName: String) {
+        ChapterGap.between(at(14.0, name = higherName), at(10.0, name = lowerName)) shouldBe 3
+    }
+
+    @Test
+    @DisplayName("a volume extra behind a volume number is still not believed")
+    fun volumePrefixedExtraIsDeclined() {
+        ChapterGap.between(at(483.0, name = "Chapter 483"), at(2.0, name = "Vol 11 Extra 2")) shouldBe 0
     }
 
     @Test

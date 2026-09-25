@@ -58,9 +58,11 @@ object ChapterGap {
      * 2, which under chapter 483 claimed 480 were missing.
      */
     private fun numberIsTrustworthy(neighbour: Neighbour): Boolean {
-        val tokens = neighbour.name.lowercase().split(nonAlphanumeric).filter { it.isNotEmpty() }
-        val first = tokens.firstOrNull() ?: return false
-        val at = if (first in labelWords) 1 else 0
+        val tokens = token.findAll(neighbour.name.lowercase()).map { it.value }.toList()
+        // A leading volume is not the chapter: "Vol.1 Ch.14" is labelled from its third token.
+        val volumeFirst = tokens.firstOrNull() in volumeWords && tokens.getOrNull(1)?.let(plainNumber::matches) == true
+        val start = if (volumeFirst) 2 else 0
+        val at = if (tokens.getOrNull(start) in labelWords) start + 1 else start
         val candidate = tokens.getOrNull(at) ?: return false
         if (!plainNumber.matches(candidate)) return false
         // Two numbers in the label and there is no telling which is the chapter: "Chapter 523 - 517"
@@ -69,10 +71,15 @@ object ChapterGap {
     }
 
     private val labelWords = setOf("chapter", "ch", "chap", "episode", "ep")
+    private val volumeWords = setOf("volume", "vol")
     private val plainNumber = Regex("""^[0-9]+(\.[0-9]+)?$""")
 
-    /** Keeps a decimal whole, so "Chapter 5.5" is one number rather than two. */
-    private val nonAlphanumeric = Regex("""[^a-z0-9.]+""")
+    /**
+     * A run of letters and digits, with a period kept only between two digits: "Chapter 5.5" is one
+     * number, while "Ch.5" and "Chapter 5." lose the period. Letters glued to digits stay one token,
+     * so "v11ex2" is never read as a number.
+     */
+    private val token = Regex("""(?:[a-z0-9]|(?<=[0-9])\.(?=[0-9]))+""")
 }
 
 /** A merged list's neighbours can come from different sources, so the owning manga travels with the
