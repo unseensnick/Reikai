@@ -34,6 +34,7 @@ import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.includes
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.presentation.selection.EntrySelection
@@ -348,7 +349,7 @@ class LibraryEngine(
 
     /** Every provider contributing rows to a [contentType] view. Both of them for [ContentType.ALL]. */
     fun providersFor(contentType: ContentType): List<LibraryProvider> =
-        providers.filter { contentType == ContentType.ALL || it.contentType == contentType }
+        providers.filter { contentType.includes(it.contentType) }
 
     /** Of these providers, the ones that actually own an entry in [entries]. */
     private fun List<LibraryProvider>.owning(entries: Set<EntryId>): List<LibraryProvider> =

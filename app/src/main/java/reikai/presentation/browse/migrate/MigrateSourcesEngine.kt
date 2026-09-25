@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ContentType
+import reikai.domain.library.includes
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelExtensionFormat
 import tachiyomi.core.common.preference.getAndSet
@@ -91,7 +92,7 @@ class MigrateSourcesEngine(
     }
 
     private fun MigrateSourcesProvider.shows(contentType: ContentType) =
-        contentType == ContentType.ALL || contentType == this.contentType
+        contentType.includes(this.contentType)
 
     @Immutable
     data class State(

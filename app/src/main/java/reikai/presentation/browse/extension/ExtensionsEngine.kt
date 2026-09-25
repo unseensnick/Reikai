@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ContentType
+import reikai.domain.library.includes
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.debouncedBrowseQuery
@@ -50,7 +51,7 @@ class ExtensionsEngine(
     ) { snapshots, contentType, query ->
         val active = providers.indices.filter { providers[it].shows(contentType) }
         // A provider serving both types is active under either chip, so its rows are filtered too.
-        val rows = active.flatMap { snapshots[it].rows.orEmpty() }.filter { it.key.contentType.shownUnder(contentType) }
+        val rows = active.flatMap { snapshots[it].rows.orEmpty() }.filter { contentType.includes(it.key.contentType) }
         val shown = rows.filter { matchesExtensionQuery(it, query) }
         State(
             contentType = contentType,
@@ -62,12 +63,12 @@ class ExtensionsEngine(
             isLoading = active.all { snapshots[it].rows == null },
             hasPending = active.any { snapshots[it].rows == null },
             isRefreshing = active.any { snapshots[it].isRefreshing },
-            hasRepos = active.any { i -> snapshots[i].reposFor.any { it.shownUnder(contentType) } },
+            hasRepos = active.any { i -> snapshots[i].reposFor.any { contentType.includes(it) } },
             // Only where a row on screen installs through the system, so a plugin-only Novels list
             // does not ask for a permission nothing it shows would use.
             needsInstallPermission = active.any { i ->
                 snapshots[i].needsInstallPermission &&
-                    snapshots[i].rows.orEmpty().any { it.key.contentType.shownUnder(contentType) }
+                    snapshots[i].rows.orEmpty().any { contentType.includes(it.key.contentType) }
             },
             showsFormat = NovelExtensionFormat.tellsApart(shown.map { it.key.format }),
             items = sectionExtensions(shown),
@@ -103,9 +104,7 @@ class ExtensionsEngine(
 
     private fun activeProviders() = providers.filter { it.shows(state.value.contentType) }
 
-    private fun ExtensionsProvider.shows(contentType: ContentType) = contentTypes.any { it.shownUnder(contentType) }
-
-    private fun ContentType.shownUnder(chip: ContentType) = chip == ContentType.ALL || chip == this
+    private fun ExtensionsProvider.shows(contentType: ContentType) = contentTypes.any { contentType.includes(it) }
 
     private fun ExtensionsProvider.snapshot(): Flow<Snapshot> =
         combine(rows, reposFor, isRefreshing, needsInstallPermission, ::Snapshot)

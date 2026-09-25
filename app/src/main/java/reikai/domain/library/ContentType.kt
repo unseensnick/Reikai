@@ -10,3 +10,6 @@ enum class ContentType {
     MANGA,
     NOVELS,
 }
+
+/** Whether this chip shows entries of [type]: its own type, or every type under [ContentType.ALL]. */
+fun ContentType.includes(type: ContentType): Boolean = this == ContentType.ALL || this == type

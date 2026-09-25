@@ -41,6 +41,7 @@ import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.includes
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -752,7 +753,7 @@ class RecentsEngine(
         combine(lanes.map(provider::lane)) { it.toList() }
 
     private fun activeIndices(chip: ContentType): List<Int> =
-        providers.indices.filter { chip == ContentType.ALL || providers[it].contentType == chip }
+        providers.indices.filter { chip.includes(providers[it].contentType) }
 
     private fun showsManga(chip: ContentType): Boolean =
         activeIndices(chip).any { providers[it].contentType == ContentType.MANGA }
