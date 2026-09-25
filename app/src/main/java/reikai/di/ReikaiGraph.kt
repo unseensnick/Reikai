@@ -50,7 +50,6 @@ import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.InsertFlatMetadata
-import tachiyomi.domain.storage.service.StorageManager
 
 /**
  * Reikai's members of the app graph. `AppGraph` extends this, so each is still read as
@@ -73,7 +72,6 @@ interface ReikaiGraph {
     // App's cold-start warm-up reads it beside Mihon's networkHelper, sourceManager and downloadManager.
     val database: Database
     val preferenceStore: PreferenceStore
-    val storageManager: StorageManager
 
     // Read through Context.appGraph by companions, objects and composable bodies, none of which can
     // be member-injected. migrationAdapters is read from the migrate screens, which pick one by
