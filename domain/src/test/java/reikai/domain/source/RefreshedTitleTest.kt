@@ -22,7 +22,12 @@ class RefreshedTitleTest {
     }
 
     @Test
-    fun `a blank source title never replaces the stored one`() {
-        refreshedTitle(" ", isFavorite = false, updateTitles = true) shouldBe null
+    fun `an empty source title never replaces the stored one`() {
+        refreshedTitle("", isFavorite = false, updateTitles = true) shouldBe null
+    }
+
+    @Test
+    fun `a whitespace source title replaces the stored one, as Mihon's isNotEmpty check does`() {
+        refreshedTitle(" ", isFavorite = false, updateTitles = true) shouldBe " "
     }
 }

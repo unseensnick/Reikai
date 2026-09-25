@@ -6,4 +6,4 @@ package reikai.domain.source
  * entry is in the library and "Update library titles to match source" is off.
  */
 fun refreshedTitle(remote: String?, isFavorite: Boolean, updateTitles: Boolean): String? =
-    remote?.takeIf { it.isNotBlank() && (!isFavorite || updateTitles) }
+    remote?.takeIf { it.isNotEmpty() && (!isFavorite || updateTitles) }
