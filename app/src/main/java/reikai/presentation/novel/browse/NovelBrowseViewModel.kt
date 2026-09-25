@@ -41,6 +41,8 @@ import reikai.novel.source.NovelListingPagingSource
 import reikai.novel.source.NovelSearchPagingSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.browse.catalogue.BrowseColumns
+import reikai.presentation.browse.catalogue.trackBrowseColumns
 import reikai.presentation.browse.catalogue.trackDisplayMode
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.migrate.flow.MigrationPickHandoff
@@ -49,6 +51,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
+import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * Per-source light-novel browse state holder. The source is pre-picked (the Browse Sources tab is the
@@ -71,6 +74,7 @@ class NovelBrowseViewModel(
     private val reikaiSourcePreferences: ReikaiSourcePreferences,
     private val sourcePreferences: SourcePreferences,
     private val getIncognitoState: GetIncognitoState,
+    private val libraryPreferences: LibraryPreferences,
 ) : ViewModel() {
 
     val state: StateFlow<NovelBrowseState>
@@ -117,6 +121,9 @@ class NovelBrowseViewModel(
         // Shared with the manga catalogue, which owes the same invariant.
         displayModePreference.trackDisplayMode(viewModelScope) { mode ->
             state.update { it.copy(displayMode = mode) }
+        }
+        libraryPreferences.trackBrowseColumns(viewModelScope) { columns ->
+            state.update { it.copy(columns = columns) }
         }
 
         // In-library marking: favorited (source, url) keys so results already saved are dimmed +
@@ -361,6 +368,8 @@ data class NovelBrowseState(
     /** The grid layout. Held here for the same reason the manga state holds it: the catalogue
      *  screen renders from this flow, so a value it cannot observe never reaches the grid. */
     val displayMode: LibraryDisplayMode = LibraryDisplayMode.default,
+    /** The grid's column counts, carried for the same reason as [displayMode]. */
+    val columns: BrowseColumns = BrowseColumns(),
 ) {
     /** What the pager pages, or null until the source resolves. The filter draft is deliberately
      *  absent: only [appliedFilters] reaches the pager, so editing filters refetches nothing. */

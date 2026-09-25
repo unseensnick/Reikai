@@ -140,7 +140,7 @@ class NovelBrowseAdapter(
             filtersActive = state.filterChipActive(),
             hasSettings = source.settings != null,
             webUrl = source.site.takeIf { it.isNotBlank() },
-            rowStyle = EntryBrowseRowStyle.Standard(state.displayMode),
+            rowStyle = EntryBrowseRowStyle.Standard(state.displayMode, state.columns),
             selectionMode = bulkState.selectionMode,
             selectedKeys = bulkState.selection.mapTo(mutableSetOf()) { rowKey(it.sourceId, it.item) },
             capabilities = capabilities,

@@ -396,8 +396,9 @@ do with a query the reader typed. One of the two had to win and the takeover too
 clearing is arguably the better behaviour and both types can do it, so levelling manga up instead is
 open.
 
-**Dead, and deleted.** `BrowseSourceViewModel.getColumnsPreference` lost its last caller when the
-shared body started reading the column preference itself.
+**Dead, and deleted.** `BrowseSourceViewModel.getColumnsPreference` is gone. Both models follow the
+library's column counts into their own state through `trackBrowseColumns`, and the shared grid reads
+them off the neutral row style, so no composable reads the preference.
 
 ## Decisions & tradeoffs
 

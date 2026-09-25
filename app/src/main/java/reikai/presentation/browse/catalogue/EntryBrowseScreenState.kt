@@ -64,7 +64,7 @@ sealed interface EntryBrowseListing {
  * shown doing nothing. Only the manga adapter produces it.
  */
 sealed interface EntryBrowseRowStyle {
-    data class Standard(val displayMode: LibraryDisplayMode) : EntryBrowseRowStyle
+    data class Standard(val displayMode: LibraryDisplayMode, val columns: BrowseColumns) : EntryBrowseRowStyle
     data object Gallery : EntryBrowseRowStyle
 }
 

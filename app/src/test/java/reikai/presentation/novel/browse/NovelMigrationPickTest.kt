@@ -21,6 +21,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.host.NovelItem
 import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.domain.library.service.LibraryPreferences
 
 /** A novel picked as a migration target is stored first, and one that cannot be stored says so. */
 class NovelMigrationPickTest {
@@ -83,6 +84,7 @@ class NovelMigrationPickTest {
             reikaiSourcePreferences = ReikaiSourcePreferences(store),
             sourcePreferences = SourcePreferences(store),
             getIncognitoState = mockk(relaxed = true),
+            libraryPreferences = LibraryPreferences(store),
         )
     }
 

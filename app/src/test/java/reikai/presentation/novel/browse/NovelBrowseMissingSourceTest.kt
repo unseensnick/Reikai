@@ -23,6 +23,7 @@ import reikai.presentation.browse.catalogue.EntryBrowseScreenState
 import reikai.presentation.browse.catalogue.NovelBrowseAdapter
 import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.domain.library.service.LibraryPreferences
 
 /** A novel catalogue whose source is gone says so the way a manga one does, by the source's name. */
 class NovelBrowseMissingSourceTest {
@@ -55,6 +56,7 @@ class NovelBrowseMissingSourceTest {
             reikaiSourcePreferences = ReikaiSourcePreferences(store),
             sourcePreferences = SourcePreferences(store),
             getIncognitoState = mockk(relaxed = true),
+            libraryPreferences = LibraryPreferences(store),
         )
         val bulk = mockk<NovelBulkFavoriteViewModel> {
             every { state } returns MutableStateFlow(EntryBulkFavoriteViewModel.State())

@@ -44,6 +44,8 @@ import reikai.domain.source.filter.selectGenre
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.catalogue.BrowseColumns
+import reikai.presentation.browse.catalogue.trackBrowseColumns
 import reikai.presentation.browse.catalogue.trackDisplayMode
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
@@ -140,6 +142,10 @@ open class BrowseSourceViewModel(
         // RK: shared with the novel catalogue, which owes the same invariant.
         displayModePreference.trackDisplayMode(viewModelScope) { mode ->
             state.update { it.copy(displayMode = mode) }
+        }
+        // RK: the library's column counts, which the shared catalogue grid follows for both types.
+        libraryPreferences.trackBrowseColumns(viewModelScope) { columns ->
+            state.update { it.copy(columns = columns) }
         }
     }
 
@@ -406,6 +412,8 @@ open class BrowseSourceViewModel(
         //     flow rather than reading the model from composition, so a Compose-only value set here
         //     would change nothing on screen until some unrelated update happened to emit.
         val displayMode: LibraryDisplayMode = LibraryDisplayMode.default,
+        // RK: the grid's column counts, carried here for the same reason as [displayMode].
+        val columns: BrowseColumns = BrowseColumns(),
     ) {
         val isUserQuery get() = listing is Listing.Search && !listing.query.isNullOrEmpty()
     }

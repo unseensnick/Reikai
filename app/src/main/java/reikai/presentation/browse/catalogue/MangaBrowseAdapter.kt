@@ -113,7 +113,7 @@ class MangaBrowseAdapter(
             rowStyle = if (model.useEhentaiView) {
                 EntryBrowseRowStyle.Gallery
             } else {
-                EntryBrowseRowStyle.Standard(state.displayMode)
+                EntryBrowseRowStyle.Standard(state.displayMode, state.columns)
             },
             selectionMode = bulkState.selectionMode,
             selectedKeys = bulkState.selection.mapTo(mutableSetOf(), ::mangaRowKey),

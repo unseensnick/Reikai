@@ -30,6 +30,7 @@ import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.catalogue.NovelBrowseAdapter
 import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * Where applied filters go, which the two formats answer oppositely: an LNReader plugin's search takes
@@ -207,6 +208,7 @@ class NovelBrowseFilterRoutingTest {
             reikaiSourcePreferences = ReikaiSourcePreferences(store),
             sourcePreferences = SourcePreferences(store),
             getIncognitoState = mockk(relaxed = true),
+            libraryPreferences = LibraryPreferences(store),
         )
         // The source resolves on Dispatchers.IO, which the test scheduler cannot advance.
         model.state.first { it.source != null }

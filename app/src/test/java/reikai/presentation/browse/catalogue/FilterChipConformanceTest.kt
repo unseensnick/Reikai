@@ -29,6 +29,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * The Filter chip means one thing on both catalogues: a search-shaped listing is showing. The two
@@ -173,7 +174,7 @@ private class MangaFilterChipProbe : FilterChipProbe {
             listingQuery = mangaListingQuery(startLatest = false, initialQuery = null),
             sourceManager = mockk(relaxed = true) { coEvery { getOrStub(SOURCE_ID) } returns source },
             sourcePreferences = SourcePreferences(store),
-            libraryPreferences = mockk(relaxed = true),
+            libraryPreferences = LibraryPreferences(store),
             getRemoteManga = mockk(relaxed = true),
             getManga = mockk(relaxed = true),
             getIncognitoState = mockk(relaxed = true),
@@ -234,6 +235,7 @@ private class NovelFilterChipProbe(
             reikaiSourcePreferences = ReikaiSourcePreferences(store),
             sourcePreferences = SourcePreferences(store),
             getIncognitoState = mockk(relaxed = true),
+            libraryPreferences = LibraryPreferences(store),
         )
         // The plugin resolves on Dispatchers.IO, which the test scheduler cannot advance, so the
         // state is awaited. Every verb below early-returns until the source has landed.

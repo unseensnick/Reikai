@@ -1,10 +1,10 @@
 package reikai.presentation.browse.catalogue
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.SnackbarDuration
@@ -14,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
@@ -29,7 +28,6 @@ import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
 import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
-import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.Public
@@ -137,6 +135,7 @@ fun EntryBrowseCatalogue(
         is EntryBrowseRowStyle.Standard -> StandardRows(
             rows = rows,
             displayMode = rowStyle.displayMode,
+            columns = rowStyle.columns,
             selectedKeys = selectedKeys,
             contentPadding = contentPadding,
             onClick = onClick,
@@ -149,6 +148,7 @@ fun EntryBrowseCatalogue(
 private fun StandardRows(
     rows: LazyPagingItems<EntryBrowseRow>,
     displayMode: LibraryDisplayMode,
+    columns: BrowseColumns,
     selectedKeys: Set<String>,
     contentPadding: PaddingValues,
     onClick: (EntryBrowseRow) -> Unit,
@@ -178,7 +178,9 @@ private fun StandardRows(
     }
 
     LazyVerticalGrid(
-        columns = rememberBrowseColumns(),
+        columns = columns.gridCells(
+            isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE,
+        ),
         contentPadding = contentPadding + PaddingValues(8.dp),
         verticalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridVerticalSpacer),
         horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
@@ -191,22 +193,6 @@ private fun StandardRows(
             item(span = { GridItemSpan(maxLineSpan) }) { BrowseSourceLoadingItem() }
         }
     }
-}
-
-/**
- * The library's own column count, which both catalogues now follow: one screen serving two content
- * types has one grid, so a per-type column setting would be two answers to one question. Zero means
- * the adaptive width upstream uses.
- */
-@Composable
-private fun rememberBrowseColumns(): GridCells {
-    val context = LocalContext.current
-    val preferences = remember { context.appGraph.libraryPreferences }
-    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val columns = remember(isLandscape) {
-        (if (isLandscape) preferences.landscapeColumns else preferences.portraitColumns).get()
-    }
-    return if (columns == 0) GridCells.Adaptive(128.dp) else GridCells.Fixed(columns)
 }
 
 private val LazyPagingItems<*>.isAppending: Boolean
