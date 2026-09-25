@@ -244,9 +244,10 @@ class NovelLibraryAdder(
         return novelId
     }
 
-    /** Insert + favorite the item, returning its stored novel id and skipping the category prompt. The
-     *  bulk add path favorites many items this way, then applies one category set to all. insertOrGet may
-     *  return a non-favorite shadow row from a prior details open, so favorite is applied as a follow-up. */
+    /** Insert + favorite the item, returning its stored novel id and skipping the category prompt, or
+     *  null when the favorite write failed. The bulk add path favorites many items this way, then applies
+     *  one category set to all. insertOrGet may return a non-favorite shadow row from a prior details
+     *  open, so favorite is applied as a follow-up. */
     suspend fun favoriteReturningId(item: NovelItem, sourceId: String): Long? {
         val base = Novel.create().copy(
             source = sourceId,
@@ -255,9 +256,9 @@ class NovelLibraryAdder(
             thumbnailUrl = item.cover,
         )
         val stored = novelRepository.insertOrGet(base) ?: return null
-        if (!stored.favorite && updateNovel.awaitUpdateFavorite(stored.id, favorite = true)) {
-            autoBindOnAdd.novel(stored)
-        }
+        if (stored.favorite) return stored.id
+        if (!updateNovel.awaitUpdateFavorite(stored.id, favorite = true)) return null
+        autoBindOnAdd.novel(stored)
         return stored.id
     }
 
