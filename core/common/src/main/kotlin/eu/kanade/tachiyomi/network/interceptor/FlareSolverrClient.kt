@@ -574,7 +574,9 @@ internal fun unwrapBrowserJsonViewer(response: String): String? {
     if (!response.trimStart().startsWith('<')) return null
     if (!response.contains("<pre", ignoreCase = true)) return null
     val pre = Jsoup.parse(response).selectFirst("pre")?.wholeText()?.trim().orEmpty()
-    return pre.takeIf { it.startsWith('{') || it.startsWith('[') }
+    if (!pre.startsWith('{') && !pre.startsWith('[')) return null
+    // A page's own <pre> can open with a bracket too ("[Chapter 12]"); the viewers only ever wrap JSON.
+    return pre.takeIf { runCatching { Json.parseToJsonElement(it) }.isSuccess }
 }
 
 @Serializable

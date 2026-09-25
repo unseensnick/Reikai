@@ -408,6 +408,7 @@ every release now also ships a foss build with neither in it.
 - **Global search no longer shows a blank screen when nothing is pinned or no source found anything.** It says which, and on Pinned offers to search all sources.
 - **Forms a source posts through FlareSolverr now reach the site intact, so a novel plugin's chapter list loads there.** A space in a form no longer arrives as a plus sign either.
 - **Pages fetched through a FlareSolverr server on your own network or over HTTPS now come back signed in to the site.** Your cookies are never sent to a solver reached in the clear over the internet.
+- **A page fetched through FlareSolverr now reaches the source whole when a block of preformatted text on it starts with a bracket.** It was mistaken for a JSON reply and cut down to that one block.
 - **A Cloudflare bypass that takes over a minute now finishes instead of failing for no visible reason.** Reikai gave up at the very moment it had asked the server to answer by, and the test button called such a server unreachable rather than slow.
 
 - **The seven sources whose metadata the app enhances now open their settings, from the extension list and from their own catalogue.** The extension list gave an empty page and the catalogue had no settings button; they include a large mainstream source and several adult ones.
