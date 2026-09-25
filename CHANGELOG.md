@@ -205,6 +205,7 @@ every release now also ships a foss build with neither in it.
 - **Searching a genre from a manga's page no longer applies it to a different source's catalogue further back.**
 - **Tapping a series' source name now opens that source to browse.** It used to run a search for the source's own name, and from most screens it did nothing at all.
 - **Page previews on an adult source's details page no longer go blank over time.** Their thumbnails were remembered against links that expire, so a series you had opened before came back as numbered blanks.
+- **Pulling down to refresh a novel's page now downloads its cover again, fixing a broken one, as it already did for manga.**
 - **A novel's page now shows its artist, when it has one separate from the author.** Manga pages already did; tap it to search, like every other field there.
 - **The full-screen cover viewer, Save and Share now use the cover URL you set in Edit info.** They kept showing the source's original cover while the series page showed yours.
 - **Long-pressing a novel's WebView button now copies its link, like manga.**

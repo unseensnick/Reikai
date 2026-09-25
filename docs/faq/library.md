@@ -58,9 +58,11 @@ Alternatively, migrate to a source without duplicates.
 Refer to the [migration guide](/docs/guides/source-migration) for detailed instructions.
 
 ## Why are some cover thumbnails corrupted or blank?
-If cover thumbnails appear corrupted, blank, or broken, it's likely due to an incomplete download. Fix this by refreshing the covers in settings.
+If cover thumbnails appear corrupted, blank, or broken, it's likely due to an incomplete download.
 
-Refresh your covers at <nav to="advanced"> then tap **Refresh library covers**.
+To fix one series, manga or light novel, open it and pull down to refresh. That downloads its cover again even when the source still lists the same image.
+
+**Refresh library covers**, at <nav to="advanced">, covers your whole manga library at once, but it only downloads a cover again when the source has moved it to a new address, so it will not repair a broken copy of an unchanged cover. It does not touch light novels.
 
 ## Why have some chapters been marked as unread?
 If certain series chapters are marked as unread without your interaction, it could be due to changed URLs.

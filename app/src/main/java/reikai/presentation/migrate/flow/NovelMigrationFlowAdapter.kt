@@ -275,6 +275,7 @@ class NovelMigrationFlowAdapter(
                     novelRepository,
                     database,
                     libraryPreferences,
+                    coverCache,
                     novelDownloadManager = downloadManager,
                 )
             }

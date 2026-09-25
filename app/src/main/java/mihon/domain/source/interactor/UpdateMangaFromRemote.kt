@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import logcat.LogPriority
 import mihon.domain.source.models.RemoteMangaUpdate
 import reikai.domain.source.keptCover
+import reikai.domain.source.refreshedCover
 import reikai.domain.source.refreshedTitle
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -111,20 +112,13 @@ class UpdateMangaFromRemote(
 
         val thumbnailUrl = keptCover(null, remoteManga.thumbnail_url) // RK: nor a placeholder
 
-        val coverLastModified = when {
-            // Never refresh covers if the url is empty to avoid "losing" existing covers
-            thumbnailUrl == null -> null // RK
-            !manualFetch && localManga.thumbnailUrl == remoteManga.thumbnail_url -> null
-            localManga.isLocal() -> Clock.System.now().toEpochMilliseconds()
-            localManga.hasCustomCover(coverCache) -> {
-                coverCache.deleteFromCache(localManga, false)
-                null
-            }
-            else -> {
-                coverCache.deleteFromCache(localManga, false)
-                Clock.System.now().toEpochMilliseconds()
-            }
+        // RK --> the rule is shared with the novel refresh
+        val cover = refreshedCover(localManga.thumbnailUrl, thumbnailUrl, manualFetch, localManga.isLocal()) {
+            localManga.hasCustomCover(coverCache)
         }
+        if (cover.deletesCachedFile) coverCache.deleteFromCache(localManga, false)
+        val coverLastModified = Clock.System.now().toEpochMilliseconds().takeIf { cover.stamps }
+        // RK <--
 
         val success = mangaRepository.update(
             MangaUpdate(

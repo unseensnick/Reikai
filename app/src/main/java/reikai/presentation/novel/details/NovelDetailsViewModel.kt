@@ -712,7 +712,7 @@ class NovelDetailsViewModel(
         val sourceNovel = src.parseNovel(existing?.url ?: novelUrl)
         val target = if (existing != null) {
             val parsed = sourceNovel.toNovel(sourceId = src.id, favorite = existing.favorite)
-            storeRefreshedNovel(existing, parsed, novelRepo, libraryPreferences, downloadManager)
+            storeRefreshedNovel(existing, parsed, novelRepo, libraryPreferences, downloadManager, coverCache)
         } else {
             // Non-favorite shadow row so a browse-opened novel is viewable without being silently
             // added; insertOrGet reuses a concurrently-created row instead of duplicating.
@@ -973,6 +973,7 @@ class NovelDetailsViewModel(
             novelRepo,
             database,
             libraryPreferences,
+            coverCache,
             novelDownloadManager = downloadManager,
             manualFetch = true,
         ).also { toDownload += filterChaptersForDownload.await(it.novel, it.newChapters) }.novel

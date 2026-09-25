@@ -1,6 +1,7 @@
 package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.merge.ReconcileMergedChapters
@@ -30,6 +31,7 @@ class RepairNovelDetails(
     private val downloadManager: () -> NovelDownloadManager,
     private val database: Database,
     private val libraryPreferences: LibraryPreferences,
+    private val coverCache: CoverCache,
     private val reconcileMergedChapters: ReconcileMergedChapters,
 ) {
 
@@ -53,6 +55,7 @@ class RepairNovelDetails(
                         novelRepository,
                         database,
                         libraryPreferences,
+                        coverCache,
                         novelDownloadManager = downloadManager(),
                     )
                 }

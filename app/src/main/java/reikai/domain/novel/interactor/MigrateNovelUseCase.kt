@@ -96,6 +96,7 @@ class MigrateNovelUseCase(
                     novelRepository,
                     database,
                     libraryPreferences,
+                    coverCache,
                     novelDownloadManager,
                 )
             }

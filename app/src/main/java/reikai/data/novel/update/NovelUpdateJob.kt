@@ -21,6 +21,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.isRunning
@@ -117,6 +118,8 @@ class NovelUpdateJob(
     @Inject private lateinit var preferences: NovelPreferences
 
     @Inject private lateinit var libraryPreferences: LibraryPreferences
+
+    @Inject private lateinit var coverCache: CoverCache
 
     @Inject private lateinit var reikaiLibraryPreferences: ReikaiLibraryPreferences
 
@@ -311,6 +314,7 @@ class NovelUpdateJob(
         novelRepo,
         database,
         libraryPreferences,
+        coverCache,
         novelDownloadManager = downloadManager,
         fetchWindow = fetchWindow,
     ).newChapters

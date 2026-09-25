@@ -3,6 +3,7 @@ package reikai.novel.source
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import logcat.LogPriority
@@ -32,6 +33,7 @@ class NovelPageFetcher(
     private val sourceManager: NovelSourceManager,
     private val database: Database,
     private val libraryPreferences: LibraryPreferences,
+    private val coverCache: CoverCache,
     private val saver: NovelChapterSaver,
     private val novelDownloadManager: () -> NovelDownloadManager,
 ) {
@@ -49,7 +51,7 @@ class NovelPageFetcher(
         val source = sourceManager.get(novel.source) ?: return@attempt false
         val fetch = source.pageFetch ?: return@attempt false
         val parsed = fetch.details(novel.url, url, html).toNovel(sourceId = source.id, favorite = novel.favorite)
-        storeRefreshedNovel(novel, parsed, novelRepo, libraryPreferences, novelDownloadManager())
+        storeRefreshedNovel(novel, parsed, novelRepo, libraryPreferences, novelDownloadManager(), coverCache)
         true
     } ?: false
 

@@ -1,15 +1,19 @@
 package reikai.data.novel
 
+import android.content.Context
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -38,6 +42,7 @@ import tachiyomi.data.StringListColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
+import java.io.File
 
 /** A library refresh over the real SQL, with the plugin host faked by [PagedSource]. */
 class NovelRefreshTest {
@@ -46,6 +51,10 @@ class NovelRefreshTest {
     private lateinit var database: Database
     private lateinit var novels: RecordingNovelRepository
     private lateinit var chapters: NovelChapterRepositoryImpl
+    private lateinit var coverCache: CoverCache
+
+    @TempDir
+    lateinit var cacheRoot: File
 
     private val libraryPreferences = LibraryPreferences(
         InMemoryPreferenceStore(
@@ -82,6 +91,10 @@ class NovelRefreshTest {
             )
             novels = RecordingNovelRepository(NovelRepositoryImpl(database))
             chapters = NovelChapterRepositoryImpl(database)
+            val context = mockk<Context> {
+                every { getExternalFilesDir(any()) } answers { File(cacheRoot, firstArg<String>()).apply { mkdirs() } }
+            }
+            coverCache = CoverCache(context)
         }
     }
 
@@ -90,7 +103,7 @@ class NovelRefreshTest {
         driver.close()
     }
 
-    private suspend fun storedNovel(nextUpdate: Long = 0L, totalPages: Long = 1L): Novel {
+    private suspend fun storedNovel(nextUpdate: Long = 0L, totalPages: Long = 1L, cover: String? = null): Novel {
         val id = novels.insert(
             Novel.create().copy(
                 source = "src",
@@ -99,6 +112,7 @@ class NovelRefreshTest {
                 favorite = true,
                 nextUpdate = nextUpdate,
                 totalPages = totalPages,
+                thumbnailUrl = cover,
             ),
         )!!
         return novels.getById(id)!!
@@ -127,6 +141,7 @@ class NovelRefreshTest {
         novels,
         database,
         preferences,
+        coverCache,
         novelDownloadManager = downloadManager,
         manualFetch = manualFetch,
         fetchWindow = 1_000L to 2_000L,
@@ -189,6 +204,27 @@ class NovelRefreshTest {
         runCatching { refresh(novel, PagedSource(emptyList(), summary = "New description")) }
 
         novels.getById(novel.id)!!.description shouldBe "New description"
+    }
+
+    /** A cover the details refresh reloads, as manga's does; the rule itself is pinned by `RefreshedCoverTest`. */
+    @Test
+    fun `a refresh asked for by hand reloads a cover whose address did not change`() = runTest {
+        val novel = storedNovel(cover = COVER)
+        val cached = coverCache.getCoverFile(COVER)!!.apply { writeText("stale") }
+
+        refresh(novel, PagedSource(oneChapter, cover = COVER), manualFetch = true)
+
+        (cached.exists() to (novels.getById(novel.id)!!.coverLastModified > 0L)) shouldBe (false to true)
+    }
+
+    @Test
+    fun `a background refresh leaves a cover whose address did not change`() = runTest {
+        val novel = storedNovel(cover = COVER)
+        val cached = coverCache.getCoverFile(COVER)!!.apply { writeText("kept") }
+
+        refresh(novel, PagedSource(oneChapter, cover = COVER))
+
+        (cached.exists() to novels.getById(novel.id)!!.coverLastModified) shouldBe (true to 0L)
     }
 
     private val oneChapter get() = listOf(chapter("/c/1", 1.0))
@@ -320,6 +356,10 @@ class NovelRefreshTest {
         rowsFor(novel, "/c/5").map { it.read to it.page } shouldBe listOf(true to "1")
     }
 
+    private companion object {
+        const val COVER = "https://src.example/cover.jpg"
+    }
+
     private fun chapter(path: String, number: Double) = ChapterItem(
         name = "Chapter $number",
         path = path,
@@ -343,6 +383,7 @@ class NovelRefreshTest {
         private val title: String = "Novel",
         private val summary: String? = null,
         private val genres: String? = null,
+        private val cover: String? = null,
     ) : NovelSource {
         override val id = "src"
         override val name = "Source"
@@ -360,6 +401,7 @@ class NovelRefreshTest {
                 name = title,
                 summary = summary,
                 genres = genres,
+                cover = cover,
                 chapters = firstPage,
                 totalPages = otherPages.size + 1,
             )

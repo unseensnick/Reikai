@@ -1,17 +1,21 @@
 package reikai.data.novel
 
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.source.keptCover
+import reikai.domain.source.refreshedCover
 import reikai.domain.source.refreshedTitle
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
+import kotlin.time.Clock
 
 /**
  * Overlay freshly [parsed] source metadata onto the stored [existing] novel. User edits live in the
@@ -39,7 +43,7 @@ private fun mergeRefreshedNovel(existing: Novel, parsed: Novel, updateTitles: Bo
  * Stores [parsed] over [existing] and returns the novel as merged: the one write every novel refresh
  * makes. Only the source-owned fields are written, as `UpdateMangaFromRemote` writes a partial
  * `MangaUpdate`, so a library change made after [existing] was read survives. A new title moves the
- * download folder with it, as manga's `renameManga` does.
+ * download folder with it, as manga's `renameManga` does. The cover follows manga's rule, [refreshedCover].
  */
 suspend fun storeRefreshedNovel(
     existing: Novel,
@@ -47,9 +51,18 @@ suspend fun storeRefreshedNovel(
     novelRepository: NovelRepository,
     libraryPreferences: LibraryPreferences,
     novelDownloadManager: NovelDownloadManager?,
+    coverCache: CoverCache,
+    manualFetch: Boolean = false,
 ): Novel {
     val merged = mergeRefreshedNovel(existing, parsed, libraryPreferences.updateMangaTitles.get())
-    if (merged == existing) return existing
+    // Novels have no local source, so a cover is never only stamped.
+    val refreshedUrl = keptCover(null, parsed.thumbnailUrl)
+    val cover = refreshedCover(existing.thumbnailUrl, refreshedUrl, manualFetch, isLocal = false) {
+        existing.hasCustomCover(coverCache)
+    }
+    if (cover.deletesCachedFile) coverCache.getCoverFile(existing.thumbnailUrl)?.delete()
+    val coverLastModified = Clock.System.now().toEpochMilliseconds().takeIf { cover.stamps }
+    if (merged == existing && coverLastModified == null) return existing
     val newTitle = merged.title.takeIf { it != existing.title }
     val stored = novelRepository.update(
         NovelUpdate(
@@ -61,12 +74,13 @@ suspend fun storeRefreshedNovel(
             genre = merged.genre,
             status = merged.status,
             thumbnailUrl = merged.thumbnailUrl,
+            coverLastModified = coverLastModified,
             totalPages = merged.totalPages,
             initialized = true,
         ),
     )
     if (stored && newTitle != null) novelDownloadManager?.renameNovel(existing, newTitle)
-    return merged
+    return coverLastModified?.let { merged.copy(coverLastModified = it) } ?: merged
 }
 
 /** What [refreshNovelFromSource] left stored: the merged novel, and the chapters its syncs report as new. */
@@ -86,13 +100,22 @@ suspend fun refreshNovelFromSource(
     novelRepository: NovelRepository,
     database: Database,
     libraryPreferences: LibraryPreferences,
+    coverCache: CoverCache,
     novelDownloadManager: NovelDownloadManager? = null,
     manualFetch: Boolean = false,
     fetchWindow: Pair<Long, Long> = Pair(0, 0),
 ): NovelRefreshResult {
     val sourceNovel = source.parseNovel(novel.url)
     val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = novel.favorite)
-    val merged = storeRefreshedNovel(novel, parsed, novelRepository, libraryPreferences, novelDownloadManager)
+    val merged = storeRefreshedNovel(
+        novel,
+        parsed,
+        novelRepository,
+        libraryPreferences,
+        novelDownloadManager,
+        coverCache,
+        manualFetch,
+    )
 
     val firstChapters = sourceNovel.chapters.orEmpty()
     // After the details are stored, as manga's sync throws after its details write.
