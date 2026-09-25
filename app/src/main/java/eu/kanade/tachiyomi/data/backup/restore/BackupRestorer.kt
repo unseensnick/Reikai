@@ -362,8 +362,9 @@ class BackupRestorer(
 
     // RK: pass 2 for manga. Streams field 1, restoring bounded batches inside a DB transaction (each
     // restore also opens its own, harmlessly nested), then materializes the merge groups once every
-    // manga has a fresh id. The old whole-list sortByNew is dropped: entries restore
-    // independently and merges resolve by {url,source} after the loop, so file order is fine.
+    // manga has a fresh id. Upstream's sortByNew order is dropped: it restored series the device lacks
+    // first, so a large restore cut short still added them, and keeping it would take a second pass
+    // over a file this reads once, in file order.
     private fun CoroutineScope.restoreMangaStream(
         uri: Uri,
         backupCategories: List<BackupCategory>,

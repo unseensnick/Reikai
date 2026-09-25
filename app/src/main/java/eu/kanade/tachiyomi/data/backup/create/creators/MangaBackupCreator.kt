@@ -4,7 +4,6 @@ import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.async.coroutines.awaitAsOne
 import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
@@ -18,7 +17,6 @@ import eu.kanade.tachiyomi.data.backup.models.customInfo
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import kotlinx.coroutines.flow.first
 import reikai.data.backup.BackupEntryParts
-import reikai.data.backup.backupEntry
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import tachiyomi.data.Database
@@ -47,12 +45,6 @@ class MangaBackupCreator(
     // RK: merge group members outside the library are backed up so a restored group keeps them.
     private val mergeGroupRepository: MergeGroupRepository,
 ) : BackupEntryParts<Manga, BackupManga> { // RK
-
-    suspend operator fun invoke(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
-        return mangas.map {
-            options.backupEntry(it, this) // RK
-        }
-    }
 
     // RK --> the option gates and the choice of which manga to back up live in the driver shared with
     // novels (reikai.data.backup.backupEntries), so this class answers one part at a time. Each part
