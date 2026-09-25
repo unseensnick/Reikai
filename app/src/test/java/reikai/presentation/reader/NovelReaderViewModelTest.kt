@@ -154,6 +154,68 @@ class NovelReaderViewModelTest {
         }
     }
 
+    /** Opened from the public member, so asking the series rather than the chapter would record it. */
+    @Test
+    fun `a merged novel's chapter from an incognito source stays out of history`() = readerTest { harness ->
+        val public = harness.source("alpha")
+        val private = harness.source("beta")
+        val host = harness.novel(public)
+        val member = harness.novel(private)
+        harness.chapter(host, 1.0)
+        val opened = harness.chapter(member, 2.0)
+        harness.merge(host, member)
+        harness.incognito(private)
+        val model = harness.open(host, opened.id)
+        advanceUntilIdle()
+
+        model.updateHistory()
+
+        harness.historyOf(member) shouldBe emptyList()
+    }
+
+    /** Opened from the incognito member, so asking the series rather than the chapter would drop it. */
+    @Test
+    fun `a merged novel's chapter from a public source is recorded in history`() = readerTest { harness ->
+        val public = harness.source("alpha")
+        val private = harness.source("beta")
+        val host = harness.novel(private)
+        val member = harness.novel(public)
+        harness.chapter(host, 1.0)
+        val opened = harness.chapter(member, 2.0)
+        harness.merge(host, member)
+        harness.incognito(private)
+        val model = harness.open(host, opened.id)
+        advanceUntilIdle()
+
+        model.updateHistory()
+
+        harness.historyOf(member) shouldBe listOf(opened.id)
+    }
+
+    /** The window holds the chapter above the open one, so its position arrives while the open
+     *  chapter, from the public member, is still the current one. */
+    @Test
+    fun `a seamless window saves no position for a neighbour from an incognito source`() = readerTest { harness ->
+        val public = harness.source("alpha")
+        val private = harness.source("beta")
+        val host = harness.novel(public)
+        val member = harness.novel(private)
+        val previous = harness.chapter(member, 1.0)
+        val opened = harness.chapter(host, 2.0)
+        harness.merge(host, member)
+        harness.incognito(private)
+        val model = harness.open(host, opened.id)
+        advanceUntilIdle()
+        model.rendererLanded(model.window.value.generation)
+
+        // An earlier chapter's first report is where the landing put the reader; a second that moved is theirs.
+        model.saveProgress(previous.id, 40)
+        model.saveProgress(previous.id, 45)
+        advanceUntilIdle()
+
+        harness.progressOf(previous) shouldBe 0L
+    }
+
     /** Both members carry the same chapters, so the stitch draws every one from the member that leads. */
     @Test
     fun `a merged novel whose chapters all come from one source still names it`() = readerTest { harness ->

@@ -40,6 +40,7 @@ import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.NovelItem
@@ -130,6 +131,8 @@ class NovelReaderViewModelHarness private constructor(
     /** The global Downloaded only switch. */
     val downloadedOnly = store.getBoolean(Preference.appStateKey("pref_downloaded_only"), false)
     val incognito = store.getBoolean(Preference.appStateKey("incognito_mode"), false)
+    private val sourcePreferences = SourcePreferences(store)
+    private val history = NovelHistoryRepositoryImpl(database)
 
     val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
         every { queueState } returns MutableStateFlow(emptyList())
@@ -189,6 +192,17 @@ class NovelReaderViewModelHarness private constructor(
         return SeededChapter(chapterRepo.insert(chapter)!!, url)
     }
 
+    /** Turns incognito on for [source] alone, as its long-press in Browse does. */
+    fun incognito(source: FakeNovelSource) {
+        sourcePreferences.incognitoExtensions.set(setOf(SourceKey.Novel(source.id).serialize()))
+    }
+
+    /** The chapters of [novelId] reading has put in history. */
+    suspend fun historyOf(novelId: Long): List<Long> = history.getHistoryByNovelId(novelId).map { it.chapterId }
+
+    /** Where the reader stored its place in [chapter], in hundredths of a percent. */
+    suspend fun progressOf(chapter: SeededChapter): Long? = chapterRepo.getById(chapter.id)?.lastTextProgress
+
     /** Groups [novelIds] into one merged novel, as the merge dialog does. */
     suspend fun merge(vararg novelIds: Long) {
         groups.createGroup(ContentType.NOVELS, novelIds.toList())
@@ -216,7 +230,7 @@ class NovelReaderViewModelHarness private constructor(
             installer = installer,
             novelPreferences = novelPreferences,
             downloadManagerProvider = { downloadManager },
-            upsertNovelHistory = UpsertNovelHistory(NovelHistoryRepositoryImpl(database)),
+            upsertNovelHistory = UpsertNovelHistory(history),
             setNovelReadStatus = SetNovelReadStatus(
                 chapterRepo,
                 DeleteNovelChaptersAfterRead(novelPreferences, categories, { downloadManager }, novelRepo),
@@ -240,7 +254,7 @@ class NovelReaderViewModelHarness private constructor(
                 mockk<BasePreferences> {
                     every { incognitoMode } returns this@NovelReaderViewModelHarness.incognito
                 },
-                SourcePreferences(store),
+                sourcePreferences,
                 mockk(),
             ),
             setNovelViewerFlags = SetNovelViewerFlags(novelRepo),

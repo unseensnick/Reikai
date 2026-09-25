@@ -81,6 +81,7 @@ import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.withOpenedChapter
+import reikai.domain.reader.ChapterIncognito // RK
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReaderPosition
 import reikai.domain.reader.chapterToDeleteBehind
@@ -92,6 +93,7 @@ import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
+import reikai.domain.source.SourceKey // RK
 import reikai.domain.track.source.ChapterWrite // RK
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.presentation.components.mergeSourceLabels
@@ -424,7 +426,14 @@ class ReaderViewModel(
             .map(::ReaderChapter)
     }
 
-    private var incognitoMode: Boolean = false
+    // RK --> asked per chapter written, from its own source: a merged group's members can differ, and
+    // upstream's one flag read at load came from the series the reader was opened from.
+    private val incognito = ChapterIncognito(
+        sourceOf = { owner -> SourceKey.Manga(mangaForChapterId(owner).source) },
+        isIncognito = getIncognitoState::await,
+    )
+
+    // RK <--
     private val downloadAheadAmount = downloadPreferences.autoDownloadWhileReading.get()
 
     init {
@@ -528,7 +537,6 @@ class ReaderViewModel(
                     .associateWith { sourceManager.getOrStub(it) }
 
                 val source = sourceManager.getOrStub(manga.source)
-                incognitoMode = getIncognitoState.await(manga.source)
                 mutableState.update { it.copy(manga = manga, source = source) }
 
                 // RK: from the full list, so the reader pages within one instance space (prev/next
@@ -846,7 +854,7 @@ class ReaderViewModel(
         // RK: the in-memory position, requestedPage and chapterPageIndex are written by onPageSelected.
         val progress = pageProgress(readerChapter, page)
 
-        if (!incognitoMode && page.status !is Page.State.Error) {
+        if (!incognito.of(readerChapter.chapter.manga_id!!) && page.status !is Page.State.Error) { // RK
             readerChapter.chapter.last_page_read = pageIndex
 
             if (progress.isChapterComplete) {
@@ -909,8 +917,9 @@ class ReaderViewModel(
     // it does not persist the read flag itself (its normal caller does during a page-progress
     // save, which a forward skip never reaches), so we persist it here.
     fun markChapterReadOnSkip(readerChapter: ReaderChapter) {
-        if (readerChapter.chapter.read || incognitoMode || !readerPreferences.markReadOnSkip.get()) return
+        if (readerChapter.chapter.read || !readerPreferences.markReadOnSkip.get()) return
         viewModelScope.launchNonCancellable {
+            if (incognito.of(readerChapter.chapter.manga_id!!)) return@launchNonCancellable
             updateChapterProgressOnComplete(readerChapter)
             updateChapter.await(
                 ChapterUpdate(
@@ -931,7 +940,7 @@ class ReaderViewModel(
      */
     suspend fun updateHistory() {
         getCurrentChapter()?.let { readerChapter ->
-            if (incognitoMode) return@let
+            if (incognito.of(readerChapter.chapter.manga_id!!)) return@let // RK
 
             val chapterId = readerChapter.chapter.id!!
             val endTime = Date()
@@ -1455,8 +1464,8 @@ class ReaderViewModel(
      * Starts the service that updates the last chapter read in sync services. This operation
      * will run in a background thread and errors are ignored.
      */
-    private fun updateTrackChapterRead(readerChapter: ReaderChapter) {
-        if (incognitoMode) return
+    private suspend fun updateTrackChapterRead(readerChapter: ReaderChapter) {
+        if (incognito.of(readerChapter.chapter.manga_id!!)) return // RK
         if (!trackPreferences.autoUpdateTrack.get()) return
 
         manga ?: return

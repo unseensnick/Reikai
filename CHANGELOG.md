@@ -148,6 +148,7 @@ every release now also ships a foss build with neither in it.
 - **The Updates widget now draws one cover per merged series.** It drew one per source, so a grouped series filled the grid.
 - **A chapter you continue from History on another source of a merged series no longer appears twice in the reader.** The copy you opened takes that chapter's place, so the chapters before and after it are the right ones.
 - **On a merged novel, the reader's chapter list now shows a chapter as read, bookmarked or downloaded when any source's copy is, and names each chapter's source.** Deleting a download from it removes every source's copy, so the row stops reading as downloaded.
+- **Incognito on one source of a merged series now covers that source's chapters alone, in both readers, whichever source you opened the series from.** Before, the source you opened it from decided for every chapter, so a private source's chapters could reach History and your trackers.
 
 ### Updates & History
 

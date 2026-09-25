@@ -68,6 +68,7 @@ import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.tts.TtsHighlightStyle
+import reikai.domain.reader.ChapterIncognito
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.downloadedOrCurrent
@@ -183,10 +184,11 @@ class NovelReaderViewModel(
         readDownloaded = { novel, chapter -> downloadManager.getChapterText(novel, chapter) },
     )
 
-    /** Captured whenever a chapter opens, from the host novel's source as ReaderViewModel reads the
-     *  host manga's. */
-    @Volatile
-    private var incognitoMode: Boolean = false
+    /** Asked for the owner of each chapter written, since a merged novel's members can differ. */
+    private val incognito = ChapterIncognito(
+        sourceOf = { owner -> novelRepo.getById(owner)?.source?.let(SourceKey::Novel) },
+        isIncognito = getIncognitoState::await,
+    )
 
     /** Owning novel of the current chapter. Defaults to the host (== owner for a standalone novel);
      *  a merged session re-points it per chapter so the web actions resolve the source being read. */
@@ -937,7 +939,6 @@ class NovelReaderViewModel(
         loadState.value = ReaderLoadState.Loading
         viewModelScope.launchIO {
             try {
-                incognitoMode = getIncognitoState.await(novelRepo.getById(novelId)?.source?.let(SourceKey::Novel))
                 if (orderedIds.isEmpty()) resolveReadingOrder()
                 val row = chapterRepo.getById(target) ?: error("Chapter not found: $target")
                 // A warm already fetching it is waited on, rather than fetched again beside it, which is
@@ -1036,7 +1037,6 @@ class NovelReaderViewModel(
      * position and a finish just reached arrive.
      */
     private fun persistProgress(id: Long, clamped: Int) {
-        if (incognitoMode) return
         unwritten[id] = clamped
         viewModelScope.launchNonCancellable { writeUnwritten(id, clamped) }
     }
@@ -1044,7 +1044,6 @@ class NovelReaderViewModel(
     /** [persistProgress] on the caller's own coroutine, for one already outliving the session: a
      *  launch into a scope that has ended never starts. */
     private suspend fun writeProgress(id: Long, clamped: Int) {
-        if (incognitoMode) return
         unwritten[id] = clamped
         writeUnwritten(id, clamped)
     }
@@ -1058,7 +1057,12 @@ class NovelReaderViewModel(
 
     private suspend fun writeUnwritten(id: Long, clamped: Int) {
         val chapter = writeLock.withLock {
-            unwritten.remove(id)?.let { chapterRepo.setLastTextProgress(id, it * 100L) }
+            val position = unwritten.remove(id)
+            // By the chapter's own owner, which in a window crossing a merged novel's seam may not be the
+            // current chapter's.
+            val owner = chapterRepo.getById(id)?.novelId
+            if (owner == null || incognito.of(owner)) return@withLock null
+            position?.let { chapterRepo.setLastTextProgress(id, it * 100L) }
             // Fetched before marking, so the shared interactor still sees it unread.
             chapterRepo.getById(id)
         } ?: return
@@ -1079,8 +1083,9 @@ class NovelReaderViewModel(
     /** Stamp the current chapter into novel history and accumulate this session's read time. Called on
      *  chapter switch and, through [ReaderProvider.updateHistory], on leaving the reader. */
     suspend fun updateHistory() {
-        if (incognitoMode) return
-        val id = loadedChapter.value?.chapterId ?: return
+        val chapter = loadedChapter.value ?: return
+        if (incognito.of(chapter.novelId)) return
+        val id = chapter.chapterId
         val now = System.currentTimeMillis()
         val duration = chapterReadStartTime?.let { now - it } ?: 0L
         upsertNovelHistory.await(NovelHistoryUpdate(id, now, duration))
@@ -1529,10 +1534,10 @@ class NovelReaderViewModel(
     /** Marks the chapter the user skipped away from as read, forward only, when the setting is on.
      *  Outlives the session, as ReaderViewModel.markChapterReadOnSkip does. */
     private fun markReadOnSkip(departedId: Long) {
-        if (incognitoMode || !novelPreferences.readerMarkReadOnSkip().get()) return
+        if (!novelPreferences.readerMarkReadOnSkip().get()) return
         viewModelScope.launchNonCancellable {
             val chapter = chapterRepo.getById(departedId) ?: return@launchNonCancellable
-            if (!chapter.read) markChapterRead(chapter)
+            if (!chapter.read && !incognito.of(chapter.novelId)) markChapterRead(chapter)
         }
     }
 
