@@ -7,7 +7,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import reikai.data.coil.NovelCover
+import reikai.data.coil.asNovelCover
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
@@ -19,7 +19,7 @@ import java.io.InputStream
 
 /**
  * The novel cover source for the shared [EntryCoverViewModel]. Subscribes by url + source (there is no
- * by-id novel flow) and keys the custom cover by the negated novel id (so it can't collide with a same-id
+ * by-id novel flow) and keys the custom cover by [EntryId.Novel] (so it can't collide with a same-id
  * manga). The save / share machinery lives in the shared base.
  */
 @AssistedInject
@@ -46,7 +46,7 @@ class NovelCoverViewModel(
                 novel?.withCustomInfo(custom.firstOrNull { it.novelId == novel.id })
             }
 
-    override fun coilModel(entry: Novel): Any = entry.toNovelCover()
+    override fun coilModel(entry: Novel): Any = entry.asNovelCover()
 
     override fun coverName(entry: Novel): String = entry.title
 
@@ -65,12 +65,4 @@ class NovelCoverViewModel(
         coverCache.deleteCustomCover(EntryId.Novel(entry.id))
         updateNovel.awaitUpdateCoverLastModified(entry.id)
     }
-
-    private fun Novel.toNovelCover() = NovelCover(
-        url = thumbnailUrl,
-        sourceId = source,
-        isNovelFavorite = favorite,
-        lastModified = coverLastModified,
-        novelId = id,
-    )
 }

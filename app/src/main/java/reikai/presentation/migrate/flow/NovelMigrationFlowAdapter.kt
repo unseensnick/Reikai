@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import reikai.data.coil.NovelCover
+import reikai.data.coil.asNovelCover
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.toNovel
 import reikai.domain.entry.EntryId
@@ -109,7 +110,7 @@ class NovelMigrationFlowAdapter(
                 PickMember(
                     id = novel.id,
                     title = novel.title,
-                    coverData = novel.toCover(),
+                    coverData = novel.asNovelCover(),
                     payload = novel,
                     subtitle = memberSubtitle(
                         sourceName = sourceDisplayName(novel.source),
@@ -148,7 +149,7 @@ class NovelMigrationFlowAdapter(
                     MigrationFavorite(
                         id = EntryId.Novel(novel.id),
                         title = novel.title,
-                        cover = novel.toCover(),
+                        cover = novel.asNovelCover(),
                         payload = novel,
                     )
                 }
@@ -168,7 +169,7 @@ class NovelMigrationFlowAdapter(
                 sourceName = source?.name,
                 chapterCount = chapters.size,
                 latestChapter = chapters.latestChapterNumber { it.chapterNumber },
-                cover = novel.toCover(),
+                cover = novel.asNovelCover(),
                 payload = novel,
             )
         }
@@ -242,7 +243,7 @@ class NovelMigrationFlowAdapter(
             // and the cache on the favorite flag, so a search-shaped cover showed the source's stock
             // image instead, and no refresh could ever bust its Coil key. Manga candidates are stored
             // rows by the time they reach here, which is why only this side was wrong.
-            cover = stored?.toCover()
+            cover = stored?.asNovelCover()
                 ?: NovelCover(url = cover, sourceId = sourceKey, isNovelFavorite = false, lastModified = 0L),
             inLibrary = stored?.favorite == true,
             handle = NovelCandidateHandle(this),
@@ -281,7 +282,7 @@ class NovelMigrationFlowAdapter(
                 // Null, not 0, for an empty list, matching every other candidate builder.
                 chapterCount = chapters.size.takeIf { it > 0 },
                 latestChapter = chapters.latestChapterNumber { it.chapterNumber },
-                cover = resolved.toCover(),
+                cover = resolved.asNovelCover(),
                 handle = handle.copy(stored = resolved),
             ),
             // A refresh that stored nothing is not a sync (a soft-error page can parse as an empty
@@ -323,7 +324,7 @@ class NovelMigrationFlowAdapter(
             chapterCount = chapters.size.takeIf { it > 0 },
             latestChapter = chapters.latestChapterNumber { it.chapterNumber },
             key = "${novel.source}:${novel.url}",
-            cover = novel.toCover(),
+            cover = novel.asNovelCover(),
             inLibrary = novel.favorite,
             handle = NovelCandidateHandle(
                 item = NovelItem(name = novel.title, path = novel.url, cover = novel.thumbnailUrl),
@@ -383,16 +384,6 @@ class NovelMigrationFlowAdapter(
             skipTargetRefresh = targetJustSynced,
         )
     }
-
-    /** The row's own cover identity. The favorite flag is read off the row rather than passed in:
-     *  callers guessed it, and a guess of false sends the fetcher past the library cover cache. */
-    private fun Novel.toCover() = NovelCover(
-        url = thumbnailUrl,
-        sourceId = source,
-        isNovelFavorite = favorite,
-        lastModified = coverLastModified,
-        novelId = id,
-    )
 
     // Name-mapped on purpose: the two enums share concepts but not bit layouts.
     private fun NovelMigrationFlag.toNeutral(): MigrationDataFlag = when (this) {

@@ -37,7 +37,7 @@ import kotlin.time.Duration.Companion.seconds
  * Shared backing for the full-cover dialog, holding the save / share / set-custom / delete-custom logic
  * once for both content types (the twin of Mihon's per-type cover models). Subclasses supply only the
  * five per-type seams: the entry subscription, its coil model + save name, the custom-cover check, and
- * the two custom-cover writes (each keyed in its own id space, manga positive and novel negated).
+ * the two custom-cover writes (each keyed by its own [reikai.domain.entry.EntryId], so ids never collide).
  */
 abstract class EntryCoverViewModel<T : Any>(
     private val imageSaver: ImageSaver,

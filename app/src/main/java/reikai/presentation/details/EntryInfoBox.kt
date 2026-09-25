@@ -57,6 +57,7 @@ import mihon.icons.materialsymbols.rounded.Person
 import mihon.icons.materialsymbols.rounded.Schedule
 import mihon.icons.materialsymbols.rounded.Warning
 import reikai.data.coil.NovelCover
+import reikai.data.coil.asNovelCover
 import reikai.domain.novel.model.Novel
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
@@ -94,13 +95,7 @@ fun Manga.toEntryHeader(sourceName: String, isStubSource: Boolean, sourceQuery: 
 )
 
 fun Novel.toEntryHeader(sourceName: String, sourceQuery: String?) = EntryHeaderUi(
-    coverModel = NovelCover(
-        url = thumbnailUrl,
-        sourceId = source,
-        isNovelFavorite = favorite,
-        lastModified = coverLastModified,
-        novelId = id,
-    ),
+    coverModel = asNovelCover(),
     title = title,
     author = author,
     artist = artist,

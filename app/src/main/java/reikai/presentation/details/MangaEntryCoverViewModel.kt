@@ -20,7 +20,7 @@ import java.io.InputStream
 /**
  * The manga cover source for the shared [EntryCoverViewModel]. Keyed by the positive manga id; custom
  * covers write through the standard `Manga.editCover` (local source or favorite only). Replaces Mihon's
- * `MangaEntryCoverViewModel`, whose save / share machinery now lives in the shared base.
+ * `MangaCoverViewModel`, whose save / share machinery now lives in the shared base.
  */
 @AssistedInject
 class MangaEntryCoverViewModel(

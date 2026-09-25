@@ -30,7 +30,7 @@ import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
-import reikai.data.coil.NovelCover
+import reikai.data.coil.asNovelCover
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
@@ -315,15 +315,7 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabl
             initial = novel.withCustomInfo(customInfo).toEntryEditInfoUi(),
             source = novel.toEntryEditInfoUi(),
             seedColor = seedColor,
-            coverModel = { url ->
-                NovelCover(
-                    url = url.ifBlank { null },
-                    sourceId = novel.source,
-                    isNovelFavorite = novel.favorite,
-                    lastModified = novel.coverLastModified,
-                    novelId = novel.id,
-                )
-            },
+            coverModel = { url -> novel.asNovelCover(url.ifBlank { null }) },
         )
         NovelDetailsDialog.FullCover -> EntryDetailsDialog.Cover
         is NovelDetailsDialog.ManageSources -> EntryDetailsDialog.ManageSources(

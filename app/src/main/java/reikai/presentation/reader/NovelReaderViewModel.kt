@@ -43,6 +43,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.data.coil.NovelCover
+import reikai.data.coil.asNovelCover
 import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterUnit
@@ -769,15 +770,7 @@ class NovelReaderViewModel(
                 entryTitle.value = it.title
                 isAdultEntry = it.id in adultChecker.adultNovelIdsAmong(listOf(it))
                 detailsRoute.value = DetailsRoute(it.source, it.url)
-                cover.value = it.thumbnailUrl?.takeIf(String::isNotBlank)?.let { url ->
-                    NovelCover(
-                        url = url,
-                        sourceId = it.source,
-                        isNovelFavorite = it.favorite,
-                        lastModified = it.coverLastModified,
-                        novelId = it.id,
-                    )
-                }
+                cover.value = it.thumbnailUrl?.takeIf(String::isNotBlank)?.let(it::asNovelCover)
             }
         }
         // A page saved in the in-app browser, whenever it lands, even after the browser closed: the open

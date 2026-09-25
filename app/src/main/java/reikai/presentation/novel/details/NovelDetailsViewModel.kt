@@ -40,7 +40,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import reikai.data.coil.NovelCover
+import reikai.data.coil.asNovelCover
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.novel.NovelStatusCode
@@ -689,13 +689,7 @@ class NovelDetailsViewModel(
         val url = novel.thumbnailUrl?.takeIf { it.isNotBlank() } ?: return
         if (novel.id <= 0L) return
         seedExtracted = true
-        val cover = NovelCover(
-            url = url,
-            sourceId = novel.source,
-            isNovelFavorite = novel.favorite,
-            lastModified = novel.coverLastModified,
-            novelId = novel.id,
-        )
+        val cover = novel.asNovelCover(url)
         viewModelScope.launchIO {
             val color = EntryId.Novel(novel.id).seedColor { context.extractCoverColor(cover) } ?: return@launchIO
             state.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
