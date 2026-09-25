@@ -76,7 +76,8 @@ suspend fun <R> mergeGroupRefs(memberships: Map<Long, Long>, ref: suspend (Long)
 /**
  * Restores [batch] in one transaction, then entry by entry if that fails, and returns each entry that
  * failed with its error. SQLDelight fails an enclosing transaction when a nested one fails, so a catch
- * inside the batch cannot contain one bad entry: the whole batch rolls back and would be lost.
+ * inside the batch cannot contain one bad entry: the whole batch rolls back and would be lost. That
+ * rollback is silent when the nested write caught its own error, so each run has to check for it.
  */
 suspend fun <B> restoreBatch(
     batch: List<B>,
@@ -84,7 +85,7 @@ suspend fun <B> restoreBatch(
     restore: suspend (B) -> Unit,
 ): List<Pair<B, Exception>> {
     try {
-        transactions.run {
+        transactions.runThrowingOnRollback {
             batch.forEach {
                 currentCoroutineContext().ensureActive()
                 restore(it)
@@ -99,7 +100,7 @@ suspend fun <B> restoreBatch(
     return batch.mapNotNull { entry ->
         currentCoroutineContext().ensureActive()
         try {
-            restore(entry)
+            transactions.runThrowingOnRollback { restore(entry) }
             null
         } catch (e: Exception) {
             currentCoroutineContext().ensureActive()

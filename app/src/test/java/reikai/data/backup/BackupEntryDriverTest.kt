@@ -136,7 +136,7 @@ class BackupEntryDriverTest {
             tx.pending += it
             restored += it
         }
-        // The batch rolled back, then the retry restored the good entries outside a transaction.
+        // The batch rolled back, then the retry restored the good entries one at a time.
         restored.takeLast(2) shouldBe listOf("a", "c")
     }
 

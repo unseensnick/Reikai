@@ -10,4 +10,11 @@ package reikai.domain.db
  */
 interface Transactions {
     suspend fun <T> run(block: suspend () -> T): T
+
+    /**
+     * As [run], but throws when the transaction rolled back although [block] returned. A nested write
+     * that catches its own failure still fails the enclosing transaction, which then discards every
+     * write in it without throwing. A fake that cannot roll back that way needs no override.
+     */
+    suspend fun <T> runThrowingOnRollback(block: suspend () -> T): T = run(block)
 }
