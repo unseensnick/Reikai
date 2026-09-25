@@ -533,6 +533,7 @@ every release now also ships a foss build with neither in it.
 - **Novel downloads left waiting in the queue no longer start on their own when the app opens, as with manga, though ones cut off by closing the app still resume.**
 - **Downloaded novel chapters show as downloaded as soon as the app opens.** The novel download folder is no longer rescanned on every launch, only hourly, as manga's is.
 - **Rows in Browse -> Extensions now read the same for every kind of extension, and a pending update shows the version it brings.** Available rows show their version under their language heading, installed rows their language and version.
+- **Tapping an installed novel plugin in Browse -> Extensions now opens its page, with its version, repo, settings, website and an Uninstall that asks first.** The row's delete button, which removed a plugin without asking, is gone.
 - **Novel plugin repos in Browse -> Extensions now refresh when you pull down, rather than each time you come back or install a plugin.**
 - **Reading a novel in incognito now downloads the next chapters ahead, as reading manga in incognito does.** Incognito keeps your history out, not your downloads.
 - **Deleting a novel's downloads by hand now keeps bookmarked chapters, and read chapters in categories kept from removal, as manga does.** Settings -> Downloads decides both, and removing a novel from the library still clears all of its downloads.

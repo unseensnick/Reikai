@@ -48,7 +48,6 @@ import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.isPackageInstalled
 import eu.kanade.tachiyomi.util.system.launchRequestPackageInstallsPermission
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Info
 import mihon.icons.materialsymbols.rounded.Public
@@ -64,6 +63,7 @@ import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.NovelSourceRow
+import reikai.presentation.browse.extension.details.NovelPluginDetailsScreen
 import reikai.presentation.browse.repos.RepositoriesScreen
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
@@ -538,13 +538,15 @@ private fun NovelExtensionRow(
             lang = lang,
             iconUrl = payload.iconUrl,
             version = state.installedVersions[payload.id],
+            // As an installed manga extension's row: a tap or its settings button opens its page.
+            onClickItem = { navigator.push(NovelPluginDetailsScreen(payload.id)) },
             onLongClickItem = { onConfirmUninstall(payload) },
             badge = badge,
             action = {
-                IconButton(onClick = { model.uninstall(payload) }) {
+                IconButton(onClick = { navigator.push(NovelPluginDetailsScreen(payload.id)) }) {
                     Icon(
-                        imageVector = MaterialSymbols.Rounded.Delete,
-                        contentDescription = stringResource(MR.strings.ext_uninstall),
+                        imageVector = MaterialSymbols.Rounded.Settings,
+                        contentDescription = stringResource(MR.strings.action_settings),
                     )
                 }
             },
