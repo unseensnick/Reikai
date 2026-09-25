@@ -8,7 +8,6 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +24,7 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.groupByLanguage
 import reikai.novel.source.toLangCode
+import reikai.presentation.browse.compareBrowseLanguages
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -50,9 +50,7 @@ class NovelSourcesFilterViewModel(
         sourcePreferences.disabledNovelLanguages.changes(),
     ) { sources, disabled, disabledLanguages ->
         State.Success(
-            // By code: the switch sorts by display name, which "English" and "en" share, and the
-            // sorted map kept only one of the two groups.
-            items = groupByLanguage(sources, LocaleHelper.comparator),
+            items = groupByLanguage(sources, ::compareBrowseLanguages),
             disabledSources = disabled,
             disabledLanguages = disabledLanguages.mapTo(HashSet()) { it.toLangCode() },
         )

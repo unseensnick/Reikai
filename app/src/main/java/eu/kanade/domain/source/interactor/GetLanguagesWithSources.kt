@@ -29,7 +29,10 @@ class GetLanguagesWithSources(
             sortedSources
                 .groupBy { it.lang }
                 .toSortedMap(
-                    compareBy<String> { it !in enabledLanguage }.then(LocaleHelper.comparator),
+                    compareBy<String> { it !in enabledLanguage }.then(LocaleHelper.comparator)
+                        // RK --> two codes Android names alike ("in", "id") would share a key and drop a group
+                        .then(naturalOrder()),
+                    // RK <--
                 )
         }
     }

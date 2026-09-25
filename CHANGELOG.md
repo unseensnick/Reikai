@@ -425,6 +425,7 @@ every release now also ships a foss build with neither in it.
 - **Open in WebView now opens the page a Cloudflare challenge blocked, so there is something to solve.** It opened the source's front page, which often carries no challenge at all, so nothing cleared and Retry kept failing. Works on manga and novels.
 - **Manga browse now reloads by itself when you come back from the WebView.** Novels already did.
 - **Browse -> Sources and Extensions now show their list as soon as it is ready, without a short pause first.** Clearing the search box restores the full list at once too.
+- **Two languages whose codes share one name (such as "in" and "id") no longer lose a section in Browse's lists and source filter, on manga and novels.**
 
 ### Migration
 

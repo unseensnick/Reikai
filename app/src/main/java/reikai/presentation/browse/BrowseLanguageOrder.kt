@@ -9,7 +9,8 @@ import tachiyomi.presentation.core.icons.FlagEmoji
  *
  * Upstream's extension order, adopted across the whole surface so the Sources and Extensions lists
  * cannot disagree: multi-language first, then each language by its own name for itself (Deutsch,
- * English, Espanol), and sources declaring no language last.
+ * English, Espanol), and sources declaring no language last. Two codes Android names alike ("in" and
+ * "id") fall back to the code, so a sorted map keyed by this keeps both groups.
  */
 fun compareBrowseLanguages(a: String, b: String): Int = when {
     a == b -> 0
@@ -19,7 +20,7 @@ fun compareBrowseLanguages(a: String, b: String): Int = when {
     // languages under the letter its code happens to start with.
     a == OTHER_LANGUAGE -> 1
     b == OTHER_LANGUAGE -> -1
-    else -> LocaleHelper.comparator(a, b)
+    else -> LocaleHelper.comparator(a, b).takeIf { it != 0 } ?: a.compareTo(b)
 }
 
 /** The language the local source declares, which names no language at all. */

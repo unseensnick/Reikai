@@ -4,6 +4,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
+import reikai.presentation.browse.compareBrowseLanguages
 
 /**
  * An lnreader registry names a language in the language itself, so these pin that those names reach
@@ -48,6 +49,16 @@ class NovelSourceLanguageTest {
         val app = named("App", "en")
 
         groupByLanguage(listOf(plugin, app), naturalOrder()) shouldBe listOf("en" to listOf(app, plugin))
+    }
+
+    /** Android names "in" and "id" alike, and a sorted map keyed by display name alone kept one group. */
+    @Test
+    fun `two codes Android names alike stay two groups`() {
+        val legacy = named("Legacy", "in")
+        val current = named("Current", "id")
+
+        groupByLanguage(listOf(legacy, current), ::compareBrowseLanguages).map { it.first } shouldBe
+            listOf("id", "in")
     }
 
     @Test
