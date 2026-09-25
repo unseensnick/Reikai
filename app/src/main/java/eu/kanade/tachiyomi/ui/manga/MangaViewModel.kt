@@ -299,7 +299,7 @@ class MangaViewModel(
         }
     }
 
-    // RK --> cover-based theming (Y11)
+    // RK --> cover-based theming
     val themeCoverBased = uiPreferences.themeCoverBased.get()
 
     // RK: recommendations are enabled but placed in the three-dot menu, so the screen shows a

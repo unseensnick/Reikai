@@ -137,7 +137,7 @@ class MainActivity : BaseActivity() {
 
     @Inject private lateinit var getIncognitoState: GetIncognitoState
 
-    // RK: cover-based theming (Y11); persisted on pause below
+    // RK: cover-based theming; persisted on pause below
     @Inject private lateinit var mangaCoverMetadata: MangaCoverMetadata
 
     // To be checked by splash screen. If true then splash screen will be removed.
@@ -299,7 +299,7 @@ class MainActivity : BaseActivity() {
         }
     }
 
-    // RK: persist cover-based theming colors (Y11)
+    // RK: persist cover-based theming colors
     override fun onPause() {
         super.onPause()
         mangaCoverMetadata.savePrefs()

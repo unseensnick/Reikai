@@ -28,7 +28,7 @@ class ChapterLoader(
     private val downloadManager: DownloadManager,
     private val downloadProvider: DownloadProvider,
     private val chapterCache: ChapterCache,
-    // RK: resume position even on already-read chapters when enabled (Y-feature)
+    // RK: resume position even on already-read chapters when enabled
     private val readerPreferences: ReaderPreferences,
     private val manga: Manga,
     private val source: Source,

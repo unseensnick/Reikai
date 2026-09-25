@@ -31,10 +31,11 @@ BARE_ISSUE_REF='(^|[^A-Za-z0-9])#[0-9]'
 COMMENT_LINE='(//|/\*|^\+?[[:space:]]*\*|^\+?[[:space:]]*--)'
 
 # Plan and roadmap codenames, which rot as the plan moves on. Caught: Phase N, Stage N, the P<phase> /
-# P5 S5 shorthand, Y<n> Yokai-era refs, R<n> roadmap refs, Active #N, and in-words "Roadmap N" /
-# "Roadmap:" (the bare document name ROADMAP.md stays allowed). Spared below the line: R8 (the code
-# shrinker, so R uses [0-79]) and M3 (Material 3, M is not matched).
-CODENAME='(Phase[[:space:]]*[0-9]|\b[Ss]tage[[:space:]]*[0-9]|Active[[:space:]]*#[0-9]|\b[PY][0-9][a-z]?\b|\bR[0-79][a-z]?\b|\b[Ss]tep[[:space:]]*[0-9]|[Rr]oadmap[[:space:]]*(#?[0-9]|:))'
+# P5 S5 shorthand, Y<n> Yokai-era refs and R<n> roadmap refs of any length (Y11, R12), the R-feature /
+# Y-feature tags, Active #N, and in-words "Roadmap N" / "Roadmap:" (the bare document name ROADMAP.md
+# stays allowed). Spared: R8 (the code shrinker, so a one-digit R skips 8), M3 (Material 3, M is not
+# matched) and Y2K (no word boundary follows its digit).
+CODENAME='(Phase[[:space:]]*[0-9]|\b[Ss]tage[[:space:]]*[0-9]|Active[[:space:]]*#[0-9]|\b[PY][0-9]+[a-z]?\b|\bR([0-79]|[0-9]{2,})[a-z]?\b|\b[RY]-feature\b|\b[Ss]tep[[:space:]]*[0-9]|[Rr]oadmap[[:space:]]*(#?[0-9]|:))'
 
 # A colon-led algorithm step ("Step 1:", "Stage 1:") is fine; a plan-style "Step 3" is not. The step match is
 # case-insensitive because a lower-case "step 2" reached main once. Two Kotlin range shapes quoted
@@ -114,7 +115,7 @@ case "$cmd" in
       hits=$(grep -E "$COMMENT_LINE" | grep -E "$CODENAME" | grep -vE "$CODENAME_SPARED" || true)
     fi
     if [ -n "$hits" ]; then
-      report "a code comment carries a plan/roadmap codename marker (Phase N, Stage N, P5 S5, Y3, R3, Active #N, Roadmap N, plan Step N); state the durable fact instead. See code-quality.md." "$hits"
+      report "a code comment carries a plan/roadmap codename marker (Phase N, Stage N, P5 S5, Y3, R12, R-feature, Active #N, Roadmap N, plan Step N); state the durable fact instead. See code-quality.md." "$hits"
       exit 1
     fi
     ;;

@@ -189,7 +189,7 @@ class App :
 
         setupNotificationChannels()
 
-        // RK: restore persisted cover colors for cover-based theming (Y11)
+        // RK: restore persisted cover colors for cover-based theming
         graph.mangaCoverMetadata.load()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
@@ -284,7 +284,7 @@ class App :
                 add(ImageDecoder.Factory())
                 // Fetcher.Factory
                 add(BufferedSourceFetcher.Factory())
-                // RK: the last argument is Reikai's cover-colour extraction (Y11)
+                // RK: the last argument is Reikai's cover-colour extraction
                 add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy, coverCache, sourceManager, mangaCoverMetadata))
                 add(MangaCoverFetcher.MangaFactory(callFactoryLazy, coverCache, sourceManager, mangaCoverMetadata))
                 // RK: light-novel covers and chapter pictures, each with its source's image headers

@@ -29,7 +29,7 @@ class ReaderProgressIndicator @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
-    // RK: cover-based theming color (Y11)
+    // RK: cover-based theming color
     @ColorInt private val seedColor: Int? = null,
 ) : AbstractComposeView(context, attrs, defStyleAttr) {
 
@@ -42,7 +42,7 @@ class ReaderProgressIndicator @JvmOverloads constructor(
 
     @Composable
     override fun Content() {
-        // RK: tint the spinner from the cover color when enabled (Y11)
+        // RK: tint the spinner from the cover color when enabled
         val themeCoverBased = context.appGraph.uiPreferences.themeCoverBased.get()
         TachiyomiTheme(seedColor = seedColor?.let { Color(it) }.takeIf { themeCoverBased }) {
             CombinedCircularProgressIndicator(progress = { progress })

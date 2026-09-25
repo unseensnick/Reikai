@@ -119,7 +119,7 @@ class MangaScreen(
             viewModel.loadRelatedMangas()
         }
 
-        // RK: extract the cover's vibrant color to tint the screen (Y11).
+        // RK: extract the cover's vibrant color to tint the screen.
         LaunchedEffect(successState.manga.id) {
             viewModel.updateSeedColor()
         }
@@ -129,7 +129,7 @@ class MangaScreen(
         val adapter = remember(viewModel) { MangaEntryAdapter(viewModel, coverViewModelFactory) }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
-        // RK: tint the details screen from the cover color (Y11)
+        // RK: tint the details screen from the cover color
         TachiyomiTheme(seedColor = successState.seedColor.takeIf { viewModel.themeCoverBased }) {
             (neutralState as? EntryDetailsScreenState.Loaded)?.let { loaded ->
                 EntryDetailsContent(

@@ -35,7 +35,7 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
     val downloadManager by lazy { graph.downloadManager }
     val readerPreferences by lazy { graph.readerPreferences }
 
-    // RK: cover seed color for per-page theming (Y11); leaf views gate on the pref themselves
+    // RK: cover seed color for per-page theming; leaf views gate on the pref themselves
     val seedColor: Int? get() = activity.viewModel.manga?.asMangaCover()?.vibrantCoverColor
 
     private val scope = MainScope()

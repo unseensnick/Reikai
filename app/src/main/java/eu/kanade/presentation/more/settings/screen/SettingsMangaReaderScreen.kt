@@ -193,7 +193,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
     private fun getReadingGroup(
         readerPreferences: ReaderPreferences,
     ): Preference.PreferenceGroup {
-        // RK: collected for the preload slider (Y-feature)
+        // Collected for the preload slider
         val preloadSizePref = readerPreferences.preloadSize
         val preloadSize by preloadSizePref.collectAsState()
         return Preference.PreferenceGroup(

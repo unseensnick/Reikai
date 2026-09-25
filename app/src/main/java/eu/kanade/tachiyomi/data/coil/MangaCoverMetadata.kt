@@ -13,7 +13,7 @@ import tachiyomi.domain.manga.model.MangaCover
 import java.io.File
 
 /**
- * Reikai (Y11): extracts a vibrant color from a manga cover and caches it on
+ * Reikai: extracts a vibrant color from a manga cover and caches it on
  * [MangaCover.vibrantCoverColorMap], persisting across restarts. The color seeds the reader and
  * manga-details theme when the cover-based theme preference is on. The [getBestColor] heuristic is
  * ported from Komikku (Jays2Kings).

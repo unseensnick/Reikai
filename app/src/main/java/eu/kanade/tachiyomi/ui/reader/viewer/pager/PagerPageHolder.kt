@@ -78,7 +78,7 @@ class PagerPageHolder(
 
     private fun initProgressIndicator() {
         if (progressIndicator == null) {
-            progressIndicator = ReaderProgressIndicator(context, seedColor = viewer.seedColor) // RK: Y11
+            progressIndicator = ReaderProgressIndicator(context, seedColor = viewer.seedColor) // RK: cover-based theming
             addView(progressIndicator)
         }
     }

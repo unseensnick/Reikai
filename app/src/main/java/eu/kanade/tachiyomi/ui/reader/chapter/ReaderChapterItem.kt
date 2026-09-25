@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.ui.reader.chapter
 import tachiyomi.domain.chapter.model.Chapter
 
 /**
- * Reikai (R-feature): a chapter row shown in the in-reader chapter list dialog. Ported from Komikku.
+ * Reikai: a chapter row shown in the in-reader chapter list dialog. Ported from Komikku.
  */
 data class ReaderChapterItem(
     val chapter: Chapter,

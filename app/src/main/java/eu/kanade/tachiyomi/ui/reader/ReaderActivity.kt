@@ -1055,7 +1055,7 @@ class ReaderActivity : BaseActivity() {
             showReadingModeToast(viewModel.getMangaReadingMode())
         }
 
-        // RK: tint the initial loading spinner from the cover color (Y11)
+        // RK: tint the initial loading spinner from the cover color
         loadingIndicator = ReaderProgressIndicator(this, seedColor = viewModel.manga?.asMangaCover()?.vibrantCoverColor)
         binding.readerContainer.addView(loadingIndicator)
 

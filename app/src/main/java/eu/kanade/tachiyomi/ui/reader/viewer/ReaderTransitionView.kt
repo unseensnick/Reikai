@@ -21,7 +21,7 @@ import mihon.app.di.appGraph
 class ReaderTransitionView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    // RK: cover-based theming color (Y11)
+    // RK: cover-based theming color
     @ColorInt private val seedColor: Int? = null,
 ) :
     AbstractComposeView(context, attrs) {
@@ -46,7 +46,7 @@ class ReaderTransitionView @JvmOverloads constructor(
     @Composable
     override fun Content() {
         data?.let {
-            // RK: tint the transition view from the cover color when enabled (Y11)
+            // RK: tint the transition view from the cover color when enabled
             val themeCoverBased = context.appGraph.uiPreferences.themeCoverBased.get()
             TachiyomiTheme(seedColor = seedColor?.let { c -> Color(c) }.takeIf { themeCoverBased }) {
                 CompositionLocalProvider(

@@ -904,7 +904,7 @@ class ReaderViewModel(
         // RK <--
     }
 
-    // RK --> R12: mark the chapter the user skipped past (forward only) as read, opt-in.
+    // RK --> mark-read-on-skip: mark the chapter the user skipped past (forward only) as read, opt-in.
     // Reuses updateChapterProgressOnComplete for tracker sync / delete-on-read / duplicates;
     // it does not persist the read flag itself (its normal caller does during a page-progress
     // save, which a forward skip never reaches), so we persist it here.
@@ -947,7 +947,7 @@ class ReaderViewModel(
      */
     suspend fun loadNextChapter() {
         val nextChapter = state.value.viewerChapters?.nextChapter ?: return
-        // RK --> mark-read-on-skip (R12): the chapter being left behind on a forward skip
+        // RK --> mark-read-on-skip: the chapter being left behind on a forward skip
         val departedChapter = getCurrentChapter()
         // RK <--
         loadAdjacent(nextChapter)
@@ -1181,7 +1181,7 @@ class ReaderViewModel(
         mutableState.update { it.copy(menuVisible = visible) }
     }
 
-    /** Snapshot of the reader's chapter list for the in-reader chapter dialog (Y10). */
+    /** Snapshot of the reader's chapter list for the in-reader chapter dialog. */
     fun getChapters(): List<ReaderChapterItem> {
         manga ?: return emptyList()
         // RK: in a merged group each row carries its source's name as a label, by the kernel every
@@ -1215,7 +1215,7 @@ class ReaderViewModel(
     }
     // RK <--
 
-    /** Jump to an arbitrary chapter chosen in the chapter dialog (Y10). */
+    /** Jump to an arbitrary chapter chosen in the chapter dialog. */
     fun loadNewChapterFromDialog(chapter: Chapter) {
         viewModelScope.launchIO {
             // RK: resolve against the sheet's list, so tapping an already-read chapter actually opens it
@@ -1253,7 +1253,7 @@ class ReaderViewModel(
         return expandToUnits(setOf(chapterId), stitch).toList().ifEmpty { listOf(chapterId) }
     }
 
-    /** Toggle the bookmark of an arbitrary chapter from the chapter dialog (Y10). */
+    /** Toggle the bookmark of an arbitrary chapter from the chapter dialog. */
     fun toggleBookmark(chapterId: Long, bookmarked: Boolean) {
         val ids = groupCopyIds(chapterId)
         val copies = ids.flatMap { chapterCopies(it) }
@@ -1299,7 +1299,7 @@ class ReaderViewModel(
         }
     }
 
-    /** Start/cancel/delete a chapter download from the chapter dialog (Y10). */
+    /** Start/cancel/delete a chapter download from the chapter dialog. */
     fun handleChapterDownload(chapter: Chapter, action: ChapterDownloadAction) {
         manga ?: return
         viewModelScope.launchIO {

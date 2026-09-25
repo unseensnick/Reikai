@@ -47,7 +47,7 @@ class UiPreferences(
     val combinedRecentsTab: Preference<Boolean> = preferenceStore.getBoolean("pref_combined_recents_tab", false)
     // RK <--
 
-    // RK --> cover-based theming (Y11)
+    // RK --> cover-based theming
     val themeCoverBased: Preference<Boolean> = preferenceStore.getBoolean("pref_theme_cover_based_key", true)
 
     val themeCoverBasedStyle: Preference<PaletteStyle> =

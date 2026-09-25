@@ -10,7 +10,7 @@ data class MangaCover(
     val url: String?,
     val lastModified: Long,
 ) {
-    // RK --> vibrant color extracted from the cover, used to seed the reader/details theme (Y11).
+    // RK --> vibrant color extracted from the cover, used to seed the reader/details theme.
     var vibrantCoverColor: Int?
         get() = vibrantCoverColorMap[mangaId]
         set(value) {

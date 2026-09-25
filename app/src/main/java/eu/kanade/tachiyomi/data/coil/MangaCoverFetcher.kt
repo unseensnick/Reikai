@@ -48,7 +48,7 @@ import java.io.IOException
 class MangaCoverFetcher(
     private val url: String?,
     private val isLibraryManga: Boolean,
-    // RK: cover used to extract the vibrant theming color (Y11); null when unavailable
+    // RK: cover used to extract the vibrant theming color; null when unavailable
     private val mangaCover: MangaCover?,
     private val options: Options,
     private val coverFileLazy: Lazy<File?>,
@@ -57,7 +57,7 @@ class MangaCoverFetcher(
     private val getSource: suspend () -> HttpSource?,
     private val callFactoryLazy: Lazy<Call.Factory>,
     private val imageLoader: ImageLoader,
-    private val mangaCoverMetadata: MangaCoverMetadata, // RK: cover-colour extraction (Y11)
+    private val mangaCoverMetadata: MangaCoverMetadata, // RK: cover-colour extraction
 ) : Fetcher {
 
     private val diskCacheKey: String
@@ -84,7 +84,7 @@ class MangaCoverFetcher(
     }
 
     private fun fileLoader(file: File): FetchResult {
-        // RK --> extract the cover's vibrant color for reader/details theming (Y11)
+        // RK --> extract the cover's vibrant color for reader/details theming
         mangaCover?.let { mangaCoverMetadata.setVibrantColorAsync(it, ogFile = file) }
         // RK <--
         return SourceFetchResult(
@@ -133,7 +133,7 @@ class MangaCoverFetcher(
 
                 // Read from snapshot
                 // RK --> extract the theming color on the browse/non-library path too, so a
-                // non-favorited manga's cover tints on first open (Komikku parity, Y11)
+                // non-favorited manga's cover tints on first open (Komikku parity)
                 val snap = snapshot
                 mangaCover?.let {
                     mangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = snap.toImageSource().source())
@@ -159,7 +159,7 @@ class MangaCoverFetcher(
                 // Read from disk cache
                 snapshot = writeToDiskCache(response)
                 if (snapshot != null) {
-                    // RK --> Komikku parity: warm the theming color on the network path too (Y11)
+                    // RK --> Komikku parity: warm the theming color on the network path too
                     val snap = snapshot
                     mangaCover?.let {
                         mangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = snap.toImageSource().source())
@@ -173,7 +173,7 @@ class MangaCoverFetcher(
                 }
 
                 // RK --> Komikku parity: warm the theming color when serving straight from the
-                // response body; peekBody so the returned stream isn't consumed (Y11)
+                // response body; peekBody so the returned stream isn't consumed
                 mangaCover?.let {
                     mangaCoverMetadata.setVibrantColorAsync(
                         it,

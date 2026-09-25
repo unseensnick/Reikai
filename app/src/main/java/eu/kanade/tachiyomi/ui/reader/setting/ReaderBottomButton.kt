@@ -8,7 +8,7 @@ import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 
 /**
- * Reikai (R-feature): user-selectable reader bottom-bar buttons, shared by the manga and novel readers.
+ * Reikai: user-selectable reader bottom-bar buttons, shared by the manga and novel readers.
  * Ported from Komikku, trimmed to the buttons backed by existing reader actions. The two-page-spread
  * buttons (page layout, shift double page) are deliberately omitted; that feature is not ported.
  *

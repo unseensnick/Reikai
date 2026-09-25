@@ -45,7 +45,7 @@ fun TachiyomiTheme(
     )
 }
 
-// RK --> cover-based theming (Y11): when a seed color is given, build a dynamic scheme from it,
+// RK --> cover-based theming: when a seed color is given, build a dynamic scheme from it,
 // otherwise fall back to the normal app theme.
 @Composable
 fun TachiyomiTheme(
