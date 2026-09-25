@@ -24,6 +24,7 @@ import eu.kanade.tachiyomi.util.view.setComposeContent
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import reikai.novel.network.NovelImageRequests
 import reikai.presentation.webview.rememberNovelPageActions
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.service.SourceManager
@@ -35,6 +36,10 @@ class WebViewActivity : BaseActivity() {
     @Inject private lateinit var sourceManager: SourceManager
 
     @Inject private lateinit var network: NetworkHelper
+
+    // RK -->
+    @Inject private lateinit var novelImageRequests: NovelImageRequests
+    // RK <--
 
     private var assistUrl: String? = null
 
@@ -70,6 +75,12 @@ class WebViewActivity : BaseActivity() {
         setComposeContent {
             // Null until the source it belongs to has been resolved
             val headers by produceState<Map<String, String>?>(initialValue = null) {
+                // RK --> a novel source is found by its text id, which the manga source manager cannot resolve
+                intent.getStringExtra(NOVEL_SOURCE_KEY)?.let {
+                    value = novelImageRequests.webViewHeaders(it)
+                    return@produceState
+                }
+                // RK <--
                 val source = sourceManager.get(intent.extras!!.getLong(SOURCE_KEY)) as? HttpSource
                 value = try {
                     source?.headers?.toMultimap()?.mapValues { it.value.getOrNull(0) ?: "" }.orEmpty()
@@ -147,10 +158,22 @@ class WebViewActivity : BaseActivity() {
         // RK -->
         private const val NOVEL_ID_KEY = "novel_id_key"
         private const val CHAPTER_ID_KEY = "chapter_id_key"
+        private const val NOVEL_SOURCE_KEY = "novel_source_key"
 
-        /** A novel chapter's page, offering to save the chapter's text from it where its source can. */
-        fun newNovelChapterIntent(context: Context, url: String, title: String?, novelId: Long, chapterId: Long) =
+        /**
+         * A novel chapter's page, sent with its source's headers and offering to save the chapter's text
+         * from it where its source can.
+         */
+        fun newNovelChapterIntent(
+            context: Context,
+            url: String,
+            title: String?,
+            novelId: Long,
+            chapterId: Long,
+            novelSourceId: String?,
+        ) =
             newIntent(context, url, title = title).apply {
+                putExtra(NOVEL_SOURCE_KEY, novelSourceId)
                 putExtra(NOVEL_ID_KEY, novelId)
                 putExtra(CHAPTER_ID_KEY, chapterId)
             }

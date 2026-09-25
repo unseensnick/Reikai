@@ -112,6 +112,7 @@ class NovelScreen(
                                 initialTitle = s.sourceName,
                                 sourceId = null,
                                 novelId = s.displayNovel.id,
+                                novelSourceId = s.browsableSourceId,
                             ),
                         )
                     }

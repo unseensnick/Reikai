@@ -84,11 +84,11 @@ class NovelReaderProvider(
 
     override fun flushPosition() = viewModel.flushProgress()
 
-    // A novel source has no numeric id, so the browser opens without its headers; the ids let a source
-    // that takes pages save the chapter's text from it.
+    // The ids let a source that takes pages save the chapter's text from it.
     override suspend fun chapterWebViewIntent(context: Context, url: String, title: String?, chapterId: Long): Intent =
         viewModel.novelIdOf(chapterId)?.let { novelId ->
-            WebViewActivity.newNovelChapterIntent(context, url, title, novelId, chapterId)
+            val sourceId = viewModel.sourceIdOf(novelId)
+            WebViewActivity.newNovelChapterIntent(context, url, title, novelId, chapterId, sourceId)
         } ?: WebViewActivity.newIntent(context, url, title = title)
 
     override suspend fun chapterWebUrl(chapterId: Long): String? = viewModel.webUrlOf(chapterId)

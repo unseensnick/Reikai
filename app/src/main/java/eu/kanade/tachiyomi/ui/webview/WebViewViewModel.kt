@@ -21,12 +21,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import reikai.novel.network.NovelImageRequests
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.service.SourceManager
 
 @AssistedInject
 class WebViewViewModel(
     @Assisted val sourceId: Long?,
+    // RK -->
+    @Assisted private val novelSourceId: String?,
+    private val novelImageRequests: NovelImageRequests,
+    // RK <--
     private val sourceManager: SourceManager,
     private val network: NetworkHelper,
 ) : ViewModel() {
@@ -35,7 +40,10 @@ class WebViewViewModel(
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
-        fun create(sourceId: Long?): WebViewViewModel
+        fun create(
+            sourceId: Long?,
+            novelSourceId: String?, // RK
+        ): WebViewViewModel
     }
 
     /** Null until the source it belongs to has been resolved. */
@@ -44,6 +52,12 @@ class WebViewViewModel(
 
     init {
         viewModelScope.launch {
+            // RK --> a novel source is found by its text id, which the manga source manager cannot resolve
+            if (novelSourceId != null) {
+                headers.value = novelImageRequests.webViewHeaders(novelSourceId)
+                return@launch
+            }
+            // RK <--
             val source = sourceId?.let { sourceManager.get(it) as? HttpSource }
             headers.value = try {
                 source?.headers?.toMultimap()?.mapValues { it.value.getOrNull(0) ?: "" }.orEmpty()

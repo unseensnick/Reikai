@@ -151,6 +151,32 @@ class NovelImageRequestsTest {
         requests(loaded = listOf(extension)).forSource("tachiyomi:42").headers["Referer"] shouldBe null
     }
 
+    @Test
+    fun `the WebView gets an APK source's own headers`() = runTest {
+        requests(loaded = listOf(apkWithToken())).webViewHeaders("tachiyomi:42") shouldBe
+            mapOf("x-token" to "secret")
+    }
+
+    @Test
+    fun `the WebView gets the headers an IReader source's cover request carries`() = runTest {
+        val catalogue = mockk<IReaderHttpSource> {
+            every { id } returns 42L
+            every { baseUrl } returns "https://ir.example"
+            every { getCoverRequest(any()) } answers {
+                HttpClient() to HttpRequestBuilder().apply { headers.append("Referer", "https://ir.example/") }
+            }
+        }
+        val extension = mockk<Extension.Loaded> { every { sources } returns listOf(IReaderSourceHolder(catalogue)) }
+
+        requests(loaded = listOf(extension)).webViewHeaders("ireader:42") shouldBe
+            mapOf("referer" to "https://ir.example/")
+    }
+
+    @Test
+    fun `the WebView gets no headers for an LNReader source, without waiting for the extension scan`() = runTest {
+        requests(scanDone = false).webViewHeaders("p") shouldBe emptyMap()
+    }
+
     private fun requests(
         seen: Map<String, LnSourceIdentity> = emptyMap(),
         loaded: List<Extension.Loaded> = emptyList(),

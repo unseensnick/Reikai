@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.coroutines.flow.first
+import logcat.LogPriority
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
@@ -15,6 +16,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.novel.source.IREADER_NOVEL_SOURCE_PREFIX
 import reikai.novel.source.TACHIYOMI_NOVEL_SOURCE_PREFIX
 import reikai.novel.source.ireader.IReaderSourceHolder
+import tachiyomi.core.common.util.system.logcat
 import ireader.core.source.HttpSource as IReaderHttpSource
 
 /** The client and headers a novel source's images are fetched with. */
@@ -68,6 +70,23 @@ class NovelImageRequests(
             lnImageHeaders(deviceWebViewUserAgent(context), record?.site, record?.imageHeaders.orEmpty()),
             record?.site,
         )
+    }
+
+    /**
+     * The headers a novel source sends with its own pages, for the WebView: an APK source's own and an
+     * IReader source's cover-request ones. An LNReader plugin has none of its own, so it gets none, and
+     * so does a source whose headers throw, as a manga source's do in the WebView.
+     */
+    suspend fun webViewHeaders(sourceId: String?): Map<String, String> {
+        val apk = apkSource(sourceId)
+        val iReader = if (apk == null) iReaderSource(sourceId) else null
+        return try {
+            val headers = apk?.headers ?: iReader?.let(::iReaderImageHeaders)
+            headers?.toMultimap()?.mapValues { it.value.firstOrNull().orEmpty() }.orEmpty()
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Failed to build headers" }
+            emptyMap()
+        }
     }
 
     private fun withElsewhere(client: OkHttpClient, headers: Headers, site: String?): NovelImageClient {

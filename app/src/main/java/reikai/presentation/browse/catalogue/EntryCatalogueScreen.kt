@@ -327,7 +327,14 @@ class EntryCatalogueScreen(
         val onWebViewClick: (String?) -> Unit = f@{ challengeUrl ->
             val url = challengeUrl ?: loaded.webUrl ?: return@f
             pendingWebViewRetry = true
-            navigator.push(WebViewScreen(url = url, initialTitle = loaded.sourceName, sourceId = mangaSourceId))
+            navigator.push(
+                WebViewScreen(
+                    url = url,
+                    initialTitle = loaded.sourceName,
+                    sourceId = mangaSourceId,
+                    novelSourceId = (sourceKey as? SourceKey.Novel)?.id,
+                ),
+            )
         }
 
         BackHandler(enabled = loaded.selectionMode) { behavior.setSelectionMode(false) }

@@ -1213,6 +1213,9 @@ class NovelReaderViewModel(
     /** The novel [chapterId] belongs to, for the browser to save the chapter's text to. */
     suspend fun novelIdOf(chapterId: Long): Long? = chapterRepo.getById(chapterId)?.novelId
 
+    /** The source [novelId] is read from, for the browser to send that source's headers. */
+    suspend fun sourceIdOf(novelId: Long): String? = novelRepo.getById(novelId)?.source
+
     /** [chapterId]'s page on the source site, by its row, so a chapter that failed to open has one too. */
     suspend fun webUrlOf(chapterId: Long): String? {
         val chapter = chapterRepo.getById(chapterId) ?: return null

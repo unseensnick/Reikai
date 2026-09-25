@@ -19,6 +19,8 @@ class WebViewScreen(
     private val sourceId: Long? = null,
     // RK: a novel's page, which a source taking pages can read the novel's details and chapters from
     private val novelId: Long? = null,
+    // RK: a novel source's text id, so the page opens with that source's headers
+    private val novelSourceId: String? = null,
 ) : Screen(), AssistContentScreen {
 
     private var assistUrl: String? = null
@@ -30,7 +32,7 @@ class WebViewScreen(
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val viewModel = assistedMetroViewModel<WebViewViewModel, WebViewViewModel.Factory> {
-            create(sourceId = sourceId)
+            create(sourceId = sourceId, novelSourceId = novelSourceId) // RK
         }
 
         val headers by viewModel.headers.collectAsState()
