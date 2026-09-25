@@ -73,6 +73,12 @@ echo "manifest-rows"
 check "catches a resurrected file"     1 bash "$lint" manifest-rows "$(fixture man.md '| app/src/main/java/eu/kanade/tachiyomi/App.kt | mihon | nowhere/Absent.kt |\n')"
 check "catches a manifest with no rows" 1 bash "$lint" manifest-rows "$(fixture man2.md 'no rows at all\n')"
 
+echo "key-files"
+check "catches a missing Key files path" 1 bash "$lint" key-files "$(fixture kf1.md '## Key files\n\n- `app/src/main/java/reikai/NoSuchFile.kt`: gone.\n')"
+check "catches a dead Key files link"    1 bash "$lint" key-files "$(fixture kf2.md '## Key files\n\n- [NoSuchFile.kt](../nowhere/NoSuchFile.kt)\n')"
+check "passes live paths and names"      0 bash "$lint" key-files "$(fixture kf3.md '## Key files\n\n- `scripts/lint-docs.sh`, `LibraryViewModel.kt` (`applyGrouping`), `reikai/domain/entry/EntryId`.\n\n## Status\n\n- `app/src/main/java/reikai/NoSuchFile.kt` sits outside the section.\n')"
+check "skips a line recording a deletion" 0 bash "$lint" key-files "$(fixture kf4.md '## Key files\n\n- Deleted and manifested: `app/src/main/java/reikai/NoSuchFile.kt`.\n')"
+
 for f in "$work"/*.md; do rm -f "$f"; done
 rmdir "$work" 2> /dev/null || true
 

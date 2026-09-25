@@ -13,6 +13,7 @@
 #   lint-docs.sh issue-refs <file> <label> <hint>   no bare #N
 #   lint-docs.sh codenames                       plan/roadmap codenames, candidate lines on stdin
 #   lint-docs.sh manifest-rows <file>            every off-path row still describes reality
+#   lint-docs.sh key-files <file>...             every path a plan record's Key files names exists
 #
 # Exits non-zero when a check fails. Under GitHub Actions the heading is emitted as ::error:: so it
 # lands as an annotation; locally it is printed plainly.
@@ -158,6 +159,93 @@ case "$cmd" in
         fail=1
       fi
     done <<< "$rows"
+    [ "$fail" -eq 0 ] || exit 1
+    ;;
+
+  key-files)
+    # A plan record's Key files list is what a reader opens first, so a path in it that no longer
+    # exists sends them nowhere while reading as current (roadmap-plans.md). Checked: each backticked
+    # path and each markdown link target in the "## Key files" section. A link resolves from the
+    # record's own directory. A backticked path passes when it exists from the repo root or a tracked
+    # path ends with it, so a bare file name or a path relative to a source root is enough, and an
+    # elided ".../x/y.kt" is matched on what follows the dots. A token that is no path and no file name
+    # (a symbol, a pref key, a branch) is not checked, and a line saying the file was deleted or
+    # manifested is history, so it is skipped.
+    tracked=$(mktemp); refs=$(mktemp)
+    git ls-files > "$tracked"
+    # is_tracked <path>: some tracked path is it, ends with /it, or sits under it as a directory.
+    is_tracked() {
+      awk -v p="$1" '
+        BEGIN { n = length(p) }
+        $0 == p || substr($0, length($0) - n) == "/" p || index($0, p "/") == 1 || index($0, "/" p "/") { f = 1; exit }
+        END { exit !f }' "$tracked"
+    }
+    fail=0
+    for file in "$@"; do
+      [ -f "$file" ] || continue
+      dir=$(dirname "$file")
+      # A line "In `../Other-repo`:" roots the bullets after it in that sibling repo, until "In this
+      # repo". There only each bullet's leading path is read, since the prose around it names selectors
+      # and versions in backticks too.
+      awk '/^## Key files/ { on = 1; next } /^## / { on = 0 } on' "$file" \
+        | grep -viE 'deleted|manifested|no longer exist' \
+        | { sibling=0; while IFS= read -r line; do
+            case "$line" in
+              'In `../'*) r=${line#In \`}; echo "ROOT ${r%%\`*}"; sibling=1; continue ;;
+              'In this repo'*) echo "ROOT ."; sibling=0; continue ;;
+            esac
+            if [ "$sibling" = 1 ]; then
+              printf '%s\n' "$line" | grep -oE '^- `[^`]+`' | cut -c3-
+            else
+              printf '%s\n' "$line" | grep -oE '`[^`]+`|\]\([^)]+\)'
+            fi
+          done; } > "$refs" || true
+      missing=""; root=.
+      while IFS= read -r ref; do
+        case "$ref" in 'ROOT '*) root=${ref#ROOT }; continue ;; esac
+        if [ "$root" != . ]; then
+          # A sibling repo is checked where it is cloned, and skipped where it is not (CI).
+          p=${ref:1:${#ref}-2}
+          [ -d "$root" ] && [ "${ref:0:1}" = '`' ] && [[ "$p" == */* || "$p" == *.* ]] \
+            && [[ "$p" != *' '* && "$p" != *...* ]] && [ ! -e "$root/$p" ] && missing="$missing  $root/$p"$'\n'
+          continue
+        fi
+        if [ "${ref:0:1}" = '`' ]; then
+          p=${ref:1:${#ref}-2}; kind=code
+        else
+          p=${ref:2:${#ref}-3}; p=${p%%#*}; kind=link
+        fi
+        case "$p" in ''|*' '*|*'*'*|*'<'*|*'{'*|*'#'*|http*|../refs/*|refs/*) continue ;; esac
+        if [ "$kind" = link ]; then
+          [ -e "$dir/$p" ] || missing="$missing  $p"$'\n'
+          continue
+        fi
+        case "$p" in
+          */*|*.kt|*.kts|*.sq|*.sqm|*.md|*.sh|*.ps1|*.yml|*.json|*.xml|*.proto|*.toml) ;;
+          *) continue ;;
+        esac
+        case "$p" in .*/*) ;; .*|*...) continue ;; esac
+        [ -e "$p" ] && continue
+        q=${p##*.../}; q=${q%/}
+        is_tracked "$q" && continue
+        # A class or member named by its package path (reikai/domain/entry/EntryId, X.member).
+        base=${q##*/}
+        case "$base" in
+          *.*) is_tracked "${q%.*}.kt" && continue ;;
+          *) is_tracked "$q.kt" && continue ;;
+        esac
+        # An elided directory (".../yokai-y2k/app", the checkout itself) cannot be judged by its tail.
+        case "$p" in .../*) [[ "${q##*/}" != *.* ]] && continue ;; esac
+        # A branch named as a port source (design/library-compose).
+        git show-ref -q "$p" 2>/dev/null && continue
+        missing="$missing  $p"$'\n'
+      done < "$refs"
+      if [ -n "$missing" ]; then
+        report "$file: a Key files path does not exist; point it at the live file or drop it." "${missing%$'\n'}"
+        fail=1
+      fi
+    done
+    rm -f "$tracked" "$refs"
     [ "$fail" -eq 0 ] || exit 1
     ;;
 

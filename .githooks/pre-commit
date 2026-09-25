@@ -54,6 +54,12 @@ for doc in docs/dev/upstream-sync.md docs/dev/feature-ports.md; do
   fi
 done
 
+# ===== plan records: every path a Key files list names exists =====
+# Read from the working tree, since a Key files link resolves from the record's own directory. A code
+# rename that strands a record it did not stage is left to CI, which checks every record.
+plans=$(git diff --cached --name-only --diff-filter=ACMR -- 'docs/dev/plans/*.md')
+[ -n "$plans" ] && lint key-files $plans
+
 # ===== DI ownership: graph-owned, singleton, and every Injekt read bound =====
 # These mistakes are silent at build time: an Injekt read of a type MetroInjektRegistrar does not bind
 # throws only when the read runs, and an unscoped binding hands each caller its own instance. See

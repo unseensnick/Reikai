@@ -10,10 +10,10 @@ name: Docs lint
 
 on:
   pull_request:
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'scripts/lint-docs.sh', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
   push:
     branches: [main]
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'scripts/lint-docs.sh', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
 
 permissions:
   contents: read
@@ -57,3 +57,7 @@ jobs:
       # a row pointing nowhere. The hook owns the undeclared-reroute half.
       - name: Lint the off-path manifest
         run: bash scripts/lint-docs.sh manifest-rows docs/dev/off-path-manifest.md
+
+      # A Key files path that no longer exists sends a reader to nothing while reading as current.
+      - name: Lint the plan records' Key files
+        run: bash scripts/lint-docs.sh key-files docs/dev/plans/*.md
