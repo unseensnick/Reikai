@@ -197,6 +197,14 @@ class DownloadQueueKernelTest {
     }
 
     @Test
+    @DisplayName("a series reorder naming a series no longer queued ignores it")
+    fun seriesReorderIgnoresUnknownSeries() {
+        val queue = listOf(1L to 10L, 2L to 20L)
+
+        queue.withSeriesInOrder(listOf(9L, 2L)) { it.first } shouldBe listOf(2L to 20L, 1L to 10L)
+    }
+
+    @Test
     @DisplayName("a sort orders chapters within each series and keeps the series order")
     fun sortWithinSeries() {
         val chapters = listOf(9L to 3.0, 9L to 1.0, 4L to 2.0, 4L to 0.5)
