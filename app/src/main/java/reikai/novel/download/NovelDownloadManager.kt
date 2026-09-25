@@ -23,7 +23,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.download.SeriesCompletions
+import reikai.domain.download.removableDownloads
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
@@ -64,6 +66,7 @@ class NovelDownloadManager(
     private val saver: NovelChapterSaver,
     private val securityPreferences: SecurityPreferences,
     private val adultChecker: AdultContentChecker,
+    private val getNovelCategories: GetNovelCategories,
 ) {
 
     private val store = NovelDownloadStore(context, chapterRepo)
@@ -240,10 +243,27 @@ class NovelDownloadManager(
             logcat(LogPriority.ERROR) { "Failed to rename novel download folder: ${dir.name}" }
         }
     }
+
+    /**
+     * Delete [chapters]' downloads, keeping the ones [removableDownloads] says stay (bookmarked, or read
+     * in a category kept from removal), as manga's delete does. Each novel's categories are its own.
+     */
     fun deleteChapters(chapters: List<NovelChapter>) {
         if (chapters.isEmpty()) return
-        dequeueChapters(chapters)
-        scope.launch { deleteChapterFiles(chapters) }
+        scope.launch {
+            val removable = chapters.groupBy { it.novelId }.flatMap { (novelId, owned) ->
+                removableDownloads(
+                    owned,
+                    excluded = novelPreferences.removeExcludeCategories().get(),
+                    allowBookmarked = novelPreferences.removeBookmarkedChapters().get(),
+                    isRead = NovelChapter::read,
+                    isBookmarked = NovelChapter::bookmark,
+                ) { getNovelCategories.awaitByNovelId(novelId).map { it.id } }
+            }
+            if (removable.isEmpty()) return@launch
+            dequeueChapters(removable)
+            deleteChapterFiles(removable)
+        }
     }
 
     /** The novel's download directory, for the details overflow's Open folder; null until something

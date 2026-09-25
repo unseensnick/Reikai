@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
-import reikai.domain.download.isExcludedFromRemoval // RK
+import reikai.domain.download.removableDownloads // RK
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.extension
 import tachiyomi.core.common.util.lang.launchIO
@@ -433,22 +433,14 @@ class DownloadManager(
     }
 
     private suspend fun getChaptersToDelete(chapters: List<Chapter>, manga: Manga): List<Chapter> {
-        // Retrieve the categories that are set to exclude from being deleted on read
-        // RK: through the removal-exclusion kernel novels share
-        val excluded = isExcludedFromRemoval(downloadPreferences.removeExcludeCategories.get()) {
-            getCategories.await(manga.id).map { it.id }
-        }
-        val filteredCategoryManga = if (excluded) {
-            chapters.filterNot { it.read }
-        } else {
-            chapters
-        }
-
-        return if (!downloadPreferences.removeBookmarkedChapters.get()) {
-            filteredCategoryManga.filterNot { it.bookmark }
-        } else {
-            filteredCategoryManga
-        }
+        // RK: through the delete filter novels share, so both types keep the same chapters
+        return removableDownloads(
+            chapters,
+            excluded = downloadPreferences.removeExcludeCategories.get(),
+            allowBookmarked = downloadPreferences.removeBookmarkedChapters.get(),
+            isRead = Chapter::read,
+            isBookmarked = Chapter::bookmark,
+        ) { getCategories.await(manga.id).map { it.id } }
     }
 
     fun statusFlow(): Flow<Download> = queueState

@@ -579,16 +579,10 @@ class NovelLibraryViewModel(
             val targets = if (removeGroupedSources) state.value.memberIdsFor(novelIds) else novelIds
             if (deleteFromLibrary) removeNovelsFromLibrary.await(targets)
             targets.forEach { novelId ->
+                // The whole entry's downloads, as manga's library removal deletes: the chapter delete
+                // would keep bookmarked chapters behind a series the user asked to clear out.
                 if (deleteDownloads) {
-                    val novel = novelRepository.getById(novelId)
-                    val downloadManager = novelDownloadManager()
-                    val downloaded = if (novel == null) {
-                        emptyList()
-                    } else {
-                        novelChapterRepository.getByNovelId(novelId)
-                            .filter { downloadManager.isChapterDownloaded(novel, it) }
-                    }
-                    if (downloaded.isNotEmpty()) downloadManager.deleteChapters(downloaded)
+                    novelRepository.getById(novelId)?.let { novelDownloadManager().awaitDeleteNovel(it) }
                 }
             }
         }

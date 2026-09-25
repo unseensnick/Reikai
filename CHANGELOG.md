@@ -522,6 +522,7 @@ every release now also ships a foss build with neither in it.
 - **Rows in Browse -> Extensions now read the same for every kind of extension, and a pending update shows the version it brings.** Available rows show their version under their language heading, installed rows their language and version.
 - **Novel plugin repos in Browse -> Extensions now refresh when you pull down, rather than each time you come back or install a plugin.**
 - **Reading a novel in incognito now downloads the next chapters ahead, as reading manga in incognito does.** Incognito keeps your history out, not your downloads.
+- **Deleting a novel's downloads by hand now keeps bookmarked chapters, and read chapters in categories kept from removal, as manga does.** Settings -> Downloads decides both, and removing a novel from the library still clears all of its downloads.
 
 #### Fixed
 

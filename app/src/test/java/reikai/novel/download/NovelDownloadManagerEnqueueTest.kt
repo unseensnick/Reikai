@@ -58,6 +58,7 @@ class NovelDownloadManagerEnqueueTest {
         saver = mockk(),
         securityPreferences = mockk(),
         adultChecker = mockk(),
+        getNovelCategories = mockk(),
     )
 
     @BeforeEach
