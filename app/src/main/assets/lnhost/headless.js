@@ -707,10 +707,10 @@
   }
 
   // -- @libs/storage shim -----------------------------------------------------
-  // The three scopes (storage/local/session) map to the same Kotlin SharedPreferences, keyed by
-  // prefix. Backed by __lnGetStorage/__lnSetStorage. Values are stored as lnreader's StoredItem
-  // envelope ({created, value, expires}, JSON-encoded) so booleans / arrays / objects round-trip
-  // with their type (refs/lnreader-main/src/plugins/helpers/storage.ts) instead of stringifying.
+  // `storage` maps to the Kotlin preference store under a key prefix, backed by
+  // __lnGetStorage/__lnSetStorage. Values are stored as lnreader's StoredItem envelope
+  // ({created, value, expires}, JSON-encoded) so booleans / arrays / objects round-trip with their
+  // type (refs/lnreader-main/src/plugins/helpers/storage.ts) instead of stringifying.
 
   function makeStorage(pluginId, kind) {
     var prefix = kind + ":";
@@ -745,6 +745,23 @@
       },
       delete: function (key) {
         __lnSetStorage(pluginId, prefix + key, null);
+      },
+    };
+  }
+
+  // LNReader's localStorage / sessionStorage are read-only: get() takes no key and returns the site's
+  // own storage as it stood when its WebView last closed, an object of item strings, or undefined.
+  // Kotlin writes it under this key (LnPluginHost.storeWebStorage), so the two spellings must agree.
+  function makeWebStorage(pluginId, kind) {
+    return {
+      get: function () {
+        var stored = __lnGetStorage(pluginId, "webview:" + kind);
+        if (stored === null || stored === undefined) return undefined;
+        try {
+          return JSON.parse(stored);
+        } catch (e) {
+          return undefined;
+        }
       },
     };
   }
@@ -854,8 +871,8 @@
       if (name === "@libs/storage") {
         return {
           storage: makeStorage(pluginId, "storage"),
-          localStorage: makeStorage(pluginId, "local"),
-          sessionStorage: makeStorage(pluginId, "session"),
+          localStorage: makeWebStorage(pluginId, "local"),
+          sessionStorage: makeWebStorage(pluginId, "session"),
         };
       }
       var pkg = packages[name];

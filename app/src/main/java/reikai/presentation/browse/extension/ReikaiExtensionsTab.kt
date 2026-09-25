@@ -588,10 +588,10 @@ private fun NovelExtensionRow(
 
 /**
  * A plugin's site in the WebView. No source id goes with it: that only carries an HTTP source's own
- * request headers, which a JavaScript plugin does not have.
+ * request headers, which a JavaScript plugin does not have. The plugin id keeps the site's storage for it.
  */
 private fun webViewFor(entry: LnRegistryEntry) =
-    WebViewScreen(url = entry.site, initialTitle = entry.name)
+    WebViewScreen(url = entry.site, initialTitle = entry.name, pluginId = entry.id)
 
 /**
  * A novel row's trailing buttons, or a spinner while its install runs.

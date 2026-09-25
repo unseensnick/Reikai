@@ -94,9 +94,14 @@ envelope, so a value the settings UI writes is exactly what the plugin sees at r
   bridge (never native fetch, which would bypass the interceptors). `fetchApi` merges lnreader's
   default browser-like headers under the plugin's headers, and converts a `FormData` body to a
   multipart field-pair list and a `URLSearchParams` body to a urlencoded string before posting.
-- The `@libs/storage` shim (`makeStorage` over `__lnGetStorage` / `__lnSetStorage`) with the three
-  lnreader scopes (`storage` / `local` / `session`) stored as the `StoredItem` envelope so booleans,
-  arrays, and objects round-trip with their type.
+- The `@libs/storage` shim. `storage` (`makeStorage` over `__lnGetStorage` / `__lnSetStorage`) is
+  stored as the `StoredItem` envelope so booleans, arrays, and objects round-trip with their type.
+  `localStorage` and `sessionStorage` follow lnreader's contract: a keyless, read-only `get()` over the
+  site's own storage as a WebView last left it (`makeWebStorage`, keys `webview:local` /
+  `webview:session`). The in-app browser captures it after each page load when opened for a plugin
+  (a plugin row, a plugin's page, or a novel, chapter or catalogue whose source is a plugin), and
+  `LnPluginHost.storeWebStorage` keeps it when the browser closes. That also rebuilds the plugin's
+  engine before its next call, because a plugin can read the storage once, while it is constructed.
 - A `require()` resolver (`makeRequire`) mapping the `@libs/*` aliases and vendor modules plugins
   import: `cheerio`, `htmlparser2`, `dayjs`, `protobufjs`, `urlencode`, `@libs/novelStatus`,
   `@libs/fetch`, `@libs/isAbsoluteUrl`, `@libs/filterInputs`, `@libs/defaultCover`,

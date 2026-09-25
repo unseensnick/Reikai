@@ -81,7 +81,13 @@ data class NovelPluginDetailsScreen(private val pluginId: String) : Screen() {
                     state = current,
                     contentPadding = contentPadding,
                     onOpenSite = {
-                        navigator.push(WebViewScreen(url = current.plugin.site, initialTitle = current.plugin.name))
+                        navigator.push(
+                            WebViewScreen(
+                                url = current.plugin.site,
+                                initialTitle = current.plugin.name,
+                                pluginId = current.plugin.id,
+                            ),
+                        )
                     },
                     onUninstall = viewModel::uninstall,
                 )

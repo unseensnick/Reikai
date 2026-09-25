@@ -334,6 +334,31 @@ class HeadlessJsIntegrationTest {
     }
 
     /**
+     * A plugin that reads the site's storage while it is constructed, as RanobeLib reads its sign-in,
+     * sees what the WebView kept on its next call, without an app restart. Inline plugin: no network.
+     */
+    @Test
+    fun webStorageReachesAPluginThatReadsItAtConstruction() = runBlocking {
+        val host = LnPluginHost(context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        val plugin = """
+            var localStorage = require('@libs/storage').localStorage;
+            var stored = localStorage.get();
+            module.exports.default = {
+              id: 'web-storage-test', name: 'T', site: 'https://example.org', version: '1.0.0',
+              auth: stored ? stored.auth : 'none',
+              parseChapter: async function () { return String(this.auth); },
+            };
+        """.trimIndent()
+        host.loadPlugin("web-storage-test", plugin)
+        host.storeWebStorage("web-storage-test", WebStorageSnapshot(local = "{}", session = "{}"))
+        host.parseChapter("web-storage-test", "/c")
+
+        host.storeWebStorage("web-storage-test", WebStorageSnapshot(local = """{"auth":"signed-in"}""", session = "{}"))
+
+        assertEquals("signed-in", host.parseChapter("web-storage-test", "/c"))
+    }
+
+    /**
      * The `app.cash.quickjs.QuickJs` compat class, used directly by extensions like Mangago
      * (issue #26). Covers plain evaluate plus the cross-instance compile -> execute -> evaluate
      * roundtrip those extensions rely on. Synchronous, exactly as extensions call it.

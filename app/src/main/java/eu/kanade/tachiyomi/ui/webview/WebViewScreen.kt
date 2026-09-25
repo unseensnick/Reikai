@@ -11,6 +11,7 @@ import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.webview.WebViewScreenContent
 import reikai.presentation.webview.rememberNovelPageActions
+import reikai.presentation.webview.rememberPluginStorageCapture
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class WebViewScreen(
@@ -21,6 +22,8 @@ class WebViewScreen(
     private val novelId: Long? = null,
     // RK: a novel source's text id, so the page opens with that source's headers
     private val novelSourceId: String? = null,
+    // RK: a light-novel plugin, installed or not, that keeps this site's storage, as LNReader's WebView does
+    private val pluginId: String? = null,
 ) : Screen(), AssistContentScreen {
 
     private var assistUrl: String? = null
@@ -52,6 +55,7 @@ class WebViewScreen(
             onOpenInBrowser = { viewModel.openInBrowser(context, it) },
             onClearCookies = viewModel::clearCookies,
             pageActions = rememberNovelPageActions(novelId), // RK
+            onPageFinished = rememberPluginStorageCapture(pluginId, novelSourceId), // RK
         )
     }
 }

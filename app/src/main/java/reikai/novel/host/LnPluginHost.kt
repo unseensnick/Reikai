@@ -96,6 +96,10 @@ class LnPluginHost(
         @Volatile
         var lastUsedMs = 0L
 
+        // Set when the plugin's stored state changed under a live engine; the next call starts a fresh one.
+        @Volatile
+        var rebuild = false
+
         /** Runs [block] on this slot's thread, starting it if an idle close retired it. dokar evaluates on
          *  the calling thread, so without this a screen's Main ran the plugin. Caller must hold [mutex]. */
         suspend fun <T> onThread(block: suspend () -> T): T {
@@ -271,6 +275,18 @@ class LnPluginHost(
         }
     }
 
+    /**
+     * Keeps what a WebView on [pluginId]'s site held in its storage, which the plugin reads through
+     * LNReader's keyless `localStorage.get()` / `sessionStorage.get()`. Its next call starts a fresh engine,
+     * so a plugin that reads the storage once, while it is constructed, sees it then rather than next launch.
+     */
+    fun storeWebStorage(pluginId: String, storage: WebStorageSnapshot) {
+        // headless.js makeWebStorage reads these keys.
+        bridge.setStorage(pluginId, "webview:local", storage.local)
+        bridge.setStorage(pluginId, "webview:session", storage.session)
+        pluginSlots[pluginId]?.rebuild = true
+    }
+
     fun destroy() {
         synchronized(sweeperLock) {
             sweeperJob?.cancel()
@@ -340,6 +356,10 @@ class LnPluginHost(
     ): JsonElement = withPluginTimeout(CALL_TIMEOUT_MS, method) {
         val slot = pluginSlots[pluginId] ?: throw LnPluginException("plugin not loaded: $pluginId")
         slot.mutex.withLock {
+            if (slot.rebuild) {
+                slot.rebuild = false
+                closeLocked(slot)
+            }
             slot.onThread {
                 val q = slot.engine()
                 slot.fetchFailure = null

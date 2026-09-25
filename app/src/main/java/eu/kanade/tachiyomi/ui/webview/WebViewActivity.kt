@@ -25,6 +25,7 @@ import mihon.app.di.appGraph
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import reikai.novel.network.NovelImageRequests
 import reikai.presentation.webview.rememberNovelPageActions
+import reikai.presentation.webview.rememberPluginStorageCapture
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
@@ -109,6 +110,8 @@ class WebViewActivity : BaseActivity() {
                     novelId = intent.getLongExtra(NOVEL_ID_KEY, -1L).takeIf { it > 0L },
                     chapterId = intent.getLongExtra(CHAPTER_ID_KEY, -1L).takeIf { it > 0L },
                 ),
+                // RK: a light-novel plugin's chapter page keeps the site's storage, as WebViewScreen's does
+                onPageFinished = rememberPluginStorageCapture(null, intent.getStringExtra(NOVEL_SOURCE_KEY)),
             )
         }
     }

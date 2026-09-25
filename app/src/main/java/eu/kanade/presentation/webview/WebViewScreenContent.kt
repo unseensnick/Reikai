@@ -83,6 +83,8 @@ fun WebViewScreenContent(
     onUrlChange: (String) -> Unit = {},
     // RK: actions a novel source offers on the page on screen
     pageActions: List<WebPageAction> = emptyList(),
+    // RK: runs after each page load; a light-novel plugin's page reads the site's storage here
+    onPageFinished: (WebView) -> Unit = {},
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -121,6 +123,7 @@ fun WebViewScreenContent(
 
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
+                onPageFinished(view) // RK
                 scope.launch {
                     val html = view.getHtml()
                     showCloudflareHelp = "window._cf_chl_opt" in html || "Ray ID is" in html
