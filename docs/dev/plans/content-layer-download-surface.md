@@ -24,7 +24,7 @@ The queue screen stacks two separately owned lists. In the All view a manga card
 
 **The per-series sheet.** Tapping a card opens that series' queued chapters in download order in Mihon's `AdaptiveSheet`, the component the in-reader chapter list uses: a bottom sheet on a phone, a centred dialog under the tablet layout. Each row shows the chapter name, its status, a page-progress bar and page count for manga, and the failure reason when it failed. Row actions are Download next, which also retries a failed chapter, Move to bottom, behind the rest of its series, and Cancel. The header opens the series details. Chapters inside the sheet are not dragged: Sort and Download next already cover chapter order.
 
-**Failure reasons.** Each downloader keeps the error message on the failed chapter. Failed downloads live only in memory on both sides, so the reason lives exactly as long as the failed row and nothing is persisted.
+**Failure reasons.** Each downloader keeps the error message on the failed chapter, in memory only. The failed chapter itself stays in the saved queue on both sides, since only a finished download leaves it (Mihon's `Downloader` removes a store row only once it is `DOWNLOADED`), so after a restart the row is back as Queued, without its reason, and waits for Resume.
 
 **Notifications.** The novel notification has manga's shape: Pause and Show entry while downloading, and a paused notification with Resume and Cancel all. The paused entry has its own id on both types, because WorkManager takes the worker's foreground notification down when a paused worker stops.
 

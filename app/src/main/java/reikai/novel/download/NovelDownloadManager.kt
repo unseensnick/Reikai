@@ -420,14 +420,14 @@ class NovelDownloadManager(
                     retainQueuedCompletions()
                     done++
                 } else {
-                    // Don't retry forever across restarts; surface ERROR and drop from persistence.
+                    // Stays in the saved queue, as a failed manga chapter does: only a finished download
+                    // leaves it, so after a restart the row is back as Queued and waits for Resume.
                     val reason = if (lastError is EmptyChapterException) {
                         context.stringResource(MR.strings.novel_chapter_empty)
                     } else {
                         lastError?.message
                     }
                     setState(next.chapterId, NovelDownload.State.ERROR, reason)
-                    store.remove(next.chapterId)
                     // Notify the user: a failed novel download was previously completely silent.
                     onError(novel, chapter?.name, reason, isAdult)
                 }
