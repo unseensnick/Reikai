@@ -15,7 +15,7 @@ Context: phone-first reading, mix of sessions throughout the day (commute, eveni
 A unified manga + light-novel reader for Android in the Tachiyomi / Mihon / Yokai lineage, with a distinct identity. Three things differentiate it from the lineage:
 
 1. **Two content types as first-class citizens.** Manga and light novels share one library, one chrome, one interaction language. Content-type differentiation surfaces through metadata, not decoration.
-2. **Power features the lineage doesn't have.** Multi-source merge / unmerge groups (a novel followed across royalroad + novelbin treated as one entry), per-category sort overrides, content-type filter chip on the unified library.
+2. **Power features the lineage doesn't have.** Multi-source merge / unmerge groups (a novel followed across two sources treated as one entry), per-category sort overrides, content-type filter chip on the unified library.
 3. **A visual identity that doesn't read as "generic Android Material 3 utility."** The lineage's default look is functional but undistinctive; Reikai chooses every visual element deliberately to feel like a curated personal tool, not a stock template.
 
 Success looks like: opening the app on any device and immediately recognizing it as Reikai. Reading sessions feel calm and uninterrupted. Finding a specific entry across a few hundred manga and novels takes one or two taps, not a navigation tree dive.

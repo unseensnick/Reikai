@@ -12,7 +12,7 @@ A single source's own "related" list is thin and varies wildly in quality. The t
 
 ## Approach
 
-When a manga opens, the carousel queries several sources for "what's similar to this?", pools all the answers, removes anything already in the library or duplicated, sorts the rest so the titles that best match the user's taste come first, and shows them. "See all" opens the full pool as a grid for selecting many titles at once and adding them to the library. Novel recommendations are deliberately not built (see Status).
+When a manga opens, the carousel queries several sources for "what's similar to this?", pools all the answers, removes duplicates (and, when the user turns on a hide filter, titles already in the library or tracked), sorts the rest so the titles that best match the user's taste come first, and shows them. "See all" opens the full pool as a grid for selecting many titles at once and adding them to the library. Novel recommendations are deliberately not built (see Status).
 
 ### The five input streams, merged into one carousel
 
@@ -28,9 +28,9 @@ Streams 4 and 5 come from `TasteCandidateFetcher` ([taste/TasteCandidateFetcher.
 
 Each candidate carries an `origin` (source-native, a specific tracker, or a cross-rec from a named title) so the See-all grid can group by it ([RecommendationOrigin.kt](../../../app/src/main/java/reikai/domain/recommendation/RecommendationOrigin.kt)).
 
-**Dedup and agreement.** The loader normalizes titles (NFKD + strip diacritics + fold punctuation/case, so "café" = "cafe", fullwidth = ASCII; [TitleNormalizer.kt](../../../app/src/main/java/reikai/domain/recommendation/TitleNormalizer.kt)) and also keeps each candidate's alternate-title set, so a title that arrives under different names from two streams is recognized as one. A second dedup pass matches by resolved local manga id. When several streams agree on the same title, the agreement count is kept (not discarded) and feeds the ranker. Titles already in the library or already read/completed/dropped on a tracker are filtered out on read, before ranking ([RecommendationHideFilter.kt](../../../app/src/main/java/reikai/domain/recommendation/RecommendationHideFilter.kt), [BuildRecommendationHideFilter.kt](../../../app/src/main/java/reikai/domain/recommendation/BuildRecommendationHideFilter.kt)).
+**Dedup and agreement.** The loader normalizes titles (NFKD + strip diacritics + fold punctuation/case, so "café" = "cafe", fullwidth = ASCII; [TitleNormalizer.kt](../../../app/src/main/java/reikai/domain/recommendation/TitleNormalizer.kt)) and also keeps each candidate's alternate-title set, so a title that arrives under different names from two streams is recognized as one. Dedup is two-keyed: by `SManga.url` for a source's own duplicate rows, and by the normalized title set. When several streams agree on the same title, the agreement count is kept (not discarded) and feeds the ranker. Hiding is opt-in and every filter defaults off: when enabled, titles already in the library, or read/completed/dropped/on hold/plan to read on a tracker, are filtered out on read, before ranking. With none on, library titles show with an in-library badge ([RecommendationHideFilter.kt](../../../app/src/main/java/reikai/domain/recommendation/RecommendationHideFilter.kt), [BuildRecommendationHideFilter.kt](../../../app/src/main/java/reikai/domain/recommendation/BuildRecommendationHideFilter.kt)).
 
-**Caching.** Results are cached in memory (~30 min freshness, cache-then-refresh) so reopening a manga is instant, with a background refresh when stale ([RelatedMangaCache.kt](../../../app/src/main/java/reikai/domain/recommendation/RelatedMangaCache.kt)). Fetches are on-demand only, debounced, and per-host rate-limited with identifying User-Agents (the Shikimori IP-ban and Jikan caching constraints are why; see Decisions).
+**Caching.** Results are cached in memory (~30 min freshness, cache-then-refresh) so reopening a manga is instant, with a background refresh when stale ([RelatedMangaCache.kt](../../../app/src/main/java/reikai/domain/recommendation/RelatedMangaCache.kt)). Fetches are on-demand only (once per details open, skipped when the cache is fresh) and per-host rate-limited with identifying User-Agents (the Shikimori IP-ban and Jikan caching constraints are why; see Decisions).
 
 ### The taste-profile rerank
 
@@ -82,9 +82,9 @@ Persistence:
 
 `// RK` islands on Mihon files:
 
-- [MangaScreen.kt](../../../app/src/main/java/eu/kanade/presentation/manga/MangaScreen.kt): carousel item, phone (in-scroll) and tablet (start pane).
-- `MangaViewModel.kt`: state + debounced load + `tracks` plumbing.
-- [SettingsLibraryScreen.kt](../../../app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsLibraryScreen.kt): entry to `SettingsRecommendationsScreen` (Settings → Library → Recommendations).
+- [EntryDetailsContent.kt](../../../app/src/main/java/reikai/presentation/details/EntryDetailsContent.kt): places the carousel, phone (in-scroll) and tablet (start pane).
+- `MangaViewModel.kt`: state + the once-per-open load (`loadRelatedMangas`) + `tracks` plumbing.
+- [SettingsMainScreen.kt](../../../app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsMainScreen.kt): top-level entry to `SettingsRecommendationsScreen` (Settings -> Recommendations).
 - The tracker `*Api.kt` recs/library-pull methods, the Metro graph (`ReikaiBindings` for the fetcher list), `i18n` strings.
 
 ## Status
@@ -102,8 +102,8 @@ For the user-facing architecture overview of how the carousel blends and ranks s
 - **Kitsu and Bangumi contribute taste only, no recs.** Neither has a recommendations endpoint (Kitsu exposes structural relationships, not taste recs). They register no recs provider; no UI special-case.
 - **Genres must come inline with the library list, never per title.** A per-title genre fetch would multiply requests into a rate-limit blowup. Every kept tracker returns genres inline (AniList one GraphQL call; MAL `fields=node(genres)`; Kitsu `include=manga.categories`, 500/page; Shikimori via its GraphQL `userRates` since the REST `user_rates` omits genres; Bangumi `subject.tags`).
 - **Conservative per-host rate limiting + identifying User-Agent, non-negotiable for Shikimori.** Shikimori IP-bans on a wrong/missing User-Agent and has a hard 5/s & 90/min cap; the limiter runs well under (2/s, 60/min) with the registered app name. The limiter lives on a single lazily-built per-process client so its windows persist across fetches (rebuilding per fetch reset them, the old code's key bug).
-- **On-demand fetch + two-tier cache, taste pull off the open path.** Recs load only when the carousel shows (debounced, skipped if cache-fresh); the taste library pull is scheduled + persisted and the profile recomputes locally, so opening a manga never hits a tracker for taste data. This satisfies Jikan's mandatory caching and keeps the UI fast.
-- **No fuzzy title matching in dedup.** Strong normalization + alt-title sets + an id second-pass only; fuzzy similarity risks false merges.
+- **On-demand fetch + two-tier cache, taste pull off the open path.** Recs load only when the carousel shows (once per details open, skipped if cache-fresh); the taste library pull is scheduled + persisted and the profile recomputes locally, so opening a manga never hits a tracker for taste data. This satisfies Jikan's mandatory caching and keeps the UI fast.
+- **No fuzzy title matching in dedup.** Strong normalization + alt-title sets + source-url identity only; fuzzy similarity risks false merges.
 - **Origin grouping is browse-only.** The carousel stays flat-ranked (less clutter in a small horizontal strip); the See-all grid offers the grouped view since the provenance data already rides on each candidate, no extra fetching.
 - **One read-time assembly with a tracker reserve.** The cache holds the unranked pool and its agreement map; `RecommendationAssembly` filters out what the hide filter hides, ranks the rest, and caps the carousel at 30 with up to 12 slots kept for tracker recommendations, round-robin across trackers, so a source whose own results fill the cap cannot push every tracker pick out. See all runs the same assembly without the cap. Filtering before ranking keeps the serendipity picks on titles that will show.
 - **Tablet placement.** The carousel renders in the two-pane details start pane (after the description); the See-all grid is the escape hatch if the pane feels cramped.

@@ -36,15 +36,15 @@ Mihon files patched with `// RK` islands:
 - `app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaScreen.kt`: the Voyager `Screen`; `// RK` blocks apply the cover-accent theme wrap, kick off the related carousel, and route merge/related actions.
 - `app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaViewModel.kt`: the `ScreenModel`; `// RK` blocks add merge-group aggregation, source-switcher state, cover seed-color extraction, related-manga loading, and the Manage-sources operations.
 
-Mihon presentation composables (native, confirmed present, no Reikai edits needed for parity):
+Presentation composables (the Mihon ones native, with no Reikai edits needed for parity; the three `reikai/presentation/details/` ones replaced Mihon originals, see below):
 
-- `app/src/main/java/eu/kanade/presentation/manga/MangaScreen.kt`: the stateless screen body; wraps the chapter list in `PullRefresh`.
-- `app/src/main/java/eu/kanade/presentation/manga/components/MangaInfoHeader.kt`: backdrop + gradient.
+- `app/src/main/java/reikai/presentation/details/EntryDetailsContent.kt`: the stateless screen body shared by both content types (replaced Mihon's `MangaScreen` composable); `EntryDetailsScaffold.kt` wraps the chapter list in `PullRefresh`.
+- `app/src/main/java/reikai/presentation/details/EntryDetailsColumn.kt`: `entryInfoItems`, backdrop + gradient via `EntryInfoBox` (replaced `MangaInfoHeader`).
 - `app/src/main/java/eu/kanade/presentation/manga/components/MangaChapterListItem.kt`: chapter row metadata + selection.
 - `app/src/main/java/eu/kanade/presentation/manga/components/ChapterDownloadIndicator.kt`: download tap-menu.
 - `app/src/main/java/eu/kanade/presentation/manga/components/MissingChapterCountListItem.kt`: missing-chapter divider.
 - `app/src/main/java/eu/kanade/presentation/manga/components/MarkdownRender.kt`: markdown description.
-- `app/src/main/java/eu/kanade/presentation/manga/components/MangaToolbar.kt`, `MangaBottomActionMenu.kt`: toolbar + selection action bar.
+- `app/src/main/java/reikai/presentation/details/EntryToolbar.kt` (replaced `MangaToolbar`) and `app/src/main/java/eu/kanade/presentation/manga/components/MangaBottomActionMenu.kt`: toolbar + selection action bar.
 
 Since P3, the content-layer unification collapsed `MangaScreen`, `MangaInfoHeader`, and `MangaToolbar` into the shared `EntryDetailsContent` / `EntryInfoBox` + `ExpandableEntryDescription` / `EntryToolbar` (see [content-layer-details-surface.md](content-layer-details-surface.md)); the remaining rows are still consumed directly.
 

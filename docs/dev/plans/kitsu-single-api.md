@@ -169,10 +169,12 @@ one.
 
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/kitsu/KitsuApi.kt`: both islands, `// RK` fenced,
   plus the `COMMON_MANGA_DATA` fragment step 3 extends.
-- `app/src/main/java/eu/kanade/tachiyomi/data/track/kitsu/Kitsu.kt`: the `getUserLibrary` passthrough
-  and `getUserId()`, both of which step 2 removes.
-- `app/src/main/java/eu/kanade/tachiyomi/data/track/kitsu/dto/KitsuLibrary.kt`,
-  `dto/KitsuMetadata.kt`: the Reikai-owned JSON:API DTOs, deleted by steps 2 and 3.
+- `app/src/main/java/eu/kanade/tachiyomi/data/track/kitsu/Kitsu.kt`: the `getUserLibrary` passthrough,
+  which no longer takes a user id (step 2 removed `getUserId()`).
+- `app/src/main/java/eu/kanade/tachiyomi/data/track/kitsu/dto/KitsuLibraryEntry.kt` (the flat row
+  `KitsuApi.getUserLibrary` builds from the GraphQL library connection) and `dto/KitsuMetadata.kt`
+  (the GraphQL wire types for the Fill-from-tracker read): the Reikai-owned DTOs that replaced the
+  JSON:API ones.
 - `app/src/main/java/reikai/domain/recommendation/taste/KitsuLibraryFetcher.kt` and its siblings, plus
   `TrackedEntry.kt`, `TasteLibraryRepository.kt` and `reikai/data/recommendation/taste/`: the consumer
   chain and the table step 4 changes. `ComputeTasteProfile.kt` and `TasteCandidateFetcher.kt` are

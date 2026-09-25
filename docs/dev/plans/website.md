@@ -58,7 +58,7 @@ In this repo:
 
 **A docs push here deploys the site on its own.** `.github/workflows/deploy-docs.yml` sends a `repository_dispatch` to the site repo once the push has landed, and the site's `deploy.yml` listens for it. The ordering is the whole point: the site build checks this repo out, so a deploy started before the push publishes the old docs. It authenticates with `PREVIEW_REPO_TOKEN`, the fine-grained PAT `nightly.yml` already publishes preview builds with, widened to reach the site repo as well; `GITHUB_TOKEN` cannot, since it is scoped to the repository it runs in. Reusing that token means one secret and one expiry to track, at the cost of one credential reaching both the preview releases and the site. Without it the job fails loudly rather than skipping.
 
-**The dispatch carries its own branch, so nothing is pinned twice.** `deploy-docs.yml` fires on `main`, `feat/**` and `fix/**`, the same set `nightly.yml` uses, and passes the branch it ran on; the site's `APP_REF` reads that and falls back to a literal only for a push to the site repo or a manual run. A release branch therefore needs no edit in either file. The consequence to know is that a docs push on any of those branches republishes the live site from it, which is what you want on a release branch and a trap on a scratch one.
+**Only `main` deploys the live docs.** `deploy-docs.yml` fires on a push to `main` that touches the user docs, and passes the branch and commit it ran on; the site's root docs describe the stable release built from `main`. The site's `/preview/` docs are built from the commit the latest nightly was built from, and `nightly.yml` asks the site to rebuild when it publishes one (its "Ask the site to rebuild" step), so a docs push on a working branch has nothing to publish until its nightly exists.
 
 **Live at [reikai.app](https://reikai.app), over HTTPS.** GitHub Pages serves it from the public site repo, which is MPL-2.0 to match Mihon's website since enough of the site derives from it, deployed by `.github/workflows/deploy.yml` on push. Every help link in the app now points here, built from one `Constants.URL_DOCS`.
 
@@ -75,13 +75,13 @@ The docs were mostly right about behaviour and wrong about names, which is the f
 
 ## The privacy policy is a claim about the build
 
-Written from `release.yml` and `nightly.yml`, both of which pass `-Pinclude-telemetry`, and from
+Written from `release.yml` and `nightly.yml`, both of which build with `-Pdist=github`, which turns telemetry on (`BuildConfig.includeTelemetry` in `gradle/build-logic`), and from
 `PrivacyPreferences`, where `crashlytics` and `analytics` both default to `true`. So official builds
 do ship Firebase Crashlytics and Analytics, on by default, with both switches shown during onboarding
 and in Security and privacy. The page says that plainly rather than implying the app collects nothing.
 
-**That makes it a page the build can invalidate.** If the release workflow ever stops passing the
-flag, or a default flips, the policy is wrong until someone edits it. Check it when either changes.
+**That makes it a page the build can invalidate.** If the release workflows ever build with a
+different `-Pdist` profile, `includeTelemetry` changes, or a default flips, the policy is wrong until someone edits it. Check it when either changes.
 
 ## Decisions & tradeoffs
 

@@ -121,6 +121,7 @@ Elsewhere:
 
 ## Decisions & tradeoffs
 
+- **A content-type chip inside the existing tabs, never a second tab.** Library and Browse each keep one Voyager `Tab` with an All / Manga / Novels chip (`ContentTypeFilterChips`, backed by `ReikaiLibraryPreferences.libraryContentType` on the library side and `ReikaiBrowseViewModel` on the Browse side), rather than a dedicated Novels tab. One UI tree means one search box and one toolbar, and in Browse it avoids nested tabs. This was the founding decision of the original tabbed shell, which this takeover replaced.
 - **All-first rather than a third chip.** Chosen by the owner as a purpose-built rebuild. The alternative, merging two independently assembled lists at the end, produces a correct-looking mixed list while leaving both pipelines forked, which is the failure this programme exists to remove.
 - **Providers keep their own filtering and search.** They read different repositories and resolve different source managers, so filtering at the provider is honest; only assembly is shared. The row type is Mihon's `LibraryItem` on both sides, and novels already convert to it before filter and sort.
 - **Interactors and repositories stay Mihon's.** The takeover stops at orchestration. Any step that starts reimplementing what `setReadStatus` or `DownloadManager` does has gone too far.

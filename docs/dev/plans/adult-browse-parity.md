@@ -103,8 +103,8 @@ B gets its own scout/plan before implementation.
   `SourceRepositoryImpl.kt` (routing); `BrowseSourceViewModel.combineMetadata`;
   `.../presentation/browse/components/BrowseSourceEHentaiList.kt`.
 - Ours: `source-api/.../source/model/MangasPage.kt`; `app/.../source/online/all/EHentai.kt`
-  (`genericMangaParse`); `data/.../source/SourcePagingSource.kt` (+ a new `EHentaiPagingSource.kt`
-  for B); `domain/.../source/repository/SourceRepository.kt` (alias, B); `app/.../ui/browse/source/browse/BrowseSourceViewModel.kt`
+  (`genericMangaParse`); `data/.../source/SourcePagingSource.kt` (carries the
+  `MetadataMangasPage` cursor and metadata, so B needed no EH-specific paging source); `domain/.../source/repository/SourceRepository.kt` (alias, B); `app/.../ui/browse/source/browse/BrowseSourceViewModel.kt`
   and `app/.../presentation/browse/` (B).
 
 ## Status

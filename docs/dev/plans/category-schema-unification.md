@@ -90,7 +90,7 @@ both sides, unchanged.
 
 ## Key files
 
-- Schema: `data/src/main/sqldelight/tachiyomi/data/categories.sq`, `novel_categories.sq` (retired),
+- Schema: `data/src/main/sqldelight/tachiyomi/data/categories.sq`, `novel_categories.sq` (retired and deleted),
   `mangas_categories.sq`, `novels_categories.sq`; new migration under `.../migrations/`.
 - Flags: `tachiyomi.domain.library.model.LibrarySort` (manga layout), `reikai.domain.novel.model.NovelLibrarySort`
   (novel layout, its reader dissolves), `reikai.domain.library.CategorySortOverride` (the shared

@@ -74,8 +74,9 @@ Updates each merge the manga and novel feeds into a shared row model (`HistoryRo
 and route around Mihon's screen via a `// RK` redirect in the tab (built during the light-novel
 port), so only the leaf row needed unifying; both shipped (`EntryHistoryRow`, `EntryUpdatesRow`).
 The cover dialog shipped next (`EntryCoverDialog`, replacing the two near-identical copies), then
-the details screen (the large, highest-impact surface) in phases P1-P6. The download subsystem
-(Road B) is the next surface. Reader stays separate.
+the details screen (the large, highest-impact surface) in phases P1-P6. Every surface has since
+been taken to the behaviour seam; the current depth of each is the table in
+[.claude/rules/content-layer.md](../../../.claude/rules/content-layer.md).
 
 ## Key files
 
@@ -99,9 +100,8 @@ nothing here binds current work.
 - The **forward program** is [content-layer-architecture.md](content-layer-architecture.md): the deeper
   seam through the ScreenModel behavior, the delete-and-manifest policy, and the reader migration.
 
-Two surfaces are still at this file's depth and are scheduled to be redone at the behavior seam
-(History and Updates, plus Downloads which never started). Read the architecture doc for that
-sequencing, not this file.
+No surface is still at this file's depth: each has its own content-layer record, which carries its
+current status. What follows is the record of what this era shipped.
 
 **Shipped in full for this doc's scope: list surfaces, cover dialog, and the details screen (P1-P6,
 editor + custom-info overlay + Fill-from-tracker included).** Captured from a design discussion (2026-07-05) while finishing the MD
@@ -185,9 +185,9 @@ pass (2026-07-08) that traced Komikku's API and verified every tracker against i
 - **8 trackers, not Komikku's 6.** AniList, MyAnimeList, Shikimori, Bangumi, MangaUpdates, MdList are
   Komikku-derived (MangaUpdates needed a `getSeries` + `MUAuthor`/`MUGenre` backport; Bangumi a polymorphic
   `Infobox` parser with corrected `作者`/`插画` keys; Shikimori kept Reikai's `shikimori.io`, not Komikku's dead
-  `.one`). **Kitsu is bespoke:** Komikku's `findLibraryEntryById` GraphQL is now 403-gated, so it runs on the
-  JSON:API `api/edge/` REST the tracker already uses, reading genres from `categories` (Kitsu's `genres`
-  relationship is usually empty). **MdList** reuses the enhanced MangaDex source's own `getMangaUpdate` parse
+  `.one`). **Kitsu is bespoke:** Komikku's `findLibraryEntryById` GraphQL is 403-gated, so it posts a GraphQL
+  `findMangaById` query instead (`KitsuApi.getMangaMetadata`, see [kitsu-single-api.md](kitsu-single-api.md)),
+  reading genres from `categories` (Kitsu's `genres` relationship is usually empty). **MdList** reuses the enhanced MangaDex source's own `getMangaUpdate` parse
   pipeline. **Hikka** has no Komikku reference (Komikku lacks Hikka); its DTO was extended to the live
   `MangaInfoResponse` (synopsis/authors/genres), with markdown-link stripping on the synopsis.
 - **Level-up over Komikku:** genres are filled everywhere the tracker exposes a clean list (Komikku fetches
@@ -220,14 +220,10 @@ independent library scroll position per content type, the novel download-storage
 fixes + twin collapses that followed are recorded in
 [content-parity-drift-and-collapse.md](content-parity-drift-and-collapse.md).
 
-**Remaining: the download subsystem unification (Road B)**, collapsing the parallel novel download
-cache/provider into one shared disk-scan layer serving both types. Queued under ROADMAP "Next".
-
-**A separate reader track (evaluated, deferred).** [novel-reader-tsundoku.md](novel-reader-tsundoku.md)
-captures tsundoku (a maintained, Apache-2.0 Mihon-fork novel reader) as the reader's forward direction:
-a migration to tsundoku's native reader folded into `ReaderActivity` (Option 3), queued after the remaining
-parity phases above and inside 0.4.0. The near-term seamless-transitions port (Option 1) is not being built:
-it would land on a reader the migration deletes in the same release.
+The download subsystem (Road B) and the reader were taken over after this era; their records are
+[content-layer-download-surface.md](content-layer-download-surface.md),
+[content-layer-reader-surface.md](content-layer-reader-surface.md) and
+[novel-reader-tsundoku.md](novel-reader-tsundoku.md).
 
 ## Decisions & tradeoffs
 

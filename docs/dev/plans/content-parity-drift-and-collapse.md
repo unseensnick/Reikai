@@ -97,11 +97,11 @@ Four independent parity items scouted 2026-07-14; two shipped, two closed as non
 
 ## Key files
 
-- **Browse:** `reikai/presentation/novel/browse/*` and `reikai/presentation/browse/source/*` vs `eu/kanade/presentation/browse/*`, `eu/kanade/presentation/library/components/CommonMangaItem.kt`, and `eu/kanade/tachiyomi/ui/browse/*`.
-- **Global search:** `reikai/presentation/novel/globalsearch/*` vs `eu/kanade/tachiyomi/ui/browse/source/globalsearch/*` and `eu/kanade/presentation/browse/GlobalSearch*`.
-- **Migration:** `reikai/presentation/novel/migrate/*`, `reikai/presentation/browse/migrate/*`, and the already-shared `reikai/presentation/migrate/MigrationSourcePick` vs `mihon/feature/migration/*`.
+- **Browse:** the shared catalogue `reikai/presentation/browse/catalogue/*` and sources list `reikai/presentation/browse/source/*`, over the per-type remainders `reikai/presentation/novel/browse/*` and `eu/kanade/tachiyomi/ui/browse/*`, plus `eu/kanade/presentation/library/components/CommonMangaItem.kt`.
+- **Global search:** the shared `reikai/presentation/browse/globalsearch/*` (`GlobalSearchEngine`, `EntryGlobalSearchScreen`) over `reikai/presentation/novel/globalsearch/*` and `eu/kanade/tachiyomi/ui/browse/source/globalsearch/*`.
+- **Migration:** one flow in `reikai/presentation/migrate/flow/*` over two adapters, plus the source list in `reikai/presentation/browse/migrate/*`; see [content-layer-migrate-surface.md](content-layer-migrate-surface.md).
 - **Action handlers:** `NovelDetailsViewModel` / `NovelLibraryViewModel` vs `MangaViewModel` / `LibraryViewModel`; `NovelDownloadActions`.
-- **Leftover composables:** `NovelNotesScreen`, `NovelLibrarySettingsDialog` (display page). (`NovelTrackInfoDialog` was the track-dialog twin, collapsed into `reikai.presentation.track.EntryTrackInfoDialog` in Phase 6 above; `NovelTrackUpdater` remains as the novel write sink.)
+- **Leftover composables:** `NovelNotesScreen`. (`NovelTrackInfoDialog` was the track-dialog twin, collapsed into `reikai.presentation.track.EntryTrackInfoDialog` in Phase 6 above; `NovelTrackUpdater` remains as the novel write sink.)
 
 ## Status
 
@@ -126,6 +126,5 @@ Sits after the shipped round-1 program (see [unified-content-ui.md](unified-cont
 - **Reconcile before sharing (4c):** the novel download-selection kernel excludes only disk-downloaded chapters, manga also excludes queued ones; unify on the manga behaviour first, or the shared interactor silently changes novel behaviour.
 - **Open design calls:** the novel Filter chip's `selected` semantics (no `Listing.Search` equivalent exists, so it tracks `searching`, non-default filters, or the sheet-open state, a choice, not pinned by code); and whether the Latest gate (1b) warrants a new `NovelSource.supportsLatest` contract field or accepts always-on Latest.
 - **Refuted finding (not a task):** the "manga deletes bookmarked downloads on mark-read, novels do not" claim is likely not a real gap, manga applies the bookmark and excluded-category exclusion in `DownloadManager.getChaptersToDelete`, not in `SetReadStatus`. Confirm before assuming a bug.
-- **Genuinely not unified (gate, do not force):** the migration list-screen model (search-on-scroll vs eager fan-out); the chapter flag/sort bit layouts (`NovelChapterFlags` vs `Manga.*`); the two source-filter models (plugin JSON schema vs `FilterList`) block leaf-sharing the filter sheet, only its chrome collapses; the readers (separate engines).
-- **Related, tracked separately:** the download-subsystem unification (Road B) and the reader tsundoku track are their own initiatives, sequenced after this.
-- **Stale doc to fix opportunistically:** `NovelMergeCollapse`'s header comment says source-icons are "deferred" but they already ship.
+- **Genuinely not unified (gate, do not force):** the chapter flag/sort bit layouts (`NovelChapterFlags` vs `Manga.*`); and the two source-filter models (plugin JSON schema vs `FilterList`), which block leaf-sharing the filter sheet, so only its chrome collapses. The migration list model and the reader orchestration have since been unified (`EntryMigrationListViewModel`, `ReaderEngine`).
+- **Related, tracked separately:** the download-subsystem unification (Road B) and the reader tsundoku track, both complete in their own records ([content-layer-download-surface.md](content-layer-download-surface.md), [content-layer-reader-surface.md](content-layer-reader-surface.md)).

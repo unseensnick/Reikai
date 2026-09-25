@@ -77,12 +77,12 @@ Library modes
 - `app/src/main/java/reikai/presentation/library/novels/NovelLibraryViewModel.kt` (downloaded-only force, incognito gating on the browse side)
 
 Reader
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreenModel.kt` (orientation resolve, mark-read-on-skip, incognito gating)
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettingsSheet.kt` (Display settings: orientation, keep-screen-on)
+- `app/src/main/java/reikai/presentation/reader/NovelReaderViewModel.kt` (orientation resolve, mark-read-on-skip, incognito gating)
+- `app/src/main/java/reikai/presentation/reader/settings/NovelReaderSettingsPages.kt` (in-reader settings: orientation, keep-screen-on)
 - `app/src/main/java/reikai/domain/novel/NovelPreferences.kt` (`readerKeepScreenOn`, `readerMarkReadOnSkip`, orientation default)
 
 Downloads
-- `app/src/main/java/reikai/presentation/download/NovelDownloadQueueList.kt` (flat reorderable list with boundary captions) and `NovelDownloadQueueViewModel.kt` (flat state, `reorder` / `sort`)
+- `app/src/main/java/reikai/presentation/download/EntryDownloadCardList.kt` (the shared flat, drag-reorderable list of per-series cards) and `EntryDownloadQueueViewModel.kt` (`reorder` / `sort`), with the novel queue behind `NovelDownloadQueueProvider.kt`
 - `app/src/main/java/reikai/presentation/download/DownloadQueueSortSheet.kt` (the `TabbedDialog` + `SortItem` sort modal, matching the library / chapter sort sheets)
 - `app/src/main/java/reikai/novel/download/NovelDownloadManager.kt` (`reorderQueue`) and `NovelDownloadStore.kt` (`replaceAll`)
 - `app/src/main/java/eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt` (`// RK` unified Sort across both queues)

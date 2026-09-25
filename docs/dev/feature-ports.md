@@ -80,7 +80,7 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 
 ## Tsundoku
 
-[Tsundoku](https://github.com/tsundoku-otaku/tsundoku), an Apache-2.0 Mihon fork built for novels. The reference for novel-reader features and the future native-reader migration. Ref: `refs/tsundoku` (branch `main`).
+[Tsundoku](https://github.com/tsundoku-otaku/tsundoku), an Apache-2.0 Mihon fork built for novels. The reference for novel-reader features, and the source of the native text renderer now in the shared reader. Ref: `refs/tsundoku` (branch `main`).
 
 ### Ported features
 
@@ -118,7 +118,6 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 ### Deliberately not taken
 
 - **Novels-as-manga entry merge. Ruled out.** Tsundoku gets its unified-everything simplicity by making novels *be* manga rows (hashing the `String` plugin id to a `Long`). Reikai deliberately keeps `novels.source TEXT` in separate tables; merging the entry tables would mean source-id collisions, broken novel FKs, and forking `mangas.source` from Mihon. No item on the roadmap requires it.
-- **Native novel reader (Option 3).** Evaluated, deferred to its own branch. It ports via **adapters**, not a storage merge: lift tsundoku's `NovelViewer` text engine onto Reikai's novel domain through `ReaderChapter` / `Page` / `PageLoader`. Do not transplant `NovelViewer.kt` verbatim; it is fused to Mihon's `ReaderActivity`. See [novel-reader-tsundoku.md](plans/novel-reader-tsundoku.md).
 - **Content-type binary fetch.** Auto-detecting binary responses by Content-Type would garble a mislabeled non-UTF-8 (GBK / Shift-JIS) text source, and no novel plugin fetches raw binary. See ROADMAP "Parked".
 - **LNReader filter -> `FilterList` conversion.** Reikai renders the plugin's raw filter schema directly and that works; the real defect was a member-name mismatch in Reikai's own `filterInputs` shim, fixed in `226dd7d1b`. Adopting tsundoku's model would be a rewrite for no added coverage.
 - **On-device translation stack.** Parked; see ROADMAP.

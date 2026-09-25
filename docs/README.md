@@ -6,7 +6,7 @@ Three tiers, by audience:
 - **Dev docs** (`dev/`): how the project is built, how to sync Mihon, how work is recorded. Start at [dev/README.md](dev/README.md).
 - **Feature records** (`dev/plans/*.md`): one per substantial feature, the how and the why, indexed in [dev/plans/README.md](dev/plans/README.md).
 
-Three more files at the repo root hold the moving parts: the forward backlog is [ROADMAP.md](../ROADMAP.md), user-facing release notes are [CHANGELOG.md](../CHANGELOG.md), the terse done-log is [dev/shipped.md](dev/shipped.md), and what was considered and set aside is [dev/parked.md](dev/parked.md).
+Four more files hold the moving parts. At the repo root, the forward backlog is [ROADMAP.md](../ROADMAP.md) and user-facing release notes are [CHANGELOG.md](../CHANGELOG.md); under `dev/`, the terse done-log is [dev/shipped.md](dev/shipped.md) and what was considered and set aside is [dev/parked.md](dev/parked.md).
 
 ## Where a feature lives
 
@@ -25,7 +25,7 @@ To change or understand a feature, this is every doc that covers it: the user do
 | Built-in sources | [built-in-sources.md](built-in-sources.md) | [exh-subsystem.md](dev/plans/exh-subsystem.md) |
 | MangaDex enhanced source | [built-in-sources.md](built-in-sources.md) | [md-enhanced-source.md](dev/plans/md-enhanced-source.md) |
 | Light novels | [about.md](about.md) | the `novel-*` records in [plans/](dev/plans/README.md#light-novels), plus [ln-plugin-host.md](dev/ln-plugin-host.md) |
-| Library shell | [library-layout.md](library-layout.md) | [library-screen-carry.md](dev/plans/library-screen-carry.md), [library-tabbed-shell.md](dev/plans/library-tabbed-shell.md) |
+| Library shell | [library-layout.md](library-layout.md) | [library-screen-carry.md](dev/plans/library-screen-carry.md), [library-all-chip.md](dev/plans/library-all-chip.md) |
 | Unified manga + novel UI | (none yet) | the Unified-surfaces records in [plans/](dev/plans/README.md) |
 
 Areas with no user doc are internal or cross-cutting; their records carry the full picture. When you add a user-facing feature, add its row here.

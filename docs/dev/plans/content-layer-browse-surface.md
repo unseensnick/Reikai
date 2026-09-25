@@ -487,6 +487,7 @@ them off the neutral row style, so no composable reads the preference.
   `installedExtensionsFlow` and so pops straight back off a package that is untrusted rather than
   installed. Both dialogs are now hosted by the unified list, with Mihon's two composables made
   public rather than copied. Novels need no counterpart, for the reason the ruling above gives.
+- **Repos are one screen for both kinds.** Manga extension stores and LN plugin repos are listed and added in one Reikai-owned `RepositoriesScreen` (`reikai/presentation/browse/repos/`), reached from the Extensions tab's Repos action, Settings, Browse, and a repo deep link, which replaced Mihon's `ExtensionStoresScreen`. Fewer surfaces, and the two repo kinds sit side by side.
 - **The ROADMAP browse feature items ride after the collapse** (genre-tap-search, source-row
   polish, find-a-source search), on the shared parts, rather than landing inside this surface.
 - **A row's neutral content is a derived view, never its own collector (2026-08-27, from the

@@ -49,7 +49,7 @@ Category-manager UI (shared, `// RK` islands):
 Hopper + picker (single-list view):
 - `app/src/main/java/reikai/presentation/library/ReikaiCategoryHopper.kt`: the floating up/center/down control.
 - `app/src/main/java/reikai/presentation/library/ReikaiCategoryPickerSheet.kt`: the jump-to-category bottom sheet.
-- `app/src/main/java/reikai/presentation/library/LibraryBucket.kt`: the sealed library section (real category or dynamic group) the picker lists. Replaced `ReikaiDynamicCategory.kt`, the name decoder this shipped against.
+- `app/src/main/java/reikai/presentation/library/LibraryBucket.kt`: the sealed library section (real category or dynamic group) the picker lists. Replaced the name decoder this shipped against (`ReikaiDynamicCategory`, since deleted).
 
 Library host (shared, `// RK` islands):
 - `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryTab.kt`: resolves both screen models, the content-type chip, the unconditional hopper + picker, content-aware callbacks, and the tab-aware Display sheet + edit-categories routing.
@@ -79,5 +79,5 @@ Shipped. Novel categories, the hopper and jump-to-category sheet on the Novels t
 ## See also
 
 - [docs/guides/categories.md](../../guides/categories.md): user-facing reference for how categories behave across the app.
-- [library-tabbed-shell.md](library-tabbed-shell.md): the shared tabbed / single-list library shell the Novels tab plugs into.
+- [library-all-chip.md](library-all-chip.md): the shared All / Manga / Novels library the novel categories render in.
 - [novel-update-job.md](novel-update-job.md): the novel library-update background job (sibling to the plugin-update job above).

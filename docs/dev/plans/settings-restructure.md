@@ -67,8 +67,8 @@ Both are pure relocations. The preference keys do not move, so there is no migra
 
 ## Key files
 
-- `eu/kanade/presentation/more/settings/screen/SettingsReaderScreen.kt`, splitting into itself plus two new screens.
-- `eu/kanade/presentation/more/settings/screen/Commons.kt`, `contentTypedCategory`, which retires with pass 1.
+- `eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt` and `SettingsNovelReaderScreen.kt`, which replaced the one reader screen.
+- `eu/kanade/presentation/more/settings/screen/Commons.kt`, `contentTypedCategory`: the reader screens no longer use it, while Advanced, Downloads and Library still suffix their groups with it.
 - `eu/kanade/presentation/more/settings/screen/SettingsSearchScreen.kt`, the hardcoded screen list every new screen must join.
 - `eu/kanade/presentation/more/settings/screen/SettingsMainScreen.kt`, the root entry list.
 - `eu/kanade/presentation/more/settings/screen/about/AboutScreen.kt`, rebuilt on the DSL in pass 2.

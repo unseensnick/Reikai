@@ -33,12 +33,12 @@ These are the Mihon-file edits that wire the subsystem in (grep `// RK`):
 
 ## Key files
 
-- Delegation + ids: `app/src/main/java/exh/source/` (`EnhancedHttpSource`, `DelegatedHttpSource`, `BlacklistedSources`); `source-api/src/commonMain/kotlin/exh/source/SourceIds.kt`.
+- Delegation + ids: `source-api/src/main/kotlin/exh/source/` (`EnhancedHttpSource`, `DelegatedHttpSource`, `BlacklistedSources`, `SourceIds.kt`).
 - Built-in source: `app/src/main/java/eu/kanade/tachiyomi/source/online/all/EHentai.kt`.
 - Metadata model + viewer: `source-api/.../exh/metadata/metadata/EHentaiSearchMetadata.kt`; `app/src/main/java/exh/ui/metadata/`.
 - Update checker: `app/src/main/java/exh/eh/` (`EHentaiUpdateWorker`, `EHentaiUpdateHelper`, `EHentaiUpdateNotifier`).
 - Account config: `app/src/main/java/exh/uconfig/`; settings in `SettingsEhScreen` + `EhLoginActivity`.
-- Favorites backup: `app/src/main/java/exh/favorites/` (`EhFavoritesBackupJob`, `ThrottleManager`).
+- Favorites backup: `app/src/main/java/exh/favorites/` (`EhFavoritesBackupJob`), throttled by `app/src/main/java/exh/util/ThrottleManager.kt`.
 - Tag catalogue: `app/src/main/java/exh/eh/tags/`.
 
 ## Status

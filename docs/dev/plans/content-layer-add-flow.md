@@ -141,35 +141,34 @@ The add paths, which is the inventory this plan has to keep whole:
   `reikai/presentation/novel/globalsearch/NovelGlobalSearchViewModel.kt`,
   `reikai/presentation/novel/browse/NovelBrowseViewModel.kt`,
   `reikai/presentation/novel/browse/NovelLibraryAdder.kt`.
-- The three composables holding manga's duplicate decision:
-  `eu/kanade/tachiyomi/ui/browse/source/browse/BrowseSourceScreen.kt`,
-  `.../globalsearch/GlobalSearchScreen.kt`, `exh/md/follows/MangaDexFollowsScreen.kt`.
+- The long-press duplicate decision, written once for both types: `reikai/presentation/browse/AddDecision.kt`
+  (`decideAdd`), rendered by `reikai/presentation/browse/EntryAddDialogs.kt` for the catalogue and
+  global search. `exh/md/follows/MangaDexFollowsScreen.kt` still hosts its own dialog.
 - Shared already: `reikai/domain/category/DefaultCategoryResolution.kt` (the kernel, six call sites
   across four files), `reikai/presentation/browse/EntryBulkFavoriteViewModel.kt` with its two
   subclasses `BulkFavoriteViewModel` and `NovelBulkFavoriteViewModel`, which share the decision and
   fork the write order.
-- Dialogs: `eu/kanade/presentation/manga/DuplicateMangaDialog.kt` (upstream, present in `refs/mihon`)
-  and `reikai/presentation/novel/browse/DuplicateNovelDialog.kt` (Reikai-owned), plus their nine
-  hosts. Neither is in the off-path manifest yet.
+- The one duplicate dialog: `reikai/presentation/browse/components/EntryDuplicateDialog.kt`, which
+  replaced both per-type dialogs at every render site.
 - The consumer: `reikai/presentation/recents/RecentsBehavior.kt` and the two adapters beside it.
 
 ## Status
 
-Shipped. Steps 1 to 4 are device-verified; step 5 is the recents verb, which no screen calls yet.
+Shipped. Steps 1 to 4 are device-verified; step 5 is the recents verb, which `RecentsScreen` calls through `RecentsEngine.addToLibrary`.
 
-One piece of the flow is still written per type: the History add decision, which
-`content-layer-recents-surface.md` closes in its step 8b. The category picker, the other one, collapsed onto
-the dialog the library already used for both types (recorded in `category-schema-unification.md`).
+No piece of the flow is written per type any more: the History add decision moved onto the recents
+engine (`content-layer-recents-surface.md`, step 8b), and the category picker collapsed onto the
+dialog the library already used for both types (recorded in `category-schema-unification.md`).
 
 - **Step 1** (`91999475c`) and **step 2** (`a6f73a2ac`): no user-visible change, so no CHANGELOG entry.
 - **Step 3** in two commits, manga (`f44f97322`) then novels (`f4517ec3b`), which is where the
   CHANGELOG entries land. **Step 3's twin-test collapse** rode after it (`43d7dc816`).
 - **Step 4** replaced both dialogs with `EntryDuplicateDialog` at all nine render sites.
   `DuplicateMangaDialog` is deleted and manifested; the novel twin is deleted outright.
-- **Step 5** put `addToLibrary` on `RecentsBehavior`, implemented in both adapters by handing each
-  type's history model the ids it owns, the same shape `removeFromHistory` uses. Each model already
-  runs the shared sequence, and the dialogs an add can raise stay on it, so the seam still carries no
-  dialog channel. Nothing calls the verb until the recents engine does, in that surface's step 8b.
+- **Step 5** put `addToLibrary` on `RecentsBehavior`. Each adapter runs its type's adder
+  (`MangaRecentsAdapter` through `mangaLibraryAdder`, `NovelRecentsAdapter` through
+  `novelLibraryAdder`), and `RecentsEngine.addToLibrary` raises the category prompt, so the seam
+  carries no dialog channel. `RecentsScreen` calls it from both recents rows.
 - **Device pass on the emulator for step 4**: the dialog on a novel browse long-press and on a manga
   one, a card tap opening the migrate dialog, add-time grouping through the picker (which the
   uncategorized group still asks for, and which stays added when dismissed, with both rows landing in
@@ -204,7 +203,7 @@ last DI call out of a composable here.
 Planned 2026-08-09, re-scouted the same day against current code. The re-scout is what
 produced the twelve-path inventory, the duplicate-check ruling and the corrected step order; the
 first draft had assumed each type agreed with itself. The recents surface's `addToLibrary` half of
-step 8b is parked on this plan: it needs one add sequence to delegate to, and building it against
+step 8b waited on this plan, since it needed one add sequence to delegate to, and building it against
 two orders would have baked the divergence into the engine.
 
 ## Decisions & tradeoffs

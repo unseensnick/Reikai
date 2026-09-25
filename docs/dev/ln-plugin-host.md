@@ -54,13 +54,15 @@ binding), and polls the slot until it settles before decoding the `LnCallResult`
 
 `LnHostBridge` (`reikai.novel.host.LnHostBridge`) is the engine-agnostic host service layer: HTTP via
 OkHttp, per-plugin storage via the injected `PreferenceStore`, and logging. It touches no WebView.
-`LnPluginHost.engine()` binds four host functions to the runtime:
+`LnPluginHost.engine()` binds five host functions to the runtime:
 
 - `__lnLog(level, message)`: sync. `bridge.log(...)` to logcat.
 - `__lnGetStorage(pluginId, key)`: sync, returns `String?`.
 - `__lnSetStorage(pluginId, key, value)`: sync, `null` value deletes the key.
 - `__lnFetch(url, optsJson)`: async (`asyncFunction`), runs `bridge.runFetch(...)` on `Dispatchers.IO`,
   returns a JSON `FetchResponse` string.
+- `__lnDelay(ms)`: async, suspends for `ms` milliseconds, capped at `MAX_TIMER_DELAY_MS` (30s). It backs
+  the `setTimeout` polyfill, since plugins use it for rate-limit pauses and retry backoff.
 
 `runFetch` issues the OkHttp call on the shared `NetworkHelper.client`, so the Cloudflare interceptor,
 Flaresolverr fallback, and cookie jar all apply to LN traffic for free. It supports a string body, a
@@ -86,7 +88,7 @@ envelope, so a value the settings UI writes is exactly what the plugin sees at r
 
 - Browser-global polyfills QuickJS lacks: `console`, `URLSearchParams`, `URL` (RFC 3986 base
   resolution), `FormData`, `TextEncoder` / `TextDecoder`, `btoa` / `atob`, `Headers`, `setTimeout` /
-  `clearTimeout` (microtask, delay ignored), and a minimal non-locale-aware `Intl`. Each polyfill
+  `clearTimeout` (the real delay, capped at 30s, waited through `__lnDelay`), and a minimal non-locale-aware `Intl`. Each polyfill
   carries a comment naming the plugin(s) that needed it.
 - The `@libs/fetch` shim (`fetchApi`, `fetchText`, `fetchProto`) and a `makeResponse` that synthesizes
   the Response surface plugins use (`text`, `json`, `headers.get/has/forEach`, `url`, `ok`). The global

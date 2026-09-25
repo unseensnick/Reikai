@@ -38,11 +38,11 @@ Restructure each row into a source-to-target comparison (the agreed mockup): bot
 
 **These paths are historical.** Everything below shipped in `reikai/presentation/novel/migrate/`, which the migrate takeover then deleted whole ([content-layer-migrate-surface.md](content-layer-migrate-surface.md)). The features live on in the shared flow at `reikai/presentation/migrate/flow/`: the list screen and its model are `EntryMigrationListScreen.kt` + `EntryMigrationListViewModel.kt`, the config pre-step is `EntryMigrationConfigScreen.kt`, and the novel-specific halves sit behind `NovelMigrationFlowAdapter.kt`.
 
-- `reikai/presentation/novel/migrate/NovelMigrationListScreen.kt`, `NovelMigrationListScreenModel.kt`: the migration list (all three phases touched these).
-- `reikai/presentation/novel/migrate/NovelMigrationConfigScreen.kt`: new in Phase 2, the source-selection pre-step.
+- `reikai/presentation/novel/migrate/NovelMigrationListScreen.kt`, `NovelMigrationListScreenModel.kt` (both deleted): the migration list (all three phases touched these).
+- `reikai/presentation/novel/migrate/NovelMigrationConfigScreen.kt` (deleted): new in Phase 2, the source-selection pre-step.
 - `reikai/domain/source/ReikaiSourcePreferences.kt`: new `novelMigrationSources` preference (Phase 2).
 - `reikai/presentation/browse/EntryBrowseGridCell.kt`, `reikai/data/coil/NovelCover.kt`: the existing cover pipeline reused for result thumbnails. The cell is now the shared manga + novel one.
-- Reference (Mihon, do not edit): `mihon/feature/migration/config/MigrationConfigScreen.kt` (pre-step), `mihon/feature/migration/list/MigrationListScreenContent.kt` (comparison row + per-row actions).
+- Reference (Mihon): `refs/mihon/app/src/main/java/mihon/feature/migration/config/MigrationConfigScreen.kt` (pre-step), `refs/mihon/app/src/main/java/mihon/feature/migration/list/MigrationListScreenContent.kt` (comparison row + per-row actions). Both were deleted here by the migrate takeover, replaced by `EntryMigrationConfigScreen.kt` and `EntryMigrationListScreen.kt`.
 
 ## Status
 

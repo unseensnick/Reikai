@@ -6,7 +6,8 @@ Grouped by area, never by phase: the rebase-era phase numbers this was built und
 
 ## Foundation & identity
 
-- Mihon base + Reikai identity (`eu.kanade.tachiyomi` + `.y2k`), source-api related-manga contract. See [rebase-overview.md](plans/rebase-overview.md).
+- Mihon base + Reikai identity (`eu.kanade.tachiyomi` + `.y2k` at 0.1.0), source-api related-manga contract. See [rebase-overview.md](plans/rebase-overview.md).
+- Own application id (0.3.2): renamed to `app.reikai` with upstream's build-type suffixes, so it installs beside a pre-0.3.2 build; the release notes carry the move-your-library steps.
 - De-Mihon brand pass: logo, trimmed About links, donation removed, trackers rebranded, repo meta + JDK 21. Icon sources in `art/icon/`.
 - README header logo + animated showcase WebP + reproduction kit. See [readme-showcase.md](readme-showcase.md).
 - Contributor themed-icon fix for Material You (0.2.0, Orifarius, `unseensnick/Reikai#34`); cover-accent theming on first open, manga + novels.
@@ -24,7 +25,7 @@ Grouped by area, never by phase: the rebase-era phase numbers this was built und
 
 ### Releases
 
-Cut and tagged `v0.1.0`-`v0.3.1`. Stale inherited Yokai `v*` tags were pruned; see the `stale-yokai-release-tags` memory. A long branch that absorbed `main` via merge commits cannot use GitHub "Rebase and merge"; use "Create a merge commit" (the `rebase-merge-fails-on-merge-commits` memory).
+Cut and tagged `v0.1.0`-`v0.3.2`. Stale inherited Yokai `v*` tags were pruned; see the `stale-yokai-release-tags` memory. A long branch that absorbed `main` via merge commits cannot use GitHub "Rebase and merge"; use "Create a merge commit" (the `rebase-merge-fails-on-merge-commits` memory).
 
 | Version | What it carried |
 |---|---|
@@ -38,11 +39,12 @@ Cut and tagged `v0.1.0`-`v0.3.1`. Stale inherited Yokai `v*` tags were pruned; s
 | 0.2.1 | Hikka tracker + per-tracker usernames + "Tracker recommendations" toggle fix (`unseensnick/Reikai#37`) + Komikku extension / AniList ports + Hikka-crash & hopper fixes. |
 | 0.3.0 | The unified-content-UI collapse + Edit info / Fill from tracker + hidden manga chapters + novel download storage on stable names + the novel parity round + auto webtoon mode. |
 | 0.3.1 | Hotfix off `main`: streamed backup create / validate / restore so a large library backs up again (`unseensnick/Reikai#53`), plus the per-content-type and custom-info create toggles. Hand-ported from `feat/0.4.0`, not cherry-picked. |
+| 0.3.2 | The application id rename to `app.reikai`, which installs beside the old app, plus the steps to move a library across by backup and restore. |
 
 ## Library
 
-- Library screen carry: single-list + hopper, dynamic grouping, filter / sort, category sort order, opt-in update-errors screen. See [library-screen-carry.md](plans/library-screen-carry.md).
-- Tabbed shell hosting a Manga tab and a Novels tab, plus repo / install / browse unification. See [library-tabbed-shell.md](plans/library-tabbed-shell.md).
+- Library screen carry: single-list + hopper, dynamic grouping, filter / sort, category sort order, update-errors screen. See [library-screen-carry.md](plans/library-screen-carry.md).
+- Tabbed shell hosting a Manga tab and a Novels tab, plus repo / install / browse unification. Since replaced by the All-first library, [library-all-chip.md](plans/library-all-chip.md), and the browse takeover, [content-layer-browse-surface.md](plans/content-layer-browse-surface.md).
 - Category bulk-delete with deferred-undo (`9a320598e`).
 - Global sort with per-category overrides (0.3.0, `b90344562`), manga + novels. See [library-sort-overrides.md](plans/library-sort-overrides.md).
 - Sort the manga library by download count (0.3.0, `3db0554ab`); the category hopper opens on the current category and jumps instantly (`af09bc34f`, `574f7421a`); each content type remembers its own scroll (`ad70e3825`).
@@ -73,7 +75,6 @@ Cut and tagged `v0.1.0`-`v0.3.1`. Stale inherited Yokai `v*` tags were pruned; s
 - Remove every source of a merged series in one delete: an "All N grouped sources" opt-in on the library Remove dialog, manga + novels (`30b3f0b09`).
 - Merged-group refresh (`ba292438e`): a details Refresh fetches every grouped source through its own path, not just the primary.
 - Fixes (0.3.0): gallery / metadata sources no longer double the unified list (`a3d16bfc4`), a manual merge survives two different tracker services (`267c45a83`), per-source rating + "More info" show on a merged view (`05e86c70a`), and the opened chapter keeps the merged list's own order (`3498c37eb`).
-- The whole design is being replaced: see [merge-system-rebuild.md](plans/merge-system-rebuild.md) for why (derived membership, a live id-reuse corruption path, the `sourceOrder` overload).
 
 ## Light novels
 
@@ -119,7 +120,7 @@ Per-item SHAs in [novel-parity-backlog.md](plans/novel-parity-backlog.md) unless
 - Restore skip-if-newer: `version` + `is_syncing` columns + trigger (migration 26), `BackupNovel` proto field (`6be6efe1c`).
 - Round 2 sweep: novel default-category (`db116e592`), add-to-library on history rows (`658be0feb`), source enable/disable (`bf538dabf`), chapter "downloaded" filter (`143abf9cf`), update-error tracking + per-category manual update (`f28259d00`).
 - Round 3 sweep (0.3.0): missing-chapter indicators + reversed-swipe fix (`e542bb4a5`), read / bookmark propagation across a merged novel's sources (`5314f6674`, `cce009104`), duplicate warning on add (`238f5f5ae`), bulk-add from browse + global search (`338525715`), global-search progress + empty-source sinking (`ca006ef08`), Filter-chip state + filter reset on listing switch (`e6f3bffa6`), source enable / disable matching manga (`e1d1d6de1`), persistent browse retry (`217085e51`), migration row options on a blank re-search (`68db6aebf`), add-to-library on first download (`cc94913da`), Updates refresh feedback + read cleanup (`b40e90de4`), hidden chapters kept out of downloads / resume (`f857375ee`, `50af66941`), Edit info gated on library membership (`dec76f174`), applicable-only selection-bar actions (`8f733b2ca`), novels in the pre-restore warning (`0665ce9e1`), queued-chapter skip on next-N download (`9500048cd`), six silent regressions from a parity audit (`4a7d77e8c`).
-- Download queue redesign (0.3.0): reorderable one-card-per-series list (`7e7bd0a5e`), manga moved onto it with a unified All view (`9f2bd17ce`), novel pause/resume + queue FAB (`d0831c34c`), novel downloads counted in the More badge (`5bba03263`), per-status download-folder resolve (`e2a16282b`). See [download-queue-unification.md](plans/download-queue-unification.md).
+- Download queue redesign (0.3.0): reorderable one-card-per-series list (`7e7bd0a5e`), manga moved onto it with a unified All view (`9f2bd17ce`), novel pause/resume + queue FAB (`d0831c34c`), novel downloads counted in the More badge (`5bba03263`), per-status download-folder resolve (`e2a16282b`). Since replaced by one queue engine, [content-layer-download-surface.md](plans/content-layer-download-surface.md).
 
 ## Unified content UI
 

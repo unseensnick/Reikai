@@ -1,6 +1,6 @@
 # Content layer: the download surface (Road B)
 
-> **Standing rules for every session working this surface.** The program rules bind here and are not restated: they live in [.claude/rules/content-layer.md](../../../.claude/rules/content-layer.md), which loads every session. For the program context read [content-layer-architecture.md](content-layer-architecture.md) first. The queue this replaces is recorded in [download-queue-unification.md](download-queue-unification.md).
+> **Standing rules for every session working this surface.** The program rules bind here and are not restated: they live in [.claude/rules/content-layer.md](../../../.claude/rules/content-layer.md), which loads every session. For the program context read [content-layer-architecture.md](content-layer-architecture.md) first.
 
 ## Goal
 
@@ -73,4 +73,7 @@ Both items that were verified from code alone are now shown on device (Fold, 202
 - **Progress counts move into the downloaders.** The observed running maximum could not survive the screen closing and would have counted cancelled chapters as downloaded.
 - **Resume as Mihon does, wait out a lost connection on both (owner, 2026-09-19).**
 - **Pacing is two settings, novels only (owner, 2026-09-19):** a global delay and per-source delays. Tsundoku's on/off switch, random extra delay and burst size were left out, since they pace every request in its HTTP client and ours paces chapters. The random extra wait only adds, so the set delay is a real minimum.
+- **One card per series, both types.** A full-novel download is otherwise thousands of rows, and a flat series list keeps drag reliable. A card reads Error only when every chapter it still has queued failed (`DownloadQueueKernel.kt`), so one failed chapter does not mislabel a series that is still downloading.
+- **Pause, don't error, on connection loss.** A lost connection is not a failure: the novel drain waits for the network and requeues a chapter interrupted mid-download rather than marking it failed.
+- **Download error notifications follow Mihon on "Hide notification content" (owner ruling, 2026-09-18).** Mihon's `DownloadNotifier.onError` names the entry and chapter even with that switch on, so both downloaders' errors keep the title under it. Reikai's "Hide adult content in notifications" applies to both types: an adult entry's error takes the generic downloader title and drops the chapter name too. The rule is `downloadErrorTitle` in `reikai/data/notification/ShownEntryName.kt`. The novel downloader's paused lines are status text rather than an entry name, so they show under either switch, as manga's pause notice does.
 - **Shared rules are pinned by kernels, not a conformance test.** The index rules and Downloaded only each live in one function both types call, the rung the content-layer rules prefer.

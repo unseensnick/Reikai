@@ -78,24 +78,24 @@ A floating puck reads the chapter aloud. The split is the same as the rest of th
 
 ## Key files
 
-The reader and its details host are net-new `reikai.*` code. Two Mihon files touch it, both `// RK` fenced: `LibraryTab.kt` pushes `NovelReaderScreen` for a resume tap, and `MainActivity` implements the reader package's `NovelVolumeKeyHost` so hardware volume keys can scroll. That second one is a compile-level dependency of a Mihon file on reader code, and it is the one a migration forgets. The other two push sites are Reikai-owned (`NovelScreen`, `NovelRecentsAdapter`); History and Updates no longer launch the reader directly, since the recents takeover routed them through the shared screen.
+The live novel reader is the shared host, `eu/kanade/tachiyomi/ui/reader/ReaderActivity.kt`, with `reikai/presentation/reader/NovelReaderProvider.kt` over `NovelReaderViewModel.kt` as its novel half; [content-layer-reader-surface.md](content-layer-reader-surface.md) is its record. The files below are the retired reader, most of them deleted at the cutover (`d6904484d`); read those from history before that commit. Each bullet names the live file that took over its job.
 
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreen.kt`: Voyager `Screen`; Compose chrome, immersive bars, keep-screen-on + orientation effects, history-on-leave, settings sheet host.
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreenModel.kt`: Voyager `StateScreenModel`; chapter loading + prefetch, prev/next ordering (cross-source, skip-duplicate aware), progress saves, read-state + tracker sync, incognito gating, settings flow.
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderWebView.kt`: the `AndroidView(WebView)` canvas; document load, live settings push, theme-color derivation, cutout padding.
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderHtmlBuilder.kt`: `buildReaderHtml` + `readerSettingsJson`; the per-chapter document, CSS variables, `initialReaderConfig`, the `ReactNativeWebView` -> `NativeReader` shim.
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderWebInterface.kt`: `@JavascriptInterface` bridge (`hide` / `save` / `console`, the `core.js` TTS messages, and the `reikai-ready` ping).
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettings.kt`: settings data class, theme presets, font list.
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettingsSheet.kt`: Compose settings sheet (General / Display / TTS tabs; theme is a section inside Display).
-- `app/src/main/java/reikai/domain/novel/NovelPreferences.kt`: reader preference keys (the `ln_reader_*` strings above).
-- `app/src/main/assets/lnreader-web/`: bundled `css/index.css` + `js/{core.js, van.js, icons.js, text-vibe.js, polyfill-onscrollend.js}`, copied verbatim from LNReader.
+- `NovelReaderScreen.kt` (deleted): Voyager `Screen`; Compose chrome, immersive bars, keep-screen-on + orientation effects, history-on-leave, settings sheet host. The chrome is now `reikai/presentation/reader/ReaderChrome.kt` in the shared host.
+- `NovelReaderScreenModel.kt` (deleted): Voyager `StateScreenModel`; chapter loading + prefetch, prev/next ordering (cross-source, skip-duplicate aware), progress saves, read-state + tracker sync, incognito gating, settings flow. Now `reikai/presentation/reader/NovelReaderViewModel.kt` under the shared engine.
+- `NovelReaderWebView.kt` (deleted): the `AndroidView(WebView)` canvas; document load, live settings push, theme-color derivation, cutout padding. The WebView mode is now `reikai/presentation/reader/NovelWebViewport.kt`.
+- `NovelReaderHtmlBuilder.kt` (deleted): `buildReaderHtml` + `readerSettingsJson`; the per-chapter document, CSS variables, `initialReaderConfig`, the `ReactNativeWebView` -> `NativeReader` shim. Reikai's own document is now `reikai/presentation/reader/web/NovelWebDocument.kt`.
+- `NovelReaderWebInterface.kt` (deleted): `@JavascriptInterface` bridge (`hide` / `save` / `console`, the `core.js` TTS messages, and the `reikai-ready` ping). Now `reikai/presentation/reader/web/NovelWebBridge.kt`.
+- `app/src/main/java/reikai/presentation/reader/NovelReaderSettings.kt`: the settings data class, moved out before the cutover; now the resolved display settings both rendering modes read.
+- `NovelReaderSettingsSheet.kt` (deleted): Compose settings sheet (General / Display / TTS tabs; theme is a section inside Display). Now `reikai/presentation/reader/settings/NovelReaderSettingsPages.kt` inside the shared `ReaderSettingsSheet.kt`.
+- `app/src/main/java/reikai/domain/novel/NovelPreferences.kt`: reader preference keys (the `ln_reader_*` strings above), still live.
+- The vendored LNReader bundle under `assets/lnreader-web/` (deleted): `index.css` plus `core.js`, `van.js`, `icons.js`, `text-vibe.js` and `polyfill-onscrollend.js`. Replaced by Reikai's own `app/src/main/assets/novel-web/reader.css` and `reader.js`.
 
 Read-aloud (TTS) lives in its own files:
 
 - `app/src/main/java/reikai/domain/novel/tts/NovelTtsEngine.kt`: the engine interface + voice/engine/playback models (the seam for a future neural engine).
 - `app/src/main/java/reikai/data/novel/tts/SystemTtsEngine.kt`: Android `TextToSpeech` backend.
-- `app/src/main/java/reikai/presentation/novel/reader/NovelTtsController.kt`: drives the `core.js` read-aloud loop, owns playback state, mirrors it to the session.
-- `app/src/main/java/reikai/presentation/novel/reader/NovelTtsFloatingButton.kt`: the draggable play/pause puck.
+- `NovelTtsController.kt` (deleted): drove the `core.js` read-aloud loop, owned playback state, mirrored it to the session. Now `reikai/presentation/reader/ReadAloudController.kt` over `ReadAloudSurface`.
+- `NovelTtsFloatingButton.kt` (deleted): the draggable play/pause puck. Now `reikai/presentation/reader/ReadAloudControls.kt`.
 - `app/src/main/java/reikai/data/novel/tts/NovelTtsSession.kt` + `NovelTtsService.kt`: the foreground `mediaPlayback` service + `MediaSession` notification, and the singleton that bridges them to the controller. Mihon-file patches (`// RK`): the `androidx.media:media` dependency, the manifest service + `FOREGROUND_SERVICE_MEDIA_PLAYBACK` permission, and a `Notifications` channel.
 
 ## Status

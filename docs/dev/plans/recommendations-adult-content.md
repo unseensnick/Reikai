@@ -518,9 +518,10 @@ the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG e
 - `app/src/main/java/reikai/domain/recommendation/taste/{Anilist,MyAnimeList,Kitsu}LibraryFetcher.kt`:
   the three fetchers that answer the field. `ShikimoriLibraryFetcher.kt` and `BangumiLibraryFetcher.kt`
   stay on the keyword fallback permanently, per the declines in Approach; do not add a flag to either.
-- `app/src/main/java/reikai/domain/recommendation/taste/AdultContent.kt`: the enum, the keyword list
-  and `resolveSexuallyExplicit`, the one kernel every adult decision goes through. A surface that
-  answers the question its own way has drifted, which is exactly what the carousel filter did.
+- `app/src/main/java/reikai/domain/recommendation/taste/AdultContent.kt` (deleted in `7895d62b6`):
+  the enum, the keyword list and `resolveSexuallyExplicit`, the one kernel every adult decision went
+  through. A surface that answers the question its own way has drifted, which is exactly what the
+  carousel filter did.
 - `app/src/main/java/reikai/domain/recommendation/taste/RefreshTrackerLibrary.kt`: owns the invariant
   that the cache holds rows only for trackers the user still pulls from, which is what lets the
   adult-setting flip clear it whole.

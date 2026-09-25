@@ -207,11 +207,13 @@ Reference implementations:
 
 - `refs/komikku`, the port source. Data in `data/src/main/sqldelight/tachiyomi/data/saved_search.sq`
   and `feed_saved_search.sq`; domain models and interactors under `domain/.../source/`; the serializer
-  at `source-api/src/commonMain/kotlin/xyz/nulldev/ts/api/http/serializer/FilterSerializer.kt` (Reikai's
-  `source-api` is no longer multiplatform, so it lands under `src/main/kotlin`); UI in
-  `ui/browse/feed/FeedScreenModel.kt`, `ui/browse/source/feed/SourceFeedScreenModel.kt` and the matching
-  screens under `presentation/browse/`; backup in `FeedBackupCreator.kt`, `FeedRestorer.kt` and
-  `BackupFeed.kt`; preferences in `UiPreferences.kt` and `SourcePreferences.kt`.
+  at `refs/komikku/source-api/src/commonMain/kotlin/xyz/nulldev/ts/api/http/serializer/FilterSerializer.kt`
+  (Reikai's port is `reikai/domain/source/filter/FilterSerializer.kt`); UI in
+  `refs/komikku/app/src/main/java/eu/kanade/tachiyomi/ui/browse/feed/FeedScreenModel.kt`,
+  `refs/komikku/app/src/main/java/eu/kanade/tachiyomi/ui/browse/source/feed/SourceFeedScreenModel.kt` and
+  the matching screens under `presentation/browse/`; backup in `FeedBackupCreator.kt`, `FeedRestorer.kt`
+  and `refs/komikku/app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupFeed.kt`; preferences
+  in `UiPreferences.kt` and `SourcePreferences.kt`.
 - `refs/tachiyomisy`, the ancestor. Compare against it to tell a Komikku addition from an inherited
   behaviour; `feed_order`, the reorder screens, the insert dedup and the per-element try/catch are all
   Komikku's own.

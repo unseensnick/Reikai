@@ -1,6 +1,6 @@
 # Novel tracking
 
-Bind a light novel to any of the seven novel-capable trackers from its details screen and keep reading progress in sync, reusing Mihon's existing tracker services; merge-group-aware so a track set on one source advances and shows across the whole merged novel.
+Bind a light novel to any of the ten novel-capable trackers from its details screen and keep reading progress in sync, reusing Mihon's existing tracker services; merge-group-aware so a track set on one source advances and shows across the whole merged novel.
 
 ## Goal
 
@@ -16,9 +16,9 @@ A "Tracking" action in the novel's overflow menu opens a sheet that looks and wo
 
 **The Tracking sheet.** The novel details overflow has a Tracking action that opens the shared `reikai.presentation.track.EntryTrackInfoDialog`: one dialog serving both content types, parameterized on an `isNovel` flag and carrying the domain `Track` (novels adapt via `toUiTrack`). Writes go through a thin `TrackWriter` seam, `NovelTrackUpdater` on the novel side. Detail: [content-parity-drift-and-collapse.md](content-parity-drift-and-collapse.md) Phase 6 (`bba220e2b`).
 
-**Reusing Mihon's Tracker services and OAuth.** The novel-capable trackers are Mihon's own `Tracker` service classes. Sign-in (OAuth), the "find this entry by remote id" path, and the per-field update calls are all reused as-is. No new tracker service exists.
+**Reusing Mihon's Tracker services and OAuth.** The novel-capable trackers are Mihon's own `Tracker` service classes. Sign-in (OAuth), the "find this entry by remote id" path, and the per-field update calls are all reused as-is. Three dedicated novel services were added later, RanobeDB, NovelUpdates and NovelList, recorded in [novel-specific-trackers.md](novel-specific-trackers.md).
 
-**Which trackers, and the `supportsNovels` gate.** Seven trackers search novels: AniList, MyAnimeList, MangaUpdates, Kitsu, Shikimori, Hikka, and MangaBaka (the last three added in `3acb424cb`). Each declares `supportsNovels = true` (`Tracker.kt`), which gates the novel tracking sheet so a manga-only tracker can't be bound to a novel. Bangumi and MdList are deliberately gated out: their APIs can't distinguish a novel from a manga, so a novel search would return manga hits.
+**Which trackers, and the `supportsNovels` gate.** Ten trackers take novels: AniList, MyAnimeList, MangaUpdates, Kitsu, Shikimori, Hikka and MangaBaka (the last three added in `3acb424cb`), plus the novel-only RanobeDB, NovelUpdates and NovelList. Each declares `supportsNovels = true` (`Tracker.kt`), which gates the novel tracking sheet so a manga-only tracker can't be bound to a novel. Bangumi and MdList are deliberately gated out: their APIs can't distinguish a novel from a manga, so a novel search would return manga hits.
 
 **The `// RK` searchNovel path.** The one place Mihon's trackers needed a novel-specific branch is search. Mihon's manga `search()` filters light novels out of the results (it asks the tracker's API for manga-type entries). So each novel-capable tracker overrides a `// RK`-fenced `searchNovel()` that queries for novel/light-novel entries instead; the default degrades to the manga `search()`. Everything downstream of the search result (binding, finding, updating, OAuth) is unchanged Mihon code.
 
@@ -26,7 +26,7 @@ A "Tracking" action in the novel's overflow menu opens a sheet that looks and wo
 
 **Auto-sync from the reader and mark-read, with an offline queue.** Reading progress pushes to the tracker from two places, matching manga: the reader (once you pass roughly 97% of a chapter, gated on the per-tracker `autoUpdateTrack` setting) and the details screen's mark-as-read action (respecting the never / always / ask `AutoTrackState` preference). If the device is offline when an update should fire, it is queued and retried later via a delayed-tracking store and a background job (`TrackNovelChapter` plus `NovelDelayedTrackingStore` / `NovelDelayedTrackingUpdateJob`), the novel twins of Mihon's offline tracking-retry path.
 
-**Group-aware tracking (merged novels).** A merged novel is several source-specific rows grouped under one library entry. Tracking is centralized at the group level: a track bound on one source advances and displays when you read or view any sibling source. This is cleaner than manga's approach of copying the track onto every member at bind time. Because Reikai owns the novel reading path (`TrackNovelChapter`), it can keep a single track row while merged with no duplicates and no per-member gating: the group is resolved through `NovelMergeManager.relatedNovelIdsFor`, and reads/subscriptions go through `GetNovelTracks.awaitGroup` / `subscribeGroup` (deduped by tracker).
+**Group-aware tracking (merged novels).** A merged novel is several source-specific rows grouped under one library entry. Tracking is centralized at the group level: a track bound on one source advances and displays when you read or view any sibling source. Manga works the same way now: both types read the group through the shared `GroupTrackReader` kernel (`reikai/domain/track/`), manga through `GetTracksInGroup`. A merged novel keeps a single track row with no duplicates and no per-member gating: the group is resolved through `mergeManager.relatedIdsList`, and reads/subscriptions go through `GetNovelTracks.awaitGroup` / `subscribeGroup` (deduped by tracker).
 
 Survival across an unmerge is handled lazily by `PropagateNovelTrackerLinks` (the novel twin of manga's tracker-link mirroring). At the moment a group is split (library unmerge, or the details Manage-sources split, gated by the `syncTrackerLinksGrouped` preference) it copies the group's trackers onto each favorited member, so every source keeps the tracker after the split. For the broader cross-source tracker-propagation behavior this shares with manga, see [guides/tracking.md](../../guides/tracking.md).
 
@@ -46,7 +46,7 @@ Domain layer (net-new, under `reikai.*`), in `app/src/main/java/reikai/domain/no
 - `track/TrackNovelChapter.kt`: read-progress push entry point.
 - `track/NovelDelayedTrackingStore.kt`, `track/NovelDelayedTrackingUpdateJob.kt`: the offline retry queue + job.
 - `track/PropagateNovelTrackerLinks.kt`: copies trackers per source at unmerge.
-- `NovelMergeManager.kt`: `relatedNovelIdsFor`, the group resolution used by the group-aware reads.
+- `app/src/main/java/reikai/domain/track/GroupTrackReader.kt`: the group-aware read both content types share; `GetNovelTracks` feeds it `relatedIdsList`.
 
 Persistence:
 
@@ -55,6 +55,7 @@ Persistence:
 Mihon files patched with `// RK` islands (search path, sheet wiring, DI):
 
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/{anilist,kitsu,mangaupdates,myanimelist,shikimori,hikka,mangabaka}/`: the seven `searchNovel()` paths in each tracker + its API class.
+- `app/src/main/java/eu/kanade/tachiyomi/data/track/{ranobedb,novelupdates,novellist}/`: the three novel-only trackers (Reikai-owned files).
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/Tracker.kt`: the `searchNovel` + `supportsNovels` contract additions.
 - `app/src/main/java/reikai/domain/novel/` and `reikai/data/novel/`: the novel track repo + interactors, all graph-owned by `@Inject`.
 
@@ -70,15 +71,15 @@ Shipped in commit `7c56e07eb`, on-device verified (Z Fold). Roadmap Active item 
 
 ## Decisions & tradeoffs
 
-- **Reuse Mihon's tracker infrastructure rather than build novel-specific trackers.** The seven novel-capable trackers are Mihon's own `Tracker` services; novels ride the same OAuth, find, and update code. Only `search()` needed a novel branch. This keeps the patch surface against upstream small and inherits Mihon's maintenance of those services.
+- **Reuse Mihon's tracker infrastructure wherever a service already exists.** Seven of the ten novel-capable trackers are Mihon's own `Tracker` services; novels ride the same OAuth, find, and update code. Only `search()` needed a novel branch. This keeps the patch surface against upstream small and inherits Mihon's maintenance of those services.
 
 - **Private listing supported (added later).** Mihon's manga tracking can mark an entry "private" on the tracker. The `novel_tracks` table first shipped without that column, so early novel tracks were always public; the `private` column was later added (25.sqm), so the private toggle now appears in the novel sheet and syncs to the service like manga. The vestigial `allowPrivate` gate that once hid it has since been removed.
 
 - **Binding a read novel fills in its start date, as manga's bind does** (2026-09-17, reversing the earlier "no on-bind backfill" cut). When the tracker has no start date, `AddNovelTrack` sends the novel's earliest read (`NovelHistoryRepository.getEarliestReadAt`), converted to UTC the way `AddTracks` converts it. Only that novel's own history is read, matching manga, which reads one manga's history rather than its merge group's.
 
-- **One track row while merged, not copy-to-each-member.** Group-aware tracking keeps a single row for a merged novel and resolves the group at read/display time, which avoids the duplicate-row and gating complexity manga carries. The trade is a lazy copy at unmerge (`PropagateNovelTrackerLinks`) so each source keeps the tracker after a split. Possible only because Reikai owns the novel reading path.
+- **One track row while merged, not copy-to-each-member.** Group-aware tracking keeps a single row for a merged group and resolves the group at read/display time. Manga has since moved to the same shape, copying only just before a split (`PropagateTrackerLinks`); the novel twin is `PropagateNovelTrackerLinks`, so each source keeps the tracker after a split.
 
-- **Dedicated light-novel trackers: RanobeDB is now viable, the rest are not.** The June 2026 finding that none were viable held until **2026-08-13**, when RanobeDB merged authenticated write routes: `PUT` and `DELETE` on `/api/v0/user/book/{id}` and `/api/v0/user/series/{id}`, carrying `readingStatus`, `score` (stored at ten times the submitted value), `started`, `finished` and `notes`, authenticated by a self-issued Personal Access Token checked in `hooks.server.ts`. That removes the read-only objection and needs no OAuth, no client secret and no WebView. Its public API docs still say read-only, so the schema is young and wants pinning with tests. **MyNovelList** was a second candidate with full CRUD and a whole-list read, and is declined (owner, 2026-08-25): it is not mynovellist.net (which exposes no API) but IReader's own hobby deployment, whose shared catalogue holds nothing, so the dependency is a person rather than a service and there is nothing on the other end. Evidence in [novel-specific-trackers.md](novel-specific-trackers.md). **NovelUpdates and NovelList have no API and are still buildable**, which is the distinction the June assessment missed: tsundoku ships working trackers for both, NovelList against a private JWT backend and NovelUpdates by scraping plus wp-admin AJAX with progress carried in the notes field. Reikai is built for that case, since `CloudflareInterceptor` with FlareSolverr and the `AndroidCookieJar` shared with the WebView already carry the extension ecosystem through the same defences. Both need the WebView login first, and both cost ongoing selector and endpoint maintenance; that is the reason to sequence them last, not to rule them out. **Still not viable:** MiraiList (pre-1.0, no API), Novel Trackr (no documented API), and Hardcover (real read/write GraphQL, but beta, and its docs forbid deployed-client use). Hardcover remains the watch item: revisit if it exits beta with OAuth or allowlisting.
+- **Dedicated light-novel trackers.** RanobeDB, NovelUpdates and NovelList shipped ([novel-specific-trackers.md](novel-specific-trackers.md)). **MyNovelList** is declined (owner, 2026-08-25): it is not mynovellist.net (which exposes no API) but IReader's own hobby deployment, whose shared catalogue holds nothing. **Still not viable:** MiraiList (pre-1.0, no API), Novel Trackr (no documented API), and Hardcover (real read/write GraphQL, but beta, and its docs forbid deployed-client use). Hardcover remains the watch item: revisit if it exits beta with OAuth or allowlisting.
 
 ## Related
 
