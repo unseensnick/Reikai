@@ -154,6 +154,23 @@ class PreferenceRestorerTest {
     }
 
     @Test
+    @DisplayName("a restored login survives its address arriving after it in the backup")
+    fun restoredLoginSurvivesKeyOrder() = runTest {
+        savedLogin("https://a.example", "me", "pw")
+
+        restorer.restoreApp(
+            listOf(
+                BackupPreference(networkPreferences.flareSolverrPassword.key(), StringPreferenceValue("secret")),
+                BackupPreference(FLARESOLVERR_URL_KEY, StringPreferenceValue("https://b.example")),
+                BackupPreference(networkPreferences.flareSolverrUsername.key(), StringPreferenceValue("user")),
+            ),
+            backupCategories = null,
+        )
+
+        login() shouldBe ("user" to "secret")
+    }
+
+    @Test
     @DisplayName("a restored address the settings field would refuse is not stored")
     fun restoredUnparseableAddressIsNotStored() = runTest {
         savedLogin("https://mine.example.com", "me", "pw")

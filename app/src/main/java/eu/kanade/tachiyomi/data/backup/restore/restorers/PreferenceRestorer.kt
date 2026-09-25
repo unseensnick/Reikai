@@ -103,6 +103,14 @@ class PreferenceRestorer(
         val prefs = preferenceStore.getAll()
         // RK: carried once every key is back, since the bar the switch applies to may restore after it.
         var readAloudWasOn = false
+        // RK: an address that carries user:password@ never authenticated anything, and the key is not
+        // private, so it is exactly what an old backup holds in clear text. Cleaned through the same
+        // kernel the upgrade migration uses, since a fresh install runs no migrations. Carried before
+        // the loop because a move to another server deletes the saved login, which would otherwise
+        // take any credential key the backup happened to list ahead of the address with it.
+        toRestore.firstOrNull { it.key == FLARESOLVERR_URL_KEY }?.let { (_, value) ->
+            (value as? StringPreferenceValue)?.let { networkPreferences.carryFlareSolverrUserInfo(it.value) }
+        }
         toRestore.forEach { (key, value) ->
             // RK: the retired merge prefs, which only MigrateMergePrefsToGroupsMigration reads. Their ids
             // belong to the device the backup came from, and the restorers rebuild the groups from the
@@ -191,13 +199,8 @@ class PreferenceRestorer(
             if (key in DEAD_READER_TTS_BUTTON_KEYS) {
                 return@forEach
             }
-            // RK: an address that carries user:password@ never authenticated anything, and the key is
-            // not private, so it is exactly what an old backup holds in clear text. Cleaned through
-            // the same kernel the upgrade migration uses, since a fresh install runs no migrations.
-            if (key == FLARESOLVERR_URL_KEY) {
-                (value as? StringPreferenceValue)?.let { networkPreferences.carryFlareSolverrUserInfo(it.value) }
-                return@forEach
-            }
+            // RK: carried above, ahead of every other key.
+            if (key == FLARESOLVERR_URL_KEY) return@forEach
             // RK: a restored ln_installed_plugin_urls set can auto-load arbitrary plugin .js URLs that
             // the QuickJS host evaluates. Flag it so LnPluginInstaller validates the restored URLs
             // against the restored repos before loading any; the value itself is still restored below.
