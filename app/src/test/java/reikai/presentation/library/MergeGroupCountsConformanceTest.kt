@@ -211,7 +211,7 @@ class NovelGroupCountCollapse : GroupCountCollapse {
             languageBadge = false,
             sourceLanguage = "",
             sourceBadge = false,
-            sourceIconUrl = null,
+            sourceIcon = null,
             sourceName = "",
         ).copy(downloadCount = group.totalDownloadCount.toInt())
     }

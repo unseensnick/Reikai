@@ -76,6 +76,7 @@ import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryQueryMatches
+import reikai.presentation.library.novelSourceBadge
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.novel.selectChaptersForDownloadAction
@@ -424,16 +425,16 @@ class NovelLibraryViewModel(
                 settings.badges.language,
                 repSource.language.orEmpty(),
                 sourceBadge = settings.badges.source,
-                sourceIconUrl = source?.iconUrl,
+                sourceIcon = novelSourceBadge(source),
                 sourceName = repSource.name,
             )
             if (group.memberIds.size > 1) {
                 // Stamp the merge badge (group member ids) + summed downloads onto the rep.
-                // When the merge-icon setting is on, also resolve each grouped source's icon URL.
-                val iconUrls = if (settings.merge.showSourceIcons) {
-                    group.memberIds
-                        .mapNotNull { id -> sourceByNovelId[id]?.let { sourceManager.get(it)?.iconUrl } }
-                        .distinct()
+                // When the merge-icon setting is on, also resolve each grouped source's badge, an
+                // uninstalled one included, as a manga group keeps its stub member.
+                val memberBadges = if (settings.merge.showSourceIcons) {
+                    group.memberIds.mapNotNull { sourceByNovelId[it] }.distinct()
+                        .mapNotNull { novelSourceBadge(sourceManager.get(it)) }
                 } else {
                     emptyList()
                 }
@@ -444,7 +445,7 @@ class NovelLibraryViewModel(
                         .map { querySource(it) },
                     badges = item.badges.copy(
                         downloadCount = if (settings.badges.download) group.totalDownloadCount.toInt() else 0,
-                        mergedSourceIconUrls = iconUrls,
+                        mergedNovelSources = memberBadges,
                     ),
                 )
             } else {
