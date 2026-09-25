@@ -46,13 +46,13 @@ fun ReadingModeSelectDialog(
     AdaptiveSheet(onDismissRequest = onDismissRequest) {
         DialogContent(
             readingMode = readingMode,
-            resolvedReadingMode = resolvedReadingMode,
+            resolvedReadingMode = resolvedReadingMode, // RK
             onChangeReadingMode = {
                 viewModel.onChangeReadingMode(it)
                 onChange(it.stringRes)
                 onDismissRequest()
             },
-            onDismissRequest = onDismissRequest,
+            onDismissRequest = onDismissRequest, // RK
         )
     }
 }
@@ -60,11 +60,11 @@ fun ReadingModeSelectDialog(
 @Composable
 private fun DialogContent(
     readingMode: ReadingMode,
-    resolvedReadingMode: ReadingMode,
+    resolvedReadingMode: ReadingMode, // RK
     onChangeReadingMode: (ReadingMode) -> Unit,
-    onDismissRequest: () -> Unit,
+    onDismissRequest: () -> Unit, // RK
 ) {
-    var selected by remember { mutableStateOf(resolvedReadingMode) }
+    var selected by remember { mutableStateOf(resolvedReadingMode) } // RK: seeded from the resolved mode
 
     ModeSelectionDialog(
         onUseDefault = { onChangeReadingMode(ReadingMode.DEFAULT) }.takeIf { readingMode != ReadingMode.DEFAULT },
@@ -96,16 +96,16 @@ private fun DialogContentPreview() {
             Column {
                 DialogContent(
                     readingMode = ReadingMode.DEFAULT,
-                    resolvedReadingMode = ReadingMode.RIGHT_TO_LEFT,
+                    resolvedReadingMode = ReadingMode.RIGHT_TO_LEFT, // RK
                     onChangeReadingMode = {},
-                    onDismissRequest = {},
+                    onDismissRequest = {}, // RK
                 )
 
                 DialogContent(
                     readingMode = ReadingMode.LEFT_TO_RIGHT,
-                    resolvedReadingMode = ReadingMode.LEFT_TO_RIGHT,
+                    resolvedReadingMode = ReadingMode.LEFT_TO_RIGHT, // RK
                     onChangeReadingMode = {},
-                    onDismissRequest = {},
+                    onDismissRequest = {}, // RK
                 )
             }
         }

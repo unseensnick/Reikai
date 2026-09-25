@@ -14,7 +14,7 @@ import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
- * RK: "Per-category sort" gained a CUSTOMIZED override bit (a category keeps its own sort only when the
+ * "Per-category sort" gained a CUSTOMIZED override bit (a category keeps its own sort only when the
  * bit is set, else it follows the global sort). Existing per-category manga sorts are concrete flags
  * with no bit, so without this they'd read as "follow global" and be lost on upgrade. Mark the ones a
  * categorized-display user had explicitly sorted (their decoded sort differs from the global) as

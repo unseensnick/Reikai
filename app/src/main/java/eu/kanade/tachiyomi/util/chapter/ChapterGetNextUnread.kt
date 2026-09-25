@@ -12,6 +12,7 @@ import tachiyomi.domain.manga.model.Manga
 /**
  * Gets next unread chapter with filters and sorting applied
  */
+// RK: merged-series and hidden-chapter aware, resuming in the reader's order
 fun List<Chapter>.getNextUnread(
     manga: Manga,
     downloadManager: DownloadManager,

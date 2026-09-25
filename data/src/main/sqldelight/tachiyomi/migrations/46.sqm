@@ -1,4 +1,4 @@
--- RK: a novel's title display gets its own local-override bit (0x04000000, DISPLAY_LOCAL in
+-- A novel's title display gets its own local-override bit (0x04000000, DISPLAY_LOCAL in
 -- NovelChapterFlags), where it used to share the sort's (0x01000000). A novel that already has the
 -- sort bit keeps reading its stored display, so its titles look the same after the upgrade.
 UPDATE novels SET chapter_flags = chapter_flags | 67108864 WHERE chapter_flags & 16777216 != 0;

@@ -31,7 +31,7 @@ class BackupNotifier(
         Notifications.CHANNEL_BACKUP_RESTORE_PROGRESS,
     ) {
         setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
-        setSmallIcon(R.drawable.ic_reikai)
+        setSmallIcon(R.drawable.ic_reikai) // RK: Reikai's icon
         setAutoCancel(false)
         setOngoing(true)
         setOnlyAlertOnce(true)
@@ -41,7 +41,7 @@ class BackupNotifier(
         Notifications.CHANNEL_BACKUP_RESTORE_COMPLETE,
     ) {
         setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
-        setSmallIcon(R.drawable.ic_reikai)
+        setSmallIcon(R.drawable.ic_reikai) // RK: Reikai's icon
         setAutoCancel(false)
     }
 

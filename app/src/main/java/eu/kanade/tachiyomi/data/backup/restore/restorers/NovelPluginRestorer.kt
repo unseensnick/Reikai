@@ -1,4 +1,4 @@
-// RK: light-novel plugin half of the installed-extension restore. Net-new Reikai file: a backup
+// Light-novel plugin half of the installed-extension restore. Net-new Reikai file: a backup
 // carries the plugin URLs (in the preference backup) but never their scripts, so after a restore the
 // app lists plugins nothing can run until each script is fetched again. This brings them back while
 // the restore is still running, and names the ones that did not, the way ExtensionRestorer does for

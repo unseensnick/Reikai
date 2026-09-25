@@ -19,7 +19,7 @@ import kotlin.time.Duration.Companion.seconds
 
 @Inject
 @ViewModelKey
-@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>()) // RK: Reikai's own graph port, same binding
 class LibrarySettingsViewModel(
     val preferences: BasePreferences,
     val libraryPreferences: LibraryPreferences,

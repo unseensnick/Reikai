@@ -135,8 +135,10 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     private var mangaToUpdate: List<LibraryManga> = mutableListOf()
 
     override suspend fun doWork(): Result {
+        // RK: graph.inject moved to init
         if (tags.contains(WORK_NAME_AUTO)) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+                // RK: read off the graph, from the worker conversion; the same instance as the injected field
                 val preferences = context.appGraph.libraryPreferences
                 val restrictions = preferences.autoUpdateDeviceRestrictions.get()
                 if ((DEVICE_ONLY_ON_WIFI in restrictions) && !context.isConnectedToWifi()) {
@@ -492,6 +494,8 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             mangaToUpdate.size,
         )
     }
+
+    // RK: writeErrorFile moved to reikai.data.updateerror.UpdateErrorLog, which both content types write
 
     companion object {
         private const val TAG = "LibraryUpdate"

@@ -1,4 +1,4 @@
-// RK: saved browse searches and the feed rows built on them. Net-new Reikai files. Both key on the
+// Saved browse searches and the feed rows built on them. Net-new Reikai files. Both key on the
 // serialized SourceKey the tables store, which survives a restore untouched: it names a source rather
 // than a row, so unlike a library id it means the same thing on the new install.
 package eu.kanade.tachiyomi.data.backup.models

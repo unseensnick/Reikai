@@ -87,7 +87,7 @@ class MangaRestorer(
                 history = backupManga.history,
                 tracks = backupManga.tracking,
                 excludedScanlators = backupManga.excludedScanlators,
-                searchMetadata = backupManga.searchMetadata,
+                searchMetadata = backupManga.searchMetadata, // RK: adult gallery metadata
             )
             // RK: an entry without custom info leaves the device's own alone, as the forks do.
             backupManga.customInfo?.let { restoreCustomInfo(restoredManga.id, it) }
@@ -234,7 +234,7 @@ class MangaRestorer(
                     chapter.dateUpload,
                     chapter.version,
                     chapter.memo,
-                    chapter.pageCount,
+                    chapter.pageCount, // RK: page count
                 )
             }
         }
@@ -259,7 +259,7 @@ class MangaRestorer(
                     version = chapter.version,
                     isSyncing = 0,
                     memo = chapter.memo,
-                    pageCount = chapter.pageCount,
+                    pageCount = chapter.pageCount, // RK: page count
                 )
             }
         }
@@ -306,14 +306,14 @@ class MangaRestorer(
         history: List<BackupHistory>,
         tracks: List<BackupTracking>,
         excludedScanlators: List<String>,
-        searchMetadata: BackupSearchMetadata?,
+        searchMetadata: BackupSearchMetadata?, // RK: adult gallery metadata
     ): Manga {
         restoreCategories(manga, categories, backupCategories)
         restoreChapters(manga, chapters)
         restoreTracking(manga, tracks)
         restoreHistory(manga, history)
         restoreExcludedScanlators(manga, excludedScanlators)
-        restoreSearchMetadata(manga, searchMetadata)
+        restoreSearchMetadata(manga, searchMetadata) // RK: adult gallery metadata
         updateManga.awaitUpdateFetchInterval(manga, timeZone, now, currentFetchWindow)
         return manga
     }
@@ -375,6 +375,8 @@ class MangaRestorer(
         }
     }
 
+    // RK --> merge groups and custom info restore
+
     /**
      * RK: materialize the backup's manga merge groups into the merge_group tables once the manga have
      * been restored (their ids differ from the source device). Members resolve from the backup's stable
@@ -410,6 +412,7 @@ class MangaRestorer(
             ),
         )
     }
+    // RK <--
 
     private suspend fun restoreHistory(manga: Manga, backupHistory: List<BackupHistory>) {
         val toUpdate = backupHistory.mapNotNull { history ->

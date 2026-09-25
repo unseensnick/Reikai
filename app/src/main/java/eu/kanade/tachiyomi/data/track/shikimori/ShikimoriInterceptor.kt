@@ -37,6 +37,7 @@ class ShikimoriInterceptor(private val shikimori: Shikimori) : Interceptor {
         // Add the authorization header to the original request.
         val authRequest = originalRequest.newBuilder()
             .addHeader("Authorization", "Bearer ${oauth!!.accessToken}")
+            // RK: Reikai's own user agent
             .header("User-Agent", "Reikai v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
             .build()
 

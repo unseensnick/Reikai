@@ -68,6 +68,7 @@ class HistoryRepositoryImpl(
         }
     }
 
+    // RK: batch reset for EHentai gallery-version reconciliation
     override suspend fun resetHistory(historyIds: List<Long>) {
         try {
             database.historyQueries.resetHistoryByIds(historyIds)

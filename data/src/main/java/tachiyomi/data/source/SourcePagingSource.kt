@@ -93,6 +93,7 @@ abstract class BaseSourcePagingSource(
         }
     }
 
+    // RK: the paired element type load() pages
     override fun getRefreshKey(state: PagingState<Long, Pair<Manga, RaisedSearchMetadata?>>): Long? {
         return state.anchorPosition?.let { anchorPosition ->
             val anchorPage = state.closestPageToPosition(anchorPosition)

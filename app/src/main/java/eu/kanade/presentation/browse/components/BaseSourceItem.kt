@@ -68,6 +68,7 @@ private fun RowScope.DefaultContent(
             .padding(horizontal = MaterialTheme.padding.medium)
             .weight(1f),
     ) {
+        // RK --> the name row also holds the content-type badge
         Row(
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
             verticalAlignment = Alignment.CenterVertically,
@@ -81,6 +82,7 @@ private fun RowScope.DefaultContent(
             )
             badge()
         }
+        // RK <--
         if (sourceLangString != null) {
             Text(
                 modifier = Modifier.secondaryItemAlpha(),

@@ -204,6 +204,7 @@ class Anilist(id: Long) : BaseTracker(id, "AniList"), DeletableTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        // RK: the id: prefix parsed by BaseTracker's shared helper, which the novel search also uses
         query.trackerSearchId(String::toIntOrNull)?.let { id ->
             return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
         }

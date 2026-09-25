@@ -104,6 +104,7 @@ object DownloadQueueScreen : Screen() {
                                 modifier = Modifier.weight(1f, false),
                                 overflow = TextOverflow.Ellipsis,
                             )
+                            // RK: pending chapters across both content types
                             if (state.pendingChapters > 0) {
                                 val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
                                 Pill(
@@ -125,12 +126,12 @@ object DownloadQueueScreen : Screen() {
                                 listOf(
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_sort),
-                                        icon = MaterialSymbols.Rounded.FilterList,
+                                        icon = MaterialSymbols.Rounded.FilterList, // RK: opens the sort sheet
                                         onClick = { showSortSheet = true },
                                     ),
                                     AppBar.OverflowAction(
                                         title = stringResource(MR.strings.action_cancel_all),
-                                        onClick = screenModel::cancelAll,
+                                        onClick = screenModel::cancelAll, // RK
                                     ),
                                 ),
                             )
@@ -154,10 +155,10 @@ object DownloadQueueScreen : Screen() {
                         }
                         Icon(imageVector = icon, contentDescription = null)
                     },
-                    onClick = screenModel::togglePause,
+                    onClick = screenModel::togglePause, // RK
                     expanded = fabExpanded,
                     modifier = Modifier.animateFloatingActionButton(
-                        visible = hasQueue,
+                        visible = hasQueue, // RK
                         alignment = Alignment.BottomEnd,
                     ),
                 )

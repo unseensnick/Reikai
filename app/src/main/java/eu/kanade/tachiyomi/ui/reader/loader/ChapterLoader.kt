@@ -107,6 +107,7 @@ class ChapterLoader(
                     is Format.Epub -> EpubPageLoader(format.file.epubReader(context))
                 }
             }
+            // RK: readerPreferences for the user-set preload count
             source is HttpSource -> HttpPageLoader(chapter, source, chapterCache, readerPreferences)
             source is StubSource -> error(context.stringResource(MR.strings.source_not_installed, source.toString()))
             else -> error(context.stringResource(MR.strings.loader_not_implemented_error))

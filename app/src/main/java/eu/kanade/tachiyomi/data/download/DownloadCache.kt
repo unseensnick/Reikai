@@ -58,8 +58,9 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Cache where we dump the downloads directory from the filesystem. This class is needed because
  * directory checking is expensive and it slows down the app. The cache is invalidated by the time
- * defined in [DownloadIndexRules.RENEW_INTERVAL_MS] as we don't have any control over the filesystem and the user can
- * delete the folders at any time without the app noticing.
+ * defined in [DownloadIndexRules.RENEW_INTERVAL_MS] as we don't have any control over the filesystem
+ * and the user can delete the folders at any time without the app noticing.
+ * RK: the interval lives in DownloadIndexRules, which the novel download index shares.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -76,6 +77,8 @@ class DownloadCache(
     val changes = _changes.receiveAsFlow()
         .onStart { emit(Unit) }
         .shareIn(scope, SharingStarted.Lazily, 1)
+
+    // RK: renewInterval moved to DownloadIndexRules.RENEW_INTERVAL_MS, which the novel index shares
 
     /**
      * The last time the cache was refreshed.

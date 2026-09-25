@@ -1,4 +1,4 @@
-// RK: novel backup. Net-new Reikai file. Merge groups live in the merge_group tables keyed by novel
+// Novel backup. Net-new Reikai file. Merge groups live in the merge_group tables keyed by novel
 // id, and ids change on restore, so each group is serialized here as a list of stable {url, source}
 // refs and rebuilt into fresh ids after the novels are restored.
 package eu.kanade.tachiyomi.data.backup.models

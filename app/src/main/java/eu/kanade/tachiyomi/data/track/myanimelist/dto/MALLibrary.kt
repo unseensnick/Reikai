@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * RK: wire types for the `/users/@me/mangalist` pull used by the recommendation taste profile.
+ * Wire types for the `/users/@me/mangalist` pull used by the recommendation taste profile.
  * Requested with `fields=list_status,genres` so genres come inline on every page (never per title).
  * Reuses [MALSearchPaging] for the cursor.
  */

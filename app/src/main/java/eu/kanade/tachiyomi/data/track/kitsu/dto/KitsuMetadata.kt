@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.data.track.kitsu.dto
 import kotlinx.serialization.Serializable
 
 /**
- * RK: wire types for the "Fill from tracker" metadata read. This has its own query rather than
+ * Wire types for the "Fill from tracker" metadata read. This has its own query rather than
  * reusing upstream's shared search fragment, which caps `staff` at five and carries no categories,
  * so the credits would truncate and the genre list would be missing entirely.
  */

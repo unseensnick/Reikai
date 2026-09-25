@@ -21,7 +21,7 @@ sealed interface LibraryDisplayMode {
     }
 
     companion object {
-        val values by lazy { setOf(CompactGrid, ComfortableGrid, List, CoverOnlyGrid, ComfortableGridPanorama) }
+        val values by lazy { setOf(CompactGrid, ComfortableGrid, List, CoverOnlyGrid, ComfortableGridPanorama) } // RK
         val default = CompactGrid
 
         fun deserialize(serialized: String): LibraryDisplayMode {

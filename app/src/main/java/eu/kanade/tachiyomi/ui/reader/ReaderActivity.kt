@@ -154,11 +154,13 @@ class ReaderActivity : BaseActivity() {
             return Intent(context, ReaderActivity::class.java).apply {
                 putExtra("manga", mangaId)
                 putExtra("chapter", chapterId)
+                // RK --> the page and source scope newIntent takes, see the note above it
                 if (page != null) putExtra("launch_page", page)
                 if (sourceScoped) putExtra("source_scoped", true)
                 // RK: name the entry by type as well, so the host can tell a novel launch from a
                 // manga one. The "manga" extra above stays for ReaderViewModel's own saved state.
                 if (mangaId != null) putEntryId(EntryId.Manga(mangaId))
+                // RK <--
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
         }
@@ -488,6 +490,7 @@ class ReaderActivity : BaseActivity() {
                 AppBars(state = state)
             }
 
+            // RK: the dialogs are the shared engine's ReaderDialog; each case renamed from upstream is marked // RK
             val onDismissRequest = engine::dismissDialog
             when (val dialog = engineDialog) {
                 // RK -->
@@ -542,7 +545,7 @@ class ReaderActivity : BaseActivity() {
                         },
                     )
                 }
-                is ReaderDialog.Settings -> {
+                is ReaderDialog.Settings -> { // RK
                     // RK: one sheet for both readers; a session with text settings is a novel one.
                     val filters = engine.provider.displayFilters
                     val pages = engine.textSettings?.let { text ->
@@ -563,10 +566,10 @@ class ReaderActivity : BaseActivity() {
                         onHideMenus = { setMenuVisibility(false) },
                     )
                 }
-                is ReaderDialog.ReadingModeSelect -> {
+                is ReaderDialog.ReadingModeSelect -> { // RK
                     ReadingModeSelectDialog(
                         onDismissRequest = onDismissRequest,
-                        viewModel = settingsViewModel,
+                        viewModel = settingsViewModel, // RK: upstream's settingsviewModel
                         onChange = { stringRes ->
                             menuToggleToast?.cancel()
                             if (!readerPreferences.showReadingMode.get()) {
@@ -811,10 +814,10 @@ class ReaderActivity : BaseActivity() {
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_N) {
-            engine.nextChapter()
+            engine.nextChapter() // RK: through the engine
             return true
         } else if (keyCode == KeyEvent.KEYCODE_P) {
-            engine.previousChapter()
+            engine.previousChapter() // RK: through the engine
             return true
         }
         return super.onKeyUp(keyCode, event)
@@ -858,7 +861,7 @@ class ReaderActivity : BaseActivity() {
      * implementation.
      */
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
-        val handled = engine.viewport.value?.handleGenericMotionEvent(event) ?: false
+        val handled = engine.viewport.value?.handleGenericMotionEvent(event) ?: false // RK: the engine's viewport
         return handled || super.dispatchGenericMotionEvent(event)
     }
 
@@ -888,6 +891,7 @@ class ReaderActivity : BaseActivity() {
 
     @Composable
     fun AppBars(state: ReaderViewModel.State) {
+        // RK: the viewport and the chrome come from the engine, which serves both content types
         val viewport by engine.viewport.collectAsState()
         val chrome by engine.chrome.collectAsState()
 
@@ -926,7 +930,8 @@ class ReaderActivity : BaseActivity() {
             onOpenInBrowser = { openChapterInBrowser(webUrl) }.takeIf { webUrl != null },
             onShare = { shareChapter(webUrl) }.takeIf { webUrl != null },
 
-            // RK: the shape is the session's answer, and the direction is asked of the viewer
+            // RK --> the navigator, seek and dialog actions run on the engine, so a novel session gets its own.
+            // The shape is the session's answer, and the direction is asked of the viewer
             // contract, so the host neither reads manga's preference nor instance-checks a viewer.
             chapterNavigatorType = when (navigator.shape) {
                 ReaderNavigatorShape.Slider -> if (viewport?.isRtl == true) {
@@ -969,7 +974,6 @@ class ReaderActivity : BaseActivity() {
                 menuToggleToast = toast(if (enabled) MR.strings.on else MR.strings.off)
             },
             onClickSettings = { engine.openDialog(ReaderDialog.Settings) },
-            // RK -->
             bottomButtons = bottomButtons,
             onClickChapterList = { engine.openDialog(ReaderDialog.ChapterList) },
             keepScreenOn = keepScreenOn,
@@ -1034,7 +1038,7 @@ class ReaderActivity : BaseActivity() {
             setOrientation(viewModel.getMangaOrientation())
         }
 
-        if (hadViewer) {
+        if (hadViewer) { // RK: the engine already destroyed the outgoing viewport
             binding.viewerContainer.removeAllViews()
         }
         // RK: the session's own fullscreen and cutout pair.
@@ -1069,7 +1073,7 @@ class ReaderActivity : BaseActivity() {
     }
     // RK <--
 
-    // RK: the URL and the browser are the session's answers, so a novel opens its own chapter page, where
+    // RK --> the URL and the browser are the session's answers, so a novel opens its own chapter page, where
     // a source that takes pages can save the chapter's text.
     private fun openChapterInWebView(url: String?, chapterId: Long) {
         val target = url ?: return
@@ -1086,6 +1090,7 @@ class ReaderActivity : BaseActivity() {
     private fun shareChapter(url: String?) {
         url?.let { startActivity(it.toUri().toShareIntent(this, type = "text/plain")) }
     }
+    // RK <--
 
     private fun showReadingModeToast(mode: Int) {
         try {
@@ -1133,6 +1138,7 @@ class ReaderActivity : BaseActivity() {
      * actions to perform is shown.
      */
     fun onPageLongTap(page: ReaderPage) {
+        // RK: the engine's dialog, over the actions the manga provider answers for this page
         engine.openDialog(ReaderDialog.PageActions(mangaProvider.pageActions(page)))
     }
 
@@ -1309,7 +1315,7 @@ class ReaderActivity : BaseActivity() {
                 .onEach(::setKeepScreenOn)
                 .launchIn(lifecycleScope)
 
-            // RK: brightness, grayscale and invert are the open session's own values, as the overlay is.
+            // RK --> brightness, grayscale and invert are the open session's own values, as the overlay is.
             engine.provider.displayFilters.customBrightness.changes()
                 .onEach(::setCustomBrightness)
                 .launchIn(lifecycleScope)
@@ -1322,6 +1328,7 @@ class ReaderActivity : BaseActivity() {
                     setLayerPaint(grayscale, invertedColors)
                 }
                 .launchIn(lifecycleScope)
+            // RK <--
 
             // RK: the session's own fullscreen and cutout pair.
             combine(

@@ -15,6 +15,8 @@ interface SearchableSettings : Screen {
     @ReadOnlyComposable
     fun getTitleRes(): StringResource
 
+    // RK: lets a screen hide itself from the main list and the search index when its feature is off
+
     /** Whether this screen is currently reachable; a hidden screen is filtered out of the main list
      *  and the settings search index. Defaults to always-on. */
     fun isEnabled(): Boolean = true
@@ -39,6 +41,7 @@ interface SearchableSettings : Screen {
 
     companion object {
         // HACK: for the background blipping thingy.
+        // RK --> the key moved from a title to HighlightKey, so the notes below were reworded
         // The target PreferenceItem to scroll to + highlight on the destination screen.
         // Set before showing the destination screen and reset after.
         // See BasePreferenceWidget.highlightBackground
@@ -46,6 +49,7 @@ interface SearchableSettings : Screen {
         // title in different groups (the content-type "· Manga" / "· Novels" sub-groups). A null group
         // matches by title only (used by the onboarding restore-setting jump).
         var highlightKey: HighlightKey? = null
+        // RK <--
     }
 }
 

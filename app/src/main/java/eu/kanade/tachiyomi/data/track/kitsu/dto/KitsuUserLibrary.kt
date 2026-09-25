@@ -2,7 +2,7 @@ package eu.kanade.tachiyomi.data.track.kitsu.dto
 
 import kotlinx.serialization.Serializable
 
-// RK: GraphQL shape of the user's whole manga library, for the recommendation taste profile.
+// GraphQL shape of the user's whole manga library, for the recommendation taste profile.
 // Upstream has no whole-library query, so none of this has a counterpart to sync against.
 
 @Serializable

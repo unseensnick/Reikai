@@ -24,6 +24,7 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
         const val PLAN_TO_READ = 6L
         const val REREADING = 7L
 
+        // RK: SEARCH_ID_PREFIX moved into BaseTracker's trackerSearchId, which manga and novel search share
         private const val SEARCH_LIST_PREFIX = "my:"
 
         private val SCORE_LIST = IntRange(0, 10)
@@ -115,6 +116,7 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        // RK: the id: parse is BaseTracker's trackerSearchId, shared with searchNovel; details can be null
         query.trackerSearchId(String::toIntOrNull)?.let { id ->
             return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
         }

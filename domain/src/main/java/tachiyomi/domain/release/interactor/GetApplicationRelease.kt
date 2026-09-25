@@ -13,7 +13,7 @@ class GetApplicationRelease(
 
         // Check if latest version is different from current version
         val isNewVersion = isNewVersion(
-            arguments.isPreview,
+            arguments.isPreview, // RK
             arguments.commitCount,
             arguments.versionName,
             release.version,
@@ -25,18 +25,19 @@ class GetApplicationRelease(
     }
 
     private fun isNewVersion(
-        isPreview: Boolean,
+        isPreview: Boolean, // RK: Reikai's preview channel, upstream's isNightly
         commitCount: Int,
         versionName: String,
         versionTag: String,
     ): Boolean {
         // Removes prefixes like "r" or "v"
         val newVersion = versionTag.replace("[^\\d.]".toRegex(), "")
-        return if (isPreview) {
+        return if (isPreview) { // RK: Reikai's preview channel
             // Preview builds: based on releases in the "unseensnick/Reikai-preview" repo
             // tagged as something like "r1234"
             newVersion.toInt() > commitCount
         } else {
+            // RK: Reikai's own release repos
             // Release builds: based on releases in the "unseensnick/Reikai" repo
             // tagged as something like "v0.1.2"
             val oldVersion = versionName.replace("[^\\d.]".toRegex(), "")
@@ -63,7 +64,7 @@ class GetApplicationRelease(
 
     data class Arguments(
         val isFoss: Boolean,
-        val isPreview: Boolean,
+        val isPreview: Boolean, // RK: Reikai's preview channel, upstream's isNightly
         val commitCount: Int,
         val versionName: String,
         val repository: String,

@@ -1,4 +1,4 @@
--- RK: fold the forked novel_categories table into the shared categories table (the "All" library axis).
+-- Fold the forked novel_categories table into the shared categories table (the "All" library axis).
 -- Structural half only: novel category rows move in at content_type 2, the junction is repointed at
 -- categories, and the old table is dropped. The moved rows keep their raw novel-layout sort flags here;
 -- the companion Kotlin migration (MigrateNovelCategoriesToSharedTableMigration, versionCode 187) translates

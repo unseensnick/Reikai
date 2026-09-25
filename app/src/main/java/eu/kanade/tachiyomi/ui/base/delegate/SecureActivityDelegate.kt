@@ -84,7 +84,7 @@ class SecureActivityDelegateImpl : SecureActivityDelegate, DefaultLifecycleObser
 
     override fun registerSecureActivity(activity: AppCompatActivity) {
         this.activity = activity
-        // Activities register from their init block, before attachBaseContext, so the activity has no
+        // RK: activities register from their init block, before attachBaseContext, so the activity has no
         // context to reach the graph with yet. Injekt holds the app Context for exactly this case.
         Injekt.get<Context>().appGraph.inject(this)
         activity.lifecycle.addObserver(this)

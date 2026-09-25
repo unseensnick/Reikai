@@ -9,7 +9,7 @@ import mihon.core.migration.MigrationContext
 import reikai.data.novel.update.LnPluginUpdateJob
 
 /**
- * RK: schedules the periodic light-novel plugin update check on every app start, mirroring
+ * Schedules the periodic light-novel plugin update check on every app start, mirroring
  * [SetupLibraryUpdateMigration]. Idempotent via [LnPluginUpdateJob.setupTask]'s unique-work policy.
  */
 @Inject

@@ -148,7 +148,7 @@ object HomeScreen : Screen() {
                     ),
                     navigationItemVerticalArrangement = Arrangement.Center,
                     navigationItems = {
-                        tabs.fastForEach { NavigationSuiteItem(it, navigationSuiteType) }
+                        tabs.fastForEach { NavigationSuiteItem(it, navigationSuiteType) } // RK
                     },
                 ) {
                     AnimatedContent(
@@ -174,6 +174,7 @@ object HomeScreen : Screen() {
 
             LaunchedEffect(Unit) {
                 launch {
+                    // RK: the query carries its content type, see librarySearchEvent
                     librarySearchEvent.receiveAsFlow().collectLatest { (query, contentType) ->
                         goToLibraryTab()
                         LibraryTab.search(query, contentType)

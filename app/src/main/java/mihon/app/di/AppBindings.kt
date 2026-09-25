@@ -102,7 +102,7 @@ object AppBindings {
         setIndent(2)
     }
 
-    // Must stay the ProtoBuf companion rather than a configured instance: DownloadCache encodes and
+    // RK: must stay the ProtoBuf companion rather than a configured instance: DownloadCache encodes and
     // decodes against the companion directly, so a configured one would silently be a second format.
     @Provides
     @SingleIn(AppScope::class)

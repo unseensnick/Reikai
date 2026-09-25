@@ -1,4 +1,4 @@
-// RK: novel backup. Net-new Reikai file: the light-novel twin of BackupManga, re-typed
+// Novel backup. Net-new Reikai file: the light-novel twin of BackupManga, re-typed
 // to the novel domain model (String source id, text-reader fields, no viewer/scanlator fields).
 package eu.kanade.tachiyomi.data.backup.models
 
@@ -28,7 +28,7 @@ class BackupNovel(
     // Read only, from backups made before the Last read sort came from history: NovelRestorer seeds a
     // history row from it for a novel that has none. Nothing writes it any more.
     @ProtoNumber(17) var lastReadAt: Long? = null,
-    // RK: retired lock bitmask, kept as a reserved proto slot for backup round-trip compatibility with
+    // Retired lock bitmask, kept as a reserved proto slot for backup round-trip compatibility with
     // older backups (and upstream Yokai). Novel edits now live in the custom_novel_info overlay
     // (backed up in the custom fields below); this field is written 0 and ignored on restore.
     @ProtoNumber(18) var editedFlags: Long = 0,

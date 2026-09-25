@@ -419,6 +419,8 @@ class NotificationReceiver : BroadcastReceiver() {
             )
         }
 
+        // RK --> takes a tag, for the novel updater's notifications, whose ids share numbers with manga's
+
         /**
          * Returns [PendingIntent] that starts a service which dismissed the notification
          *
@@ -430,8 +432,9 @@ class NotificationReceiver : BroadcastReceiver() {
             context: Context,
             notificationId: Int,
             groupId: Int? = null,
-            tag: String? = null, // RK: the novel updater's, whose entries share id numbers with manga's
+            tag: String? = null,
         ) {
+            // RK <--
             /*
             Group notifications always have at least 2 notifications:
             - Group summary notification

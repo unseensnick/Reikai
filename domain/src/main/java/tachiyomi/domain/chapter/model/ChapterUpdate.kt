@@ -17,7 +17,7 @@ data class ChapterUpdate(
     val scanlator: String? = null,
     val version: Long? = null,
     val memo: JsonObject? = null,
-    val pageCount: Long? = null,
+    val pageCount: Long? = null, // RK: set once the reader knows the page count
 )
 
 fun Chapter.toChapterUpdate(): ChapterUpdate {
@@ -36,6 +36,6 @@ fun Chapter.toChapterUpdate(): ChapterUpdate {
         scanlator,
         version,
         memo,
-        pageCount,
+        pageCount, // RK
     )
 }

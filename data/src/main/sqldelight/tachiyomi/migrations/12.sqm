@@ -1,3 +1,5 @@
+-- RK --> Reikai's own migration 12, the library update-errors table; upstream's 12 (the memo columns)
+-- is Reikai's 17.sqm, since the two sequences diverged
 CREATE TABLE library_update_errors (
     _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     manga_id INTEGER NOT NULL UNIQUE,
@@ -21,3 +23,4 @@ FROM mangas JOIN library_update_errors
 ON mangas._id = library_update_errors.manga_id
 WHERE mangas.favorite = 1
 ORDER BY library_update_errors.last_update DESC;
+-- RK <--

@@ -1,4 +1,4 @@
-// RK: net-new. Writes a single top-level protobuf field (write side of BackupProtoReader) so the
+// Net-new. Writes a single top-level protobuf field (write side of BackupProtoReader) so the
 // backup can be streamed field by field instead of encoding the whole Backup at once, which OOMs on
 // large libraries (unseensnick/Reikai#53). Extracted from BackupCreator so the hand-rolled wire framing is unit
 // tested directly (a wrong field number or varint corrupts every backup).

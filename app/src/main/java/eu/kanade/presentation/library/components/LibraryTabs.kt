@@ -24,6 +24,7 @@ internal fun LibraryTabs(
         edgePadding = 0.dp,
     ) {
         buckets.forEachIndexed { index, bucket ->
+            // RK
             Tab(
                 selected = currentPageIndex == index,
                 onClick = { onTabItemClick(index) },

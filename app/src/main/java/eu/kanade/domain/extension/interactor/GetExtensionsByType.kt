@@ -39,7 +39,7 @@ class GetExtensionsByType(
     // RK <--
 }
 
-// RK: the interactor's partition, lifted out so both kinds share it; null languages keep every language
+// RK --> the interactor's partition, lifted out so both kinds share it; null languages keep every language
 internal fun partitionExtensions(
     enabledLanguages: Set<String>?,
     enabledContentWarnings: Set<ContentWarning>,
@@ -82,3 +82,4 @@ internal fun partitionExtensions(
 
     return Extensions(updates, loaded, available, notLoaded, updateVersions)
 }
+// RK <--

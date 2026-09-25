@@ -89,6 +89,7 @@ data object MoreTab : Tab {
 
 @Inject
 @ViewModelKey
+// RK: Reikai's own graph conversion spells the binding out
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class MoreViewModel(
     private val downloadManager: DownloadManager,

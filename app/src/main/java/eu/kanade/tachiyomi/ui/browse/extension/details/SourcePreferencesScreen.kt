@@ -47,7 +47,7 @@ import reikai.novel.source.NovelSettings
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.LoadingScreen
 
-class SourcePreferencesScreen(
+class SourcePreferencesScreen( // RK: takes a novel source id too
     val sourceId: Long,
     // RK --> a novel source's id is text, which the manga source manager cannot name
     private val novelSourceId: String? = null,
@@ -198,6 +198,7 @@ class SourcePreferencesFragment : PreferenceFragmentCompat() {
                     val setListener = pref.getOnBindEditTextListener()
                     pref.setOnBindEditTextListener {
                         setListener?.onBindEditText(it)
+                        // RK: read off the graph, since the source resolution above replaced upstream's locals
                         it.setIncognito(requireContext().appGraph.basePreferences, lifecycleScope)
                     }
                 }

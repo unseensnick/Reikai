@@ -1,4 +1,4 @@
--- RK: persisted merge-group identity (manga + novels). See data/merge_group.sq for the full
+-- Persisted merge-group identity (manga + novels). See data/merge_group.sq for the full
 -- rationale. These CREATE statements mirror that file exactly: fresh installs build from the
 -- .sq via Schema.create(), existing installs reach the same schema through this migration.
 CREATE TABLE merge_group (

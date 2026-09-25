@@ -55,7 +55,7 @@ class UpdatesRepositoryImpl(
                 hideExcludedScanlators = hideExcludedScanlators.toLong(),
                 includedEmpty = includedCategories.isEmpty(),
                 includedCategories = includedCategories,
-                excludedEmpty = excludedCategories.isEmpty(),
+                excludedEmpty = excludedCategories.isEmpty(), // RK: reordered to the query's parameter order
                 excludedCategories = excludedCategories,
                 mapper = ::mapUpdatesWithRelations,
             )
@@ -88,7 +88,7 @@ class UpdatesRepositoryImpl(
         read: Boolean,
         bookmark: Boolean,
         lastPageRead: Long,
-        pageCount: Long,
+        pageCount: Long, // RK: for the progress line's how-far-through
         sourceId: Long,
         favorite: Boolean,
         thumbnailUrl: String?,
@@ -106,7 +106,7 @@ class UpdatesRepositoryImpl(
         read = read,
         bookmark = bookmark,
         lastPageRead = lastPageRead,
-        pageCount = pageCount,
+        pageCount = pageCount, // RK
         sourceId = sourceId,
         dateFetch = dateFetch,
         coverData = MangaCover(

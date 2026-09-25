@@ -79,6 +79,7 @@ fun ReaderAppBars(
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
     enabledPrevious: Boolean,
+    // RK: a typed chapter position both readers answer, in place of page ints
     progress: ChapterProgress?,
     onSeek: (ChapterProgress) -> Unit,
     onSeekFinished: () -> Unit,
@@ -199,6 +200,7 @@ fun ReaderAppBars(
                                     enabledNext = enabledNext,
                                     onPreviousChapter = onPreviousChapter,
                                     enabledPrevious = enabledPrevious,
+                                    // RK: typed chapter position
                                     progress = progress,
                                     onSeek = onSeek,
                                     onSeekFinished = onSeekFinished,
@@ -269,6 +271,7 @@ fun ReaderAppBars(
                         enabledNext = enabledNext,
                         onPreviousChapter = onPreviousChapter,
                         enabledPrevious = enabledPrevious,
+                        // RK: typed chapter position
                         progress = progress,
                         onSeek = onSeek,
                         onSeekFinished = onSeekFinished,

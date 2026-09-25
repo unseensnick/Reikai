@@ -29,6 +29,7 @@ fun List<Chapter>.applyFilters(
         .filter { chapter -> applyFilter(bookmarkedFilter) { chapter.bookmark } }
         .filter { chapter ->
             applyFilter(downloadedFilter) {
+                // RK --> probe each chapter against its own manga, see the note on applyFilters
                 val owner = mangaFor(chapter)
                 owner.isLocal() || downloadManager.isChapterDownloaded(
                     chapter.name,
@@ -37,6 +38,7 @@ fun List<Chapter>.applyFilters(
                     owner.title,
                     owner.source,
                 )
+                // RK <--
             }
         }
         .sortedWith(getChapterSort(manga))

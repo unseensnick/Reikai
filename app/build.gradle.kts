@@ -264,8 +264,10 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
+    // RK --> icon modules moved from the top of the block into the Compose group
     implementation(projects.icons.materialSymbols)
     implementation(projects.icons.simpleIcons)
+    // RK <--
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.animationGraphics)
     debugImplementation(libs.androidx.compose.uiTooling)
@@ -277,7 +279,7 @@ dependencies {
     implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.paging.compose)
 
-    implementation(libs.androidx.palette)
+    implementation(libs.androidx.palette) // RK: cover seed colours for the details and reader theming
 
     implementation(libs.androidx.sqlite.bundled)
 

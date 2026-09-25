@@ -122,6 +122,7 @@ class MainActivity : BaseActivity() {
 
     @Inject private lateinit var libraryPreferences: LibraryPreferences
 
+    // RK: these two moved up from the end of upstream's field list, unchanged
     @Inject private lateinit var extensionApi: ExtensionApi
 
     @Inject private lateinit var extensionManager: ExtensionManager
@@ -257,7 +258,7 @@ class MainActivity : BaseActivity() {
                         .filter { !it }
                         .onEach {
                             val currentScreen = navigator.lastItem
-                            if (currentScreen is EntryCatalogueScreen ||
+                            if (currentScreen is EntryCatalogueScreen || // RK: shared catalogue
                                 (currentScreen is MangaScreen && currentScreen.fromSource)
                             ) {
                                 navigator.popUntilRoot()
@@ -327,7 +328,7 @@ class MainActivity : BaseActivity() {
         LaunchedEffect(Unit) {
             if (updaterEnabled) {
                 try {
-                    val result = graph.updateChecker.checkForUpdate()
+                    val result = graph.updateChecker.checkForUpdate() // RK: the activity's graph
                     if (result is GetApplicationRelease.Result.NewUpdate) {
                         val updateScreen = NewUpdateScreen(
                             versionName = result.release.version,
@@ -480,7 +481,7 @@ class MainActivity : BaseActivity() {
                 if (!query.isNullOrEmpty()) {
                     val filter = intent.getStringExtra(INTENT_SEARCH_FILTER)
                     navigator.popUntilRoot()
-                    // An extension filter names a manga extension, so that search is a manga one.
+                    // RK: an extension filter names a manga extension, so that search is a manga one.
                     // A bare search intent says nothing, and opens on whatever Browse is set to.
                     navigator.push(
                         EntryGlobalSearchScreen(

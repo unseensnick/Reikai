@@ -37,12 +37,14 @@ data class MURecord(
             publishing_type = this@MURecord.type.toString()
             start_date = this@MURecord.year.toString()
             score = this@MURecord.bayesianRating?.takeIf { it > 0 } ?: -1.0
+            // RK: namesOfType, since authors is nullable now
             authors = this@MURecord.authors.namesOfType("Author")
             artists = this@MURecord.authors.namesOfType("Artist")
         }
     }
 }
 
+// RK: a genre element, for Fill from tracker
 @Serializable
 data class MUGenre(
     val genre: String? = null,

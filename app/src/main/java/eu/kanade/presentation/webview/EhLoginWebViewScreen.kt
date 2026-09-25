@@ -123,9 +123,8 @@ fun EhLoginWebViewScreen(
                         webView.setDefaultSettings()
 
                         // Debug mode (chrome://inspect/#devices)
-                        // RK --> the gate the novel web reader shares, since it can switch the inspector off
+                        // The gate the novel web reader shares, since it can switch the inspector off
                         if (webView.context.isDebugInspectorBuild()) {
-                            // RK <--
                             WebView.setWebContentsDebuggingEnabled(true)
                         }
                     },

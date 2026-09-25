@@ -43,7 +43,7 @@ class SourcesViewModel(
             logcat(LogPriority.ERROR, it)
             _events.send(Event.FailedFetchingSources)
         }
-        .onStart<List<Source>?> { emit(null) }
+        .onStart<List<Source>?> { emit(null) } // RK: null is the loading state
         .flowOn(Dispatchers.IO)
 
     fun toggleSource(source: Source) {
@@ -54,10 +54,12 @@ class SourcesViewModel(
         toggleSourcePin.await(source)
     }
 
+    // RK: showSourceDialog and closeDialog moved to SourcesEngine
     sealed interface Event {
         data object FailedFetchingSources : Event
     }
 
+    // RK: Dialog and State moved to SourcesEngine
     companion object {
         const val PINNED_KEY = "pinned"
         const val LAST_USED_KEY = "last_used"

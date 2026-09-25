@@ -53,6 +53,7 @@ class CategoryRepositoryImpl(
             .awaitAsList()
     }
 
+    // RK: every content type's rows, now that getAllAsFlow filters by one
     override fun getUnfilteredAsFlow(): Flow<List<Category>> {
         return database.categoriesQueries
             .getAllCategories(::mapCategory)
@@ -78,7 +79,7 @@ class CategoryRepositoryImpl(
             .awaitAsList()
     }
 
-    // RK: contentType is written straight through, so a universal category (0) is expressible and not
+    // RK --> contentType is written straight through, so a universal category (0) is expressible and not
     // silently demoted to manga. Returns the new row id for the create/restore paths that key off it.
     override suspend fun insert(category: Category, contentType: Long): Long {
         return database.transactionWithResult {
@@ -91,6 +92,7 @@ class CategoryRepositoryImpl(
             database.categoriesQueries.selectLastInsertedRowId().awaitAsOne()
         }
     }
+    // RK <--
 
     override suspend fun updateName(categoryId: Long, name: String) {
         database.categoriesQueries.updateName(name = name, categoryId = categoryId)
@@ -122,14 +124,14 @@ class CategoryRepositoryImpl(
         name: String,
         order: Long,
         flags: Long,
-        contentType: Long,
+        contentType: Long, // RK: the category's content type column
     ): Category {
         return Category(
             id = id,
             name = name,
             order = order,
             flags = flags,
-            contentType = contentType,
+            contentType = contentType, // RK: the category's content type column
         )
     }
 }

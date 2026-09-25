@@ -254,7 +254,7 @@ fun BaseSliderItem(
             },
             valueRange = valueRange,
             steps = steps,
-            // Keep slider drags off the OS edge back-gesture and off the tab pager while dragging.
+            // RK: keep slider drags off the OS edge back-gesture and off the tab pager while dragging.
             modifier = Modifier.systemGestureExclusion().lockPagerSwipeWhileDragging(),
         )
     }
@@ -383,7 +383,7 @@ fun TriStateItem(
                 }
             },
         )
-        // RK: Column so the optional subtitle sits under the label instead of beside it
+        // RK --> Column so the optional subtitle sits under the label instead of beside it
         Column {
             Text(
                 text = label,
@@ -398,6 +398,7 @@ fun TriStateItem(
                 )
             }
         }
+        // RK <--
     }
 }
 

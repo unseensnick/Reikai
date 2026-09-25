@@ -92,6 +92,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         val basePreferences = remember { graph.basePreferences }
         val networkPreferences = remember { graph.networkPreferences }
         val libraryPreferences = remember { graph.libraryPreferences }
+        // RK: listOfNotNull outlived the optional ExHentai login row it was for; no entry is null now
         return listOfNotNull(
             // RK --> the loose rows at the top grouped under what they have in common (owner ruling, see
             // docs/dev/plans/settings-restructure.md). The two update-error switches moved to Settings -> Library,
@@ -137,6 +138,7 @@ object SettingsAdvancedScreen : SearchableSettings {
             getDataGroup(),
             getNetworkGroup(networkPreferences = networkPreferences),
             getLibraryGroup(libraryPreferences = libraryPreferences),
+            // RK: the reader group also carries the novel reader's WebView dev-tools switch
             getReaderGroup(basePreferences = basePreferences, novelPreferences = remember { graph.novelPreferences }),
             getExtensionsGroup(basePreferences = basePreferences),
         )

@@ -10,7 +10,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
-// RK: Bangumi subject "infobox" is a list whose `value` is either a string or a nested list, so it
+// Bangumi subject "infobox" is a list whose `value` is either a string or a nested list, so it
 // needs a polymorphic deserializer. Used by "Fill from tracker" to read author/illustrator keys.
 // Infobox deserializer courtesy of komf (Snd-R/komf, BangumiSubject.kt).
 object InfoBoxSerializer : JsonContentPolymorphicSerializer<Infobox>(Infobox::class) {

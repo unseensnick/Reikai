@@ -30,7 +30,7 @@ class NovelDownloadRekeyMigration(
     private val chapterRepo: NovelChapterRepository,
     private val provider: NovelDownloadProvider,
 ) : Migration {
-    // RK: fires once when the shipped versionCode crosses 182 (the version this re-key ships in).
+    // Fires once when the shipped versionCode crosses 182 (the version this re-key ships in).
     override val version: Float = 182f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {

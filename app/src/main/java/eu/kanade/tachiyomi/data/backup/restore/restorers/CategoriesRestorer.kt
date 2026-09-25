@@ -10,7 +10,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 @Inject
 class CategoriesRestorer(
     private val getCategories: GetCategories,
-    private val categoryRepository: CategoryRepository,
+    private val categoryRepository: CategoryRepository, // RK: inserts with the backup's content type
     private val libraryPreferences: LibraryPreferences,
 ) {
 

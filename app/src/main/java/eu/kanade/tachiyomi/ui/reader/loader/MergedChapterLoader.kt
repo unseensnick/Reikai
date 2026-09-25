@@ -10,7 +10,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 
 /**
- * RK: merge-aware loader. Holds one Mihon [ChapterLoader] per merged source, keyed by the chapter's
+ * Merge-aware loader. Holds one Mihon [ChapterLoader] per merged source, keyed by the chapter's
  * own manga id, so a single reader session can load pages across the whole merge group. Each
  * delegate loader is built with that source's own manga + source, so Mihon's [ChapterLoader] and its
  * page loaders (download path, http) resolve correctly with no changes to them.

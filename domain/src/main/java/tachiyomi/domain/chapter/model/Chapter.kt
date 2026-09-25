@@ -52,7 +52,7 @@ data class Chapter(
             lastModifiedAt = 0,
             version = 1,
             memo = JsonObject.EMPTY,
-            pageCount = 0,
+            pageCount = 0, // RK: unknown until the reader loads it
         )
     }
 }

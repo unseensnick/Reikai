@@ -1,4 +1,4 @@
-// RK: net-new. The custom-info fields BackupManga and BackupNovel carry per entry, and the fold that
+// Net-new. The custom-info fields BackupManga and BackupNovel carry per entry, and the fold that
 // reads an older Reikai backup's root lists (Backup 713 and 714) into them, so restore reads one place.
 package eu.kanade.tachiyomi.data.backup.models
 

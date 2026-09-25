@@ -49,6 +49,7 @@ fun StatusWrapper(
     content: @Composable () -> Unit,
 ) {
     val enabled = item.enabled
+    // RK: match title within its group, so a same-titled item elsewhere stays unlit
     val highlighted = highlightKey != null && HighlightKey(groupTitle, item.title).matches(highlightKey)
     AnimatedVisibility(
         visible = enabled,
@@ -66,6 +67,7 @@ fun StatusWrapper(
 @Composable
 internal fun PreferenceItem(
     item: Preference.PreferenceItem<*, *>,
+    // RK: group-scoped highlight, as in StatusWrapper
     highlightKey: HighlightKey?,
     groupTitle: String?,
 ) {
@@ -73,7 +75,7 @@ internal fun PreferenceItem(
     StatusWrapper(
         item = item,
         highlightKey = highlightKey,
-        groupTitle = groupTitle,
+        groupTitle = groupTitle, // RK: group-scoped highlight
     ) {
         when (item) {
             is Preference.PreferenceItem.SwitchPreference -> {

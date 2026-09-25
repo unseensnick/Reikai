@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 
 /**
- * RK: captured adult/EXH gallery metadata (the search_metadata / search_tags / search_titles rows)
+ * Captured adult/EXH gallery metadata (the search_metadata / search_tags / search_titles rows)
  * carried with a [BackupManga] so a restore brings the namespaced tags back without re-opening each
  * gallery. Mirrors FlatMetadata; mangaId is contextual to the owning BackupManga.
  */

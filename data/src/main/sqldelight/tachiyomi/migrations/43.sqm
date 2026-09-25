@@ -1,4 +1,4 @@
--- RK: the source ranking each merge group was stitched under, so a reorder or a changed preferred-source
+-- The source ranking each merge group was stitched under, so a reorder or a changed preferred-source
 -- list makes the stored stitch stale the way a new chapter does, plus the staleness checks as views so
 -- one group can be checked without scanning the whole library. See data/merged_chapter_unit.sq for the
 -- full rationale. These statements mirror that file exactly: fresh installs build from the .sq via

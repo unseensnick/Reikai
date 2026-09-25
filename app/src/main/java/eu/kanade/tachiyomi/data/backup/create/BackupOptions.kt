@@ -24,6 +24,7 @@ data class BackupOptions(
 
     fun asBooleanArray() = booleanArrayOf(
         libraryEntries,
+        // RK: the content-type and custom-info options, positioned right after libraryEntries
         includeManga,
         includeNovels,
         customInfo,
@@ -36,9 +37,10 @@ data class BackupOptions(
         extensionStores,
         sourceSettings,
         privateSettings,
-        savedSearches,
+        savedSearches, // RK
     )
 
+    // RK: saved searches count as something to back up
     fun canCreate() =
         libraryEntries || categories || appSettings || extensionStores || sourceSettings || savedSearches
 
@@ -133,6 +135,7 @@ data class BackupOptions(
 
         fun fromBooleanArray(array: BooleanArray) = BackupOptions(
             libraryEntries = array[0],
+            // RK: the three options after libraryEntries shift every later index by three
             includeManga = array[1],
             includeNovels = array[2],
             customInfo = array[3],

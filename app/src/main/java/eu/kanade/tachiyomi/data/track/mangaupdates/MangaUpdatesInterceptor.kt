@@ -19,6 +19,7 @@ class MangaUpdatesInterceptor(
         // Add the authorization header to the original request.
         val authRequest = originalRequest.newBuilder()
             .addHeader("Authorization", "Bearer $token")
+            // RK: the app's own name in the User-Agent
             .header("User-Agent", "Reikai v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
             .build()
 

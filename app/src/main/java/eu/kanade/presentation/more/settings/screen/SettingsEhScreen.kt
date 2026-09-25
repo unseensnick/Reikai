@@ -172,7 +172,7 @@ object SettingsEhScreen : SearchableSettings {
     }
 
     // incognito for the built-in E-Hentai sources. The pref drives the switch state; the actual
-    //     effect lives in the shared incognitoExtensions set (see GetIncognitoState's // RK island).
+    //     effect lives in the shared incognitoExtensions set (see GetIncognitoState's RK island).
     @Composable
     private fun ehIncognitoMode(
         exhPreferences: ExhPreferences,

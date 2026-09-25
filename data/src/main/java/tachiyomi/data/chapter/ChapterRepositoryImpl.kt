@@ -43,7 +43,7 @@ class ChapterRepositoryImpl(
                         chapter.dateUpload,
                         chapter.version,
                         chapter.memo,
-                        chapter.pageCount,
+                        chapter.pageCount, // RK: the chapter's page count column
                     )
                         .awaitAsOne()
                     chapter.copy(id = chapterId)
@@ -82,7 +82,7 @@ class ChapterRepositoryImpl(
                     version = chapterUpdate.version,
                     isSyncing = 0,
                     memo = chapterUpdate.memo,
-                    pageCount = chapterUpdate.pageCount,
+                    pageCount = chapterUpdate.pageCount, // RK: page count column
                 )
             }
         }
@@ -172,7 +172,7 @@ class ChapterRepositoryImpl(
         version: Long,
         isSyncing: Long,
         memo: JsonObject,
-        pageCount: Long,
+        pageCount: Long, // RK: page count column
     ): Chapter = Chapter(
         id = id,
         mangaId = mangaId,
@@ -189,6 +189,6 @@ class ChapterRepositoryImpl(
         lastModifiedAt = lastModifiedAt,
         version = version,
         memo = memo,
-        pageCount = pageCount,
+        pageCount = pageCount, // RK: page count column
     )
 }

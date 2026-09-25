@@ -90,6 +90,7 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        // RK: id search through the shared trackerSearchId parser, also used by searchNovel
         query.trackerSearchId(::seriesId)?.let { seriesId ->
             return api.getSeriesDetails(seriesId)?.let { listOf(it.toTrackSearch(id)) } ?: emptyList()
         }

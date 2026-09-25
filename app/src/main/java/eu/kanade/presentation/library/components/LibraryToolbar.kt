@@ -59,6 +59,7 @@ fun LibraryToolbar(
         onClickRefresh = onClickRefresh,
         onClickGlobalUpdate = onClickGlobalUpdate,
         onClickOpenRandomManga = onClickOpenRandomManga,
+        // RK: tracker refresh and the opt-in update-errors entry
         onClickRefreshTrackers = onClickRefreshTrackers,
         onClickUpdateErrors = onClickUpdateErrors,
         scrollBehavior = scrollBehavior,
@@ -75,6 +76,7 @@ private fun LibraryRegularToolbar(
     onClickRefresh: () -> Unit,
     onClickGlobalUpdate: () -> Unit,
     onClickOpenRandomManga: () -> Unit,
+    // RK: tracker refresh and the opt-in update-errors entry
     onClickRefreshTrackers: () -> Unit,
     onClickUpdateErrors: (() -> Unit)? = null,
     scrollBehavior: TopAppBarScrollBehavior?,
@@ -103,6 +105,7 @@ private fun LibraryRegularToolbar(
         actions = {
             val filterTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
             AppBarActions(
+                // RK: listOfNotNull, since the update-errors entry is null when hidden
                 listOfNotNull(
                     AppBar.Action(
                         title = stringResource(MR.strings.action_filter),

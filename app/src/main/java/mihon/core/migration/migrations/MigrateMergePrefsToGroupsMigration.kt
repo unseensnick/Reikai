@@ -33,7 +33,7 @@ class MigrateMergePrefsToGroupsMigration(
     private val getFavorites: GetFavorites,
     private val novelRepo: NovelRepository,
 ) : Migration {
-    // RK: fires once when the shipped versionCode crosses 189. Must stay above every shipped release's
+    // Fires once when the shipped versionCode crosses 189. Must stay above every shipped release's
     // versionCode (0.3.1 is 184): a migration runs only for old < version <= new, so a gate at or below
     // an installed build's code never fires there, and that install keeps no groups at all.
     override val version: Float = 189f

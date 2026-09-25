@@ -49,7 +49,7 @@ data object BrowseTab : Tab {
         }
 
     override suspend fun onReselect(navigator: Navigator) {
-        navigator.push(EntryGlobalSearchScreen())
+        navigator.push(EntryGlobalSearchScreen()) // RK: the shared manga + novel global search
     }
 
     private val switchToExtensionTabChannel = Channel<Unit>(1, BufferOverflow.DROP_OLDEST)
@@ -95,8 +95,10 @@ data object BrowseTab : Tab {
             titleRes = MR.strings.browse,
             tabs = tabs,
             state = state,
+            // RK --> the Browse-level query, which the shared list serving both content types reads
             searchQuery = searchQuery,
             onChangeSearchQuery = browseViewModel::search,
+            // RK <--
         )
         // RK: derived, not the literal 1 upstream uses: the Feed tab can sit ahead of Extensions,
         //     and can be turned off again, so the index moves under this at runtime.

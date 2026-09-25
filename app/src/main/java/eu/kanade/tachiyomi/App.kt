@@ -81,6 +81,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.InjektScope
 import java.security.Security
 
+// RK: Configuration.Provider, for the on-demand WorkManager start below
 class App :
     Application(),
     DefaultLifecycleObserver,
@@ -105,6 +106,8 @@ class App :
     @Inject private lateinit var basePreferences: BasePreferences
 
     private val disableIncognitoReceiver = DisableIncognitoReceiver()
+
+    // RK: main-process gate for onCreate
 
     /** False only in `:error_handler`, the process CrashActivity runs in. Unknown counts as main, so a
      *  process the platform will not name still starts normally. */
@@ -142,6 +145,7 @@ class App :
 
         GlobalExceptionHandler.initialize(applicationContext, CrashActivity::class.java)
 
+        // RK --> registrar and graph.inject moved below the crash handler
         // Assigned before the graph is built, which is safe because every binding is a lambda and
         // nothing dereferences the graph until one is called. An Injekt.get reached during graph
         // construction would re-enter the lazy below, so keep this pair adjacent.
@@ -150,6 +154,7 @@ class App :
         // After the handler is installed, so a failure building the graph reaches CrashActivity
         // rather than dying on the platform handler.
         graph.inject(this)
+        // RK <--
 
         // TLS 1.3 support for Android < 10
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -160,6 +165,7 @@ class App :
         //     the interceptor it runs from holds only this context.
         ForegroundActivity.register(this)
 
+        // RK: logging and the theme mode come before the main-process gate below, so CrashActivity gets them too
         if (!LogcatLogger.isInstalled) {
             val minLogPriority = when {
                 networkPreferences.verboseLogging.get() -> LogPriority.VERBOSE
@@ -252,6 +258,7 @@ class App :
     }
 
     private fun initializeMigrator() {
+        // RK: read off the graph rather than injected fields, which :error_handler would also build
         val migrations = graph.migrations
         val preference = graph.preferenceStore.getInt(Preference.appStateKey("last_version_code"), 0)
         logcat {
@@ -270,7 +277,7 @@ class App :
 
     override fun newImageLoader(context: Context): ImageLoader {
         return ImageLoader.Builder(this).apply {
-            val callFactoryLazy = lazy { graph.networkHelper.client }
+            val callFactoryLazy = lazy { graph.networkHelper.client } // RK: off the graph, see below
             // RK: read here rather than as the injected App fields upstream uses: newImageLoader runs
             // lazily, while a field would build SourceManager at graph.inject in every process,
             // :error_handler included, which the main-process gate above keeps it out of.

@@ -177,7 +177,7 @@ class MangaViewModel(
     readerPreferences: ReaderPreferences,
     private val trackerManager: TrackerManager,
     private val trackChapter: TrackChapter,
-    private val refreshTracks: RefreshTracks,
+    private val refreshTracks: RefreshTracks, // RK: upstream lists this last
     private val downloadManager: DownloadManager,
     private val downloadCache: DownloadCache,
     private val getMangaAndChapters: GetMangaWithChapters,
@@ -235,6 +235,7 @@ class MangaViewModel(
         fun create(mangaId: Long, isFromSource: Boolean): MangaViewModel
     }
 
+    // RK: snackbarHostState moved above state
     private val successState: State.Success?
         get() = state.value as? State.Success
 
@@ -483,7 +484,7 @@ class MangaViewModel(
             }
 
             val needRefreshInfo = !manga.initialized
-            val needRefreshChapter = chapterItems.isEmpty()
+            val needRefreshChapter = chapterItems.isEmpty() // RK: built from chapterItems
 
             // Show what we have earlier
             // RK: seed the primary source's gallery metadata too; same first-render race as the chips.
@@ -497,7 +498,7 @@ class MangaViewModel(
             state.update {
                 State.Success(
                     manga = manga,
-                    source = source,
+                    source = source, // RK: resolved above for the page-preview check
                     isFromSource = isFromSource,
                     chapters = hidden.chapters,
                     // RK: hide/unhide chapters seed
@@ -589,6 +590,7 @@ class MangaViewModel(
         val groupIds = mergeGroup.relatedIds
         try {
             withUIContext {
+                // RK --> one fetch per grouped source; the first failure is rethrown once all have run
                 val newChapters = mutableListOf<Chapter>()
                 var firstError: Exception? = null
                 for (id in groupIds) {
@@ -618,6 +620,7 @@ class MangaViewModel(
                     downloadNewChapters(newChapters)
                 }
                 firstError?.let { throw it }
+                // RK <--
             }
         } catch (_: CancellationException) {
             // ignore
@@ -644,7 +647,7 @@ class MangaViewModel(
         toggleFavorite(onRemoved = ::promptDeleteDownloadsOnRemoved)
     }
 
-    // RK: extracted so the E-Hentai "remove from account" confirm can reuse the same downloads prompt.
+    // RK --> extracted so the E-Hentai "remove from account" confirm can reuse the same downloads prompt.
     private fun promptDeleteDownloadsOnRemoved() {
         viewModelScope.launch {
             if (!hasDownloads()) return@launch
@@ -658,6 +661,7 @@ class MangaViewModel(
             }
         }
     }
+    // RK <--
 
     /**
      * Update favorite status of manga, (removes / adds) manga (to / from) library.
@@ -689,6 +693,7 @@ class MangaViewModel(
                     val duplicates = getDuplicateLibraryManga(manga)
 
                     if (duplicates.isNotEmpty()) {
+                        // RK --> merge-aware duplicate dialog: existing groups, grouping suggestion, source labels
                         val groupIdByMangaId = mergeManager.groupIdsFor(duplicates.map { it.manga.id })
                         updateSuccessState {
                             it.copy(
@@ -701,6 +706,7 @@ class MangaViewModel(
                                 ),
                             )
                         }
+                        // RK <--
                         return@launchIO
                     }
                 }
@@ -947,6 +953,7 @@ class MangaViewModel(
         }
     }
 
+    // RK --> merged groups: each row resolves its own source's manga and the group's cross-source state
     private fun List<Chapter>.toChapterListItems(
         manga: Manga,
         // RK: for merged groups, each chapter's own source-manga, so download status resolves
@@ -970,6 +977,7 @@ class MangaViewModel(
                 downloadManager.getQueuedDownloadOrNull(chapter.id)
             }
             val downloaded = chapter.id in downloadedChapterIds || chapter.id in downloadedInOtherSources
+            // RK <--
             val downloadState = when {
                 activeDownload != null -> activeDownload.status
                 downloaded -> Download.State.DOWNLOADED
@@ -1379,6 +1387,7 @@ class MangaViewModel(
      * @param chapters the list of chapters to download.
      */
     private suspend fun downloadChapters(chapters: List<Chapter>) {
+        // RK: read to resolve each chapter's owner below
         val state = successState ?: return
         // RK --> in a merged group, download each chapter from its own source-manga
         chapters.groupBy { it.mangaId }.forEach { (mangaId, group) ->
@@ -1387,6 +1396,8 @@ class MangaViewModel(
         // RK <--
         toggleAllSelection(false)
     }
+
+    // RK --> chapter owner lookup for merged groups
 
     /**
      * RK: the manga a chapter belongs to. Read from the database when the screen's own map cannot
@@ -1398,6 +1409,7 @@ class MangaViewModel(
         state.mergedMangaById[chapterMangaId]
             ?: state.manga.takeIf { it.id == chapterMangaId }
             ?: getMangaAndChapters.awaitManga(chapterMangaId)
+    // RK <--
 
     /**
      * Bookmarks the given list of chapters.
@@ -1591,7 +1603,7 @@ class MangaViewModel(
 
         viewModelScope.launchIO {
             combine(
-                getTracksInGroup.subscribe(manga.id).catch { logcat(LogPriority.ERROR, it) },
+                getTracksInGroup.subscribe(manga.id).catch { logcat(LogPriority.ERROR, it) }, // RK: group-wide trackers
                 trackerManager.loggedInTrackersFlow(),
             ) { mangaTracks, loggedInTrackers ->
                 // Show only if the service supports this manga's source

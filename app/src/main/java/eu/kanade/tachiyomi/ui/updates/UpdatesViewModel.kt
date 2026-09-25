@@ -119,7 +119,7 @@ class UpdatesViewModel(
         updates
             .toUpdateItems()
             .applyFilters(itemPreferences)
-            .overlayCustomInfo(customInfo)
+            .overlayCustomInfo(customInfo) // RK: display-only custom title and cover
     }
         .flowOn(Dispatchers.IO)
         // RK: seeded null for the same reason the history feeds are, and read the same way: the
@@ -135,6 +135,7 @@ class UpdatesViewModel(
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
+    // RK: init and updateDownloadState sit below the feed here, upstream has them above it
     init {
         viewModelScope.launchIO {
             merge(downloadManager.statusFlow(), downloadManager.progressFlow())
@@ -227,6 +228,8 @@ class UpdatesViewModel(
             }
     }
 
+    // RK --> moved below the feed along with init
+
     /**
      * Update status of chapters.
      *
@@ -244,11 +247,13 @@ class UpdatesViewModel(
             }
         }
     }
+    // RK <--
 
     fun resetNewUpdatesCount() {
         libraryPreferences.newUpdatesCount.set(0)
     }
 
+    // RK --> no category prefs, the surface's category selection comes from ReikaiSourcePreferences
     private fun getUpdatesItemPreferenceFlow(): Flow<ItemPreferences> {
         return combine(
             updatesPreferences.filterDownloaded.changes(),
@@ -266,6 +271,7 @@ class UpdatesViewModel(
             )
         }
     }
+    // RK <--
 
     @Immutable
     private data class ItemPreferences(

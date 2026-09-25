@@ -1,4 +1,4 @@
--- RK: a chapter's page count, so a progress line can say how far through the chapter reading stopped
+-- A chapter's page count, so a progress line can say how far through the chapter reading stopped
 -- and not only where it stopped. Only the reader can fill it, from a chapter it actually loaded, so
 -- every existing row stays 0 (unknown) until that chapter is next opened, and nothing backfills it.
 ALTER TABLE chapters ADD COLUMN page_count INTEGER NOT NULL DEFAULT 0;

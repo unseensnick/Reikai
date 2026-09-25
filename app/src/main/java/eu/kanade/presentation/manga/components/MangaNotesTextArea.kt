@@ -81,7 +81,7 @@ fun MangaNotesTextArea(
         }
     }
     LaunchedEffect(Unit) {
-        richTextState.setMarkdown(notes)
+        richTextState.setMarkdown(notes) // RK: plain notes param, see the signature
         richTextState.config.unorderedListIndent = 4
         richTextState.config.orderedListIndent = 20
     }

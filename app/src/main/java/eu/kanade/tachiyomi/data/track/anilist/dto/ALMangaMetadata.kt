@@ -21,6 +21,6 @@ data class ALMangaMetadataMedia(
     val coverImage: ItemCover,
     val description: String?,
     val staff: ALStaff,
-    // RK: genres for autofill (Komikku doesn't fetch these); a clean ~6-item list.
+    // Genres for autofill (Komikku doesn't fetch these); a clean ~6-item list.
     val genres: List<String>? = null,
 )

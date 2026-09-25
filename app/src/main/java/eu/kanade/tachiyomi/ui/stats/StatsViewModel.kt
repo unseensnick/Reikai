@@ -262,6 +262,8 @@ class StatsViewModel(
         }.toMap()
     }
 
+    // RK: getTrackMeanScore is inlined into buildSuccess, which averages both types' scored tracks
+
     private fun get10PointScore(track: Track): Double {
         val service = trackerManager.get(track.trackerId)!!
         return service.get10PointScore(track)

@@ -22,8 +22,10 @@ data class DummyTracker(
     override val name: String,
     override val supportsReadingDates: Boolean = false,
     override val supportsPrivateTracking: Boolean = false,
+    // RK --> per-type capability Tracker requires
     override val supportsNovels: Boolean = false,
     override val supportsManga: Boolean = true,
+    // RK <--
     override val isLoggedIn: Boolean = false,
     override val isLoggedInFlow: Flow<Boolean> = flowOf(false),
     override val isRefreshingFlow: StateFlow<Boolean> = MutableStateFlow(false),
@@ -82,6 +84,7 @@ data class DummyTracker(
 
     override suspend fun search(query: String): List<TrackSearch> = valSearchResults
 
+    // RK: Fill from tracker, which Tracker requires
     override suspend fun getMangaMetadata(track: Track): TrackMangaMetadata = TrackMangaMetadata()
 
     override suspend fun refresh(

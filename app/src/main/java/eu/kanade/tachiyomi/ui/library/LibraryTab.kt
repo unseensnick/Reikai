@@ -553,10 +553,10 @@ data object LibraryTab : Tab {
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { contentPadding ->
             when {
-                activeIsLoading -> {
+                activeIsLoading -> { // RK: also loading until the engine has assembled the list
                     LoadingScreen(Modifier.padding(contentPadding))
                 }
-                // RK: "empty" is counted after filters run, so the filter guard is what stops a filter
+                // RK --> "empty" is counted after filters run, so the filter guard is what stops a filter
                 // that matches nothing from reading as an empty library. Both content types need it.
                 // The getting-started guide stays manga-only on purpose: it documents manga extensions,
                 // which the novel plugin system does not use.
@@ -603,6 +603,7 @@ data object LibraryTab : Tab {
                         },
                     )
                 }
+                // RK <--
                 else -> {
                     // RK --> both library views (pager + single-list) with hopper + picker overlaid
                     Box(modifier = Modifier.fillMaxSize()) {

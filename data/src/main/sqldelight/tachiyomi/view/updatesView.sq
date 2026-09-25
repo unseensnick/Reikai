@@ -9,7 +9,7 @@ SELECT
     chapters.read,
     chapters.bookmark,
     chapters.last_page_read,
-    chapters.page_count,
+    chapters.page_count, -- RK: the progress line says how far through the chapter reading stopped
     mangas.source,
     mangas.favorite,
     mangas.thumbnail_url AS thumbnailUrl,

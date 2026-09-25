@@ -1,4 +1,4 @@
--- RK: content-type discriminator on the shared categories table (0 = universal, 1 = manga, 2 = novel),
+-- Content-type discriminator on the shared categories table (0 = universal, 1 = manga, 2 = novel),
 -- the data half of the unified "All" library axis. Fresh installs build this from categories.sq via
 -- Schema.create(); existing installs reach the same schema here.
 --

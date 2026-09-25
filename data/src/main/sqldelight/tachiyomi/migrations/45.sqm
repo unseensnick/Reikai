@@ -1,4 +1,4 @@
--- RK: how many unit rows each merge group was stitched with, so a deleted chapter (whose row the
+-- How many unit rows each merge group was stitched with, so a deleted chapter (whose row the
 -- cascade removes) makes the stored stitch stale the way a new chapter does, plus the staleness views
 -- rebuilt to read it. See data/merged_chapter_unit.sq for the full rationale. These statements mirror
 -- that file exactly: fresh installs build from the .sq via Schema.create(), existing installs reach the

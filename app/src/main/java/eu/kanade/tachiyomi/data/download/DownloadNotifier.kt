@@ -233,6 +233,7 @@ class DownloadNotifier(
      *
      * @param error string containing error information.
      * @param chapter string containing chapter title.
+     * RK: [manga] replaces upstream's mangaTitle and mangaId, for the adult check.
      * @param manga the entry that the error occurred on
      */
     // RK: takes the manga and suspends for the adult verdict, so adult titles stay out of errors too

@@ -20,6 +20,7 @@ BEGIN SELECT CASE
 END;
 
 getCategory:
+-- RK: named columns aliased like getCategories, plus content_type
 SELECT
 _id AS id,
 name,
@@ -30,13 +31,14 @@ FROM categories
 WHERE _id = :id
 LIMIT 1;
 
--- Manga category list: manga rows plus universal rows. Novel-only rows (content_type 2) are excluded
+-- RK: manga category list: manga rows plus universal rows. Novel-only rows (content_type 2) are excluded
 -- so the shared table does not leak novel categories into the manga library, backup, or restore paths.
 getCategories:
 SELECT
 _id AS id,
 name,
 sort AS `order`,
+-- RK: plus content_type, and the filter that keeps novel-only rows out of manga reads
 flags,
 content_type
 FROM categories
@@ -62,6 +64,7 @@ SELECT
 C._id AS id,
 C.name,
 C.sort AS `order`,
+-- RK: the content type rides along with every category read
 C.flags,
 C.content_type
 FROM categories C

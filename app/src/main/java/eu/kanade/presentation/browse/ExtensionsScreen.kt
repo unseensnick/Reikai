@@ -124,6 +124,7 @@ fun ExtensionItem(
         ExtensionItemContent(
             extension = extension,
             installStep = installStep,
+            // RK: the row's own parameters, see ExtensionItem
             badge = badge,
             showsLanguage = showsLanguage,
             updateVersion = updateVersion,
@@ -145,6 +146,7 @@ private fun ExtensionItemContent(
     Column(
         modifier = modifier.padding(start = MaterialTheme.padding.medium),
     ) {
+        // RK --> the name shares a row with the content-type badge
         Row(
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
             verticalAlignment = Alignment.CenterVertically,
@@ -158,6 +160,7 @@ private fun ExtensionItemContent(
             )
             badge()
         }
+        // RK <--
         // Won't look good but it's not like we can ellipsize overflowing content
         FlowRow(
             modifier = Modifier.secondaryItemAlpha(),
@@ -355,7 +358,7 @@ fun ExtensionNotLoadedDialog(
     reason: Extension.NotLoaded.Reason,
     onClickUninstall: () -> Unit,
     onDismissRequest: () -> Unit,
-) {
+) { // RK: the body is the shared NotLoadedDialog below
     val failure = reason as? Extension.NotLoaded.Reason.Failed
     NotLoadedDialog(
         description = reason.descriptionRes,

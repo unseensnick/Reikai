@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.combine
 @SingleIn(AppScope::class)
 class TrackerManager {
 
-    companion object {
+    companion object { // RK: ids for Reikai's own trackers
         // RK: MangaDex MDList tracker (id matches Komikku; ids persist with tracks, never change it)
         const val MDLIST = 60L
 

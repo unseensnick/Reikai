@@ -25,7 +25,7 @@ class AddReadAloudBottomButtonMigration(
     private val preferenceStore: PreferenceStore,
     private val novelPreferences: NovelPreferences,
 ) : Migration {
-    // RK: fires once when the shipped versionCode crosses 192, the version the read-aloud button ships in.
+    // Fires once when the shipped versionCode crosses 192, the version the read-aloud button ships in.
     override val version: Float = 192f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {

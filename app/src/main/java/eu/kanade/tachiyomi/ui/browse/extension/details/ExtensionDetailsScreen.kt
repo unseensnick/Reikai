@@ -38,6 +38,7 @@ data class ExtensionDetailsScreen(
                 ExtensionDetailsScreen(
                     navigateUp = navigator::pop,
                     state = state,
+                    // RK: a block, so a novel app's source opens its own settings screen
                     onClickSourcePreferences = {
                         // RK --> a novel app's source is looked up by its text id
                         val novelId = state.extension.kind.novelSourceId(it)

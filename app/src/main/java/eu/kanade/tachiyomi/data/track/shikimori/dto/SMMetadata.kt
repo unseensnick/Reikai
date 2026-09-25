@@ -2,7 +2,7 @@ package eu.kanade.tachiyomi.data.track.shikimori.dto
 
 import kotlinx.serialization.Serializable
 
-// RK: "Fill from tracker" metadata (ported from Komikku, re-typed to Reikai's poster{mainUrl} shape,
+// "Fill from tracker" metadata (ported from Komikku, re-typed to Reikai's poster{mainUrl} shape,
 // plus genres). Reuses SMPersonRole / SMPoster from SMManga.kt. Manga id is a GraphQL ID (string).
 @Serializable
 data class SMMetadata(

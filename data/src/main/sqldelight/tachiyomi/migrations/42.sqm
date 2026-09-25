@@ -1,4 +1,4 @@
--- RK: what the cross-source stitch decided for a merge group, so the library badge, the chapter list
+-- What the cross-source stitch decided for a merge group, so the library badge, the chapter list
 -- and the read carry-over all read one answer. See data/merged_chapter_unit.sq for the full
 -- rationale. These statements mirror that file exactly: fresh installs build from the .sq via
 -- Schema.create(), existing installs reach the same schema here.

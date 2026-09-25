@@ -113,7 +113,7 @@ fun CategoryScreen(
                     lazyListState = lazyListState,
                     onCreate = onClickCreate,
                 )
-            }
+            } // RK
         },
     ) { paddingValues ->
         // RK --> the chip stays above the list, including when its filter empties it, so the user can
@@ -169,7 +169,7 @@ private fun CategoryContent(
     paddingValues: PaddingValues,
     onClickRename: (Category) -> Unit,
     onClickDelete: (Category) -> Unit,
-    onClickToggleHidden: (Category) -> Unit,
+    onClickToggleHidden: (Category) -> Unit, // RK: hidden-flag toggle
     onChangeOrder: (Category, Int) -> Unit,
     // RK: false hides the drag handle so the (sorted) list can't be manually reordered
     reorderable: Boolean = true,

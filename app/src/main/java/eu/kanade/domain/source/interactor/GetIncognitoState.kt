@@ -82,7 +82,7 @@ class GetIncognitoState(
         return combine(
             basePreferences.incognitoMode.changes(),
             sourcePreferences.incognitoExtensions.changes(),
-            packageFlow,
+            packageFlow, // RK
         ) { incognito, incognitoExtensions, extensionPackage ->
             incognito || (extensionPackage in incognitoExtensions)
         }

@@ -339,6 +339,7 @@ fun LibraryBottomActionMenu(
                     }
                 }
                 if (!itemOverflow) {
+                    // RK --> Migrate hides for a selection mixing manga and novels
                     if (onMigrateClicked != null) {
                         Button(
                             title = stringResource(MR.strings.migrate),
@@ -348,6 +349,7 @@ fun LibraryBottomActionMenu(
                             onClick = onMigrateClicked,
                         )
                     }
+                    // RK <--
                     Button(
                         title = stringResource(MR.strings.action_delete),
                         icon = MaterialSymbols.Rounded.Delete,
@@ -369,12 +371,14 @@ fun LibraryBottomActionMenu(
                             onDismissRequest = { overflowMenuOpen = false },
                             offset = BottomBarMenuDpOffset,
                         ) {
+                            // RK --> Migrate hides for a selection mixing manga and novels
                             if (onMigrateClicked != null) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(MR.strings.migrate)) },
                                     onClick = onMigrateClicked,
                                 )
                             }
+                            // RK <--
                             DropdownMenuItem(
                                 text = { Text(stringResource(MR.strings.action_delete)) },
                                 onClick = onDeleteClicked,

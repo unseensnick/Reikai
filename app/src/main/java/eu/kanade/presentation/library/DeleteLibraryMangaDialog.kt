@@ -56,7 +56,7 @@ fun DeleteLibraryMangaDialog(
                     onConfirm(
                         list[0].isChecked,
                         list.getOrElse(1) { CheckboxState.State.None(0) }.isChecked,
-                        showGroupedOption && removeGrouped,
+                        showGroupedOption && removeGrouped, // RK: remove every grouped source too
                     )
                 },
             ) {

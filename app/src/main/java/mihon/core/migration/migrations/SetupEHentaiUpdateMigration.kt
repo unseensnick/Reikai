@@ -9,7 +9,7 @@ import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
 
 /**
- * RK: schedules the periodic E-Hentai favorited-gallery update check on every app start, mirroring
+ * Schedules the periodic E-Hentai favorited-gallery update check on every app start, mirroring
  * [SetupNovelUpdateMigration]. Idempotent: [EHentaiUpdateWorker.setupTask] reads the stored interval
  * and either (re)enqueues the unique periodic work or cancels it when the interval is 0 (off).
  */

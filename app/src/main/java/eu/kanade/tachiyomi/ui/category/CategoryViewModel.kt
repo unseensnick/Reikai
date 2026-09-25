@@ -38,6 +38,7 @@ import kotlin.time.Duration.Companion.seconds
 @ViewModelKey
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class CategoryViewModel(
+    // RK: CategoryActions stands in for the per-type category interactors
     private val actions: CategoryActions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
@@ -97,10 +98,12 @@ class CategoryViewModel(
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), CategoryScreenState.Loading)
 
+    // RK: the content-type chip
     fun setContentType(contentType: ContentType) {
         chipContentType.value = contentType
     }
 
+    // RK: created in the chosen library, through CategoryActions
     fun createCategory(name: String, contentType: Long) {
         viewModelScope.launch {
             if (!actions.create(name, contentType)) _events.emit(CategoryEvent.InternalError)
@@ -198,6 +201,7 @@ class CategoryViewModel(
 
     fun renameCategory(category: Category, name: String) {
         viewModelScope.launch {
+            // RK: through CategoryActions, which dispatches on the row's content type
             if (!actions.rename(category, name)) _events.emit(CategoryEvent.InternalError)
         }
     }

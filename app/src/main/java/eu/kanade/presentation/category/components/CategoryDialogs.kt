@@ -61,7 +61,7 @@ fun CategoryCreateDialog(
             TextButton(
                 enabled = name.isNotEmpty() && !nameAlreadyExists,
                 onClick = {
-                    onCreate(name, contentType)
+                    onCreate(name, contentType) // RK
                     onDismissRequest()
                 },
             ) {
@@ -77,6 +77,7 @@ fun CategoryCreateDialog(
             Text(text = stringResource(MR.strings.action_add_category))
         },
         text = {
+            // RK: a Column so the content-type picker can sit under the name field
             Column {
                 OutlinedTextField(
                     modifier = Modifier
@@ -300,7 +301,7 @@ fun ChangeCategoryDialog(
                 }
             },
             title = {
-                Text(text = title ?: stringResource(MR.strings.action_move_category))
+                Text(text = title ?: stringResource(MR.strings.action_move_category)) // RK: caller-supplied title
             },
             text = {
                 Text(text = stringResource(MR.strings.information_empty_category_dialog))
@@ -341,7 +342,7 @@ fun ChangeCategoryDialog(
             }
         },
         title = {
-            Text(text = title ?: stringResource(MR.strings.action_move_category))
+            Text(text = title ?: stringResource(MR.strings.action_move_category)) // RK: caller-supplied title
         },
         text = {
             Column(

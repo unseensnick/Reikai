@@ -34,7 +34,7 @@ class CategoryPreferencesContentTypeCleanupMigration(
     private val categoryIdPreferences: CategoryIdPreferences,
     private val preferenceStore: PreferenceStore,
 ) : Migration {
-    // RK: fires once when the shipped versionCode crosses 188 (the version this cleanup ships in).
+    // Fires once when the shipped versionCode crosses 188 (the version this cleanup ships in).
     override val version: Float = 188f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {

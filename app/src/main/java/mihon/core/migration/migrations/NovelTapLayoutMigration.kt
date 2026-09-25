@@ -23,7 +23,7 @@ class NovelTapLayoutMigration(
     private val preferenceStore: PreferenceStore,
     private val novelPreferences: NovelPreferences,
 ) : Migration {
-    // RK: fires once when the shipped versionCode crosses 194, the version the tap layouts ship in.
+    // Fires once when the shipped versionCode crosses 194, the version the tap layouts ship in.
     override val version: Float = 194f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {

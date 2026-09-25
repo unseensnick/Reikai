@@ -42,6 +42,7 @@ internal class HttpPageLoader(
      */
     private val queue = PriorityBlockingQueue<PriorityPage>()
 
+    // RK: user-set page preload count, upstream fixes it at 4
     private val preloadSize = readerPreferences.preloadSize.get().coerceIn(1, 20)
 
     init {

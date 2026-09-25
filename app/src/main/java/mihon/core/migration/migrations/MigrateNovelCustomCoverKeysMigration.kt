@@ -32,7 +32,7 @@ class MigrateNovelCustomCoverKeysMigration(
     private val novelRepository: NovelRepository,
     private val coverCache: CoverCache,
 ) : Migration {
-    // RK: fires once when the shipped versionCode crosses 186 (the version this re-key ships in).
+    // Fires once when the shipped versionCode crosses 186 (the version this re-key ships in).
     override val version: Float = 186f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {

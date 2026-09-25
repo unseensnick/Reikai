@@ -22,6 +22,7 @@ class NewUpdateScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
+        // RK: from Reikai's own Metro port, the same call as upstream's, wrapped differently
         val viewModel = assistedMetroViewModel<NewUpdateScreenModel, NewUpdateScreenModel.Factory> {
             create(changelogInfo = changelogInfo, downloadLink = downloadLink)
         }

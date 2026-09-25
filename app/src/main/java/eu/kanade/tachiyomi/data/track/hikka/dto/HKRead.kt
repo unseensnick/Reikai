@@ -34,6 +34,7 @@ data class HKRead(
                 remote_id = stringToNumber(mangaContent.slug)
                 library_id = stringToNumber(mangaContent.slug)
                 total_chapters = mangaContent.chapters?.toLong() ?: 0
+                // RK: novel binds use the /novel tree
                 tracking_url = "${HikkaApi.BASE_URL}/$contentType/${mangaContent.slug}"
             }
 

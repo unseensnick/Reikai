@@ -26,6 +26,7 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
 
         private val SCORE_LIST = IntRange(0, 10)
             .map(Int::toString)
+        // RK: SEARCH_ID_PREFIX moved to BaseTracker, shared by every tracker's id: search
     }
 
     private val json: Json by injectLazy()
@@ -86,6 +87,7 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        // RK: the shared id: prefix parse in BaseTracker, so manga and novel searches agree
         query.trackerSearchId(String::toIntOrNull)?.let { id ->
             return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
         }

@@ -61,6 +61,7 @@ class HikkaApi(
         }
     }
 
+    // RK: manga and novel share one search body, split by content tree
     suspend fun searchManga(query: String): List<TrackSearch> = searchContent(query, "manga")
 
     // RK --> novel-aware search: Hikka keeps novels in a separate /novel content tree with the same
@@ -70,7 +71,7 @@ class HikkaApi(
 
     private suspend fun searchContent(query: String, contentType: String): List<TrackSearch> {
         return withIOContext {
-            val url = "$BASE_API_URL/$contentType".toUri().buildUpon()
+            val url = "$BASE_API_URL/$contentType".toUri().buildUpon() // RK
                 .appendQueryParameter("page", "1")
                 .appendQueryParameter("size", "50")
                 .build()
@@ -103,11 +104,12 @@ class HikkaApi(
                     .awaitSuccess()
                     .parseAs<HKMangaPagination>()
                     .list
-                    .map { it.toTrack(trackerId, contentType) }
+                    .map { it.toTrack(trackerId, contentType) } // RK
             }
         }
     }
 
+    // RK: manga and novel share one details lookup, split by content tree
     suspend fun getMangaDetails(slug: String): TrackSearch? = contentDetails(slug, "manga")
 
     // RK --> novel-aware id lookup, the same split the title search makes.
@@ -116,7 +118,7 @@ class HikkaApi(
 
     private suspend fun contentDetails(slug: String, contentType: String): TrackSearch? {
         return withIOContext {
-            val url = "$BASE_API_URL/$contentType/$slug"
+            val url = "$BASE_API_URL/$contentType/$slug" // RK
 
             with(json) {
                 val response = authClient.newCall(GET(url))
@@ -127,7 +129,7 @@ class HikkaApi(
                 } else {
                     response
                         .parseAs<HKManga>()
-                        .toTrack(trackerId, contentType)
+                        .toTrack(trackerId, contentType) // RK
                 }
             }
         }
@@ -141,6 +143,7 @@ class HikkaApi(
     suspend fun getRead(track: Track): HKRead? {
         return withIOContext {
             val slug = track.tracking_url.split("/")[4]
+            // RK: reads from the bound track's content tree, manga or novel
             val url = "$BASE_API_URL/read/${contentTypeOf(track.tracking_url)}/$slug".toUri().buildUpon().build()
             with(json) {
                 try {
@@ -160,6 +163,7 @@ class HikkaApi(
 
     suspend fun getManga(track: Track): TrackSearch {
         return withIOContext {
+            // RK: the bound track's content tree, manga or novel
             val contentType = contentTypeOf(track.tracking_url)
             val slug = track.tracking_url.split("/")[4]
             val url = "$BASE_API_URL/$contentType/$slug".toUri().buildUpon()
@@ -169,7 +173,7 @@ class HikkaApi(
                 authClient.newCall(GET(url.toString()))
                     .awaitSuccess()
                     .parseAs<HKManga>()
-                    .toTrack(trackerId, contentType)
+                    .toTrack(trackerId, contentType) // RK
             }
         }
     }
@@ -227,7 +231,7 @@ class HikkaApi(
         return withIOContext {
             val slug = track.remoteUrl.split("/")[4]
 
-            val url = "$BASE_API_URL/read/${contentTypeOf(track.remoteUrl)}/$slug".toUri().buildUpon()
+            val url = "$BASE_API_URL/read/${contentTypeOf(track.remoteUrl)}/$slug".toUri().buildUpon() // RK
                 .build()
 
             authClient.newCall(DELETE(url.toString()))
@@ -237,6 +241,7 @@ class HikkaApi(
 
     suspend fun addUserManga(track: Track): Track {
         return withIOContext {
+            // RK: the bound track's content tree, manga or novel
             val contentType = contentTypeOf(track.tracking_url)
             val slug = track.tracking_url.split("/")[4]
 
@@ -263,7 +268,7 @@ class HikkaApi(
                 authClient.newCall(PUT(url.toString(), body = payload.toString().toRequestBody(jsonMime)))
                     .awaitSuccess()
                     .parseAs<HKRead>()
-                    .toTrack(trackerId, contentType)
+                    .toTrack(trackerId, contentType) // RK
             }
         }
     }

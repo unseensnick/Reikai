@@ -1,4 +1,4 @@
-// RK: novel backup. Net-new Reikai file: the novel twin of BackupSource, keyed by the text source id
+// Novel backup. Net-new Reikai file: the novel twin of BackupSource, keyed by the text source id
 // novels use, so a restore can name a source that is not installed.
 package eu.kanade.tachiyomi.data.backup.models
 

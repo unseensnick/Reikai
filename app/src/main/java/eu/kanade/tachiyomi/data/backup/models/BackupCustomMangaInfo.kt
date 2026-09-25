@@ -1,4 +1,4 @@
-// RK: manga custom info as Reikai 0.3.x wrote it (Backup field 713), keyed by {url, source}. Read only:
+// Manga custom info as Reikai 0.3.x wrote it (Backup field 713), keyed by {url, source}. Read only:
 // a backup now carries custom info on each BackupManga, and LegacyCustomInfo folds these entries onto it.
 package eu.kanade.tachiyomi.data.backup.models
 

@@ -74,6 +74,7 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
      */
     private var currentPage: Any? = null
 
+    // RK: reflowed onto three lines, no behaviour change
     private val threshold: Int by lazy {
         readerPreferences.readerHideThreshold.get().threshold
     }
@@ -279,7 +280,7 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
         }
     }
 
-    // RK: the volume-key path passes a user-settable distance (novel parity); tap/keyboard nav keep the
+    // RK --> the volume-key path passes a user-settable distance (novel parity); tap/keyboard nav keep the
     // fixed scrollDistance. Fraction of the screen, matching the novel reader's volume scroll amount.
     private val volumeScrollDistance: Int
         get() = (activity.resources.displayMetrics.heightPixels * config.volumeKeysScrollFraction).toInt()
@@ -305,6 +306,7 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             recycler.scrollBy(0, distance)
         }
     }
+    // RK <--
 
     /**
      * Called from the containing activity when a key [event] is received. It should return true

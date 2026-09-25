@@ -167,6 +167,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        // RK: BaseTracker's shared id: prefix parser, which searchNovel below uses too
         query.trackerSearchId { it }?.let { id ->
             return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
         }

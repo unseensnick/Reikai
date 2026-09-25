@@ -4,7 +4,7 @@ UPDATE manga_sync
 SET score = score * 2
 WHERE sync_id = 3;
 
--- RK: novels bind through the same Kitsu tracker and stored their scores on the same 1-10 scale,
+-- Novels bind through the same Kitsu tracker and stored their scores on the same 1-10 scale,
 -- so their own table needs the identical rescale or every tracked novel reads at half its rating.
 UPDATE novel_tracks
 SET score = score * 2

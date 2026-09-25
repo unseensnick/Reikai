@@ -382,6 +382,8 @@ open class BrowseSourceViewModel(
     sealed interface Dialog {
         data object Filter : Dialog
         data class RemoveManga(val manga: Manga) : Dialog
+
+        // RK: also carries the grouping suggestion, group ids and source labels the dialog shows
         data class AddDuplicateManga(
             val manga: Manga,
             val duplicates: List<MangaWithChapterCount>,

@@ -160,7 +160,7 @@ class CloudflareInterceptor(
         var cloudflareBypassed = false
         var isWebViewOutdated = false
 
-        val origRequestUrl = challengeUrl.toString()
+        val origRequestUrl = challengeUrl.toString() // RK: the page the challenge is on, after redirects
         val challengeHost = challengeUrl.host
         val headers = parseHeaders(originalRequest.headers)
         // RK: an origin rule without a port matches only the scheme's default, so a source on a
@@ -274,7 +274,7 @@ class CloudflareInterceptor(
             webview.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
                     fun isCloudFlareBypassed(): Boolean {
-                        return cookieManager.get(challengeUrl)
+                        return cookieManager.get(challengeUrl) // RK: the challenged page, not the request URL
                             .firstOrNull { it.name == "cf_clearance" }
                             .let { it != null && it != oldCookie }
                     }
@@ -378,7 +378,7 @@ class CloudflareInterceptor(
                     destroy()
                 }
             }
-        }
+        } // RK: closes the try/finally around the wait
 
         // Throw exception if we failed to bypass Cloudflare
         if (!cloudflareBypassed) {

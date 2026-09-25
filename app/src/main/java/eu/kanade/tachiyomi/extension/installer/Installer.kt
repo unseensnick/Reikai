@@ -88,7 +88,7 @@ abstract class Installer(private val service: Service) {
     fun continueQueue(resultStep: InstallStep) {
         val completedEntry = waitingInstall.exchange(null)
         if (completedEntry != null) {
-            stallHandler.removeCallbacks(giveUp)
+            stallHandler.removeCallbacks(giveUp) // RK: answered, so the stall timer stops
             extensionManager.updateInstallStep(completedEntry.downloadId, resultStep)
             checkQueue()
         }
@@ -173,6 +173,8 @@ abstract class Installer(private val service: Service) {
 
     companion object {
         private val cancelListeners = CopyOnWriteArraySet<(Long) -> Unit>()
+
+        // RK: the stall timeout checkQueue arms
 
         /**
          * How long an install may sit unanswered before the queue is given up. Long enough that

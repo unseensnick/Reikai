@@ -38,4 +38,6 @@ class UpdatesPreferences(
         "pref_filter_updates_hide_excluded_scanlators",
         false,
     )
+
+    // RK: the category filters moved to ReikaiSourcePreferences, one selection per recents surface
 }

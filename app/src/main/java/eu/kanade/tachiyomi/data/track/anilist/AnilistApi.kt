@@ -166,11 +166,11 @@ class AnilistApi(
         }
     }
 
+    // RK: novel picks the light-novel format filter used in the query
     suspend fun search(search: String, novel: Boolean = false): List<TrackSearch> {
         return withIOContext {
             // RK --> light novels are type: MANGA with format: NOVEL, which manga search excludes
             val formatFilter = if (novel) "format: NOVEL" else "format_not_in: [NOVEL]"
-            // RK <--
             val query = $$"""
             |query Search($query: String) {
                 |Page (perPage: 50) {
@@ -211,6 +211,7 @@ class AnilistApi(
             |}
             |
             """.trimMargin()
+            // RK <--
             val payload = buildJsonObject {
                 put("query", query)
                 putJsonObject("variables") {
@@ -233,6 +234,7 @@ class AnilistApi(
         }
     }
 
+    // RK: novel picks the light-novel format filter, as search does
     suspend fun getMangaDetails(id: Int, novel: Boolean = false): TrackSearch? {
         return withIOContext {
             // RK --> same split the title search makes: a light novel is type MANGA, format NOVEL

@@ -1,4 +1,5 @@
--- Light-novel vertical: additive novel tables, disjoint from the manga tables.
+-- RK: light-novel vertical, additive novel tables disjoint from the manga tables.
+-- Upstream's Kitsu score rescale that sat at this number moved to 38.sqm.
 -- No FK references into manga tables, so manga paths are untouched.
 
 CREATE TABLE novels(

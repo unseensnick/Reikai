@@ -24,6 +24,7 @@ import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.updates.service.UpdatesPreferences
 
+// RK: assisted, since the recents surface the sheet backs comes from the call site
 @AssistedInject
 class UpdatesSettingsViewModel(
     val updatesPreferences: UpdatesPreferences,

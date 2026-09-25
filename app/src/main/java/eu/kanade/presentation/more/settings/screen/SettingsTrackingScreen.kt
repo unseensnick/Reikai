@@ -236,6 +236,7 @@ object SettingsTrackingScreen : SearchableSettings {
                         login = { context.openInBrowser(HikkaApi.authUrl(), forceDefaultBrowser = true) },
                         logout = { dialog = LogoutDialog(trackerManager.hikka) },
                     ),
+                    // RK: listed after Hikka, where the MangaBaka sync placed it; upstream lists it first
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.mangaBaka,
                         login = { context.openInBrowser(MangaBakaApi.authUrl(), forceDefaultBrowser = true) },

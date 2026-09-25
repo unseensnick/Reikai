@@ -18,7 +18,7 @@ import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import mihon.app.di.appGraph
 
-class ReaderTransitionView @JvmOverloads constructor(
+class ReaderTransitionView @JvmOverloads constructor( // RK: split to take seedColor
     context: Context,
     attrs: AttributeSet? = null,
     // RK: cover-based theming color

@@ -42,6 +42,8 @@ class NewUpdateScreenModel(
     val state: StateFlow<NewUpdateScreenModel.State>
         field = MutableStateFlow<NewUpdateScreenModel.State>(State(changelogInfo = changelogInfo))
 
+    // RK: Factory sits at the end of the class, where Reikai's own Metro migration placed it
+
     private val apkFile: File
         get() = File(context.externalCacheDir, "update.apk")
 
@@ -110,6 +112,7 @@ class NewUpdateScreenModel(
         Failed,
     }
 
+    // RK: moved here from below state by Reikai's own Metro migration
     @AssistedFactory
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)

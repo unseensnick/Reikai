@@ -77,6 +77,7 @@ fun LibraryPager(
             remember { mutableIntStateOf(0) }
         }
 
+        // RK: rows are neutral LibraryItems in a LibraryBucket, so both content types page alike
         val onClickManga: (LibraryItem) -> Unit = { onClickManga(bucket, it) }
         val onLongClickManga: (LibraryItem) -> Unit = { onLongClickManga(bucket, it) }
 

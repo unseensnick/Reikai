@@ -262,6 +262,8 @@ class LibraryViewModel(
             //     a tick after this one; LibraryTab keeps loading until it lands.
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 
+    // RK --> selection, dialogs and category grouping moved to the shared library engine, so state reads
+    //     the row data alone
     val state: StateFlow<State> = combine(
         libraryData,
         searchQuery,
@@ -281,6 +283,7 @@ class LibraryViewModel(
         )
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
+    // RK <--
 
     private data class DisplayPreferences(
         val showCategoryTabs: Boolean,
@@ -288,6 +291,7 @@ class LibraryViewModel(
         val showMangaContinueButton: Boolean,
     )
 
+    // RK -->
     init {
         // RK: a newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
         //     unread count would be wrong until something wrote them. Reconciling off the membership
@@ -301,6 +305,7 @@ class LibraryViewModel(
                 .collectLatest { reconcileMergedChapters.await() }
         }
     }
+    // RK <--
 
     // RK -->
     fun setHopperGravity(value: Int) {
@@ -635,7 +640,7 @@ class LibraryViewModel(
     /**
      * Queues the amount specified of unread chapters from the list of selected manga
      */
-    fun performDownloadAction(ids: List<Long>, action: DownloadAction) {
+    fun performDownloadAction(ids: List<Long>, action: DownloadAction) { // RK: ids from the engine's selection
         // RK --> every action picks through the rule the details toolbar and novels run, so a hidden
         //     chapter is never queued, bookmarked included. A merged entry's target is the group's
         //     deduplicated list, the one the details "All" view shows, each chapter fetched from the
@@ -729,6 +734,7 @@ class LibraryViewModel(
      * @param deleteFromLibrary whether to delete manga from library.
      * @param deleteChapters whether to delete downloaded chapters.
      */
+    // RK: signature split for removeGroupedSources; the body works on targets, the expanded group
     fun removeMangas(
         mangas: List<Manga>,
         deleteFromLibrary: Boolean,
@@ -767,6 +773,7 @@ class LibraryViewModel(
 
             if (deleteChapters) {
                 targets.forEach { manga ->
+                    // RK: targets, so a merged series' sources lose downloads too
                     val source = sourceManager.get(manga.source) as? HttpSource
                     if (source != null) {
                         downloadManager.deleteManga(manga, source)
@@ -799,7 +806,7 @@ class LibraryViewModel(
                     .plus(addCategories)
                     .toList()
 
-                setMangaCategories.await(mangaId, categoryIds)
+                setMangaCategories.await(mangaId, categoryIds) // RK: per group member id
             }
         }
     }
@@ -888,6 +895,7 @@ class LibraryViewModel(
         val isInitialized: Boolean = false,
         val isLoading: Boolean = true,
         val searchQuery: String? = null,
+        // RK: selection moved to LibraryEngine, which selects across both content types
         val hasActiveFilters: Boolean = false,
         val showCategoryTabs: Boolean = false,
         val showMangaCount: Boolean = false,

@@ -47,12 +47,12 @@ abstract class SearchViewModel(
     val state: StateFlow<State>
         field = MutableStateFlow<State>(initialState)
 
-    // A pool of its own, so blocking source calls never crowd out the shared IO dispatcher.
+    // RK: a pool of its own, so blocking source calls never crowd out the shared IO dispatcher.
     private val coroutineDispatcher = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
 
     private val enabledLanguages = sourcePreferences.enabledLanguages.get()
     private val disabledSources = sourcePreferences.disabledSources.get()
-    private val pinnedSources = sourcePreferences.pinnedSources.get()
+    private val pinnedSources = sourcePreferences.pinnedSources.get() // RK: private, no subclass reads it any more
 
     protected var extensionFilter: String? = null
 

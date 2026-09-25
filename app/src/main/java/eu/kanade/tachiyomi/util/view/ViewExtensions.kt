@@ -45,6 +45,7 @@ fun ComposeView.setComposeContent(
             CompositionLocalProvider(
                 LocalTextStyle provides MaterialTheme.typography.bodySmall,
                 LocalContentColor provides MaterialTheme.colorScheme.onBackground,
+                // RK: the view-model factory, so metroViewModel resolves inside a ComposeView too
                 LocalMetroViewModelFactory provides context.appGraph.viewModelFactory,
             ) {
                 content()

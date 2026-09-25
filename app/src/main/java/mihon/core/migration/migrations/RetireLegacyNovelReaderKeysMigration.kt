@@ -21,7 +21,7 @@ import tachiyomi.core.common.util.system.logcat
 class RetireLegacyNovelReaderKeysMigration(
     private val preferenceStore: PreferenceStore,
 ) : Migration {
-    // RK: fires once when the shipped versionCode crosses 193, the version the old reader is removed in.
+    // Fires once when the shipped versionCode crosses 193, the version the old reader is removed in.
     override val version: Float = 193f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {

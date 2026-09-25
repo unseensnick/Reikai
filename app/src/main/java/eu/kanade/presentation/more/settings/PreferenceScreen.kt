@@ -86,7 +86,7 @@ fun PreferenceScreen(
     }
 }
 
-// RK: match on (group, title) so the scroll lands on the exact row when two rows share a title.
+// RK --> match on (group, title) so the scroll lands on the exact row when two rows share a title
 private fun List<Preference>.findHighlightedIndex(highlightKey: HighlightKey): Int {
     return flatMap { pref ->
         if (pref is Preference.PreferenceGroup) {
@@ -100,3 +100,4 @@ private fun List<Preference>.findHighlightedIndex(highlightKey: HighlightKey): I
         }
     }.indexOfFirst { it != null && it.matches(highlightKey) }
 }
+// RK <--

@@ -120,6 +120,7 @@ object SettingsDownloadScreen : SearchableSettings {
         )
     }
 
+    // RK --> the group builders take their preferences as parameters, so manga and novels share them
     // One builder, called once per content type, so the manga and novel delete-chapters groups can't drift.
     @Composable
     private fun deleteChaptersGroup(
@@ -279,4 +280,5 @@ object SettingsDownloadScreen : SearchableSettings {
             ),
         )
     }
+    // RK <--
 }

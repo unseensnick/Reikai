@@ -20,6 +20,7 @@ import reikai.domain.reader.trailingLabel
 
 @Composable
 fun ReaderPageIndicator(
+    // RK: a typed chapter position both readers answer, in place of page ints
     progress: ChapterProgress?,
     modifier: Modifier = Modifier,
 ) {
@@ -63,6 +64,7 @@ fun ReaderPageIndicator(
 private fun ReaderPageIndicatorPreview() {
     TachiyomiPreviewTheme {
         Surface {
+            // RK: typed chapter position
             ReaderPageIndicator(ChapterProgress.Pages(lastPageRead = 9, pageCount = 69))
         }
     }

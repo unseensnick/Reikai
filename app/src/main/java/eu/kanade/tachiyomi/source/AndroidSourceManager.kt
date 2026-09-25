@@ -59,7 +59,7 @@ internal var nHentaiDelegatedSourceIds: List<Long> = emptyList()
 @SingleIn(AppScope::class)
 @ContributesBinding(AppScope::class)
 class AndroidSourceManager(
-    private val context: Context,
+    private val context: Context, // RK: the built-in adult sources need it
     private val extensionManager: ExtensionManager,
     private val sourceRepository: StubSourceRepository,
     private val localSource: LocalSource,

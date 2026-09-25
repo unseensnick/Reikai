@@ -159,7 +159,7 @@ class MangaUpdatesApi(
         }
     }
 
-    suspend fun search(query: String, novel: Boolean = false): List<MURecord> {
+    suspend fun search(query: String, novel: Boolean = false): List<MURecord> { // RK: novel skips the type filter
         val body = buildJsonObject {
             put("search", query)
             // RK --> manga search filters out novels + drama CDs. Novel search sends no filter_types

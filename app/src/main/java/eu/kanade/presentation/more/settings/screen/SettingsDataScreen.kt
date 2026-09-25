@@ -215,7 +215,7 @@ object SettingsDataScreen : SearchableSettings {
                 logcat(LogPriority.ERROR, e)
             }
 
-            pickedBackupUri = it.toString()
+            pickedBackupUri = it.toString() // RK: pushed from the LaunchedEffect above
         }
 
         return Preference.PreferenceGroup(

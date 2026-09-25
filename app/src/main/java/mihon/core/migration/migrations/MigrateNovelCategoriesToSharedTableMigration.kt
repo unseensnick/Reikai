@@ -32,7 +32,7 @@ class MigrateNovelCategoriesToSharedTableMigration(
     private val novelPreferences: NovelPreferences,
     private val preferenceStore: PreferenceStore,
 ) : Migration {
-    // RK: fires once when the shipped versionCode crosses 187 (the version this unification ships in).
+    // Fires once when the shipped versionCode crosses 187 (the version this unification ships in).
     override val version: Float = 187f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {

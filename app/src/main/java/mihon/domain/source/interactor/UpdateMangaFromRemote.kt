@@ -86,7 +86,7 @@ class UpdateMangaFromRemote(
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             Result.failure(e)
-        } catch (e: LinkageError) {
+        } catch (e: LinkageError) { // RK
             // RK: an extension built against a class or method the app no longer ships throws a
             //     LinkageError, which the catch above misses. Wrapped as an Exception because every
             //     caller handles failures that way, so a broken extension fails its series, not the app.

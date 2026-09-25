@@ -93,5 +93,6 @@ data object HistoryTab : Tab {
                 }
             }
         }
+        // RK: upstream's openChapter helper is gone, the engine's resume target opens itself
     }
 }

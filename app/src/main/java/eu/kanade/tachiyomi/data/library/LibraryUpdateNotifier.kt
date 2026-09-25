@@ -167,9 +167,9 @@ class LibraryUpdateNotifier(
      *
      * @param failed Number of entries that failed to update.
      * @param uri Uri for error log file containing all titles that failed.
-     * @param tracked Whether the failures were recorded, which decides where the tap goes (RK).
+     * @param tracked Whether the failures were recorded, which decides where the tap goes. // RK
      */
-    fun showUpdateErrorNotification(failed: Int, uri: Uri, tracked: Boolean) {
+    fun showUpdateErrorNotification(failed: Int, uri: Uri, tracked: Boolean) { // RK: tracked picks the tap target
         if (failed == 0) {
             return
         }
@@ -180,7 +180,7 @@ class LibraryUpdateNotifier(
         ) {
             setContentTitle(context.pluralStringResource(MR.plurals.notification_update_error, failed, failed))
             setContentText(context.stringResource(MR.strings.action_show_errors))
-            setSmallIcon(R.drawable.ic_reikai)
+            setSmallIcon(R.drawable.ic_reikai) // RK: Reikai icon
 
             // RK --> the tap opens the Update errors screen when failures are recorded and the shared
             //        dump when they are not, through the rule the novel updater answers by too.
@@ -196,7 +196,7 @@ class LibraryUpdateNotifier(
      * @param updates a list of manga with new updates.
      */
     suspend fun showUpdateNotifications(updates: List<Pair<Manga, Array<Chapter>>>) {
-        val hidden = hiddenContentIds(updates.map { it.first })
+        val hidden = hiddenContentIds(updates.map { it.first }) // RK: adult entries hide title and cover
 
         // Parent group notification
         context.notify(
@@ -204,7 +204,7 @@ class LibraryUpdateNotifier(
             Notifications.CHANNEL_NEW_CHAPTERS,
         ) {
             setContentTitle(context.stringResource(MR.strings.notification_new_chapters))
-            if (updates.size == 1 && updates.first().first.id !in hidden) {
+            if (updates.size == 1 && updates.first().first.id !in hidden) { // RK: per-entry hiding
                 setContentText(updates.first().first.title.chop(NOTIF_TITLE_MAX_LEN))
             } else {
                 setContentText(
@@ -231,7 +231,7 @@ class LibraryUpdateNotifier(
                 }
             }
 
-            setSmallIcon(R.drawable.ic_reikai)
+            setSmallIcon(R.drawable.ic_reikai) // RK: Reikai icon
             setLargeIcon(notificationBitmap)
 
             setGroup(Notifications.GROUP_NEW_CHAPTERS)
@@ -261,6 +261,7 @@ class LibraryUpdateNotifier(
         }
     }
 
+    // RK: hideContent blanks the title, chapter list and cover for hidden entries
     private suspend fun createNewChaptersNotification(
         manga: Manga,
         chapters: Array<Chapter>,
@@ -287,7 +288,7 @@ class LibraryUpdateNotifier(
             setContentText(description)
             setStyle(NotificationCompat.BigTextStyle().bigText(description))
 
-            setSmallIcon(R.drawable.ic_reikai)
+            setSmallIcon(R.drawable.ic_reikai) // RK: Reikai icon
 
             if (icon != null) {
                 setLargeIcon(icon)
@@ -378,7 +379,7 @@ class LibraryUpdateNotifier(
     }
 
     companion object {
-        const val HELP_WARNING_URL =
+        const val HELP_WARNING_URL = // RK: Reikai's docs site
             "${Constants.URL_DOCS}/faq/library#why-am-i-being-warned-about-bulk-updates-and-downloads"
     }
 }

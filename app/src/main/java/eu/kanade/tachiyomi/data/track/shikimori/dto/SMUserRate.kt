@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.data.track.shikimori.dto
 import kotlinx.serialization.Serializable
 
 /**
- * RK: wire types for the Shikimori GraphQL `userRates` query used by the recommendation taste
+ * Wire types for the Shikimori GraphQL `userRates` query used by the recommendation taste
  * profile. GraphQL is used (not the v2 REST `user_rates`) because only it returns genres inline.
  * Manga `id` is a GraphQL `ID` (string); the fetcher parses it to Long.
  */

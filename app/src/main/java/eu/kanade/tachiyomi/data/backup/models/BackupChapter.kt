@@ -45,7 +45,7 @@ class BackupChapter(
             lastModifiedAt = this@BackupChapter.lastModifiedAt,
             version = this@BackupChapter.version,
             memo = MemoColumnAdapter.decode(this@BackupChapter.memo),
-            pageCount = this@BackupChapter.pageCount,
+            pageCount = this@BackupChapter.pageCount, // RK
         )
     }
 }
@@ -67,7 +67,7 @@ val backupChapterMapper = {
         version: Long,
         _: Long,
         memo: JsonObject,
-        pageCount: Long,
+        pageCount: Long, // RK
     ->
     BackupChapter(
         url = url,
@@ -83,6 +83,6 @@ val backupChapterMapper = {
         lastModifiedAt = lastModifiedAt,
         version = version,
         memo = MemoColumnAdapter.encode(memo),
-        pageCount = pageCount,
+        pageCount = pageCount, // RK
     )
 }

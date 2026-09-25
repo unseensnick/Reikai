@@ -473,7 +473,7 @@ class Downloader(
         val digitCount = (download.pages?.size ?: 0).toString().length.coerceAtLeast(3)
         val filename = "%0${digitCount}d".format(Locale.ENGLISH, page.number)
 
-        // Try to find the image already downloaded for this page.
+        // RK: find this page's finished image; the helper takes the nullable name itself
         val imageFile = tmpDir.listFiles()?.firstOrNull { isDownloadedPageImage(it.name, filename) }
 
         try {
@@ -640,6 +640,8 @@ class Downloader(
         }
         return downloadedImagesCount == downloadPageCount
     }
+
+    // RK: isDownloadedPageImage moved up beside getOrDownloadImage, with the fixed prefix match
 
     /**
      * Archive the chapter pages as a CBZ.

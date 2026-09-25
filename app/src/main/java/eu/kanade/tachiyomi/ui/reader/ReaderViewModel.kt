@@ -380,6 +380,7 @@ class ReaderViewModel(
             ?: error("Requested chapter of id $chapterId not found in chapter list")
 
         val chaptersForReader = when {
+            // RK: only the skip-filtered list applies the skip filters
             applyReadFilter &&
                 (readerPreferences.skipRead.get() || readerPreferences.skipFiltered.get()) -> {
                 // RK --> read, bookmarked and on disk are asked of the whole group here, through the one
@@ -406,6 +407,7 @@ class ReaderViewModel(
             else -> chapters
         }
 
+        // RK: returned, since buildChapterList serves both chapter lists
         return chaptersForReader
             // RK: the one reading order, which the library's "download next" and Recents walk too.
             .inReadingOrder(manga)
@@ -556,7 +558,7 @@ class ReaderViewModel(
      * Callers must handle errors.
      */
     private suspend fun loadChapter(
-        loader: MergedChapterLoader,
+        loader: MergedChapterLoader, // RK: loads each merged chapter from its own source
         chapter: ReaderChapter,
         // RK: the token of the page switch this load serves, or null for a pick, a step or the first open.
         pageSwitch: Long? = null,
@@ -605,7 +607,7 @@ class ReaderViewModel(
      * Called when the user changed to the given [chapter] when changing pages from the viewer.
      * It's used only to set this chapter as active.
      */
-    private fun loadNewChapter(chapter: ReaderChapter, pageSwitch: Long) {
+    private fun loadNewChapter(chapter: ReaderChapter, pageSwitch: Long) { // RK: ChapterSwitches token
         val loader = loader ?: return chapterSwitches.finish(pageSwitch)
 
         viewModelScope.launchIO {
@@ -615,7 +617,7 @@ class ReaderViewModel(
             restartReadTimer()
 
             try {
-                loadChapter(loader, chapter, pageSwitch)
+                loadChapter(loader, chapter, pageSwitch) // RK: ChapterSwitches token
             } catch (e: Throwable) {
                 if (e is CancellationException) {
                     throw e
@@ -676,6 +678,7 @@ class ReaderViewModel(
         }
 
         if (chapter.pageLoader?.isLocal == false) {
+            // RK --> the guard only: the chapter's own manga is read below
             manga ?: return
             val dbChapter = chapter.chapter
             // RK: probe the chapter's own source's download folder, not the opened manga's.
@@ -687,6 +690,7 @@ class ReaderViewModel(
                 chapterManga.title,
                 sourceManager.getOrStub(chapterManga.source),
             )
+            // RK <--
             if (isDownloaded) {
                 chapter.state = ReaderChapter.State.Wait
             }
@@ -760,7 +764,7 @@ class ReaderViewModel(
         val nextChapter = state.value.viewerChapters?.nextChapter?.chapter ?: return
 
         viewModelScope.launchIO {
-            // RK: download-ahead follows the next chapter's OWN source across a merge boundary.
+            // RK --> download-ahead follows the next chapter's OWN source across a merge boundary.
             val nextChapterManga = mangaForChapterId(nextChapter.manga_id)
             val isNextChapterDownloaded = downloadManager.isChapterDownloaded(
                 nextChapter.name,
@@ -769,6 +773,7 @@ class ReaderViewModel(
                 nextChapterManga.title,
                 nextChapterManga.source,
             )
+            // RK <--
             if (!isNextChapterDownloaded) return@launchIO
 
             // RK: on a merged series the chapters ahead belong to whichever sources carry them, so the
@@ -1190,6 +1195,8 @@ class ReaderViewModel(
         mutableState.update { it.copy(menuVisible = visible) }
     }
 
+    // RK --> the in-reader chapter dialog's list
+
     /** Snapshot of the reader's chapter list for the in-reader chapter dialog. */
     fun getChapters(): List<ReaderChapterItem> {
         manga ?: return emptyList()
@@ -1205,6 +1212,7 @@ class ReaderViewModel(
                 sourceName = sourceNames[dbChapter.manga_id],
             )
         }
+        // RK <--
     }
 
     // RK --> the open chapter loaded again at the page on screen. From the source it skips a downloaded
@@ -1355,7 +1363,7 @@ class ReaderViewModel(
      * Saves the image of the selected page on the pictures directory and notifies the UI of the result.
      * There's also a notification to allow sharing the image somewhere else or deleting it.
      */
-    fun saveImage(page: ReaderPage) {
+    fun saveImage(page: ReaderPage) { // RK: page from MangaReaderProvider
         if (page.status != Page.State.Ready) return
         val manga = manga ?: return
 
@@ -1401,7 +1409,7 @@ class ReaderViewModel(
      * get a path to the file and it has to be decompressed somewhere first. Only the last shared
      * image will be kept so it won't be taking lots of internal disk space.
      */
-    fun shareImage(page: ReaderPage, copyToClipboard: Boolean) {
+    fun shareImage(page: ReaderPage, copyToClipboard: Boolean) { // RK: page from MangaReaderProvider
         if (page.status != Page.State.Ready) return
         val manga = manga ?: return
 
@@ -1429,7 +1437,7 @@ class ReaderViewModel(
     /**
      * Sets the image of the selected page as cover and notifies the UI of the result.
      */
-    fun setAsCover(page: ReaderPage) {
+    fun setAsCover(page: ReaderPage) { // RK: page from MangaReaderProvider
         if (page.status != Page.State.Ready) return
         val manga = manga ?: return
         val stream = page.stream ?: return

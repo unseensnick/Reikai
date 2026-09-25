@@ -12,7 +12,7 @@ data class UpdatesWithRelations(
     val read: Boolean,
     val bookmark: Boolean,
     val lastPageRead: Long,
-    val pageCount: Long,
+    val pageCount: Long, // RK: lets the progress line say how far through the chapter reading stopped
     val sourceId: Long,
     val dateFetch: Long,
     val coverData: MangaCover,

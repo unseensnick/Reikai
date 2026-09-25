@@ -26,6 +26,7 @@ class KomgaApi(
 
     private val headers: Headers by lazy {
         Headers.Builder()
+            // RK: identifies as Reikai
             .add("User-Agent", "Reikai v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
             .build()
     }

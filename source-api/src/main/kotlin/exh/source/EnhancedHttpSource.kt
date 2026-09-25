@@ -109,7 +109,7 @@ class EnhancedHttpSource(
 
     /**
      * [1.x API] Get the updated details and chapters for a manga in one call.
-     * RK: re-typed from Komikku's split getMangaDetails/getChapterList onto Reikai's combined API.
+     * Re-typed from Komikku's split getMangaDetails/getChapterList onto Reikai's combined API.
      */
     override suspend fun getMangaUpdate(
         manga: SManga,

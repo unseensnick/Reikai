@@ -28,6 +28,8 @@ class Hikka(id: Long) : BaseTracker(id, "Hikka"), DeletableTracker {
         private val SCORE_LIST = IntRange(0, 10)
             .map(Int::toString)
             .toImmutableList()
+
+        // RK: SEARCH_ID_PREFIX moved into BaseTracker's trackerSearchId, which manga and novel search share
     }
 
     private val json: Json by injectLazy()
@@ -120,6 +122,7 @@ class Hikka(id: Long) : BaseTracker(id, "Hikka"), DeletableTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        // RK: the id: parse is BaseTracker's trackerSearchId, shared with searchNovel
         query.trackerSearchId { it }?.let { slug ->
             return api.getMangaDetails(slug)?.let { listOf(it) } ?: emptyList()
         }

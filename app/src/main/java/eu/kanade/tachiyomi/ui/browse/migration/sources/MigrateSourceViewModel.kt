@@ -26,7 +26,7 @@ import kotlin.time.Duration.Companion.seconds
 @ViewModelKey
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class MigrateSourceViewModel(
-    getSourcesWithFavoriteCount: GetSourcesWithFavoriteCount,
+    getSourcesWithFavoriteCount: GetSourcesWithFavoriteCount, // RK: plain param, sorting moved to the shared list
 ) : ViewModel() {
 
     private val _channel = Channel<Event>(Int.MAX_VALUE)

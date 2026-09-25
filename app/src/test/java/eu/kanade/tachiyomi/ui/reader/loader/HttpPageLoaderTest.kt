@@ -24,7 +24,7 @@ class HttpPageLoaderTest {
         val page = ReaderPage(index = 0, imageUrl = "https://example.com/page.jpg").apply {
             status = Page.State.Ready
         }
-        // RK: the loader also takes the reader preferences, for its preload amount.
+        // The loader also takes the reader preferences, for its preload amount.
         val readerPreferences = mockk<ReaderPreferences> { every { preloadSize.get() } returns 4 }
         val loader = HttpPageLoader(chapter, source, chapterCache, readerPreferences)
         coEvery { source.getImage(page) } returns response

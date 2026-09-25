@@ -75,7 +75,7 @@ class MyAnimeListApi(
         }
     }
 
-    suspend fun search(query: String, novel: Boolean = false): List<TrackSearch> {
+    suspend fun search(query: String, novel: Boolean = false): List<TrackSearch> { // RK: novel flag
         return withIOContext {
             val url = "$BASE_API_URL/manga".toUri().buildUpon()
                 // MAL API throws a 400 when the query is over 64 characters...
@@ -96,7 +96,7 @@ class MyAnimeListApi(
         }
     }
 
-    suspend fun getMangaDetails(id: Int, novel: Boolean = false): TrackSearch? {
+    suspend fun getMangaDetails(id: Int, novel: Boolean = false): TrackSearch? { // RK: novel flag
         return withIOContext {
             val url = "$BASE_API_URL/manga".toUri().buildUpon()
                 .appendPath(id.toString())

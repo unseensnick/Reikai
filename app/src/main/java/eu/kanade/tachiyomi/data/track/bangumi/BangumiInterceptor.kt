@@ -37,6 +37,7 @@ class BangumiInterceptor(private val bangumi: Bangumi) : Interceptor {
         return originalRequest.newBuilder()
             .header(
                 "User-Agent",
+                // RK: Reikai's own user agent
                 "unseensnick/Reikai/v${BuildConfig.VERSION_NAME} (Android) (https://github.com/unseensnick/Reikai)",
             )
             .addHeader("Authorization", "Bearer ${currAuth.accessToken}")

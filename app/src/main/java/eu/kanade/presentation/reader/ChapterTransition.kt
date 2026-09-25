@@ -66,27 +66,29 @@ fun ChapterTransition(
             is ChapterTransition.Prev -> {
                 TransitionText(
                     topLabel = stringResource(MR.strings.transition_previous),
+                    // RK --> named sides, and the gap by the chapter list's rule (MissingChapters.calculateChapterGap)
                     topChapter = goingToChapter?.toTransitionChapter(),
                     topChapterDownloaded = goingToChapterDownloaded,
                     bottomLabel = stringResource(MR.strings.transition_current),
                     bottomChapter = currChapter?.toTransitionChapter(),
                     bottomChapterDownloaded = currChapterDownloaded,
                     fallbackLabel = stringResource(MR.strings.transition_no_previous),
-                    // RK: the chapter list's rule, see MissingChapters.calculateChapterGap.
                     chapterGap = ChapterGap.atSeam(currChapter?.toGapNeighbour(), goingToChapter?.toGapNeighbour()),
+                    // RK <--
                 )
             }
             is ChapterTransition.Next -> {
                 TransitionText(
                     topLabel = stringResource(MR.strings.transition_finished),
+                    // RK --> named sides, and the gap by the chapter list's rule (MissingChapters.calculateChapterGap)
                     topChapter = currChapter?.toTransitionChapter(),
                     topChapterDownloaded = currChapterDownloaded,
                     bottomLabel = stringResource(MR.strings.transition_next),
                     bottomChapter = goingToChapter?.toTransitionChapter(),
                     bottomChapterDownloaded = goingToChapterDownloaded,
                     fallbackLabel = stringResource(MR.strings.transition_no_next),
-                    // RK
                     chapterGap = ChapterGap.atSeam(goingToChapter?.toGapNeighbour(), currChapter?.toGapNeighbour()),
+                    // RK <--
                 )
             }
         }
@@ -115,7 +117,7 @@ fun TransitionText(
             ChapterText(
                 header = topLabel,
                 name = topChapter.name,
-                scanlator = topChapter.subtitle,
+                scanlator = topChapter.subtitle, // RK: TransitionChapter carries the scanlator as subtitle
                 downloaded = topChapterDownloaded,
             )
 
@@ -140,7 +142,7 @@ fun TransitionText(
             ChapterText(
                 header = bottomLabel,
                 name = bottomChapter.name,
-                scanlator = bottomChapter.subtitle,
+                scanlator = bottomChapter.subtitle, // RK: TransitionChapter carries the scanlator as subtitle
                 downloaded = bottomChapterDownloaded,
             )
         } else {

@@ -53,7 +53,7 @@ class MangaBakaApi(
             .header(
                 "User-Agent",
                 buildString {
-                    append("Reikai/v${BuildConfig.VERSION_NAME} ")
+                    append("Reikai/v${BuildConfig.VERSION_NAME} ") // RK: identifies as Reikai
                     append("(${BuildConfig.APPLICATION_ID} ${BuildConfig.COMMIT_SHA}) ")
                     append("(Android) (https://github.com/mihonapp/mihon)")
                 },
@@ -179,12 +179,11 @@ class MangaBakaApi(
         }
     }
 
+    // RK --> novel-aware search: one endpoint, manga excludes the novel series type (type_not=novel)
+    // and the novel search includes only it (type=novel).
     suspend fun search(search: String): List<TrackSearch> = searchByType(search, "type_not", "novel")
 
-    // RK --> novel-aware search: same endpoint, include only the novel series type
-    // (the inverse of the manga search's type_not=novel exclusion).
     suspend fun searchNovel(search: String): List<TrackSearch> = searchByType(search, "type", "novel")
-    // RK <--
 
     private suspend fun searchByType(search: String, typeParam: String, typeValue: String): List<TrackSearch> {
         return withIOContext {
@@ -201,6 +200,7 @@ class MangaBakaApi(
             }
         }
     }
+    // RK <--
 
     private fun parseSearchItem(item: MangaBakaItem): TrackSearch {
         return TrackSearch.create(trackerId).apply {
@@ -220,7 +220,7 @@ class MangaBakaApi(
         }
     }
 
-    suspend fun getMangaDetails(id: Int, novel: Boolean = false): TrackSearch? {
+    suspend fun getMangaDetails(id: Int, novel: Boolean = false): TrackSearch? { // RK: novel picks the series type
         return withIOContext {
             val url = "$API_BASE_URL/v1/series".toUri().buildUpon()
                 .appendPath(id.toString())

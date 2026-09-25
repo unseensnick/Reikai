@@ -53,7 +53,7 @@ data class HKManga(
             total_chapters = this@HKManga.chapters?.toLong() ?: 0
             cover_url = this@HKManga.image
             score = this@HKManga.score
-            tracking_url = "${HikkaApi.BASE_URL}/$contentType/${this@HKManga.slug}"
+            tracking_url = "${HikkaApi.BASE_URL}/$contentType/${this@HKManga.slug}" // RK: novel or manga tree
             publishing_status = this@HKManga.status
             publishing_type = this@HKManga.mediaType?.replace("_", " ").orEmpty()
 

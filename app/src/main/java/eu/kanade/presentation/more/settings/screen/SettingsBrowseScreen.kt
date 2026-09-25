@@ -26,7 +26,7 @@ object SettingsBrowseScreen : SearchableSettings {
 
     @ReadOnlyComposable
     @Composable
-    override fun getTitleRes() = MR.strings.pref_category_browse
+    override fun getTitleRes() = MR.strings.pref_category_browse // RK: it now holds the source settings
 
     @Composable
     override fun getPreferences(): List<Preference> {

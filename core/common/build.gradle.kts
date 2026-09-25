@@ -35,7 +35,7 @@ dependencies {
     implementation(projects.core.metro)
     implementation(projects.i18n)
 
-    implementation(libs.metro.runtime)
+    implementation(libs.metro.runtime) // RK: Reikai's own Metro port put it here; upstream lists it last
 
     api(libs.logcat)
 
@@ -64,7 +64,7 @@ dependencies {
     // Sort
     implementation(libs.natural.comparator)
 
-    // JavaScript engine: headless QuickJS (dokar3 quickjs-kt). RK: one engine for both the
+    // RK: JavaScript engine is headless QuickJS (dokar3 quickjs-kt), one engine for both the
     // manga extensions-lib helper and Reikai's LN plugin host; a second QuickJS binding would
     // collide on the shared libquickjs.so.
     implementation(libs.quickjs.kt)

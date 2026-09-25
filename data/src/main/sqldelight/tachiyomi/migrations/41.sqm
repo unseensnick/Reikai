@@ -1,4 +1,4 @@
--- RK: saved browse searches and the feed rows built on them. See data/saved_search.sq and
+-- Saved browse searches and the feed rows built on them. See data/saved_search.sq and
 -- data/feed_saved_search.sq for the full rationale. These CREATE statements mirror those files
 -- exactly: fresh installs build from the .sq via Schema.create(), existing installs reach the same
 -- schema through this migration. The `AS Boolean` adapter lives only in the .sq, never here.

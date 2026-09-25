@@ -105,6 +105,7 @@ class ShikimoriApi(
         }
     }
 
+    // RK: body moved to searchByKind below, shared with the novel search
     suspend fun search(search: String): List<TrackSearch> = searchByKind(search, "!light_novel,!novel")
 
     // RK --> novel-aware search: the mangas query spans the ranobe catalog, so the same
@@ -114,6 +115,7 @@ class ShikimoriApi(
 
     private suspend fun searchByKind(search: String, kindFilter: String): List<TrackSearch> {
         return withIOContext {
+            // RK: the kind filter is a parameter, so manga and novel searches share this query
             val query = $$"""
             |query($query: String) {
                 |mangas(search: $query, limit: 20, kind:"$${kindFilter}") {
@@ -161,6 +163,7 @@ class ShikimoriApi(
         }
     }
 
+    // RK: body moved to detailsByKind below, shared with the novel lookup
     suspend fun getMangaDetails(id: Int): TrackSearch? = detailsByKind(id, "!light_novel,!novel")
 
     // RK --> novel-aware id lookup: the same kind flip the title search makes.
@@ -169,6 +172,7 @@ class ShikimoriApi(
 
     private suspend fun detailsByKind(id: Int, kindFilter: String): TrackSearch? {
         return withIOContext {
+            // RK: the kind filter is a parameter, so manga and novel lookups share this query
             val query = $$"""
             |query($query: String) {
                 |mangas(ids: $query, limit: 1, kind:"$${kindFilter}") {

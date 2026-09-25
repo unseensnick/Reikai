@@ -48,6 +48,7 @@ class PreferenceRestorer(
     private val context: Context,
     private val getCategories: GetCategories,
     private val preferenceStore: PreferenceStore,
+    // RK: the registry of category-id settings, which a restore translates by category name
     private val categoryIdPreferences: CategoryIdPreferences,
     // RK: for the retired novel-reader padding key, which a restore has to carry over itself.
     private val novelPreferences: NovelPreferences,
@@ -68,7 +69,7 @@ class PreferenceRestorer(
             preferences,
             preferenceStore,
             backupCategories,
-            backupNovelCategories,
+            backupNovelCategories, // RK
         )
 
         LibraryUpdateJob.setupTask(context)
@@ -98,7 +99,7 @@ class PreferenceRestorer(
         toRestore: List<BackupPreference>,
         preferenceStore: PreferenceStore,
         backupCategories: List<BackupCategory>? = null,
-        backupNovelCategories: List<BackupNovelCategory>? = null,
+        backupNovelCategories: List<BackupNovelCategory>? = null, // RK
     ) {
         val allCategories = if (backupCategories != null) getCategories.await() else emptyList()
         // RK -->
@@ -278,7 +279,7 @@ class PreferenceRestorer(
                                 key,
                                 value.value,
                                 preferenceStore,
-                                translations,
+                                translations, // RK
                             )
                             if (!restored) preferenceStore.getStringSet(key).set(value.value)
                         }
@@ -288,7 +289,7 @@ class PreferenceRestorer(
                 Log.e("PreferenceRestorer", "Failed to restore preference <$key>", e)
             }
         }
-        if (readAloudWasOn) novelPreferences.addReadAloudButtonToCustomisedBar()
+        if (readAloudWasOn) novelPreferences.addReadAloudButtonToCustomisedBar() // RK: see readAloudWasOn
     }
 
     // RK: the remapped key list comes from the shared CategoryIdPreferences registry (manga side), so

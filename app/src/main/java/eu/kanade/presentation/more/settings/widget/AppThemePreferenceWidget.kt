@@ -261,6 +261,7 @@ fun AppThemePreviewItem(
 @Composable
 private fun AppThemesListPreview() {
     var appTheme by remember { mutableStateOf(AppTheme.DEFAULT) }
+    // RK: the preview theme, since a preview has no Application for appGraph to read
     TachiyomiPreviewTheme(appTheme = appTheme) {
         Surface {
             AppThemesList(

@@ -22,7 +22,7 @@ data class SMUserListManga(
     val name: String,
     @SerialName("chapters")
     val totalChapters: Long, // the title's total chapters
-    val userRate: SMListUserRate?,
+    val userRate: SMListUserRate?, // RK: renamed type, see SMListUserRate below
 ) {
     fun toTrack(trackerId: Long): Track {
         return Track.create(trackerId).apply {

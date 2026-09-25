@@ -17,6 +17,7 @@ class SetSortModeForCategory(
 
     suspend fun await(categoryId: Long?, type: LibrarySort.Type, direction: LibrarySort.Direction) {
         val category = categoryId?.let { categoryRepository.get(it) }
+        // RK: flags are built in the per-category branch, the only one that writes them
         if (type == LibrarySort.Type.Random) {
             preferences.randomSortSeed.set(Random.nextInt())
         }

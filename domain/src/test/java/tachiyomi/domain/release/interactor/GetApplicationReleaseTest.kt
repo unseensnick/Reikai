@@ -21,6 +21,7 @@ class GetApplicationReleaseTest {
         getApplicationRelease = GetApplicationRelease(releaseService)
     }
 
+    // RK: Reikai's preview channel, upstream's nightly
     @Test
     fun `When has update but is preview expect new update`() = runTest {
         val release = Release(
@@ -35,7 +36,7 @@ class GetApplicationReleaseTest {
         val result = getApplicationRelease.await(
             GetApplicationRelease.Arguments(
                 isFoss = false,
-                isPreview = true,
+                isPreview = true, // RK: Reikai's preview channel
                 commitCount = 1000,
                 versionName = "",
                 repository = "test",
@@ -61,7 +62,7 @@ class GetApplicationReleaseTest {
         val result = getApplicationRelease.await(
             GetApplicationRelease.Arguments(
                 isFoss = false,
-                isPreview = false,
+                isPreview = false, // RK: Reikai's preview channel
                 commitCount = 0,
                 versionName = "v1.0.0",
                 repository = "test",
@@ -87,7 +88,7 @@ class GetApplicationReleaseTest {
         val result = getApplicationRelease.await(
             GetApplicationRelease.Arguments(
                 isFoss = false,
-                isPreview = false,
+                isPreview = false, // RK: Reikai's preview channel
                 commitCount = 0,
                 versionName = "v2.0.0",
                 repository = "test",
@@ -97,6 +98,7 @@ class GetApplicationReleaseTest {
         result shouldBe GetApplicationRelease.Result.NoNewUpdate
     }
 
+    // RK --> Reikai's segment-wise version comparison
     @Test
     fun `When installed version has more segments than the tag expect no new update`() = runTest {
         val release = Release(
@@ -168,4 +170,5 @@ class GetApplicationReleaseTest {
 
         (result as GetApplicationRelease.Result.NewUpdate).release shouldBe release
     }
+    // RK <--
 }

@@ -23,6 +23,7 @@ class OnboardingScreen : Screen() {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
 
+        // RK: placed by Reikai's own graph conversion; upstream's order is equivalent
         val context = LocalContext.current
         val basePreferences = remember { context.appGraph.basePreferences }
         val shownOnboardingFlow by basePreferences.shownOnboardingFlow.collectAsState()

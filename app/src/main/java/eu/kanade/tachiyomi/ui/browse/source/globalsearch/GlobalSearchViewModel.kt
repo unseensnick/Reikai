@@ -24,6 +24,7 @@ class GlobalSearchViewModel(
     extensionManager: ExtensionManager,
     networkToLocalManga: NetworkToLocalManga,
     getManga: GetManga,
+    // RK --> adding to the library goes through the shared adder; the empty state leaves the query to the engine
     mangaLibraryAdder: MangaLibraryAdder,
 ) : SearchViewModel(
     initialState = State(),
@@ -33,13 +34,14 @@ class GlobalSearchViewModel(
     networkToLocalManga = networkToLocalManga,
     getManga = getManga,
     mangaLibraryAdder = mangaLibraryAdder,
+    // RK <--
 ) {
 
     @AssistedFactory
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
-        fun create(initialExtensionFilter: String?): GlobalSearchViewModel
+        fun create(initialExtensionFilter: String?): GlobalSearchViewModel // RK: no initialQuery
     }
 
     init {

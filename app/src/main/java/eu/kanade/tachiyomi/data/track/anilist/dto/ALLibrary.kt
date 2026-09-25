@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * RK: wire types for `MediaListCollection`, AniList's "give me every entry in this user's manga
+ * Wire types for `MediaListCollection`, AniList's "give me every entry in this user's manga
  * library" query. Returned in one round trip; used by the recommendation taste-profile library pull.
  *
  * Shape: data -> MediaListCollection -> lists (one per status group / custom list) -> entries.

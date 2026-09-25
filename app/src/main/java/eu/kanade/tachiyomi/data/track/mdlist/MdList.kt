@@ -117,7 +117,7 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
         }
     }
 
-    // RK --> autofill entry metadata (Fill from tracker); delegates to the MangaDex source parse.
+    // Autofill entry metadata (Fill from tracker); delegates to the MangaDex source parse.
     override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
         return withIOContext {
             val mdex = mdex() ?: throw MangaDexNotFoundException()
@@ -135,7 +135,6 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
             )
         }
     }
-    // RK <--
 
     // Seeds an UNFOLLOWED tracker for a library manga so pushFavorites can flip it to READING and
     // create the MDList follow. mdManga supplies the display title/url when it differs from the local row.

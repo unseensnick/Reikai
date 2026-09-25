@@ -25,7 +25,7 @@ class SplitNovelReaderPaddingMigration(
     private val preferenceStore: PreferenceStore,
     private val novelPreferences: NovelPreferences,
 ) : Migration {
-    // RK: fires once when the shipped versionCode crosses 191, the version the four margins ship in.
+    // Fires once when the shipped versionCode crosses 191, the version the four margins ship in.
     override val version: Float = 191f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {

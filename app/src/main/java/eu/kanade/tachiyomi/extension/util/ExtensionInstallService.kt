@@ -27,7 +27,7 @@ class ExtensionInstallService : Service() {
 
     override fun onCreate() {
         val notification = notificationBuilder(Notifications.CHANNEL_EXTENSIONS_UPDATE) {
-            setSmallIcon(R.drawable.ic_reikai)
+            setSmallIcon(R.drawable.ic_reikai) // RK: Reikai's own icon
             setAutoCancel(false)
             setOngoing(true)
             setShowWhen(false)

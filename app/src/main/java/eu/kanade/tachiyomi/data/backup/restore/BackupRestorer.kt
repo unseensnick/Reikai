@@ -70,7 +70,7 @@ class BackupRestorer(
     private val preferenceRestorer: PreferenceRestorer,
     private val extensionStoreRestorer: ExtensionStoreRestorer,
     private val mangaRestorer: MangaRestorer,
-    private val parser: ProtoBuf,
+    private val parser: ProtoBuf, // RK: the streaming restore decodes field by field, no BackupDecoder
     // RK -->
     private val novelRestorer: NovelRestorer,
     private val extensionRestorer: ExtensionRestorer,
@@ -150,7 +150,7 @@ class BackupRestorer(
             restoreAmount += 1
         }
         if (options.extensionStores) {
-            restoreAmount += summary.backupExtensionStores.size
+            restoreAmount += summary.backupExtensionStores.size // RK: from the pass-1 summary
         }
         if (options.sourceSettings) {
             restoreAmount += 1
@@ -188,7 +188,7 @@ class BackupRestorer(
                 )
             }
             if (options.extensionStores) {
-                restoreExtensionStores(summary.backupExtensionStores, summary.backupExtensions)
+                restoreExtensionStores(summary.backupExtensionStores, summary.backupExtensions) // RK: reinstalls apps
             }
             // RK -->
             if (options.savedSearches) {
@@ -537,9 +537,11 @@ class BackupRestorer(
         return File("")
     }
 
+    // RK -->
     companion object {
         // RK: entries per DB transaction while streaming; also the memory bound (only this many
         // entries + their chapters are resident at once).
         private const val RESTORE_CHUNK = 100
     }
+    // RK <--
 }

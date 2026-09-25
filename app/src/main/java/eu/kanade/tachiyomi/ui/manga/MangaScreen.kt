@@ -88,6 +88,7 @@ class MangaScreen(
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
+        // RK: no haptic read; upstream's MangaScreen composable that took it is replaced below
         val viewModel = assistedMetroViewModel<MangaViewModel, MangaViewModel.Factory> {
             create(mangaId = mangaId, isFromSource = fromSource)
         }
@@ -124,7 +125,7 @@ class MangaScreen(
             viewModel.updateSeedColor()
         }
 
-        // RK: the shared details body renders through the manga adapter over the live model.
+        // RK --> the shared details body renders through the manga adapter over the live model.
         val coverViewModelFactory = remember { context.appGraph.mangaCoverViewModelFactory }
         val adapter = remember(viewModel) { MangaEntryAdapter(viewModel, coverViewModelFactory) }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
@@ -258,6 +259,7 @@ class MangaScreen(
                 )
             }
         } // RK: end cover-based theme wrap
+        // RK <--
 
         var showScanlatorsDialog by remember { mutableStateOf(false) }
 
@@ -271,6 +273,7 @@ class MangaScreen(
                 onDismissRequest,
             )
             when (val dialog = successState.dialog) {
+                // RK --> shared duplicate and migrate dialogs; a category pick can also join a merge group
                 is MangaViewModel.Dialog.ChangeCategory -> {
                     ChangeCategoryDialog(
                         initialSelection = dialog.initialSelection,
@@ -304,6 +307,7 @@ class MangaScreen(
                         onDismissRequest = onDismissRequest,
                     )
                 }
+                // RK <--
                 MangaViewModel.Dialog.SettingsSheet -> ChapterSettingsDialog(
                     onDismissRequest = onDismissRequest,
                     manga = successState.manga,

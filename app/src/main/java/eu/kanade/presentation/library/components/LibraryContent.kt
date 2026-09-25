@@ -38,6 +38,7 @@ fun LibraryContent(
     hasActiveFilters: Boolean,
     showPageTabs: Boolean,
     onChangeCurrentPage: (Int) -> Unit,
+    // RK --> retyped to LibraryBucket, LibraryItem and EntryId in place of Category, LibraryManga and Long
     onClickManga: (EntryId) -> Unit,
     onContinueReadingClicked: ((LibraryItem) -> Unit)?,
     onToggleSelection: (LibraryBucket, LibraryItem) -> Unit,
@@ -48,6 +49,7 @@ fun LibraryContent(
     getDisplayMode: (Int) -> PreferenceMutableState<LibraryDisplayMode>,
     getColumnsForOrientation: (Boolean) -> PreferenceMutableState<Int>,
     getItemsForCategory: (LibraryBucket) -> List<LibraryItem>,
+    // RK <--
 ) {
     Column(
         modifier = Modifier.padding(
@@ -68,7 +70,7 @@ fun LibraryContent(
                 }
             }
             LibraryTabs(
-                buckets = buckets,
+                buckets = buckets, // RK: sections of the assembled library
                 pagerState = pagerState,
                 getItemCountForCategory = getItemCountForCategory,
                 onTabItemClick = {
@@ -100,18 +102,19 @@ fun LibraryContent(
                 selection = selection,
                 searchQuery = searchQuery,
                 onGlobalSearchClicked = onGlobalSearchClicked,
-                getCategoryForPage = { page -> buckets[page] },
+                getCategoryForPage = { page -> buckets[page] }, // RK: a page is a bucket
                 getDisplayMode = getDisplayMode,
                 getColumnsForOrientation = getColumnsForOrientation,
                 getItemsForCategory = getItemsForCategory,
+                // RK --> a LibraryItem row, clicked by its neutral identity so a novel routes to its own screen
                 onClickManga = { category, item ->
                     if (selection.isNotEmpty()) {
                         onToggleSelection(category, item)
                     } else {
-                        // RK: the neutral identity, so the caller can route a novel row to its own screen
                         onClickManga(item.entryId)
                     }
                 },
+                // RK <--
                 onLongClickManga = onToggleRangeSelection,
                 onClickContinueReading = onContinueReadingClicked,
             )

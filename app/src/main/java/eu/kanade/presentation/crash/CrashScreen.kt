@@ -37,6 +37,7 @@ fun CrashScreen(
         acceptText = stringResource(MR.strings.pref_dump_crash_logs),
         onAcceptClick = {
             scope.launch {
+                // RK: read off the graph at the call, from Reikai's own Metro port (upstream remembers it)
                 context.appGraph.crashLogUtil.dumpLogs(exception)
             }
         },

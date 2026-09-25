@@ -271,7 +271,7 @@ class KitsuApi(
         }
     }
 
-    suspend fun search(search: String, novel: Boolean = false): List<TrackSearch> {
+    suspend fun search(search: String, novel: Boolean = false): List<TrackSearch> { // RK: novel subtype split
         return withIOContext {
             val query = $$"""
                 |query Query($query: String!) {
@@ -400,7 +400,7 @@ class KitsuApi(
         }
     }
 
-    suspend fun getMangaDetails(search: String, novel: Boolean = false): TrackSearch? {
+    suspend fun getMangaDetails(search: String, novel: Boolean = false): TrackSearch? { // RK: novel subtype split
         val isSearchById = search.matches(Regex("\\d+"))
 
         val query = if (isSearchById) {

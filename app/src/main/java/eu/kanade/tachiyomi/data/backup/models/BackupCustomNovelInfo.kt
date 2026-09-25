@@ -1,4 +1,4 @@
-// RK: novel custom info as Reikai 0.3.x wrote it (Backup field 714), keyed by {url, source}. Read only:
+// Novel custom info as Reikai 0.3.x wrote it (Backup field 714), keyed by {url, source}. Read only:
 // a backup now carries custom info on each BackupNovel, and LegacyCustomInfo folds these entries onto it.
 package eu.kanade.tachiyomi.data.backup.models
 

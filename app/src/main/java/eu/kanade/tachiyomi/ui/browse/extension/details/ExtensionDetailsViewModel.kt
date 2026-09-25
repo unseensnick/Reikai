@@ -103,14 +103,15 @@ class ExtensionDetailsViewModel(
         val extension = successState?.extension ?: return
 
         val urls = extension.sources
+            // RK --> an IReader catalogue is not a tachiyomi HttpSource, but has a site all the same
             .flatMap {
                 when (it) {
                     is HttpSource -> listOf(it.baseUrl, it.getHomeUrl())
-                    // RK: an IReader catalogue is not a tachiyomi HttpSource, but has a site all the same
                     is IReaderSourceHolder -> listOfNotNull(it.baseUrl)
                     else -> emptyList()
                 }
             }
+            // RK <--
             .filter { it.isNotEmpty() }
             .distinct()
 

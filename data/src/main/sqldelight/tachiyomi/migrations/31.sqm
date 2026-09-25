@@ -1,4 +1,4 @@
--- RK: precomputed cross-source chapter identity, backing the deduplicated unread count on a merged
+-- Precomputed cross-source chapter identity, backing the deduplicated unread count on a merged
 -- library entry. See data/chapter_match_key.sq for the full rationale. These CREATE statements
 -- mirror that file exactly: fresh installs build from the .sq via Schema.create(), existing installs
 -- reach the same schema through this migration.

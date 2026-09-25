@@ -104,6 +104,7 @@ class MangaBaka(id: Long) : BaseTracker(id, "MangaBaka"), DeletableTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        // RK: the id: parse is BaseTracker's trackerSearchId, shared with searchNovel
         query.trackerSearchId(String::toIntOrNull)?.let { id ->
             return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
         }
@@ -236,5 +237,7 @@ class MangaBaka(id: Long) : BaseTracker(id, "MangaBaka"), DeletableTracker {
 
         // 25, 50, 75, 100
         private val STEP_25_SCORES = IntRange(0, 100).step(25)
+
+        // RK: SEARCH_ID_PREFIX moved into BaseTracker's trackerSearchId, which manga and novel search share
     }
 }

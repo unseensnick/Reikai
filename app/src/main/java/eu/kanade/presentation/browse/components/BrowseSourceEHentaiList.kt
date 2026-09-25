@@ -62,7 +62,7 @@ import tachiyomi.domain.manga.model.MangaCover as MangaCoverData
 
 @Composable
 fun BrowseSourceEHentaiList(
-    // RK: neutral catalogue rows. The manga adapter is the only one that asks for this layout, so its
+    // Neutral catalogue rows. The manga adapter is the only one that asks for this layout, so its
     //     payload is always the live (manga, gallery metadata) pair the rows render rating and pages from.
     rows: LazyPagingItems<EntryBrowseRow>,
     contentPadding: PaddingValues,
@@ -172,7 +172,7 @@ private fun BrowseSourceEHentaiListItem(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            // RK: highlight the row while bulk-selecting
+            // Highlight the row while bulk-selecting
             .selectedBackground(isSelected)
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,

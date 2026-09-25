@@ -7,7 +7,7 @@ import tachiyomi.domain.chapter.model.Chapter
  */
 data class ReaderChapterItem(
     val chapter: Chapter,
-    // RK: the chapter's source name for a merged group (null when not merged), shown as the row's
+    // The chapter's source name for a merged group (null when not merged), shown as the row's
     // subtitle so a unified list makes clear which source each chapter comes from.
     val sourceName: String? = null,
 )

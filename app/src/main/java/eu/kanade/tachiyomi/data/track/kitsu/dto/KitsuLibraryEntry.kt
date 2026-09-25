@@ -1,7 +1,7 @@
 package eu.kanade.tachiyomi.data.track.kitsu.dto
 
 /**
- * RK: flat row produced by `KitsuApi.getUserLibrary` from the GraphQL library connection. The
+ * Flat row produced by `KitsuApi.getUserLibrary` from the GraphQL library connection. The
  * recommendation taste fetcher converts these into TrackedEntry. Not `@Serializable`: synthesized
  * in process, never on the wire. Cross-tracker keys ([malId] / [anilistId]) come from the media's
  * `mappings` connection.

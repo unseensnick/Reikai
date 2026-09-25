@@ -304,7 +304,7 @@ class ClearDatabaseScreen : Screen() {
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class ClearDatabaseViewModel(
     private val getSourcesWithNonLibraryManga: GetSourcesWithNonLibraryManga,
-    private val database: Database,
+    private val database: Database, // RK: follows getSourcesWithNonLibraryManga, from Reikai's Metro migration
     // RK -->
     private val novelRepository: NovelRepository,
     private val novelSourceManager: NovelSourceManager,
@@ -389,7 +389,7 @@ class ClearDatabaseViewModel(
 
     fun clearSelection() = state.update { state ->
         if (state !is State.Ready) return@update state
-        state.copy(
+        state.copy( // RK: split to carry novelSelection
             selection = emptyList(),
             // RK -->
             novelSelection = emptyList(),
@@ -399,7 +399,7 @@ class ClearDatabaseViewModel(
 
     fun selectAll() = state.update { state ->
         if (state !is State.Ready) return@update state
-        state.copy(
+        state.copy( // RK: split to carry novelSelection
             selection = state.items.fastMap { it.id },
             // RK -->
             novelSelection = state.novelItems.fastMap { it.id },

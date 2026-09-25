@@ -44,6 +44,7 @@ fun GlobalSearchToolbar(
     onChangeSearchQuery: (String?) -> Unit,
     onSearch: (String) -> Unit,
     hideSourceFilter: Boolean,
+    // RK: SearchSourceFilter is the shared filter both content types search with
     sourceFilter: SearchSourceFilter,
     onChangeSearchFilter: (SearchSourceFilter) -> Unit,
     onlyShowHasResults: Boolean,
@@ -117,6 +118,7 @@ fun GlobalSearchToolbar(
             }
         }
 
+        // RK: the content-type tab strip, above the source-filter chips
         tabs()
 
         // RK: the filter chips moved to the shared reikai.presentation.browse.EntrySearchSourceFilterChips

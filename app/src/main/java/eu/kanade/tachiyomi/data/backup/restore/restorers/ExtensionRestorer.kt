@@ -1,4 +1,4 @@
-// RK: installed-extensions backup. Net-new Reikai file: reinstalls the manga and novel
+// Installed-extensions backup. Net-new Reikai file: reinstalls the manga and novel
 // extensions a backup recorded. Must run after the extension repos are restored, since the available
 // list is fetched from them. Installs go through the standard installer (respecting the user's
 // installer mode). Every extension that does not come back is returned with its reason for the
@@ -49,7 +49,7 @@ class ExtensionRestorer(
         backupExtensions
             .filterNot { it.pkgName in installedPkgs }
             .map { backupExtension ->
-                // RK: install on the restore's own scope and await it, instead of firing it onto the
+                // Install on the restore's own scope and await it, instead of firing it onto the
                 // app-lifetime extensionManager.scope. The fire-and-forget installs kept landing after the
                 // restore "finished", racing the trust evaluation and colliding with the user's own actions.
                 async {

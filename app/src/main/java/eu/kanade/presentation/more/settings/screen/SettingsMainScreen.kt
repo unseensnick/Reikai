@@ -77,7 +77,7 @@ object SettingsMainScreen : Screen() {
 
     @Composable
     fun Content(twoPane: Boolean) {
-        val context = LocalContext.current
+        val context = LocalContext.current // RK: unread since the adult-source gate left this list
         val navigator = LocalNavigator.currentOrThrow
         val backPress = LocalBackPress.currentOrThrow
         val containerColor = if (twoPane) getPalerSurface() else MaterialTheme.colorScheme.surface
@@ -222,7 +222,7 @@ object SettingsMainScreen : Screen() {
             screen = SettingsTrackingScreen,
         ),
         Item(
-            titleRes = MR.strings.pref_category_browse,
+            titleRes = MR.strings.pref_category_browse, // RK: "Browse and sources", which holds source settings
             subtitleRes = MR.strings.pref_browse_summary,
             icon = MaterialSymbols.Rounded.Explore,
             screen = SettingsBrowseScreen,
