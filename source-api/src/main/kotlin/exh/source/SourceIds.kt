@@ -1,7 +1,7 @@
 package exh.source
 
 // Delegated lewd source IDs. Trimmed from Komikku's SourceIds to the sources Reikai enhances.
-// MangaDex ids are below (MANGADEX_IDS); Comick ids come with their later phase.
+// MangaDex ids are below (MANGADEX_IDS).
 const val PURURIN_SOURCE_ID = 2221515250486218861L
 const val EIGHTMUSES_SOURCE_ID = 1802675169972965535L
 
@@ -78,7 +78,7 @@ val LIBRARY_UPDATE_EXCLUDED_SOURCES = eHentaiSourceIds + PURURIN_SOURCE_ID + NHE
 // Komikku. Unlike E-Hentai, MangaDex gains chapters through the normal update sweep, so these are
 // deliberately NOT added to LIBRARY_UPDATE_EXCLUDED_SOURCES. The delegated-source wrap itself
 // matches by source name / package (AndroidSourceManager.toEnhancedSource), not by this set; these
-// ids gate MangaDex-specific behaviour (metadata, recommendations) in later phases.
+// ids gate the follows sync and keep MangaDex out of the gallery-source dedup rule.
 val MANGADEX_IDS = setOf(
     2499283573021220255, // en
     4638673959522768501, // af

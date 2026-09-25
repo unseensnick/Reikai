@@ -55,7 +55,6 @@ class NHentai(delegate: HttpSource, val context: Context) :
         }
 
     // capture gallery metadata on the details fetch, delegate chapters to the stock source.
-    // URL import (Komikku's fetchSearchManga override) is deferred with GalleryAdder.
     override suspend fun getMangaUpdate(
         manga: SManga,
         chapters: List<SChapter>,

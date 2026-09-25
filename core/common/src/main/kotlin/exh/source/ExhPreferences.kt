@@ -40,15 +40,7 @@ class ExhPreferences(
     fun exhSessionCookie() = preferenceStore.getString(Preference.privateKey("eh_sessionCookie"), "")
     fun exhHathPerksCookies() = preferenceStore.getString(Preference.privateKey("eh_hathPerksCookie"), "")
 
-    fun exhShowSyncIntro() = preferenceStore.getBoolean("eh_show_sync_intro", true)
-
-    fun exhReadOnlySync() = preferenceStore.getBoolean("eh_sync_read_only", false)
-
-    fun exhLenientSync() = preferenceStore.getBoolean("eh_lenient_sync", false)
-
     fun exhShowSettingsUploadWarning() = preferenceStore.getBoolean("eh_showSettingsUploadWarning2", true)
-
-    fun logLevel() = preferenceStore.getInt("eh_log_level", 0)
 
     // default Daily. The worker only re-checks each gallery once per day anyway, so a tighter
     // schedule just wakes up to skip; 24 also keeps the value within the settings frequency options.

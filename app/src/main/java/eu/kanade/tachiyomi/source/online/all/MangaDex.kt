@@ -45,8 +45,8 @@ import kotlin.reflect.KClass
  * MangaDex enhanced source. Wraps the installed MangaDex extension and enriches title details with
  * MangaDex metadata (namespaced tags, cross-tracker ids, rating), plus OAuth login and the MDList
  * tracker (follow-status and rating sync). Chapters, pages, browse and search delegate to the stock
- * extension, the same way [EightMuses] does. Follows-library sync, similar-manga and the external
- * aggregator page handlers arrive in later phases.
+ * extension, the same way [EightMuses] does, and the follows list syncs into the library. Similar-manga
+ * and the external aggregator page handlers were deliberately not ported.
  */
 class MangaDex(delegate: HttpSource, val context: Context) :
     DelegatedHttpSource(delegate),
