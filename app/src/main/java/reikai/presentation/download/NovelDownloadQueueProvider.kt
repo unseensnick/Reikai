@@ -85,10 +85,7 @@ class NovelDownloadQueueProvider(
     }
 
     override fun reorderSeries(seriesIdsInOrder: List<Long>) {
-        val bySeries = downloadManager.queueState.value.groupBy { it.novelId }
-        val named = seriesIdsInOrder.toSet()
-        val reordered = (seriesIdsInOrder + bySeries.keys.filter { it !in named })
-            .flatMap { bySeries[it].orEmpty() }
+        val reordered = downloadManager.queueState.value.withSeriesInOrder(seriesIdsInOrder) { it.novelId }
         downloadManager.reorderQueue(reordered)
     }
 

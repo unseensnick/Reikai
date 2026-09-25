@@ -145,6 +145,16 @@ fun <T> List<T>.withChapterLastInSeries(chapterId: Long, chapterIdOf: (T) -> Lon
 }
 
 /**
+ * The queue with its series in [seriesIdsInOrder], each keeping its chapters' order, and any series
+ * not named kept behind them in its current place. Both downloaders' card drag goes through this.
+ */
+fun <T> List<T>.withSeriesInOrder(seriesIdsInOrder: List<Long>, seriesOf: (T) -> Long): List<T> {
+    val bySeries = groupBy(seriesOf)
+    val named = seriesIdsInOrder.toSet()
+    return (seriesIdsInOrder + bySeries.keys.filter { it !in named }).flatMap { bySeries[it].orEmpty() }
+}
+
+/**
  * Reorders chapters within each series by [keyOf], keeping the series in their current order. Both
  * downloaders' sort goes through this, so Sort means the same thing for either type.
  */
