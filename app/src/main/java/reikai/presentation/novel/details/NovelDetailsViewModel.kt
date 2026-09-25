@@ -52,6 +52,7 @@ import reikai.data.novel.toNovel
 import reikai.data.novel.updateNovelFetchInterval
 import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.entry.EntryId
@@ -269,6 +270,10 @@ class NovelDetailsViewModel(
      *  [NovelDetailsState.Loaded] built picks it up (mirrors [currentTrackingCount]). */
     @Volatile
     private var currentCustomInfo: CustomNovelInfo? = null
+
+    /** The viewed list's rows before hiding, filters and sort: one page on a paged source. */
+    @Volatile
+    private var viewRows: List<NovelChapter> = emptyList()
 
     init {
         mergeGroup.observe(viewModelScope)
@@ -576,6 +581,7 @@ class NovelDetailsViewModel(
         readInOtherSources: Set<Long> = emptySet(),
         bookmarkedInOtherSources: Set<Long> = emptySet(),
     ) {
+        viewRows = chapters
         val hidden = hiddenChaptersPref.get()
         val view = resolveHiddenChapterView(chapters, hidden, showHiddenFlow.value, ::hiddenKey)
         val hasHiddenChapters = view.hasHidden
@@ -1403,17 +1409,32 @@ class NovelDetailsViewModel(
         }
     }
 
+    /**
+     * Every row the viewed list holds, unfiltered and in its shown order. A paged source's view holds one
+     * page, so its own stored rows stand in for every page; an unpaged view already holds them all.
+     */
+    private suspend fun storedViewRows(loaded: NovelDetailsState.Loaded): List<NovelChapter> {
+        val rows = if (loaded.pages.isEmpty()) viewRows else chapterRepo.getByNovelId(loaded.displayNovel.id)
+        val ascending = rows.sortedWith(readingOrderComparator(loaded.novel, novelPreferences))
+        return if (loaded.sortDescending) ascending.asReversed() else ascending
+    }
+
     /** Toolbar download dropdown. Selection logic is shared with the library. */
     fun runDownloadAction(action: DownloadAction) {
         viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            // The rows on screen, not the anchor's own: on a merged entry the All chip lists whichever
+            // The view's rows, not the anchor's own: on a merged entry the All chip lists whichever
             // source won the dedup, so downloading the anchor's chapters fetched ones the user was not
-            // looking at and left every visible row undownloaded. The manga side already works this way.
+            // looking at and left every visible row undownloaded.
             val hidden = hiddenChaptersPref.get()
-            val available = loaded.chapters.filterNot { hiddenKey(it) in hidden }
-            // Already resolved per owning novel, which a merged list needs.
-            val downloadedIds = loaded.downloadedChapterIds
+            val available = DownloadCandidates.rows(
+                shown = loaded.chapters,
+                stored = storedViewRows(loaded),
+                skipFiltered = novelPreferences.readerSkipFiltered().get(),
+            ) { hiddenKey(it) in hidden }
+            // The view's set also holds a merged chapter's copies on other sources; the probe adds the
+            // pages a paged source is not showing.
+            val downloadedIds = loaded.downloadedChapterIds + downloadedIdsFor(available)
             val queuedIds = downloadManager.queueState.value.mapTo(HashSet()) { it.chapterId }
             val targets = selectChaptersForDownloadAction(
                 available,

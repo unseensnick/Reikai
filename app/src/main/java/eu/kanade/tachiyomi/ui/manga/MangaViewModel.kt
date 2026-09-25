@@ -84,6 +84,7 @@ import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.category.resolveDefaultCategoryIds
+import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.entry.EntryId
@@ -1290,12 +1291,19 @@ class MangaViewModel(
             .getNextUnread(successState.manga)
     }
 
-    private fun getUnreadChapters(): List<Chapter> {
-        // RK: hidden chapters are never bulk-downloaded (they are in the list only while showing hidden).
+    // RK -->
+    // The rows a bulk download picks from, one rule with novels; hidden chapters are never queued.
+    private fun downloadCandidates(): List<ChapterList.Item> {
         val hidden = successState?.hiddenChapterIds.orEmpty()
-        val chapterItems = if (skipFiltered) filteredChapters.orEmpty() else allChapters.orEmpty()
-        return chapterItems
-            .filterNot { it.id in hidden }
+        return DownloadCandidates.rows(filteredChapters.orEmpty(), allChapters.orEmpty(), skipFiltered) {
+            it.id in hidden
+        }
+    }
+    // RK <--
+
+    private fun getUnreadChapters(): List<Chapter> {
+        // RK: the shared candidate rows, in place of the skipFiltered pick.
+        return downloadCandidates()
             // RK: the any-source flags, so a chapter a grouped source has read or holds is not queued.
             .filter { !it.isRead && it.downloadState == Download.State.NOT_DOWNLOADED }
             .map { it.chapter }
@@ -1308,10 +1316,8 @@ class MangaViewModel(
     }
 
     private fun getBookmarkedChapters(): List<Chapter> {
-        val hidden = successState?.hiddenChapterIds.orEmpty()
-        val chapterItems = if (skipFiltered) filteredChapters.orEmpty() else allChapters.orEmpty()
-        return chapterItems
-            .filterNot { it.id in hidden }
+        // RK: the shared candidate rows, in place of the skipFiltered pick.
+        return downloadCandidates()
             .filter { it.isBookmarked && it.downloadState == Download.State.NOT_DOWNLOADED }
             .map { it.chapter }
     }
