@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 
 /**
  * In-memory cache of the related-mangas carousel pool, keyed by manga id, so reopening a manga shows
@@ -35,14 +35,27 @@ class RelatedMangaCache {
      *  mid-load, which the menu placement does (it opens before the background load finishes). */
     fun observe(mangaId: Long): Flow<Entry?> = entries.map { it[mangaId] }.distinctUntilChanged()
 
+    /**
+     * Stores the pool unless it would replace a fuller one: an incomplete snapshot never replaces a
+     * complete entry, and an empty result never replaces a non-empty one. A refused put keeps the old
+     * entry and its fetch time, so a failed refresh is retried on the next open. Returns the entry the
+     * cache now holds, which is what the caller shows.
+     */
     fun put(
         mangaId: Long,
         carousel: List<RelatedMangaCandidate>,
         fullPool: List<RelatedMangaCandidate>,
         isComplete: Boolean = true,
-    ) {
+    ): Entry {
         val entry = Entry(carousel, fullPool, System.currentTimeMillis(), isComplete)
-        entries.update { it + (mangaId to entry) }
+        return entries.updateAndGet { if (replaces(it[mangaId], entry)) it + (mangaId to entry) else it }
+            .getValue(mangaId)
+    }
+
+    private fun replaces(current: Entry?, next: Entry): Boolean = when {
+        current == null -> true
+        current.isComplete && !next.isComplete -> false
+        else -> next.fullPool.isNotEmpty() || current.fullPool.isEmpty()
     }
 
     fun isFresh(entry: Entry, now: Long = System.currentTimeMillis()): Boolean =

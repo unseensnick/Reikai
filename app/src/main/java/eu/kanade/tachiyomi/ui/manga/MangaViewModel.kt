@@ -1896,15 +1896,18 @@ class MangaViewModel(
                     TasteProfile.EMPTY
                 },
                 currentGenres = state.manga.genre.orEmpty(),
+                // Each snapshot is cached (incomplete) so "See all" fills mid-load. Both puts show what the
+                // cache kept, so a stale refresh never shrinks a full pool mid-stream or empties it.
                 onUpdate = {
-                    // Cache each streamed snapshot (incomplete) so "See all" works before the load
-                    // finishes; the final put below marks it complete.
-                    relatedMangaCache.put(mangaId, it.take(CAROUSEL_CAP), it, isComplete = false)
-                    applyRelated(it, favoriteKeys, hideFilter)
+                    val kept = relatedMangaCache.put(mangaId, it.take(CAROUSEL_CAP), it, isComplete = false)
+                    applyRelated(kept.fullPool, favoriteKeys, hideFilter)
                 },
             )
-            relatedMangaCache.put(mangaId, pool.take(CAROUSEL_CAP), pool)
-            applyRelated(pool, favoriteKeys, hideFilter)
+            applyRelated(
+                relatedMangaCache.put(mangaId, pool.take(CAROUSEL_CAP), pool).fullPool,
+                favoriteKeys,
+                hideFilter,
+            )
             updateSuccessState { it.copy(relatedLoading = false) }
         }
     }
