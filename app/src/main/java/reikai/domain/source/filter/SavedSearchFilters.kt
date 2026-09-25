@@ -56,9 +56,9 @@ class MangaSavedSearchFilters : SavedSearchFilters<FilterList> {
  * The light-novel half, in the shape of the source's filters. A Mihon filter list uses the manga
  * encoding, since it is the same model.
  *
- * LNReader values are keyed by filter, so a source that adds, removes or reorders a filter cannot
- * misapply a saved one the way the positional encoding can. A value whose filter is gone stays in the
- * map and is dropped downstream, where the options are built from the schema rather than from this.
+ * LNReader values are keyed by filter, as the manga encoding's entries are matched by kind and name,
+ * so a source that adds, removes or reorders a filter keeps the rest. A value whose filter is gone stays
+ * in the map and is dropped downstream, where the options are built from the schema rather than this.
  */
 class NovelSavedSearchFilters : SavedSearchFilters<NovelFilterState> {
 

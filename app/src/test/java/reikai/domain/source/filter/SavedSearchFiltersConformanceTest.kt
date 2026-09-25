@@ -81,6 +81,16 @@ class SavedSearchFiltersConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `an entry whose kind or name is not a plain value is skipped rather than thrown`(
+        probe: SavedSearchFiltersProbe,
+    ) {
+        val malformed = """[{"_type":{},"name":"x"},{"_type":"CHECKBOX","name":[]}]"""
+
+        probe.restore(malformed, names = listOf("A", "B", "C"), preset = "A") shouldBe listOf("A")
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `a source with no filters saves nothing`(probe: SavedSearchFiltersProbe) {
         probe.save(names = emptyList(), chosen = null).shouldBeNull()
     }

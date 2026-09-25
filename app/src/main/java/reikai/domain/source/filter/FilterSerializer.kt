@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -50,31 +51,27 @@ class FilterSerializer {
     }
 
     fun serialize(filter: Filter<Any?>): JsonObject {
-        return serializers
-            .filterIsInstance<Serializer<Filter<Any?>>>()
-            .firstOrNull {
-                filter::class.isSubclassOf(it.clazz)
-            }?.let { serializer ->
-                buildJsonObject {
-                    with(serializer) { serialize(filter) }
+        return serializerFor(filter)?.let { serializer ->
+            buildJsonObject {
+                with(serializer) { serialize(filter) }
 
-                    val classMappings = mutableListOf<Pair<String, Any>>()
+                val classMappings = mutableListOf<Pair<String, Any>>()
 
-                    serializer.mappings().forEach {
-                        val res = it.second.get(filter)
-                        put(it.first, res.toString())
-                        classMappings += it.first to (res?.javaClass?.name ?: "null")
-                    }
-
-                    putJsonObject(CLASS_MAPPINGS) {
-                        classMappings.forEach { (t, u) ->
-                            put(t, u.toString())
-                        }
-                    }
-
-                    put(TYPE, serializer.type)
+                serializer.mappings().forEach {
+                    val res = it.second.get(filter)
+                    put(it.first, res.toString())
+                    classMappings += it.first to (res?.javaClass?.name ?: "null")
                 }
-            } ?: throw IllegalArgumentException("Cannot serialize this Filter object!")
+
+                putJsonObject(CLASS_MAPPINGS) {
+                    classMappings.forEach { (t, u) ->
+                        put(t, u.toString())
+                    }
+                }
+
+                put(TYPE, serializer.type)
+            }
+        } ?: throw IllegalArgumentException("Cannot serialize this Filter object!")
     }
 
     fun deserialize(filters: FilterList, json: JsonArray) {
@@ -151,8 +148,8 @@ class FilterSerializer {
         serializerFor(filter)?.let { "${it.type}\u0000${filter.name}" }
 
     private fun storedKey(stored: JsonObject): String? {
-        val type = stored[TYPE]?.jsonPrimitive?.contentOrNull ?: return null
-        val name = stored[NAME]?.jsonPrimitive?.contentOrNull ?: return null
+        val type = (stored[TYPE] as? JsonPrimitive)?.contentOrNull ?: return null
+        val name = (stored[NAME] as? JsonPrimitive)?.contentOrNull ?: return null
         return "$type\u0000$name"
     }
 
