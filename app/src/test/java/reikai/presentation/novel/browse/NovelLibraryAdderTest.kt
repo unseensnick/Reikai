@@ -131,6 +131,24 @@ class NovelLibraryAdderTest {
     }
 
     @Test
+    fun `a stored row's add that needs the picker writes nothing before it`() = runTest {
+        val updateNovel = mockk<UpdateNovel>(relaxed = true)
+        val setNovelCategories = mockk<SetNovelCategories>(relaxed = true)
+
+        adder(
+            userCategories = listOf(category(3L)),
+            defaultCategoryId = -1,
+            setNovelCategories = setNovelCategories,
+            updateNovel = updateNovel,
+        ).addStoredToLibrary(1L)
+
+        coVerify(exactly = 0) {
+            updateNovel.awaitUpdateFavorite(any(), any())
+            setNovelCategories.await(any(), any())
+        }
+    }
+
+    @Test
     fun `an already favorited row is not re-favorited, which would reset its add date`() = runTest {
         val updateNovel = mockk<UpdateNovel>(relaxed = true)
 

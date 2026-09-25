@@ -83,12 +83,10 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.updateerror.refreshFailureMessage
-import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
@@ -109,7 +107,6 @@ import reikai.domain.recommendation.RelatedMangasLoader
 import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
-import reikai.domain.track.autobind.AutoBindOnAdd // RK
 import reikai.domain.track.supportingContent
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
@@ -132,20 +129,16 @@ import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.details.scanlatorFilterView
 import reikai.presentation.details.scanlatorTargets
 import reikai.presentation.details.scanlatorWrites
-import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
-import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.category.interactor.GetCategories
-import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.interactor.SetMangaDefaultChapterFlags
 import tachiyomi.domain.chapter.interactor.UpdateChapter
@@ -200,15 +193,10 @@ class MangaViewModel(
     private val updateManga: UpdateManga,
     // RK: "Reset all" clears the cached custom cover too, not just the custom-info row.
     private val coverCache: CoverCache,
-    private val getCategories: GetCategories,
-    // RK: orders the change-category picker by the category sort-order pref, like the library.
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     // RK --> a tracker bound on one source of a merged series counts for the whole group, so every read
     // here goes through GetTracksInGroup instead of Mihon's per-manga GetTracks.
     private val getTracksInGroup: GetTracksInGroup,
     // RK <--
-    private val autoBindOnAdd: AutoBindOnAdd, // RK: binds off the add, which Mihon awaited through AddTracks
-    private val setMangaCategories: SetMangaCategories,
     private val mangaRepository: MangaRepository,
     private val filterChaptersForDownload: FilterChaptersForDownload,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
@@ -721,13 +709,11 @@ class MangaViewModel(
                 // RK: the shared add sequence, so no add path can drift from the others: decide,
                 // favorite, file, and abandon the whole add if the favorite write fails.
                 val outcome = addEntry(
-                    resolveCategories = {
-                        resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
-                    },
+                    resolveCategories = { mangaLibraryAdder.resolveDefaultCategories() },
                     favorite = { favoriteForAdd(manga) },
-                    fileCategories = { id, categoryIds -> setMangaCategories.await(id, categoryIds) },
+                    fileCategories = { _, categoryIds -> mangaLibraryAdder.moveToCategories(manga, categoryIds) },
                 )
-                // RK: tracker matching and the account backup moved into the favorite step, see onAdded
+                // RK: tracker matching and the account backup moved into the favorite step, see favoriteForAdd
                 if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog()
             }
         }
@@ -742,7 +728,7 @@ class MangaViewModel(
             val outcome = addEntry(
                 resolveCategories = { mangaLibraryAdder.groupOrDefaultCategories(selectedIds) },
                 favorite = { joinGroup(manga, selectedIds) },
-                fileCategories = { id, categoryIds -> setMangaCategories.await(id, categoryIds) },
+                fileCategories = { _, categoryIds -> mangaLibraryAdder.moveToCategories(manga, categoryIds) },
             )
             if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog(joinGroup = selectedIds)
         }
@@ -754,17 +740,13 @@ class MangaViewModel(
             viewModelScope.launchIO { maybeBackupFavoriteToAccount(manga) }
         }
 
-    // RK: an add's favorite write, then onAdded; a picker the add raised runs it only on its confirm.
+    // RK: an add's favorite write, which binds the server trackers, then for an E-Hentai gallery the
+    // account backup. Both happen only once it is in the library, so a picker the add raised runs them
+    // only on its confirm and a dismissed one binds and pushes nothing.
     private suspend fun favoriteForAdd(manga: Manga): Long? =
-        manga.id.takeIf { updateManga.awaitUpdateFavorite(manga.id, true) }?.also { onAdded(manga) }
-
-    // RK: what an entry gets once it is in the library, never before, so a dismissed picker binds nothing:
-    // its server trackers matched and, for an E-Hentai gallery, the account backup. Both run off the add,
-    // which files its categories straight after the favorite write.
-    private fun onAdded(manga: Manga) {
-        successState?.let { autoBindOnAdd.manga(manga, it.source) }
-        viewModelScope.launchIO { maybeBackupFavoriteToAccount(manga) }
-    }
+        mangaLibraryAdder.favoriteForAdd(manga.id)?.also {
+            viewModelScope.launchIO { maybeBackupFavoriteToAccount(manga) }
+        }
 
     // RK -->
 
@@ -812,14 +794,13 @@ class MangaViewModel(
     fun showChangeCategoryDialog(joinGroup: List<Long> = emptyList()) { // RK: joinGroup
         val manga = successState?.manga ?: return
         viewModelScope.launch {
-            // RK: order the picker by the category sort-order pref, matching the library and its pickers.
-            val categories = reikaiSortCategories(getCategories(), reikaiLibraryPreferences.categorySortOrder.get())
-            val selection = getMangaCategoryIds(manga)
+            // RK: the adder's picker, ordered by the category sort-order pref like the library's pickers.
+            val selection = mangaLibraryAdder.categoryPickerSelection(manga.id)
             updateSuccessState { successState ->
                 successState.copy(
                     dialog = Dialog.ChangeCategory(
                         manga = manga,
-                        initialSelection = categories.mapAsCheckboxState { it.id in selection },
+                        initialSelection = selection,
                         joinGroup = joinGroup, // RK
                     ),
                 )
@@ -902,26 +883,6 @@ class MangaViewModel(
         return if (ids.size <= 1) listOf(state.manga) else ids.map { getMangaAndChapters.awaitManga(it) }
     }
 
-    /**
-     * Get user categories.
-     *
-     * @return List of categories, not including the default category
-     */
-    suspend fun getCategories(): List<Category> {
-        return getCategories.await().filterNot { it.isSystemCategory }
-    }
-
-    /**
-     * Gets the category id's the manga is in, if the manga is not in a category, returns the default id.
-     *
-     * @param manga the manga to get categories from.
-     * @return Array of category ids the manga is in, if none returns default id
-     */
-    private suspend fun getMangaCategoryIds(manga: Manga): List<Long> {
-        return getCategories.await(manga.id)
-            .map { it.id }
-    }
-
     // RK: the picker's confirm owes both writes the add deferred, in the shared order, so backing out
     // of the picker adds nothing and a failed favorite leaves no categories behind. A group add's
     // favorite joins [joinGroup]'s group as one unit.
@@ -940,7 +901,7 @@ class MangaViewModel(
                         if (manga.favorite) manga.id else favoriteForAdd(manga)
                     }
                 },
-                fileCategories = { id, categoryIds -> setMangaCategories.await(id, categoryIds) },
+                fileCategories = { _, categoryIds -> mangaLibraryAdder.moveToCategories(manga, categoryIds) },
             )
         }
     }

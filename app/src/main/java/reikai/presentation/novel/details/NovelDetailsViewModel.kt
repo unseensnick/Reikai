@@ -51,7 +51,6 @@ import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
 import reikai.data.novel.updateNovelFetchInterval
 import reikai.data.updateerror.refreshFailureMessage
-import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
@@ -74,7 +73,6 @@ import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.domain.novel.interactor.SetCustomNovelInfo
-import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.SetNovelChapterFlags
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.UpdateNovel
@@ -106,10 +104,8 @@ import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
-import reikai.presentation.browse.AddOutcome
-import reikai.presentation.browse.addEntry
+import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.components.EntrySourceLabel
-import reikai.presentation.browse.finishAdd
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryManageSourceInfo
@@ -122,7 +118,6 @@ import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
-import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
@@ -131,7 +126,6 @@ import reikai.presentation.selection.SelectionState
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
-import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.launchUI
@@ -168,9 +162,7 @@ class NovelDetailsViewModel(
     private val novelDownloadCache: NovelDownloadCache,
     private val sourceManager: NovelSourceManager,
     private val installer: LnPluginInstaller,
-    private val getNovelCategories: GetNovelCategories,
     private val filterChaptersForDownload: FilterNovelChaptersForDownload,
-    private val setNovelCategories: SetNovelCategories,
     private val novelLibraryAdder: NovelLibraryAdder,
     private val setNovelReadStatus: SetNovelReadStatus,
     private val novelPreferences: NovelPreferences,
@@ -1055,49 +1047,33 @@ class NovelDetailsViewModel(
     }
 
     /**
-     * Add-time grouping, through the shared add sequence: the group's categories win, then the default,
-     * and a picker it has to raise writes nothing until its confirm. Only the picks the user chose: the
-     * duplicate list is fuzzy, so merging every match would fuse distinct series. The atomic pair lives
-     * in NovelLibraryAdder.joinGroup.
+     * Add-time grouping, through the adder's shared add sequence: the group's categories win, then the
+     * default, and a picker it has to raise writes nothing until its confirm. Only the picks the user
+     * chose: the duplicate list is fuzzy, so merging every match would fuse distinct series.
      */
     fun addToExistingGroup(selectedIds: List<Long>) {
         viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            val outcome = addEntry(
-                resolveCategories = { novelLibraryAdder.groupOrDefaultCategories(selectedIds) },
-                favorite = { novelLibraryAdder.joinGroup(novel.id, selectedIds) },
-                fileCategories = { id, categoryIds -> setNovelCategories.await(id, categoryIds) },
-            )
-            if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog(joinGroup = selectedIds)
+            showPickerIfAsked(novelLibraryAdder.addToExistingGroup(novel.id, selectedIds), joinGroup = selectedIds)
         }
     }
 
-    private suspend fun addToLibrary(novel: Novel) {
-        // The shared add sequence: decide, favorite, file, and abandon the whole add if the favorite
-        // write fails. A picker defers both writes to applyCategories, so backing out adds nothing.
-        val outcome = addEntry(
-            resolveCategories = { novelLibraryAdder.resolveDefaultCategories() },
-            favorite = { novelLibraryAdder.favoriteForAdd(novel.id) },
-            fileCategories = { id, categoryIds -> setNovelCategories.await(id, categoryIds) },
-        )
-        if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog()
+    // A picker defers both writes to applyCategories, so backing out adds nothing.
+    private suspend fun addToLibrary(novel: Novel) =
+        showPickerIfAsked(novelLibraryAdder.addStoredToLibrary(novel.id), joinGroup = emptyList())
+
+    private fun showPickerIfAsked(result: AddFavoriteResult, joinGroup: List<Long>) {
+        if (result !is AddFavoriteResult.NeedsCategoryChoice) return
+        updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(result.initialSelection, joinGroup)) }
     }
 
-    fun showChangeCategoryDialog(joinGroup: List<Long> = emptyList()) {
+    fun showChangeCategoryDialog() {
         viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            // Order the picker by the category sort-order pref, matching the library and its pickers.
-            val categories = reikaiSortCategories(
-                categories = getNovelCategories.await().filterNot { it.isSystemCategory },
-                sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
-                isSystem = { it.isSystemCategory },
-                displayName = { it.name },
-            )
             // No early return on an empty list: the shared picker answers that case with the prompt to
             // go and make one, where bailing here left the action doing nothing at all.
-            val current = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.toSet()
-            val selection = categories.mapAsCheckboxState { it.id in current }
-            updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(selection, joinGroup)) }
+            val selection = novelLibraryAdder.categoryPickerPrompt(novel.id)
+            updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(selection)) }
         }
     }
 
@@ -1109,17 +1085,11 @@ class NovelDetailsViewModel(
     fun applyCategories(categoryIds: List<Long>, joinGroup: List<Long>) {
         viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            finishAdd(
-                categoryIds = categoryIds,
-                favorite = {
-                    if (joinGroup.isNotEmpty()) {
-                        novelLibraryAdder.joinGroup(novel.id, joinGroup)
-                    } else {
-                        novelLibraryAdder.favoriteForAdd(novel.id)
-                    }
-                },
-                fileCategories = { id, ids -> setNovelCategories.await(id, ids) },
-            )
+            if (joinGroup.isNotEmpty()) {
+                novelLibraryAdder.confirmGroupCategories(novel.id, joinGroup, categoryIds)
+            } else {
+                novelLibraryAdder.confirmAddCategories(novel.id, categoryIds)
+            }
             dismissDialog()
         }
     }
