@@ -215,7 +215,8 @@ step 7 had not finished the job: three more places still held two answers to one
   up to two network round trips and permanently wrote chapter rows for an entry the user had not
   committed to, multiplied by row count on a bulk accept. It now reads stored chapters, or asks the
   source once with `fetchDetails = false` and stores nothing, which is the bounded display-only read the
-  seam documents and what the novel side already did.
+  seam documents and what the novel side already did. The novel peek has since taken the stored-first
+  half as well: a search hit already in the database is counted from its stored chapters.
 - **Tuning options a content type cannot run are dropped at the seam.** `deepSearch` and
   `prioritizeByChapters` stayed plain Booleans on the shared model, kept honest only by the sheet hiding
   their checkboxes; a value set any other way was accepted, discarded, and read back as false after

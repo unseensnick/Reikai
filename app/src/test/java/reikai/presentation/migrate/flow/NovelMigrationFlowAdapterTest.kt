@@ -7,7 +7,10 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
+import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelChapter
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
@@ -41,13 +44,16 @@ class NovelMigrationFlowAdapterTest {
         )
     }
 
-    private val adapter = NovelMigrationFlowAdapter(
+    private fun adapter(
+        novelRepository: NovelRepository = mockk { coEvery { getByUrlAndSource(any(), any()) } returns null },
+        chapterRepository: NovelChapterRepository = mockk(),
+    ) = NovelMigrationFlowAdapter(
         sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get("plugin") } returns source },
         getEnabledNovelSources = mockk(),
         sourcePreferences = mockk(),
         novelPreferences = mockk(),
-        novelRepository = mockk<NovelRepository> { coEvery { getByUrlAndSource(any(), any()) } returns null },
-        chapterRepository = mockk(),
+        novelRepository = novelRepository,
+        chapterRepository = chapterRepository,
         database = mockk(),
         libraryPreferences = mockk(),
         coverCache = mockk(),
@@ -56,6 +62,8 @@ class NovelMigrationFlowAdapterTest {
         mergeManager = mockk(),
         installer = mockk(),
     )
+
+    private val adapter = adapter()
 
     private fun chapter(number: Double) = ChapterItem(
         name = "Chapter $number",
@@ -84,4 +92,40 @@ class NovelMigrationFlowAdapterTest {
 
         adapter.suggest(entry, "plugin", tuning)?.chapterCount shouldBe 3
     }
+
+    @Test
+    fun `the count peek reads a hit's stored chapters before parsing the source`() = runTest {
+        // The source's first page undercounts, so a parse-only peek has no count to give here.
+        val stored = Novel.create().copy(id = 7L, source = "plugin", url = "/title")
+        val adapter = adapter(
+            novelRepository = mockk { coEvery { getByUrlAndSource("/title", "plugin") } returns stored },
+            chapterRepository = mockk {
+                coEvery { getByNovelId(7L) } returns listOf(1.0, 2.0, 5.0).map(::storedChapter)
+            },
+        )
+        val candidate = MigrationCandidate(
+            sourceKey = "plugin",
+            title = "Title",
+            chapterCount = null,
+            key = "plugin:/title",
+            handle = NovelCandidateHandle(NovelItem("Title", "/title", null)),
+        )
+
+        adapter.peekCounts(candidate)?.let { it.chapterCount to it.latestChapter } shouldBe (3 to 5.0)
+    }
+
+    private fun storedChapter(number: Double) = NovelChapter(
+        id = number.toLong(),
+        novelId = 7L,
+        url = "/c$number",
+        name = "Chapter $number",
+        read = false,
+        bookmark = false,
+        lastTextProgress = 0L,
+        chapterNumber = number,
+        sourceOrder = 0L,
+        dateFetch = 0L,
+        dateUpload = 0L,
+        page = "",
+    )
 }

@@ -46,8 +46,8 @@ val StripResult.hasSomethingToSay: Boolean
  * The highest chapter number in [this], or null when there is none to show.
  *
  * A negative number is the recognizer saying it could not read one off the chapter, so it is not a
- * count the user should be shown or compared against. Both adapters state that rule at eight call
- * sites between them, which is eight places to miss it.
+ * count the user should be shown or compared against. Both adapters read every latest chapter
+ * through this, so the rule has one place to be wrong.
  */
 inline fun <T> List<T>.latestChapterNumber(number: (T) -> Double): Double? =
     maxOfOrNull(number)?.takeIf { it >= 0.0 }

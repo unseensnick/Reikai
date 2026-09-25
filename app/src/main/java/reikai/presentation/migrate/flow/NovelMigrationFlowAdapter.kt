@@ -291,6 +291,18 @@ class NovelMigrationFlowAdapter(
 
     override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? {
         val handle = candidate.handle as? NovelCandidateHandle ?: return null
+        // A search hit leaves the handle's stored row unset (see toCandidate), so a hit already in
+        // the database is looked up here: its stored chapters answer without a network parse, and
+        // count a paged source's full list where the parse below can only give up.
+        val stored = novelRepository.getByUrlAndSource(handle.item.path, candidate.sourceKey)
+            ?.let { chapterRepository.getByNovelId(it.id) }
+            .orEmpty()
+        if (stored.isNotEmpty()) {
+            return candidate.copy(
+                chapterCount = stored.size,
+                latestChapter = stored.latestChapterNumber { it.chapterNumber },
+            )
+        }
         val source = sourceManager.get(candidate.sourceKey) ?: return null
         val parsed = source.parseNovel(handle.item.path)
         // A paged source's first page undercounts; unknown is more honest than a floor.
@@ -304,10 +316,10 @@ class NovelMigrationFlowAdapter(
     private fun MigrationCandidate.withCounts(item: NovelItem, chapters: List<ChapterItem>): MigrationCandidate {
         if (chapters.isEmpty()) return copy(chapterCount = null, latestChapter = null)
         // Mirrors NovelChapterSync's numbering so the counted latest matches what a commit stores.
-        val latest = chapters.maxOf {
+        val latest = chapters.latestChapterNumber {
             ChapterRecognition.parseChapterNumber(item.name, it.name, it.chapterNumber?.takeIf { n -> n > 0.0 })
         }
-        return copy(chapterCount = chapters.size, latestChapter = latest.takeIf { it >= 0.0 })
+        return copy(chapterCount = chapters.size, latestChapter = latest)
     }
 
     override suspend fun storedCandidate(id: Long): MigrationCandidate? {
