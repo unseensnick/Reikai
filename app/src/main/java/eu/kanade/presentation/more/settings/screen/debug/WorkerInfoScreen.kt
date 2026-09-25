@@ -25,7 +25,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.domain.ui.UiPreferences
@@ -47,8 +46,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Instant
 
 class WorkerInfoScreen : Screen() {
@@ -125,9 +122,9 @@ class WorkerInfoScreen : Screen() {
 
     @Inject
     @ViewModelKey
-    @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+    @ContributesIntoMap(AppScope::class)
     class WorkerInfoViewModel(
-        context: Context,
+        private val context: Context,
     ) : ViewModel() {
 
         private val workManager = context.workManager
@@ -165,8 +162,7 @@ class WorkerInfoScreen : Screen() {
                             .toLocalDateTime(TimeZone.currentSystemDefault())
                             .toDateTimestampString(
                                 UiPreferences.dateFormat(
-                                    // Not a composable: Injekt stays here only as a Context locator.
-                                    Injekt.get<Context>().appGraph.uiPreferences.dateFormat.get(),
+                                    context.appGraph.uiPreferences.dateFormat.get(),
                                 ),
                             )
                         appendLine("Next scheduled run: $timestamp")
