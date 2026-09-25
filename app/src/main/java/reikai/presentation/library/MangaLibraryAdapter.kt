@@ -142,7 +142,8 @@ class MangaLibraryAdapter(
     override fun trackerMeans(): Map<Long, Double> {
         val data = model.state.value.libraryData
         val trackers = trackerManager.getAll(data.loggedInTrackerIds).associateBy { it.id }
-        return mangaTrackerMeans(data.favorites, data.tracksMap, trackers)
+        val membersByRow = data.favorites.associate { it.id to it.relatedMangaIds.ifEmpty { listOf(it.id) } }
+        return libraryTrackerMeans(membersByRow, data.tracksMap, trackers)
     }
 
     override suspend fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed {

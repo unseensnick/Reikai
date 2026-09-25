@@ -76,6 +76,7 @@ import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryQueryMatches
+import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.novelSourceBadge
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.library.toQueryOverlay
@@ -371,20 +372,11 @@ class NovelLibraryViewModel(
                 .flatMap { tracks[it].orEmpty() }
                 .distinctBy { it.trackerId }
         }
-        // Per-rep mean tracker score (0-10, logged-in trackers only; unscored reps omitted), for the sort.
-        val trackerMeanScores: Map<Long, Double> = buildMap {
-            tracksByRep.forEach { (repId, repTracks) ->
-                val scores = repTracks
-                    .filter { it.trackerId in loggedInTrackerIds }
-                    .mapNotNull {
-                        trackerManager.get(it.trackerId)?.get10PointScore(it.toUiTrack())?.takeIf { s ->
-                            s >
-                                0.0
-                        }
-                    }
-                if (scores.isNotEmpty()) put(repId, scores.average())
-            }
-        }
+        val trackerMeanScores = libraryTrackerMeans(
+            membersByRow = groups.associate { it.representative.novel.id to it.memberIds },
+            tracksById = tracks.mapValues { (_, novelTracks) -> novelTracks.map { it.toUiTrack() } },
+            trackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id },
+        )
         // The one shared library filter (tracker axis folded in), so a filter change reaches manga and
         // novels at once. The per-type seams live in the accessors: novels have no local-source or
         // fetch-interval concept, and their lewd check is genre-only.

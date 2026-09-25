@@ -80,7 +80,6 @@ import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.libraryStateFlow
-import reikai.presentation.library.mangaTrackerMeans
 import reikai.presentation.library.toQueryOverlay
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.TriState

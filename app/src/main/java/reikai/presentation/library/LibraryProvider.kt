@@ -36,7 +36,7 @@ interface LibraryProvider : LibraryBehavior {
      * Mean 0-10 tracker score per row of this type, keyed by the row's own raw id (safe: the map never
      * crosses the provider boundary un-rekeyed), unscored rows absent. On-demand rather than a flow so
      * only a view actually sorting by tracker score pays the computation; the assembly resolves it
-     * lazily inside the sort, mirroring the `by lazy` in the manga model's applySort.
+     * lazily inside the sort. Both types compute it with [libraryTrackerMeans].
      */
     fun trackerMeans(): Map<Long, Double>
 
