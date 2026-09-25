@@ -46,9 +46,8 @@ import tachiyomi.presentation.core.util.shouldExpandFAB
 /**
  * Shared tablet (two-pane) shell for the manga and novel details screens: the Scaffold, resume/start
  * FAB, pull-to-refresh, and the [TwoPanelBox] with the info pane on the left and the chapter pane on
- * the right (with its fast-scroller). Mirrors [EntryDetailsScaffold] for the wide layout. The toolbar
- * ([topBar]) and selection bar ([bottomActionMenu]) stay per-type slots; [startContent] fills the info
- * pane (via `entryInfoItems` + each type's own cards) and [endContent] the chapter pane.
+ * the right (with its fast-scroller). Mirrors [EntryDetailsScaffold] for the wide layout, and like it
+ * takes every slot from EntryDetailsContent: [startContent] is the info pane, [endContent] the chapters.
  */
 @Composable
 fun EntryDetailsTwoPaneScaffold(

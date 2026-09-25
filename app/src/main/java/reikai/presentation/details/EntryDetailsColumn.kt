@@ -25,9 +25,8 @@ data class EntryDetailsUiState(
 
 /**
  * Emits the shared top of a details screen (info box, action row, an optional per-type card above the
- * description, then the description) into a [LazyListScope]. Both the manga and novel details screens
- * call this so the three can't drift; per-type content below (merge chips, related, previews, page bar,
- * chapters) stays each screen's own. [aboveDescription] is a per-type slot (manga's gallery-info card);
+ * description, then the description) into a [LazyListScope], for EntryDetailsContent, which renders
+ * the rest of the body itself. [aboveDescription] is a per-type slot (manga's gallery-info card);
  * [searchMetadataChips] are manga's namespaced gallery tags.
  */
 fun LazyListScope.entryInfoItems(

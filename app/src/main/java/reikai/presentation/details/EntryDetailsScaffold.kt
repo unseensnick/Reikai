@@ -35,10 +35,9 @@ import tachiyomi.presentation.core.util.shouldExpandFAB
 /**
  * Shared phone shell for the manga and novel details screens: the Scaffold, the resume/start FAB, the
  * pull-to-refresh, the scroll-driven toolbar fade, and the chapter LazyColumn. Both content types drive
- * it from neutral scalars; the parts that genuinely differ are slots: [topBar] (each type's toolbar,
- * fed the shell's fade providers), [bottomActionMenu] (the selection bar, gated per type), and [content]
- * (the LazyColumn body: the shared info group via `entryInfoItems`, each type's own cards, and its
- * chapter emitter). The tablet TwoPanelBox path is handled separately.
+ * it from neutral scalars. EntryDetailsContent fills the slots once for both: [topBar] (the shared
+ * toolbar, fed the shell's fade providers), [bottomActionMenu] (the selection bar) and [content] (the
+ * LazyColumn body). The tablet path is EntryDetailsTwoPaneScaffold.
  */
 @Composable
 fun EntryDetailsScaffold(

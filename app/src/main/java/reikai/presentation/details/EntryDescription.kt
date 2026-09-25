@@ -82,9 +82,8 @@ fun ExpandableEntryDescription(
     onTagSearch: (String) -> Unit,
     onCopyTagToClipboard: (tag: String) -> Unit,
     onEditNotes: () -> Unit,
-    // Global search across sources for the tapped tag (Komikku's tag menu); null hides the item
-    // for callers with no cross-source global search from a tag (e.g. novels).
-    onGlobalSearch: ((String) -> Unit)? = null,
+    // Global search across sources for the tapped tag (Komikku's tag menu).
+    onGlobalSearch: (String) -> Unit,
     // Namespaced, color-weighted tag chips for adult-gallery metadata sources; null = flat genre tags.
     searchMetadataChips: SearchMetadataChips? = null,
     modifier: Modifier = Modifier,
@@ -128,15 +127,13 @@ fun ExpandableEntryDescription(
                             showMenu = false
                         },
                     )
-                    if (onGlobalSearch != null) {
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(MR.strings.action_global_search)) },
-                            onClick = {
-                                onGlobalSearch(tagSelected)
-                                showMenu = false
-                            },
-                        )
-                    }
+                    DropdownMenuItem(
+                        text = { Text(text = stringResource(MR.strings.action_global_search)) },
+                        onClick = {
+                            onGlobalSearch(tagSelected)
+                            showMenu = false
+                        },
+                    )
                     DropdownMenuItem(
                         text = { Text(text = stringResource(MR.strings.action_copy_to_clipboard)) },
                         onClick = {

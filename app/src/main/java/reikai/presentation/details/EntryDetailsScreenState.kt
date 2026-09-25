@@ -8,8 +8,8 @@ import reikai.domain.entry.EntryId
 /**
  * The neutral details screen state both content types produce, so the shared details UI can render manga
  * and novels without branching on type. Each adapter (the novel one, and the manga one over the live model)
- * maps its own loaded state into [Loaded]. The per-type dialog is deliberately not here yet: dialog
- * rendering stays per-type until the shared dispatcher lands with the unified screen shell.
+ * maps its own loaded state into [Loaded]. The dialog is not here: each screen maps its own dialog onto
+ * the shared EntryDetailsDialog, and renders the dialogs only one type has itself.
  */
 sealed interface EntryDetailsScreenState {
     data object Loading : EntryDetailsScreenState
@@ -145,7 +145,8 @@ data class EntryCapabilities(
 /**
  * A paged novel source's page/volume selector. Not a downstream toggle: the page index is a live input to
  * the chapter flow, so the shared layer exposes the seam (the current index plus the page keys), and the
- * behaviour's `selectPage` re-runs the chapter pipeline. Null for manga and for single-page novels.
+ * screen's page selector sheet calls the novel model to re-run the chapter pipeline. Null for manga and
+ * for single-page novels.
  */
 @Immutable
 data class NovelPageSelectorCapability(

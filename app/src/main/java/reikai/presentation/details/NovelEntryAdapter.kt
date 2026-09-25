@@ -265,10 +265,4 @@ class NovelEntryAdapter(
     override fun dismissDialog() {
         model.dismissDialog()
     }
-
-    // --- Novel-only, off the shared interface. ---
-
-    fun selectPage(index: Int) {
-        model.selectPage(index)
-    }
 }

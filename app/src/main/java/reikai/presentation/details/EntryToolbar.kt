@@ -47,7 +47,7 @@ fun EntryToolbar(
     onClickManageSources: (() -> Unit)?,
     onClickMigrate: (() -> Unit)?,
     onClickDownload: ((DownloadAction) -> Unit)?,
-    // Edit metadata. Non-null for novels; manga wires it once the shared editor lands.
+    // Edit metadata, non-null only for an entry in the library.
     onClickEditInfo: (() -> Unit)? = null,
     // Gallery metadata viewer, non-null only for adult/metadata manga sources.
     onClickMetadataViewer: (() -> Unit)? = null,
@@ -66,13 +66,13 @@ fun EntryToolbar(
     onSelectAll: () -> Unit,
     onInvertSelection: () -> Unit,
 
-    // Hide/unhide chapters. Non-null for novels; manga wires them once it gains the mechanism.
-    showHidden: Boolean = false,
-    hasHiddenChapters: Boolean = false,
-    allHiddenSelected: Boolean = false,
-    onHide: (() -> Unit)? = null,
-    onUnhide: (() -> Unit)? = null,
-    onToggleShowHidden: (() -> Unit)? = null,
+    // Hide/unhide chapters.
+    showHidden: Boolean,
+    hasHiddenChapters: Boolean,
+    allHiddenSelected: Boolean,
+    onHide: () -> Unit,
+    onUnhide: () -> Unit,
+    onToggleShowHidden: () -> Unit,
 
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
@@ -123,24 +123,22 @@ fun EntryToolbar(
                         // Unhide only when every selected row is already hidden (reachable via the
                         // "Show hidden chapters" view); otherwise the action hides them. Same eye / eye-off
                         // icons as the category list (CategoryListItem).
-                        if (onHide != null && onUnhide != null) {
-                            if (allHiddenSelected) {
-                                add(
-                                    AppBar.Action(
-                                        title = stringResource(MR.strings.action_unhide),
-                                        icon = MaterialSymbols.Rounded.Visibility,
-                                        onClick = onUnhide,
-                                    ),
-                                )
-                            } else {
-                                add(
-                                    AppBar.Action(
-                                        title = stringResource(MR.strings.action_hide),
-                                        icon = MaterialSymbols.Rounded.VisibilityOff,
-                                        onClick = onHide,
-                                    ),
-                                )
-                            }
+                        if (allHiddenSelected) {
+                            add(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_unhide),
+                                    icon = MaterialSymbols.Rounded.Visibility,
+                                    onClick = onUnhide,
+                                ),
+                            )
+                        } else {
+                            add(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_hide),
+                                    icon = MaterialSymbols.Rounded.VisibilityOff,
+                                    onClick = onHide,
+                                ),
+                            )
                         }
                         return@buildList
                     }
@@ -256,7 +254,7 @@ fun EntryToolbar(
                             ),
                         )
                     }
-                    if (onToggleShowHidden != null && (hasHiddenChapters || showHidden)) {
+                    if (hasHiddenChapters || showHidden) {
                         add(
                             AppBar.OverflowAction(
                                 title = if (showHidden) {
