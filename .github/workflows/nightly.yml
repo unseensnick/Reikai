@@ -91,6 +91,11 @@ jobs:
           cache-read-only: false
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
+      # DI ownership, as in build_check.yml. The pre-commit hook runs it too, but a hook can be
+      # skipped or missing on a clone, and the release branch has no PR to run build_check on.
+      - name: Check DI ownership
+        run: pwsh -NoProfile -File scripts/di-interop-check.ps1
+
       # build_check.yml runs this on PRs only, and the release branch has none until the cut.
       - name: Verify SQLDelight migrations
         run: ./gradlew verifySqlDelightMigration
