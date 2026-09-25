@@ -97,6 +97,7 @@ every release now also ships a foss build with neither in it.
 - **A novel whose source is no longer installed now shows the missing-source warning on its library cover, as a manga does.** On a grouped novel the uninstalled source keeps its place among the source icons instead of vanishing.
 - **In Settings -> Library -> Preferred sources, one tap of Up or Down now always moves a source, on manga and novels.** A source you had uninstalled sat hidden in the ranking and swallowed the tap; it now keeps its place while the others move past it.
 - **The continue button on a novel in the library now follows that novel's chapter filters, as manga and the novel's own page do.** Set to bookmarked or downloaded chapters only, it opened the first unread chapter regardless.
+- **A category you set back to the global sort now stays that way if the app is closed partway through updating from an older version.** The upgrade step that keeps per-category sorts could run a second time and mark it as custom again.
 
 ### Merged series
 

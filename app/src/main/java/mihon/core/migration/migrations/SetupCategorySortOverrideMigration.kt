@@ -6,6 +6,8 @@ import dev.zacsweers.metro.Inject
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
+import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibrarySort
@@ -25,24 +27,32 @@ import tachiyomi.domain.library.service.LibraryPreferences
 class SetupCategorySortOverrideMigration(
     private val libraryPreferences: LibraryPreferences,
     private val categoryRepository: CategoryRepository,
+    private val preferenceStore: PreferenceStore,
 ) : Migration {
     override val version: Float = 183f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         if (migrationContext.previousVersion == 0) return@withIOContext false
-        if (!libraryPreferences.categorizedDisplaySettings.get()) return@withIOContext true
+        // The migrator stamps its version only once the whole chain resolves, so a kill later in the
+        // chain runs this again, and by then a category the user reset to the global sort looks exactly
+        // like one this has not marked yet: only a marker tells them apart.
+        val done = preferenceStore.getBoolean(Preference.appStateKey("category_sort_override_set_up"), false)
+        if (done.get()) return@withIOContext true
 
-        val global = libraryPreferences.sortingMode.get()
-        categoryRepository.getAll()
-            .filter {
-                LibrarySort.valueOf(it.flags) != global && (it.flags and CATEGORY_SORT_CUSTOMIZED) == 0L
-            }
-            .forEach { category ->
-                categoryRepository.updateFlags(
-                    categoryId = category.id,
-                    flags = category.flags or CATEGORY_SORT_CUSTOMIZED,
-                )
-            }
+        if (libraryPreferences.categorizedDisplaySettings.get()) {
+            val global = libraryPreferences.sortingMode.get()
+            categoryRepository.getAll()
+                .filter {
+                    LibrarySort.valueOf(it.flags) != global && (it.flags and CATEGORY_SORT_CUSTOMIZED) == 0L
+                }
+                .forEach { category ->
+                    categoryRepository.updateFlags(
+                        categoryId = category.id,
+                        flags = category.flags or CATEGORY_SORT_CUSTOMIZED,
+                    )
+                }
+        }
+        done.set(true)
         return@withIOContext true
     }
 }

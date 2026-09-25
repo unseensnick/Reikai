@@ -10,6 +10,7 @@ import mihon.core.migration.MigrationContext
 import reikai.domain.library.novelCategoryFlagsToMangaLayout
 import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
@@ -29,12 +30,18 @@ import tachiyomi.data.Database
 class MigrateNovelCategoriesToSharedTableMigration(
     private val database: Database,
     private val novelPreferences: NovelPreferences,
+    private val preferenceStore: PreferenceStore,
 ) : Migration {
     // RK: fires once when the shipped versionCode crosses 187 (the version this unification ships in).
     override val version: Float = 187f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing to migrate
+        // The migrator stamps its version only once the whole chain resolves, so a kill later in the
+        // chain runs this again. The flag swap cannot tell a translated value from an untranslated one,
+        // so only a marker makes the second run a no-op.
+        val done = preferenceStore.getBoolean(Preference.appStateKey("novel_categories_folded_in"), false)
+        if (done.get()) return@withIOContext true
 
         runCatching {
             // 1. Translate the moved novel categories' sort flags from the novel layout to the manga one.
@@ -59,15 +66,17 @@ class MigrateNovelCategoriesToSharedTableMigration(
                 novelPreferences.novelUpdateCategories(),
                 novelPreferences.novelUpdateCategoriesExclude(),
             ).forEach(::shiftStringSetPref)
+            done.set(true)
         }.onFailure { logcat(LogPriority.ERROR, it) { "Novel category fold-in migration failed" } }
 
         true
     }
 
-    // -1 (prompt) and 0 (universal/uncategorized) stay put; only real moved ids (>= 1) shift.
+    // -1 (prompt) and 0 (universal/uncategorized) stay put; only real pre-move ids shift. The ceiling
+    // keeps an id that already carries the offset from shifting twice.
     private fun shiftIntPref(pref: Preference<Int>) {
         val value = pref.get()
-        if (value >= 1) pref.set(value + NOVEL_CATEGORY_ID_MIGRATION_OFFSET.toInt())
+        if (isPreMoveId(value.toLong())) pref.set(value + NOVEL_CATEGORY_ID_MIGRATION_OFFSET.toInt())
     }
 
     private fun shiftStringSetPref(pref: Preference<Set<String>>) {
@@ -76,10 +85,12 @@ class MigrateNovelCategoriesToSharedTableMigration(
         pref.set(
             ids.mapTo(mutableSetOf()) { raw ->
                 val id = raw.toLongOrNull()
-                if (id != null && id >= 1) (id + NOVEL_CATEGORY_ID_MIGRATION_OFFSET).toString() else raw
+                if (id != null && isPreMoveId(id)) (id + NOVEL_CATEGORY_ID_MIGRATION_OFFSET).toString() else raw
             },
         )
     }
+
+    private fun isPreMoveId(id: Long) = id in 1 until NOVEL_CATEGORY_ID_MIGRATION_OFFSET
 
     companion object {
         // content_type 2 = novel (see categories.sq).

@@ -121,6 +121,8 @@ both sides, unchanged.
 3. **Data migration** (Kotlin, gated on `versionCode` 187 with a mid-cycle bump from 186): move each
    `novel_categories` row into `categories` at `content_type = 2`, swapping the two flag bits, capturing
    old-to-new id; rewrite `novels_categories.category_id`; remap the six novel prefs from that map.
+   Mihon's migrator stamps its version only after the whole chain, so a kill mid-chain reruns it; an
+   app-state marker makes the rerun a no-op, since a swapped flag cannot be told from an unswapped one.
 4. **Sentinel.** Drop the novel render-time Default syntheses; read the shared universal row 0.
 5. **Retire the novel category stack** (repository, model with `novelOrder`, interactors, screen model,
    DI), routing the novel sort-read path onto the shared `LibrarySort` / `CategorySortOverride` helpers
