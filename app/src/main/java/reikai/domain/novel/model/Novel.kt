@@ -1,14 +1,10 @@
 package reikai.domain.novel.model
 
-import android.content.Context
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
-import mihon.app.di.appGraph
 import reikai.domain.entry.EntryId
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.io.Serializable
 
 /**
@@ -101,5 +97,5 @@ val Novel.readerOrientation: Long
  * under the entry's own namespaced name (so it can't collide with a same-id manga); the novel twin of
  * `Manga.hasCustomCover`.
  */
-fun Novel.hasCustomCover(coverCache: CoverCache = Injekt.get<Context>().appGraph.coverCache): Boolean =
+fun Novel.hasCustomCover(coverCache: CoverCache): Boolean =
     coverCache.getCustomCoverFile(EntryId.Novel(id)).exists()

@@ -39,9 +39,8 @@ Metro resolves the graph in the compiler and ships only `-assumenosideeffects` r
 Injekt permanently, because they are the contract installed extensions compile against, and they live
 under `eu.kanade.**`, `exh.**` and `tachiyomi.**`. **`mihon.**` stays too**: it is upstream's own
 package, and `MetroInjektRegistrar` lives in `mihon.app.di.injekt`. **`reikai.**` stays but is
-retirable**: `Novel.hasCustomCover` was its last reflective read, and since `b54351849` its default
-reads `appGraph` through an `Injekt.get<Context>()` locator, as upstream's `Manga.hasCustomCover`
-does; the keep remains only because nothing has verified that no other reflection depends on it
+retirable**: `Novel.hasCustomCover` was its last reflective read, and its `Injekt.get<Context>()`
+default, which no caller used, has been dropped, so no `reikai.*` code calls Injekt at all; the keep remains only because nothing has verified that no other reflection depends on it
 (`.claude/rules/architecture.md`). So the keep list is not part of this port's tail at all.
 
 ## Status
@@ -217,9 +216,10 @@ is expressed in the type: `NovelDownloadManager` in `MigrateNovelUseCase`, `Repa
 download queue and can start the download worker.
 
 **Three ruled holdouts, one left.** `NovelReaderScreenModel` stayed by design until the reader
-takeover deleted it. `Novel.hasCustomCover` kept a `CoverCache = Injekt.get()` default to match its
-manga twin; since `b54351849` both read `appGraph` through an `Injekt.get<Context>()` locator, the
-shape upstream moved `Manga.hasCustomCover` to, so it is no longer a `CoverCache` holdout. `DebugToggles`
+takeover deleted it. `Novel.hasCustomCover` kept a `CoverCache` default to match its manga twin, later an
+`Injekt.get<Context>()` locator; every caller passes the cache, so the default was dropped and the
+novel side takes `coverCache` as a plain parameter. `Manga.hasCustomCover` keeps upstream's locator
+default. `DebugToggles`
 is an enum whose dependency hangs off its companion, and its only callers are `EHentai`, which
 `AndroidSourceManager` constructs by hand: it belongs to the source-construction family that
 `source-api` keeps Injekt for, not to this phase.
@@ -561,8 +561,9 @@ Almost everything is a two to five line edit, and the shape is uniform:
 
 In every case the constructor defaults (`= Injekt.get()`) are deleted, which is what makes the diff
 large. The port started from roughly 506 of them (see Inventory); **2 remain, alongside 49
-`by injectLazy()`** (re-derived 2026-08-22, correcting an earlier count of 3). Both defaults are
-ruled, and they are the two `hasCustomCover` twins. The download-queue model was counted as a third
+`by injectLazy()`** (re-derived 2026-08-22, correcting an earlier count of 3). Both were the two
+`hasCustomCover` twins; the novel one has since been dropped as unused, so only upstream's manga
+default is left. The download-queue model was counted as a third
 by mistake: it takes a plain constructor parameter and holds no Injekt reference at all.
 `MetadataSource` has three more reified `Injekt.get()` reads, but they are property getters rather
 than constructor defaults, so the keep-analysis covers them while this count does not. Of the
@@ -805,15 +806,15 @@ it was written up as: all three types were already built once here, by `Download
 ## Key files
 
 - Upstream: `mihon/app/di/{AppGraph,AppBindings,AppGraphUtils,MihonViewModelFactory}.kt`,
-  `mihon/app/di/injekt/MetroInteropModule.kt`, `core/metro/src/main/kotlin/mihon/core/metro/*.kt`,
+  `refs/mihon/app/src/main/java/mihon/app/di/injekt/MetroInteropModule.kt`, `core/metro/src/main/kotlin/mihon/core/metro/*.kt`,
   and `eu/kanade/tachiyomi/App.kt`, all at `b2015d1ef`.
 - Here: `app/src/main/java/mihon/app/di/` (the graph, both binding containers, the ViewModel factory
   and `injekt/MetroInjektRegistrar.kt`, the whole Injekt surface), `reikai/di/ReikaiGraph.kt` (Reikai's
   graph members, which `AppGraph` extends so its own file stays in Mihon's shape),
   `app/src/main/java/eu/kanade/tachiyomi/App.kt`, `scripts/di-interop-check.ps1` with the
   `pre-commit` hook and the `build_check` workflow step that run it, `app/proguard-rules.pro`,
-  `app/src/main/baselineProfiles/`, and the two engines named under Traps. `AppModule.kt` and
-  `PreferenceModule.kt` are deleted.
+  `app/src/main/baselineProfiles/`, and the two engines named under Traps.
+  The Injekt modules `AppModule.kt` and `PreferenceModule.kt` are deleted.
 
 ## Decisions and tradeoffs
 
