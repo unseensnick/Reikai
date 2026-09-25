@@ -18,6 +18,10 @@ Backlog, grouped by area. Unordered within an area.
 
 - **Open a shared web link as a novel** `[M]` - a link shared into the app resolves to a manga through the extension that owns its site, but novel sources have no rule for turning a web address back into a novel, so a novel link falls through to a text search. Needs a typed link-resolution capability across the three novel source kinds.
 
+### Reader
+
+- **Auto-scroll for manga** `[M]` - an open parity gap: novels have auto-scroll, Mihon has none for manga, and TachiyomiSY and Komikku add it as a timed page flip in the reader. A timed flip through the shared reader engine needs no viewer change, but smooth long-strip scrolling would need a new viewer method, which the reader rules forbid without an owner ruling.
+
 ### UI & design
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move shape, typography, component styling, spacing and layout off stock Material 3 across the shared `Entry*` surfaces, under whichever theme the reader picked. Exploratory; it starts by seeding tokens in `DESIGN.md`. [Plan](docs/dev/plans/unified-content-ui.md).
