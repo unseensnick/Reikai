@@ -1,0 +1,12 @@
+{
+  "name": "allow reading a hook script",
+  "stdin": {
+    "tool_input": {
+      "command": "cat .claude/hooks/protect-files.sh"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "permissionDecision"
+  ]
+}

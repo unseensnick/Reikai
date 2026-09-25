@@ -1,0 +1,12 @@
+{
+  "name": "block an append redirect into a git hook source",
+  "stdin": {
+    "tool_input": {
+      "command": "echo x >> .githooks/pre-commit"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "shell write"
+  ]
+}

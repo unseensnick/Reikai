@@ -1,0 +1,12 @@
+{
+  "name": "allow the documented git hook reinstall",
+  "stdin": {
+    "tool_input": {
+      "command": "cp .githooks/commit-msg .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/commit-msg .git/hooks/pre-commit"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "permissionDecision"
+  ]
+}

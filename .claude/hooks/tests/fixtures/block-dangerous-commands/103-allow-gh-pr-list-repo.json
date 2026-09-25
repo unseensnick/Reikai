@@ -1,0 +1,9 @@
+{
+  "name": "allow gh pr list --repo <repo>",
+  "stdin": {
+    "tool_input": {
+      "command": "gh pr list --repo x/y"
+    }
+  },
+  "expect_exit": 0
+}

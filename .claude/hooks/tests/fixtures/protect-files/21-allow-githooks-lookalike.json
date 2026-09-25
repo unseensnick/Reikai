@@ -1,0 +1,9 @@
+{
+  "name": "allow a file whose name only resembles .githooks",
+  "stdin": {
+    "tool_input": {
+      "file_path": "docs/dev/githooks-notes.md"
+    }
+  },
+  "expect_exit": 0
+}

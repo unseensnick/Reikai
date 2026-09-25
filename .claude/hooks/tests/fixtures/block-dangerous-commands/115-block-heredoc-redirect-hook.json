@@ -1,0 +1,12 @@
+{
+  "name": "block a heredoc written into a hook script",
+  "stdin": {
+    "tool_input": {
+      "command": "cat > .claude/hooks/new.sh <<EOF\nexit 0\nEOF"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "shell write"
+  ]
+}

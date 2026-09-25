@@ -1,0 +1,9 @@
+{
+  "name": "allow gh pr -R <repo> view",
+  "stdin": {
+    "tool_input": {
+      "command": "gh pr -R x/y view 1"
+    }
+  },
+  "expect_exit": 0
+}

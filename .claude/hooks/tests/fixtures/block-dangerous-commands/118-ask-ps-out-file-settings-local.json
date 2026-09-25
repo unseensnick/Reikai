@@ -1,0 +1,12 @@
+{
+  "name": "ask on Out-File to settings.local.json",
+  "stdin": {
+    "tool_input": {
+      "command": "\"{}\" | Out-File -FilePath .claude/settings.local.json"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": [
+    "\"ask\""
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "allow a quoted Program Files gh.exe pr view",
+  "stdin": {
+    "tool_input": {
+      "command": "& \"C:\\Program Files\\GitHub CLI\\gh.exe\" pr view 12"
+    }
+  },
+  "expect_exit": 0
+}

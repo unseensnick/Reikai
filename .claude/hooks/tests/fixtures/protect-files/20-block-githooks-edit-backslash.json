@@ -1,0 +1,12 @@
+{
+  "name": "block editing a git hook source by absolute backslash path",
+  "stdin": {
+    "tool_input": {
+      "file_path": "E:\\Code\\yokai-y2k\\app\\.githooks\\commit-msg"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

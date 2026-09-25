@@ -62,8 +62,33 @@ BEGIN {
   DELETES = "^(rm|rmdir|rd|del|erase|ri|remove-item|remove-itemproperty)$"
   PS_ONLY = "^(rmdir|rd|del|erase|ri|remove-item|remove-itemproperty)$"
   split("force path literalpath include exclude filter confirm whatif credential stream erroraction verbose", PSP, " ")
+  WRITERS = "^(tee|tee-object|set-content|sc|add-content|ac|out-file|new-item|ni)$"
+  COPIERS = "^(cp|copy|cpi|copy-item|mv|move|mi|move-item|install)$"
+  KNOWN = "^(git|gh|perl|tee|tee-object|set-content|sc|add-content|ac|out-file|new-item|ni|install|" substr(READERS, 3)
 }
 function base(x) { sub(/^.*\//, "", x); return x }
+# A command name as the rules compare it: no directory, no .exe.
+function vname(x) { x = base(x); sub(/\.exe$/, "", x); return x }
+# The one place a command verb is found. NORM drops quotes before splitting, so a quoted path with a
+# space ("C:\Program Files\Git\cmd\git.exe", or the Git Bash spelling Program\ Files) arrives as
+# fragments, and the first ("c:/program") is no verb. A path fragment that is not a known verb looks
+# ahead to the next fragments of the same path, each still holding a slash, for the one that is.
+function resolve(i,    j) {
+  if (t[i] !~ /\// || vname(t[i]) ~ KNOWN) return i
+  for (j = i + 1; j <= nt && j <= i + 4 && t[j] ~ /\//; j++) if (vname(t[j]) ~ KNOWN) return j
+  return i
+}
+# First token after gh pr and its --repo / -R option, which gh reads before the subcommand as well as after.
+function gh_sub(k,    x) {
+  k++
+  while (k <= nt) {
+    x = t[k]
+    if (x == "-r" || x == "--repo") { k += 2; continue }
+    if (x ~ /^--repo=/ || x ~ /^-r[^-]/) { k++; continue }
+    break
+  }
+  return k
+}
 # First token after git and its global options, recording a -C directory.
 function git_sub(j,    x) {
   j++
@@ -136,16 +161,54 @@ function has_secret(j,    m, x) {
   }
   return 0
 }
+# Where a write verb writes: every operand of a content writer, the last operand (or -destination / -t)
+# of a copy or move. sed and perl count only with -i. Each target is printed as WRITE, and the shell
+# half checks it against protected-paths.tsv. Text matching, so an interpreter script still gets past.
+function write_targets(i,    v, m, x, n, last, copier) {
+  v = vname(t[i])
+  if (v ~ /^(sed|perl)$/) {
+    for (m = i + 1; m <= nt; m++) if (t[m] ~ /^-[a-z]*i/ || t[m] ~ /^--in-place/) break
+    if (m > nt) return
+  }
+  copier = (v ~ COPIERS); n = 0; last = ""
+  for (m = i + 1; m <= nt; m++) {
+    x = t[m]
+    if (x == "" || x ~ />/) continue
+    if (x ~ /^--target-directory=/) { sub(/^[^=]*=/, "", x); print "WRITE " x; continue }
+    if (x ~ /^-/) {
+      if (x ~ /^-(destination|t|-target-directory)$/) { m++; print "WRITE " t[m]; continue }
+      if (x ~ /^-(path|literalpath|lp|pspath|filepath)$/) { m++; if (!copier) print "WRITE " t[m]; continue }
+      if (x ~ /^-(value|encoding|itemtype|type|name|inputobject|e|expression|delimiter|stream|width)$/) m++
+      continue
+    }
+    n++; last = x
+    if (!copier) print "WRITE " x
+  }
+  if (copier && n >= 2) print "WRITE " last
+}
+# A redirect target, attached (>file, 2>>file) or the next token (> file). NORM leaves > unsplit.
+function redirect_targets(    m, x) {
+  for (m = 1; m <= nt; m++) {
+    x = t[m]
+    if (index(x, ">") == 0) continue
+    sub(/^[^>]*>+/, "", x)
+    if (x == "" && m < nt) x = t[m + 1]
+    if (x != "" && x !~ /^\/dev\//) print "WRITE " x
+  }
+}
 {
   nt = split($0, t, /[ \t]+/)
+  redirect_targets()
   i = 1
   while (i <= nt && (t[i] == "" || t[i] ~ /^(sudo|command|exec|nohup|time|env)$/ || t[i] ~ /^[a-z_][a-z0-9_]*=/)) i++
   if (i > nt) next
-  verb = base(t[i])
-  if (verb ~ /^git(\.exe)?$/) { k = git_sub(i); if (t[k] == "push") check_push(k) }
-  if (verb ~ /^gh(\.exe)?$/ && t[i + 1] == "pr" && t[i + 2] == "merge") print "MERGE"
-  if (verb ~ /^gh(\.exe)?$/ && t[i + 1] == "api" && $0 ~ /pulls\/[0-9]+\/merge/) print "MERGE_API"
+  i = resolve(i)
+  verb = vname(t[i])
+  if (verb == "git") { k = git_sub(i); if (t[k] == "push") check_push(k) }
+  if (verb == "gh" && t[i + 1] == "pr" && t[gh_sub(i + 1)] == "merge") print "MERGE"
+  if (verb == "gh" && t[i + 1] == "api") { print "GH_API"; if ($0 ~ /pulls\/[0-9]+\/merge/) print "MERGE_API" }
   if (verb ~ READERS && has_secret(i)) print "SECRET"
+  if (verb ~ WRITERS || verb ~ COPIERS || verb ~ /^(sed|perl)$/) write_targets(i)
   for (j = i; j <= nt; j++) {
     if (base(t[j]) ~ DELETES) check_delete(j)
     if (base(t[j]) ~ /^git(\.exe)?$/) {
@@ -210,6 +273,11 @@ fi
 if found MERGE_API; then
   emit_deny "Blocked: merging a PR through the API is the owner's call. Open the PR and stop."
 fi
+# The GraphQL mutations are read off the raw text, since NORM splits at the query's braces and so parts
+# the mutation name from the gh api call. Gated on a real gh api command, so prose naming them passes.
+if found GH_API && contains_icmd 'mergepullrequest|enablepullrequestautomerge'; then
+  emit_deny "Blocked: merging a PR through the API is the owner's call. Open the PR and stop."
+fi
 
 # ── Destructive filesystem operations ───────────────────────────────────
 # A recursive delete (rm, or any PowerShell delete verb or alias, however the recurse switch is
@@ -258,6 +326,30 @@ fi
 # names are also English words and a commit message may carry them.
 if found SECRET; then
   emit_deny "Blocked: that reads a secret file (signing keystore, google-services.json, or a .env). Open it yourself if you need its contents."
+fi
+
+# ── Protected paths are never written through the shell ────────────────
+# The same argument as the secret reads: protect-files.sh guards only the Edit and Write tools, so a
+# sed -i or a redirect walked past it. Both read one table, so a path protected for one is protected
+# for the other. A deny stops here; an ask waits until every deny rule below has had its say.
+PENDING_ASK=""
+TABLE="$(dirname "${BASH_SOURCE[0]}")/protected-paths.tsv"
+if found WRITE; then
+  [ -f "$TABLE" ] || emit_deny "Blocked: protected-paths.tsv is missing, so a shell write cannot be checked."
+  while IFS= read -r target; do
+    target=${target#./}
+    while IFS=$'\t' read -r decision scope glob reason; do
+      case "$decision" in ''|\#*) continue ;; esac
+      [ "$scope" = edit ] && continue
+      # Unquoted on purpose: the table's globs are patterns.
+      case "$target" in
+        $glob|*/$glob)
+          [ "$decision" = deny ] && emit_deny "Blocked: a shell write to $target. $reason"
+          [ -z "$PENDING_ASK" ] && PENDING_ASK="A shell write to $target. $reason"
+          break ;;
+      esac
+    done < "$TABLE"
+  done < <(printf '%s\n' "$FINDINGS" | sed -n 's/^WRITE //p')
 fi
 
 # ── Dangerous database operations ───────────────────────────────────────
@@ -327,5 +419,11 @@ for pat in "${publish_patterns[@]}"; do
     emit_deny "Blocked: publishing packages should run in CI or manually, not via Claude."
   fi
 done
+
+# A shell write to a path the table asks about, and nothing above denied the command.
+if [ -n "$PENDING_ASK" ]; then
+  reason="${PENDING_ASK//\"/\\\"}"
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"%s"}}\n' "$reason"
+fi
 
 exit 0

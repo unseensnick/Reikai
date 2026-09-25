@@ -1,0 +1,6 @@
+{
+  "name": "block Git Bash /c/Program\\ Files/.../git.exe push to main",
+  "stdin": { "tool_input": { "command": "/c/Program\\ Files/Git/cmd/git.exe push origin main" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["protected branch"]
+}

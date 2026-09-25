@@ -64,18 +64,18 @@ for pattern in "${PROTECTED_PATTERNS[@]}"; do
   esac
 done
 
-# Sensitive directories (use lower-cased path for case-insensitive on mac/Windows).
-case "$PATH_LC" in
-  .git/*|*/.git/*)
-    emit deny "Cannot edit files inside .git/" ;;
-  secrets/*|*/secrets/*)
-    emit deny "Cannot edit files inside secrets/" ;;
-  .env|.env.*|*/.env|*/.env.*)
-    emit deny "Cannot edit .env files" ;;
-  .claude/hooks/*|*/.claude/hooks/*)
-    emit deny "Cannot edit hook scripts. These enforce security boundaries." ;;
-  .claude/settings.json|*/.claude/settings.json|.claude/settings.local.json|*/.claude/settings.local.json)
-    emit ask "Editing settings.json. This controls permissions and hooks. Confirm this change." ;;
-esac
+# Sensitive directories (use lower-cased path for case-insensitive on mac/Windows). The table is shared
+# with block-dangerous-commands.sh, which applies its shell rows to shell writes; a missing table fails
+# closed rather than protecting nothing.
+TABLE="$(dirname "${BASH_SOURCE[0]}")/protected-paths.tsv"
+[ -f "$TABLE" ] || emit deny "protected-paths.tsv is missing, so no path can be checked."
+while IFS=$'\t' read -r decision scope glob reason; do
+  case "$decision" in ''|\#*) continue ;; esac
+  [ "$scope" = shell ] && continue
+  # Unquoted on purpose: the table's globs are patterns.
+  case "$PATH_LC" in
+    $glob|*/$glob) emit "$decision" "$reason" ;;
+  esac
+done < "$TABLE"
 
 exit 0

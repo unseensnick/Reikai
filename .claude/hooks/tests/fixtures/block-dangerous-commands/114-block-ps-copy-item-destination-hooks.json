@@ -1,0 +1,12 @@
+{
+  "name": "block Copy-Item -Destination into the hooks directory",
+  "stdin": {
+    "tool_input": {
+      "command": "Copy-Item -Path x.sh -Destination .claude\\hooks\\y.sh"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "shell write"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "block gh pr -R <repo> merge (repo flag before the subcommand)",
+  "stdin": {
+    "tool_input": {
+      "command": "gh pr -R x/y merge 1"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "owner's call"
+  ]
+}

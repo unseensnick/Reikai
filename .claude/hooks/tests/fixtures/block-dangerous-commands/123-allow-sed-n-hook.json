@@ -1,0 +1,12 @@
+{
+  "name": "allow sed without -i on a hook script",
+  "stdin": {
+    "tool_input": {
+      "command": "sed -n 1,5p .claude/hooks/x.sh"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "permissionDecision"
+  ]
+}

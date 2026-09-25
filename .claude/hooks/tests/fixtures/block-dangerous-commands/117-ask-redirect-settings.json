@@ -1,0 +1,12 @@
+{
+  "name": "ask on a redirect into settings.json",
+  "stdin": {
+    "tool_input": {
+      "command": "echo {} > .claude/settings.json"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": [
+    "\"ask\""
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "allow copying a hook script out to scratch",
+  "stdin": {
+    "tool_input": {
+      "command": "cp .claude/hooks/x.sh /tmp/x.sh"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "permissionDecision"
+  ]
+}

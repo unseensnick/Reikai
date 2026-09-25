@@ -1,0 +1,9 @@
+{
+  "name": "allow a quoted Program Files git.exe push to a feature branch",
+  "stdin": {
+    "tool_input": {
+      "command": "\"C:\\Program Files\\Git\\cmd\\git.exe\" push origin feat/x"
+    }
+  },
+  "expect_exit": 0
+}

@@ -1,0 +1,12 @@
+{
+  "name": "block a quoted Program Files gh.exe pr merge",
+  "stdin": {
+    "tool_input": {
+      "command": "\"C:\\Program Files\\GitHub CLI\\gh.exe\" pr merge 12"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "owner's call"
+  ]
+}

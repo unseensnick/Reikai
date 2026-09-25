@@ -1,0 +1,12 @@
+{
+  "name": "block sed -i on a hook script",
+  "stdin": {
+    "tool_input": {
+      "command": "sed -i s/a/b/ .claude/hooks/protect-files.sh"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "shell write"
+  ]
+}

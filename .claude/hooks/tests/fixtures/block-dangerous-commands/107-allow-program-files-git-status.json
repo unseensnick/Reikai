@@ -1,0 +1,9 @@
+{
+  "name": "allow a quoted Program Files git.exe status",
+  "stdin": {
+    "tool_input": {
+      "command": "\"C:\\Program Files\\Git\\cmd\\git.exe\" status"
+    }
+  },
+  "expect_exit": 0
+}

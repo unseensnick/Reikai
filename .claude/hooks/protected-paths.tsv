@@ -1,0 +1,18 @@
+# The protected paths, read by protect-files.sh (Edit and Write) and block-dangerous-commands.sh (a
+# shell write: a write verb's destination or a > redirect target). One row per rule, tab-separated:
+#   decision  deny or ask
+#   scope     edit (the Edit/Write tools only), shell (shell writes only) or both
+#   glob      lower-case, / separated, matched against the whole path and against any */ suffix of it
+#   reason    shown to the agent
+# Rows are read top to bottom and the first match decides, so a deny sits above any ask it overlaps.
+# .git/ is edit-only: git itself and the documented hook reinstall (cp .githooks/... .git/hooks/) write it.
+deny	edit	.git/*	Cannot edit files inside .git/
+deny	edit	secrets/*	Cannot edit files inside secrets/
+deny	edit	.env	Cannot edit .env files
+deny	edit	.env.*	Cannot edit .env files
+deny	both	.claude/hooks	Cannot edit hook scripts. These enforce security boundaries.
+deny	both	.claude/hooks/*	Cannot edit hook scripts. These enforce security boundaries.
+deny	both	.githooks	Cannot edit the git hook sources. Hook edits need the owner's approval.
+deny	both	.githooks/*	Cannot edit the git hook sources. Hook edits need the owner's approval.
+ask	both	.claude/settings.json	Editing settings.json. This controls permissions and hooks. Confirm this change.
+ask	both	.claude/settings.local.json	Editing settings.json. This controls permissions and hooks. Confirm this change.

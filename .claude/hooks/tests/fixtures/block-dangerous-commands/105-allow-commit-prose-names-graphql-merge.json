@@ -1,0 +1,9 @@
+{
+  "name": "allow a commit message that names the GraphQL merge mutation",
+  "stdin": {
+    "tool_input": {
+      "command": "git commit -m \"note that gh api graphql mergePullRequest is now blocked\""
+    }
+  },
+  "expect_exit": 0
+}

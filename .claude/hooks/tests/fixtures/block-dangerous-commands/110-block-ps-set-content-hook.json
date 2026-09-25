@@ -1,0 +1,12 @@
+{
+  "name": "block Set-Content -Path on a hook script",
+  "stdin": {
+    "tool_input": {
+      "command": "Set-Content -Path .claude/hooks/protect-files.sh -Value x"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "shell write"
+  ]
+}

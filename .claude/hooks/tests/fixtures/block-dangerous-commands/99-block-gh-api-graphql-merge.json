@@ -1,0 +1,12 @@
+{
+  "name": "block a gh api graphql mergePullRequest mutation",
+  "stdin": {
+    "tool_input": {
+      "command": "gh api graphql -f query='mutation { mergePullRequest(input: {pullRequestId: \"PR_x\"}) { clientMutationId } }'"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "owner's call"
+  ]
+}

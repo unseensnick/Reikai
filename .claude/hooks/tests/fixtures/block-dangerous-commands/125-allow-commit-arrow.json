@@ -1,0 +1,12 @@
+{
+  "name": "allow a commit message with an arrow",
+  "stdin": {
+    "tool_input": {
+      "command": "git commit -m \"fix: a -> b\""
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "permissionDecision"
+  ]
+}

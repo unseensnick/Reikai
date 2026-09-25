@@ -1,0 +1,12 @@
+{
+  "name": "a settings write beside a hook write is denied, not asked",
+  "stdin": {
+    "tool_input": {
+      "command": "echo {} > .claude/settings.json; sed -i x .claude/hooks/a.sh"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "shell write"
+  ]
+}

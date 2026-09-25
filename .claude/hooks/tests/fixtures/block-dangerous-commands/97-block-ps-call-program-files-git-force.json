@@ -1,0 +1,12 @@
+{
+  "name": "block the PowerShell call operator on a Program Files git.exe force push",
+  "stdin": {
+    "tool_input": {
+      "command": "& \"C:\\Program Files\\Git\\cmd\\git.exe\" push --force origin feat/x"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "force push"
+  ]
+}

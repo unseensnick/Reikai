@@ -1,0 +1,13 @@
+{
+  "name": "block editing a git hook source",
+  "stdin": {
+    "tool_input": {
+      "file_path": ".githooks/pre-commit"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "owner"
+  ]
+}

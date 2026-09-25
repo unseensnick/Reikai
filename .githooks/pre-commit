@@ -10,6 +10,7 @@
 #     Step N) in newly added lines; they rot. State the durable fact instead (R8 and M3 are spared).
 #   .kt comment blocks under reikai/ or exh/ - a run of consecutive comment lines is capped at 8; a
 #     9th is rejected. See .claude/rules/code-quality.md "Comments".
+#   RK markers - an added RK marker in a file refs/mihon does not have (a Reikai-owned file).
 # Tracked here as the source of truth; activate on a clone with:
 #   cp .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/pre-commit
 set -u
@@ -128,6 +129,32 @@ if [ -f "$manifest" ]; then
   elif [ -n "$(git diff --cached --name-only --diff-filter=DR)" ]; then
     echo "off-path manifest: no refs/mihon clone, skipping the undeclared-reroute check."
   fi
+fi
+
+# ===== RK markers go only on Mihon's files =====
+# See .claude/rules/architecture.md. A file refs/mihon does not have is Reikai's, so an RK marker in it
+# marks nothing. Only added lines count, and a file that already carried a marker is left to
+# scripts/rk-fence-report.ps1, which lists those, so its known strays do not block unrelated commits. A
+# backtick before the marker is prose naming the convention. Needs the refs clone; warns when absent.
+rk_marker='(^|[^`])(//|/\*|\*|#|--)[[:space:]]*RK\b'
+rk_clone="../refs/mihon"
+rk_files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.kt' '*.kts' '*.sq' '*.sqm')
+if [ -n "$rk_files" ] && [ -d "$rk_clone" ]; then
+  rk_strays=""
+  for f in $rk_files; do
+    git -C "$rk_clone" cat-file -e "HEAD:$f" 2>/dev/null && continue
+    git show "HEAD:$f" 2>/dev/null | grep -qE "$rk_marker" && continue
+    hits=$(git diff --cached -U0 -- "$f" | grep -E '^\+' | grep -vE '^\+\+\+' | grep -E "$rk_marker" || true)
+    [ -n "$hits" ] && rk_strays="$rk_strays$f"$'\n'"$hits"$'\n'
+  done
+  if [ -n "$rk_strays" ]; then
+    echo "RK markers: these files are Reikai's (refs/mihon has none of them), so drop the RK prefix"
+    echo "and keep the prose:"
+    printf '%s' "$rk_strays"
+    fail=1
+  fi
+elif [ -n "$rk_files" ]; then
+  echo "RK markers: no refs/mihon clone, skipping the stray-marker check."
 fi
 
 # ===== comment blocks (.kt under reikai/ or exh/): no wall of text =====

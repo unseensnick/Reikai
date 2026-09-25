@@ -1,0 +1,9 @@
+{
+  "name": "allow a read-only gh api graphql query",
+  "stdin": {
+    "tool_input": {
+      "command": "gh api graphql -f query='query { viewer { login } }'"
+    }
+  },
+  "expect_exit": 0
+}
