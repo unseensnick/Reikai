@@ -100,13 +100,13 @@ fun Screen.reikaiExtensionsTab(
     val engine = assistedMetroViewModel<ExtensionsEngine, ExtensionsEngine.Factory> {
         create(providers, browseViewModel.searchQuery)
     }
-    val state by engine.state.collectAsStateWithLifecycle()
-    // The badge reads the dedicated count flows, never the whole state: collecting the full state out
+    // Only the chip and the badge counts are read out here, never the engine state: collecting it out
     // here would hold the extension subscription open for the tab strip, which is what upstream's
     // WhileSubscribed conversion exists to stop (mihonapp/mihon#3729).
     val updatesCount by extensionsViewModel.updatesCount.collectAsStateWithLifecycle()
     val novelCount by browseViewModel.novelUpdatesCount.collectAsStateWithLifecycle()
     val totalCount by browseViewModel.totalUpdatesCount.collectAsStateWithLifecycle()
+    val contentType by browseViewModel.contentType.collectAsStateWithLifecycle()
     val openRepos = { navigator.push(RepositoriesScreen()) }
 
     return TabContent(
@@ -119,7 +119,7 @@ fun Screen.reikaiExtensionsTab(
             AppBar.OverflowAction(
                 title = stringResource(MR.strings.action_filter),
                 onClick = { navigator.push(ExtensionFilterScreen()) },
-            ).takeIf { state.contentType != ContentType.NOVELS },
+            ).takeIf { contentType != ContentType.NOVELS },
             AppBar.OverflowAction(
                 title = stringResource(MR.strings.repos),
                 onClick = openRepos,
@@ -136,6 +136,8 @@ fun Screen.reikaiExtensionsTab(
             ),
         ),
         content = { contentPadding, _ ->
+            val state by engine.state.collectAsStateWithLifecycle()
+
             BackHandler(enabled = state.query != null) {
                 browseViewModel.search(null)
             }
