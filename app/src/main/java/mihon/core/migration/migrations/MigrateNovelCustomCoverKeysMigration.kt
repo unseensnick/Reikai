@@ -11,6 +11,8 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 
 /**
  * One-time move of user-set novel covers onto the namespaced file name.
@@ -20,8 +22,9 @@ import tachiyomi.core.common.util.system.logcat
  * old files have to move or every custom novel cover would read as missing and silently fall back to the
  * source's cover. Manga names are unchanged, so only novels are touched.
  *
- * Copy then delete, best-effort per novel: a failure leaves the old file in place rather than losing a
- * cover the user set by hand, and re-running the migration picks it up.
+ * One atomic move per novel, best-effort: both names sit in the same directory, so the file is either
+ * wholly renamed or left where it was, never half-copied. A failure is only logged and not retried,
+ * so a cover it could not move falls back to the source's.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)
@@ -47,12 +50,9 @@ class MigrateNovelCustomCoverKeysMigration(
 
             val targetFile = coverCache.getCustomCoverFile(EntryId.Novel(novel.id))
             runCatching {
-                if (!targetFile.exists()) {
-                    legacyFile.inputStream().use { input ->
-                        targetFile.outputStream().use { output -> input.copyTo(output) }
-                    }
-                }
-                legacyFile.delete()
+                // An atomic rename replaces an existing target, which can only be a partial copy an older
+                // build left, so the user's cover wins.
+                Files.move(legacyFile.toPath(), targetFile.toPath(), ATOMIC_MOVE)
             }.onFailure {
                 logcat(LogPriority.WARN, it) { "Novel cover re-key failed: novel=${novel.id}" }
             }
