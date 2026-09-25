@@ -53,18 +53,24 @@ inline fun <T> List<T>.latestChapterNumber(number: (T) -> Double): Double? =
     maxOfOrNull(number)?.takeIf { it >= 0.0 }
 
 /**
- * The chosen target sources, resolved against what is enabled. Saved selection, else pinned, else
- * everything enabled: the same three tiers the config screen seeds from, so what it showed is what
- * gets searched.
+ * The chosen target sources: the [saved] order, else the [pinned] sources, else everything
+ * [enabled]. The config screen seeds from this and the search layer searches under it, so what the
+ * screen showed is what gets searched.
  */
-suspend fun MigrationFlowAdapter.sourcesFor(): List<MigrationSourceUi> {
-    val enabled = enabledSources()
+fun selectMigrationSources(
+    enabled: List<MigrationSourceUi>,
+    saved: List<String>,
+    pinned: Set<String>,
+): List<MigrationSourceUi> {
     val byKey = enabled.associateBy { it.key }
-    return savedSelection().mapNotNull { byKey[it] }.ifEmpty {
-        val pinned = pinnedKeys()
-        enabled.filter { it.key in pinned }.ifEmpty { enabled }
-    }
+    return saved.mapNotNull { byKey[it] }
+        .ifEmpty { enabled.filter { it.key in pinned } }
+        .ifEmpty { enabled }
 }
+
+/** [selectMigrationSources] over this adapter's stored selection. */
+suspend fun MigrationFlowAdapter.sourcesFor(): List<MigrationSourceUi> =
+    selectMigrationSources(enabledSources(), savedSelection(), pinnedKeys())
 
 /**
  * The user's [query] plus the run's extra query, which the config screen asks for and the flow

@@ -406,16 +406,7 @@ class EntryMigrationConfigViewModel(
         viewModelScope.launch(io) {
             adapter.prepare()
             val enabled = adapter.enabledSources()
-            val saved = adapter.savedSelection()
-            val pinned = adapter.pinnedKeys()
-            val byKey = enabled.associateBy { it.key }
-            // Saved order first, else the pinned sources, else everything enabled: upstream's three
-            // tiers, and the same ladder sourcesFor() searches under. Stopping at pinned left a
-            // profile with nothing pinned and no saved selection looking at an empty screen with the
-            // Continue button hidden, while the search layer would have used every enabled source.
-            val selected = saved.mapNotNull { byKey[it] }
-                .ifEmpty { enabled.filter { it.key in pinned } }
-                .ifEmpty { enabled }
+            val selected = selectMigrationSources(enabled, adapter.savedSelection(), adapter.pinnedKeys())
             val selectedKeys = selected.mapTo(HashSet()) { it.key }
             state.update {
                 it.copy(

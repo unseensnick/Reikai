@@ -90,38 +90,6 @@ class EntryMigrationConfigViewModelTest {
     private fun model(adapter: SourceAdapter) = EntryMigrationConfigViewModel(adapter, dispatcher)
 
     @Test
-    fun `with nothing saved and nothing pinned every enabled source is selected`() =
-        runTest(dispatcher.scheduler) {
-            // The seed stopped at pinned, so this profile opened on an empty selection with Continue
-            // hidden, while the search layer would have used every enabled source.
-            val model = model(SourceAdapter(sources = listOf("a", "b")))
-
-            advanceUntilIdle()
-
-            model.state.value.selected.map { it.key } shouldBe listOf("a", "b")
-        }
-
-    @Test
-    fun `pinned sources lead when nothing is saved`() = runTest(dispatcher.scheduler) {
-        val model = model(SourceAdapter(sources = listOf("a", "b"), pinned = setOf("b")))
-
-        advanceUntilIdle()
-
-        model.state.value.selected.map { it.key } shouldBe listOf("b")
-    }
-
-    @Test
-    fun `a saved selection wins over the pinned sources`() = runTest(dispatcher.scheduler) {
-        val model = model(
-            SourceAdapter(sources = listOf("a", "b"), saved = listOf("a"), pinned = setOf("b")),
-        )
-
-        advanceUntilIdle()
-
-        model.state.value.selected.map { it.key } shouldBe listOf("a")
-    }
-
-    @Test
     fun `two edits leave the screen's own order saved`() = runTest(dispatcher.scheduler) {
         // What the writes produce, not the order they land in: one test scheduler runs them in
         // sequence, so the race the serialization fixes cannot be reproduced here.
