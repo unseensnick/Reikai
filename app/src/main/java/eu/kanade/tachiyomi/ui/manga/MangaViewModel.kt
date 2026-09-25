@@ -1259,27 +1259,6 @@ class MangaViewModel(
     }
     // RK <--
 
-    private fun getUnreadChapters(): List<Chapter> {
-        // RK: the shared candidate rows, in place of the skipFiltered pick.
-        return downloadCandidates()
-            // RK: the any-source flags, so a chapter a grouped source has read or holds is not queued.
-            .filter { !it.isRead && it.downloadState == Download.State.NOT_DOWNLOADED }
-            .map { it.chapter }
-    }
-
-    private fun getUnreadChaptersSorted(): List<Chapter> {
-        val manga = successState?.manga ?: return emptyList()
-        // RK: the order the reader pages in, so "next N" queues the chapters it steps into.
-        return getUnreadChapters().inReadingOrder(manga)
-    }
-
-    private fun getBookmarkedChapters(): List<Chapter> {
-        // RK: the shared candidate rows, in place of the skipFiltered pick.
-        return downloadCandidates()
-            .filter { it.isBookmarked && it.downloadState == Download.State.NOT_DOWNLOADED }
-            .map { it.chapter }
-    }
-
     private fun startDownload(
         chapters: List<Chapter>,
         startNow: Boolean,
@@ -1336,14 +1315,19 @@ class MangaViewModel(
     }
 
     fun runDownloadAction(action: DownloadAction) {
-        val chaptersToDownload = when (action) {
-            DownloadAction.NEXT_1_CHAPTER -> getUnreadChaptersSorted().take(1)
-            DownloadAction.NEXT_5_CHAPTERS -> getUnreadChaptersSorted().take(5)
-            DownloadAction.NEXT_10_CHAPTERS -> getUnreadChaptersSorted().take(10)
-            DownloadAction.NEXT_25_CHAPTERS -> getUnreadChaptersSorted().take(25)
-            DownloadAction.UNREAD_CHAPTERS -> getUnreadChapters()
-            DownloadAction.BOOKMARKED_CHAPTERS -> getBookmarkedChapters()
-        }
+        // RK --> the shared candidate rows and the selection rule novels run too, in the order the
+        // reader pages in, so "next N" queues the chapters it steps into. isRead and isBookmarked are
+        // the any-source flags, so a chapter a grouped source has read or holds is not queued.
+        val manga = successState?.manga ?: return
+        val items = downloadCandidates().associateBy { it.id }
+        val chaptersToDownload = DownloadCandidates.forAction(
+            items.values.map { it.chapter }.inReadingOrder(manga),
+            action,
+            isRead = { items.getValue(it.id).isRead },
+            isBookmarked = { items.getValue(it.id).isBookmarked },
+            isExcluded = { items.getValue(it.id).downloadState != Download.State.NOT_DOWNLOADED },
+        )
+        // RK <--
         if (chaptersToDownload.isNotEmpty()) {
             startDownload(chaptersToDownload, false)
         }
