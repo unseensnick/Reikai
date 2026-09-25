@@ -12,7 +12,6 @@ import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.core.preference.asState
-import eu.kanade.core.util.fastFilterNot
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.manga.interactor.UpdateManga
@@ -48,6 +47,8 @@ import kotlinx.coroutines.flow.update
 import mihon.core.common.utils.mutate
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.categoryFilterActive
+import reikai.domain.chapter.DownloadCandidates
+import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -637,15 +638,24 @@ class LibraryViewModel(
      * Queues the amount specified of unread chapters from the list of selected manga
      */
     fun performDownloadAction(ids: List<Long>, action: DownloadAction) {
+        // RK --> every action picks through the rule the details toolbar and novels run, so a hidden
+        //     chapter is never queued, bookmarked included. A merged entry's target is the group's
+        //     deduplicated list, the one the details "All" view shows, each chapter fetched from the
+        //     source that carries it; it does NOT fan out over the members, which carry the same
+        //     chapters and would fetch each one once per source.
         val mangas = state.value.mangaFor(ids)
-        when (action) {
-            DownloadAction.NEXT_1_CHAPTER -> downloadNextChapters(mangas, 1)
-            DownloadAction.NEXT_5_CHAPTERS -> downloadNextChapters(mangas, 5)
-            DownloadAction.NEXT_10_CHAPTERS -> downloadNextChapters(mangas, 10)
-            DownloadAction.NEXT_25_CHAPTERS -> downloadNextChapters(mangas, 25)
-            DownloadAction.UNREAD_CHAPTERS -> downloadNextChapters(mangas, null)
-            DownloadAction.BOOKMARKED_CHAPTERS -> downloadBookmarkedChapters(mangas)
+        viewModelScope.launchNonCancellable {
+            val hidden = mangaPreferences.hiddenChapters().get()
+            mangas.forEach { manga ->
+                val group = mergedGroupOf(manga)
+                val chapters = group?.chapters?.inReadingOrder(manga) ?: when (action) {
+                    DownloadAction.BOOKMARKED_CHAPTERS -> getBookmarkedChaptersByMangaId.await(manga.id)
+                    else -> getNextChapters.await(manga.id)
+                }
+                enqueueDownloads(group, manga, chapters, action, hidden)
+            }
         }
+        // RK <--
     }
 
     // RK --> a merged cover is one selected row standing for its whole group, so a bulk action has to
@@ -657,66 +667,42 @@ class LibraryViewModel(
         memberIds.mapNotNull { getManga.await(it) }
     // RK <--
 
-    // RK: the target is the group's deduplicated chapter list, the one the details "All" view shows,
-    //     with each chapter fetched from the source that carries it. It does NOT fan out over the
-    //     members: they carry the same chapters, so downloading each would fetch every chapter once per
-    //     source and spend the storage on near-duplicates.
-    private fun downloadNextChapters(mangas: List<Manga>, amount: Int?) {
-        viewModelScope.launchNonCancellable {
-            mangas.forEach { manga ->
-                val group = mergedGroupOf(manga)
-                val unread = if (group != null) {
-                    group.chapters.inReadingOrder(manga)
-                        .fastFilterNot { it.read || it.id in group.readInOtherSources }
-                } else {
-                    getNextChapters.await(manga.id)
-                }
-                enqueueDownloads(group, manga, unread, amount)
-            }
-        }
-    }
-
-    private fun downloadBookmarkedChapters(mangas: List<Manga>) {
-        viewModelScope.launchNonCancellable {
-            mangas.forEach { manga ->
-                val group = mergedGroupOf(manga)
-                val bookmarked = if (group != null) {
-                    val elsewhere = group.flaggedElsewhere { it.bookmark }
-                    group.chapters.filter { it.bookmark || it.id in elsewhere }
-                } else {
-                    getBookmarkedChaptersByMangaId.await(manga.id)
-                }
-                enqueueDownloads(group, manga, bookmarked, amount = null)
-            }
-        }
-    }
-
     /** The resolved merge group, or null when the entry stands alone. Resolving one loads every
      *  member's chapters, which an entry with no members has no use for. */
     private suspend fun mergedGroupOf(manga: Manga): MergedChapterProvider.Group? =
         if (mergeManager.computeRelatedIds(manga.id).size > 1) mergedChapterProvider.load(manga) else null
 
-    /** Queue [chapters] from the source each one came from, skipping what the group already holds: a
-     *  chapter downloaded on any member is on disk, whichever copy the stitch shows. */
+    // RK -->
+
+    /** Queue what [action] picks from [chapters], each from the source it came from, skipping what the
+     *  group already holds: a chapter downloaded on any member is on disk, whichever copy the stitch
+     *  shows. Hidden keys go by the owning member's source, as the details list keys them. */
     private suspend fun enqueueDownloads(
         group: MergedChapterProvider.Group?,
         anchor: Manga,
         chapters: List<Chapter>,
-        amount: Int?,
+        action: DownloadAction,
+        hidden: Set<String>,
     ) {
         val ownerOf = { chapter: Chapter -> group?.mangaById?.get(chapter.mangaId) ?: anchor }
         val downloadedIds = downloadManager.downloadedChapterIds(group?.pooledChapters ?: chapters, ownerOf)
         val onDisk = downloadedIds + group?.flaggedElsewhere { it.id in downloadedIds }.orEmpty()
-        chapters
-            .fastFilterNot { chapter ->
-                downloadManager.getQueuedDownloadOrNull(chapter.id) != null || chapter.id in onDisk
-            }
-            .let { if (amount != null) it.take(amount) else it }
+        val readElsewhere = group?.readInOtherSources.orEmpty()
+        val bookmarkedElsewhere = group?.flaggedElsewhere { it.bookmark }.orEmpty()
+        DownloadCandidates.forAction(
+            chapters,
+            action,
+            isRead = { it.read || it.id in readElsewhere },
+            isBookmarked = { it.bookmark || it.id in bookmarkedElsewhere },
+            isHidden = { hiddenChapterKey(ownerOf(it).source.toString(), it.url) in hidden },
+            isExcluded = { downloadManager.getQueuedDownloadOrNull(it.id) != null || it.id in onDisk },
+        )
             .groupBy { it.mangaId }
             .forEach { (mangaId, owned) ->
                 downloadManager.downloadChapters(group?.mangaById?.get(mangaId) ?: anchor, owned)
             }
     }
+    // RK <--
 
     private fun MergedChapterProvider.Group.flaggedElsewhere(flag: (Chapter) -> Boolean): Set<Long> =
         flaggedOnAnotherSource(pooledChapters, chapters, stitch, { it.id }, flag)

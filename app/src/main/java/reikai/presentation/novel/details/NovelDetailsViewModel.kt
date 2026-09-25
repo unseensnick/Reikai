@@ -1417,7 +1417,7 @@ class NovelDetailsViewModel(
                 shown = loaded.chapters,
                 stored = storedViewRows(loaded),
                 skipFiltered = novelPreferences.readerSkipFiltered().get(),
-            ) { hiddenKey(it) in hidden }
+            )
             // The view's set also holds a merged chapter's copies on other sources; the probe adds the
             // pages a paged source is not showing.
             val downloadedIds = loaded.downloadedChapterIds + downloadedIdsFor(available)
@@ -1429,7 +1429,7 @@ class NovelDetailsViewModel(
                 downloadedIds + queuedIds,
                 loaded.readInOtherSources,
                 loaded.bookmarkedInOtherSources,
-            )
+            ) { hiddenKey(it) in hidden }
             if (targets.isNotEmpty()) {
                 downloadManager.downloadChapters(targets)
                 promptAddToLibraryOnFirstDownload()

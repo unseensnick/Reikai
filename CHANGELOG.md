@@ -95,6 +95,7 @@ every release now also ships a foss build with neither in it.
 - **Bulk actions on selected novels now always run to completion.** Marking read, changing categories, downloading or removing could quietly stop partway if the app closed mid-action; manga already ran these to the end.
 - **Deleting a category now clears it from the library and Updates filters.** No filter is left pointing at a category that no longer exists.
 - **The library's continue button and Recents now pass over chapters you hid, on manga and novels.** A hidden chapter still opens when it is the only one left unread.
+- **Downloading from a library selection no longer queues chapters you hid, on manga and novels.** That covers every option, bookmarked chapters included, as the series page already did.
 - **A novel whose source is no longer installed now shows the missing-source warning on its library cover, as a manga does.** On a grouped novel the uninstalled source keeps its place among the source icons instead of vanishing.
 - **In Settings -> Library -> Preferred sources, one tap of Up or Down now always moves a source, on manga and novels.** A source you had uninstalled sat hidden in the ranking and swallowed the tap; it now keeps its place while the others move past it.
 - **The continue button on a novel in the library now follows that novel's chapter filters, as manga and the novel's own page do.** Set to bookmarked or downloaded chapters only, it opened the first unread chapter regardless.

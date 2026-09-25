@@ -1250,13 +1250,9 @@ class MangaViewModel(
     }
 
     // RK -->
-    // The rows a bulk download picks from, one rule with novels; hidden chapters are never queued.
-    private fun downloadCandidates(): List<ChapterList.Item> {
-        val hidden = successState?.hiddenChapterIds.orEmpty()
-        return DownloadCandidates.rows(filteredChapters.orEmpty(), allChapters.orEmpty(), skipFiltered) {
-            it.id in hidden
-        }
-    }
+    // The rows a bulk download picks from, one rule with novels.
+    private fun downloadCandidates(): List<ChapterList.Item> =
+        DownloadCandidates.rows(filteredChapters.orEmpty(), allChapters.orEmpty(), skipFiltered)
     // RK <--
 
     private fun startDownload(
@@ -1319,12 +1315,14 @@ class MangaViewModel(
         // reader pages in, so "next N" queues the chapters it steps into. isRead and isBookmarked are
         // the any-source flags, so a chapter a grouped source has read or holds is not queued.
         val manga = successState?.manga ?: return
+        val hidden = successState?.hiddenChapterIds.orEmpty()
         val items = downloadCandidates().associateBy { it.id }
         val chaptersToDownload = DownloadCandidates.forAction(
             items.values.map { it.chapter }.inReadingOrder(manga),
             action,
             isRead = { items.getValue(it.id).isRead },
             isBookmarked = { items.getValue(it.id).isBookmarked },
+            isHidden = { it.id in hidden },
             isExcluded = { items.getValue(it.id).downloadState != Download.State.NOT_DOWNLOADED },
         )
         // RK <--

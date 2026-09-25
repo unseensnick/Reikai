@@ -29,11 +29,18 @@ class NovelDownloadActionsTest {
         excluded: Set<Long> = emptySet(),
         readElsewhere: Set<Long> = emptySet(),
         bookmarkedElsewhere: Set<Long> = emptySet(),
+        hidden: Set<Long> = emptySet(),
         from: List<NovelChapter> = chapters,
         sortDescending: Boolean = false,
     ): List<Long> =
-        selectChaptersForDownloadAction(from, sortDescending, action, excluded, readElsewhere, bookmarkedElsewhere)
-            .map { it.id }
+        selectChaptersForDownloadAction(from, sortDescending, action, excluded, readElsewhere, bookmarkedElsewhere) {
+            it.id in hidden
+        }.map { it.id }
+
+    @Test
+    fun `a hidden chapter is passed over before next N counts`() {
+        select(DownloadAction.NEXT_1_CHAPTER, hidden = setOf(12L)) shouldBe listOf(10L)
+    }
 
     @Test
     fun `next 1 takes the first unread chapter of the list as shown`() {

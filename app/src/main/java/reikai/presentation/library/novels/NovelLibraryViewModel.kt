@@ -548,6 +548,7 @@ class NovelLibraryViewModel(
                     onDisk + queuedIds,
                     group.readInOtherSources,
                     group.flaggedElsewhere { it.bookmark },
+                    getNextNovelChapter.hiddenAmong(group.pooledChapters),
                 )
                 if (targets.isNotEmpty()) downloadManager.downloadChapters(targets)
             }
