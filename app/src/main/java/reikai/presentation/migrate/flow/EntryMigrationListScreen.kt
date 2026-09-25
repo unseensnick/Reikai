@@ -39,8 +39,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -60,7 +63,6 @@ import mihon.icons.materialsymbols.rounded.MoreVert
 import mihon.icons.materialsymbols.rounded.Search
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
-import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -279,18 +281,21 @@ private fun MigrationRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val target = chosen?.title ?: (search as? SearchPhase.Found)?.suggestion?.title
+                val target = MigrationRowRules.target(search, acceptance)
                 if (target != null) {
+                    // Its own tap, inside the row's: the target is what the user is deciding on,
+                    // and upstream's result card opens it the same way.
                     Text(
-                        text = target,
+                        text = target.title,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable { target.openDetails(navigator) },
                     )
                 }
                 RowStatusLine(row = row, status = status, viewModel = viewModel)
-                RowCountLine(row = row, target = chosen ?: (search as? SearchPhase.Found)?.suggestion)
+                RowCountLine(row = row, target = target)
             }
             RowTrailing(
                 row = row,
@@ -397,20 +402,29 @@ private fun RowStatusLine(
     )
 }
 
-/** Mono latest-chapter numbers, the basis prioritize-by-chapters and hide-without-updates compare on. */
+/**
+ * Mono latest-chapter numbers, the basis prioritize-by-chapters and hide-without-updates compare on,
+ * with the target's shortfall appended in the error colour when it is behind.
+ */
 @Composable
 private fun RowCountLine(row: MigratingEntryRow, target: MigrationCandidate?) {
     val current = row.entry.latestChapter
     val targetLatest = target?.latestChapter
     if (current == null && targetLatest == null) return
     val unknown = stringResource(MR.strings.migrationListScreen_unknownLatestChapter)
+    val counts = stringResource(
+        MR.strings.migrationListScreen_latestChapterLabel,
+        "${current?.let(::formatChapterNumber) ?: unknown} → ${targetLatest?.let(::formatChapterNumber) ?: unknown}",
+    )
+    val shortfall = MigrationRowRules.shortfall(current, targetLatest)
+    val errorColor = MaterialTheme.colorScheme.error
     Text(
-        text = stringResource(
-            MR.strings.migrationListScreen_latestChapterLabel,
-            "${current?.let(
-                ::formatChapterNumber,
-            ) ?: unknown} → ${targetLatest?.let(::formatChapterNumber) ?: unknown}",
-        ),
+        text = buildAnnotatedString {
+            append(counts)
+            if (shortfall != null) {
+                withStyle(SpanStyle(color = errorColor)) { append(" · ${formatChapterNumber(shortfall)}") }
+            }
+        },
         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

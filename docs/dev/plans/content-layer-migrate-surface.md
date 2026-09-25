@@ -328,6 +328,13 @@ routes. Two paths are not device-verified because they cannot be provoked by han
 refusal needs a target that resolves with no chapters, and the favorites screen's read failure needs a
 failing DB read.
 
+**Row target and shortfall (2026-09-25).** Two row items the inventory missed are back. A row's target
+line opens the target's page, as upstream's result card does, and the count line appends the target's
+shortfall in the error colour when its latest chapter is behind the entry's, the warning the pre-takeover
+novel list had. Both read `MigrationRowRules`: `target()` is the one answer to which candidate the row
+names, taps and counts, and `shortfall()` shares its comparison with hide-without-updates. The ruled
+expand-to-compare view is still unbuilt.
+
 ## Decisions & tradeoffs
 
 - Takeover over parity-patching: options assessed were (a) full flow takeover, (b) partial UI-only takeover, (c) no takeover with parity fixes, (d) reshape Mihon's flow in place via `// RK`. (b) keeps the step fork because the fork lives in orchestration; (d) is maximum sync tax on the highest-churn files; (c) leaves the divergence permanent, and history shows the novel side never receives flow improvements. (a) accepted with the churn price stated in the amendment.

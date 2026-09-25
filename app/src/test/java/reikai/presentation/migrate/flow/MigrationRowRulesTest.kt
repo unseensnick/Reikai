@@ -337,4 +337,42 @@ class MigrationRowRulesTest {
     fun `a failed row may still be re-targeted from the picker before its retry`() {
         actions(commit = failedCommit).canPick shouldBe true
     }
+
+    @Test
+    fun `an accepted target is the row's target over the suggestion`() {
+        val picked = candidate.copy(sourceKey = "picked")
+
+        MigrationRowRules.target(found, Acceptance.Accepted(picked)) shouldBe picked
+    }
+
+    @Test
+    fun `a row with no accepted target shows its suggestion`() {
+        MigrationRowRules.target(found, Acceptance.Declined) shouldBe candidate
+    }
+
+    @Test
+    fun `a row with neither an accepted target nor a suggestion has no target`() {
+        MigrationRowRules.target(SearchPhase.NoMatch, Acceptance.Untouched) shouldBe null
+    }
+
+    @Test
+    fun `a target behind the entry reports the signed shortfall`() {
+        MigrationRowRules.shortfall(entryLatest = 584.0, targetLatest = 120.0) shouldBe -464.0
+    }
+
+    @Test
+    fun `a target level with the entry has no shortfall`() {
+        MigrationRowRules.shortfall(entryLatest = 10.0, targetLatest = 10.0) shouldBe null
+    }
+
+    @Test
+    fun `a target ahead of the entry has no shortfall`() {
+        MigrationRowRules.shortfall(entryLatest = 10.0, targetLatest = 12.0) shouldBe null
+    }
+
+    @Test
+    fun `an unknown latest chapter on either side is no shortfall`() {
+        MigrationRowRules.shortfall(entryLatest = null, targetLatest = 3.0) shouldBe null
+        MigrationRowRules.shortfall(entryLatest = 3.0, targetLatest = null) shouldBe null
+    }
 }

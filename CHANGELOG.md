@@ -439,7 +439,7 @@ every release now also ships a foss build with neither in it.
 - **Leave an entry out of a migration, so a source that never answers can't hold up the rest.** Skipping takes it off the list, as does migrating it, so what's left is always what still needs you.
 - **A finished migration tells you how many entries moved.**
 - **Search a target by hand, or browse a whole source, when the suggested match is wrong.** Every source you chose is searched, and one that fails says so instead of looking empty.
-- **Check a match before you commit to it: long-press any result to open its page, and anything already in your library is marked.** Works the same whether you are picking one entry or working through a batch.
+- **Check a match before you commit to it: tap a batch row's match or long-press any result to open its page, and anything already in your library is marked.** A match whose latest chapter is behind the entry's shows by how much, in red.
 - **Set how a migration searches before it runs: extra keywords, advanced search mode, ranking by chapter count, and filters for unmatched entries or ones already up to date, on manga and novels alike.**
 
 #### Changed

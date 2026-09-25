@@ -243,13 +243,27 @@ object MigrationRowRules {
         if (disposition(acceptance) != Disposition.Untouched || expanded) return false
         if (tuning.hideUnmatched && search is MigratingEntryRow.SearchPhase.NoMatch) return true
         if (tuning.hideWithoutUpdates && search is MigratingEntryRow.SearchPhase.Found) {
-            val targetLatest = search.suggestion.latestChapter
             // Only drop on a real comparison, where upstream reads an unknown count as zero: with
             // removal there is no getting the row back, so an unknown count decides nothing.
-            if (targetLatest != null && entryLatestChapter != null && targetLatest <= entryLatestChapter) return true
+            val delta = chapterDelta(entryLatestChapter, search.suggestion.latestChapter)
+            if (delta != null && delta <= 0.0) return true
         }
         return false
     }
+
+    /** The row's target, accepted or else suggested: what its target line names, opens and counts. */
+    fun target(
+        search: MigratingEntryRow.SearchPhase,
+        acceptance: MigratingEntryRow.Acceptance,
+    ): MigrationCandidate? = acceptance.candidate ?: search.suggestion
+
+    /** How far the target's latest chapter is behind the entry's, negative; null unless it is behind. */
+    fun shortfall(entryLatest: Double?, targetLatest: Double?): Double? =
+        chapterDelta(entryLatest, targetLatest)?.takeIf { it < 0.0 }
+
+    /** Target minus entry latest chapter, known only when both are; the one comparison on counts. */
+    private fun chapterDelta(entryLatest: Double?, targetLatest: Double?): Double? =
+        if (entryLatest == null || targetLatest == null) null else targetLatest - entryLatest
 
     /** A row the batch commit should include: accepted, and not already committing. */
     fun isCommittable(
@@ -311,15 +325,17 @@ object MigrationRowRules {
         search: MigratingEntryRow.SearchPhase,
         acceptance: MigratingEntryRow.Acceptance,
         commit: MigratingEntryRow.CommitPhase,
-    ): RowStatus = when {
-        commit is MigratingEntryRow.CommitPhase.Failed -> RowStatus.CommitFailed
-        commit is MigratingEntryRow.CommitPhase.Committing -> RowStatus.Committing
-        acceptance is MigratingEntryRow.Acceptance.Accepted -> RowStatus.Target(acceptance.candidate.sourceKey)
-        search is MigratingEntryRow.SearchPhase.Found -> RowStatus.Target(search.suggestion.sourceKey)
-        search is MigratingEntryRow.SearchPhase.Failed -> RowStatus.SearchFailed
-        search is MigratingEntryRow.SearchPhase.NoMatch -> RowStatus.NoMatch
-        search is MigratingEntryRow.SearchPhase.Searching -> RowStatus.Searching
-        else -> RowStatus.Idle
+    ): RowStatus {
+        val target = target(search, acceptance)
+        return when {
+            commit is MigratingEntryRow.CommitPhase.Failed -> RowStatus.CommitFailed
+            commit is MigratingEntryRow.CommitPhase.Committing -> RowStatus.Committing
+            target != null -> RowStatus.Target(target.sourceKey)
+            search is MigratingEntryRow.SearchPhase.Failed -> RowStatus.SearchFailed
+            search is MigratingEntryRow.SearchPhase.NoMatch -> RowStatus.NoMatch
+            search is MigratingEntryRow.SearchPhase.Searching -> RowStatus.Searching
+            else -> RowStatus.Idle
+        }
     }
 
     fun actions(
