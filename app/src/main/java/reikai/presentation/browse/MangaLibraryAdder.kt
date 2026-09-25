@@ -196,12 +196,14 @@ class MangaLibraryAdder(
 
     /**
      * The writes a picker's confirm owes for a stored row, in the shared order, so backing out of
-     * the picker adds nothing and the row is favorited only when the user confirms. Twin of
-     * `NovelLibraryAdder.confirmAddCategories`, pinned by `AddToGroupConformanceTest`'s confirm cases.
+     * the picker adds nothing and the row is favorited only when the user confirms. A newly added row
+     * takes the default chapter settings, as a browse add does; the details page skips that, having
+     * stamped them when it opened. Twin of `NovelLibraryAdder.confirmAddCategories`, pinned by
+     * `AddToGroupConformanceTest`'s confirm cases.
      */
     suspend fun confirmAddCategories(mangaId: Long, categoryIds: List<Long>): AddOutcome = finishAdd(
         categoryIds = categoryIds,
-        favorite = { favoriteForAdd(mangaId) },
+        favorite = { favoriteForAdd(mangaId) { setMangaDefaultChapterFlags.await(it) } },
         fileCategories = { id, ids -> setMangaCategories.await(id, ids.filter { it != Category.UNCATEGORIZED_ID }) },
     )
 
@@ -209,13 +211,14 @@ class MangaLibraryAdder(
      * Favorite [mangaId] for an add, answering its id, or null when the row is gone or the write
      * failed. The row is re-read rather than trusted from a snapshot, which can say favorited for an
      * entry unfavorited since and would file categories against a row outside the library. An already
-     * favorited row is not re-written: that would reset dateAdded. Twin of
-     * `NovelLibraryAdder.favoriteForAdd`, pinned by `AddToGroupConformanceTest`'s confirm cases.
+     * favorited row is not re-written: that would reset dateAdded. [onAdded] runs only for a row this
+     * call added. Twin of `NovelLibraryAdder.favoriteForAdd`, pinned by `AddToGroupConformanceTest`.
      */
-    suspend fun favoriteForAdd(mangaId: Long): Long? {
+    suspend fun favoriteForAdd(mangaId: Long, onAdded: suspend (Manga) -> Unit = {}): Long? {
         val stored = getManga.await(mangaId) ?: return null
         if (stored.favorite) return mangaId
         if (!updateManga.awaitUpdateFavorite(mangaId, true)) return null
+        onAdded(stored)
         autoBindOnAdd.manga(stored, sourceManager.getOrStub(stored.source))
         return mangaId
     }

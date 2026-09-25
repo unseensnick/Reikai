@@ -6,6 +6,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.GetNovelCategories
@@ -186,6 +187,25 @@ class ConfirmAddCategoriesConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a confirm stamps the default chapter settings on the new entry`(probe: GroupAddProbe) = runTest {
+        probe.confirmAddCategories(listOf(3L))
+
+        assumeTrue(probe.chapterDefaultsStamped != null, "$probe resolves chapter defaults at read time")
+        probe.chapterDefaultsStamped shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a confirm leaves a row already in the library with its own chapter settings`(probe: GroupAddProbe) =
+        runTest {
+            probe.confirmAddCategories(listOf(3L), alreadyFavorite = true)
+
+            assumeTrue(probe.chapterDefaultsStamped != null, "$probe resolves chapter defaults at read time")
+            probe.chapterDefaultsStamped shouldBe false
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `the system category is never filed`(probe: GroupAddProbe) = runTest {
         probe.confirmAddCategories(listOf(Category.UNCATEGORIZED_ID, 3L)).filedCategories shouldBe listOf(3L)
     }
@@ -231,6 +251,9 @@ interface GroupAddProbe {
     /** Whether the last call bound the entry's source trackers. */
     val trackersBound: Boolean
 
+    /** Whether the last call stamped the default chapter settings; null for a type that resolves them at read time. */
+    val chapterDefaultsStamped: Boolean?
+
     /** A browse add's favorite write, the one that skips the category sequence's confirm. */
     suspend fun favoriteFromBrowse(favoriteWriteSucceeds: Boolean)
 
@@ -249,6 +272,7 @@ class MangaGroupAddProbe : GroupAddProbe {
     private var favoriteWritten = false
     private var filed: List<Long>? = null
     override var trackersBound = false
+    override var chapterDefaultsStamped: Boolean? = false
 
     override fun toString() = "manga"
 
@@ -289,7 +313,9 @@ class MangaGroupAddProbe : GroupAddProbe {
         setMangaCategories = mockk<SetMangaCategories> {
             coEvery { await(any(), any()) } answers { filed = secondArg() }
         },
-        setMangaDefaultChapterFlags = mockk(relaxed = true),
+        setMangaDefaultChapterFlags = mockk {
+            coEvery { await(any()) } answers { chapterDefaultsStamped = true }
+        },
         updateManga = mockk {
             coEvery { awaitUpdateFavorite(any(), any()) } answers {
                 favoriteWritten = true
@@ -318,6 +344,7 @@ class MangaGroupAddProbe : GroupAddProbe {
         favoriteWritten = false
         filed = null
         trackersBound = false
+        chapterDefaultsStamped = false
     }
 
     override suspend fun joinGroup(
@@ -387,6 +414,9 @@ class NovelGroupAddProbe : GroupAddProbe {
     private var favoriteWritten = false
     private var filed: List<Long>? = null
     override var trackersBound = false
+
+    // Unsupported: a novel's chapter defaults resolve from NovelPreferences at read time, nothing is stamped.
+    override val chapterDefaultsStamped: Boolean? = null
 
     override fun toString() = "novel"
 
