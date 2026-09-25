@@ -25,8 +25,9 @@ The forward backlog is `ROADMAP.md` (terse, forward-only, one-line items); subst
 When the user asks to cut a release:
 
 1. **Collapse same-fact entries first, across every area and every category header** (each area's `Added`, `Changed` and `Fixed`, plus `Other`). Read the section top to bottom as a user would. Entries written one per commit were each correct when added, because the sibling landing three commits later was not knowable then; read together at cut time, N bullets stating one fact are a progress log. Merge them into one. What to look for in each: `Added`, a feature that landed surface by surface; `Changed` and `Fixed`, the same behaviour corrected on manga and then on novels, or one bug fixed at several call sites; `Other`, collapse and unification work, dependency bumps, and upstream syncs. Read across areas as well as down them, since one fact often sits under two (a grouped-series bug under both Library and Merged series). Keep entries separate when they carry a distinct user-visible fact, an on-upgrade data migration being the clearest case. **This is the last chance:** after the rename the section is frozen, since already-released entries are never rewritten.
-2. Rename `## [Unreleased]` to the version.
-3. Add a new empty `## [Unreleased]` section above it for the next cycle.
+2. **Drop fixes to work that never shipped.** For each `Fixed` entry, and each `Changed` one that corrects this cycle's own work, find the commit that introduced the behaviour it corrects and run `git tag --contains <sha> -l 'v0*'`. No release tag means no stable user ever saw the bug, so drop the entry, or fold it into the feature's own entry if it changes what that one says.
+3. Rename `## [Unreleased]` to the version.
+4. Add a new empty `## [Unreleased]` section above it for the next cycle.
 
 ## Commits & PRs
 
