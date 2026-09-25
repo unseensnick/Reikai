@@ -156,12 +156,7 @@ object SettingsLibraryScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = novelPreferences.novelUpdateRestrictions(),
-                    entries = mapOf(
-                        MANGA_NON_COMPLETED to stringResource(MR.strings.pref_update_only_non_completed),
-                        MANGA_HAS_UNREAD to stringResource(MR.strings.pref_update_only_completely_read),
-                        MANGA_NON_READ to stringResource(MR.strings.pref_update_only_started),
-                        MANGA_OUTSIDE_RELEASE_PERIOD to stringResource(MR.strings.pref_update_only_in_release_period),
-                    ),
+                    entries = smartUpdateEntries(),
                     title = stringResource(MR.strings.pref_library_update_smart_update),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
@@ -172,6 +167,15 @@ object SettingsLibraryScreen : SearchableSettings {
             ),
         )
     }
+
+    /** Smart update's options in upstream's order, shared so the manga and light-novel groups cannot drift. */
+    @Composable
+    private fun smartUpdateEntries() = mapOf(
+        MANGA_HAS_UNREAD to stringResource(MR.strings.pref_update_only_completely_read),
+        MANGA_NON_READ to stringResource(MR.strings.pref_update_only_started),
+        MANGA_NON_COMPLETED to stringResource(MR.strings.pref_update_only_non_completed),
+        MANGA_OUTSIDE_RELEASE_PERIOD to stringResource(MR.strings.pref_update_only_in_release_period),
+    )
     // RK <--
 
     // RK -->
@@ -379,12 +383,7 @@ object SettingsLibraryScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = libraryPreferences.autoUpdateMangaRestrictions,
-                    entries = mapOf(
-                        MANGA_HAS_UNREAD to stringResource(MR.strings.pref_update_only_completely_read),
-                        MANGA_NON_READ to stringResource(MR.strings.pref_update_only_started),
-                        MANGA_NON_COMPLETED to stringResource(MR.strings.pref_update_only_non_completed),
-                        MANGA_OUTSIDE_RELEASE_PERIOD to stringResource(MR.strings.pref_update_only_in_release_period),
-                    ),
+                    entries = smartUpdateEntries(), // RK: shared with the light-novel group
                     title = stringResource(MR.strings.pref_library_update_smart_update),
                 ),
                 Preference.PreferenceItem.SwitchPreference(

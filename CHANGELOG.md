@@ -356,6 +356,7 @@ every release now also ships a foss build with neither in it.
 - **A novel chapter dated month first, like 12/25/2024, now shows that date instead of one months later.** A date that is not a real day now shows no date rather than a rolled-over one.
 - **Downloading a selection of novel chapters no longer fetches the ones already downloaded again.**
 - **A light-novel plugin that stops answering now fails with an error after three minutes, so a migration moves on to the next entry instead of searching the stuck one forever.**
+- **Smart update under Settings -> Library -> Global update · Novels now lists its options in the same order as the manga one.**
 
 ### Browse & sources
 
