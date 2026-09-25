@@ -47,6 +47,7 @@ class MigrateNovelUseCaseTest {
         libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
         transactions = PassThroughTransactions,
         sourceTracker = mockk(relaxed = true),
+        novelHistoryRepository = mockk(relaxed = true),
     )
 
     @Test

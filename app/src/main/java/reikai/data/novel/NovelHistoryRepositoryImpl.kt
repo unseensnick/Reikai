@@ -1,5 +1,6 @@
 package reikai.data.novel
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.async.coroutines.awaitAsOne
 import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import dev.zacsweers.metro.AppScope
@@ -9,6 +10,7 @@ import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import logcat.LogPriority
 import reikai.domain.novel.NovelHistoryRepository
+import reikai.domain.novel.model.NovelHistory
 import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import tachiyomi.core.common.util.system.logcat
@@ -74,6 +76,11 @@ class NovelHistoryRepositoryImpl(
             logcat(LogPriority.ERROR, e) { "Failed to upsert novel history chapterId=${update.chapterId}" }
         }
     }
+
+    override suspend fun getHistoryByNovelId(novelId: Long): List<NovelHistory> =
+        database.novel_historyQueries.getHistoryByNovelId(novelId) { chapterId, readAt, readDuration ->
+            NovelHistory(chapterId, readAt, readDuration)
+        }.awaitAsList()
 
     override suspend fun getTotalReadDuration(): Long =
         database.novel_historyQueries.getTotalReadDuration().awaitAsOne()

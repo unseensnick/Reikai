@@ -66,6 +66,13 @@ INNER JOIN novel_chapters C ON N._id = C.novel_id
 INNER JOIN novel_history H ON C._id = H.chapter_id
 WHERE N._id = :novelId;
 
+-- Every history row of one novel's chapters, twin of history.sq getHistoryByMangaId (the migrate carry).
+getHistoryByNovelId:
+SELECT H.chapter_id, H.last_read, H.time_read
+FROM novel_chapters C
+INNER JOIN novel_history H ON C._id = H.chapter_id
+WHERE C.novel_id = :novelId;
+
 -- When a novel was first read, which a tracker bound to it takes as the start date, as manga's does.
 getEarliestReadAt:
 SELECT MIN(H.last_read) AS earliest

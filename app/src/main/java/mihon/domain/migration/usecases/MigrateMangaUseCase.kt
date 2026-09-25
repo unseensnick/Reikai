@@ -23,6 +23,9 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.toChapterUpdate
 import tachiyomi.domain.chapter.repository.ChapterRepository
+import tachiyomi.domain.history.interactor.GetHistory // RK
+import tachiyomi.domain.history.interactor.UpsertHistory // RK
+import tachiyomi.domain.history.model.HistoryUpdate // RK
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.service.SourceManager
@@ -54,6 +57,9 @@ class MigrateMangaUseCase(
     private val transactions: Transactions,
     // RK: tells an extension that syncs to its own site about the migration.
     private val sourceTracker: SourceTrackerDispatcher,
+    // RK: reading history carries onto the matched chapters, as Komikku's migration does.
+    private val getHistory: GetHistory,
+    private val upsertHistory: UpsertHistory,
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
@@ -97,6 +103,12 @@ class MigrateMangaUseCase(
                     .filter { it.read }
                     .maxOfOrNull { it.chapterNumber }
 
+                // RK --> each matched chapter takes the source chapter's reading history, as
+                // Komikku's migration does, so the Last read sort and History follow the entry.
+                val prevHistory = getHistory.await(current.id).associateBy { it.chapterId }
+                val historyUpdates = mutableListOf<HistoryUpdate>()
+                // RK <--
+
                 val updatedMangaChapters = mangaChapters.map { mangaChapter ->
                     var updatedChapter = mangaChapter
                     if (updatedChapter.isRecognizedNumber) {
@@ -112,6 +124,12 @@ class MigrateMangaUseCase(
                                 lastPageRead = maxOf(updatedChapter.lastPageRead, prevChapter.lastPageRead),
                                 // RK <--
                             )
+                            // RK -->
+                            prevHistory[prevChapter.id]?.let { history ->
+                                val readAt = history.readAt ?: return@let
+                                historyUpdates += HistoryUpdate(mangaChapter.id, readAt, history.readDuration)
+                            }
+                            // RK <--
                         }
 
                         if (maxChapterRead != null && updatedChapter.chapterNumber <= maxChapterRead) {
@@ -128,6 +146,7 @@ class MigrateMangaUseCase(
                 // what the Failed row and its retry exist to prevent. Runs before the downloads are
                 // deleted, so a retry after this throws heals everything.
                 chapterRepository.updateAll(chapterUpdates)
+                historyUpdates.forEach { upsertHistory.await(it) } // RK
             }
 
             // Update categories

@@ -456,6 +456,7 @@ every release now also ships a foss build with neither in it.
 
 - **Migrating a manga now keeps the page you reached in each chapter, as migrating a novel keeps your place.**
 - **Migrating no longer asks the target's source for the same thing twice, roughly halving the load a large migration puts on the site.** That matters most where rate limits bite.
+- **Migrating a manga or novel with its chapters now brings its reading history along.** Its History entries and its place in the library's Last read sort follow it to the new source.
 
 #### Fixed
 

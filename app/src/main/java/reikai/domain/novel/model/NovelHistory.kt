@@ -36,6 +36,13 @@ data class NovelHistoryWithRelations(
     val storedTitle: String,
 )
 
+/** One chapter's history row, the novel twin of [tachiyomi.domain.history.model.History]. */
+data class NovelHistory(
+    val chapterId: Long,
+    val readAt: Long?,
+    val readDuration: Long,
+)
+
 /**
  * Reader write payload (novel twin of [tachiyomi.domain.history.model.HistoryUpdate]). [readAt] is
  * epoch millis; [sessionReadDuration] is the time spent in the chapter this session, accumulated into

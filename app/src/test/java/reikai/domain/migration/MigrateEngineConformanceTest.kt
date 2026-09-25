@@ -19,6 +19,7 @@ import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
@@ -27,6 +28,8 @@ import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelHistory
+import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.NovelUpdate
@@ -39,6 +42,10 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.repository.ChapterRepository
+import tachiyomi.domain.history.interactor.GetHistory
+import tachiyomi.domain.history.interactor.UpsertHistory
+import tachiyomi.domain.history.model.History
+import tachiyomi.domain.history.model.HistoryUpdate
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
@@ -49,6 +56,7 @@ import tachiyomi.domain.track.model.Track
 import java.io.File
 import java.io.InputStream
 import java.nio.file.Files
+import java.util.Date
 
 /**
  * The one pin on the two migrate engines, Mihon's MigrateMangaUseCase and its novel twin: each case
@@ -263,6 +271,31 @@ class MigrateEngineConformanceTest {
         ((outcome.error != null) to outcome.swap) shouldBe (true to null)
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `the chapter flag carries each matched chapter's reading history`(engine: MigrateEngine) = runTest {
+        val setup = Setup(
+            sourceChapters = listOf(Ch(1, 1.0, read = true), Ch(2, 2.0, read = true)),
+            targetChapters = listOf(Ch(10, 1.0), Ch(11, 3.0)),
+            sourceHistory = listOf(Hist(1, readAt = 500, duration = 60), Hist(2, readAt = 700, duration = 5)),
+        )
+
+        engine.migrate(setup, replace = true, flags = setOf(Flag.CHAPTER)).historyWritten shouldBe
+            listOf(Hist(10, readAt = 500, duration = 60))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `without the chapter flag reading history stays behind`(engine: MigrateEngine) = runTest {
+        val setup = Setup(
+            sourceChapters = listOf(Ch(1, 1.0, read = true)),
+            targetChapters = listOf(Ch(10, 1.0)),
+            sourceHistory = listOf(Hist(1, readAt = 500, duration = 60)),
+        )
+
+        engine.migrate(setup, replace = true).historyWritten shouldBe emptyList()
+    }
+
     // Cover, downloads and trackers
 
     @ParameterizedTest(name = "{0}")
@@ -340,10 +373,14 @@ data class Ch(
     val position: Long = 0,
 )
 
+/** One history row, keyed by its chapter; [readAt] is epoch millis on both types. */
+data class Hist(val chapterId: Long, val readAt: Long, val duration: Long)
+
 /** What the stored world looks like before the migration, and which write to break. */
 data class Setup(
     val sourceChapters: List<Ch> = emptyList(),
     val targetChapters: List<Ch> = emptyList(),
+    val sourceHistory: List<Hist> = emptyList(),
     val group: LongArray = longArrayOf(),
     val customCover: String? = null,
     val notes: String = "",
@@ -379,6 +416,7 @@ class Outcome(
     val downloadsQueued: Int,
     val tracksWritten: List<Pair<Long, Long>>,
     val sourceTrackerCalls: List<String>,
+    val historyWritten: List<Hist>,
 ) {
     val targetSwap: Swap? get() = swap?.singleOrNull { it.favorite == true }
 
@@ -403,6 +441,7 @@ private class Recorder : Transactions {
     var downloadsQueued = 0
     val tracksWritten = mutableListOf<Pair<Long, Long>>()
     val sourceTrackerCalls = mutableListOf<String>()
+    val historyWritten = mutableListOf<Hist>()
     val coverDir: File = Files.createTempDirectory("migrate-covers").toFile().apply { deleteOnExit() }
 
     override suspend fun <T> run(block: suspend () -> T): T {
@@ -448,6 +487,7 @@ private class Recorder : Transactions {
         downloadsQueued = downloadsQueued,
         tracksWritten = tracksWritten,
         sourceTrackerCalls = sourceTrackerCalls,
+        historyWritten = historyWritten,
     )
 }
 
@@ -538,6 +578,19 @@ class MangaEngine : MigrateEngine {
                 rec.sourceTracker(firstArg(), secondArg(), thirdArg(), arg(3))
             }
         }
+        val getHistory = mockk<GetHistory> {
+            coEvery { await(any<Long>()) } answers {
+                val ids = chapters.values.filter { it.mangaId == firstArg<Long>() }.map { it.id }
+                setup.sourceHistory.filter { it.chapterId in ids }
+                    .map { History(it.chapterId, it.chapterId, Date(it.readAt), it.duration) }
+            }
+        }
+        val upsertHistory = mockk<UpsertHistory> {
+            coEvery { await(any()) } answers {
+                val u = firstArg<HistoryUpdate>()
+                rec.historyWritten += Hist(u.chapterId, u.readAt.time, u.sessionReadDuration)
+            }
+        }
         val useCase = MigrateMangaUseCase(
             sourcePreferences = mockk(relaxed = true),
             trackerManager = mockk(relaxed = true) { every { trackers } returns emptyList() },
@@ -556,6 +609,8 @@ class MangaEngine : MigrateEngine {
             chapterRepository = chapterRepository,
             transactions = rec,
             sourceTracker = sourceTracker,
+            getHistory = getHistory,
+            upsertHistory = upsertHistory,
         )
         val current = Manga.create().copy(
             id = MigrateEngineConformanceTest.SOURCE,
@@ -679,6 +734,17 @@ class NovelEngine : MigrateEngine {
                 rec.sourceTracker(firstArg(), secondArg(), thirdArg(), arg(3))
             }
         }
+        val history = mockk<NovelHistoryRepository> {
+            coEvery { getHistoryByNovelId(any()) } answers {
+                val ids = chapters.values.filter { it.novelId == firstArg<Long>() }.map { it.id }
+                setup.sourceHistory.filter { it.chapterId in ids }
+                    .map { NovelHistory(it.chapterId, it.readAt, it.duration) }
+            }
+            coEvery { upsertNovelHistory(any()) } answers {
+                val u = firstArg<NovelHistoryUpdate>()
+                rec.historyWritten += Hist(u.chapterId, u.readAt, u.sessionReadDuration)
+            }
+        }
         val useCase = MigrateNovelUseCase(
             novelChapterRepository = chapterRepository,
             getNovelCategories = mockk(relaxed = true),
@@ -695,6 +761,7 @@ class NovelEngine : MigrateEngine {
             libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
             transactions = rec,
             sourceTracker = sourceTracker,
+            novelHistoryRepository = history,
         )
         val current = Novel.create().copy(
             id = MigrateEngineConformanceTest.SOURCE,

@@ -1,6 +1,7 @@
 package reikai.domain.novel
 
 import kotlinx.coroutines.flow.Flow
+import reikai.domain.novel.model.NovelHistory
 import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.NovelHistoryWithRelations
 
@@ -24,6 +25,7 @@ interface NovelHistoryRepository {
     /** Answers whether the wipe went through, so a surface can say so only when it did. */
     suspend fun deleteAllNovelHistory(): Boolean
     suspend fun upsertNovelHistory(update: NovelHistoryUpdate)
+    suspend fun getHistoryByNovelId(novelId: Long): List<NovelHistory>
 
     /** When [novelId] was first read, in epoch millis, or null when none of its chapters has been. */
     suspend fun getEarliestReadAt(novelId: Long): Long?

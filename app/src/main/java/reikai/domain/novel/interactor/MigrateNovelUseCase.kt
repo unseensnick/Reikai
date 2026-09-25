@@ -9,10 +9,13 @@ import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelHistory
+import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.hasCustomCover
@@ -30,7 +33,7 @@ import kotlin.time.Clock
  * Mostly DB work: per-chapter read, bookmark and progress matched by chapter number, categories, the
  * custom cover and notes when their flags are set, favoriting, tracker links re-pointed to the target,
  * and the merge group kept consistent (the target takes the source's place on [replace], or joins it
- * on copy). History is not carried, matching Mihon.
+ * on copy). Reading history carries with the chapter flag, as Komikku's manga migration does.
  */
 @Inject
 class MigrateNovelUseCase(
@@ -52,6 +55,7 @@ class MigrateNovelUseCase(
     // So the favorite swap and the merge-group rewrite can share one transaction; see below.
     private val transactions: Transactions,
     private val sourceTracker: SourceTrackerDispatcher,
+    private val novelHistoryRepository: NovelHistoryRepository,
 ) {
 
     private val novelDownloadManager: NovelDownloadManager get() = novelDownloadManagerProvider()
@@ -107,6 +111,11 @@ class MigrateNovelUseCase(
                         "Chapter-state carry failed (${current.id} -> ${target.id})"
                     }
                 }
+                computeHistoryMigration(
+                    currentChapters,
+                    targetChapters,
+                    novelHistoryRepository.getHistoryByNovelId(current.id),
+                ).forEach { novelHistoryRepository.upsertNovelHistory(it) }
             }
 
             if (NovelMigrationFlag.CATEGORY in flags) {
@@ -233,5 +242,25 @@ internal fun computeChapterMigration(
         } else {
             target.copy(read = read, bookmark = bookmark, lastTextProgress = progress, dateFetch = dateFetch)
         }
+    }
+}
+
+/**
+ * Each target chapter with a recognized number takes the reading history of the source chapter with the
+ * same number, as the manga engine's carry does (MigrateEngineConformanceTest pins the two). A row with
+ * no read time carries nothing.
+ */
+internal fun computeHistoryMigration(
+    currentChapters: List<NovelChapter>,
+    targetChapters: List<NovelChapter>,
+    currentHistory: List<NovelHistory>,
+): List<NovelHistoryUpdate> {
+    val historyByChapter = currentHistory.associateBy { it.chapterId }
+    return targetChapters.mapNotNull { target ->
+        if (target.chapterNumber < 0.0) return@mapNotNull null
+        val match = currentChapters.firstOrNull { it.chapterNumber >= 0.0 && it.chapterNumber == target.chapterNumber }
+        val history = match?.let { historyByChapter[it.id] } ?: return@mapNotNull null
+        val readAt = history.readAt ?: return@mapNotNull null
+        NovelHistoryUpdate(target.id, readAt, history.readDuration)
     }
 }
