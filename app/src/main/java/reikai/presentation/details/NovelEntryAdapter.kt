@@ -16,6 +16,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
+import reikai.presentation.components.percentProgressLabel
 import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.presentation.novel.details.NovelDetailsState
 import reikai.presentation.novel.details.NovelDetailsViewModel
@@ -118,9 +119,7 @@ class NovelEntryAdapter(
                 dateUpload = chapter.dateUpload,
                 chapterNumber = chapter.chapterNumber,
                 sourceOrder = chapter.sourceOrder,
-                // The novel row's own format: a hundredths scroll percent, shown only while unread + started.
-                readProgress = (chapter.lastTextProgress / 100L).toInt()
-                    .takeIf { !chapter.read && it > 0 }?.let { "$it%" },
+                readProgress = percentProgressLabel(chapter.lastTextProgress).takeIf { !chapter.read },
                 downloadState = loaded.downloadStateOf(chapter.id),
                 downloadProgress = 0,
             )

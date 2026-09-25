@@ -1287,6 +1287,14 @@ class ReaderViewModel(
         )
     }
 
+    // RK --> each sheet row's stored page count, which the chapters the reader holds never carry, so
+    // the sheet can say "Page 6/38" as the details list does.
+    suspend fun sheetPageCounts(): Map<Long, Long> =
+        (mergedGroup?.mangaById?.keys ?: listOfNotNull(manga?.id))
+            .flatMap { getChaptersByMangaId.await(it) }
+            .associate { it.id to it.pageCount }
+    // RK <--
+
     /** Set the read state of an arbitrary chapter from the chapter dialog. Uses SetReadStatus so tracker
      *  sync + delete-after-read fire like the details "mark as read", not just a raw read-flag write. */
     fun setChapterReadStatus(chapter: Chapter, read: Boolean) {

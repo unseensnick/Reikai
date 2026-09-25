@@ -252,6 +252,7 @@ every release now also ships a foss build with neither in it.
 - **The hardware bitmap threshold, legacy long strip decoding and custom display profile settings are gone from Settings -> Advanced (synced from Mihon, mihonapp/mihon#3786).** All three configured the legacy decoder, which manga pages no longer use.
 - **Novel chapters that "After reading automatically delete" removes now stay downloaded until you leave the reader, as manga chapters do.** Paging back to one offline used to fail.
 - **Finishing a novel chapter in the reader no longer deletes it under "After manually marked as read", which now applies only to marking by hand, as for manga.**
+- **The manga reader's chapter list now shows the page you stopped on in a chapter you have started, as the details screen does.** The novel reader's list already showed how far in you were.
 
 #### Fixed
 

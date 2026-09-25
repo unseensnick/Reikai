@@ -1,16 +1,23 @@
 package reikai.presentation.reader
 
 import android.content.Context
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.util.formatChapterNumber
 import reikai.domain.reader.ChapterTitleFormat
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 
-/** The words the bar puts around a chapter number, from one place so both readers say the same. */
+/**
+ * The words the reader puts around a number, the bar's chapter title and the chapter sheet's page
+ * progress, from one place so both readers say the same.
+ */
 interface ChapterTitleWords {
     fun numbered(number: String): String
 
     fun numberedWithName(number: String, name: String): String
+
+    /** A line [reikai.presentation.components.pageProgressLabel] chose, in words. */
+    fun pageProgress(resource: StringResource, args: Array<Any>): String
 }
 
 /** [ChapterTitleWords] in the app's language. */
@@ -19,6 +26,8 @@ fun Context.chapterTitleWords(): ChapterTitleWords = object : ChapterTitleWords 
 
     override fun numberedWithName(number: String, name: String) =
         stringResource(MR.strings.chapter_title_numbered, number, name)
+
+    override fun pageProgress(resource: StringResource, args: Array<Any>) = stringResource(resource, *args)
 }
 
 /**

@@ -35,6 +35,7 @@ import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupChapterFlags
 import reikai.presentation.components.chapterSubtitle
+import reikai.presentation.components.pageProgressLabel
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.model.Chapter
@@ -219,10 +220,12 @@ class MangaReaderProvider(
          */
         override val rows: Flow<List<ReaderChapterRow>> = downloadManager.queueState
             .flatMapLatest { queue ->
+                val pageCounts = viewModel.sheetPageCounts()
                 val chapters = viewModel.getChapters()
+                    .map { it.copy(chapter = it.chapter.copy(pageCount = pageCounts[it.chapter.id] ?: 0L)) }
                 val queued = queue.associateBy { it.chapter.id }
                 val flags = viewModel.sheetFlags(chapters.map { it.chapter })
-                val build = { chapters.map { it.toRow(queued, flags) } }
+                val build = { chapters.map { it.toReaderChapterRow(queued, flags, titleWords) } }
                 if (queued.isEmpty()) {
                     flowOf(build())
                 } else {
@@ -252,25 +255,6 @@ class MangaReaderProvider(
 
         private fun chapterOf(chapterId: Long) =
             viewModel.getChapters().find { it.chapter.id == chapterId }?.chapter
-    }
-
-    private fun ReaderChapterItem.toRow(
-        queued: Map<Long, Download>,
-        flags: GroupChapterFlags<Chapter>,
-    ): ReaderChapterRow {
-        val active = queued[chapter.id]
-        return ReaderChapterRow(
-            id = chapter.id,
-            title = chapter.name,
-            subtitle = chapterSubtitle(sourceName, chapter.scanlator),
-            dateUpload = chapter.dateUpload,
-            // The page a manga chapter was left on is not shown here, as upstream does not show it.
-            readProgress = null,
-            read = flags.isRead(chapter),
-            bookmark = flags.isBookmarked(chapter),
-            downloadState = downloadStateOf(active?.status) { flags.isDownloaded(chapter) },
-            downloadProgress = active?.progress ?: 0,
-        )
     }
 
     // A manga page is an image the source ships, so there is no text for a size or a page colour to
@@ -336,3 +320,25 @@ class MangaReaderProvider(
 /** How often a running download refreshes the sheet. Rebuilding the whole list on every reported frame
  *  would recompose it many times a second for a spinner that cannot show that detail. */
 private val PROGRESS_SAMPLE = 500.milliseconds
+
+/** A chapter sheet's row, as the merge group's [flags] answer for it. */
+internal fun ReaderChapterItem.toReaderChapterRow(
+    queued: Map<Long, Download>,
+    flags: GroupChapterFlags<Chapter>,
+    words: ChapterTitleWords,
+): ReaderChapterRow {
+    val active = queued[chapter.id]
+    return ReaderChapterRow(
+        id = chapter.id,
+        title = chapter.name,
+        subtitle = chapterSubtitle(sourceName, chapter.scanlator),
+        dateUpload = chapter.dateUpload,
+        // Mihon has no reader chapter sheet; this follows its details list, which shows the page.
+        readProgress = pageProgressLabel(chapter.lastPageRead, chapter.pageCount)
+            ?.let { (resource, args) -> words.pageProgress(resource, args) },
+        read = flags.isRead(chapter),
+        bookmark = flags.isBookmarked(chapter),
+        downloadState = downloadStateOf(active?.status) { flags.isDownloaded(chapter) },
+        downloadProgress = active?.progress ?: 0,
+    )
+}
