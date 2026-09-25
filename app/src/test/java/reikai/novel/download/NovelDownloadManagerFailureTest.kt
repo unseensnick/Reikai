@@ -110,7 +110,7 @@ class NovelDownloadManagerFailureTest {
 }
 
 /** An in-memory SharedPreferences, enough for the download store's string entries. */
-private class FakeSharedPreferences : SharedPreferences {
+internal class FakeSharedPreferences : SharedPreferences {
     private val values = mutableMapOf<String, Any?>()
 
     override fun getAll(): Map<String, *> = values.toMap()

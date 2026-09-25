@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import reikai.domain.download.SeriesCompletions
 import reikai.domain.manga.AdultContentChecker
@@ -37,7 +39,6 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.i18n.MR
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
 /**
@@ -83,8 +84,12 @@ class NovelDownloadManager(
     /** Chapters finished per novel while it stayed queued, read by the download queue's cards. */
     val completions = SeriesCompletions()
 
-    /** True while [runQueue] is draining; gates a single drain. */
-    private val running = AtomicBoolean(false)
+    /**
+     * Held for a whole [runQueue], so one drain runs at a time. A second call waits rather than
+     * returning: a paused drain can still be unwinding a blocking save when Resume starts the next
+     * worker, and a caller that returned then would end that worker with the queue left idle.
+     */
+    private val drainLock = Mutex()
 
     /** Per-source pacing delay (ms), adapted by [runQueue]: halved on success, doubled on failure.
      *  Only touched inside the single active drain, so a plain map is safe. */
@@ -314,8 +319,7 @@ class NovelDownloadManager(
     suspend fun runQueue(
         onProgress: (NovelDownloadProgress) -> Unit,
         onError: (novel: Novel?, chapterName: String?, error: String?, isAdult: Boolean) -> Unit,
-    ) {
-        if (!running.compareAndSet(false, true)) return
+    ) = drainLock.withLock {
         try {
             installer.ensureLoaded()
             if (_queueState.value.isEmpty()) {
@@ -449,7 +453,6 @@ class NovelDownloadManager(
             }
         } finally {
             _downloadingNovelId.value = null
-            running.set(false)
         }
     }
 

@@ -554,6 +554,7 @@ every release now also ships a foss build with neither in it.
 - **A novel chapter its source returns empty now fails to download at once and says why, instead of retrying and reporting an unknown error.**
 - **The Settings -> Downloads note that download-ahead needs the current and next chapter downloaded now sits under Manga, where it is true, instead of Novels.**
 - **The More tab's download row now reads Paused while novel downloads are paused, matching the download queue's own Resume button.**
+- **Resuming novel downloads right after pausing them now carries on with the queue.** A Resume that landed while a chapter with pictures was still saving could leave the queue sitting idle until you tapped it again.
 
 ### Backup & restore
 
