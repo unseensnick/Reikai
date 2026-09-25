@@ -68,6 +68,7 @@ every release now also ships a foss build with neither in it.
 - **The app no longer freezes on the Library while light-novel plugins are being set up.** It could hang long enough for Android to offer to close it, most often on a slow or freshly started device.
 - **Chapter range selection now works the same on manga and novels, and keeps out the chapters you dropped.** Extending a range used to re-add a chapter you had deselected, and on novels the next long press took it back.
 - **Inverting a library selection in one category no longer clears your picks in the others.**
+- **The library update no longer refetches a finished gallery from an adult gallery source once you have read it.** Its page also keeps the description and status the source gives it.
 - **Reset all in Edit info now clears a cover you set by hand, so the series goes back to the source's own cover.** It reset the text fields and left the picked cover in place, on both manga and novels.
 - **Downloaded badges now notice chapters you delete outside the app.** The check was meant to run hourly but restarted its clock on every launch, so opening the app more often than that meant it never ran.
 - **On a merged series, tapping the cover shows the selected source's cover, and changing the cover is done on the All chip.** Your library shows the group's cover, so an edit made under one source would have looked like it did nothing.

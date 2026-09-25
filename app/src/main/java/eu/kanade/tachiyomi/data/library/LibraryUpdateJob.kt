@@ -215,6 +215,8 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             timeZone,
         )
 
+        // RK: the delegated nHentai ids are set when the extension scan lands, so a fresh process waits for it.
+        sourceManager.getAll()
         mangaToUpdate = listToUpdate
             // RK -->
             // Adult galleries (E-Hentai / ExHentai / Pururin, plus delegated nHentai) are skipped

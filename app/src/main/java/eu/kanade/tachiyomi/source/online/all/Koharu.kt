@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.source.online.all
 
 import android.content.Context
-import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
@@ -11,6 +10,7 @@ import eu.kanade.tachiyomi.source.online.NamespaceSource
 import exh.metadata.metadata.KoharuSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
+import exh.source.layeredMangaUpdate
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.Response
@@ -25,25 +25,13 @@ class Koharu(delegate: HttpSource, context: Context) :
     override fun tagSearchQuery(namespace: String, tag: String) = tag
     override val lang = delegate.lang
 
-    // capture gallery metadata on the details fetch, delegate chapters to the stock source.
     override suspend fun getMangaUpdate(
         manga: SManga,
         chapters: List<SChapter>,
         fetchDetails: Boolean,
         fetchChapters: Boolean,
-    ): SMangaUpdate {
-        val updatedManga = if (fetchDetails) {
-            val response = client.newCall(mangaDetailsRequest(manga)).awaitSuccess()
-            parseToManga(manga, response)
-        } else {
-            manga
-        }
-        val updatedChapters = if (fetchChapters) {
-            delegate.getMangaUpdate(manga, chapters, fetchDetails = false, fetchChapters = true).chapters
-        } else {
-            chapters
-        }
-        return SMangaUpdate(updatedManga, updatedChapters)
+    ): SMangaUpdate = layeredMangaUpdate(manga, chapters, fetchDetails, fetchChapters) { base, response ->
+        parseToManga(base, response)
     }
 
     override suspend fun parseIntoMetadata(metadata: KoharuSearchMetadata, input: Response) {
