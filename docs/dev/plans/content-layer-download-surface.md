@@ -34,6 +34,8 @@ The queue screen stacks two separately owned lists. In the All view a manga card
 
 **Downloaded only.** Both readers page over `downloadedOrCurrent`, the downloaded chapters plus the one being read, while download-ahead walks the unfiltered list. The novel details list and filter sheet follow the switch through `appliedDownloadedFilter`, as manga's do through `Manga.downloadedFilter`, without saving it over the novel's own filter.
 
+**Download-ahead.** Both readers pick the chapters through `chaptersToDownloadAhead`, and both run in incognito, which keeps history out and not downloads. They differ on one gate, kept on purpose (owner ruling, 2026-09-24): manga downloads ahead only when the current chapter was read from disk and the next is downloaded too (Mihon's `ReaderViewModel.downloadNextChapters`), because a streamed chapter's page loads share the source with the download and would stutter; a novel chapter is one request, so the novel reader has no such gate. The settings note saying the current and next chapter must be downloaded sits under Manga only, for that reason.
+
 **Pacing.** Settings, Downloads, Pacing sets the shortest wait between two chapters from one novel source, globally and per source, with `NovelDownloadPacing`'s back-off on top. Novels only: manga extensions rate-limit their own clients through `RateLimitInterceptor`, which LN plugins have no equivalent of.
 
 ## Key files

@@ -520,6 +520,7 @@ every release now also ships a foss build with neither in it.
 - **Downloaded novel chapters show as downloaded as soon as the app opens.** The novel download folder is no longer rescanned on every launch, only hourly, as manga's is.
 - **Rows in Browse -> Extensions now read the same for every kind of extension, and a pending update shows the version it brings.** Available rows show their version under their language heading, installed rows their language and version.
 - **Novel plugin repos in Browse -> Extensions now refresh when you pull down, rather than each time you come back or install a plugin.**
+- **Reading a novel in incognito now downloads the next chapters ahead, as reading manga in incognito does.** Incognito keeps your history out, not your downloads.
 
 #### Fixed
 
@@ -550,6 +551,7 @@ every release now also ships a foss build with neither in it.
 - **Reordering or sorting a paused novel download queue no longer starts it downloading.**
 - **Pausing novel downloads no longer marks the chapter being retried as failed and drops it from the queue.**
 - **A novel chapter its source returns empty now fails to download at once and says why, instead of retrying and reporting an unknown error.**
+- **The Settings -> Downloads note that download-ahead needs the current and next chapter downloaded now sits under Manga, where it is true, instead of Novels.**
 
 ### Backup & restore
 

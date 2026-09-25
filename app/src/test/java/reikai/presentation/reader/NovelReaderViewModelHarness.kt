@@ -129,6 +129,7 @@ class NovelReaderViewModelHarness private constructor(
 
     /** The global Downloaded only switch. */
     val downloadedOnly = store.getBoolean(Preference.appStateKey("pref_downloaded_only"), false)
+    val incognito = store.getBoolean(Preference.appStateKey("incognito_mode"), false)
 
     val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
         every { queueState } returns MutableStateFlow(emptyList())
@@ -237,7 +238,7 @@ class NovelReaderViewModelHarness private constructor(
             // lookup is never reached for a novel source.
             getIncognitoState = GetIncognitoState(
                 mockk<BasePreferences> {
-                    every { incognitoMode } returns store.getBoolean(Preference.appStateKey("incognito_mode"), false)
+                    every { incognitoMode } returns this@NovelReaderViewModelHarness.incognito
                 },
                 SourcePreferences(store),
                 mockk(),

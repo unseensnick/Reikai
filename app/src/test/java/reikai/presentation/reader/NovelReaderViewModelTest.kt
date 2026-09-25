@@ -133,6 +133,27 @@ class NovelReaderViewModelTest {
         }
     }
 
+    /** Incognito keeps history out, not downloads, as Mihon's reader downloads ahead in it too. */
+    @Test
+    fun `in incognito download-ahead still queues the next chapter`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val second = harness.chapter(novel, 2.0)
+        harness.incognito.set(true)
+        harness.novelPreferences.autoDownloadWhileReading().set(1)
+        harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        coVerify {
+            harness.downloadManager.downloadChapters(
+                match { chapters ->
+                    chapters.map { it.id } ==
+                        listOf(second.id)
+                },
+            )
+        }
+    }
+
     /** Both members carry the same chapters, so the stitch draws every one from the member that leads. */
     @Test
     fun `a merged novel whose chapters all come from one source still names it`() = readerTest { harness ->

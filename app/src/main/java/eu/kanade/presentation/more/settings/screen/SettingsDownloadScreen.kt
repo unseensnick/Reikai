@@ -101,7 +101,9 @@ object SettingsDownloadScreen : SearchableSettings {
                 excludedCategories = downloadPreferences.downloadNewChapterCategoriesExclude,
                 categories = allCategories,
                 autoDownloadWhileReading = downloadPreferences.autoDownloadWhileReading,
-                showDownloadAheadInfo = false,
+                // Only manga's reader needs the current and next chapter on disk before it downloads
+                // ahead (ReaderViewModel.downloadNextChapters); the novel reader has no such gate.
+                showDownloadAheadInfo = true,
             ),
             autoDownloadGroup(
                 contentType = MR.strings.content_type_novels,
@@ -111,7 +113,7 @@ object SettingsDownloadScreen : SearchableSettings {
                 excludedCategories = novelPreferences.downloadNewChapterCategoriesExclude(),
                 categories = novelCategories,
                 autoDownloadWhileReading = novelPreferences.autoDownloadWhileReading(),
-                showDownloadAheadInfo = true,
+                showDownloadAheadInfo = false,
             ),
             novelPacingGroup(novelPreferences),
             // RK <--

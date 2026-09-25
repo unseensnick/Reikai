@@ -1505,11 +1505,14 @@ class NovelReaderViewModel(
         return warmFailures[id]?.let { BoundaryFailure(it.message, it.failedAtElapsedMs, id) }
     }
 
-    /** Enqueues the next N unread, un-downloaded chapters in reading order, the novel twin of manga's
-     *  autoDownloadWhileReading, pinned to it by [chaptersToDownloadAhead]. Off in incognito and when
-     *  the setting is zero. Read fresh, so a chapter finished in this session is not queued again. */
+    /**
+     * Enqueues the next N unread, un-downloaded chapters in reading order, the novel twin of manga's
+     * autoDownloadWhileReading, pinned to it by [chaptersToDownloadAhead]. Runs in incognito, which
+     * keeps history out and not downloads, as in manga. Unlike manga it needs neither chapter on disk:
+     * manga's gate keeps a streamed chapter's page loads from sharing the source with the download,
+     * and a novel chapter is one request. Read fresh, so a chapter finished here is not queued again.
+     */
     private suspend fun maybeDownloadAhead() {
-        if (incognitoMode) return
         val ahead = novelPreferences.autoDownloadWhileReading().get()
         if (ahead <= 0) return
         val index = aheadIds.indexOf(currentChapterId)
