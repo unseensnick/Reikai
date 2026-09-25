@@ -23,8 +23,9 @@ sealed interface NewChapters {
 
 /**
  * [chapterNumbers] is every new chapter's number, unfiltered: a negative one means the source did not
- * number it, which is what [NewChapters.Count] exists for. [total] is how many arrived, so `remaining`
- * counts what the notification does not name, whether it went unnumbered or past the cap.
+ * number it, which is what [NewChapters.Count] exists for. [total] is how many arrived. `remaining`
+ * counts what the notification does not name: the unnumbered chapters plus the numbers past the cap.
+ * A number reported twice (two sources of a merged entry) is one chapter, never one more.
  */
 fun newChapters(chapterNumbers: List<Double>, total: Int): NewChapters {
     val named = chapterNumbers
@@ -32,15 +33,12 @@ fun newChapters(chapterNumbers: List<Double>, total: Int): NewChapters {
         .sorted()
         .map(::formatChapterNumber)
         .distinct()
+    if (named.isEmpty()) return NewChapters.Count(total)
 
-    return when {
-        named.isEmpty() -> NewChapters.Count(total)
-        named.size == 1 -> NewChapters.Single(named.first(), total - 1)
-        named.size > NOTIF_MAX_CHAPTERS -> NewChapters.Multiple(
-            named.take(NOTIF_MAX_CHAPTERS),
-            named.size - NOTIF_MAX_CHAPTERS,
-        )
-        else -> NewChapters.Multiple(named, remaining = 0)
+    val remaining = chapterNumbers.count { it < 0.0 } + (named.size - NOTIF_MAX_CHAPTERS).coerceAtLeast(0)
+    return when (named.size) {
+        1 -> NewChapters.Single(named.first(), remaining)
+        else -> NewChapters.Multiple(named.take(NOTIF_MAX_CHAPTERS), remaining)
     }
 }
 

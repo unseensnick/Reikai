@@ -48,4 +48,15 @@ class NewChaptersTest {
         newChapters(listOf(1.0, 1.0, 2.0), total = 3) shouldBe
             NewChapters.Multiple(listOf("1", "2"), remaining = 0)
     }
+
+    @Test
+    fun `unnumbered chapters beside several named ones are counted as remaining`() {
+        newChapters(listOf(1.0, 2.0, -1.0, -1.0), total = 4) shouldBe
+            NewChapters.Multiple(listOf("1", "2"), remaining = 2)
+    }
+
+    @Test
+    fun `a single number reported twice is not counted as one more`() {
+        newChapters(listOf(1.0, 1.0), total = 2) shouldBe NewChapters.Single("1", remaining = 0)
+    }
 }
