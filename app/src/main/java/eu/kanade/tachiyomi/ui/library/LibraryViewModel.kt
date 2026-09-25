@@ -268,8 +268,7 @@ class LibraryViewModel(
             .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
             // RK: seeded null, which the derived state reads as still loading. The shared assembly emits
-            //     a tick after this one, and that one empty frame renders the list branch with no
-            //     categories rather than the empty-library screen, so loading must not end before it.
+            //     a tick after this one; LibraryTab keeps loading until it lands.
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 
     val state: StateFlow<State> = combine(

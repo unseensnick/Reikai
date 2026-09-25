@@ -191,8 +191,8 @@ data object LibraryTab : Tab {
         }
         // RK: the list (the sections, their rows and their counts) renders off the engine's assembly,
         // the only place that can bucket both content types into one list. The assembly lags a chip
-        // flip by one emission, so it renders only when its chip matches; the empty defaults below
-        // cover that single frame and the cold-start frame, both of which sit behind isLoading.
+        // flip and a cold start by one emission, so it renders only when its chip matches, and until
+        // then the tab reads as loading rather than as a search that found nothing.
         val assembled = engine.assembled.collectAsStateWithLifecycle().value
             ?.takeIf { it.chip == libraryContentType }
         val activeBuckets = assembled?.buckets.orEmpty()
@@ -200,7 +200,7 @@ data object LibraryTab : Tab {
         val activeSelection by engine.selection.collectAsState()
         val activeSearchQuery = libState.searchQuery
         val activeIsLibraryEmpty = libState.isLibraryEmpty
-        val activeIsLoading = libState.isLoading
+        val activeIsLoading = libState.isLoading || assembled == null
         val activeGetItems: (LibraryBucket) -> List<LibraryItem> =
             assembled?.let { it::itemsFor } ?: { emptyList() }
         val activeGetItemCount: (LibraryBucket) -> Int? =
