@@ -808,7 +808,8 @@ it was written up as: all three types were already built once here, by `Download
   `mihon/app/di/injekt/MetroInteropModule.kt`, `core/metro/src/main/kotlin/mihon/core/metro/*.kt`,
   and `eu/kanade/tachiyomi/App.kt`, all at `b2015d1ef`.
 - Here: `app/src/main/java/mihon/app/di/` (the graph, both binding containers, the ViewModel factory
-  and `injekt/MetroInjektRegistrar.kt`, the whole Injekt surface),
+  and `injekt/MetroInjektRegistrar.kt`, the whole Injekt surface), `reikai/di/ReikaiGraph.kt` (Reikai's
+  graph members, which `AppGraph` extends so its own file stays in Mihon's shape),
   `app/src/main/java/eu/kanade/tachiyomi/App.kt`, `scripts/di-interop-check.ps1` with the
   `pre-commit` hook and the `build_check` workflow step that run it, `app/proguard-rules.pro`,
   `app/src/main/baselineProfiles/`, and the two engines named under Traps. `AppModule.kt` and

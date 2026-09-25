@@ -25,7 +25,7 @@ Reikai's ported screens (library, manga details, the light-novel surfaces) follo
 
 ## Dependency injection
 
-DI is **Metro** (`dev.zacsweers.metro`), resolved by the compiler rather than at runtime. The graph is `app/src/main/java/mihon/app/di/AppGraph.kt`, with its providers in `AppBindings` (upstream's) and `ReikaiBindings` (ours) beside it. A class joins the graph by carrying `@Inject` on itself and taking its dependencies as constructor parameters; add `@SingleIn(AppScope::class)` when it must be an application singleton, and `@ContributesBinding(AppScope::class)` on an implementation bound to an interface. Do not introduce Koin.
+DI is **Metro** (`dev.zacsweers.metro`), resolved by the compiler rather than at runtime. The graph is `app/src/main/java/mihon/app/di/AppGraph.kt`, with its providers in `AppBindings` (upstream's) and `ReikaiBindings` (ours) beside it. `AppGraph` keeps Mihon's members in Mihon's order; Reikai's own `inject()` members and accessors live in `reikai/di/ReikaiGraph.kt`, which `AppGraph` extends, so a new one goes there and is still read as `context.appGraph.x`. A class joins the graph by carrying `@Inject` on itself and taking its dependencies as constructor parameters; add `@SingleIn(AppScope::class)` when it must be an application singleton, and `@ContributesBinding(AppScope::class)` on an implementation bound to an interface. Do not introduce Koin.
 
 Three shapes for the cases a plain parameter cannot cover:
 
