@@ -868,7 +868,10 @@ done.
     top: delete `locksByHost` and the read/write wrapping in `WebViewInterceptor.intercept`, drop
     `getNonce` / `isBypassed` and the `nonce` parameter, return `Response` instead of `Response?`,
     and restore `TurnstileSolver.onlyOncePerHost` (a `ConcurrentHashMap` of `CompletableFuture`
-    guarding one solve per host) around the `resolveWithWebView` call.
+    guarding one solve per host) around the `resolveWithWebView` call. In the same change, restore
+    the equivalent guard around `FlareSolverrClient.resolve`: its own per-host dedup was deleted once
+    the lock made it unreachable, so removing the lock alone lets concurrent requests each start a
+    FlareSolverr solve.
   - **The regression it caused, since it will recur if this is re-derived.** The sibling shortcut
     returns from the base class without reaching the subclass, and the subclass is what closed the
     challenge response. Left unclosed, OkHttp refuses the retry on the same call with

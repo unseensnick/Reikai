@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.network.interceptor.FlareSolverrClient
 import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
+import eu.kanade.tachiyomi.network.interceptor.pinFlareSolverrUserAgents // RK
 import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -41,9 +42,9 @@ class NetworkHelper(
                 ),
             )
             .addInterceptor(UncaughtExceptionInterceptor())
-            // RK --> pin per-host UA after a FlareSolverr solve
-            .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider, flareSolverr::pinnedUserAgentFor))
-        // RK <--
+            .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
+            // RK: ahead of the logging interceptor, so verbose logs show the User-Agent actually sent.
+            .pinFlareSolverrUserAgents(flareSolverr::pinnedUserAgentFor)
 
         if (preferences.verboseLogging.get()) {
             val httpLoggingInterceptor = HttpLoggingInterceptor().apply {

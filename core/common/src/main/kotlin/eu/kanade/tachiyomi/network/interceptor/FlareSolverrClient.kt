@@ -41,7 +41,6 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -90,9 +89,6 @@ class FlareSolverrClient(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    // One active FlareSolverr solve per hostname; concurrent 403s for the same host coalesce.
-    private val pendingFSSolves = ConcurrentHashMap<String, CompletableFuture<Unit>>()
-
     // Per-host User-Agent pin set when FlareSolverr solves a challenge. Subsequent requests to
     // that host must use this UA so the cf_clearance cookie (bound to it) keeps validating.
     private val fsPinByHost = ConcurrentHashMap<String, String>()
@@ -139,11 +135,13 @@ class FlareSolverrClient(
 
     /**
      * Solve the challenge for [request] through the FlareSolverr server at [flareSolverrUrl] and
-     * return its fully-fetched response. Returns null when a sibling thread is already solving for
-     * the same host (the caller should then fall through to a normal retry with the cookie jar).
+     * return its fully-fetched response. One solve per host at a time is [WebViewInterceptor]'s
+     * per-host lock, which every caller holds.
      */
-    fun resolve(flareSolverrUrl: String, request: Request): Response? =
-        resolveWithFlareSolverrDedup(flareSolverrUrl, request)
+    fun resolve(flareSolverrUrl: String, request: Request): Response {
+        cookieManager.remove(request.url, COOKIE_NAMES, 0)
+        return resolveWithFlareSolverr(flareSolverrUrl, request)
+    }
 
     /**
      * Connectivity check for the settings "Test" button: a sessionless solve of google.com.
@@ -217,35 +215,6 @@ class FlareSolverrClient(
             )
         }
         FlareSolverrTestResult.Success
-    }
-
-    private fun resolveWithFlareSolverrDedup(flareSolverrUrl: String, request: Request): Response? {
-        val host = request.url.host
-
-        while (true) {
-            val existing = pendingFSSolves[host]
-            if (existing != null) {
-                // Another thread is already solving for this host. Wait for it, then return null
-                // so the caller falls through to chain.proceed with whatever the cookie jar has.
-                existing.get(90, TimeUnit.SECONDS)
-                return null
-            }
-            val future = CompletableFuture<Unit>()
-            if (pendingFSSolves.putIfAbsent(host, future) == null) {
-                try {
-                    cookieManager.remove(request.url, COOKIE_NAMES, 0)
-                    val response = resolveWithFlareSolverr(flareSolverrUrl, request)
-                    future.complete(Unit)
-                    return response
-                } catch (e: Exception) {
-                    future.completeExceptionally(e)
-                    throw e
-                } finally {
-                    pendingFSSolves.remove(host)
-                }
-            }
-            // Another thread won the race between our check and putIfAbsent. Loop and wait.
-        }
     }
 
     private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request): Response {

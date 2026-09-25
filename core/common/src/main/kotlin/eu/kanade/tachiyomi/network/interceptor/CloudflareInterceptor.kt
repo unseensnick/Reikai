@@ -49,6 +49,7 @@ class CloudflareInterceptor(
         return response.header("cf-mitigated") == "challenge" && response.header("Server") in SERVER_CHECK
     }
 
+    // RK --> the per-host solve lock (mihonapp/mihon#3858): the nonce and the nullable retry signal.
     override fun getNonce(url: HttpUrl): String? = cookieManager.get(url)
         .firstOrNull { it.name == "cf_clearance" }
         ?.value
@@ -59,6 +60,7 @@ class CloudflareInterceptor(
         response: Response,
         nonce: String?,
     ): Response? {
+        // RK <--
         try {
             // RK: the challenge may be served after a redirect, and this is an application
             //     interceptor, so chain.request() holds the URL from before it. Everything the
@@ -81,10 +83,8 @@ class CloudflareInterceptor(
             // FlareSolverr returns a fully-fetched response, so serve it directly. Replaying its
             // cookies through OkHttp doesn't work for hosts on Cloudflare's stricter bot-management
             // tier (cf_clearance is bound to a TLS / __cf_bm fingerprint OkHttp can't reproduce).
-            // A null return means a sibling thread did the solve; fall through to a normal retry
-            // with whatever the cookie jar holds.
             if (fsActive && flareSolverr.shouldSkipWebView(host)) {
-                flareSolverr.resolve(flareSolverrUrl, request)?.let { return it }
+                return flareSolverr.resolve(flareSolverrUrl, request)
             } else {
                 if (!fsActive && webViewFetcher.serves(fetchRequest)) {
                     when (val outcome = webViewFetcher.fetch(chain, fetchRequest)) {
@@ -117,17 +117,15 @@ class CloudflareInterceptor(
                     // Don't re-pay the 30s WebView timeout on later requests to a host the WebView
                     // can't clear: mark it so subsequent requests go straight to FlareSolverr.
                     flareSolverr.markWebViewUnsolvable(host)
-                    flareSolverr.resolve(flareSolverrUrl, request)?.let { return it }
+                    return flareSolverr.resolve(flareSolverrUrl, request)
                 }
             }
 
             // WebView path: retry the request normally. Returning null lets the base class do that
             // outside the per-host write lock, so the next challenged request is not queued behind
-            // this one's retry. A FlareSolverr-pinned host is the exception: the application
-            // interceptor chain doesn't re-run on chain.proceed() from inside an interceptor, so the
-            // pinned UA has to be applied here, and that retry does hold the lock.
-            val pinnedUa = flareSolverr.pinnedUserAgentFor(host) ?: return null
-            return chain.proceed(request.newBuilder().header("User-Agent", pinnedUa).build())
+            // this one's retry. A host FlareSolverr pinned gets its User-Agent from the network
+            // interceptor in pinFlareSolverrUserAgents, which every retry passes.
+            return null
             // RK <--
         }
         // Because OkHttp's enqueue only handles IOExceptions, wrap the exception so that
