@@ -221,4 +221,10 @@
         <item quantity="one">%d repo</item>
         <item quantity="other">%d repos</item>
     </plurals>
+
+    <!-- RK: the related-manga grid when your filters hide every suggestion -->
+    <plurals name="recs_all_hidden">
+        <item quantity="one">Your filters hide the one suggestion</item>
+        <item quantity="other">Your filters hide all %d suggestions</item>
+    </plurals>
 </resources>

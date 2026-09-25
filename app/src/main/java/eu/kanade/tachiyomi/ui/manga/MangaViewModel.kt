@@ -1862,6 +1862,9 @@ class MangaViewModel(
         val state = successState ?: return
         val source = state.source as? CatalogueSource ?: return
         relatedLoadStarted = true
+        // An empty, incomplete entry marks the load as running, so "See all" spins only while one is.
+        val cached = relatedMangaCache.get(state.manga.id)
+        if (cached == null) relatedMangaCache.put(state.manga.id, emptyList(), emptyList(), isComplete = false)
         // Bootstrap / refresh the taste cache out of band (never on the carousel's critical path);
         // the profile read below uses whatever is already cached, the pull lands for the next open.
         viewModelScope.launchIO { refreshTrackerLibrary.refreshIfStale() }
@@ -1871,7 +1874,6 @@ class MangaViewModel(
             // Anti-echo: opt-in filter that hides suggestions the user already has/tracks (by id, then
             // title). No-op when no filter is enabled.
             val hideFilter = buildRecommendationHideFilter.await()
-            val cached = relatedMangaCache.get(state.manga.id)
             if (cached != null) {
                 applyRelated(cached.fullPool, favoriteKeys, hideFilter)
                 if (cached.isComplete && relatedMangaCache.isFresh(cached)) return@launchIO

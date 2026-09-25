@@ -32,8 +32,10 @@ import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
+import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 /**
@@ -113,14 +115,29 @@ class RelatedMangasBrowseScreen(
             },
             snackbarHost = { SnackbarHost(viewModel.snackbarHostState) },
         ) { contentPadding ->
-            when {
-                state.loading -> LoadingScreen(Modifier.padding(contentPadding))
-                state.items.isEmpty() -> EmptyScreen(
-                    stringRes = MR.strings.recs_browse_empty,
-                    modifier = Modifier.padding(contentPadding),
-                )
-                else -> RelatedMangasBrowseContent(
-                    items = state.visibleItems(),
+            when (val content = state.content) {
+                RelatedMangasBrowseViewModel.Content.Loading -> LoadingScreen(Modifier.padding(contentPadding))
+                is RelatedMangasBrowseViewModel.Content.Empty -> if (content.hiddenCount > 0) {
+                    EmptyScreen(
+                        message = pluralStringResource(
+                            MR.plurals.recs_all_hidden,
+                            content.hiddenCount,
+                            content.hiddenCount,
+                        ),
+                        modifier = Modifier.padding(contentPadding),
+                        actions = listOf(
+                            EmptyScreenAction(
+                                MR.strings.recs_show_hidden,
+                                MaterialSymbols.Rounded.Visibility,
+                                viewModel::toggleShowHidden,
+                            ),
+                        ),
+                    )
+                } else {
+                    EmptyScreen(stringRes = MR.strings.recs_browse_empty, modifier = Modifier.padding(contentPadding))
+                }
+                is RelatedMangasBrowseViewModel.Content.Items -> RelatedMangasBrowseContent(
+                    items = content.items,
                     columns = viewModel.getColumns(configuration.orientation),
                     selectedUrls = state.selectedUrls,
                     grouped = state.grouped,

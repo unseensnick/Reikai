@@ -15,8 +15,14 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.manga.interactor.UpdateManga
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import mihon.domain.manga.model.toDomainManga
 import reikai.domain.category.resolveDefaultCategoryIds
@@ -82,22 +88,37 @@ class RelatedMangasBrowseViewModel(
 
     init {
         viewModelScope.launchIO {
-            val favoriteKeys = currentFavoriteKeys()
             val hideFilter = buildRecommendationHideFilter.await()
-            // Render live off the cache so a grid opened mid-load (the menu placement opens it before the
-            // background load finishes) fills to the full pool as it streams, instead of freezing on the
-            // partial snapshot present at open. "See all" is tapped after the carousel, so it starts full.
-            relatedMangaCache.observe(mangaId).collect { entry ->
-                val pool = entry?.fullPool.orEmpty()
-                val items = pool.map {
-                    BrowseItem(it, (it.manga.url to it.sourceId) in favoriteKeys, hidden = hideFilter.shouldHide(it))
+            // Live off the cache, so a grid opened mid-load (the menu placement opens it before the load
+            // finishes) fills as the pool streams, and off the library, so a title added here or anywhere
+            // else stays marked through every later emission.
+            val pool = relatedMangaCache.observe(mangaId)
+            val library = pool.map { entry -> entry?.fullPool.orEmpty().librarySourceIds() }
+                .distinctUntilChanged()
+                .flatMapLatest(::libraryKeys)
+            combine(pool, library) { entry, libraryKeys ->
+                Triple(entry?.fullPool.orEmpty(), entry?.isComplete, libraryKeys)
+            }.collect { (candidates, isComplete, libraryKeys) ->
+                val items = candidates.map {
+                    BrowseItem(it, (it.manga.url to it.sourceId) in libraryKeys, hidden = hideFilter.shouldHide(it))
                 }
-                state.update {
-                    it.copy(items = items, loading = pool.isEmpty() && entry?.isComplete != true)
-                }
+                // No entry is a finished, empty pool: a source with no related list, or one lost with the process.
+                state.update { it.copy(items = items, loading = isComplete == false && candidates.isEmpty()) }
             }
         }
     }
+
+    private fun List<RelatedMangaCandidate>.librarySourceIds() =
+        map { it.sourceId }.filter { it != RECOMMENDS_SOURCE }.toSortedSet()
+
+    private fun libraryKeys(sourceIds: Set<Long>): Flow<Set<Pair<String, Long>>> =
+        if (sourceIds.isEmpty()) {
+            flowOf(emptySet())
+        } else {
+            combine(sourceIds.map { getFavorites.subscribe(it) }) { perSource ->
+                perSource.flatMap { favorites -> favorites.map { it.url to it.source } }.toSet()
+            }
+        }
 
     fun toggleShowHidden() = state.update { it.copy(showHidden = !it.showHidden) }
 
@@ -209,20 +230,9 @@ class RelatedMangasBrowseViewModel(
     }
 
     private suspend fun finishAdd(added: Int, skipped: Int) {
-        val favoriteKeys = currentFavoriteKeys()
         // On the main thread, where every other selection write happens.
         withUIContext { clearSelection() }
-        state.update { st ->
-            st.copy(
-                items = st.items.map {
-                    it.copy(
-                        inLibrary =
-                        (it.candidate.manga.url to it.candidate.sourceId) in favoriteKeys,
-                    )
-                },
-                dialog = null,
-            )
-        }
+        state.update { it.copy(dialog = null) }
         val message = if (skipped > 0) {
             context.stringResource(MR.strings.bulk_added_with_skipped, added, skipped)
         } else {
@@ -230,9 +240,6 @@ class RelatedMangasBrowseViewModel(
         }
         snackbarHostState.showSnackbar(message)
     }
-
-    private suspend fun currentFavoriteKeys(): Set<Pair<String, Long>> =
-        getFavorites.await().mapTo(HashSet()) { it.url to it.source }
 
     data class BrowseItem(
         val candidate: RelatedMangaCandidate,
@@ -257,6 +264,21 @@ class RelatedMangasBrowseViewModel(
 
         /** Items shown given the show-hidden toggle (hidden = already in library / tracked as filtered). */
         fun visibleItems(): List<BrowseItem> = if (showHidden) items else items.filterNot { it.hidden }
+
+        /** What the grid shows, derived once so the empty state and the grid read the same list. */
+        val content: Content
+            get() {
+                if (loading) return Content.Loading
+                val visible = visibleItems()
+                if (visible.isNotEmpty()) return Content.Items(visible)
+                return Content.Empty(hiddenCount = items.count { it.hidden })
+            }
+    }
+
+    sealed interface Content {
+        data object Loading : Content
+        data class Empty(val hiddenCount: Int) : Content
+        data class Items(val items: List<BrowseItem>) : Content
     }
 
     sealed interface Dialog {
