@@ -51,8 +51,9 @@ android {
         // in dev builds otherwise. A deliberate exception to the bump-at-release-cut rule; see
         // CLAUDE.md. 186 gates the novel custom-cover re-key; 187 the category schema unification's
         // novel-category fold-in; 188 the category-preference content-type cleanup; 189 the
-        // merge-prefs-to-groups migration and 190 the chapter-match-key backfill after it; 191 splits
-        // the novel reader's single padding into its four margins; 192 adds the read-aloud button to a
+        // merge-prefs-to-groups migration; 190 gated the chapter-match-key backfill, since deleted,
+        // and stays retired; 191 splits the novel reader's single padding into its four margins;
+        // 192 adds the read-aloud button to a
         // customised novel reader bar; 193 deletes the keys only the retired novel reader wrote; 194 carries
         // the novel tap-to-scroll switch into a tap layout; 195 carries the extension NSFW switch into the
         // allowed content warnings; 196 moves bypass-server credentials out of the stored address. All
@@ -107,8 +108,8 @@ android {
             // RK --> signed with the real key when CI secrets or a local keystore.properties are
             // present (see the signingConfigs block above), else debug-signed. The release variant
             // carries no applicationIdSuffix, so it ships as plain app.reikai, matching upstream.
-            signingConfig = signingConfigs.getByName("debug")
             // RK <--
+            signingConfig = debug.signingConfig
 
             isProfileable = true
 
@@ -129,8 +130,6 @@ android {
 
             applicationIdSuffix = ".debug"
 
-            signingConfig = debug.signingConfig
-
             matchingFallbacks.addAll(commonMatchingFallbacks)
         }
         create("benchmark") {
@@ -138,8 +137,6 @@ android {
 
             versionNameSuffix = "-benchmark"
             applicationIdSuffix = ".benchmark"
-
-            signingConfig = debug.signingConfig
 
             matchingFallbacks.addAll(commonMatchingFallbacks)
         }
