@@ -30,7 +30,6 @@ import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.SmartNovelSearchEngine
 import reikai.novel.source.langCode
 import reikai.presentation.migrate.PickMember
-import reikai.presentation.migrate.memberSubtitle
 import reikai.util.runCatchingCancellable
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
@@ -112,10 +111,8 @@ class NovelMigrationFlowAdapter(
                     title = novel.title,
                     coverData = novel.asNovelCover(),
                     payload = novel,
-                    subtitle = memberSubtitle(
-                        sourceName = sourceDisplayName(novel.source),
-                        chapterCount = chapterRepository.getByNovelId(novel.id).size,
-                    ),
+                    sourceName = sourceDisplayName(novel.source),
+                    chapterCount = chapterRepository.getByNovelId(novel.id).size,
                 )
             }
         }

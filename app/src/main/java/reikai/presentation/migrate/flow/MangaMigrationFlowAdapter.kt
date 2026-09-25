@@ -23,7 +23,6 @@ import reikai.domain.library.ContentType
 import reikai.domain.manga.MangaMergeManager
 import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.migrate.PickMember
-import reikai.presentation.migrate.memberSubtitle
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.service.ChapterRecognition
@@ -103,10 +102,8 @@ class MangaMigrationFlowAdapter(
                     title = manga.title,
                     coverData = manga,
                     payload = manga,
-                    subtitle = memberSubtitle(
-                        sourceName = sourceDisplayName(manga.source.toString()),
-                        chapterCount = getChaptersByMangaId.await(manga.id).size,
-                    ),
+                    sourceName = sourceDisplayName(manga.source.toString()),
+                    chapterCount = getChaptersByMangaId.await(manga.id).size,
                 )
             }
         }

@@ -1,24 +1,16 @@
 package reikai.presentation.migrate.flow
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -34,7 +26,6 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
-import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -59,15 +50,14 @@ import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.presentation.migrate.MigrationPickRow
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
-import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-import tachiyomi.presentation.core.util.selectedBackground
 import tachiyomi.presentation.core.util.shouldExpandFAB
 import kotlin.time.Duration.Companion.seconds
 
@@ -163,8 +153,10 @@ class EntryMigrationFavoritesScreen(
                 contentPadding = contentPadding,
             ) {
                 items(items = state.entries, key = { it.id.toString() }) { entry ->
-                    FavoriteRow(
-                        favorite = entry,
+                    MigrationPickRow(
+                        title = entry.title,
+                        subtitle = null,
+                        coverData = entry.cover,
                         checked = entry.id in state.selected,
                         onToggle = { viewModel.toggle(entry.id) },
                         onClickCover = { entry.openDetails(navigator) },
@@ -172,45 +164,6 @@ class EntryMigrationFavoritesScreen(
                 }
             }
         }
-    }
-}
-
-/** Cover width of one picker row; its height follows the 2:3 book ratio. */
-private val COVER_WIDTH = 40.dp
-
-/**
- * One library entry to pick. Selection shows as the row's background rather than a checkbox, and the
- * cover is its own tap target that opens the entry, so a title can be checked before it is picked.
- */
-@Composable
-private fun FavoriteRow(
-    favorite: MigrationFavorite,
-    checked: Boolean,
-    onToggle: () -> Unit,
-    onClickCover: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectedBackground(checked)
-            .clickable(onClick = onToggle)
-            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MangaCover.Book(
-            data = favorite.cover,
-            modifier = Modifier.width(COVER_WIDTH),
-            onClick = onClickCover,
-        )
-        Text(
-            text = favorite.title,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = MaterialTheme.padding.medium),
-        )
     }
 }
 
