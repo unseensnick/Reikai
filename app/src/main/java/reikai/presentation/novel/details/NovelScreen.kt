@@ -69,6 +69,8 @@ class NovelScreen(
     val novelUrl: String,
     // The cover a listing showed, which stands in for a placeholder the details page gives.
     private val listingCover: String? = null,
+    // Opened from a source listing, which starts the synopsis expanded as manga's isFromSource does.
+    private val fromSource: Boolean = false,
 ) : Screen() {
 
     @Composable
@@ -77,7 +79,7 @@ class NovelScreen(
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val viewModel = assistedMetroViewModel<NovelDetailsViewModel, NovelDetailsViewModel.Factory> {
-            create(sourceId = sourceId, novelUrl = novelUrl, listingCover = listingCover)
+            create(sourceId = sourceId, novelUrl = novelUrl, listingCover = listingCover, isFromSource = fromSource)
         }
         // Lifecycle-aware so collection pauses when the screen is not resumed (parity with MangaScreen).
         val state by viewModel.state.collectAsStateWithLifecycle()

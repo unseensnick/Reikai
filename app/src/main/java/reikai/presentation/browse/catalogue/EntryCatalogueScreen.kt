@@ -205,7 +205,9 @@ class EntryCatalogueScreen(
 
         Catalogue(
             behavior = adapter,
-            onOpenEntry = { row -> navigator.push(NovelScreen(sourceId, row.item.path, row.item.cover)) },
+            onOpenEntry = { row ->
+                navigator.push(NovelScreen(sourceId, row.item.path, row.item.cover, fromSource = true))
+            },
             // A novel is addressed by source and path, so an id is resolved against the duplicates
             // the dialog was raised with, which are the only rows this can be called for.
             onOpenEntryById = { id ->

@@ -153,6 +153,7 @@ class NovelDetailsViewModel(
     @Assisted private val sourceId: String,
     @Assisted private val novelUrl: String,
     @Assisted private val listingCover: String?,
+    @Assisted val isFromSource: Boolean,
     private val novelRepo: NovelRepository,
     private val updateNovel: UpdateNovel,
     private val sourceTracker: SourceTrackerDispatcher,
@@ -201,7 +202,12 @@ class NovelDetailsViewModel(
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
-        fun create(sourceId: String, novelUrl: String, listingCover: String?): NovelDetailsViewModel
+        fun create(
+            sourceId: String,
+            novelUrl: String,
+            listingCover: String?,
+            isFromSource: Boolean,
+        ): NovelDetailsViewModel
     }
 
     /** Hosts the merge split/remove Undo snackbars; wired into the details Scaffold. */

@@ -66,7 +66,7 @@ class NovelEntryAdapter(
                 description = display.description,
                 tags = display.genre,
                 notes = novel.notes,
-                descriptionDefaultExpanded = false,
+                descriptionDefaultExpanded = model.isFromSource,
             ),
             chapters = EntryChapterListUiState(
                 items = mergeSourceLabels(mergeSources.associate { it.id to it.sourceName })

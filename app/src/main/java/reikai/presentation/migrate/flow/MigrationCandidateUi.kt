@@ -34,7 +34,9 @@ private fun Navigator.pushDetails(payload: Any) {
 internal fun MigrationCandidate.openDetails(navigator: Navigator) {
     when (val handle = handle) {
         is Manga -> navigator.push(MangaScreen(handle.id, true))
-        is NovelCandidateHandle -> navigator.push(NovelScreen(sourceKey, handle.item.path, handle.item.cover))
+        is NovelCandidateHandle -> navigator.push(
+            NovelScreen(sourceKey, handle.item.path, handle.item.cover, fromSource = true),
+        )
     }
 }
 
