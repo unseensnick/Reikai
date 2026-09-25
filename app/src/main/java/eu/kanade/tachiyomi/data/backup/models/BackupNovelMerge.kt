@@ -1,7 +1,6 @@
-// RK: novel backup. Net-new Reikai file. Novel merge/unmerge groups are stored in
-// preferences as comma-joined novel IDs, which change on restore. So instead of backing up the raw
-// ID strings (the generic preference backup is told to skip them), each group is serialized here as a
-// list of stable {url, source} refs and rebuilt into fresh IDs after the novels are restored.
+// RK: novel backup. Net-new Reikai file. Merge groups live in the merge_group tables keyed by novel
+// id, and ids change on restore, so each group is serialized here as a list of stable {url, source}
+// refs and rebuilt into fresh ids after the novels are restored.
 package eu.kanade.tachiyomi.data.backup.models
 
 import kotlinx.serialization.Serializable

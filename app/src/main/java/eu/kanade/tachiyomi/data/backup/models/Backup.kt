@@ -13,17 +13,17 @@ data class Backup(
     @ProtoNumber(105) var backupSourcePreferences: List<BackupSourcePreferences> = emptyList(),
     @ProtoNumber(106) var backupExtensionStores: List<BackupExtensionStore> = emptyList(),
     // RK: light-novel library. Proto numbers in the 700 range stay clear of Mihon's
-    // (1-106) and Komikku's fork additions (600/610). Merge/unmerge groups carry stable {url,source}
-    // refs (see BackupNovelMerge) since the live merge prefs store IDs that change on restore.
+    // (1-106) and Komikku's fork additions (600/610). Merge groups carry stable {url,source} refs
+    // (see BackupNovelMerge), since novel ids change on restore. 703 is no longer written or read.
     @ProtoNumber(700) var backupNovels: List<BackupNovel> = emptyList(),
     @ProtoNumber(701) var backupNovelCategories: List<BackupNovelCategory> = emptyList(),
     @ProtoNumber(702) var backupNovelMerges: List<BackupNovelMergeGroup> = emptyList(),
     @ProtoNumber(703) var backupNovelUnmerges: List<BackupNovelMergeGroup> = emptyList(),
-    // RK: installed manga extensions (Mihon backs up only their repos). Novel plugins need no field
-    // here: their install state already rides the preference backup (ln_installed_plugin_urls).
+    // RK: installed manga and novel extension apps (Mihon backs up only their repos). LN plugins need no
+    // field here: their install state already rides the preference backup (ln_installed_plugin_urls).
     @ProtoNumber(710) var backupExtensions: List<BackupExtension> = emptyList(),
-    // RK: manga merge/unmerge groups as stable {url,source} refs (see BackupMangaMerge), since the live
-    // merge prefs store IDs that change on restore (the manga twin of backupNovelMerges at 702/703).
+    // RK: manga merge groups as stable {url,source} refs (see BackupMangaMerge), since manga ids change on
+    // restore, as backupNovelMerges at 702 does for novels. 712 is no longer written or read.
     @ProtoNumber(711) var backupMangaMerges: List<BackupMangaMergeGroup> = emptyList(),
     @ProtoNumber(712) var backupMangaUnmerges: List<BackupMangaMergeGroup> = emptyList(),
     // RK: custom info as Reikai 0.3.x wrote it, read only. Custom info now rides on each entry

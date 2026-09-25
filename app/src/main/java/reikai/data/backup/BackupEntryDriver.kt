@@ -40,9 +40,10 @@ interface BackupEntryParts<E, B> {
 }
 
 /**
- * Every series these options back up, one at a time, so a large library is never held whole. Merge
- * group members outside the library always come along: their groups are written whatever the options
- * say, and a restore resolves a member only against a row it restored.
+ * Every series these options back up. The series lists are read whole, but each series' backup, with
+ * its chapters and history, is built and emitted one at a time. Merge group members outside the
+ * library always come along: their groups are written whatever the options say, and a restore
+ * resolves a member only against a row it restored.
  */
 fun <E, B> BackupOptions.backupEntries(parts: BackupEntryParts<E, B>): Flow<B> = flow {
     val readOnly = if (readEntries) parts.readNotInLibrary() else emptyList()

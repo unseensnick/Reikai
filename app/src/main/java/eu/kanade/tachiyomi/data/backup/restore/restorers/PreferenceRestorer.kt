@@ -104,9 +104,9 @@ class PreferenceRestorer(
         // RK: carried once every key is back, since the bar the switch applies to may restore after it.
         var readAloudWasOn = false
         toRestore.forEach { (key, value) ->
-            // RK: the retired merge prefs store entry IDs, which change on restore. MangaRestorer /
-            // NovelRestorer rebuild the merge groups from the backup's own {url, source} refs instead, so
-            // skip the raw values here to avoid stale IDs (manga + novel).
+            // RK: the retired merge prefs, which only MigrateMergePrefsToGroupsMigration reads. Their ids
+            // belong to the device the backup came from, and the restorers rebuild the groups from the
+            // backup's own {url, source} refs, so the raw values are not written back (manga + novel).
             if (key == ReikaiLibraryPreferences.MANGA_MANUAL_MERGES_KEY ||
                 key == ReikaiLibraryPreferences.MANGA_MANUAL_UNMERGES_KEY ||
                 key == ReikaiLibraryPreferences.NOVEL_MANUAL_MERGES_KEY ||

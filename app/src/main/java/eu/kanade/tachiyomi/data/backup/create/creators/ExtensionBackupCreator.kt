@@ -1,5 +1,5 @@
-// RK: installed-extensions backup. Net-new Reikai file: snapshots the installed
-// manga extensions so a restore can reinstall them. Reads the ExtensionManager's live installed list.
+// RK: installed-extensions backup. Net-new Reikai file: snapshots the installed manga and novel
+// extension apps so a restore can reinstall them. Reads the ExtensionManager's live installed lists.
 package eu.kanade.tachiyomi.data.backup.create.creators
 
 import dev.zacsweers.metro.Inject

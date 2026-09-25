@@ -1,8 +1,7 @@
-// RK: manga merge backup. Net-new Reikai file, the manga twin of BackupNovelMerge. Manga merge /
-// unmerge groups live in preferences as comma-joined manga IDs, which change on restore. So instead
-// of backing up the raw ID strings (the generic preference backup is told to skip them), each group is
-// serialized here as a list of stable {url, source} refs and rebuilt into fresh IDs after the manga
-// are restored. Differs from the novel version only in `source` being a Long (extension source id).
+// RK: manga merge backup. Net-new Reikai file, the manga form of BackupNovelMerge. Merge groups live in
+// the merge_group tables keyed by manga id, and ids change on restore, so each group is serialized here
+// as a list of stable {url, source} refs and rebuilt into fresh ids after the manga are restored.
+// Differs from the novel version only in `source` being a Long (extension source id).
 package eu.kanade.tachiyomi.data.backup.models
 
 import kotlinx.serialization.Serializable

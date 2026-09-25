@@ -504,7 +504,7 @@ class BackupRestorer(
                 )
             }
 
-        // RK --> with the repos restored, reinstall the recorded manga extensions. Log each one that
+        // RK --> with the repos restored, reinstall the recorded extension apps. Log each one that
         // did not come back (repo missing, install failed, cancelled or timed out) so the user knows
         // what to reinstall by hand.
         ensureActive()
