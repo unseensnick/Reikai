@@ -2,6 +2,7 @@
 // or inserts each novel by url+source, re-links its chapters (by url), categories (by name), tracks
 // (by tracker id) and history (chapter url -> new chapter id), then materializes the merge groups into
 // the merge_group tables from the backup's {url, source} refs once every novel has its fresh id.
+// The two share their merge rules (RestoreMergeRules.kt), pinned by RestoreMergeConformanceTest.
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import dev.zacsweers.metro.Inject
@@ -13,6 +14,9 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.customInfo
+import reikai.data.backup.RestoredChapterState
+import reikai.data.backup.RestoredTrackLink
+import reikai.data.backup.foldBackup
 import reikai.data.novel.updateNovelFetchInterval
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
@@ -30,7 +34,6 @@ import reikai.domain.novel.model.Novel
 import tachiyomi.data.Database
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
-import kotlin.math.max
 
 @Inject
 class NovelRestorer(
@@ -165,10 +168,12 @@ class NovelRestorer(
                 checkNotNull(novelChapterRepository.insert(incoming)) { "Failed to insert chapter ${incoming.url}" }
             } else {
                 // Keep the device's structural fields; only fold in read state from the backup.
+                val readState = RestoredChapterState(dbChapter.read, dbChapter.bookmark, dbChapter.lastTextProgress)
+                    .foldBackup(RestoredChapterState(incoming.read, incoming.bookmark, incoming.lastTextProgress))
                 val merged = dbChapter.copy(
-                    read = dbChapter.read || incoming.read,
-                    bookmark = dbChapter.bookmark || incoming.bookmark,
-                    lastTextProgress = max(dbChapter.lastTextProgress, incoming.lastTextProgress),
+                    read = readState.read,
+                    bookmark = readState.bookmark,
+                    lastTextProgress = readState.progress,
                 )
                 if (merged != dbChapter) {
                     check(novelChapterRepository.update(merged)) { "Failed to update chapter ${merged.url}" }
@@ -209,8 +214,15 @@ class NovelRestorer(
             val toInsert = if (dbTrack == null) {
                 incoming
             } else {
-                incoming.copy(lastChapterRead = max(dbTrack.lastChapterRead, incoming.lastChapterRead))
+                val link = RestoredTrackLink(dbTrack.remoteId, dbTrack.libraryId, dbTrack.lastChapterRead)
+                    .foldBackup(RestoredTrackLink(incoming.remoteId, incoming.libraryId, incoming.lastChapterRead))
+                dbTrack.copy(
+                    remoteId = link.remoteId,
+                    libraryId = link.libraryId,
+                    lastChapterRead = link.lastChapterRead,
+                )
             }
+            if (toInsert == dbTrack) return@forEach
             check(novelTrackRepository.insert(toInsert)) { "Failed to insert track ${toInsert.trackerId}" }
         }
     }

@@ -588,6 +588,8 @@ every release now also ships a foss build with neither in it.
 - **Restoring with the Categories option unticked no longer files your novels into categories anyway.** Manga restores already left them alone.
 - **A backup with the read-entries option on now includes novels you have read but removed from your library, like manga.** Their read history used to drop out of the backup, including after migrating a novel to a new source.
 - **Novel reading time you cleared from History now survives a backup and restore, as manga's does.** Stats still counts it, but the backup left it out, so the total dropped after a restore.
+- **Restoring an older backup no longer rewinds a manga chapter you had read further on this device.** Novels already kept the further position.
+- **Restoring a backup no longer overwrites a light novel's tracker status, score and dates with the backup's, matching manga.**
 - **The warning before a restore no longer claims your light-novel sources are missing.** It read the source list before the plugins had loaded, so a restore begun from a fresh launch listed every one of them.
 
 ### App

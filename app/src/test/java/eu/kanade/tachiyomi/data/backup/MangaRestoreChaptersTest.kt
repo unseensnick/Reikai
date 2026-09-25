@@ -18,10 +18,8 @@ import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
 import tachiyomi.domain.manga.model.Manga
 
 /**
- * When a backup is restored over a manga that already has chapters, per-chapter read state must merge
- * rather than overwrite: a chapter read on either side stays read, and locally-recorded reading
- * progress is preserved when the backup hasn't progressed. Losing this silently rewinds a user's
- * progress, so it's a high data-loss-risk path.
+ * A manga chapter's page count survives a restore from either side. The read-state merge both types
+ * share is pinned by RestoreMergeConformanceTest.
  *
  * The update happens inside a suspend transaction, run inline here; the chapters update's read (arg 4),
  * last_page_read (arg 6) and page_count (arg 14) are captured.
@@ -74,36 +72,6 @@ class MangaRestoreChaptersTest {
 
         restorer.restore(BackupManga(source = 1L, url = "u", title = "T", chapters = listOf(backup)), emptyList())
         return updates.single()
-    }
-
-    @Test
-    fun `a chapter read locally stays read even when the backup has it unread`() = runTest {
-        val backup = BackupChapter(url = "c1", name = "C1", read = false, lastPageRead = 0)
-        val dbChapter = Chapter.create().copy(
-            id = 1,
-            mangaId = mangaId,
-            url = "c1",
-            name = "C1",
-            read = true,
-            lastPageRead = 50,
-        )
-
-        restoredChapterUpdate(backup, dbChapter).read shouldBe true
-    }
-
-    @Test
-    fun `local reading progress is kept when the backup chapter has not progressed`() = runTest {
-        val backup = BackupChapter(url = "c1", name = "C1", read = false, lastPageRead = 0)
-        val dbChapter = Chapter.create().copy(
-            id = 1,
-            mangaId = mangaId,
-            url = "c1",
-            name = "C1",
-            read = false,
-            lastPageRead = 30,
-        )
-
-        restoredChapterUpdate(backup, dbChapter).lastPageRead shouldBe 30L
     }
 
     @Test

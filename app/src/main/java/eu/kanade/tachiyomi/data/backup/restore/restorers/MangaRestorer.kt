@@ -20,6 +20,9 @@ import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import reikai.data.backup.RestoredChapterState
+import reikai.data.backup.RestoredTrackLink
+import reikai.data.backup.foldBackup
 import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
 import tachiyomi.data.Database
@@ -190,23 +193,21 @@ class MangaRestorer(
                         id = dbChapter.id,
                         bookmark = chapter.bookmark || dbChapter.bookmark,
                     )
-                if (dbChapter.read && !updatedChapter.read) {
-                    updatedChapter = updatedChapter.copy(
-                        read = true,
-                        lastPageRead = dbChapter.lastPageRead,
-                    )
-                } else if (updatedChapter.lastPageRead == 0L && dbChapter.lastPageRead != 0L) {
-                    updatedChapter = updatedChapter.copy(
-                        lastPageRead = dbChapter.lastPageRead,
-                    )
-                }
-                // RK: 0 means the reader never loaded the chapter, so whichever side knows the count
-                // wins and a backup predating the column cannot erase one already on the device.
-                // RK: 0 means the reader never loaded the chapter, so whichever side knows the count
+                // RK --> read state folds by the rule novels share, where the further progress wins
+                // instead of upstream's any non-zero backup position.
+                val readState = RestoredChapterState(dbChapter.read, dbChapter.bookmark, dbChapter.lastPageRead)
+                    .foldBackup(RestoredChapterState(chapter.read, chapter.bookmark, chapter.lastPageRead))
+                updatedChapter = updatedChapter.copy(
+                    read = readState.read,
+                    bookmark = readState.bookmark,
+                    lastPageRead = readState.progress,
+                )
+                // 0 means the reader never loaded the chapter, so whichever side knows the count
                 // wins and a backup predating the column cannot erase one already on the device.
                 updatedChapter = updatedChapter.copy(
                     pageCount = maxOf(updatedChapter.pageCount, dbChapter.pageCount),
                 )
+                // RK <--
                 updatedChapter
             }
             .partition { it.id > 0 }
@@ -482,11 +483,15 @@ class MangaRestorer(
                 }
 
                 // Update to an existing track
+                // RK --> the fold novels share (reikai.data.backup.foldBackup), same rule as upstream's.
+                val link = RestoredTrackLink(dbTrack.remoteId, dbTrack.libraryId, dbTrack.lastChapterRead)
+                    .foldBackup(RestoredTrackLink(track.remoteId, track.libraryId, track.lastChapterRead))
                 dbTrack.copy(
-                    remoteId = track.remoteId,
-                    libraryId = track.libraryId,
-                    lastChapterRead = max(dbTrack.lastChapterRead, track.lastChapterRead),
+                    remoteId = link.remoteId,
+                    libraryId = link.libraryId,
+                    lastChapterRead = link.lastChapterRead,
                 )
+                // RK <--
             }
             .partition { it.id > 0 }
 
