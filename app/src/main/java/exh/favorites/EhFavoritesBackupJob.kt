@@ -29,7 +29,7 @@ import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
 
 /**
- * RK: one-time backfill that pushes every E-Hentai gallery in the library to the account's
+ * One-time backfill that pushes every E-Hentai gallery in the library to the account's
  * favorites (one-way add). Used by the "Back up all favorites now" settings action; steady-state
  * capture happens on favorite via MangaViewModel. Never removes anything from the account.
  */

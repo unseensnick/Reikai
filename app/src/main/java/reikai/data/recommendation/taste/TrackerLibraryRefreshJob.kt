@@ -14,7 +14,7 @@ import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import java.util.concurrent.TimeUnit
 
 /**
- * RK: periodic background pull of the user's tracker libraries into the taste cache, on the schedule
+ * Periodic background pull of the user's tracker libraries into the taste cache, on the schedule
  * the user picks (`trackerLibraryAutoRefreshHours`: 0 never / 168 weekly / 720 monthly). Independent
  * of the in-app `refreshIfStale` bootstrap, which keeps the cache fresh during normal use; this just
  * adds a guaranteed background refresh cadence. WorkManager persists the schedule across reboots.

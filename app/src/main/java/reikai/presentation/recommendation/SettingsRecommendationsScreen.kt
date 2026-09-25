@@ -28,7 +28,7 @@ import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.core.common.preference.Preference as PreferenceData
 
 /**
- * RK: Settings -> Library -> Recommendations. Net-new settings screen following Mihon's Preference
+ * Settings -> Library -> Recommendations. Net-new settings screen following Mihon's Preference
  * DSL. "Show related manga" is the master switch: with it off the carousel does no work at all, so
  * every other group here is hidden rather than left dangling.
  */

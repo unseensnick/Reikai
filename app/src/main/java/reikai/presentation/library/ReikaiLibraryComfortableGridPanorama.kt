@@ -44,7 +44,7 @@ fun ReikaiLibraryComfortableGridPanorama(
                 isSelected = libraryItem.entryId in selection,
                 title = manga.title,
                 coverData = libraryCoverModel(libraryItem), // NovelCover for novels, else MangaCover
-                // RK: both groups share one measured width so neither can overdraw the other
+                // Both groups share one measured width so neither can overdraw the other
                 coverBadgeStart = { LibraryCoverStartBadges(libraryItem) },
                 coverBadgeEnd = { LibraryCoverEndBadges(libraryItem) },
                 onLongClick = { onLongClick(libraryItem) },

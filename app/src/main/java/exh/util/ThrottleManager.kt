@@ -6,7 +6,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * RK: linear-backoff throttle for E-Hentai favorite writes, ported from Komikku
+ * Linear-backoff throttle for E-Hentai favorite writes, ported from Komikku
  * (exh/util/ThrottleManager). Each [throttle] call spaces requests a little further apart
  * (the first is instant, then +[inc] each time) up to a [max] ceiling. The escalation is what
  * keeps a large favorites backfill from tripping E-Hentai's rate limiter; a flat delay would not.

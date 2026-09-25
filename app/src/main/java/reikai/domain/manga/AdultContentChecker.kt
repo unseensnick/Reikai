@@ -14,7 +14,7 @@ import tachiyomi.domain.source.service.SourceManager
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * RK: is a manga or novel adult content, for hiding its title + cover from notifications and the lock
+ * Is a manga or novel adult content, for hiding its title + cover from notifications and the lock
  * screen. Any one signal qualifies: an extension warned as mixed or 18+, a built-in gallery source (which
  * has no extension to carry that warning), or the genre-tag heuristic, which for manga also reads the
  * source name. An LN plugin answers SAFE, since its format has no adult flag, so its genres decide.

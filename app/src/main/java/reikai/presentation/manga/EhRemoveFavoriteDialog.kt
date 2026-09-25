@@ -16,7 +16,7 @@ import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * RK: confirm removing a favorited E-Hentai gallery from the library, with an opt-in checkbox to
+ * Confirm removing a favorited E-Hentai gallery from the library, with an opt-in checkbox to
  * also remove it from the E-Hentai account favorites. Mirrors Mihon's tracker remove dialog
  * (DeletableTracker): local removal always happens; the remote removal is the opt-in.
  */

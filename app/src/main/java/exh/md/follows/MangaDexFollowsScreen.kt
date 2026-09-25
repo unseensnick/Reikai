@@ -147,7 +147,7 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                     onMigrate = {
                         viewModel.setDialog(BrowseSourceViewModel.Dialog.Migrate(dialog.manga, it.manga))
                     },
-                    // RK: offer grouping when the same-title suggestion pref is on.
+                    // Offer grouping when the same-title suggestion pref is on.
                     groupIdByEntryId = dialog.groupIdByMangaId,
                     onAddToGroup = { selectedIds: List<Long> ->
                         viewModel.addToExistingGroup(dialog.manga, selectedIds)

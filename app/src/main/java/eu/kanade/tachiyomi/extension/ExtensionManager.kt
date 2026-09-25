@@ -562,6 +562,8 @@ class ExtensionManager(
         }.stateIn(scope, SharingStarted.Lazily, value.values.filterNotBlacklisted())
     }
 
+    // RK --> rewritten from upstream's plain map to carry the EH gate, as mapExtensions does
+
     /**
      * [mapExtensions] without the [stateIn], whose seed would replay the empty map the flow was
      * constructed with, so a reader before the scan finished got a wrong answer rather than a slow
@@ -573,6 +575,7 @@ class ExtensionManager(
                 map.values.filterNot { hentaiEnabled && it.pkgName in BlacklistedSources.BLACKLISTED_EXTENSIONS }
             }
     }
+    // RK <--
 
     // RK: initial value for mapExtensions before the gate flow first emits.
     private fun <T : Extension> Collection<T>.filterNotBlacklisted(): List<T> {
