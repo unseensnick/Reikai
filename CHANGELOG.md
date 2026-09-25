@@ -201,6 +201,7 @@ every release now also ships a foss build with neither in it.
 - **Titles you just added from the full related-manga grid no longer come back selected with your next pick.**
 - **Tapping a tag chip on a series from an adult gallery source or an enhanced source now searches that source in its own tag format.** Every source got one gallery site's format, so most of those searches found nothing.
 - **The full related-manga grid now says when your filters hide every suggestion, with a button to show them.** It used to open on a blank page.
+- **The related-manga Hide dropped, Hide on-hold and Hide plan-to-read filters now work with every manga tracker.** A series tracked only on MangaUpdates, Hikka, MangaBaka or MDList was never hidden.
 - **Related-manga suggestions no longer shrink while they refresh, or disappear when a refresh fails offline.** The ones you had stay until a complete new set arrives.
 - **When two manga chapters share a number, upload date or name, Resume, Continue reading and Download next now pick the one the reader opens next.** Ties follow the source's own order, as they already did for novels.
 - **Chapter selection on a manga or novel page now counts and acts on only the chapters your filters show.** On manga, Select all and Invert also picked hidden chapters, so a bulk action could change rows you could not see.
