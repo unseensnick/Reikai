@@ -56,8 +56,9 @@ class EHentaiUpdateHelper(
     /**
      * @param chapters Cannot be an empty list!
      *
-     * @return Triple<Accepted, Discarded, HasNew>, or null when no persisted same-source chain resolves
-     *  from [chapters] (nothing to reconcile).
+     * @return Triple<Accepted, Discarded, NewChapters>, NewChapters being the chapters inserted into the
+     *  accepted gallery, or null when no persisted same-source chain resolves from [chapters] (nothing
+     *  to reconcile).
      */
     suspend fun findAcceptedRootAndDiscardOthers(
         sourceId: Long,
@@ -186,91 +187,100 @@ class EHentaiUpdateHelper(
             .map { it.id }
         return newHistory to historyToDelete
     }
+}
 
-    private fun getChapterList(
-        accepted: ChapterChain,
-        toDiscard: List<ChapterChain>,
-        chainsAsChapters: List<Chapter>,
-    ): Pair<List<ChapterUpdate>, List<Chapter>> {
-        val newLastPageRead = chainsAsChapters.maxOfOrNull { it.lastPageRead }
-        return toDiscard
-            .flatMap { chain ->
-                chain.chapters
-            }
-            .fold(accepted.chapters) { curChapters, chapter ->
-                if (curChapters.any { it.url == chapter.url }) {
-                    curChapters.map {
-                        if (it.url == chapter.url) {
-                            val read = it.read || chapter.read
-                            var lastPageRead = it.lastPageRead.coerceAtLeast(chapter.lastPageRead)
-                            if (newLastPageRead != null && lastPageRead <= 0) {
-                                lastPageRead = newLastPageRead
-                            }
-                            val bookmark = it.bookmark || chapter.bookmark
-                            it.copy(
-                                read = read,
-                                lastPageRead = lastPageRead,
-                                bookmark = bookmark,
-                            )
-                        } else {
-                            it
+internal fun getChapterList(
+    accepted: ChapterChain,
+    toDiscard: List<ChapterChain>,
+    chainsAsChapters: List<Chapter>,
+): Pair<List<ChapterUpdate>, List<Chapter>> {
+    val newLastPageRead = chainsAsChapters.maxOfOrNull { it.lastPageRead }
+    val stored = accepted.chapters.associateBy { it.id }
+    return toDiscard
+        .flatMap { chain ->
+            chain.chapters
+        }
+        .fold(accepted.chapters) { curChapters, chapter ->
+            if (curChapters.any { it.url == chapter.url }) {
+                curChapters.map {
+                    if (it.url == chapter.url) {
+                        val read = it.read || chapter.read
+                        var lastPageRead = it.lastPageRead.coerceAtLeast(chapter.lastPageRead)
+                        if (newLastPageRead != null && lastPageRead <= 0) {
+                            lastPageRead = newLastPageRead
                         }
-                    }
-                } else {
-                    curChapters + Chapter(
-                        id = -1,
-                        mangaId = accepted.manga.id,
-                        url = chapter.url,
-                        name = chapter.name,
-                        read = chapter.read,
-                        bookmark = chapter.bookmark,
-                        lastPageRead = if (newLastPageRead != null && chapter.lastPageRead <= 0) {
-                            newLastPageRead
-                        } else {
-                            chapter.lastPageRead
-                        },
-                        dateFetch = chapter.dateFetch,
-                        dateUpload = chapter.dateUpload,
-                        chapterNumber = -1.0,
-                        scanlator = null,
-                        sourceOrder = -1,
-                        lastModifiedAt = 0,
-                        version = 0,
-                        memo = JsonObject.EMPTY,
-                        // The same chapter moving to the accepted gallery, so its length comes with it.
-                        pageCount = chapter.pageCount,
-                    )
-                }
-            }
-            .sortedBy { it.dateUpload }
-            .let { chapters ->
-                val updates = mutableListOf<ChapterUpdate>()
-                val newChapters = mutableListOf<Chapter>()
-                chapters.mapIndexed { index, chapter ->
-                    val name = "v${index + 1}: " + chapter.name.substringAfter(" ")
-                    val chapterNumber = index + 1.0
-                    val sourceOrder = chapters.lastIndex - index.toLong()
-                    when (chapter.id) {
-                        -1L -> newChapters.add(
-                            chapter.copy(
-                                name = name,
-                                chapterNumber = chapterNumber,
-                                sourceOrder = sourceOrder,
-                            ),
+                        val bookmark = it.bookmark || chapter.bookmark
+                        it.copy(
+                            read = read,
+                            lastPageRead = lastPageRead,
+                            bookmark = bookmark,
                         )
-                        else -> updates.add(
+                    } else {
+                        it
+                    }
+                }
+            } else {
+                curChapters + Chapter(
+                    id = -1,
+                    mangaId = accepted.manga.id,
+                    url = chapter.url,
+                    name = chapter.name,
+                    read = chapter.read,
+                    bookmark = chapter.bookmark,
+                    lastPageRead = if (newLastPageRead != null && chapter.lastPageRead <= 0) {
+                        newLastPageRead
+                    } else {
+                        chapter.lastPageRead
+                    },
+                    dateFetch = chapter.dateFetch,
+                    dateUpload = chapter.dateUpload,
+                    chapterNumber = -1.0,
+                    scanlator = null,
+                    sourceOrder = -1,
+                    lastModifiedAt = 0,
+                    version = 0,
+                    memo = JsonObject.EMPTY,
+                    // The same chapter moving to the accepted gallery, so its length comes with it.
+                    pageCount = chapter.pageCount,
+                )
+            }
+        }
+        .sortedBy { it.dateUpload }
+        .let { chapters ->
+            val updates = mutableListOf<ChapterUpdate>()
+            val newChapters = mutableListOf<Chapter>()
+            chapters.mapIndexed { index, chapter ->
+                val name = "v${index + 1}: " + chapter.name.substringAfter(" ")
+                val chapterNumber = index + 1.0
+                val sourceOrder = chapters.lastIndex - index.toLong()
+                when (chapter.id) {
+                    -1L -> newChapters.add(
+                        chapter.copy(
+                            name = name,
+                            chapterNumber = chapterNumber,
+                            sourceOrder = sourceOrder,
+                        ),
+                    )
+                    // Diffed against the stored row, not the merged copy, or the read state, bookmark
+                    // and progress merged in above never reach the database.
+                    else -> {
+                        val row = stored.getValue(chapter.id)
+                        updates.add(
                             ChapterUpdate(
                                 id = chapter.id,
-                                name = name.takeUnless { chapter.name == it },
-                                chapterNumber = chapterNumber.takeUnless { chapter.chapterNumber == it },
-                                sourceOrder = sourceOrder.takeUnless { chapter.sourceOrder == it },
+                                read = chapter.read.takeUnless { row.read == it },
+                                bookmark = chapter.bookmark.takeUnless { row.bookmark == it },
+                                lastPageRead = chapter.lastPageRead.takeUnless { row.lastPageRead == it },
+                                name = name.takeUnless { row.name == it },
+                                chapterNumber = chapterNumber.takeUnless { row.chapterNumber == it },
+                                sourceOrder = sourceOrder.takeUnless { row.sourceOrder == it },
                             ),
                         )
                     }
                 }
-                updates.toList() to newChapters.toList()
             }
-    }
+            updates.toList() to newChapters.toList()
+        }
 }
 
 data class GalleryEntry(val gId: String, val gToken: String) {

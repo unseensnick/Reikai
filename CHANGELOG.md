@@ -398,6 +398,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 - **Tapping "Back up all favorites now" again while an adult source's favorites backup runs no longer starts a second one.** Two at once pushed every favorite twice.
+- **When an adult gallery source replaces a gallery with a newer version, chapters the new version already had now keep the old version's read state, bookmark and progress.** Only chapters new to it carried them over, while History still showed them as read.
 - **Browsing a source or opening a series while offline now says "No Internet connection" instead of a raw host error, on manga and novels.** The manga reader's failed pages say it too.
 - **Manga sources that work out their pages with JavaScript now show those pages again, where some opened chapters empty or failed to load.**
 - **Global search and the feed no longer crash when a source lists the same result twice.**
