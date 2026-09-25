@@ -342,7 +342,7 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabl
     }
 
 /** Seed the shared edit-info dialog from a novel's effective (edited) values. */
-private fun Novel.toEntryEditInfoUi() = EntryEditInfoUi(
+internal fun Novel.toEntryEditInfoUi() = EntryEditInfoUi(
     title = title,
     author = author.orEmpty(),
     artist = artist.orEmpty(),

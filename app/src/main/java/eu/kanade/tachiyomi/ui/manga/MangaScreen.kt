@@ -441,7 +441,7 @@ class MangaScreen(
 }
 
 // RK: seed the shared edit-info dialog from a manga's effective (overlaid) values.
-private fun Manga.toEntryEditInfoUi() = EntryEditInfoUi(
+internal fun Manga.toEntryEditInfoUi() = EntryEditInfoUi(
     title = title,
     author = author.orEmpty(),
     artist = artist.orEmpty(),

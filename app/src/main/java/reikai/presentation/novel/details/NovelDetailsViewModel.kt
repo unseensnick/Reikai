@@ -120,6 +120,7 @@ import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
+import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.library.sourceKeyQuery
@@ -1498,21 +1499,19 @@ class NovelDetailsViewModel(
     }
 }
 
-/**
- * Per-field override, store a value only when it differs from the current source value; a blank field
- * (or "Unknown" status) stores nothing, so that field tracks the source again. The novel twin of
- * MangaViewModel's EntryEditInfoUi.toCustomMangaInfo (blanks preserve the source, drop empty genres).
- */
-private fun EntryEditInfoUi.toCustomNovelInfo(source: Novel) = CustomNovelInfo(
-    novelId = source.id,
-    title = title.trim().takeIf { it.isNotEmpty() && it != source.title },
-    author = author.trim().takeIf { it.isNotEmpty() && it != source.author.orEmpty() },
-    artist = artist.trim().takeIf { it.isNotEmpty() && it != source.artist.orEmpty() },
-    description = description.takeIf { it.isNotBlank() && it != source.description.orEmpty() },
-    genre = genre.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() && it != source.genre.orEmpty() },
-    status = status.takeIf { it != source.status && it != NovelStatusCode.UNKNOWN.toLong() },
-    thumbnailUrl = thumbnailUrl.trim().takeIf { it.isNotEmpty() && it != source.thumbnailUrl.orEmpty() },
-)
+private fun EntryEditInfoUi.toCustomNovelInfo(source: Novel) =
+    overridesOver(source.toEntryEditInfoUi(), NovelStatusCode.UNKNOWN.toLong()).let {
+        CustomNovelInfo(
+            novelId = source.id,
+            title = it.title,
+            author = it.author,
+            artist = it.artist,
+            description = it.description,
+            genre = it.genre,
+            status = it.status,
+            thumbnailUrl = it.thumbnailUrl,
+        )
+    }
 
 sealed interface NovelDetailsState {
     data object Loading : NovelDetailsState

@@ -127,6 +127,7 @@ import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
+import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.details.scanlatorFilterView
 import reikai.presentation.details.scanlatorTargets
@@ -2102,17 +2103,17 @@ sealed interface PagePreviewState {
     data class Error(val error: Throwable) : PagePreviewState
 }
 
-/**
- * RK: per-field override, store a value only when it differs from the current source value; a blank field
- * (or "Unknown" status) stores nothing, so that field tracks the source again.
- */
-private fun EntryEditInfoUi.toCustomMangaInfo(source: Manga) = CustomMangaInfo(
-    mangaId = source.id,
-    title = title.trim().takeIf { it.isNotEmpty() && it != source.title },
-    author = author.trim().takeIf { it.isNotEmpty() && it != source.author.orEmpty() },
-    artist = artist.trim().takeIf { it.isNotEmpty() && it != source.artist.orEmpty() },
-    description = description.takeIf { it.isNotBlank() && it != source.description.orEmpty() },
-    genre = genre.takeIf { it.isNotEmpty() && it != source.genre.orEmpty() },
-    status = status.takeIf { it != source.status && it != SManga.UNKNOWN.toLong() },
-    thumbnailUrl = thumbnailUrl.trim().takeIf { it.isNotEmpty() && it != source.thumbnailUrl.orEmpty() },
-)
+// RK: the per-field overrides, by the rule edit info shares with novels.
+private fun EntryEditInfoUi.toCustomMangaInfo(source: Manga) =
+    overridesOver(source.toEntryEditInfoUi(), SManga.UNKNOWN.toLong()).let {
+        CustomMangaInfo(
+            mangaId = source.id,
+            title = it.title,
+            author = it.author,
+            artist = it.artist,
+            description = it.description,
+            genre = it.genre,
+            status = it.status,
+            thumbnailUrl = it.thumbnailUrl,
+        )
+    }
