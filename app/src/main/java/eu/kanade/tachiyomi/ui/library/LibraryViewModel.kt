@@ -52,6 +52,7 @@ import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.effectiveIntervalFilter
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -336,11 +337,10 @@ class LibraryViewModel(
             started = preferences.filterStarted,
             bookmarked = preferences.filterBookmarked,
             completed = preferences.filterCompleted,
-            intervalCustom = if (preferences.skipOutsideReleasePeriod) {
-                preferences.filterIntervalCustom
-            } else {
-                TriState.DISABLED
-            },
+            intervalCustom = effectiveIntervalFilter(
+                preferences.skipOutsideReleasePeriod,
+                preferences.filterIntervalCustom,
+            ),
             lewd = preferences.filterLewd,
             includedTracks = trackingFilter.filterValues { it == TriState.ENABLED_IS }.keys,
             excludedTracks = trackingFilter.filterValues { it == TriState.ENABLED_NOT }.keys,

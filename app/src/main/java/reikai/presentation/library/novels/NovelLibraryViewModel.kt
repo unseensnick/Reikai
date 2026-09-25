@@ -32,6 +32,7 @@ import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.effectiveIntervalFilter
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -223,7 +224,7 @@ class NovelLibraryViewModel(
             libraryPreferences.filterIntervalCustom.changes(),
             novelPreferences.novelUpdateRestrictions().changes(),
         ) { lewd, interval, restrictions ->
-            lewd to if (LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in restrictions) interval else TriState.DISABLED
+            lewd to effectiveIntervalFilter(LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in restrictions, interval)
         }
         val filterFlow = combine(
             triStateFilterFlow,
