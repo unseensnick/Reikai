@@ -102,34 +102,8 @@ private fun NovelFilterItem(
             value = (current as? JsonPrimitive)?.contentOrNull ?: "",
             onChange = { onValueChange(JsonPrimitive(it)) },
         )
-        "Picker" -> {
-            val options = optionsOf(schema)
-            val selectedValue = (current as? JsonPrimitive)?.contentOrNull ?: ""
-            val selectedIndex = options.indexOfFirst { it.second == selectedValue }.coerceAtLeast(0)
-            SelectItem(
-                label = label,
-                options = options.map { it.first }.toTypedArray(),
-                selectedIndex = selectedIndex,
-                onSelect = { index -> options.getOrNull(index)?.let { onValueChange(JsonPrimitive(it.second)) } },
-            )
-        }
-        "Checkbox" -> {
-            val selected = (current as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet() ?: emptySet()
-            Column {
-                HeadingItem(text = label)
-                optionsOf(schema).forEach { (optLabel, optValue) ->
-                    val checked = optValue in selected
-                    CheckboxItem(
-                        label = optLabel,
-                        checked = checked,
-                        onClick = {
-                            val next = if (checked) selected - optValue else selected + optValue
-                            onValueChange(JsonArray(next.map { JsonPrimitive(it) }))
-                        },
-                    )
-                }
-            }
-        }
+        "Picker" -> SchemaPickerRow(label, schema, current, onValueChange)
+        "Checkbox" -> SchemaCheckboxGroupRow(label, schema, current, onValueChange)
         "ExcludableCheckboxGroup" -> {
             val obj = current as? JsonObject
             val include =
@@ -180,5 +154,49 @@ internal fun optionsOf(schema: JsonObject): List<Pair<String, String>> {
         val o = el as? JsonObject ?: return@mapNotNull null
         val value = o["value"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
         (o["label"]?.jsonPrimitive?.contentOrNull ?: value) to value
+    }
+}
+
+/** A schema's `options` as a picker whose value is the chosen option's, for the filter and settings sheets. */
+@Composable
+internal fun SchemaPickerRow(
+    label: String,
+    schema: JsonObject,
+    current: JsonElement?,
+    onChange: (JsonElement) -> Unit,
+) {
+    val options = optionsOf(schema)
+    val selectedValue = (current as? JsonPrimitive)?.contentOrNull ?: ""
+    val selectedIndex = options.indexOfFirst { it.second == selectedValue }.coerceAtLeast(0)
+    SelectItem(
+        label = label,
+        options = options.map { it.first }.toTypedArray(),
+        selectedIndex = selectedIndex,
+        onSelect = { index -> options.getOrNull(index)?.let { onChange(JsonPrimitive(it.second)) } },
+    )
+}
+
+/** A schema's `options` as a checkbox group whose value is the checked options', for both sheets. */
+@Composable
+internal fun SchemaCheckboxGroupRow(
+    label: String,
+    schema: JsonObject,
+    current: JsonElement?,
+    onChange: (JsonElement) -> Unit,
+) {
+    val selected = (current as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet() ?: emptySet()
+    Column {
+        HeadingItem(text = label)
+        optionsOf(schema).forEach { (optLabel, optValue) ->
+            val checked = optValue in selected
+            CheckboxItem(
+                label = optLabel,
+                checked = checked,
+                onClick = {
+                    val next = if (checked) selected - optValue else selected + optValue
+                    onChange(JsonArray(next.map { JsonPrimitive(it) }))
+                },
+            )
+        }
     }
 }

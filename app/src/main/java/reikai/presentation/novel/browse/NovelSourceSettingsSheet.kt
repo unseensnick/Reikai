@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -31,8 +30,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import reikai.novel.source.NovelSettings
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
-import tachiyomi.presentation.core.components.HeadingItem
-import tachiyomi.presentation.core.components.SelectItem
 import tachiyomi.presentation.core.components.TextItem
 import tachiyomi.presentation.core.components.material.Button
 import tachiyomi.presentation.core.i18n.stringResource
@@ -122,34 +119,8 @@ private fun NovelSettingItem(
             val checked = (current as? JsonPrimitive)?.booleanOrNull ?: false
             CheckboxItem(label = label, checked = checked, onClick = { onChange(JsonPrimitive(!checked)) })
         }
-        "Select" -> {
-            val options = optionsOf(schema)
-            val selectedValue = (current as? JsonPrimitive)?.contentOrNull ?: ""
-            val selectedIndex = options.indexOfFirst { it.second == selectedValue }.coerceAtLeast(0)
-            SelectItem(
-                label = label,
-                options = options.map { it.first }.toTypedArray(),
-                selectedIndex = selectedIndex,
-                onSelect = { index -> options.getOrNull(index)?.let { onChange(JsonPrimitive(it.second)) } },
-            )
-        }
-        "CheckboxGroup" -> {
-            val selected = (current as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet() ?: emptySet()
-            Column {
-                HeadingItem(text = label)
-                optionsOf(schema).forEach { (optLabel, optValue) ->
-                    val checked = optValue in selected
-                    CheckboxItem(
-                        label = optLabel,
-                        checked = checked,
-                        onClick = {
-                            val next = if (checked) selected - optValue else selected + optValue
-                            onChange(JsonArray(next.map { JsonPrimitive(it) }))
-                        },
-                    )
-                }
-            }
-        }
+        "Select" -> SchemaPickerRow(label, schema, current, onChange)
+        "CheckboxGroup" -> SchemaCheckboxGroupRow(label, schema, current, onChange)
         else -> TextItem(
             label = label,
             value = (current as? JsonPrimitive)?.contentOrNull ?: "",
