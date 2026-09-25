@@ -426,6 +426,7 @@ every release now also ships a foss build with neither in it.
 - **Manga browse now reloads by itself when you come back from the WebView.** Novels already did.
 - **Browse -> Sources and Extensions now show their list as soon as it is ready, without a short pause first.** Clearing the search box restores the full list at once too.
 - **Two languages whose codes share one name (such as "in" and "id") no longer lose a section in Browse's lists and source filter, on manga and novels.**
+- **A light-novel source that is no longer installed now says so in your language and by its name, in its catalogue, on the novel page and in the reader, as a manga source does.**
 
 ### Migration
 

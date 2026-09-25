@@ -175,6 +175,7 @@ class NovelContentPipelineTest {
         // Stubbed outside the mockk block: a bare `get(any())` inside one binds to MockK's own get.
         val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get(any()) } returns source }
         val loader = NovelChapterTextLoader(
+            context = mockk(relaxed = true),
             novelRepo = mockk { coEvery { getById(any()) } returns Novel.create().copy(id = 1L, source = "s") },
             sourceManager = sourceManager,
             installer = mockk(relaxed = true),
@@ -196,6 +197,7 @@ class NovelContentPipelineTest {
         }
         val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get(any()) } returns source }
         val loader = NovelChapterTextLoader(
+            context = mockk(relaxed = true),
             novelRepo = mockk { coEvery { getById(any()) } returns Novel.create().copy(id = 1L, source = "s") },
             sourceManager = sourceManager,
             installer = mockk(relaxed = true),
@@ -251,6 +253,7 @@ class NovelContentPipelineTest {
         }
         val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get(any()) } returns source }
         return NovelChapterTextLoader(
+            context = mockk(relaxed = true),
             novelRepo = mockk { coEvery { getById(any()) } returns Novel.create().copy(id = 1L, source = "s") },
             sourceManager = sourceManager,
             installer = mockk(relaxed = true),

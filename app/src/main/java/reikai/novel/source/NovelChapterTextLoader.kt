@@ -1,5 +1,6 @@
 package reikai.novel.source
 
+import android.content.Context
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -15,6 +16,8 @@ import reikai.novel.content.NovelContentPipeline
 import reikai.novel.content.NovelHtmlUtils
 import reikai.novel.content.RenderTarget
 import reikai.novel.install.LnPluginInstaller
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.i18n.MR
 import java.util.Collections
 
 /**
@@ -24,6 +27,7 @@ import java.util.Collections
  * session walks several novels: a session-scoped cache resolves each once and no more.
  */
 class NovelChapterTextLoader(
+    private val context: Context,
     private val novelRepo: NovelRepository,
     private val sourceManager: NovelSourceManager,
     private val installer: LnPluginInstaller,
@@ -138,7 +142,8 @@ class NovelChapterTextLoader(
             runCatching { installer.ensureLoaded() }.onSuccess { pluginsLoaded = true }
         }
         val sourceId = novelRepo.getById(forNovelId)?.source ?: error("Novel not found")
-        val resolved = sourceManager.get(sourceId) ?: error("Source not installed: $sourceId")
+        val resolved = sourceManager.get(sourceId)
+            ?: error(context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId)))
         sourcesByNovel[forNovelId] = resolved
         return resolved
     }

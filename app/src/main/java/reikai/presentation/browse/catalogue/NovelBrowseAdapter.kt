@@ -42,9 +42,6 @@ class NovelBrowseAdapter(
 
     private val savedSearchFilters = NovelSavedSearchFilters()
 
-    // Held once so an emission carrying either does not break the state's equality.
-    private val reloadSource: () -> Unit = { model.retryLoadSource() }
-
     /**
      * The dialog each verb acts on, kept as it is mapped rather than read back off the model.
      *
@@ -117,8 +114,7 @@ class NovelBrowseAdapter(
         state.dialog?.let { raisedDialog = it }
         bulkState.dialog?.let { raisedBulkDialog = it }
         val source = state.source
-            ?: return state.sourceError
-                ?.let { EntryBrowseScreenState.SourceFailed(it, reloadSource) }
+            ?: return state.missingSourceLabel?.let(EntryBrowseScreenState::SourceMissing)
                 ?: EntryBrowseScreenState.Loading
         val searching = state.query.isNotBlank()
         return EntryBrowseScreenState.Loaded(

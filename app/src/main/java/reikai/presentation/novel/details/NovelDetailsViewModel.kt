@@ -369,7 +369,9 @@ class NovelDetailsViewModel(
             val resolved = sourceManager.get(sourceId)
             if (resolved == null) {
                 if (state.value !is NovelDetailsState.Loaded) {
-                    state.value = NovelDetailsState.Failed("Source not installed: $sourceId")
+                    state.value = NovelDetailsState.Failed(
+                        context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId)),
+                    )
                 }
             } else {
                 source = resolved

@@ -137,7 +137,7 @@ class NovelBrowseViewModel(
         } catch (_: Throwable) {}
         val source = manager.get(sourceId)
         if (source == null) {
-            state.update { it.copy(sourceError = "Source not installed: $sourceId") }
+            state.update { it.copy(missingSourceLabel = manager.nameOf(sourceId)) }
             return
         }
         // Recorded here rather than at the Sources row, so every route into a catalogue marks it
@@ -151,7 +151,6 @@ class NovelBrowseViewModel(
         state.update {
             it.copy(
                 source = source,
-                sourceError = null,
                 filterDraft = source.filters?.defaultState(),
                 query = initialQuery,
                 listing = listing,
@@ -246,13 +245,6 @@ class NovelBrowseViewModel(
     fun closeFilterSheet() = state.update { it.copy(filterSheetOpen = false) }
     fun openSettingsSheet() = state.update { it.copy(settingsSheetOpen = true) }
     fun closeSettingsSheet() = state.update { it.copy(settingsSheetOpen = false) }
-
-    /** Re-attempt the plugin resolution that never completed. A fetch that failed is retried through
-     *  the pager instead, which owns that error. */
-    fun retryLoadSource() {
-        if (state.value.source != null) return
-        viewModelScope.launchIO { loadSource() }
-    }
 
     // --- Favorite from browse (long-press), via the shared [NovelLibraryAdder] ---
 
@@ -355,8 +347,8 @@ data class NovelBrowseState(
      *  defaults: manga lights the chip for any search-shaped listing, so a reset-then-apply keeps
      *  it lit there, and this keeps the two types answering alike. */
     val filtersApplied: Boolean = false,
-    /** Set when the plugin itself never resolved, which the pager cannot report on. */
-    val sourceError: String? = null,
+    /** The source's last known name, set when no installed source has its id. */
+    val missingSourceLabel: String? = null,
     /** (source, url) pairs in the library, for in-library marking of results. */
     val favoritedKeys: Set<Pair<String, String>> = emptySet(),
     val filterSheetOpen: Boolean = false,

@@ -58,7 +58,6 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.NewReleases
-import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.entry.EntryId
@@ -82,7 +81,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
-import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.source.local.LocalSource
 
@@ -615,13 +613,6 @@ class EntryCatalogueScreen(
                 is EntryBrowseScreenState.SourceMissing -> EmptyScreen(
                     message = stringResource(MR.strings.source_not_installed, state.label),
                     modifier = Modifier.padding(contentPadding),
-                )
-                is EntryBrowseScreenState.SourceFailed -> EmptyScreen(
-                    message = state.message,
-                    modifier = Modifier.padding(contentPadding),
-                    actions = listOf(
-                        EmptyScreenAction(MR.strings.action_retry, MaterialSymbols.Rounded.Refresh, state.reload),
-                    ),
                 )
                 else -> Unit
             }

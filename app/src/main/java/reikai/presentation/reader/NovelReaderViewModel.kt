@@ -174,6 +174,7 @@ class NovelReaderViewModel(
 
     /** Session-scoped, so the source cache inside it lives exactly as long as this reading session. */
     private val textLoader = NovelChapterTextLoader(
+        context = context,
         novelRepo = novelRepo,
         sourceManager = sourceManager,
         installer = installer,

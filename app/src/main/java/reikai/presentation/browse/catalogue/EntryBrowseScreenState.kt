@@ -8,8 +8,7 @@ import tachiyomi.domain.library.model.LibraryDisplayMode
 
 /**
  * The neutral catalogue state both content types produce, so one screen can render a manga source and
- * a light-novel source without branching on type. Each adapter maps its own model into [Loaded]; the
- * two failure cases are separate because they recover differently.
+ * a light-novel source without branching on type. Each adapter maps its own model into [Loaded].
  */
 sealed interface EntryBrowseScreenState {
     data object Loading : EntryBrowseScreenState
@@ -17,11 +16,6 @@ sealed interface EntryBrowseScreenState {
     /** The source cannot be reached and nothing here will bring it back: an extension that is not
      *  installed. No retry is offered, because there is nothing to retry. */
     data class SourceMissing(val label: String) : EntryBrowseScreenState
-
-    /** The source failed to load but can be re-resolved, which [reload] does. Only the novel adapter
-     *  produces this: a plugin that threw while loading has no pager to report through. [reload] is
-     *  held once by that adapter, so an emission carrying it does not break this state's equality. */
-    data class SourceFailed(val message: String, val reload: () -> Unit) : EntryBrowseScreenState
 
     @Immutable
     data class Loaded(
