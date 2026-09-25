@@ -40,12 +40,12 @@ every release now also ships a foss build with neither in it.
 #### Added
 
 - **A new All chip shows your whole library, manga and novels together.** One list, one sort, with each series opening in its own reader; the Manga and Novels chips now simply filter it.
-- **A category can now hold both manga and novels.** Pick whether a new category shows in manga, novels or both when you create it.
+- **A category can now hold both manga and novels, or just one; pick which when you create it.** A one-library category is labelled "Manga only" or "Novels only" in the filter pickers.
 - **Edit categories is now one list covering manga and novels, with an All / Manga / Novels chip to show one library at a time.** Each row says which libraries it applies to and one drag order covers them all; a category you create starts on the library you are looking at.
 - **Library search understands field terms and comparisons, like `author:kubo`, `genre:horror -genre:ecchi` or `unread>5`.** One grammar for manga and novels, so a query means the same thing on every entry the All chip shows.
 - **Library search can now find an entry by one of its chapter names, with `chapter:epilogue`.** Works on manga and novels, and combines with everything else, so `chapter:finale -genre:horror` does what it reads like.
 - **The library's three-dot menu can now refresh tracker data for everything you track, in one pass.** Scores and statuses were only pulled when you opened an entry, so sorting or filtering by tracker score read whatever was last cached.
-- **Settings -> Library -> Recommendations can now move the related-manga carousel off the details page into its three-dot menu.**
+- **Settings -> Recommendations -> Related manga placement can now move the related manga row off the details page and into its three-dot menu.**
 - **Long-pressing a second category on the Edit categories screen now selects everything between the two.** Long-press one you have already picked to drop it again.
 - **With categories in manual order, each card on the Edit categories screen now has a menu to move it straight to the top or bottom.** It works under the Manga and Novels chips too, where dragging is off.
 
@@ -55,8 +55,8 @@ every release now also ships a foss build with neither in it.
 - **The Default category now follows your global library sort instead of taking a sort of its own.** It is one shared bucket across both libraries, so it could not sensibly be sorted two ways at once.
 - **A category you collapse stays collapsed on both the Manga and Novels chips, and after a restart.** Collapsing is now remembered per category rather than per chip; in the novel library it used to spring back open every time you left.
 - **Empty categories are now always hidden, and the "Show number of items" setting is obeyed on novels too.** A category with nothing to show never renders a bare header, on any chip.
-- **A category that only applies to one library now says so in the filter picker.** Each row carries "Manga only" or "Novels only" under its name, so picking one while looking at the other library is no longer a silent surprise.
 - **Failed library updates are now recorded by default for manga and novels, and the notification opens the list of what failed.** Switch it off under Settings -> Advanced and the notification opens one log file covering both libraries instead.
+- **Library search now finds an entry by id with `id=5` and by source id with `srcid:`, on manga and novels.** `src:` now matches a source's name instead of its id.
 
 #### Fixed
 
@@ -85,13 +85,11 @@ every release now also ships a foss build with neither in it.
 - **Grouping the library by tag or author no longer splits one tag into two groups.** Sources that spell a tag differently, like Adult and ADULT or Sci-Fi and Sci Fi, now land in a single group.
 - **The library settings sheet now offers its adult-content filter on novels too, based on genre tags.** It is less reliable than the manga one, which can use a source's own flag.
 - **Novel library sorting now matches manga: ties stay A to Z under a descending sort, fully-read novels sink under the unread sort, and titles order by your device language.**
-- **Two novel search prefixes changed spelling: `id:5` is now `id=5`, and `src:slug` is now `srcid:slug`.** They are the manga library's spellings, so both libraries answer one grammar.
 - **Typing in the novel library's search no longer rebuilds the list on every keystroke.** It waits for a short pause first, like the manga library.
 - **Selecting novels in the library is no longer slow.** It used to get worse the more novels you had.
 - **Library actions now act on the category you have scrolled to in the single-list view.** Select all, Invert selection, Update category, Open random entry and the hopper's long-press sort all acted on the first category instead.
 - **Library search now reads the title, author, artist, description and genre you set in Edit info, not just the source's.** So an entry you renamed is findable by the name you gave it.
 - **The novel library-update and download category filters now include the Default (uncategorized) group.** You can include or exclude novels that are not in any category, matching the manga filters.
-- **Excluding a term from library search now applies to adult-source entries too.** A query like `-genre:horror` used to leave them in the results regardless.
 - **Bulk actions on selected novels now always run to completion.** Marking read, changing categories, downloading or removing could quietly stop partway if the app closed mid-action; manga already ran these to the end.
 - **Deleting a category now clears it from the library and Updates filters.** No filter is left pointing at a category that no longer exists.
 - **The library's continue button and Recents now pass over chapters you hid, on manga and novels.** A hidden chapter still opens when it is the only one left unread.
@@ -138,7 +136,7 @@ every release now also ships a foss build with neither in it.
 - **Saving Edit info on a merged novel with a source chip selected no longer stores that source's details as your edits.** Opening the editor from a selected source and saving untouched used to keep its differing title, tags and cover as permanent overrides.
 - **Share and Open in WebView now follow the source chip you have selected, on novels as well as manga.**
 - **Selecting a source chip on a merged manga now shows that source's synopsis and tags, as novels already did.** They stayed on the leading source while the title and cover changed.
-- **Migrating and cover edits now act on the whole merged series whichever source chip is selected, and a custom title stays visible under a chip.**
+- **Migrate on a merged series now asks which of its sources to move, whichever source chip is selected, and a custom title stays visible under a chip.**
 - **A merged series now downloads each chapter once, however many of its sources carry it, and deleting one removes every source's copy.** Download next follows the group's combined list in your chapter sort, and the download badge counts each chapter once.
 - **A chapter you bookmarked before merging its series now still shows as bookmarked in the combined list.** The Bookmarked filter on the series page and in the reader follows the same answer.
 - **The reader's "Skip chapters marked read" now skips a chapter read on another source of a merged series.** So do the Unread filters on the series page and in the reader.
@@ -202,7 +200,6 @@ every release now also ships a foss build with neither in it.
 #### Fixed
 
 - **A series whose site shows a placeholder until its cover loads now keeps its real cover.** A series already stuck on the placeholder takes its cover back from its source's listing.
-- **Searching a genre from a manga's page no longer applies it to a different source's catalogue further back.**
 - **Tapping a series' source name now opens that source to browse.** It used to run a search for the source's own name, and from most screens it did nothing at all.
 - **Page previews on an adult source's details page no longer go blank over time.** Their thumbnails were remembered against links that expire, so a series you had opened before came back as numbered blanks.
 - **Pulling down to refresh a novel's page now downloads its cover again, fixing a broken one, as it already did for manga.**
@@ -211,7 +208,6 @@ every release now also ships a foss build with neither in it.
 - **Long-pressing a novel's WebView button now copies its link, like manga.**
 - **Removing a novel from the library on its page now offers to delete its downloaded chapters, as manga does.** Removing a novel from anywhere also clears its saved cover, a custom one included, so a re-add starts clean.
 - **Closing Edit info while Fill from tracker is still loading no longer shows a tracker error.**
-- **Titles you just added from the full related-manga grid no longer come back selected with your next pick.**
 - **Tapping a tag chip on a series from an adult gallery source or an enhanced source now searches that source in its own tag format.** Every source got one gallery site's format, so most of those searches found nothing.
 - **The full related-manga grid now says when your filters hide every suggestion, with a button to show them.** It used to open on a blank page.
 - **The related-manga Hide dropped, Hide on-hold and Hide plan-to-read filters now work with every manga tracker.** A series tracked only on MangaUpdates, Hikka, MangaBaka or MDList was never hidden.
@@ -230,8 +226,8 @@ every release now also ships a foss build with neither in it.
 - **The novel reader carries the full option set: bionic reading, Remove extra spacing, tap zones, Swipe between chapters, volume-key scrolling and auto-scroll.** Settings -> Novel reader gains a Scroll speed slider for the last of them.
 - **The novel reader now reads straight on into the next and previous chapters, which Settings -> Novel reader -> Continuous chapters can switch off.** A marker names each boundary, and Add the next chapter at sets how far in the next one appears, 95% by default.
 - **Settings -> Novel reader can now find and replace text in a chapter before you read it.** Each rule matches plain text or a pattern, and a sample box shows what it would do before you save it.
-- **The novel reader can now read a chapter aloud, from a Read aloud button on the button bar.** Its floating controls read from the paragraph on screen, step between paragraphs and set a sleep timer whose time left shows in the notification.
-- **The novel reader highlights the paragraph being read aloud, or with Highlight sentence on the sentence, in a style and any colours you set under Settings -> Novel reader.** With sentences, Next and Previous step by sentence too.
+- **Novel read-aloud now starts from a Read aloud button on the reader's bar and has a sleep timer, with the time left shown in its notification.** Its floating controls read from the paragraph on screen and step between paragraphs.
+- **Novel read-aloud can now highlight the sentence being read instead of the paragraph, in a style and colours you set under Settings -> Novel reader.** With sentences, Next and Previous step by sentence too.
 - **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Every font's row previews itself, Serif, Sans serif and Monospace included, and what you add works in both rendering modes.
 - **Bottom bar buttons under Settings -> Manga reader and Settings -> Novel reader now set the order of the reader's buttons, not just which ones show.** Drag a button by its handle, the settings button included, which is always shown.
 - **The reader's top menu can reload the open chapter where you are, from its downloaded copy or fresh from the source.**
@@ -245,7 +241,6 @@ every release now also ships a foss build with neither in it.
 
 - **The reader's settings button now opens the same sheet for manga and novels, with Reading, Appearance, Controls and Filters tabs, plus Read aloud for novels.** Manga keeps every setting it had, and a novel gets its own, rendering mode and text selection among them.
 - **With Theme based on cover on, the novel reader's bars now take the novel's cover colours, as manga's do.**
-- **The novel reader now holds far less memory for chapters with tall pictures.** A part scrolled onto quickly can look blurry for a moment until its sharp slice loads.
 - **Novels now keep their own brightness, colour filter, grayscale and inverted colours, set from the novel reader's Filters tab.** A brightness or colour filter set in the old novel reader comes back.
 - **The novel reader's button bar now starts with text size and theme buttons, unless you have already chosen its buttons.** They are the quickest way to change either while reading.
 - **Reader settings are now two entries, Manga reader and Novel reader, each holding only that reader's options.** The single Reader screen had grown to 68 rows with the novel options scattered through it under "· Novels" labels.
@@ -288,7 +283,7 @@ every release now also ships a foss build with neither in it.
 
 #### Added
 
-- **Novels in your library now get smart update: a predicted next release on the details page, and an option under Settings -> Library -> Global update · Novels to skip novels outside their release period.**
+- **Novels now show their predicted next release on the details page, and Smart update under Settings -> Library -> Global update · Novels gains Predict next release time.** With it on, a library update skips novels outside their release period.
 - **Novel sources can now be hidden per language, from the switch each language carries in the sources filter.** Switching one off hides all its sources from Browse and search, like manga.
 - **Adding a duplicate novel now gives you a one-tap Migrate, moving progress, categories, cover and tracking to the new source.**
 - **A novel from an IReader extension can take its details, chapters or a chapter's text from a page you open in its WebView menu.** It is the way through for a site that blocks the app.
@@ -340,7 +335,6 @@ every release now also ships a foss build with neither in it.
 - **A novel chapter with a stray plaintext tag no longer breaks the reader page.** Everything after the tag, the reader's own code included, used to show as text.
 - **Opening a downloaded novel chapter no longer freezes the reader while it loads.** Chapters with pictures in them were the worst affected.
 - **Opening a novel with a lot of chapters is faster.** The reader was reading every chapter back out of the database one at a time before it could show you anything.
-- **Searching every novel source at once no longer closes the app.** Starting several sources together could take the whole app down before any results arrived, so the All filter in novel global search was the quickest way to hit it.
 - **Adding a novel from its details page now files it in your default novel category.** It opened the category picker every time instead, even with a default set, the one add path that ignored the setting.
 - **Novels now use the same category picker manga does.** It carries the Edit categories shortcut, and with no categories yet it offers to make one instead of doing nothing at all.
 - **Updating the novel library now tells you when an update is already running.** It used to say it had started a new one every time.
@@ -349,7 +343,6 @@ every release now also ships a foss build with neither in it.
 - **Updating your novel library can no longer save one novel's title and cover onto a different novel; refresh an affected entry to restore its details.**
 - **Updating several light-novel plugins at once no longer loses one of them.** Two updates finishing close together could leave a plugin listed as updatable however often you updated it.
 - **A novel's full-cover view now loads on sources that need a referer.** Opening it before the source finished resolving left the request without one for as long as the page stayed open.
-- **An adult content source's update notice no longer dismisses the novel library's error notice.** The two shared a notification slot, so one silently replaced the other.
 - **Picking the Black reader theme again draws the novel reader's progress percentage in the same dimmed white as the text, instead of pale yellow.** A reader already set to it keeps the old colour until the theme is picked again.
 - **The novel reader, resuming and next-chapter downloads now follow the order you sorted a novel's chapter list into.** They walked the source's order or the chapter number, so on a novel sorted by name or date they reached a different chapter.
 - **A new novel chapter numbered like one you have already read now arrives read, when the duplicate-chapter setting asks for it, and is no longer announced or downloaded as new.** The setting only reached manga before.
@@ -370,16 +363,16 @@ every release now also ships a foss build with neither in it.
 
 #### Added
 - **Sites that block the app but let its built-in browser in now load without a FlareSolverr server.**
-- **A FlareSolverr server behind a password now works: sign in to it under Settings -> Advanced.** Credentials already typed into the address move across on upgrade, and neither field is included in a backup unless you turn on private settings.
+- **A FlareSolverr server behind a password now works over https or on your own network: sign in under Settings -> Advanced -> FlareSolverr sign-in.** A backup carries the sign-in only with Include sensitive settings turned on.
 
 - **A chapter in the local manga source now takes its date from the Year, Month and Day in its ComicInfo.xml (synced from Mihon, mihonapp/mihon#3967).** Only the file's last-modified date could set it before.
 - **Any source's filters can now be saved as a named search and re-applied from a chip while you browse that source (ported from Komikku).** Long-press the chip to delete the search.
-- **Browse can now show a Feed tab, turned on under Settings -> Browse, with one row of covers for every source or saved search you add to it (ported from Komikku).** A row holds that source's latest, or what the saved search returns; the tab takes twenty, and a long press removes a row.
+- **Browse can now show a Feed tab, turned on under Settings -> Browse and sources -> Show Feed tab, with one row of covers for each source or saved search you add.** The tab holds twenty rows, and a long press removes one.
 - **The Feed's rows can now be dragged into the order you want.** The order sticks across restarts, and comes back with a backup restore.
 - **Pick several covers across the Feed's rows and add them to your library together.** Manga and light novels in one batch, each filed into its own categories.
 - **Browse -> Sources now has a search box that filters the list by source name, extension name or id.** Separate terms with commas to match any of them.
 - **Long-press a source in Browse -> Sources to turn incognito mode on for it, light-novel sources included, or for its whole extension on a manga source.**
-- **Settings -> Browse can now hide the Latest button on Browse -> Sources rows.** Latest stays one tap away inside each source.
+- **Settings -> Browse and sources can now hide the Latest button on Browse -> Sources rows.** Latest stays one tap away inside each source.
 - **Source catalogues in Browse now offer the panorama comfortable grid.** Wide covers show whole instead of cropped.
 
 #### Changed
@@ -401,7 +394,6 @@ every release now also ships a foss build with neither in it.
 - **Choosing what a manga migrates to now browses the source the normal way, with chips, filters and your grid layout.** It used to open a stripped-down grid, while light novels already used the full one.
 - **Browsing a light-novel source now offers the same toolbar as a manga source.** Search, display mode, Select, Open in WebView and the source settings sit in the same places on either.
 - **A light-novel source only offers Latest when it can really list latest.** Around half the plugins ignore the request and hand back the popular list, so the chip is hidden on those instead of quietly repeating Popular.
-- **The Browse sources filter now covers manga and light novels from one screen, whichever chip you opened it from.** A Manga / Novels chip switches halves; the All and Manga chips used to reach only the manga sources.
 
 #### Fixed
 - **Tapping "Back up all favorites now" again while an adult source's favorites backup runs no longer starts a second one.** Two at once pushed every favorite twice.
@@ -411,7 +403,7 @@ every release now also ships a foss build with neither in it.
 - **Tapping a follows sync action while one is running now says a sync is already running, instead of silently stopping the first partway.**
 - **Browsing a source or opening a series while offline now says "No Internet connection" instead of a raw host error, on manga and novels.** The manga reader's failed pages say it too.
 - **Manga sources that work out their pages with JavaScript now show those pages again, where some opened chapters empty or failed to load.**
-- **Global search and the feed no longer crash when a source lists the same result twice.**
+- **Global search no longer crashes when a source lists the same result twice.**
 - **Global search no longer shows a blank screen when nothing is pinned or no source found anything.** It says which, and on Pinned offers to search all sources.
 - **Forms a source posts through FlareSolverr now reach the site intact, so a novel plugin's chapter list loads there.** A space in a form no longer arrives as a plus sign either.
 - **Pages fetched through a FlareSolverr server on your own network or over HTTPS now come back signed in to the site.** Your cookies are never sent to a solver reached in the clear over the internet.
@@ -441,6 +433,7 @@ every release now also ships a foss build with neither in it.
 - **Browse -> Sources and Extensions now show their list as soon as it is ready, without a short pause first.** Clearing the search box restores the full list at once too.
 - **Two languages whose codes share one name (such as "in" and "id") no longer lose a section in Browse's lists and source filter, on manga and novels.**
 - **A light-novel source that is no longer installed now says so in your language and by its name, in its catalogue, on the novel page and in the reader, as a manga source does.**
+- **The Browse sources filter now covers manga and light novels from one screen, whichever chip you opened it from.** A Manga / Novels chip switches halves; the All and Manga chips used to reach only the manga sources.
 
 ### Migration
 
@@ -458,7 +451,6 @@ every release now also ships a foss build with neither in it.
 
 #### Changed
 
-- **Migrating a manga now keeps the page you reached in each chapter, as migrating a novel keeps your place.**
 - **Migrating no longer asks the target's source for the same thing twice, roughly halving the load a large migration puts on the site.** That matters most where rate limits bite.
 - **Migrating a manga or novel with its chapters now brings its reading history along.** Its History entries and its place in the library's Last read sort follow it to the new source.
 
@@ -468,13 +460,13 @@ every release now also ships a foss build with neither in it.
 - **A light-novel search result already in your library now shows the cover your library shows, including one you set yourself.**
 - **Cancelling a migration part-way no longer leaves a merged series half-moved.** The entry could disappear from your library while still counting toward a merged series, with no way to reach it and put it back.
 - **Migrating a novel with "Delete downloaded" now stops its queued downloads and no longer downloads those chapters again on the new source.** The queued ones used to keep downloading into the source you had just moved away from, and the files they wrote stayed behind.
+- **Migrating a manga now keeps the page you reached in each chapter, as novels already did.**
 
 ### Tracking
 
 #### Added
 - **Settings -> Tracking has a refresh button on each tracker you sign in to with an account, so a nickname or score format changed on the site reaches Reikai without signing out.** Works for the light-novel trackers too.
 
-- **Binding a tracker to a novel you have already read now fills in when you started reading, as it does for manga.**
 - **Light novels can now be tracked on RanobeDB, NovelList and NovelUpdates, three services built for novels.** Sign in through a browser window on any of them, or paste a personal access token on RanobeDB; what each keeps in sync differs, because not all of them store a score, reading dates or an on-hold state.
 - **Turning on list matching in the tracking settings points NovelUpdates statuses at your own reading lists, not just the five it starts with.** Each status picks the list it moves a novel to.
 - **Filling a novel's details from a tracker now works with RanobeDB, NovelList and NovelUpdates, which know novels better than the manga services do.** It fills the description, author, artist and genres.
@@ -491,7 +483,6 @@ every release now also ships a foss build with neither in it.
 
 - **MangaUpdates results now show each entry's rating and creators while you pick one to bind (synced from Mihon, mihonapp/mihon#3795).** Covers manga and novels alike.
 - **Kitsu scores now use whichever rating scale your Kitsu account is set to, smileys, stars or the 10 point decimal (synced from Mihon, mihonapp/mihon#3818).** Existing scores are converted on upgrade, for manga and novels alike.
-- **Marking a chapter read now updates the tracker status on the entry straight away, on manga and novels.** It kept showing the status from before the push, so an entry could sit on "plan to read" while the service already said reading.
 
 #### Fixed
 - **Binding or changing the status of a series from your own manga server when you have not started it no longer marks its Chapter 0 read, in Reikai or on the server.** Reading progress of 0 was taken as "read up to chapter 0".
@@ -506,7 +497,6 @@ every release now also ships a foss build with neither in it.
 - **A merged series is now filtered, sorted and grouped by tracking status from every one of its sources, not just its main one.**
 - **The library's tracking-status groups now always read in reading-progress order (Reading first, Not tracked last), instead of being sorted alphabetically by your category sort.**
 - **Sorting the library by tracker score no longer floats signed-out trackers above your rated entries.** A merged series also counts each tracker once instead of doubling it across sources.
-- **The tracker refresh notification now uses the app's own refresh icon.** It was showing a generic Android sync glyph.
 - **An expired AniList sign-in now says so and points you at Settings, instead of failing with a generic error (synced from Mihon, mihonapp/mihon#3888).** The expiry check had been reading the stored time as a far-future date, so the app kept sending credentials AniList had already rejected.
 - **A MyAnimeList entry dated with only a year, or a year and month, no longer errors out (synced from Mihon, mihonapp/mihon#3573).**
 - **A score you pick on MangaBaka is now saved as that score, at every step size (synced from Mihon, mihonapp/mihon#3740).** With steps larger than 1 it was sending the score's position in the list instead.
@@ -514,6 +504,8 @@ every release now also ships a foss build with neither in it.
 - **When linking or updating a tracker fails, on manga or novels, the message now says why in plain words, such as No Internet connection or Log in to NovelList again.** A failed novel link used to crash the app, and a failed auto-match said no match was found.
 - **Binding a novel that is already on your NovelList reading list now keeps its status, progress and score there.** It used to reset them; a novel with chapters read locally moves to Reading unless it is Completed.
 - **Marking a chapter read on a merged novel now sets your trackers to that chapter, not to a higher number another of its sources gave its copy.**
+- **Binding a tracker to a novel you have already read now fills in when you started reading, as it does for manga.**
+- **Marking a chapter read now updates the tracker status on the entry straight away, on manga and novels.** It kept showing the status from before the push, so an entry could sit on "plan to read" while the service already said reading.
 
 ### Downloads & extensions
 
@@ -530,19 +522,18 @@ every release now also ships a foss build with neither in it.
 
 - **A downloaded manga chapter now records its upload date in its ComicInfo.xml (synced from Mihon, mihonapp/mihon#3967).** Move the folder into the local source later and the date comes with it.
 - **The download queue is now one list for manga and novels, and any series can be dragged above any other.** The Manga and Novels chips are gone; a badge names each card's type while both are queued.
-- **Download queue cards show the chapter downloading now, and their counts no longer reset when you reopen the queue.**
+- **Download queue cards now name the chapter downloading.**
 - **Novel downloads left waiting in the queue no longer start on their own when the app opens, as with manga, though ones cut off by closing the app still resume.**
 - **Downloaded novel chapters show as downloaded as soon as the app opens.** The novel download folder is no longer rescanned on every launch, only hourly, as manga's is.
 - **Rows in Browse -> Extensions now read the same for every kind of extension, and a pending update shows the version it brings.** Available rows show their version under their language heading, installed rows their language and version.
 - **Tapping an installed novel plugin in Browse -> Extensions now opens its page, with its version, repo, settings, website and an Uninstall that asks first.** The row's delete button, which removed a plugin without asking, is gone.
 - **Novel plugin repos in Browse -> Extensions now refresh when you pull down, rather than each time you come back or install a plugin.**
-- **Reading a novel in incognito now downloads the next chapters ahead, as reading manga in incognito does.** Incognito keeps your history out, not your downloads.
 - **Deleting a novel's downloads by hand now keeps bookmarked chapters, and read chapters in categories kept from removal, as manga does.** Settings -> Downloads decides both, and removing a novel from the library still clears all of its downloads.
 
 #### Fixed
 
 - **The Browse badge now counts light-novel plugin updates from app launch, as it does extension updates, without Browse being opened first.**
-- **The light-novel plugin update notice now leaves out plugin names under Settings -> Security -> Hide notification content, and goes away once no plugin needs updating, as the extension notice does.**
+- **The light-novel plugin update notice now leaves out plugin names under Settings -> Security and privacy -> Hide notification content, and goes away once no plugin needs updating, as the extension notice does.**
 - **Installing an extension through Shizuku works again.**
 - **An extension row no longer shows a stray dot before its version after an install is cancelled.**
 - **Extensions marked Orphaned lose the mark as soon as you add a repo that lists them, rather than after a restart.**
@@ -555,11 +546,11 @@ every release now also ships a foss build with neither in it.
 - **A resumed image download now shows the right progress instead of restarting from zero.**
 - **Cancel on the novel download notification now cancels instead of pausing.** The queue came back and carried on the next time you opened the app.
 - **A novel chapter that failed to download can be started again, by Resume or by Start downloading now, and stays in the queue after a restart, as a manga chapter does.** Resume skipped it, so it sat in the queue as an error with no way to get it going short of queueing it afresh.
-- **An outdated manga or novel extension no longer crashes the app when you browse it or open one of its series.** It shows an error instead, as a library update already did, and a novel extension's chapters fail the same way when read or downloaded.
+- **An outdated manga extension no longer crashes the app when you browse it or open one of its series.** It shows an error instead, as a library update already did.
 - **A downloaded novel chapter with pictures now keeps the line breaks the source draws.** Saving it folded them into spaces, so a chapter laid out with its own breaks read as one run-on block offline.
 - **A downloaded novel chapter's pictures now show offline even when the source offers them in several sizes.** Both readers went back to the source for the larger ones.
 - **Tapping install, update or reinstall twice on a light-novel plugin no longer shows a false install error.**
-- **The download queue no longer counts a cancelled chapter as downloaded.**
+- **Download queue counts no longer reset when you reopen the queue, or count a cancelled chapter as downloaded.**
 - **Manga downloads queued without a connection now start on their own once it returns, as novel downloads do.**
 - **With Downloaded only on, a novel's chapter list and reader now show only downloaded chapters, as manga's do.**
 - **Deleting a novel's last downloaded chapter now removes its empty folder, as manga does.**
@@ -573,6 +564,8 @@ every release now also ships a foss build with neither in it.
 - **Resuming novel downloads right after pausing them now carries on with the queue.** A Resume that landed while a chapter with pictures was still saving could leave the queue sitting idle until you tapped it again.
 - **The first tap on a download queue sort now sorts ascending.** The sort sheet opened showing chapter number as already applied, so the first tap flipped it to descending.
 - **A novel chapter download now fails at once with an out-of-space message when the device is nearly full, as a manga one does.** It used to retry against the full disk and fail with a raw system error.
+- **Reading a novel in incognito now downloads the next chapters ahead, as reading manga in incognito does.** Incognito keeps your history out, not your downloads.
+- **Removing an extension repo now marks its extensions untrusted straight away, instead of after a restart.**
 
 ### Backup & restore
 
@@ -580,7 +573,6 @@ every release now also ships a foss build with neither in it.
 
 - **Light-novel plugin and IReader extension settings now back up with Source settings instead of App settings.** Backups made before this update still bring them back with App settings.
 - **Details you edited yourself now back up in Komikku and Yōkai's format, which Reikai 0.3.2 and older nightly builds restore without them.** They restore in either app, theirs restore here, and backups from any earlier Reikai still bring them back.
-- **Settings -> Data and storage -> Library list now exports your novels too, and writes a merged series once.**
 
 #### Fixed
 
@@ -595,8 +587,6 @@ every release now also ships a foss build with neither in it.
 - **Restoring a backup no longer collapses unrelated series into one.** Two series you had grouped separately came back as a single card whenever your device already had a source of each merged together.
 - **Restoring a backup now leaves merged series it says nothing about untouched.** They keep their group, their order and their leading source.
 - **Restoring a backup no longer re-merges a pair you deliberately split.**
-- **A restore that stops part way no longer leaves your merged series split apart.** Merged series you had grouped before the restore used to come back apart if it failed or you cancelled it mid-way; now the grouping either survives whole or is replaced whole.
-- **Restoring a backup no longer fails outright because of one merge entry it can't apply.** That entry is skipped, matching how novels already behaved.
 - **A problem while restoring merged series or edited details no longer stops the rest of the restore.** It is recorded in the restore log instead, and the other content type finishes.
 - **One bad entry in a restore no longer takes a hundred others down with it (synced from Mihon, mihonapp/mihon#3667).** The rest of the batch is retried one at a time, so only the entry that actually failed is reported.
 - **A backup holding the same series twice under one source now restores instead of failing (synced from Mihon, mihonapp/mihon#3667).**
@@ -610,6 +600,7 @@ every release now also ships a foss build with neither in it.
 - **Restoring a backup no longer overwrites a light novel's tracker status, score and dates with the backup's, matching manga.**
 - **The warning before a restore and the restore log now name a missing light-novel source instead of showing its id.** Backups made before this update still show the id.
 - **The warning before a restore no longer claims your light-novel sources are missing.** It read the source list before the plugins had loaded, so a restore begun from a fresh launch listed every one of them.
+- **Settings -> Data and storage -> Library List now exports your novels too, and writes a merged series once.**
 
 ### App
 
@@ -655,8 +646,6 @@ every release now also ships a foss build with neither in it.
 ### Other
 
 - Backing up and restoring the library now runs one loop for manga and novels: which series are backed up, which parts each carries, and how a failed restore batch is retried are each written once, so the two can no longer drift.
-- A novel library update now predicts a paged novel's next update once, after its last page, instead of once for every page it fetched.
-- Keeping merged series in step with the library now costs one pass over the grouped entries on each library write, rather than a walk of the whole library.
 - Smart update skipping, the chapter-sync rules for new chapters and what binding a tracker backfills are now each written once for manga and novels, so the two can no longer drift. The novel library update also decides what to skip from the library's chapter counts, rather than loading every novel's chapters first.
 - The app's native libraries are now compressed inside the download, which keeps it near its old size although the high quality renderer added about 27 MB of them: the arm64 download is about 31 MB where it would have been 53 MB. Once installed the app takes a little more space, since Android unpacks them.
 - A category link that no picker for its content type could show is now refused where it is written, so a manga can no longer be filed under a novels-only category or the reverse.
@@ -664,10 +653,8 @@ every release now also ships a foss build with neither in it.
 - Gradle's configuration cache is on, which takes a no-op incremental build from about 26 seconds to under 2. Isolated projects is on beside it, and each module's resource class now carries only that module's own resources (partly synced from Mihon).
 - The app now wires its components together at build time rather than looking them up while running, closing a class of release-only crash, and installed extensions resolve their dependencies from that same fixed list (synced from Mihon, mihonapp/mihon#3608 and mihonapp/mihon#3965).
 - Updates, History and Recents no longer start the novel downloader while they show only manga, and a manga download's progress now redraws only the progress rings rather than every download icon and the selection bar.
-- The novel reader does less work on the main thread: a text colour, line spacing or alignment change keeps each chapter's measured layout, a replaced chapter render stops early, the web page mode reads a font file once rather than on every page build, and the page is no longer re-indented as a whole.
 - The search bar and the tracker sign-in fields now use Compose's newer text-field implementation, and the reader's progress sliders its newer slider state, following a Compose bump synced from Mihon (mihonapp/mihon#3752).
 - Cancelling an extension install no longer goes through a local broadcast, which the Material library dropped at 1.14.0 (synced from Mihon, mihonapp/mihon#3226).
-- The novel reader's session model now runs under unit tests against a real in-memory database, which pins how it handles a failed chapter load, a retried reload from the source, the next-chapter threshold setting and a merged novel's source labels.
 - Dependency and toolchain updates synced from Mihon: the app compiles against Android SDK 37.2, and appcompat, paging, webkit, okhttp, okio, conscrypt, Firebase, Injekt, SQLDelight and its driver, the image, markdown and rich-text renderers and the build plugins all moved up.
 - Added an on-device test that measures how a scrolling list holds its position when content is inserted above the reader, which settled a design question for the novel reader. Test only, nothing in the app changed.
 - The bottom navigation and the tablet side rail are now drawn by Material's own adaptive navigation component instead of hand-rolled copies (synced from Mihon, mihonapp/mihon#3834).
@@ -687,10 +674,9 @@ every release now also ships a foss build with neither in it.
 - Kitsu tracking now runs entirely on Kitsu's GraphQL API rather than the older one it is replacing (partly synced from Mihon, mihonapp/mihon#3792). The recommendation taste profile and Fill from tracker moved across too, so nothing is left on the old endpoint.
 - Tracker internals tidied across all eleven upstream trackers, covering token expiry math, refresh-response parsing, helper visibility and how each tracker learns its own id (synced from Mihon, mihonapp/mihon#3900 and mihonapp/mihon#3908). No change to sign-in, search or progress sync.
 - Twenty-one settings descriptions rewritten shorter and plainer, to read like the ones Mihon ships rather than a paragraph under each switch.
-- The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
+- The migration source list now saves its order off the UI thread.
 - Every list screen now stops querying a few seconds after you leave it, instead of running as long as the app does: the library, Recents, the source and extension lists, and the category, migration, cover and upcoming screens (synced from Mihon, mihonapp/mihon#3716 through mihonapp/mihon#3762).
 - Installed extensions are now read off the main thread, so they no longer hold up a cold start (synced from Mihon, mihonapp/mihon#3788).
-- Extension trust is re-checked from the repo list itself rather than by the two screens that happened to change it, so adding or removing a repo anywhere re-checks straight away, and a re-check can no longer be undone by the startup scan finishing after it.
 - The manga reader now queues its internal events instead of discarding one when it arrives while the reader is busy. Two of them were sent in a way that could be dropped silently, which would have cost a page-turn signal or left a preloaded chapter unshown.
 - The one-time import of a Yokai-era database on first launch is removed. It could not run since the 0.3.2 package change, which installs the app beside a Yokai-era build rather than over it.
 
