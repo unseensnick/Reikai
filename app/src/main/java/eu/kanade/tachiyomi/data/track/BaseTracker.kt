@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.track
 
-import android.app.Application
 import android.content.Context
 import androidx.annotation.CallSuper
 import eu.kanade.domain.track.interactor.AddTracks

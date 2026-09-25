@@ -65,7 +65,6 @@ import mihon.app.di.appGraph
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.domain.novel.NovelPreferences
-import reikai.domain.novel.interactor.RepairNovelDetails
 import reikai.presentation.settings.FlareSolverrLoginDialog
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable

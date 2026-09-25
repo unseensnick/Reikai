@@ -28,7 +28,6 @@ import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.Novel
 import reikai.domain.track.source.ChapterWrite // RK
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
-import reikai.novel.download.NovelDownloadJob
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO

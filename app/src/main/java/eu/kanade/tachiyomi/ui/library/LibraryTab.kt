@@ -82,8 +82,6 @@ import reikai.presentation.library.LibraryDialog
 import reikai.presentation.library.LibraryEngine
 import reikai.presentation.library.LibraryScreenState
 import reikai.presentation.library.LibrarySettingsSheet
-import reikai.presentation.library.MangaLibraryAdapter
-import reikai.presentation.library.NovelLibraryAdapter
 import reikai.presentation.library.ReikaiCategoryHopper
 import reikai.presentation.library.ReikaiCategoryPickerSheet
 import reikai.presentation.library.ReikaiLibraryContent

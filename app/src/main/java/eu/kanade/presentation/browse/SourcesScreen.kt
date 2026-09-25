@@ -1,6 +1,5 @@
 package eu.kanade.presentation.browse
 
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle

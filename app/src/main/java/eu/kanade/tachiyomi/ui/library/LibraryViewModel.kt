@@ -48,13 +48,9 @@ import kotlinx.coroutines.flow.update
 import mihon.core.common.utils.mutate
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.categoryFilterActive
-import reikai.domain.category.isHidden
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.library.librarySortComparator
-import reikai.domain.library.sortForCategory
-import reikai.domain.library.toSortMode
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -70,18 +66,13 @@ import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.merge.stitchInputChanges
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.presentation.library.LibraryFilterPrefs
-import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.MangaMergeCollapse
-import reikai.presentation.library.ReikaiLibraryState
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
-import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryQueryMatches
-import reikai.presentation.library.libraryStateFlow
 import reikai.presentation.library.toQueryOverlay
-import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -109,7 +100,6 @@ import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
-import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import kotlin.time.Duration.Companion.seconds
 import tachiyomi.domain.source.model.Source as DomainSource
