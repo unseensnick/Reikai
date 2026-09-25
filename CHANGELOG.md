@@ -230,7 +230,7 @@ every release now also ships a foss build with neither in it.
 - **Bottom bar buttons under Settings -> Manga reader and Settings -> Novel reader now set the order of the reader's buttons, not just which ones show.** Drag a button by its handle, the settings button included, which is always shown.
 - **The reader's top menu can reload the open chapter where you are, from its downloaded copy or fresh from the source.**
 - **Both readers' bars can now name a chapter by its number, or by number and name, under Settings -> Manga reader, Settings -> Novel reader or the reader's Appearance tab.** Each reader keeps its own choice, and a number the chapter's name already opens with is not shown twice.
-- **Settings -> Manga reader and Settings -> Novel reader can now hide the progress slider, which moves the chapter buttons to the ends of the button bar.**
+- **Settings -> Manga reader and Settings -> Novel reader can now hide the chapter navigator, which moves the chapter buttons to the ends of the button bar.**
 - **Both readers can now put a Scroll to top button on the bottom bar.** It returns a novel to the chapter's start and manga to the chapter's first page.
 - **Both readers' bottom bar can now be edited without leaving the reader, from Edit bottom bar in the top bar's menu.**
 - **Novel chapters in the WebView rendering mode now show the styling their light-novel plugin ships, such as the boxes some chapters draw stats in.** A plugin already installed picks it up on its next update or reinstall.

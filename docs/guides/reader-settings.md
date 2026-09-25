@@ -284,7 +284,7 @@ Inverts what the volume keys do.
 #### Volume key scroll amount <Badge type="info" text="75%" />
 How much of the screen one press moves. It applies to the long strip modes only, since a paged reader turns a whole page either way.
 
-#### Show progress slider <Badge type="info" text="On" />
+#### Show chapter navigator <Badge type="info" text="On" />
 Shows the slider for moving through the chapter. With it off, neither the slider nor the vertical navigator is drawn, and the previous and next chapter buttons move to the two ends of the button bar. The settings below it only appear while it is on.
 
 #### Use vertical chapter navigator in <Badge type="info" text="None" />
@@ -446,7 +446,7 @@ Inverts what the volume keys do.
 #### Volume key scroll amount <Badge type="info" text="75%" />
 How much of the screen one press moves.
 
-#### Show progress slider <Badge type="info" text="On" />
+#### Show chapter navigator <Badge type="info" text="On" />
 Shows the progress slider or the vertical navigator. With it off, neither is drawn, the previous and next chapter buttons move to the two ends of the button bar, and the settings below it are hidden.
 
 #### Vertical chapter navigator <Badge type="info" text="On" />
