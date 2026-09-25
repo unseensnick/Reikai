@@ -54,18 +54,15 @@ class MangaEntryAdapter(
     }
 
     private fun MangaViewModel.State.Success.toNeutralLoaded(): EntryDetailsScreenState.Loaded {
-        // Overlay the custom-info edits for DISPLAY only (header/description/tags); actions keep reading the
-        // raw `manga`. The merge-display anchor collapses to a single entry + source, mirroring the manga UI.
-        val displayManga = manga.withCustomInfo(customInfo)
+        // Header, description, tags and the gallery chips all read this one entry; actions keep the raw `manga`.
+        val shown = shownEntry(manga, mergeDisplayManga) { it.withCustomInfo(customInfo) }
         val displaySource = mergeDisplaySource ?: source
         // The inline carousel shows only for inline placement; in-menu still loads the pool, just hides it.
         val showInlineRelated = !model.recommendationsInMenu && (relatedLoading || relatedItems.isNotEmpty())
         return EntryDetailsScreenState.Loaded(
             entryId = EntryId.Manga(manga.id),
             details = EntryDetailsUiState(
-                // The overlay applies in chip view too (matching novels): a custom title must not
-                // vanish from the header just because a source chip is selected.
-                header = (mergeDisplayManga?.withCustomInfo(customInfo) ?: displayManga).toEntryHeader(
+                header = shown.toEntryHeader(
                     sourceName = model.headerSourceName(this),
                     isStubSource = displaySource is StubSource,
                     sourceQuery = model.headerSourceQuery(this),
@@ -74,8 +71,8 @@ class MangaEntryAdapter(
                 trackingCount = trackingCount,
                 nextUpdate = manga.expectedNextUpdate,
                 isUserIntervalMode = manga.fetchInterval < 0,
-                description = displayManga.description,
-                tags = displayManga.genre,
+                description = shown.description,
+                tags = shown.genre,
                 notes = manga.notes,
                 // Expand by default for EH/EXH galleries (tags are the content, no description).
                 descriptionDefaultExpanded = isFromSource || isMetadataSource,
@@ -110,7 +107,7 @@ class MangaEntryAdapter(
                 // metadata object loads, and return nothing for a normal manga.
                 mangaGallery = MangaGalleryCapability(
                     sourceId = displaySource.id,
-                    rawGenre = manga.genre,
+                    rawGenre = shown.genre,
                     metadata = galleryMetadata,
                 ),
             ),

@@ -129,6 +129,7 @@ every release now also ships a foss build with neither in it.
 - **Library search now finds a merged series by any of its sources' names, ids or languages, not only its leading source's.** So does the library search you open from a source chip on the series' page.
 - **Saving Edit info on a merged novel with a source chip selected no longer stores that source's details as your edits.** Opening the editor from a selected source and saving untouched used to keep its differing title, tags and cover as permanent overrides.
 - **Share and Open in WebView now follow the source chip you have selected, on novels as well as manga.**
+- **Selecting a source chip on a merged manga now shows that source's synopsis and tags, as novels already did.** They stayed on the leading source while the title and cover changed.
 - **Migrating and cover edits now act on the whole merged series whichever source chip is selected, and a custom title stays visible under a chip.**
 - **A merged series now downloads each chapter once, however many of its sources carry it, and deleting one removes every source's copy.** Download next follows the group's combined list in your chapter sort, and the download badge counts each chapter once.
 - **A chapter you bookmarked before merging its series now still shows as bookmarked in the combined list.** The Bookmarked filter on the series page and in the reader follows the same answer.

@@ -51,7 +51,7 @@ class NovelEntryAdapter(
     }
 
     private fun NovelDetailsState.Loaded.toNeutralLoaded(): EntryDetailsScreenState.Loaded {
-        val display = displayNovel.withCustomInfo(customInfo)
+        val display = shownEntry(novel, displayNovel) { it.withCustomInfo(customInfo) }
         return EntryDetailsScreenState.Loaded(
             entryId = EntryId.Novel(novel.id),
             details = EntryDetailsUiState(
