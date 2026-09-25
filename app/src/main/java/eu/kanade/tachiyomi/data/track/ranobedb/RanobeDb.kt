@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.CookieLoginTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.ReplacingWriteTracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBSeries
@@ -27,7 +28,11 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  * catalogue metadata, the local row stays authoritative for status and score, and a write cannot
  * preserve fields it does not send. See the plan doc for what that costs.
  */
-class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker, CookieLoginTracker {
+class RanobeDb(id: Long) :
+    BaseTracker(id, "RanobeDB"),
+    DeletableTracker,
+    CookieLoginTracker,
+    ReplacingWriteTracker {
 
     companion object {
         const val READING = 1L

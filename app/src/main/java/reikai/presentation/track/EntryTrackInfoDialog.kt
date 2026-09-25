@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -52,6 +53,7 @@ import eu.kanade.presentation.track.TrackStatusSelector
 import eu.kanade.presentation.track.TrackerSearch
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.ReplacingWriteTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
@@ -75,6 +77,7 @@ import logcat.LogPriority
 import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
+import mihon.icons.materialsymbols.rounded.Warning
 import reikai.domain.manga.DeleteTrackInGroup
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.novel.NovelRepository
@@ -133,6 +136,7 @@ data class EntryTrackInfoDialogHomeScreen(
 
         val dateFormat = remember { UiPreferences.dateFormat(context.appGraph.uiPreferences.dateFormat.get()) }
         val state by viewModel.state.collectAsState()
+        var pendingAutoBind by remember { mutableStateOf<TrackItem?>(null) }
 
         TrackInfoDialogHome(
             trackItems = state.trackItems,
@@ -154,7 +158,7 @@ data class EntryTrackInfoDialogHomeScreen(
             },
             onNewSearch = {
                 if (it.tracker.id in state.autoMatchTrackerIds) {
-                    viewModel.registerAutoBind(it)
+                    if (it.tracker is ReplacingWriteTracker) pendingAutoBind = it else viewModel.registerAutoBind(it)
                 } else {
                     navigator.push(
                         EntryTrackerSearchScreen(
@@ -174,6 +178,17 @@ data class EntryTrackInfoDialogHomeScreen(
             onCopyLink = { context.copyTrackerLink(it) },
             onTogglePrivate = viewModel::togglePrivate,
         )
+
+        pendingAutoBind?.let { item ->
+            ReplaceEntryConfirmDialog(
+                trackerName = item.tracker.name,
+                onConfirm = {
+                    pendingAutoBind = null
+                    viewModel.registerAutoBind(item)
+                },
+                onDismissRequest = { pendingAutoBind = null },
+            )
+        }
     }
 
     private fun openTrackerInBrowser(context: Context, trackItem: TrackItem) {
@@ -747,6 +762,7 @@ data class EntryTrackerSearchScreen(
         val state by viewModel.state.collectAsState()
 
         val textFieldState = rememberTextFieldState(initialQuery)
+        var pendingBind by remember { mutableStateOf<TrackSearch?>(null) }
         TrackerSearch(
             state = textFieldState,
             onDispatchQuery = { viewModel.trackingSearch(textFieldState.text.toString()) },
@@ -756,12 +772,28 @@ data class EntryTrackerSearchScreen(
             onConfirmSelection = f@{ private: Boolean ->
                 val selected = state.selected ?: return@f
                 selected.private = private
-                viewModel.registerTracking(selected)
-                navigator.pop()
+                if (viewModel.replacesRemoteEntry) {
+                    pendingBind = selected
+                } else {
+                    viewModel.registerTracking(selected)
+                    navigator.pop()
+                }
             },
             onDismissRequest = navigator::pop,
             supportsPrivateTracking = viewModel.supportsPrivateTracking,
         )
+
+        pendingBind?.let { selected ->
+            ReplaceEntryConfirmDialog(
+                trackerName = viewModel.trackerName,
+                onConfirm = {
+                    pendingBind = null
+                    viewModel.registerTracking(selected)
+                    navigator.pop()
+                },
+                onDismissRequest = { pendingBind = null },
+            )
+        }
     }
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
@@ -796,6 +828,10 @@ data class EntryTrackerSearchScreen(
         private val tracker = trackerManager.get(trackerId)!!
 
         val supportsPrivateTracking = tracker.supportsPrivateTracking
+
+        val replacesRemoteEntry = tracker is ReplacingWriteTracker
+
+        val trackerName = tracker.name
 
         init {
             // Run search on first launch
@@ -952,6 +988,31 @@ data class EntryTrackerRemoveScreen(
             }
         }
     }
+}
+
+/** Asked before binding a [ReplacingWriteTracker], since the bind's write clears what it does not carry. */
+@Composable
+private fun ReplaceEntryConfirmDialog(
+    trackerName: String,
+    onConfirm: () -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        icon = { Icon(imageVector = MaterialSymbols.Rounded.Warning, contentDescription = null) },
+        title = { Text(text = stringResource(MR.strings.track_replace_entry_title, trackerName)) },
+        text = { Text(text = stringResource(MR.strings.track_replace_entry_text, trackerName)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(text = stringResource(MR.strings.action_track))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(MR.strings.action_cancel))
+            }
+        },
+    )
 }
 
 /**

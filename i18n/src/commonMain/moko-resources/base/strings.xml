@@ -1381,6 +1381,9 @@
     <string name="track_delete_title">Remove %s tracking?</string>
     <string name="track_delete_text">This will remove the tracking locally.</string>
     <string name="track_delete_remote_text">Also remove from %s</string>
+    <!-- RK: asked before binding a tracker whose writes replace the whole list entry -->
+    <string name="track_replace_entry_title">Replace %s entry?</string>
+    <string name="track_replace_entry_text">Tracking replaces any entry already on your %s list. Its labels and notes will be lost.</string>
 
     <!-- Category activity -->
     <string name="error_category_exists">A category with this name already exists!</string>
