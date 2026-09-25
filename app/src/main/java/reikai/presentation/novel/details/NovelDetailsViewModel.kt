@@ -1562,7 +1562,8 @@ sealed interface NovelDetailsState {
         /** True once the first-download "add to library?" prompt has shown this session, so a
          *  non-favorite novel is asked only once (mirrors manga's hasPromptedToAddBefore). */
         val hasPromptedToAddBefore: Boolean = false,
-        /** Cover-derived header tint; null when off or not yet extracted. */
+        /** Cover-derived tint, null until extracted. Always extracted, since edit info tints from it; the
+         *  screen applies it only when cover theming is on. */
         val seedColor: Color? = null,
         /** Resolved source name, and [novelWebUrl], this novel's own page as its source addresses it, for
          *  WebView and Share. */

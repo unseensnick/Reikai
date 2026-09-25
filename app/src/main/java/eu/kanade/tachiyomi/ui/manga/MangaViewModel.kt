@@ -2004,7 +2004,8 @@ class MangaViewModel(
             // Manga.withCustomInfo. Never folded into the raw `manga` field above, which stays
             // source-accurate for tracker search, refresh, duplicate detection, downloads, etc.
             val customInfo: CustomMangaInfo? = null,
-            // RK: cover-derived theming color (Y11), null when off or not yet extracted.
+            // RK: cover-derived tint, null until extracted. Always extracted, since edit info tints from it;
+            // the screen applies it only when cover theming is on.
             val seedColor: Color? = null,
             // RK: page-preview thumbnails (adult sources) + how many rows to show (0 = off).
             val pagePreviewsState: PagePreviewState = PagePreviewState.Unused,
