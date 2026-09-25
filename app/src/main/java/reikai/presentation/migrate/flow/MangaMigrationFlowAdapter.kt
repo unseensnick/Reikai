@@ -295,10 +295,6 @@ class MangaMigrationFlowAdapter(
     ) {
         val current = entry.payload as? Manga ?: error("manga entry payload missing")
         val targetManga = target.handle as? Manga ?: error("manga target handle missing")
-        // The use case silently no-ops on both of these; surface them as row failures instead of
-        // marking a row migrated when nothing happened.
-        check(current.id != targetManga.id) { "target is the entry itself" }
-        checkNotNull(sourceManager.get(targetManga.source)) { "target source is not installed" }
         migrateManga(
             current,
             targetManga,

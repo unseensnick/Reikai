@@ -61,7 +61,15 @@ class MigrateEngineConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
-    fun `migrating an entry onto itself does nothing at all`(engine: MigrateEngine) = runTest {
+    fun `migrating an entry onto itself fails the row`(engine: MigrateEngine) = runTest {
+        val outcome = engine.migrate(Setup(), replace = true, targetId = SOURCE)
+
+        outcome.error.shouldBeInstanceOf<IllegalStateException>()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `migrating an entry onto itself writes nothing`(engine: MigrateEngine) = runTest {
         val outcome = engine.migrate(Setup(), replace = true, targetId = SOURCE)
 
         outcome.swap shouldBe null

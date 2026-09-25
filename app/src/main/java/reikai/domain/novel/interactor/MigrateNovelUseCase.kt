@@ -65,7 +65,7 @@ class MigrateNovelUseCase(
          *  identical request; a novel refresh also walks every chapter page, so it is not cheap. */
         skipTargetRefresh: Boolean = false,
     ) {
-        if (current.id == target.id) return
+        check(current.id != target.id) { "Target is the entry itself" }
         try {
             // Checked before anything is written, and outside the refresh branch below, so the engine
             // fails the same way manga's does whether or not the caller pre-fetched. It used to sit

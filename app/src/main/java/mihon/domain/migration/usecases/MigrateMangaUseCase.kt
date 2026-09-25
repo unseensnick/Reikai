@@ -72,7 +72,7 @@ class MigrateMangaUseCase(
         // target source was missing, and never checked for a self-target at all, so a caller that
         // forgot either check got a migration reporting success with nothing done. A self-target
         // would also put favorite=false and favorite=true for one row into the same swap.
-        if (current.id == target.id) return
+        check(current.id != target.id) { "Target is the entry itself" }
         val targetSource = checkNotNull(sourceManager.get(target.source)) {
             "Target source ${target.source} unavailable"
         }

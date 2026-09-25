@@ -134,8 +134,8 @@ suspend fun MigrationFlowAdapter.takePendingPick(
     entryId: EntryId,
 ): PendingPick? {
     val targetRawId = handoff.take(entryId) ?: return null
-    // An entry is never its own target: the engines would no-op and the row would read as migrated
-    // with nothing done.
+    // An entry is never its own target: the engines refuse one at commit, so it is turned away here,
+    // where the user can still be told why.
     if (targetRawId == entryId.rawId) return PendingPick.Rejected(PickOutcome.SameEntry)
     val candidate = runCatchingCancellable { storedCandidate(targetRawId) }.getOrNull()
         ?: return PendingPick.Rejected(PickOutcome.Unavailable)

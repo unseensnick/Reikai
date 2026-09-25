@@ -389,10 +389,6 @@ class NovelMigrationFlowAdapter(
         val current = entry.payload as? Novel ?: error("novel entry payload missing")
         val handle = target.handle as? NovelCandidateHandle
         val targetNovel = handle?.stored ?: error("novel target not resolved")
-        // The use case silently no-ops on both of these; surface them as row failures instead of
-        // marking a row migrated when nothing happened.
-        check(current.id != targetNovel.id) { "target is the entry itself" }
-        checkNotNull(sourceManager.get(targetNovel.source)) { "target source is not installed" }
         migrateNovel(
             current,
             targetNovel,
