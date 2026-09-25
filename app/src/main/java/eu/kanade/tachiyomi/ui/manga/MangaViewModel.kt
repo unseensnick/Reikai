@@ -78,7 +78,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
-import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
@@ -98,7 +97,6 @@ import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.merge.toGapNeighbour
 import reikai.domain.recommendation.PrepareRecommendationAssembly
-import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RecommendationAssembly
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedMangaCache
@@ -106,6 +104,7 @@ import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedMangasLoader
 import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.RelatedPool
+import reikai.domain.recommendation.localIdOf
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.track.supportingContent
 import reikai.presentation.browse.AddOutcome
@@ -1877,12 +1876,9 @@ class MangaViewModel(
         updateSuccessState { it.copy(relatedItems = items, relatedTotalCount = total) }
     }
 
-    /** Resolve a tapped candidate to a local manga id to open, or null for a tracker-origin card
-     *  (whose URL belongs to no installed source) so the caller can route it through global search. */
-    suspend fun resolveRelatedToLocalId(candidate: RelatedMangaCandidate): Long? {
-        if (candidate.sourceId == RECOMMENDS_SOURCE) return null
-        return networkToLocalManga(candidate.manga.toDomainManga(candidate.sourceId)).id
-    }
+    /** See [localIdOf], which the See-all grid shares. */
+    suspend fun resolveRelatedToLocalId(candidate: RelatedMangaCandidate): Long? =
+        networkToLocalManga.localIdOf(candidate)
     // RK <--
 
     fun showSettingsDialog() {

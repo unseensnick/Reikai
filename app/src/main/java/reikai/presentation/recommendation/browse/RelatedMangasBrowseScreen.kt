@@ -12,8 +12,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
@@ -41,7 +39,7 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 /**
  * "See all" browse grid for a manga's related-mangas pool. Constructor takes serializable args
  * only ([mangaId] + [mangaTitle]); the candidate pool is re-read from [reikai.domain.recommendation
- * .RelatedMangaCache] inside the screen model.
+ * .RelatedMangaCache] inside the view model.
  */
 class RelatedMangasBrowseScreen(
     private val mangaId: Long,
@@ -51,7 +49,6 @@ class RelatedMangasBrowseScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val configuration = LocalConfiguration.current
         val viewModel = assistedMetroViewModel<RelatedMangasBrowseViewModel, RelatedMangasBrowseViewModel.Factory> {

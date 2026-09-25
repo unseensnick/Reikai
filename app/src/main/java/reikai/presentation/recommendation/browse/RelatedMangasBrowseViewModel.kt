@@ -31,6 +31,7 @@ import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedPool
+import reikai.domain.recommendation.localIdOf
 import reikai.presentation.browse.finishAdd
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
@@ -171,12 +172,8 @@ class RelatedMangasBrowseViewModel(
 
     fun dismissDialog() = state.update { it.copy(dialog = null) }
 
-    /** Resolve a tapped candidate to a local manga id to open, or null for a tracker-origin card
-     *  (whose URL belongs to no installed source) so the caller can route it through global search. */
-    suspend fun resolveToLocalId(candidate: RelatedMangaCandidate): Long? {
-        if (candidate.sourceId == RECOMMENDS_SOURCE) return null
-        return networkToLocalManga(candidate.manga.toDomainManga(candidate.sourceId)).id
-    }
+    /** See [localIdOf], which the details carousel shares. */
+    suspend fun resolveToLocalId(candidate: RelatedMangaCandidate): Long? = networkToLocalManga.localIdOf(candidate)
 
     fun addSelectedToLibrary() {
         val current = state.value

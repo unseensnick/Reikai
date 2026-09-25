@@ -23,7 +23,7 @@ import tachiyomi.presentation.core.util.plus
 /**
  * Cover grid for the "See all" browse screen. Flat taste-ranked by default; when [grouped] is on it
  * inserts full-width section headers per candidate origin (data already on each
- * candidate, no new fetching). Selection rendering rides on [MangaComfortableGridItem.isSelected].
+ * candidate, no new fetching). Selection rendering rides on [RecommendationGridItem]'s `isSelected`.
  */
 @Composable
 fun RelatedMangasBrowseContent(
