@@ -23,14 +23,15 @@ import java.util.concurrent.TimeUnit
 class DelayedTrackingUpdateJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
-    @Inject private lateinit var getTracks: GetTracks
-
-    @Inject private lateinit var trackChapter: TrackChapter
-
-    @Inject private lateinit var delayedTrackingStore: DelayedTrackingStore
-
     private val graph: AppGraph = context.metroGraph()
 
+    @Inject lateinit var getTracks: GetTracks
+
+    @Inject lateinit var trackChapter: TrackChapter
+
+    @Inject lateinit var delayedTrackingStore: DelayedTrackingStore
+
+    // RK: injected in init rather than at the top of doWork, see metro-di-migration.md "Workers inject".
     init {
         graph.inject(this)
     }
@@ -39,6 +40,7 @@ class DelayedTrackingUpdateJob(private val context: Context, workerParams: Worke
         if (runAttemptCount > 3) {
             return Result.failure()
         }
+
         withIOContext {
             delayedTrackingStore.getItems()
                 .mapNotNull {

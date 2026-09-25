@@ -37,13 +37,14 @@ class DownloadJob(context: Context, workerParams: WorkerParameters) : CoroutineW
 
     private val graph: AppGraph = context.metroGraph()
 
+    @Inject private lateinit var downloadManager: DownloadManager
+
+    @Inject private lateinit var downloadPreferences: DownloadPreferences
+
     init {
         graph.inject(this)
     }
 
-    @Inject private lateinit var downloadManager: DownloadManager
-
-    @Inject private lateinit var downloadPreferences: DownloadPreferences
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = applicationContext.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
             setContentTitle(applicationContext.getString(R.string.download_notifier_downloader_title))

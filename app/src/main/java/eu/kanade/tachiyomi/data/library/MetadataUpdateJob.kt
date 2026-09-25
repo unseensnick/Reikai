@@ -7,15 +7,12 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
-import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -44,6 +41,7 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
 
     private val graph: AppGraph = context.metroGraph()
 
+    // RK: injected in init rather than at the top of doWork, see metro-di-migration.md "Workers inject".
     init {
         graph.inject(this)
     }
@@ -178,8 +176,7 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
         private const val MANGA_PER_SOURCE_QUEUE_WARNING_THRESHOLD = 60
 
         fun startNow(workManager: WorkManager): Boolean {
-            val wm = workManager
-            if (wm.isRunning(TAG)) {
+            if (workManager.isRunning(TAG)) {
                 // Already running either as a scheduled or manual job
                 return false
             }
@@ -187,21 +184,9 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
                 .addTag(TAG)
                 .addTag(WORK_NAME_MANUAL)
                 .build()
-            wm.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
+            workManager.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
 
             return true
-        }
-
-        fun stop(context: Context) {
-            val wm = context.workManager
-            val workQuery = WorkQuery.Builder.fromTags(listOf(TAG))
-                .addStates(listOf(WorkInfo.State.RUNNING))
-                .build()
-            wm.getWorkInfos(workQuery).get()
-                // Should only return one work but just in case
-                .forEach {
-                    wm.cancelWorkById(it.id)
-                }
         }
     }
 }

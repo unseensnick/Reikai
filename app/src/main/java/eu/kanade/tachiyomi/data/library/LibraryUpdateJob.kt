@@ -92,6 +92,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
 
     private val graph: AppGraph = context.metroGraph()
 
+    // RK: injected in init rather than at the top of doWork, see metro-di-migration.md "Workers inject".
     init {
         graph.inject(this)
     }
@@ -565,8 +566,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             workManager: WorkManager,
             category: Category? = null,
         ): Boolean {
-            val wm = workManager
-            if (wm.isRunning(TAG)) {
+            if (workManager.isRunning(TAG)) {
                 // Already running either as a scheduled or manual job
                 return false
             }
@@ -579,7 +579,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
                 .addTag(WORK_NAME_MANUAL)
                 .setInputData(inputData)
                 .build()
-            wm.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
+            workManager.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
 
             return true
         }
@@ -607,14 +607,14 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         // RK <--
 
         fun stop(context: Context) {
-            val wm = context.workManager
+            val workManager = context.workManager
             val workQuery = WorkQuery.Builder.fromTags(listOf(TAG))
                 .addStates(listOf(WorkInfo.State.RUNNING))
                 .build()
-            wm.getWorkInfos(workQuery).get()
+            workManager.getWorkInfos(workQuery).get()
                 // Should only return one work but just in case
                 .forEach {
-                    wm.cancelWorkById(it.id)
+                    workManager.cancelWorkById(it.id)
 
                     // Re-enqueue cancelled scheduled work
                     if (it.tags.contains(WORK_NAME_AUTO)) {
