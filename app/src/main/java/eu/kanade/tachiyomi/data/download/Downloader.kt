@@ -47,6 +47,7 @@ import mihon.core.archive.ZipWriter
 import nl.adaptivity.xmlutil.serialization.XML
 import okhttp3.Response
 import reikai.domain.download.SeriesCompletions
+import reikai.domain.download.hasRoomToDownload // RK
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNow
@@ -361,7 +362,7 @@ class Downloader(
         }
 
         val availSpace = DiskUtil.getAvailableStorageSpace(mangaDir)
-        if (availSpace != -1L && availSpace < MIN_DISK_SPACE) {
+        if (!hasRoomToDownload(availSpace)) { // RK: the floor novels share
             download.failure = context.stringResource(MR.strings.download_insufficient_space) // RK
             download.status = Download.State.ERROR
             notifier.onError(
@@ -780,5 +781,4 @@ class Downloader(
     }
 }
 
-// Arbitrary minimum required space to start a download: 200 MB
-private const val MIN_DISK_SPACE = 200L * 1024 * 1024
+// RK: MIN_DISK_SPACE lives in reikai.domain.download.hasRoomToDownload, shared with novels

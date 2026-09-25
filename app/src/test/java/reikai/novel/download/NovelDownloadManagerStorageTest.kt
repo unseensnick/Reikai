@@ -15,13 +15,7 @@ import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -36,55 +30,40 @@ import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
 
-/**
- * A pause cancels the worker, but a chapter mid-save cannot notice until its blocking write returns,
- * so a Resume in that window starts a second drain while the first is still unwinding.
- */
-class NovelDownloadManagerDrainTest {
+/** A nearly full device refuses a novel chapter before fetching it, as Mihon's Downloader refuses a manga one. */
+class NovelDownloadManagerStorageTest {
 
     private val novel = Novel.create().copy(id = 1L, source = "src", title = "Novel")
-    private val chapters = listOf(10L, 11L).map { id ->
-        NovelChapter(
-            id = id,
-            novelId = 1L,
-            url = "u$id",
-            name = "Ch $id",
-            read = false,
-            bookmark = false,
-            lastTextProgress = 0L,
-            chapterNumber = id.toDouble(),
-            sourceOrder = id,
-            dateFetch = 0L,
-            dateUpload = 0L,
-            page = "",
-        )
-    }
-
-    /** Holds the first chapter's fetch the way a blocking write holds a cancelled worker. */
-    private val firstFetch = CompletableDeferred<Unit>()
+    private val chapter = NovelChapter(
+        id = 10L,
+        novelId = 1L,
+        url = "u10",
+        name = "Ch 10",
+        read = false,
+        bookmark = false,
+        lastTextProgress = 0L,
+        chapterNumber = 10.0,
+        sourceOrder = 10L,
+        dateFetch = 0L,
+        dateUpload = 0L,
+        page = "",
+    )
 
     private val context = mockk<Context>(relaxed = true) {
         every { getSharedPreferences(any(), any()) } returns FakeSharedPreferences()
         every { getSystemService(NotificationManager::class.java) } returns mockk<NotificationManager>(relaxed = true)
     }
-    private val chapterRepo = mockk<NovelChapterRepository> {
-        chapters.forEach { ch -> coEvery { getById(ch.id) } returns ch }
-    }
     private val source = mockk<NovelSource> {
         every { minimumRequestDelayMs } returns 0L
-        coEvery { parseChapter("u10") } coAnswers {
-            withContext(NonCancellable) { firstFetch.await() }
-            "text"
-        }
-        coEvery { parseChapter("u11") } returns "text"
+        coEvery { parseChapter(any()) } returns "text"
     }
     private val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get("src") } returns source }
 
     private val manager = NovelDownloadManager(
         context = context,
-        provider = mockk { every { availableSpace() } returns -1L },
-        cache = mockk { every { isChapterDownloaded(novel, any()) } returns false },
-        chapterRepo = chapterRepo,
+        provider = mockk { every { availableSpace() } returns 1024L },
+        cache = mockk { every { isChapterDownloaded(novel, chapter) } returns false },
+        chapterRepo = mockk<NovelChapterRepository> { coEvery { getById(10L) } returns chapter },
         novelRepo = mockk<NovelRepository> { coEvery { getById(1L) } returns novel },
         sourceManager = sourceManager,
         installer = mockk { coEvery { ensureLoaded() } just runs },
@@ -112,17 +91,11 @@ class NovelDownloadManagerDrainTest {
     }
 
     @Test
-    fun `a drain started while a paused one is still unwinding finishes the queue`() = runTest {
-        manager.downloadChapters(chapters)
-        val paused = launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }
-        runCurrent()
-        paused.cancel()
+    fun `a chapter is refused when the device is nearly full`() = runTest {
+        manager.downloadChapters(listOf(chapter))
 
-        launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }
-        runCurrent()
-        firstFetch.complete(Unit)
-        advanceUntilIdle()
+        manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
 
-        manager.queueState.value shouldBe emptyList()
+        manager.queueState.value.map { it.state } shouldBe listOf(NovelDownload.State.ERROR)
     }
 }

@@ -137,6 +137,9 @@ class NovelDownloadProvider(
         return dir.renameTo(newName)
     }
 
+    /** Free bytes on the volume novel downloads go to, or -1 when it cannot be read. */
+    fun availableSpace(): Long = downloadsDir?.let(DiskUtil::getAvailableStorageSpace) ?: -1L
+
     fun isNovelDirEmpty(novel: Novel): Boolean = findNovelDir(novel)?.listFiles()?.isEmpty() == true
 
     /**

@@ -25,6 +25,7 @@ import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.download.SeriesCompletions
+import reikai.domain.download.hasRoomToDownload
 import reikai.domain.download.removableDownloads
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.novel.NovelChapterRepository
@@ -382,6 +383,13 @@ class NovelDownloadManager(
                 // Asked only while the adult switch is on, as manga's downloader asks, since the verdict can wait on the extension scan.
                 val isAdult = novel != null && securityPreferences.hideAdultNotificationContent.get() &&
                     novel.id in adultChecker.adultNovelIdsAmong(listOf(novel))
+                // Checked before the fetch, so a full disk costs no source request and no retries.
+                if (!hasRoomToDownload(provider.availableSpace())) {
+                    val reason = context.stringResource(MR.strings.download_insufficient_space)
+                    setState(next.chapterId, NovelDownload.State.ERROR, reason)
+                    onError(novel, chapter?.name, reason, isAdult)
+                    continue
+                }
                 onProgress(NovelDownloadProgress.Downloading(done, total, novel?.title.orEmpty(), isAdult, novel))
                 // Try a few times before giving up so a transient network blip or a momentarily
                 // rate-limited source doesn't kill the chapter on the first stumble (mirrors the manga

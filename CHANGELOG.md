@@ -557,6 +557,7 @@ every release now also ships a foss build with neither in it.
 - **The More tab's download row now reads Paused while novel downloads are paused, matching the download queue's own Resume button.**
 - **Resuming novel downloads right after pausing them now carries on with the queue.** A Resume that landed while a chapter with pictures was still saving could leave the queue sitting idle until you tapped it again.
 - **The first tap on a download queue sort now sorts ascending.** The sort sheet opened showing chapter number as already applied, so the first tap flipped it to descending.
+- **A novel chapter download now fails at once with an out-of-space message when the device is nearly full, as a manga one does.** It used to retry against the full disk and fail with a raw system error.
 
 ### Backup & restore
 
