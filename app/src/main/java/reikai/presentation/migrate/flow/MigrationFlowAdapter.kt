@@ -116,9 +116,9 @@ data class MigrationFavorite(
  * The pre-list search options, settled on the config screen before the list exists and read once
  * from there, so no search can have its options changed underneath it.
  *
- * [extraQuery] is transient per run and no adapter reads or writes it: the config screen hands it to
- * the next screen as a constructor argument, as Mihon does, and the model folds it back in. The
- * toggles persist per type.
+ * [extraQuery] is transient per run and never persisted: the config screen hands it to the next
+ * screen as a constructor argument, as Mihon does, the model folds it back in, and each adapter's
+ * suggest() reads it from the tuning it is given. The toggles persist per type.
  */
 data class MigrationTuning(
     val extraQuery: String? = null,

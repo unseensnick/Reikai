@@ -306,7 +306,7 @@ Mihon code had found nine losses; all nine are now fixed, in four commits (`c8ae
 `89f2d6da6`, `2c94b93a3`), and the surface is closed.
 
 - **The additional search query travels as a screen argument**, which is upstream's split, instead of
-  through a tuning field no adapter reads or writes. It had been collected on the config screen and
+  through a persisted tuning field. It had been collected on the config screen and
   dropped there, so the option did nothing on any route for either content type.
 - **Hidden rows are removed, not filtered.** `isVisible` became `shouldHide`, and `visibleRows`, the
   `AllFiltered` empty reason and its string are gone. The check runs at both points its inputs land,
