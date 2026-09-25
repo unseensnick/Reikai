@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.main.MainActivity
+import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
@@ -114,6 +115,8 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
             // detail (which titles were skipped/failed) in its expanded view.
             withUIContext { context.toast("${syncTitle(target)} (${buildSummary(target, result)})") }
             Result.success()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "MangaDex sync job failed ($target)" }
             Result.failure()
@@ -309,12 +312,18 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
         private const val TAG = "MangaDexSync"
         private const val KEY_TARGET = "target"
 
-        fun startNow(context: Context, target: Target) {
+        /**
+         * Starts a sync, or returns false when one is already running. Both targets write the same
+         * favorites and follows, so a second never runs beside the first or cancels it.
+         */
+        fun startNow(context: Context, target: Target): Boolean {
+            if (context.workManager.isRunning(TAG)) return false
             val request = OneTimeWorkRequestBuilder<MangaDexSyncJob>()
                 .addTag(TAG)
                 .setInputData(workDataOf(KEY_TARGET to target.name))
                 .build()
-            context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.REPLACE, request)
+            context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
+            return true
         }
     }
 }

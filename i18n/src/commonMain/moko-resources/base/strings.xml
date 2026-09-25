@@ -1729,6 +1729,7 @@
     <string name="pref_mangadex_push_favorites_to_mangadex_summary">Syncs any non-MDList tracked entries to MangaDex as reading</string>
     <string name="pref_mangadex_sign_in_required">Sign in to MangaDex under Tracking first</string>
     <string name="pref_mangadex_sync_started">Sync started</string>
+    <string name="pref_mangadex_sync_already_running">A MangaDex sync is already running</string>
     <string name="pref_mangadex_sync_follows_result">Follows synced to your library</string>
     <string name="pref_mangadex_push_favorites_result">Library synced to MangaDex</string>
     <string name="pref_mangadex_count_added">%1$d added</string>

@@ -401,6 +401,7 @@ every release now also ships a foss build with neither in it.
 - **When an adult gallery source replaces a gallery with a newer version, chapters the new version already had now keep the old version's read state, bookmark and progress.** Only chapters new to it carried them over, while History still showed them as read.
 - **The large mainstream source the app enhances now syncs follows, tracks and signs in through the language you set as preferred in its settings.** It always used the first enabled language.
 - **Series details from the large mainstream source the app enhances now follow its extension's switches for adding alternative titles and the final chapter to the description.** The final chapter is on by default, as in the extension.
+- **Tapping a follows sync action while one is running now says a sync is already running, instead of silently stopping the first partway.**
 - **Browsing a source or opening a series while offline now says "No Internet connection" instead of a raw host error, on manga and novels.** The manga reader's failed pages say it too.
 - **Manga sources that work out their pages with JavaScript now show those pages again, where some opened chapters empty or failed to load.**
 - **Global search and the feed no longer crash when a source lists the same result twice.**
