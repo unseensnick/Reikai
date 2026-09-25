@@ -8,7 +8,6 @@ import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
-import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
@@ -24,6 +23,7 @@ import kotlinx.coroutines.flow.merge
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -362,7 +362,7 @@ class MangaRecentsAdapter(
         sourceId = payload.sourceId,
     )
 
-    /** One definition of a chapter's download state for this type, whichever chapter is asking. */
+    /** Resolved on call through the [downloadStateOf] kernel both adapters share. */
     private fun chapterDownloadUi(
         chapterId: Long,
         chapterName: String,
@@ -372,17 +372,14 @@ class MangaRecentsAdapter(
         sourceId: Long,
     ) = RecentsDownloadUi(
         state = {
-            val active = downloadManager.getQueuedDownloadOrNull(chapterId)
-            when {
-                active != null -> active.status
+            downloadStateOf(downloadManager.getQueuedDownloadOrNull(chapterId)?.status) {
                 downloadManager.isChapterDownloaded(
                     chapterName = chapterName,
                     chapterScanlator = scanlator,
                     chapterUrl = chapterUrl,
                     mangaTitle = storedTitle,
                     sourceId = sourceId,
-                ) -> Download.State.DOWNLOADED
-                else -> Download.State.NOT_DOWNLOADED
+                )
             }
         },
         progress = RecentsDownloadProgress.Live {

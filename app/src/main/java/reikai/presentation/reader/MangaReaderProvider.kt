@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.sample
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
+import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupChapterFlags
 import reikai.presentation.components.chapterSubtitle
@@ -267,11 +268,7 @@ class MangaReaderProvider(
             readProgress = null,
             read = flags.isRead(chapter),
             bookmark = flags.isBookmarked(chapter),
-            downloadState = when {
-                active != null -> active.status
-                flags.isDownloaded(chapter) -> Download.State.DOWNLOADED
-                else -> Download.State.NOT_DOWNLOADED
-            },
+            downloadState = downloadStateOf(active?.status) { flags.isDownloaded(chapter) },
             downloadProgress = active?.progress ?: 0,
         )
     }

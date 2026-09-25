@@ -6,7 +6,6 @@ import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
-import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +19,7 @@ import kotlinx.coroutines.flow.merge
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
+import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -189,7 +189,7 @@ class NovelRecentsAdapter(
         )
     }
 
-    /** The twin of the manga adapter's, holding this type's chapters and the group's flags. */
+    /** [resolveTarget]'s answer: this type's chapters and the group's flags. */
     private class TargetResolution(
         val chapterId: Long,
         val chapters: Map<Long, NovelChapter>,
@@ -197,7 +197,10 @@ class NovelRecentsAdapter(
         val bookmarkedElsewhere: Set<Long> = emptySet(),
     )
 
-    /** Merge-aware on all three lanes, the twin of [MangaRecentsAdapter]'s. */
+    /**
+     * Merge-aware on all three lanes. Only the chapter reads are this type's; the lane rules are the
+     * shared kernels in RecentsTarget.kt, which RecentsTargetTest pins for both adapters.
+     */
     private suspend fun resolveTarget(item: RecentsItem): TargetResolution? {
         val novelId = item.entryId.rawId
         // Already ascending reading order, which is the contract every rule below reads under.
@@ -333,10 +336,7 @@ class NovelRecentsAdapter(
         chapterUrl = payload.chapterUrl,
     )
 
-    /**
-     * Twin of the manga adapter's: the queue first, then the on-disk index, resolved on call. One
-     * definition for this type, whichever chapter is asking.
-     */
+    /** Resolved on call through the [downloadStateOf] kernel both adapters share. */
     private fun chapterDownloadUi(
         chapterId: Long,
         source: String,
@@ -346,15 +346,8 @@ class NovelRecentsAdapter(
     ) = RecentsDownloadUi(
         state = {
             val queued = novelDownloadManagerProvider().queueState.value.find { it.chapterId == chapterId }
-            when {
-                queued != null -> queued.state.toDownloadState()
-                novelDownloadCacheProvider().isChapterDownloaded(
-                    source,
-                    storedTitle,
-                    chapterName,
-                    chapterUrl,
-                ) -> Download.State.DOWNLOADED
-                else -> Download.State.NOT_DOWNLOADED
+            downloadStateOf(queued?.state?.toDownloadState()) {
+                novelDownloadCacheProvider().isChapterDownloaded(source, storedTitle, chapterName, chapterUrl)
             }
         },
         // Same declaration the updated lane makes: the novel downloader tracks no per-chapter progress,

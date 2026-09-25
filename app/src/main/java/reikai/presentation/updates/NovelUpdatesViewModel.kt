@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.category.RecentsCategoryFilter
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
+import reikai.domain.download.downloadStateOf
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
@@ -114,19 +115,14 @@ class NovelUpdatesViewModel(
             .map { update ->
                 NovelUpdatesItem(
                     update = update,
-                    downloadState = queueById[update.chapterId]
-                        ?: if (
-                            novelDownloadCache.isChapterDownloaded(
-                                update.source,
-                                update.novelTitle,
-                                update.chapterName,
-                                update.chapterUrl,
-                            )
-                        ) {
-                            Download.State.DOWNLOADED
-                        } else {
-                            Download.State.NOT_DOWNLOADED
-                        },
+                    downloadState = downloadStateOf(queueById[update.chapterId]) {
+                        novelDownloadCache.isChapterDownloaded(
+                            update.source,
+                            update.novelTitle,
+                            update.chapterName,
+                            update.chapterUrl,
+                        )
+                    },
                 )
             }
             .filter { applyFilter(filterDownloaded) { it.downloadState == Download.State.DOWNLOADED } }

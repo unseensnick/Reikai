@@ -54,6 +54,7 @@ import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.expandToUnits
@@ -1569,8 +1570,7 @@ sealed interface NovelDetailsState {
         /** A chapter's download state: a live queue state if present, else DOWNLOADED / NOT_DOWNLOADED
          *  from the on-disk cache. */
         fun downloadStateOf(chapterId: Long): Download.State =
-            downloadStates[chapterId]
-                ?: if (chapterId in downloadedChapterIds) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED
+            downloadStateOf(downloadStates[chapterId]) { chapterId in downloadedChapterIds }
     }
 }
 

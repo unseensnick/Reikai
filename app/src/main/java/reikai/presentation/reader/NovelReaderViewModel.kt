@@ -16,7 +16,6 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
-import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -45,6 +44,7 @@ import logcat.LogPriority
 import reikai.data.coil.NovelCover
 import reikai.data.coil.asNovelCover
 import reikai.data.novel.tts.SystemTtsEngine
+import reikai.domain.download.downloadStateOf
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupChapterFlags
@@ -1612,11 +1612,7 @@ internal fun NovelChapter.toReaderChapterRow(
     readProgress = (lastTextProgress / 100L).toInt().takeIf { it > 0 }?.let { "$it%" },
     read = flags.isRead(this),
     bookmark = flags.isBookmarked(this),
-    downloadState = when {
-        queued[id] != null -> queued.getValue(id).state.toDownloadState()
-        flags.isDownloaded(this) -> Download.State.DOWNLOADED
-        else -> Download.State.NOT_DOWNLOADED
-    },
+    downloadState = downloadStateOf(queued[id]?.state?.toDownloadState()) { flags.isDownloaded(this) },
     // A novel chapter is one request, so there is no percentage to report while it runs.
     downloadProgress = 0,
 )
