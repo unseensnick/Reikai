@@ -28,8 +28,6 @@ class NovelDownloadStore(
         .mapNotNull { (it as? String)?.let(::deserialize)?.order }
         .maxOrNull()?.plus(1) ?: 0
 
-    val isEmpty: Boolean get() = preferences.all.isEmpty()
-
     fun addAll(downloads: List<NovelDownload>) {
         preferences.edit {
             downloads.forEach { putString(it.chapterId.toString(), serialize(it)) }

@@ -68,7 +68,6 @@ class MigrateNovelUseCaseTest {
         // The whole entry, awaited. Per chapter it only reached what the disk cache already reported,
         // so anything still queued survived and kept downloading into the source just left behind.
         coVerify { downloadManager.awaitDeleteNovel(match { it.id == 1L }) }
-        coVerify(exactly = 0) { downloadManager.awaitDeleteChapters(any()) }
         verify(exactly = 0) { downloadManager.deleteChapters(any()) }
     }
 

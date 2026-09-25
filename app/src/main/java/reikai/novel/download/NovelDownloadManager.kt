@@ -246,17 +246,6 @@ class NovelDownloadManager(
         scope.launch { deleteChapterFiles(chapters) }
     }
 
-    /**
-     * [deleteChapters], but the caller waits for the files to actually go. Migration needs this: a
-     * detached delete returns before anything is deleted, so a failure can neither fail the row nor
-     * be retried, and the next step runs against files that are still there.
-     */
-    suspend fun awaitDeleteChapters(chapters: List<NovelChapter>) {
-        if (chapters.isEmpty()) return
-        dequeueChapters(chapters)
-        deleteChapterFiles(chapters)
-    }
-
     /** The novel's download directory, for the details overflow's Open folder; null until something
      *  is downloaded. The novel side of the lookup [reikai.presentation.details.openDownloadFolder] opens
      *  for both types, which owns the nothing-downloaded case. */

@@ -92,9 +92,6 @@ class NovelDownloadProvider(
         return validChapterFileNames(chapter).firstNotNullOfOrNull { dir.findFile(it) }
     }
 
-    fun isChapterDownloaded(novel: Novel, chapter: NovelChapter): Boolean =
-        findChapterFile(novel, chapter)?.exists() == true
-
     fun readChapter(novel: Novel, chapter: NovelChapter): String? =
         findChapterFile(novel, chapter)?.takeIf { it.exists() }
             ?.openInputStream()?.bufferedReader()?.use { it.readText() }
