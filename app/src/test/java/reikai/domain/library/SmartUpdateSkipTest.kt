@@ -153,5 +153,6 @@ class NovelSmartUpdateEntry : SmartUpdateEntry {
             downloadCount = 0,
             latestUpload = 0,
             chapterFetchedAt = 0,
+            lastRead = 0,
         ).smartUpdateFacts()
 }

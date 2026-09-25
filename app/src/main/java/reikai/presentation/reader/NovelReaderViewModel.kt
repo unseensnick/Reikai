@@ -1061,8 +1061,6 @@ class NovelReaderViewModel(
             // Fetched before marking, so the shared interactor still sees it unread.
             chapterRepo.getById(id)
         } ?: return
-        // Stamp the owning novel's last-read time so the LastRead library sort reflects this read.
-        novelRepo.setLastReadAt(chapter.novelId, System.currentTimeMillis())
         if (completesChapter(clamped)) markChapterRead(chapter)
     }
 

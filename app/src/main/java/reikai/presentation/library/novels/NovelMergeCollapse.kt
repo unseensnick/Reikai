@@ -61,7 +61,7 @@ object NovelMergeCollapse {
             // The merged entry sorts (LastRead) by the most recent read across all members, not just the
             // representative's own, so reading any source bubbles the whole group up.
             val representative = if (bucket.size > 1) {
-                rep.copy(novel = rep.novel.copy(lastReadAt = bucket.maxOf { it.novel.lastReadAt ?: 0L }))
+                rep.copy(lastRead = bucket.maxOf { it.lastRead })
                     .withGroupCounts(groupId?.let { mergedCountsByGroup[it] })
             } else {
                 rep

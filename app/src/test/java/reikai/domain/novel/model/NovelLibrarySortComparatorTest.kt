@@ -21,7 +21,7 @@ class NovelLibrarySortComparatorTest {
     private fun libNovel(
         id: Long,
         title: String = "title$id",
-        lastReadAt: Long? = null,
+        lastRead: Long = 0,
         lastUpdate: Long = 0,
         totalChapters: Long = 0,
         readCount: Long = 0,
@@ -36,7 +36,6 @@ class NovelLibrarySortComparatorTest {
             favorite = true,
             lastUpdate = lastUpdate,
             dateAdded = dateAdded,
-            lastReadAt = lastReadAt,
         ),
         categories = emptyList(),
         totalChapters = totalChapters,
@@ -45,6 +44,7 @@ class NovelLibrarySortComparatorTest {
         downloadCount = downloadCount,
         latestUpload = latestUpload,
         chapterFetchedAt = chapterFetchedAt,
+        lastRead = lastRead,
     )
 
     // Drives the real production path: shape each novel into the shared library row, then sort it with
@@ -95,9 +95,9 @@ class NovelLibrarySortComparatorTest {
     }
 
     @Test
-    fun `last read sorts by the denormalised last-read timestamp`() {
+    fun `last read sorts by the latest read in history`() {
         val novels =
-            listOf(libNovel(1, lastReadAt = 300), libNovel(2, lastReadAt = null), libNovel(3, lastReadAt = 100))
+            listOf(libNovel(1, lastRead = 300), libNovel(2, lastRead = 0), libNovel(3, lastRead = 100))
 
         sortedIds(novels, LibrarySort.Type.LastRead) shouldBe listOf(2L, 3L, 1L)
     }

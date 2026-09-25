@@ -148,7 +148,6 @@ private fun Novel.toBackupNovel() = BackupNovel(
     updateStrategy = this.updateStrategy,
     coverLastModified = this.coverLastModified,
     totalPages = this.totalPages,
-    lastReadAt = this.lastReadAt,
     favorite = this.favorite,
     notes = this.notes,
     viewerFlags = this.viewerFlags,

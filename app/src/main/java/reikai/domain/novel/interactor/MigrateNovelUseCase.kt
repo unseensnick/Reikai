@@ -165,7 +165,6 @@ class MigrateNovelUseCase(
                 // the target unconditionally, matching manga migration.
                 chapterFlags = current.chapterFlags,
                 viewerFlags = current.viewerFlags,
-                lastReadAt = current.lastReadAt ?: target.lastReadAt,
                 notes = if (NovelMigrationFlag.NOTES in flags) current.notes else null,
             )
             transactions.run {

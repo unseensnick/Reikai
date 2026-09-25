@@ -16,7 +16,7 @@ class NovelMergeCollapseTest {
         chapters: Long = 1,
         downloads: Long = 0,
         dateAdded: Long = 0,
-        lastReadAt: Long? = null,
+        lastRead: Long = 0,
     ) = LibraryNovel(
         novel = Novel.create().copy(
             id = id,
@@ -25,7 +25,6 @@ class NovelMergeCollapseTest {
             author = author,
             favorite = true,
             dateAdded = dateAdded,
-            lastReadAt = lastReadAt,
         ),
         categories = emptyList(),
         totalChapters = chapters,
@@ -34,6 +33,7 @@ class NovelMergeCollapseTest {
         downloadCount = downloads,
         latestUpload = 0,
         chapterFetchedAt = 0,
+        lastRead = lastRead,
     )
 
     private fun collapse(
@@ -137,8 +137,8 @@ class NovelMergeCollapseTest {
         // merged entry must sort by the group max so reading any source bubbles it up.
         val result = collapse(
             listOf(
-                libNovel(1, "A", chapters = 3, lastReadAt = 500),
-                libNovel(2, "B", chapters = 5, lastReadAt = 100),
+                libNovel(1, "A", chapters = 3, lastRead = 500),
+                libNovel(2, "B", chapters = 5, lastRead = 100),
             ),
             membership = mapOf(1L to 7L, 2L to 7L),
         )

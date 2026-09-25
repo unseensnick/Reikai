@@ -1,0 +1,78 @@
+-- The novel library's Last read value is derived from novel_history, as libraryView derives manga's from
+-- history, so the stored novels.last_read_at stamp retires. Matches view/novelLibraryView.sq.
+--
+-- 1. Carry every stamp that has no history behind it: novels read before 18.sqm created novel_history,
+--    and migration targets and old-backup restores that were given the stamp alone. Each gets one row on
+--    its latest-read chapter. A novel with any history row is skipped, so a novel whose history was
+--    cleared (rows kept at last_read = 0) stays cleared, and one with no chapters has nothing to carry.
+INSERT INTO novel_history(chapter_id, last_read, time_read)
+SELECT (
+    SELECT C._id
+    FROM novel_chapters C
+    WHERE C.novel_id = N._id
+    ORDER BY C.last_text_progress != 0 DESC, C.read DESC, C.chapter_number DESC, C._id DESC
+    LIMIT 1
+), N.last_read_at, 0
+FROM novels N
+WHERE N.last_read_at > 0
+AND EXISTS (SELECT 1 FROM novel_chapters C WHERE C.novel_id = N._id)
+AND NOT EXISTS (
+    SELECT 1
+    FROM novel_chapters HC
+    INNER JOIN novel_history H ON HC._id = H.chapter_id
+    WHERE HC.novel_id = N._id
+);
+
+-- 2. Drop the view and the column, then recreate the view over history. last_read_at is not indexed
+--    and no trigger names it, so a direct DROP COLUMN is valid on SQLite 3.35+ (as 28.sqm dropped
+--    edited_flags).
+DROP VIEW IF EXISTS novelLibraryView;
+
+ALTER TABLE novels DROP COLUMN last_read_at;
+
+-- The DROP COLUMN makes SQLite rewrite double-quoted strings in every trigger to single quotes, which
+-- would leave this Mihon trigger's text differing from a fresh install's. Recreated verbatim from
+-- data/categories.sq so the two schemas stay identical; its behaviour never changed.
+DROP TRIGGER IF EXISTS system_category_delete_trigger;
+
+CREATE TRIGGER IF NOT EXISTS system_category_delete_trigger BEFORE DELETE
+ON categories
+BEGIN SELECT CASE
+    WHEN old._id <= 0 THEN
+        RAISE(ABORT, "System category can't be deleted")
+    END;
+END;
+
+CREATE VIEW novelLibraryView AS
+SELECT
+    N.*,
+    coalesce(C.total, 0) AS totalCount,
+    coalesce(C.readCount, 0) AS readCount,
+    coalesce(C.latestUpload, 0) AS latestUpload,
+    coalesce(C.fetchedAt, 0) AS chapterFetchedAt,
+    coalesce(C.lastRead, 0) AS lastRead,
+    coalesce(C.bookmarkCount, 0) AS bookmarkCount,
+    coalesce(NC.categories, '0') AS categories
+FROM novels N
+LEFT JOIN (
+    SELECT
+        novel_chapters.novel_id,
+        count(*) AS total,
+        sum(read) AS readCount,
+        coalesce(max(novel_chapters.date_upload), 0) AS latestUpload,
+        coalesce(max(novel_history.last_read), 0) AS lastRead,
+        coalesce(max(novel_chapters.date_fetch), 0) AS fetchedAt,
+        sum(novel_chapters.bookmark) AS bookmarkCount
+    FROM novel_chapters
+    LEFT JOIN novel_history
+    ON novel_chapters._id = novel_history.chapter_id
+    GROUP BY novel_chapters.novel_id
+) AS C
+ON N._id = C.novel_id
+LEFT JOIN (
+    SELECT novel_id, group_concat(category_id) AS categories
+    FROM novels_categories
+    GROUP BY novel_id
+) AS NC
+ON NC.novel_id = N._id
+WHERE N.favorite = 1;

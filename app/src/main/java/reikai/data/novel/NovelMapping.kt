@@ -81,7 +81,6 @@ fun SourceNovel.toNovel(
     updateStrategy = UpdateStrategy.ALWAYS_UPDATE,
     coverLastModified = 0L,
     totalPages = totalPages.toLong(),
-    lastReadAt = null,
     notes = "",
     viewerFlags = 0L,
     version = 0L,

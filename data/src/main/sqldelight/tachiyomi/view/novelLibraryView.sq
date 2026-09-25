@@ -1,8 +1,9 @@
 -- Novel twin of libraryView. Favorited novels plus per-novel chapter counts (total,
--- read, latest upload, fetch date, bookmarks) and the concatenated category ids. The download count
--- is not here: downloaded state now comes from NovelDownloadCache (disk), filled in the model. No
--- history / excluded_scanlators joins: novels denormalize last_read_at onto the row and have no
--- scanlators.
+-- read, latest upload, fetch date, last read, bookmarks) and the concatenated category ids. The
+-- download count is not here: downloaded state now comes from NovelDownloadCache (disk), filled in the
+-- model. lastRead is derived from novel_history exactly as libraryView derives it from history, so
+-- clearing a novel's history drops it in the Last read sort. No excluded_scanlators join: novels have
+-- no scanlators.
 CREATE VIEW novelLibraryView AS
 SELECT
     N.*,
@@ -10,6 +11,7 @@ SELECT
     coalesce(C.readCount, 0) AS readCount,
     coalesce(C.latestUpload, 0) AS latestUpload,
     coalesce(C.fetchedAt, 0) AS chapterFetchedAt,
+    coalesce(C.lastRead, 0) AS lastRead,
     coalesce(C.bookmarkCount, 0) AS bookmarkCount,
     coalesce(NC.categories, '0') AS categories
 FROM novels N
@@ -19,9 +21,12 @@ LEFT JOIN (
         count(*) AS total,
         sum(read) AS readCount,
         coalesce(max(novel_chapters.date_upload), 0) AS latestUpload,
+        coalesce(max(novel_history.last_read), 0) AS lastRead,
         coalesce(max(novel_chapters.date_fetch), 0) AS fetchedAt,
         sum(novel_chapters.bookmark) AS bookmarkCount
     FROM novel_chapters
+    LEFT JOIN novel_history
+    ON novel_chapters._id = novel_history.chapter_id
     GROUP BY novel_chapters.novel_id
 ) AS C
 ON N._id = C.novel_id

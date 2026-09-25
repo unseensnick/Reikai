@@ -36,7 +36,6 @@ fun mapNovel(
     updateStrategy: UpdateStrategy,
     coverLastModified: Long,
     totalPages: Long,
-    lastReadAt: Long?,
     notes: String,
     viewerFlags: Long,
     version: Long,
@@ -62,7 +61,6 @@ fun mapNovel(
     updateStrategy = updateStrategy,
     coverLastModified = coverLastModified,
     totalPages = totalPages,
-    lastReadAt = lastReadAt,
     notes = notes,
     viewerFlags = viewerFlags,
     version = version,
@@ -72,7 +70,7 @@ fun mapNovel(
 
 /**
  * Maps a `novelLibraryView` row to [LibraryNovel]. The leading args are the `novels` columns (same
- * order as [mapNovel]); the trailing 6 are the view's aggregates. `sum(...)` columns arrive as
+ * order as [mapNovel]); the trailing 7 are the view's aggregates. `sum(...)` columns arrive as
  * `Double` (SQLDelight bypasses the Boolean adapter for aggregates), so they are narrowed to `Long`.
  * The download count is not in the view: it comes from NovelDownloadCache (disk), filled in the model.
  */
@@ -95,7 +93,6 @@ fun mapLibraryNovel(
     updateStrategy: UpdateStrategy,
     coverLastModified: Long,
     totalPages: Long,
-    lastReadAt: Long?,
     notes: String,
     viewerFlags: Long,
     version: Long,
@@ -106,6 +103,7 @@ fun mapLibraryNovel(
     readCount: Double,
     latestUpload: Long,
     chapterFetchedAt: Long,
+    lastRead: Long,
     bookmarkCount: Double,
     categories: String,
 ): LibraryNovel = LibraryNovel(
@@ -128,7 +126,6 @@ fun mapLibraryNovel(
         updateStrategy,
         coverLastModified,
         totalPages,
-        lastReadAt,
         notes,
         viewerFlags,
         version,
@@ -144,6 +141,7 @@ fun mapLibraryNovel(
     downloadCount = 0,
     latestUpload = latestUpload,
     chapterFetchedAt = chapterFetchedAt,
+    lastRead = lastRead,
 )
 
 /**
@@ -169,7 +167,6 @@ fun mapNovelWithChapterCount(
     updateStrategy: UpdateStrategy,
     coverLastModified: Long,
     totalPages: Long,
-    lastReadAt: Long?,
     notes: String,
     viewerFlags: Long,
     version: Long,
@@ -197,7 +194,6 @@ fun mapNovelWithChapterCount(
         updateStrategy,
         coverLastModified,
         totalPages,
-        lastReadAt,
         notes,
         viewerFlags,
         version,

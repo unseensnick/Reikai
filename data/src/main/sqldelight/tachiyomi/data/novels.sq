@@ -10,9 +10,7 @@ import kotlin.collections.List;
 --
 -- `total_pages` supports paged-novel sources (Royal Road volumes, some Japanese sources) where a
 -- single novel's chapter list spans multiple endpoints; the update job re-fetches
--- `oldTotalPages + 1` through `total_pages` for completely new content. `last_read_at` is
--- denormalized off `novel_chapters.last_text_progress` so the LastRead library sort avoids a
--- JOIN-per-row.
+-- `oldTotalPages + 1` through `total_pages` for completely new content.
 CREATE TABLE novels(
     _id INTEGER NOT NULL PRIMARY KEY,
     source TEXT NOT NULL,
@@ -32,7 +30,6 @@ CREATE TABLE novels(
     update_strategy INTEGER AS UpdateStrategy NOT NULL DEFAULT 0,
     cover_last_modified INTEGER NOT NULL DEFAULT 0,
     total_pages INTEGER NOT NULL DEFAULT 1,
-    last_read_at INTEGER,
     notes TEXT NOT NULL DEFAULT '',
     viewer_flags INTEGER NOT NULL DEFAULT 0,
     version INTEGER NOT NULL DEFAULT 0,
@@ -145,8 +142,8 @@ LEFT JOIN chapter_counts CC
 ON N._id = CC.novel_id;
 
 insert:
-INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, last_read_at, notes, viewer_flags, version)
-VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :lastReadAt, :notes, :viewerFlags, :version);
+INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, notes, viewer_flags, version)
+VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :notes, :viewerFlags, :version);
 
 -- Full-row update for the paths that legitimately write a complete Novel: restore and edit-info
 -- (which set columns back to null, something `coalesce` can't express). Surgical single/few-column
@@ -171,7 +168,6 @@ UPDATE novels SET
     update_strategy = :updateStrategy,
     cover_last_modified = :coverLastModified,
     total_pages = :totalPages,
-    last_read_at = :lastReadAt,
     notes = :notes,
     viewer_flags = :viewerFlags,
     version = :version,
@@ -201,7 +197,6 @@ UPDATE novels SET
     date_added = coalesce(:dateAdded, date_added),
     cover_last_modified = coalesce(:coverLastModified, cover_last_modified),
     total_pages = coalesce(:totalPages, total_pages),
-    last_read_at = coalesce(:lastReadAt, last_read_at),
     notes = coalesce(:notes, notes),
     viewer_flags = coalesce(:viewerFlags, viewer_flags),
     next_update = coalesce(:nextUpdate, next_update),
@@ -212,11 +207,6 @@ WHERE _id = :id;
 -- The partial update's genre column, written apart because it keeps its adapter only without coalesce.
 setGenre:
 UPDATE novels SET genre = :genre WHERE _id = :id;
-
--- Focused single-column stamp written from the reader on every progress save, so it avoids the
--- full-row read-modify-write the LastRead library sort would otherwise pay on each scroll.
-setLastReadAt:
-UPDATE novels SET last_read_at = :lastReadAt WHERE _id = :novelId;
 
 selectLastInsertedRowId:
 SELECT last_insert_rowid();

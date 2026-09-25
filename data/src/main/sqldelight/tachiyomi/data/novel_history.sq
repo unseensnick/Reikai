@@ -1,8 +1,8 @@
 -- Novel twin of history.sq: per-chapter read records backing the History tab's novel feed. Written
 -- from the reader on chapter switch / exit (mirrors Mihon's ReaderViewModel.updateHistory). Two
 -- divergences from the manga table, both deliberate:
--- 1. `last_read` is a plain epoch-millis INTEGER (not Mihon's `AS Date`), matching novels.last_read_at
---    so no column adapter is needed.
+-- 1. `last_read` is a plain epoch-millis INTEGER (not Mihon's `AS Date`), so no column adapter is
+--    needed.
 -- 2. No scanlator consumer exists on the novel side, so per-scanlator queries are omitted; the
 --    read-duration total (getTotalReadDuration) backs the novel Stats screen.
 -- resetById / resetByNovelId soft-delete (last_read = 0, hidden by the feed's readAt > 0 filter, so a
@@ -84,3 +84,21 @@ SET
     last_read = MAX(COALESCE(last_read, 0), :readAt),
     time_read = MAX(time_read, :timeRead)
 WHERE chapter_id = :chapterId;
+
+-- Backup restore of an old backup's novel-level last-read stamp, which predates this table. A novel with
+-- no history row at all gets one on its latest-read chapter, so the Last read sort (derived from this
+-- table) keeps its place; a novel whose history was cleared keeps its rows and gets nothing. 47.sqm
+-- applied the same rule to the stored stamps on upgrade.
+seedLastRead:
+INSERT INTO novel_history(chapter_id, last_read, time_read)
+SELECT C._id, :readAt, 0
+FROM novel_chapters C
+WHERE C.novel_id = :novelId
+AND NOT EXISTS (
+    SELECT 1
+    FROM novel_chapters HC
+    INNER JOIN novel_history H ON HC._id = H.chapter_id
+    WHERE HC.novel_id = :novelId
+)
+ORDER BY C.last_text_progress != 0 DESC, C.read DESC, C.chapter_number DESC, C._id DESC
+LIMIT 1;

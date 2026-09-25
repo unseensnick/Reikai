@@ -113,7 +113,6 @@ class NovelRepositoryImpl(
                 updateStrategy = novel.updateStrategy,
                 coverLastModified = novel.coverLastModified,
                 totalPages = novel.totalPages,
-                lastReadAt = novel.lastReadAt,
                 notes = novel.notes,
                 viewerFlags = novel.viewerFlags,
                 version = novel.version,
@@ -144,7 +143,6 @@ class NovelRepositoryImpl(
             updateStrategy = novel.updateStrategy,
             coverLastModified = novel.coverLastModified,
             totalPages = novel.totalPages,
-            lastReadAt = novel.lastReadAt,
             notes = novel.notes,
             viewerFlags = novel.viewerFlags,
             version = novel.version,
@@ -170,14 +168,6 @@ class NovelRepositoryImpl(
         true
     } catch (e: Exception) {
         logcat(LogPriority.ERROR, e) { "Failed to batch-update ${updates.size} novels" }
-        false
-    }
-
-    override suspend fun setLastReadAt(id: Long, at: Long): Boolean = try {
-        database.novelsQueries.setLastReadAt(at, id)
-        true
-    } catch (e: Exception) {
-        logcat(LogPriority.ERROR, e) { "Failed to set last_read_at on novel id=$id" }
         false
     }
 
@@ -207,7 +197,6 @@ class NovelRepositoryImpl(
             dateAdded = update.dateAdded,
             coverLastModified = update.coverLastModified,
             totalPages = update.totalPages,
-            lastReadAt = update.lastReadAt,
             notes = update.notes,
             viewerFlags = update.viewerFlags,
             nextUpdate = update.nextUpdate,

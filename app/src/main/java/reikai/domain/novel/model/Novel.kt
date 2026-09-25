@@ -42,11 +42,6 @@ data class Novel(
      * re-fetches `oldTotalPages + 1` through this value to discover new chapters on later pages.
      */
     val totalPages: Long,
-    /**
-     * Denormalized last-read timestamp, written from the chapter-mark-read path so the LastRead
-     * library sort doesn't pay a JOIN-per-row. Null when the novel has never been opened.
-     */
-    val lastReadAt: Long?,
     /** Free-text user note shown/edited on the details screen (the novel twin of `Manga.notes`). */
     val notes: String,
     /**
@@ -87,7 +82,6 @@ data class Novel(
             updateStrategy = UpdateStrategy.ALWAYS_UPDATE,
             coverLastModified = 0L,
             totalPages = 1L,
-            lastReadAt = null,
             notes = "",
             viewerFlags = 0L,
             version = 0L,

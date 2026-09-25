@@ -25,6 +25,8 @@ class BackupNovel(
     @ProtoNumber(14) var updateStrategy: UpdateStrategy = UpdateStrategy.ALWAYS_UPDATE,
     @ProtoNumber(15) var coverLastModified: Long = 0,
     @ProtoNumber(16) var totalPages: Long = 1,
+    // Read only, from backups made before the Last read sort came from history: NovelRestorer seeds a
+    // history row from it for a novel that has none. Nothing writes it any more.
     @ProtoNumber(17) var lastReadAt: Long? = null,
     // RK: retired lock bitmask, kept as a reserved proto slot for backup round-trip compatibility with
     // older backups (and upstream Yokai). Novel edits now live in the custom_novel_info overlay
@@ -66,7 +68,6 @@ class BackupNovel(
             updateStrategy = this@BackupNovel.updateStrategy,
             coverLastModified = this@BackupNovel.coverLastModified,
             totalPages = this@BackupNovel.totalPages,
-            lastReadAt = this@BackupNovel.lastReadAt,
             notes = this@BackupNovel.notes,
             viewerFlags = this@BackupNovel.viewerFlags,
             version = this@BackupNovel.version,

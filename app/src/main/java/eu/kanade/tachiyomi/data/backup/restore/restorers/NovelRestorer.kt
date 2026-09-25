@@ -93,6 +93,11 @@ class NovelRestorer(
         restoreCategoryMembership(novelId, backupNovel.categories, backupCategories)
         restoreTracks(novelId, backupNovel.tracking)
         restoreHistory(novelId, backupNovel.history)
+        // An old backup carries the Last read stamp without history; after the history above, so a
+        // backup that has history keeps it as is.
+        backupNovel.lastReadAt?.takeIf { it > 0 }?.let { lastRead ->
+            database.novel_historyQueries.seedLastRead(readAt = lastRead, novelId = novelId)
+        }
         // An entry without custom info leaves the device's own alone, as manga does.
         backupNovel.customInfo?.let { restoreCustomInfo(novelId, it) }
     }
