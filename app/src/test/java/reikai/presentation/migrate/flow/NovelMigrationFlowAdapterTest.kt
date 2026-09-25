@@ -2,6 +2,7 @@ package reikai.presentation.migrate.flow
 
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -17,6 +18,7 @@ import reikai.novel.host.SourceNovel
 import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import java.io.IOException
 
 /**
  * The novel half of the two smart-match options. Deep search and prioritize-by-chapters were hidden
@@ -113,6 +115,45 @@ class NovelMigrationFlowAdapterTest {
 
         adapter.peekCounts(candidate)?.let { it.chapterCount to it.latestChapter } shouldBe (3 to 5.0)
     }
+
+    @Test
+    fun `a failed target refresh still resolves, unsynced, so the engine makes the second attempt`() = runTest {
+        coEvery { source.parseNovel("/flaky") } throws IOException("timeout")
+        val stored = Novel.create().copy(id = 9L, source = "plugin", url = "/flaky")
+        val adapter = adapter(
+            novelRepository = mockk {
+                coEvery { insertOrGet(any()) } returns stored
+                coEvery { getByUrlAndSource("/flaky", "plugin") } returns stored
+            },
+            chapterRepository = mockk { coEvery { getByNovelId(9L) } returns emptyList() },
+        )
+
+        adapter.resolve(hit("/flaky"))?.syncedNow shouldBe false
+    }
+
+    @Test
+    fun `resolving a hit whose stored row has chapters does not parse the source again`() = runTest {
+        val stored = Novel.create().copy(id = 7L, source = "plugin", url = "/title")
+        val adapter = adapter(
+            novelRepository = mockk {
+                coEvery { insertOrGet(any()) } returns stored
+                coEvery { getByUrlAndSource("/title", "plugin") } returns stored
+            },
+            chapterRepository = mockk { coEvery { getByNovelId(7L) } returns listOf(storedChapter(1.0)) },
+        )
+
+        adapter.resolve(hit("/title"))
+
+        coVerify(exactly = 0) { source.parseNovel(any()) }
+    }
+
+    private fun hit(path: String) = MigrationCandidate(
+        sourceKey = "plugin",
+        title = "Title",
+        chapterCount = null,
+        key = "plugin:$path",
+        handle = NovelCandidateHandle(NovelItem("Title", path, null)),
+    )
 
     private fun storedChapter(number: Double) = NovelChapter(
         id = number.toLong(),

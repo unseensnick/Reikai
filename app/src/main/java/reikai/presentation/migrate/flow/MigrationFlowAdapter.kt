@@ -184,10 +184,11 @@ interface MigrationFlowAdapter {
 
     /**
      * Materialise a picked candidate into a commit-ready target (row inserted, chapters fetched,
-     * count known), returning it with `resolved = true`. Fails as null OR by throwing (the novel side
-     * lets its refresh throw), so callers must catch as well as null-check. Idempotent, since the
-     * commit path resolves unconditionally. [ResolvedTarget.syncedNow] reports whether this call
-     * fetched, which is what lets the commit skip a second identical fetch.
+     * count known), returning a [ResolvedTarget] whose handle now carries the stored row. The source
+     * fetch is best-effort on both sides, but a storage error can still throw, so callers must catch
+     * as well as null-check. Idempotent, since the commit path resolves unconditionally.
+     * [ResolvedTarget.syncedNow] reports whether this call fetched, which is what lets the commit
+     * skip a second identical fetch; a failed fetch reports false, so the engine fetches again.
      */
     suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget?
 

@@ -262,15 +262,23 @@ class NovelMigrationFlowAdapter(
             thumbnailUrl = handle.item.cover,
         )
         val stored = novelRepository.insertOrGet(base) ?: return null
-        refreshNovelFromSource(
-            stored,
-            source,
-            chapterRepository,
-            novelRepository,
-            database,
-            libraryPreferences,
-            novelDownloadManager = downloadManager,
-        )
+        // Skipped for a row that already has chapters, and best-effort, as manga's fetch is: a
+        // failure still resolves, unsynced, and the engine's own refresh is the second attempt,
+        // which fails the row if the source is still failing.
+        val fetched = chapterRepository.getByNovelId(stored.id).isEmpty()
+        if (fetched) {
+            runCatchingCancellable {
+                refreshNovelFromSource(
+                    stored,
+                    source,
+                    chapterRepository,
+                    novelRepository,
+                    database,
+                    libraryPreferences,
+                    novelDownloadManager = downloadManager,
+                )
+            }
+        }
         val resolved = novelRepository.getByUrlAndSource(handle.item.path, source.id) ?: return null
         val chapters = chapterRepository.getByNovelId(resolved.id)
         return ResolvedTarget(
@@ -285,7 +293,7 @@ class NovelMigrationFlowAdapter(
             // A refresh that stored nothing is not a sync (a soft-error page can parse as an empty
             // chapter list without throwing); claiming it would make the engine skip its
             // compensating refresh and migrate onto an empty row. Mirrors the manga guard.
-            syncedNow = chapters.isNotEmpty(),
+            syncedNow = fetched && chapters.isNotEmpty(),
         )
     }
 
