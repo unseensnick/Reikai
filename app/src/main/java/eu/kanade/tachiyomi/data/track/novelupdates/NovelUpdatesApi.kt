@@ -9,6 +9,8 @@ import kotlinx.serialization.json.Json
 import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.OkHttpClient
+import org.jsoup.nodes.Document
+import tachiyomi.core.common.util.lang.withIOContext
 import uy.kohesive.injekt.injectLazy
 import kotlin.time.Duration.Companion.minutes
 
@@ -18,6 +20,9 @@ import kotlin.time.Duration.Companion.minutes
  * Cookies come from the shared jar, which is the WebView's own store, so the sign-in session and
  * the Cloudflare clearance both ride along without being resent by hand. Nothing here sets a
  * User-Agent either: the clearance is bound to the one the app already sends.
+ *
+ * Every body read and parse runs on IO, because the await resumes on the caller's dispatcher and
+ * the settings screen calls in from composition.
  */
 class NovelUpdatesApi(client: OkHttpClient) {
 
@@ -32,21 +37,20 @@ class NovelUpdatesApi(client: OkHttpClient) {
 
     suspend fun search(query: String): List<NovelUpdatesSeries> {
         val url = "$BASE_URL/series-finder/?sf=1&sh=${query.replace(" ", "+")}&sort=sdate&order=desc"
-        return parseSearch(get(url))
+        return get(url, ::parseSearch)
     }
 
-    suspend fun findNovelId(seriesUrl: String): String? = parseNovelId(get(seriesUrl))
+    suspend fun findNovelId(seriesUrl: String): String? = get(seriesUrl, ::parseNovelId)
 
-    suspend fun details(seriesUrl: String): NovelUpdatesDetails = parseDetails(get(seriesUrl))
+    suspend fun details(seriesUrl: String): NovelUpdatesDetails = get(seriesUrl, ::parseDetails)
 
-    suspend fun findListId(novelId: String): Long? = parseListId(get("$BASE_URL/series/?p=$novelId"))
+    suspend fun findListId(novelId: String): Long? = get("$BASE_URL/series/?p=$novelId", ::parseListId)
 
-    suspend fun readingLists(): List<Pair<String, String>> = parseReadingLists(get("$BASE_URL/reading-list/"))
+    suspend fun readingLists(): List<Pair<String, String>> = get("$BASE_URL/reading-list/", ::parseReadingLists)
 
     /** Both come off the reading-list page, so signing in costs one request rather than two. */
-    suspend fun account(): NovelUpdatesAccount {
-        val page = get("$BASE_URL/reading-list/")
-        return NovelUpdatesAccount(username = parseUsername(page), lists = parseReadingLists(page))
+    suspend fun account(): NovelUpdatesAccount = get("$BASE_URL/reading-list/") { page ->
+        NovelUpdatesAccount(username = parseUsername(page), lists = parseReadingLists(page))
     }
 
     /** Null when the response does not parse, which the caller must treat as "do not write". */
@@ -55,8 +59,10 @@ class NovelUpdatesApi(client: OkHttpClient) {
             .add("action", "wi_notestagsfic")
             .add("strSID", novelId)
             .build()
-        val text = client.newCall(POST(AJAX_URL, headers, body)).awaitSuccess().body.string()
-        return parseNotesPayload(text, json)
+        return withIOContext {
+            val text = client.newCall(POST(AJAX_URL, headers, body)).awaitSuccess().body.string()
+            parseNotesPayload(text, json)
+        }
     }
 
     suspend fun writeNotes(novelId: String, notes: String, tags: String) {
@@ -93,7 +99,7 @@ class NovelUpdatesApi(client: OkHttpClient) {
             .add("mygrr", "0")
             .add("mypostid", novelId)
             .build()
-        return parseReleases(client.newCall(POST(AJAX_URL, headers, body)).awaitSuccess().asJsoup())
+        return withIOContext { parseReleases(client.newCall(POST(AJAX_URL, headers, body)).awaitSuccess().asJsoup()) }
     }
 
     /**
@@ -106,7 +112,9 @@ class NovelUpdatesApi(client: OkHttpClient) {
             .close()
     }
 
-    private suspend fun get(url: String) = client.newCall(GET(url, headers)).awaitSuccess().asJsoup()
+    private suspend fun <T> get(url: String, parse: (Document) -> T): T = withIOContext {
+        parse(client.newCall(GET(url, headers)).awaitSuccess().asJsoup())
+    }
 
     companion object {
         const val BASE_URL = "https://www.novelupdates.com"
