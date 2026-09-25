@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.customInfo
@@ -29,6 +30,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.repository.CustomNovelInfoRepository
+import reikai.novel.source.NovelSourceManager
 import tachiyomi.data.Database
 import tachiyomi.domain.category.repository.CategoryRepository
 
@@ -41,6 +43,7 @@ class NovelBackupCreator(
     private val mergeGroupRepository: MergeGroupRepository,
     private val customNovelInfoRepository: CustomNovelInfoRepository,
     private val database: Database,
+    private val novelSourceManager: NovelSourceManager,
 ) : BackupEntryParts<Novel, BackupNovel> {
 
     suspend fun novelCategories(options: BackupOptions): List<BackupNovelCategory> =
@@ -48,6 +51,10 @@ class NovelBackupCreator(
 
     suspend fun novelMerges(options: BackupOptions): List<BackupNovelMergeGroup> =
         if (options.libraryEntries) serializeGroups() else emptyList()
+
+    /** Each source's name, as manga's source list carries it, so a restore can name one not installed. */
+    suspend fun sources(sourceIds: Set<String>): List<BackupNovelSource> =
+        sourceIds.map { BackupNovelSource(name = novelSourceManager.nameOf(it), sourceId = it) }
 
     // The option gates and the choice of which novels to back up live in the driver shared with manga
     // (reikai.data.backup.backupEntries), so this class answers one part at a time.

@@ -84,5 +84,6 @@ class NovelHistoryBackupTest {
         mergeGroupRepository = mockk(),
         customNovelInfoRepository = mockk(),
         database = database,
+        novelSourceManager = mockk(),
     )
 }

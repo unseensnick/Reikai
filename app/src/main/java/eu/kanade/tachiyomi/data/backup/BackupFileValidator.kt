@@ -5,6 +5,7 @@ import android.net.Uri
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -39,6 +40,7 @@ class BackupFileValidator(
         val backupSources = mutableListOf<BackupSource>()
         val mangaTrackerIds = mutableSetOf<Int>()
         val novelSources = mutableSetOf<String>()
+        val novelSourceNames = mutableMapOf<String, String>() // RK: field 717, absent before it existed
         val novelTrackerIds = mutableSetOf<Long>()
 
         try {
@@ -50,6 +52,9 @@ class BackupFileValidator(
                     700 -> parser.decodeFromByteArray(BackupNovel.serializer(), data).let { novel ->
                         novelSources.add(novel.source)
                         novel.tracking.forEach { novelTrackerIds.add(it.trackerId) }
+                    }
+                    717 -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
+                        novelSourceNames[it.sourceId] = it.name
                     }
                 }
             }
@@ -78,10 +83,11 @@ class BackupFileValidator(
             .sorted()
 
         // RK --> fold in novel sources / trackers the restore can't satisfy, so the pre-restore
-        // warning covers novels too. A missing novel source shows by its id (novels carry no
-        // source-name table); novel trackers reuse the shared tracker manager.
+        // warning covers novels too. A missing novel source shows by the name the backup recorded,
+        // or by its id in a backup older than that list; novel trackers reuse the shared tracker manager.
         val missingNovelSources = novelSources
             .filter { novelSourceManager.get(it) == null }
+            .map { novelSourceNames[it]?.ifBlank { null } ?: it }
         val missingNovelTrackers = novelTrackerIds
             .mapNotNull { trackerManager.get(it) }
             .filter { !it.isLoggedIn }

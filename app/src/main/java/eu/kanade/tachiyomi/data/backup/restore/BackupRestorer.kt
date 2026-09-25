@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
@@ -243,6 +244,7 @@ class BackupRestorer(
         val backupCustomNovelInfo = mutableListOf<BackupCustomNovelInfo>()
         val backupSavedSearches = mutableListOf<BackupSavedSearch>()
         val backupFeedRows = mutableListOf<BackupFeedRow>()
+        val novelSourceNames = mutableMapOf<String, String>()
         var mangaCount = 0
         var novelCount = 0
 
@@ -265,6 +267,9 @@ class BackupRestorer(
                 714 -> backupCustomNovelInfo.add(parser.decodeFromByteArray(BackupCustomNovelInfo.serializer(), data))
                 715 -> backupSavedSearches.add(parser.decodeFromByteArray(BackupSavedSearch.serializer(), data))
                 716 -> backupFeedRows.add(parser.decodeFromByteArray(BackupFeedRow.serializer(), data))
+                717 -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
+                    novelSourceNames[it.sourceId] = it.name
+                }
             }
         }
 
@@ -283,6 +288,7 @@ class BackupRestorer(
             backupNovelMerges = backupNovelMerges,
             backupSavedSearches = backupSavedSearches,
             backupFeedRows = backupFeedRows,
+            novelSourceNames = novelSourceNames,
         )
     }
 
@@ -302,6 +308,8 @@ class BackupRestorer(
         val backupNovelMerges: List<BackupNovelMergeGroup>,
         val backupSavedSearches: List<BackupSavedSearch>,
         val backupFeedRows: List<BackupFeedRow>,
+        // Absent from a backup made before novels recorded their source names.
+        val novelSourceNames: Map<String, String>,
     )
 
     // RK: restore the light-novel library, streamed. Categories first, then each novel in bounded
@@ -325,7 +333,7 @@ class BackupRestorer(
                 decode = { summary.legacyCustomInfo.decodeNovel(parser, it) },
                 restore = { novelRestorer.restore(it, membershipCategories) },
                 title = { it.title },
-                sourceName = { it.source },
+                sourceName = { summary.novelSourceNames[it.source]?.ifBlank { null } ?: it.source },
                 isAdult = { adultContentChecker.adultNovelIdsAmong(listOf(it.toNovelImpl())).isNotEmpty() },
             )
             restoreIsolated("novel custom info") {

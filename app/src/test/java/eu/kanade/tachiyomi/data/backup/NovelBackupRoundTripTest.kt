@@ -99,6 +99,7 @@ class NovelBackupRoundTripTest {
             mergeGroupRepository = backupMergeRepo,
             customNovelInfoRepository = mockk(relaxed = true),
             database = mockk(relaxed = true),
+            novelSourceManager = mockk(),
         )
         // Library + merges only; skip chapters/categories/tracking/history so no DB is touched.
         val options = BackupOptions(

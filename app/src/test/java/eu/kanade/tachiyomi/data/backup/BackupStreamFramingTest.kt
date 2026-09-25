@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import io.kotest.matchers.collections.shouldHaveSize
@@ -75,6 +76,7 @@ class BackupStreamFramingTest {
             BackupCustomNovelInfo.serializer(),
             BackupCustomNovelInfo(source = "ns", url = "n1", title = "Custom Novel"),
         )
+        out.write(717, BackupNovelSource.serializer(), BackupNovelSource(name = "Novel Src", sourceId = "ns"))
 
         val backup = proto.decodeFromByteArray(Backup.serializer(), out.toByteArray())
 
@@ -90,6 +92,7 @@ class BackupStreamFramingTest {
         backup.backupNovelCategories.single().name shouldBe "NCat"
         backup.backupNovelMerges.single().refs.map { it.source } shouldBe listOf("ns1", "ns2")
         backup.backupCustomNovelInfo.single().title shouldBe "Custom Novel"
+        backup.backupNovelSources.single().name shouldBe "Novel Src"
     }
 
     @Test

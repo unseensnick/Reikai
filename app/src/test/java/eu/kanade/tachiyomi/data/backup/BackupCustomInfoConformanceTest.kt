@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.LegacyCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.customInfo
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
@@ -107,6 +108,11 @@ class BackupCustomInfoConformanceTest {
             listOf(null, null)
     }
 
+    @Test
+    fun `a backup names the source of each novel it carries`() = runTest {
+        writeBackup().backupNovelSources shouldBe listOf(BackupNovelSource(name = "Novel source", sourceId = "src"))
+    }
+
     /** One favorite manga and one favorite novel, each id 7 with [EVERY_FIELD] stored, through BackupCreator. */
     private suspend fun writeBackup(options: BackupOptions = BACKUP_OPTIONS): Backup {
         val out = ByteArrayOutputStream()
@@ -177,6 +183,7 @@ class BackupCustomInfoConformanceTest {
                     mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                     customNovelInfoRepository = novelCustomInfo,
                     database = mockk(),
+                    novelSourceManager = mockk { coEvery { nameOf("src") } returns "Novel source" },
                 ),
                 extensionBackupCreator = mockk(relaxed = true),
                 feedBackupCreator = mockk(relaxed = true),

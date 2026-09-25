@@ -128,6 +128,7 @@ class GroupMemberBackupConformanceTest {
                 mergeGroupRepository = groups,
                 customNovelInfoRepository = mockk(),
                 database = database,
+                novelSourceManager = mockk(),
             )
             options.backupEntries(creator).toList().map { it.url to it.favorite }
         }

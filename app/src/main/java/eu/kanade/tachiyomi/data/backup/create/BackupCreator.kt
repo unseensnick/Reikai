@@ -26,6 +26,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
@@ -132,6 +133,7 @@ class BackupCreator(
             try {
                 val out = gzipOut.outputStream()
                 val sourceIds = mutableSetOf<Long>()
+                val novelSourceIds = mutableSetOf<String>() // RK
 
                 // Field 1: manga, then field 700 (RK): novels, each streamed through the driver shared
                 // by both types, which decides which series are backed up and what each carries.
@@ -141,7 +143,15 @@ class BackupCreator(
                     }
                 }
                 if (includeNovels) {
-                    writeEntries(out, gzipOut, 700, BackupNovel.serializer(), options.backupEntries(novelBackupCreator))
+                    writeEntries(
+                        out,
+                        gzipOut,
+                        700,
+                        BackupNovel.serializer(),
+                        options.backupEntries(novelBackupCreator),
+                    ) {
+                        novelSourceIds.add(it.source)
+                    }
                 }
 
                 // Remaining fields are small (no per-entry chapter payload), so they are gathered and
@@ -153,6 +163,7 @@ class BackupCreator(
                 writeEach(out, 106, BackupExtensionStore.serializer(), backupExtensionStores(options))
                 // RK -->
                 writeEach(out, 710, BackupExtension.serializer(), backupExtensions(options))
+                writeEach(out, 717, BackupNovelSource.serializer(), novelBackupCreator.sources(novelSourceIds))
                 if (includeManga) {
                     writeEach(out, 711, BackupMangaMergeGroup.serializer(), backupMangaMergeGroups(options))
                 }
