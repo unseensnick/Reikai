@@ -56,13 +56,13 @@ The sources you grouped together under one entry are saved as source-and-address
 
 #### Settings data
 - **App settings**
-- **Extension stores** - Your extension repos, plus the list of installed manga extensions
+- **Extension stores** - Your extension repos, plus the list of installed [extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins), manga and novel
 - **Source settings**
 - **Feed and saved searches** - The searches you saved on a source, and the Browse feed built on them
 - **Include sensitive settings** - Tracker login tokens (not included by default)
 
 ### What is not included in a backup?
-- **Extension files**. Only the list of installed manga extensions is saved
+- **Extension files**. Only the list of installed extension apps and the addresses of your plugins are saved
 - **Downloaded chapter files** including [local source](/docs/guides/local-source/) chapters
 - **Custom covers** applied to entries
 - **Cached cover images**, which are re-downloaded on demand
@@ -79,21 +79,22 @@ Restore a compatible backup file in <nav to="data-and-storage">.
 To ensure a smooth restoration process, remember to:
 
 1. Log into the [Tracking services](/docs/guides/tracking) you previously used.
-1. Install any extensions the restore could not reinstall. Manga extensions come back on their own when their repo is in the backup or already added; the others are named in the restore log.
+1. Install any extensions the restore could not reinstall. Extension apps come back on their own when their repo is in the backup or already added, and plugins are downloaded again from your novel repos; any that did not come back are named in the restore log.
 
 The Restore screen lists any missing sources and any trackers you are not logged into.
 :::
 
-A manga extension whose repo cannot be found is not reinstalled, so its entries reappear in your
-library but cannot fetch chapters until you install it. Novel plugins are not reinstalled during the
-restore: their addresses and your novel repos ride along in **App settings**, and the next time you
-open a novel screen the app re-downloads each plugin that one of your added repos still lists. Leave
-**App settings** included, or they will not return.
+An extension app whose repo cannot be found is not reinstalled, so its entries reappear in your
+library but cannot fetch chapters until you install it. Plugins are downloaded again during the
+restore: their addresses and your novel repos ride along in **App settings**, and the restore fetches
+each plugin that one of your added repos still lists. If that takes too long, the restore log says so
+and the app loads them the next time a light novel screen needs them. Leave **App settings**
+included, or they will not return.
 
 ### Transferring downloads to a new installation
 During the setup or after restoring a backup to **Reikai**:
 1. In <nav to="data-and-storage">, double-check your specified [Storage location](/docs/faq/storage) that **Reikai** has access to.
-1. Transfer or move your previously downloaded chapters into the "downloads" folder of your set Storage location.
+1. Transfer or move your previously downloaded chapters into your set Storage location: manga into its "downloads" folder, light novels into its "novel_downloads" folder.
 1. In <nav to="advanced">, tap on "Reindex downloads" to rescan your downloaded chapters.
 
 ## Suggestions for backups

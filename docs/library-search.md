@@ -51,7 +51,7 @@ A plain word never searches `language:`, `srcid:` or `chapter:`, so those only a
 :::
 
 **`source:` matches the source's display name**, so `source:mangadex` and `src:manga` both work on a partial name.
-**`srcid:` matches its exact identity** instead: a number for manga sources, a plugin name for light-novel plugins, and a prefixed number such as `tachiyomi:42` or `ireader:42` for novel extensions installed as apps.
+**`srcid:` matches its exact identity** instead: a number for manga sources, a plugin name for light-novel plugins, and a prefixed number such as `tachiyomi:42` or `ireader:42` for novel [extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins).
 Reach for `srcid:` when two sources have similar names.
 On manga, `source:local` finds entries from your local source.
 A merged series answers for every source it reads from, so `source:`, `srcid:` and `lang:` find it through any of them, not only the one leading it.
@@ -115,4 +115,4 @@ See [adult sources](adult-sources.md).
 - **A misspelled field name is searched as plain text.** `titel:solo` looks for the literal text rather than warning you, and finds nothing.
 - **Search uses the details you set, not the source's.** Rename an entry through **Edit info** and search finds it under your name, no longer the source's. The same goes for an author, artist, description or genre you overrode. Sorting and grouping still use the source's values.
 - **`chapter:` only searches chapters already saved on your device**, which for most entries means everything fetched so far rather than the source's full catalogue.
-- **A grouped entry is matched as one.** [Merged sources](multi-source.md) are searched through the entry you see, not each source behind it.
+- **A grouped entry is matched as one card.** For [merged sources](multi-source.md), text fields read the entry you see, while `source:`, `srcid:`, `lang:` and `chapter:` also look through every source behind it.

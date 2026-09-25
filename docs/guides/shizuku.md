@@ -16,6 +16,6 @@ To set up **Shizuku**, follow the instructions [here on Shizuku](https://shizuku
 
 After configuring it, enable **Shizuku** within **Reikai** by navigating to <nav to="advanced"> then setting **Installer** to **Shizuku**.
 
-::: info Manga extensions only
-Light novel plugins are JavaScript that installs inside the app, so no installer setting touches them.
+::: info Extension apps only
+The installer setting covers every extension app, manga and novel alike. Plugins install inside the app, so no installer setting touches them. See [extension apps and plugins](/docs/faq/browse/extensions#extension-apps-and-plugins).
 :::

@@ -41,6 +41,7 @@ If the login page loads but ExHentai still shows nothing, that is the account, n
 ## Settings worth knowing
 
 These live in <nav to="e-hentai">.
+The first four only appear once **Enable ExHentai** is on; the Gallery update checker is there either way.
 
 ### Image quality
 

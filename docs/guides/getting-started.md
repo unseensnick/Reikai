@@ -32,7 +32,7 @@ External repositories add additional sources to **Reikai**:
 
 Novel repos are added the same way. **Reikai** reads
 [LNReader](https://github.com/LNReader/lnreader)-style plugins, whose repo address points at a
-`plugins.min.json` registry, and the novel extensions tsundoku and IReader publish, whose stores are
+`plugins.min.json` registry, and the novel extensions Tsundoku and IReader publish, whose stores are
 added like a manga extension store. **Add repo** works out which kind an address is, and turns down one
 it cannot read. Each repo's card shows how many extensions or plugins it lists, or that it
 could not be reached.
@@ -43,7 +43,7 @@ Reikai will not provide resources for any unofficial repositories. Beware that a
 
 Once you've added a repository, go to <nav to="extensions"> and refresh the list.
 
-You can now tap the download button next to an extension, or a light novel plugin, to install it.
+You can now tap the download button next to an extension app or a light novel plugin to install it (see [extension apps and plugins](/docs/faq/browse/extensions#extension-apps-and-plugins)).
 
 > You may need to [enable third-party installations](/docs/faq/browse/extensions#enabling-third-party-installations).
 

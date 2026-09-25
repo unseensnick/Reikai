@@ -432,8 +432,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reading),
             preferenceItems = listOfNotNull(
-                // Read when a novel is opened, not while one is on screen, so a change applies to the
-                // next chapter opened rather than the session in progress.
+                // An open reader rebuilds around its live session on a change (NovelReaderProvider).
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerRenderingMode(),
                     entries = NovelRenderingMode.entries.associateWith { stringResource(it.titleRes) },

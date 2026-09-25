@@ -106,7 +106,7 @@ The following illustrates the folder structure:
 </div>
 :::
 
-Two more folders are created beside these. **`fonts`** holds the fonts you import or download for the novel reader. **`novel_downloads`** follows a similar shape to `downloads`, `novel_downloads/Plugin id/Novel title/`, with each chapter saved as an `.html` file rather than an archive of images. The source folder is named after the plugin's id rather than its display name.
+Two more folders are created beside these. **`fonts`** holds the fonts you import or download for the novel reader. **`novel_downloads`** follows a similar shape to `downloads`, `novel_downloads/Source id/Novel title/`, with each chapter saved as an `.html` file rather than an archive of images. The source folder is named after the source's id rather than its display name (see [how downloads are organized](/docs/faq/downloads#how-are-downloads-organized-on-the-filesystem)).
 
 Backup file name prefixes are unique for the app to avoid potential collisions between forks.
 

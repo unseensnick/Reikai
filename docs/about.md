@@ -73,14 +73,16 @@ and bugs in those are fair to report. When you do, keep the issue title generali
 (for example "Error opening a built-in gallery source") and name the source by its
 shorthand in the body. Shorthand list: [built-in sources](built-in-sources.md#reporting-a-bug-in-one).
 
-## Can I use novel sources from tsundoku (NovelSourcery) or IReader?
+## Can I use novel sources from Tsundoku (NovelSourcery) or IReader?
 
 Yes. Add the repo address each project publishes with **Add repo** under **Repos**, in
-<nav to="browse">, the same way as any other. Their extensions then install and update from
-**Extensions** like manga extensions, and their novels browse, read, download, update, migrate and
+<nav to="browse">, the same way as any other. Their extensions are
+[extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins), so they install and update
+from **Extensions** like manga extensions, and their novels browse, read, download, update, migrate and
 track like any other novel.
 
-Both kinds sit beside [LNReader](https://github.com/LNReader/lnreader)-style plugins. When a list mixes
+Both kinds sit beside [LNReader](https://github.com/LNReader/lnreader)-style
+[plugins](/docs/faq/browse/extensions#extension-apps-and-plugins). When a list mixes
 kinds of novel source, each one is labelled JS, APK or IReader so you can tell them apart.
 Extensions from a repo that publishes its signing key load without a trust prompt, and so do those from
 IReader's own repo; any other asks before an extension first loads, as it does for manga.

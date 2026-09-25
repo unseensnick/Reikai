@@ -27,7 +27,7 @@ Downloads might not be detected due to multiple factors:
 * Inaccessibility of the download location.
   > Ensure the SD card is properly detected if in use.
 * Source name changes.
-  > Rename the source's folder to match the new name. Light novel folders use the plugin id, so a renamed novel source needs nothing.
+  > Rename the source's folder to match the new name. Light novel folders use the source's id, so a renamed novel source needs nothing.
 * Series title modified by the source.
   > Adjust the folder title to the updated name.
 
@@ -51,7 +51,7 @@ A quick solution is to create the `.nomedia` file yourself, name it as such, and
 
 ## How are downloads organized on the filesystem?
 They are stored as `downloads/Source Name/Manga Name/Chapter Name_abcdef.cbz`, where the six characters after the underscore are a hash of the chapter's address.
-Light novels use a folder of their own, `novel_downloads/Plugin id/Novel Name/`, with each chapter saved as `Chapter Name_abcdef.html`. The folder is named after the novel plugin's id, not its display name.
+Light novels use a folder of their own, `novel_downloads/Source id/Novel Name/`, with each chapter saved as `Chapter Name_abcdef.html`. The source folder is named after the source's id, not its display name: a [plugin](/docs/faq/browse/extensions#extension-apps-and-plugins)'s id, or for a novel extension app `tachiyomi_` or `ireader_` followed by the source's number.
 The `abcdef` string is the first 6 hexadecimal digits of the MD5 hash of the URL of the chapter, so that if two chapters have the same name, they won't try to write to the same filename.
 For a manga chapter with a scanlator, it is `Scanlator Name_Chapter Name` instead of just `Chapter Name`. Novel chapters never carry a scanlator prefix.
 

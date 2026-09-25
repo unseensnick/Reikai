@@ -13,7 +13,7 @@ This page explores some advanced features.
 :::
 
 ::: info Manga only
-The local source reads folders of images and comic archives. Light novels have no equivalent: novel sources are plugins that fetch text, so there is nothing to point at a folder.
+The local source reads folders of images and comic archives. Light novels have no equivalent: novel sources are [plugins and extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins) that fetch text, so there is nothing to point at a folder.
 :::
 
 ## Creating local series

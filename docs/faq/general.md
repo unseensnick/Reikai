@@ -29,7 +29,7 @@ While it's ideal for users seeking the latest **Reikai** experience, it's essent
 
 ## Can I read light novels?
 Yes. Light novels sit beside manga in the same library, with their own sources, reader and trackers.
-See the [About Reikai](/docs/about) for how novel sources are added, which differs from manga extensions.
+See the [About Reikai](/docs/about) for how novel sources are added, and [extension apps and plugins](/docs/faq/browse/extensions#extension-apps-and-plugins) for the two forms they come in.
 
 ## Can I stream anime?
 **Reikai** isn't designed for anime streaming.

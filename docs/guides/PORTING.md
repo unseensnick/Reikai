@@ -14,10 +14,10 @@ after the next check rather than re-deriving it. What to diff: `website/src/docs
 
 **They are live on the site.** `sync-docs.mjs` walks the whole `docs/` tree, carrying the markdown
 into `src/docs/` and everything else into `src/public/docs/`, and the sidebar follows Mihon's own shape:
-site pages, then Frequently Asked Questions, then Guides. What is still outstanding is the content: **the text has been debranded and
-spot-corrected, not audited against how Reikai actually behaves.** The known-wrong statements found
-so far are listed under "Where Reikai already differs" below, and the two that were flatly false
-about Reikai (light novels, and Yōkai backup compatibility) are fixed.
+site pages, then Frequently Asked Questions, then Guides. The text has been debranded and then read
+page by page against how Reikai behaves (see "What still has to happen"). The two statements that were
+flatly false about Reikai (light novels, and Yōkai backup compatibility) were fixed, and are recorded under
+"Where Reikai already differs" below.
 
 ## Licence and attribution
 
@@ -206,8 +206,3 @@ Do not assume a file is accurate just because it reads plausibly. Two statements
 stale but flatly wrong about Reikai, and both were found by reading rather than by any check:
 `faq/general.md` said Reikai cannot read light novels, and `guides/backups.md` said Yōkai backups do
 not restore.
-
-Known divergences still to check page by page: Reikai's library has two view modes, categories carry
-a sort override and span both content types, the reader picks webtoon mode automatically, and merged
-entries fold several sources into one card. A label check cannot catch any of those, because each one
-is a page that is silent where it should say something.

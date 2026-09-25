@@ -144,7 +144,7 @@ Opens manhwa, manhua and webtoons in webtoon mode without you setting it per ser
 It goes by what the source says, not by the pictures: a "Manhwa", "Manhua", "Webtoon" or "Long strip" genre tag, or a source name that gives it away. A mode you picked for a series always wins.
 
 #### Bottom bar buttons
-Which buttons sit in the reader's bottom bar. Rotation, reading mode, view chapters and crop borders are on by default.
+Which buttons sit in the reader's bottom bar, and in what order. Rotation, reading mode, view chapters and crop borders are on by default. The settings gear can be moved like the others but not switched off.
 
 #### Resume reading position <Badge type="info" text="Off" />
 Reopens a chapter where you left it, even one already marked read.
@@ -314,10 +314,10 @@ TBA
 ### Reading
 
 #### Rendering mode <Badge type="info" text="Native text" />
-How a chapter is drawn. **Native text** lays the text out in the app. **WebView** renders the chapter as a web page, which keeps more of its own formatting and unlocks the styling and snippet options under **Chapter text**. A change applies to the next novel you open.
+How a chapter is drawn. **Native text** lays the text out in the app. **WebView** renders the chapter as a web page, which keeps more of its own formatting and unlocks the styling and snippet options under **Chapter text**. Changing it from the reader's settings sheet rebuilds the reader in place, at the same position.
 
 #### Select text by long press <Badge type="info" text="Off" />
-Lets you select and copy text. Under **Native text**, links stop responding to taps once this is on, from the next time the reader opens.
+Lets you select and copy text. Under **Native text**, links stop responding to taps once this is on. Like **Rendering mode**, it takes effect at once.
 
 #### Continuous chapters <Badge type="info" text="On" />
 Scrolls straight on into the next chapter. Off makes each chapter its own page.

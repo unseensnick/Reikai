@@ -6,7 +6,7 @@ description: How the library looks, from covers and badges to showing every cate
 
 # Library layout
 
-_Dev records: [library-screen-carry.md](dev/plans/library-screen-carry.md), [library-tabbed-shell.md](dev/plans/library-tabbed-shell.md). Doc map: [README.md](README.md)._
+_Dev records: [library-screen-carry.md](dev/plans/library-screen-carry.md), [library-all-chip.md](dev/plans/library-all-chip.md). Doc map: [README.md](README.md)._
 
 By default, <nav to="main_library"> shows one category at a time as a grid of covers, with the category names in a row of tabs, and you swipe sideways to reach the next.
 Reikai can also stack every category in one list you scroll down, with a floating button to jump between them, and it can group your library by something other than your categories.
