@@ -137,8 +137,8 @@ fun NovelSourcePinButton(isPinned: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * Section header shared across the Reikai Browse surfaces (LN plugin manager sections, the unified
- * "All" view's Manga / Light novels dividers). Matches Mihon's extension/source header styling.
+ * Section header for the Sources and Extensions lists (Last used, Pinned, Updates, Not loaded,
+ * Installed and each language). Matches Mihon's extension/source header styling.
  */
 @Composable
 fun BrowseSectionHeader(

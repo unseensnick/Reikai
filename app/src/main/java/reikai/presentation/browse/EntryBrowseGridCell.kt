@@ -46,8 +46,8 @@ fun NovelItem.toEntryBrowseUi(inLibrary: Boolean, sourceId: String) = EntryBrows
 /**
  * The single browse-result cell for both manga and novels: switches on [displayMode] and renders the
  * matching shared leaf (`MangaComfortableGridItem` / `MangaCompactGridItem` / `MangaListItem`), so the
- * two catalogues can't drift. Panorama renders as comfortable and cover-only as compact, matching how
- * browse has always ignored those two library-only modes. The grid/list container stays per-type.
+ * two catalogues can't drift. Cover-only draws as compact, as browse has always drawn it. The container
+ * is the catalogue's `StandardRows` or global search's card row.
  */
 @Composable
 fun EntryBrowseGridCell(

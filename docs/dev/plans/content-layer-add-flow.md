@@ -81,10 +81,11 @@ Creating the row stays inside each type's favorite verb, and the sequence takes 
 categories against from what that verb returns. This is needed by the shared write sequence, not by
 the decision: `decideAdd` asks each type for its own lookup, so no identity crosses that seam at all.
 
-**Duplicate rows stay per type until the dialogs collapse.** `decideAdd` is generic over the payload
+**Duplicate rows stay per type up to the shared dialog.** `decideAdd` is generic over the payload
 each type hands its dialog (manga the rows themselves, novels the rows plus resolved source names),
 so the branch order is shared without forcing a neutral row type ahead of the component that needs
-one. A neutral row lands with the shared dialog.
+one. The shared `EntryDuplicateDialog` maps each payload to its neutral `EntryDuplicateCardUi` through
+`toUi`.
 
 Sequenced so each step is independently shippable and device-verifiable:
 

@@ -30,9 +30,8 @@ sealed interface EntryBrowseScreenState {
         val supportsLatest: Boolean,
         /** This source declares filters, so the Filter chip is drawn at all. */
         val hasFilters: Boolean,
-        /** The Filter chip reads as active. Manga lights it for any committed search, novels only
-         *  for a filter that differs from the defaults: the two engines fold search and filters
-         *  together differently, and each matches what its own screen did before. */
+        /** The Filter chip reads as active: a query is committed, or filters were applied since the
+         *  last listing switch, on both types. `FilterChipConformanceTest` runs both against it. */
         val filtersActive: Boolean,
         /** This source has settings of its own, so the Settings action is offered. */
         val hasSettings: Boolean,
@@ -75,7 +74,7 @@ sealed interface EntryBrowseRowStyle {
  */
 @Immutable
 data class EntryBrowseCapabilities(
-    /** Novels only: browsing to choose a migration target. */
+    /** Browsing to choose a migration target, filled when the screen was opened with `migrateForId`. */
     val migrationPick: MigrationPickCapability? = null,
 )
 

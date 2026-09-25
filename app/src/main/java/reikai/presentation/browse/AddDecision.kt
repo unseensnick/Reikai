@@ -1,8 +1,8 @@
 package reikai.presentation.browse
 
 /**
- * What a long-press on a browse result should do. [T] is the content type's own duplicate payload,
- * which stays per type until the two duplicate dialogs collapse into one.
+ * What a long-press on a browse result should do. [T] is each content type's own duplicate payload,
+ * which the shared `EntryDuplicateDialog` maps to its neutral card through `toUi`.
  */
 sealed interface AddDecision<out T> {
     /** Already in the library: offer to take it back out. */
