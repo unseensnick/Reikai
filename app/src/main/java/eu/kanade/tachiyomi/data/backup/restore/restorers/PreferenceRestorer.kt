@@ -19,9 +19,11 @@ import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.interceptor.FLARESOLVERR_URL_KEY
 import eu.kanade.tachiyomi.network.interceptor.carryFlareSolverrUserInfo
 import eu.kanade.tachiyomi.source.sourcePreferences
+import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
 import reikai.domain.category.backupCategoryIdToName
+import reikai.domain.category.byNamePreferring
 import reikai.domain.category.translateCategoryId
 import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -95,7 +97,7 @@ class PreferenceRestorer(
         // RK -->
         // Through the shared translation, which keeps the Default category and trusts no id a backup
         // repeats (Yōkai writes none, so all of its categories decode as 0).
-        val nameToNewId = allCategories.associate { it.name to it.id.toString() }
+        val nameToNewId = allCategories.byNamePreferring(CategoryContentType.MANGA).mapValues { it.value.id.toString() }
         val backupIdToName = backupCategoryIdToName(backupCategories.orEmpty().map { it.id to it.name })
         // RK <--
         val prefs = preferenceStore.getAll()

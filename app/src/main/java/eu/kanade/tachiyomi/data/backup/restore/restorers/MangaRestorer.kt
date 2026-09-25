@@ -23,6 +23,8 @@ import kotlinx.datetime.toLocalDateTime
 import reikai.data.backup.RestoredChapterState
 import reikai.data.backup.RestoredTrackLink
 import reikai.data.backup.foldBackup
+import reikai.domain.category.CategoryContentType
+import reikai.domain.category.byNamePreferring
 import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
 import tachiyomi.data.Database
@@ -350,7 +352,8 @@ class MangaRestorer(
         backupCategories: List<BackupCategory>,
     ) {
         val dbCategories = getCategories.await()
-        val dbCategoriesByName = dbCategories.associateBy { it.name }
+        // RK: a universal row may share a manga row's name
+        val dbCategoriesByName = dbCategories.byNamePreferring(CategoryContentType.MANGA)
 
         val backupCategoriesByOrder = backupCategories.associateBy { it.order }
 

@@ -21,6 +21,7 @@ import reikai.data.novel.updateNovelFetchInterval
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.backupCategoryIdToName
+import reikai.domain.category.byNamePreferring
 import reikai.domain.category.translateCategoryId
 import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ContentType
@@ -83,9 +84,7 @@ class NovelRestorer(
         val novelVisible = categoryRepository.getAll(CategoryContentType.NOVEL)
         // On a name shared by a novel-typed and a universal row, bind to the novel-typed one (the
         // same rule CategoriesRestorer applies); associateBy silently kept whichever came last.
-        val nameToNewId = novelVisible.groupBy { it.name }.mapValues { (_, rows) ->
-            (rows.firstOrNull { it.contentType == CategoryContentType.NOVEL } ?: rows.first()).id.toString()
-        }
+        val nameToNewId = novelVisible.byNamePreferring(CategoryContentType.NOVEL).mapValues { it.value.id.toString() }
         // Live local ids survive untranslated: a pref key absent from the backup kept its on-device
         // value, and running that through backup-id translation dropped or remapped valid ids.
         val currentIds = novelVisible.mapTo(mutableSetOf()) { it.id.toString() }
@@ -190,8 +189,7 @@ class NovelRestorer(
         if (categoryOrders.isEmpty()) return
         // Prefer the novel-typed row when a universal one shares its name (see remap above).
         val dbCategoriesByName = categoryRepository.getAll(CategoryContentType.NOVEL)
-            .groupBy { it.name }
-            .mapValues { (_, rows) -> rows.firstOrNull { it.contentType == CategoryContentType.NOVEL } ?: rows.first() }
+            .byNamePreferring(CategoryContentType.NOVEL)
         val backupCategoriesByOrder = backupCategories.associateBy { it.order }
         val categoryIds = categoryOrders.mapNotNull { order ->
             backupCategoriesByOrder[order]?.let { dbCategoriesByName[it.name]?.id }

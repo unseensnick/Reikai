@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
+import reikai.domain.category.preferring
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -29,8 +30,7 @@ class CategoriesRestorer(
                     // name. The fallback is what keeps a backup made before the content type existed
                     // (every entry reads as manga) matching a category the user has since made
                     // universal, instead of inserting a duplicate next to it.
-                    val dbCategory = sameName.firstOrNull { it.contentType == backupCategory.contentType }
-                        ?: sameName.firstOrNull()
+                    val dbCategory = sameName.preferring(backupCategory.contentType)
                     if (dbCategory != null) return@map dbCategory
                     // RK: insert through the repository. It writes the backup's content type, so a
                     // category spanning both libraries no longer lands as manga-only and gets re-created

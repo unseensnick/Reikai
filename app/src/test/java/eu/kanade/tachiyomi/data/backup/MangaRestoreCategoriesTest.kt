@@ -9,6 +9,7 @@ import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.category.CategoryContentType
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.RestoreMergeGroups
 import tachiyomi.data.Database
@@ -43,7 +44,10 @@ class MangaRestoreCategoriesTest {
      * Runs [backupManga] through restore() against [deviceCategories] and returns the category ids
      * the manga gets assigned (the second arg of each mangas_categories insert).
      */
-    private suspend fun restoredCategoryIds(backupManga: BackupManga): List<Long> {
+    private suspend fun restoredCategoryIds(
+        backupManga: BackupManga,
+        deviceCategories: List<Category> = this.deviceCategories,
+    ): List<Long> {
         val insertedCategoryIds = mutableListOf<Long>()
         val database = mockk<Database>(relaxed = true) {
             // Run the suspend transaction body inline so the inserts actually fire.
@@ -93,5 +97,16 @@ class MangaRestoreCategoriesTest {
         val backupManga = BackupManga(source = 1L, url = "u", title = "T", categories = listOf(5, 3, 9))
 
         restoredCategoryIds(backupManga) shouldContainExactly listOf(100, 200)
+    }
+
+    @Test
+    fun `a manga binds to the manga category when a universal one shares its name`() = runTest {
+        val backupManga = BackupManga(source = 1L, url = "u", title = "T", categories = listOf(5))
+        val sameName = listOf(
+            Category(id = 100, name = "Reading", order = 0, flags = 0, contentType = CategoryContentType.MANGA),
+            Category(id = 300, name = "Reading", order = 1, flags = 0, contentType = CategoryContentType.UNIVERSAL),
+        )
+
+        restoredCategoryIds(backupManga, sameName) shouldContainExactly listOf(100)
     }
 }
