@@ -5,14 +5,10 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
- * Delete a category, renumber every remaining row, and scrub the deleted id out of the category-id
- * preferences that referenced it. The caller passes the preferences to scrub, which follow the deleted
- * row's content type: a universal category is referenced by both libraries' preferences, so deleting one
- * has to clean both sides or the id is left stranded in whichever side went unscrubbed.
- *
- * Renumbering covers the whole table rather than one content type, because the per-library reads overlap
- * on universal rows: renumbering either one alone would rewrite a universal row's order against the other
- * library's positions. Throws on any DB failure, for the caller to map to its own result type.
+ * Delete a category, renumber every remaining row, and scrub the deleted id from the category-id
+ * preferences the caller passes: both libraries' for a universal category, or the id is left stranded.
+ * Renumbering covers the whole table, since both libraries read universal rows and renumbering one
+ * alone would reorder them against the other's positions. Throws on a DB failure, for the caller to map.
  */
 suspend fun deleteCategoryAndCleanup(
     categoryRepository: CategoryRepository,
@@ -36,12 +32,8 @@ suspend fun deleteCategoryAndCleanup(
     categoryRepository.updateAllOrders(orderedIds = orderedIds)
 }
 
-/**
- * Drop a deleted category's id out of each given set preference. Split out so the app-module category
- * delete can scrub its filter preferences (which live above this module) with the same logic the shared
- * [deleteCategoryAndCleanup] uses for the update/download sets.
- */
-fun scrubCategoryIdFromSetPrefs(categoryId: Long, categorySetPreferences: List<Preference<Set<String>>>) {
+/** Drop a deleted category's id out of each given set preference. */
+private fun scrubCategoryIdFromSetPrefs(categoryId: Long, categorySetPreferences: List<Preference<Set<String>>>) {
     val categoryIdString = categoryId.toString()
     categorySetPreferences.forEach { preference ->
         val ids = preference.get()

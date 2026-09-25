@@ -1,12 +1,12 @@
 package reikai.domain.category
 
 /*
- * Shared include/exclude category-filter math, used by the library and the Updates feed (manga +
- * novel). Kept pure (no Android, no coroutines, ids as Long) so it unit-tests directly and stays
- * the single source of truth instead of being copy-pasted per surface.
+ * Shared include/exclude category-filter math for the library (manga + novel), plus the picker's
+ * merge of a confirmed selection. Kept pure (no Android, no coroutines, ids as Long) so it
+ * unit-tests directly. The Recents feeds filter in SQL instead (their `includedEmpty` clauses),
+ * which restates [matchesCategoryFilter]: change one, mirror the other.
  *
- * Callers convert their stored Set<String> prefs to Set<Long> first (category ids are Long);
- * resolving a series' category membership (a DB lookup on the Updates side) is the caller's job too.
+ * Callers convert their stored Set<String> prefs to Set<Long> first (category ids are Long).
  */
 
 /** True when an include/exclude category filter is actually constraining the list. */

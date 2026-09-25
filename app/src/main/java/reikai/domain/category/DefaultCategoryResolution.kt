@@ -7,8 +7,8 @@ import tachiyomi.domain.category.model.Category
  * manga and novels (upstream's): a real category id applies that category; 0 means "none", so the
  * entry is added uncategorized (also the case when the user has no categories); any other value
  * with categories present means "always ask". Returns the category-id list to apply directly, or
- * null when the caller must prompt the user. One kernel so the three add paths (both library
- * adders and the bulk-favorite engine) cannot drift.
+ * null when the caller must prompt the user. One kernel so the add paths that favourite an entry
+ * cannot drift.
  */
 fun resolveDefaultCategoryIds(categories: List<Category>, defaultCategoryId: Int): List<Long>? {
     val defaultCategory = categories.find { it.id == defaultCategoryId.toLong() }

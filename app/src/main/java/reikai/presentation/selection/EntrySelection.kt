@@ -55,8 +55,7 @@ object EntrySelection {
 
     /**
      * A long press where pressing a selected row is also how you drop it: extend to [item], unless it
-     * is already selected, in which case remove it. The chapter lists work this way; surfaces whose
-     * long press only ever extends call [range] directly.
+     * is already selected, in which case remove it. Every multi-select surface's long press runs this.
      */
     fun <T> rangeOrToggle(state: SelectionState<T>, item: T, ordered: List<T>): SelectionState<T> =
         if (item in state.selection) toggle(state, item) else range(state, item, ordered)

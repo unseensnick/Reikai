@@ -37,14 +37,6 @@ import org.intellij.markdown.flavours.gfm.GFMTokenTypes
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
-/**
- * GitHub's `> [!WARNING]` callouts, drawn for the release notes on the What's new screen.
- *
- * The GFM parser emits these as their own node type, which the markdown renderer has no component
- * for, so they reach [eu.kanade.presentation.manga.components.MarkdownRender]'s custom slot. The
- * accent colours are fixed rather than taken from the theme: five types have to stay apart from one
- * another, and no Material role set carries five distinguishable ones.
- */
 private val ALERT_BAR_WIDTH = 3.dp
 private val ALERT_CORNER = 8.dp
 private const val ALERT_TINT_ALPHA = 0.10f
@@ -88,6 +80,14 @@ internal fun alertBodyNodes(alert: ASTNode): List<ASTNode> = alert.children
     .drop(1)
     .filterNot { it.type == EOL || it.type == WHITE_SPACE }
 
+/**
+ * GitHub's `> [!WARNING]` callouts, wherever markdown is rendered (release notes, series descriptions).
+ *
+ * The GFM parser emits these as their own node type, which the markdown renderer has no component
+ * for, so they reach [eu.kanade.presentation.manga.components.MarkdownRender]'s custom slot. The
+ * accent colours are fixed rather than taken from the theme: five types have to stay apart from one
+ * another, and no Material role set carries five distinguishable ones.
+ */
 @Composable
 fun MarkdownAlert(model: MarkdownComponentModel) {
     val type = alertTypeOf(model.node, model.content)
