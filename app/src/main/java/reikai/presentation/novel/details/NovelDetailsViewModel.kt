@@ -67,6 +67,7 @@ import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.buildNovelChapterListEntries
+import reikai.domain.novel.hiddenKey
 import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelTracks
@@ -232,6 +233,10 @@ class NovelDetailsViewModel(
     /** novelId -> resolved source for every grouped sibling (unified rank, chips, reader routing). Novel-only
      *  (manga has no analogue), so it stays here and is populated inside the host's source resolver. */
     private val siblingSources = MutableStateFlow<Map<Long, NovelSource>>(emptyMap())
+
+    /** novelId -> stored source for every grouped member, installed plugin or not: the hidden-chapter key. */
+    @Volatile
+    private var memberSources: Map<Long, String> = emptyMap()
 
     /**
      * Shared merge read/observe wiring: the group ids, the selected source chip, the membership observer,
@@ -443,14 +448,17 @@ class NovelDetailsViewModel(
      */
     private suspend fun resolveMergeSources(ids: LongArray): List<EntryMergeSource> {
         if (ids.size <= 1) {
+            memberSources = emptyMap()
             siblingSources.value = emptyMap()
             return emptyList()
         }
+        val members = ids.toList().mapNotNull { novelRepo.getById(it) }
+        memberSources = members.associate { it.id to it.source }
         runCatchingCancellable { installer.ensureLoaded() }
         val resolved = HashMap<Long, NovelSource>()
         val chips = mutableListOf<EntryMergeSource>()
-        for (id in ids) {
-            val novel = novelRepo.getById(id) ?: continue
+        for (novel in members) {
+            val id = novel.id
             val src = sourceManager.get(novel.source)
             if (src != null) resolved[id] = src
             chips += EntryMergeSource(id, src?.name ?: novel.source)
@@ -1247,11 +1255,9 @@ class NovelDetailsViewModel(
         updateLoaded { it.copy(selection = chapterSelection.selection) }
     }
 
-    /** Restore-stable hidden-chapter key: source + chapter url, no local novel id (so it survives a
-     *  backup restore). Source resolved per the chapter's own novelId for a merged group, else the
-     *  anchor's source. */
+    /** A merged chapter is keyed by its own novel's stored source, an unmerged one by the anchor's. */
     private fun hiddenKey(chapter: NovelChapter): String =
-        hiddenChapterKey(siblingSources.value[chapter.novelId]?.id ?: sourceId, chapter.url)
+        chapter.hiddenKey(memberSources) ?: hiddenChapterKey(sourceId, chapter.url)
 
     fun hideSelected() = withSelection { chapters ->
         hiddenChaptersPref.set(hiddenChaptersPref.get() + chapters.map { hiddenKey(it) })

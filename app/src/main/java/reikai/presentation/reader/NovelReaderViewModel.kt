@@ -44,7 +44,6 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.data.coil.NovelCover
 import reikai.data.novel.tts.SystemTtsEngine
-import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupChapterFlags
@@ -56,6 +55,7 @@ import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.hiddenKey
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
@@ -1315,14 +1315,14 @@ class NovelReaderViewModel(
      */
     private suspend fun navigable(chapters: List<NovelChapter>): List<NovelChapter> {
         val hidden = novelPreferences.hiddenChapters().get()
-        val sourceIdByNovel = HashMap<Long, String>()
+        val sourceIdByNovel = HashMap<Long, String?>()
         if (hidden.isNotEmpty()) {
             chapters.forEach { chapter ->
-                sourceIdByNovel.getOrPut(chapter.novelId) { novelRepo.getById(chapter.novelId)?.source.orEmpty() }
+                sourceIdByNovel.getOrPut(chapter.novelId) { novelRepo.getById(chapter.novelId)?.source }
             }
         }
         val isHidden = { chapter: NovelChapter ->
-            hiddenChapterKey(sourceIdByNovel[chapter.novelId].orEmpty(), chapter.url) in hidden
+            chapter.hiddenKey(sourceIdByNovel) in hidden
         }
         val current = chapters.find { it.id == currentChapterId } ?: return chapters.filterNot(isHidden)
         return chapters.navigableChapters(

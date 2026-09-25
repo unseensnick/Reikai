@@ -113,6 +113,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **A hidden chapter of a merged novel now stays hidden, and skipped by the reader, when its source is not installed.**
 - **A merged series' combined chapter list and unread count now catch up after anything that changes its chapters or its sources.** Removing a source or adding it back, a renamed, renumbered or removed chapter, a half-finished update, a follows sync, a gallery import, a detail repair.
 - **A merged series whose top-ranked source has no chapters now lists its other sources' chapters in full.** Novels showed none of them, and manga dropped the ones with no chapter number.
 - **A source you removed from a merged series now opens on its own from History or Browse, on manga and novels.** From a group of three or more, its page listed the other sources' chapters and a manga failed to open in the reader.

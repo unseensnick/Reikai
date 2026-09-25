@@ -2,7 +2,6 @@ package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
 import reikai.domain.chapter.ReadingOrder
-import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.novel.NovelChapterRepository
@@ -10,6 +9,7 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.hiddenKey
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.readingOrderComparator
@@ -112,7 +112,7 @@ class GetNextNovelChapter(
         val hidden = novelPreferences.hiddenChapters().get()
         if (hidden.isEmpty()) return { false }
         val sourceOf = chapters.mapTo(HashSet()) { it.novelId }.associateWith { novelRepository.getById(it)?.source }
-        return { chapter -> sourceOf[chapter.novelId]?.let { hiddenChapterKey(it, chapter.url) } in hidden }
+        return { chapter -> chapter.hiddenKey(sourceOf) in hidden }
     }
 
     /** Falls back to source order for a novel that is no longer stored, which only a stale id reaches. */
