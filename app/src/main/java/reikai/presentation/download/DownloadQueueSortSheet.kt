@@ -15,16 +15,25 @@ import tachiyomi.presentation.core.i18n.stringResource
 /** The key a download-queue sort orders by. */
 enum class DownloadQueueSortKey { UPLOAD_DATE, CHAPTER_NUMBER }
 
+/** A sort the user applied to the download queue. */
+data class DownloadQueueSort(val key: DownloadQueueSortKey, val descending: Boolean)
+
+/**
+ * The sort a tap on [tapped] applies: the key just applied flips its direction, any other key sorts
+ * ascending. Null until the first tap, since the queue starts in enqueue order and no arrow is true.
+ */
+fun DownloadQueueSort?.next(tapped: DownloadQueueSortKey): DownloadQueueSort =
+    if (this?.key == tapped) copy(descending = !descending) else DownloadQueueSort(tapped, descending = false)
+
 /**
  * Sort modal for the download queue, built on the same [TabbedDialog] + [SortItem] as the library and
- * chapter sort sheets (rather than a nested overflow menu). The active key always shows its direction
- * arrow; tapping it flips the direction, tapping the other key switches to it. Stays open so the
- * direction can be toggled.
+ * chapter sort sheets (rather than a nested overflow menu). Only the sort applied since the sheet was
+ * opened shows an arrow, since a drag or a new enqueue can reorder the queue at any time. Stays open
+ * so the direction can be toggled.
  */
 @Composable
 fun DownloadQueueSortSheet(
-    sortKey: DownloadQueueSortKey,
-    sortDescending: Boolean,
+    sort: DownloadQueueSort?,
     onSort: (DownloadQueueSortKey) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
@@ -39,12 +48,12 @@ fun DownloadQueueSortSheet(
         ) {
             SortItem(
                 label = stringResource(MR.strings.action_order_by_chapter_number),
-                sortDescending = sortDescending.takeIf { sortKey == DownloadQueueSortKey.CHAPTER_NUMBER },
+                sortDescending = sort?.descending?.takeIf { sort.key == DownloadQueueSortKey.CHAPTER_NUMBER },
                 onClick = { onSort(DownloadQueueSortKey.CHAPTER_NUMBER) },
             )
             SortItem(
                 label = stringResource(MR.strings.action_order_by_upload_date),
-                sortDescending = sortDescending.takeIf { sortKey == DownloadQueueSortKey.UPLOAD_DATE },
+                sortDescending = sort?.descending?.takeIf { sort.key == DownloadQueueSortKey.UPLOAD_DATE },
                 onClick = { onSort(DownloadQueueSortKey.UPLOAD_DATE) },
             )
         }

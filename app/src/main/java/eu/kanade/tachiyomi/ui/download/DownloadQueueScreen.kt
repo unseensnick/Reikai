@@ -38,11 +38,12 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
-import reikai.presentation.download.DownloadQueueSortKey
+import reikai.presentation.download.DownloadQueueSort
 import reikai.presentation.download.DownloadQueueSortSheet
 import reikai.presentation.download.EntryDownloadCardList
 import reikai.presentation.download.EntryDownloadQueueViewModel
 import reikai.presentation.download.EntryDownloadSeriesSheet
+import reikai.presentation.download.next
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.i18n.MR
@@ -65,10 +66,8 @@ object DownloadQueueScreen : Screen() {
         val isRunning = queueState is DownloadQueueState.Downloading
         val hasQueue = state.cards.isNotEmpty()
         var showSortSheet by remember { mutableStateOf(false) }
+        var sort by remember { mutableStateOf<DownloadQueueSort?>(null) }
         // RK <--
-        // Default to chapter number ascending (the natural download order), shown active in the sheet.
-        var sortKey by remember { mutableStateOf(DownloadQueueSortKey.CHAPTER_NUMBER) }
-        var sortDescending by remember { mutableStateOf(false) }
 
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
         var fabExpanded by remember { mutableStateOf(true) }
@@ -204,13 +203,11 @@ object DownloadQueueScreen : Screen() {
 
             if (showSortSheet) {
                 DownloadQueueSortSheet(
-                    sortKey = sortKey,
-                    sortDescending = sortDescending,
+                    sort = sort,
                     onSort = { key ->
-                        val newDescending = if (key == sortKey) !sortDescending else sortDescending
-                        sortKey = key
-                        sortDescending = newDescending
-                        screenModel.sort(key, newDescending)
+                        val applied = sort.next(key)
+                        sort = applied
+                        screenModel.sort(applied.key, applied.descending)
                     },
                     onDismissRequest = { showSortSheet = false },
                 )
