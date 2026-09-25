@@ -79,6 +79,7 @@ class NovelLibraryAdderTest {
             every { categorySortOrder } returns mockk { every { get() } returns 0 }
         },
         autoBindOnAdd = mockk(relaxed = true),
+        removeNovelsFromLibrary = mockk(relaxed = true),
     )
 
     @Test

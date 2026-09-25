@@ -195,6 +195,7 @@ every release now also ships a foss build with neither in it.
 - **A novel's page now shows its artist, when it has one separate from the author.** Manga pages already did; tap it to search, like every other field there.
 - **The full-screen cover viewer, Save and Share now use the cover URL you set in Edit info.** They kept showing the source's original cover while the series page showed yours.
 - **Long-pressing a novel's WebView button now copies its link, like manga.**
+- **Removing a novel from the library on its page now offers to delete its downloaded chapters, as manga does.** Removing a novel from anywhere also clears its saved cover, a custom one included, so a re-add starts clean.
 - **Closing Edit info while Fill from tracker is still loading no longer shows a tracker error.**
 - **Titles you just added from the full related-manga grid no longer come back selected with your next pick.**
 - **When two manga chapters share a number, upload date or name, Resume, Continue reading and Download next now pick the one the reader opens next.** Ties follow the source's own order, as they already did for novels.

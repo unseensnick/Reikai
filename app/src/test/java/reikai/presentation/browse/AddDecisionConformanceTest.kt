@@ -208,6 +208,7 @@ class NovelAddDecisionProbe : AddDecisionProbe {
                 every { categorySortOrder } returns mockk { every { get() } returns sortOrder }
             },
             autoBindOnAdd = mockk(relaxed = true),
+            removeNovelsFromLibrary = mockk(relaxed = true),
         )
 
     override suspend fun resolve(userCategories: List<Category>, defaultId: Int): Resolution {

@@ -8,6 +8,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
@@ -46,6 +47,7 @@ class NovelLibraryAdder(
     private val transactions: Transactions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val autoBindOnAdd: AutoBindOnAdd,
+    private val removeNovelsFromLibrary: RemoveNovelsFromLibrary,
 ) {
 
     /** Decide the long-press outcome: remove (already saved), confirm a possible duplicate, or add. */
@@ -311,12 +313,7 @@ class NovelLibraryAdder(
 
     /** Remove a favorited result from the library (keeps the row + read state, like the manga side). */
     suspend fun confirmRemove(item: NovelItem, sourceId: String) {
-        novelRepository.getByUrlAndSource(item.path, sourceId)?.let {
-            // Its own copy of the group's shared tracker, before it leaves: the hand-out skips
-            // non-favorites, so after the write it would miss exactly this entry.
-            mergeManager.handOutTrackersBeforeRemoval(listOf(it.id))
-            updateNovel.awaitUpdateFavorite(it.id, favorite = false)
-        }
+        novelRepository.getByUrlAndSource(item.path, sourceId)?.let { removeNovelsFromLibrary.await(listOf(it.id)) }
     }
 }
 

@@ -52,9 +52,9 @@ import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.NovelGroupChapters
+import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.SetNovelReadStatus
-import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelChapter
@@ -103,7 +103,7 @@ import kotlin.time.Duration.Companion.seconds
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class NovelLibraryViewModel(
     private val novelRepository: NovelRepository,
-    private val updateNovel: UpdateNovel,
+    private val removeNovelsFromLibrary: RemoveNovelsFromLibrary,
     private val setNovelReadStatus: SetNovelReadStatus,
     private val novelChapterRepository: NovelChapterRepository,
     // Deferred on purpose: building the manager restores the persisted queue and resumes the drain,
@@ -600,13 +600,8 @@ class NovelLibraryViewModel(
     ) {
         viewModelScope.launchNonCancellable {
             val targets = if (removeGroupedSources) state.value.memberIdsFor(novelIds) else novelIds
-            // An entry leaving the library keeps its group, so it has to be handed its own copy of the
-            // group's shared tracker first; the hand-out skips non-favorites.
-            if (deleteFromLibrary) mergeManager.handOutTrackersBeforeRemoval(targets)
+            if (deleteFromLibrary) removeNovelsFromLibrary.await(targets)
             targets.forEach { novelId ->
-                if (deleteFromLibrary) {
-                    updateNovel.awaitUpdateFavorite(novelId, favorite = false)
-                }
                 if (deleteDownloads) {
                     val novel = novelRepository.getById(novelId)
                     val downloadManager = novelDownloadManager()

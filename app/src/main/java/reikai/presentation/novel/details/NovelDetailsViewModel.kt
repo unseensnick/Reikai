@@ -70,6 +70,7 @@ import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
+import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.SetNovelChapterFlags
@@ -184,6 +185,7 @@ class NovelDetailsViewModel(
     private val trackerManager: TrackerManager,
     private val trackPreferences: TrackPreferences,
     private val basePreferences: BasePreferences,
+    private val removeNovelsFromLibrary: RemoveNovelsFromLibrary,
 ) : ViewModel() {
 
     // Building the manager restores the persisted queue and can start the download worker, so it is
@@ -1009,12 +1011,24 @@ class NovelDetailsViewModel(
                 }
                 addToLibrary(novel)
             } else {
-                // Its own copy of the group's shared tracker, before it leaves: the hand-out skips
-                // non-favorites, so after the write it would miss exactly this entry.
-                mergeManager.handOutTrackersBeforeRemoval(listOf(novel.id))
-                updateNovel.awaitUpdateFavorite(novel.id, favorite = false)
+                // Read before the write: the group's related ids drop a member once it leaves the library.
+                val group = mergeGroup.relatedIds.toList().takeIf { it.size > 1 } ?: listOf(novel.id)
+                if (removeNovelsFromLibrary.await(listOf(novel.id)).isNotEmpty()) promptDeleteDownloadsOnRemoved(group)
             }
         }
+    }
+
+    /** Offers to delete the whole group's downloads once the novel has left the library, as manga does. */
+    private suspend fun promptDeleteDownloadsOnRemoved(groupIds: List<Long>) {
+        val withDownloads = groupIds.mapNotNull { novelRepo.getById(it) }
+            .filter { downloadManager.getDownloadCount(it) > 0 }
+        if (withDownloads.isEmpty()) return
+        val result = snackbarHostState.showSnackbar(
+            message = context.stringResource(MR.strings.delete_downloads_for_manga),
+            actionLabel = context.stringResource(MR.strings.action_delete),
+            withDismissAction = true,
+        )
+        if (result == SnackbarResult.ActionPerformed) withDownloads.forEach { downloadManager.awaitDeleteNovel(it) }
     }
 
     /** Proceed with the add after the possible-duplicate dialog's "Add anyway". */

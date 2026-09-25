@@ -436,6 +436,7 @@ class NovelGroupAddProbe : GroupAddProbe {
         autoBindOnAdd = mockk {
             every { novel(any()) } answers { trackersBound = true }
         },
+        removeNovelsFromLibrary = mockk(relaxed = true),
     )
 
     private fun reset() {
