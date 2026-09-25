@@ -18,6 +18,7 @@ import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.theme.TachiyomiTheme
+import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
@@ -71,7 +72,11 @@ class NovelScreen(
     private val listingCover: String? = null,
     // Opened from a source listing, which starts the synopsis expanded as manga's isFromSource does.
     private val fromSource: Boolean = false,
-) : Screen() {
+) : Screen(), AssistContentScreen {
+
+    private var assistUrl: String? = null
+
+    override fun onProvideAssistUrl() = assistUrl
 
     @Composable
     override fun Content() {
@@ -97,6 +102,9 @@ class NovelScreen(
                     viewModel.themeCoverBased
                 },
             ) {
+                // The page Share and WebView open, so a merged novel offers the selected chip's.
+                LaunchedEffect(s.novelWebUrl) { assistUrl = s.novelWebUrl }
+
                 // Back clears an active chapter selection before popping the screen (mirrors MangaScreen).
                 BackHandler(enabled = s.selectionMode) { viewModel.clearSelection() }
 

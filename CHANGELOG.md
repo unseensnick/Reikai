@@ -179,6 +179,7 @@ every release now also ships a foss build with neither in it.
 - **A series' details overflow can now open its download folder in your file manager.** On a merged series it opens the source you are viewing, or under All the first source holding downloads, and shows only when that folder exists.
 - **A series' details overflow can now clear its downloaded chapters.** It clears the source you are viewing on a merged series, appears only when there is something to clear, and leaves your reading progress, bookmarks and history alone.
 - **A series' details overflow now opens its source's settings.** It appears only when the source has any, and on a merged series it opens the settings of the source you are viewing.
+- **A novel's page now hands its web link to the Android assistant and the recents screen, as a manga's does.** On a merged novel it is the link of the source you are viewing.
 - **The chapter list on a merged series now says which source each chapter came from.** Manga rows name the source before the scanlator; novel rows name the source, and neither shows anything when the series is not merged.
 
 #### Changed
