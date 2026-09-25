@@ -79,11 +79,11 @@ fun Screen.EntryMigrateFor(
         entry = entry,
         target = target,
         onDismissRequest = onDismissRequest,
-        // Show opens the target, which is the one being decided about; the entry being migrated
-        // away is already the surface this dialog was raised from.
+        // Show opens the library copy, as upstream does: every caller raises this from the target's
+        // own context. The migration search screen is the opposite case and opens its target.
         onShowEntry = {
             onDismissRequest()
-            target.openDetails(navigator)
+            entry.openDetails(navigator)
         },
         onFinished = { replaced, _ -> onFinished?.invoke(replaced) ?: onDismissRequest() },
     )
