@@ -69,8 +69,8 @@ class PreferredSourcesScreen : Screen() {
                 HorizontalPager(modifier = Modifier.fillMaxSize(), state = pagerState) { page ->
                     when (page) {
                         0 -> when (val s = mangaState) {
-                            PreferredSourcesViewModel.State.Loading -> LoadingScreen()
-                            is PreferredSourcesViewModel.State.Success -> PreferredSourcesContent(
+                            PreferredSourcesState.Loading -> LoadingScreen()
+                            is PreferredSourcesState.Success -> PreferredSourcesContent(
                                 preferred = s.preferred,
                                 available = s.available,
                                 contentPadding = panePadding,
@@ -81,8 +81,8 @@ class PreferredSourcesScreen : Screen() {
                             )
                         }
                         else -> when (val s = novelState) {
-                            NovelPreferredSourcesViewModel.State.Loading -> LoadingScreen()
-                            is NovelPreferredSourcesViewModel.State.Success -> PreferredSourcesContent(
+                            PreferredSourcesState.Loading -> LoadingScreen()
+                            is PreferredSourcesState.Success -> PreferredSourcesContent(
                                 preferred = s.preferred,
                                 available = s.available,
                                 contentPadding = panePadding,

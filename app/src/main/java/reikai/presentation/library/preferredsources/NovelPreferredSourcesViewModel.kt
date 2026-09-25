@@ -1,6 +1,5 @@
 package reikai.presentation.library.preferredsources
 
-import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
@@ -15,7 +14,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.novel.install.LnPluginInstaller
-import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.launchIO
 
@@ -35,8 +33,8 @@ class NovelPreferredSourcesViewModel(
     private val preferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
 
-    val state: StateFlow<NovelPreferredSourcesViewModel.State>
-        field = MutableStateFlow<NovelPreferredSourcesViewModel.State>(State.Loading)
+    val state: StateFlow<PreferredSourcesState>
+        field = MutableStateFlow<PreferredSourcesState>(PreferredSourcesState.Loading)
 
     private val pref = preferences.preferredNovelSources
 
@@ -44,7 +42,7 @@ class NovelPreferredSourcesViewModel(
         viewModelScope.launchIO {
             runCatching { installer.ensureLoaded() }
             combine(sourceManager.sources, pref.changes()) { sources, ordered ->
-                buildState(sources, ordered)
+                preferredSourcesState(ordered, sources.map { PreferredSourceItem(it.id, it.name, it.lang) })
             }.collectLatest { success -> state.update { success } }
         }
     }
@@ -53,57 +51,11 @@ class NovelPreferredSourcesViewModel(
 
     fun removeSource(key: String) = persist { it - key }
 
-    fun moveUp(key: String) = persist { keys ->
-        val i = keys.indexOf(key)
-        if (i <= 0) {
-            keys
-        } else {
-            keys.toMutableList().also {
-                it[i] = it[i - 1]
-                it[i - 1] = key
-            }
-        }
-    }
+    fun moveUp(key: String) = persist { moveRanked(it, key, state.value.visibleKeys(), step = -1) }
 
-    fun moveDown(key: String) = persist { keys ->
-        val i = keys.indexOf(key)
-        if (i < 0 || i >= keys.lastIndex) {
-            keys
-        } else {
-            keys.toMutableList().also {
-                it[i] = it[i + 1]
-                it[i + 1] = key
-            }
-        }
-    }
+    fun moveDown(key: String) = persist { moveRanked(it, key, state.value.visibleKeys(), step = 1) }
 
     private fun persist(transform: (List<String>) -> List<String>) {
         viewModelScope.launchIO { pref.set(transform(pref.get())) }
-    }
-
-    private fun buildState(sources: List<NovelSource>, ordered: List<String>): State.Success {
-        val byId = sources.associateBy { it.id }
-        val preferred = ordered.mapNotNull { id -> byId[id]?.toItem() }
-        val preferredIds = preferred.mapTo(HashSet()) { it.key }
-        val available = sources
-            .asSequence()
-            .filterNot { it.id in preferredIds }
-            .sortedWith(compareBy({ it.lang }, { it.name.lowercase() }))
-            .map { it.toItem() }
-            .toList()
-        return State.Success(preferred, available)
-    }
-
-    private fun NovelSource.toItem() = PreferredSourceItem(id, name, lang)
-
-    sealed interface State {
-        @Immutable
-        data object Loading : State
-
-        @Immutable
-        data class Success(
-            val preferred: List<PreferredSourceItem>,
-            val available: List<PreferredSourceItem>,
-        ) : State
     }
 }

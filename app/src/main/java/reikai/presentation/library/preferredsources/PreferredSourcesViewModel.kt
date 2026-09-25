@@ -1,6 +1,5 @@
 package reikai.presentation.library.preferredsources
 
-import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
@@ -34,15 +33,20 @@ class PreferredSourcesViewModel(
     private val preferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
 
-    val state: StateFlow<PreferredSourcesViewModel.State>
-        field = MutableStateFlow<PreferredSourcesViewModel.State>(State.Loading)
+    val state: StateFlow<PreferredSourcesState>
+        field = MutableStateFlow<PreferredSourcesState>(PreferredSourcesState.Loading)
 
     private val pref = preferences.preferredMangaSources
 
     init {
         viewModelScope.launchIO {
             combine(sourceManager.sources, pref.changes()) { sources, ordered ->
-                buildState(sources.filterIsInstance<CatalogueSource>(), ordered)
+                preferredSourcesState(
+                    ranking = ordered.map(Long::toString),
+                    sources = sources.filterIsInstance<CatalogueSource>().map {
+                        PreferredSourceItem(it.id.toString(), it.name, it.lang)
+                    },
+                )
             }.collectLatest { success -> state.update { success } }
         }
     }
@@ -58,66 +62,18 @@ class PreferredSourcesViewModel(
         persist { it - id }
     }
 
-    fun moveUp(key: String) {
-        val id = key.toLongOrNull() ?: return
-        persist { ids ->
-            val i = ids.indexOf(id)
-            if (i <= 0) {
-                ids
-            } else {
-                ids.toMutableList().also {
-                    it[i] = it[i - 1]
-                    it[i - 1] = id
-                }
-            }
-        }
-    }
+    fun moveUp(key: String) = move(key, step = -1)
 
-    fun moveDown(key: String) {
+    fun moveDown(key: String) = move(key, step = 1)
+
+    private fun move(key: String, step: Int) {
         val id = key.toLongOrNull() ?: return
-        persist { ids ->
-            val i = ids.indexOf(id)
-            if (i < 0 || i >= ids.lastIndex) {
-                ids
-            } else {
-                ids.toMutableList().also {
-                    it[i] = it[i + 1]
-                    it[i + 1] = id
-                }
-            }
-        }
+        val visible = state.value.visibleKeys().mapNotNullTo(HashSet()) { it.toLongOrNull() }
+        persist { moveRanked(it, id, visible, step) }
     }
 
     /** Reads the stored ranking, applies [transform], writes it back; the pref flow rebuilds state. */
     private fun persist(transform: (List<Long>) -> List<Long>) {
         viewModelScope.launchIO { pref.set(transform(pref.get())) }
-    }
-
-    private fun buildState(sources: List<CatalogueSource>, ordered: List<Long>): State.Success {
-        val byId = sources.associateBy { it.id }
-        // Preferred = ranked ids that resolve to an installed source, kept in ranking order.
-        val preferred = ordered.mapNotNull { id -> byId[id]?.toItem() }
-        val preferredIds = preferred.mapTo(HashSet()) { it.key }
-        // Available = the remaining installed catalogue sources, grouped by language then name.
-        val available = sources
-            .asSequence()
-            .filterNot { it.id.toString() in preferredIds }
-            .sortedWith(compareBy({ it.lang }, { it.name.lowercase() }))
-            .map { it.toItem() }
-            .toList()
-        return State.Success(preferred, available)
-    }
-
-    private fun CatalogueSource.toItem() = PreferredSourceItem(id.toString(), name, lang)
-
-    sealed interface State {
-        @Immutable
-        data object Loading : State
-
-        @Immutable
-        data class Success(
-            val preferred: List<PreferredSourceItem>,
-            val available: List<PreferredSourceItem>,
-        ) : State
     }
 }
