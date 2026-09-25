@@ -1,5 +1,6 @@
 package exh.md.handlers
 
+import android.content.Context
 import eu.kanade.tachiyomi.source.model.SManga
 import exh.md.dto.MangaDto
 import exh.md.dto.StatisticsMangaDto
@@ -11,7 +12,9 @@ import exh.metadata.metadata.base.RaisedTag
 import exh.util.capitalize
 import exh.util.nullIfEmpty
 import logcat.LogPriority
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.i18n.MR
 import java.util.Locale
 import kotlin.math.floor
 
@@ -20,6 +23,7 @@ import kotlin.math.floor
 // way Komikku's ApiMangaParser does. Chapter parsing arrives when chapters stop delegating.
 class ApiMangaParser(
     private val lang: String,
+    private val context: Context,
 ) {
     fun parseIntoMetadata(
         metadata: MangaDexSearchMetadata,
@@ -27,6 +31,8 @@ class ApiMangaParser(
         simpleChapters: List<String>,
         statistics: StatisticsMangaDto?,
         coverQuality: String,
+        altTitlesInDesc: Boolean,
+        finalChapterInDesc: Boolean,
         preferExtensionLangTitle: Boolean,
     ) {
         with(metadata) {
@@ -59,6 +65,25 @@ class ApiMangaParser(
                 ).orEmpty()
 
                 description = MdUtil.cleanDescription(rawDesc)
+                    .let {
+                        if (altTitlesInDesc) {
+                            MdUtil.addAltTitleToDesc(it, altTitles, context.stringResource(MR.strings.alt_titles))
+                        } else {
+                            it
+                        }
+                    }
+                    .let {
+                        if (finalChapterInDesc) {
+                            MdUtil.addFinalChapterToDesc(
+                                it,
+                                mangaAttributesDto.lastVolume,
+                                mangaAttributesDto.lastChapter,
+                                context.stringResource(MR.strings.final_chapter),
+                            )
+                        } else {
+                            it
+                        }
+                    }
 
                 authors = mangaRelationshipsDto.filter { relationshipDto ->
                     relationshipDto.type.equals(MdConstants.Types.author, true)

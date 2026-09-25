@@ -27,14 +27,14 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.jsoup.parser.Parser
+import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.domain.source.service.SourceManager
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 
 // Source-discovery (getEnabledMangaDex) and OAuth (saveOAuth/refreshTokenRequest) land here for the
-// login + MDList tracker. The i18n description helpers (addAltTitleToDesc/addFinalChapterToDesc)
-// live here for the settings UI and its strings.
+// login + MDList tracker.
 class MdUtil {
 
     companion object {
@@ -204,18 +204,27 @@ class MdUtil {
             return codeVerifier ?: PkceUtil.generateCodeVerifier().also { codeVerifier = it }
         }
 
-        // Picks the MangaDex enhanced source that drives login and the MDList tracker. Uses the
-        // first enabled one; a preferred-language picker lives in the settings hub.
+        // Picks the MangaDex enhanced source that drives login, sync and the MDList tracker: the one
+        // preferred in the MangaDex settings, or the first enabled one.
         suspend fun getEnabledMangaDex(
             sourcePreferences: SourcePreferences,
+            reikaiSourcePreferences: ReikaiSourcePreferences,
             sourceManager: SourceManager,
-        ): MangaDex? {
-            return getEnabledMangaDexs(sourcePreferences, sourceManager).firstOrNull()
-        }
+        ): MangaDex? = preferredOrFirst(
+            getEnabledMangaDexs(sourcePreferences, sourceManager),
+            reikaiSourcePreferences.preferredMangaDexId.get(),
+        ) { it.id }
 
         /** The graph-reading overload, for the callers that hold only a [Context]. */
-        suspend fun getEnabledMangaDex(context: Context): MangaDex? =
-            getEnabledMangaDex(context.appGraph.sourcePreferences, context.appGraph.sourceManager)
+        suspend fun getEnabledMangaDex(context: Context): MangaDex? = with(context.appGraph) {
+            getEnabledMangaDex(sourcePreferences, reikaiSourcePreferences, sourceManager)
+        }
+
+        /** [preferredId] is a source id string, where "0" means no preference. */
+        internal fun <T> preferredOrFirst(sources: List<T>, preferredId: String, id: (T) -> Long): T? =
+            preferredId.toLongOrNull()?.takeIf { it != 0L }
+                ?.let { preferred -> sources.firstOrNull { id(it) == preferred } }
+                ?: sources.firstOrNull()
 
         suspend fun getEnabledMangaDexs(
             preferences: SourcePreferences,
@@ -230,6 +239,36 @@ class MdUtil {
                 .filter { it.lang in languages }
                 .filterNot { it.id.toString() in disabledSourceIds }
                 .toList()
+        }
+
+        fun addAltTitleToDesc(description: String, altTitles: List<String>?, heading: String): String {
+            return if (altTitles.isNullOrEmpty()) {
+                description
+            } else {
+                val altTitlesDesc = altTitles.joinToString("\n", "$heading:\n") { "• $it" }
+                description + (if (description.isBlank()) "" else "\n\n") + Parser.unescapeEntities(
+                    altTitlesDesc,
+                    false,
+                )
+            }
+        }
+
+        fun addFinalChapterToDesc(
+            description: String,
+            lastVolume: String?,
+            lastChapter: String?,
+            heading: String,
+        ): String {
+            val parts = listOfNotNull(
+                lastVolume?.takeIf { it.isNotEmpty() }?.let { "Vol.$it" },
+                lastChapter?.takeIf { it.isNotEmpty() }?.let { "Ch.$it" },
+            )
+
+            return if (parts.isEmpty()) {
+                description
+            } else {
+                description + (if (description.isBlank()) "" else "\n\n") + parts.joinToString(" ", "$heading:\n")
+            }
         }
     }
 }

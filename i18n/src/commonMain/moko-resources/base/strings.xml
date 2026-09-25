@@ -1654,6 +1654,8 @@
     <string name="uploader_capital">Uploader Capitalized</string>
     <string name="page_count">Page count</string>
     <string name="alt_title">Alt Title</string>
+    <string name="alt_titles">Alternative titles</string>
+    <string name="final_chapter">Final chapter</string>
     <string name="date_posted">Date posted</string>
     <string name="total_favorites">Total favorites</string>
     <string name="media_id">Media id</string>

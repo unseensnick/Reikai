@@ -301,6 +301,7 @@ class App :
                     MangaDexTrackCoverFetcher.Factory(
                         callFactoryLazy,
                         graph.sourcePreferences,
+                        graph.reikaiSourcePreferences,
                         sourceManager,
                     ),
                 )

@@ -17,12 +17,20 @@ class MangaDexLoginActivity : BaseOAuthLoginActivity() {
         val code = uri.getQueryParameter("code")
         if (code != null) {
             lifecycleScope.launchIO {
-                MdUtil.getEnabledMangaDex(appGraph.sourcePreferences, sourceManager)?.login(code)
+                MdUtil.getEnabledMangaDex(
+                    appGraph.sourcePreferences,
+                    appGraph.reikaiSourcePreferences,
+                    sourceManager,
+                )?.login(code)
                 returnToSettings()
             }
         } else {
             lifecycleScope.launchIO {
-                MdUtil.getEnabledMangaDex(appGraph.sourcePreferences, sourceManager)?.logout()
+                MdUtil.getEnabledMangaDex(
+                    appGraph.sourcePreferences,
+                    appGraph.reikaiSourcePreferences,
+                    sourceManager,
+                )?.logout()
                 returnToSettings()
             }
         }

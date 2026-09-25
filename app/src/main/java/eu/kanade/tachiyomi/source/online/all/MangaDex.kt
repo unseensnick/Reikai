@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.source.online.all
 
 import android.content.Context
+import android.content.SharedPreferences
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackerManager
@@ -62,6 +63,15 @@ class MangaDex(delegate: HttpSource, val context: Context) :
         MdLang.fromExt(lang) ?: MdLang.ENGLISH
     }
 
+    // The installed extension's own settings, which hold the description switches it exposes.
+    private val sourcePreferences: SharedPreferences by lazy {
+        context.getSharedPreferences("source_$id", 0x0000)
+    }
+
+    // The extension's own defaults, so a switch reads as its settings screen shows it.
+    private fun altTitlesInDesc() = sourcePreferences.getBoolean("altTitlesInDesc_${mdLang.lang}", false)
+    private fun finalChapterInDesc() = sourcePreferences.getBoolean("finalChapterInDesc_${mdLang.lang}", true)
+
     private val trackPreferences: TrackPreferences by injectLazy()
     private val mdList: MdList by lazy { Injekt.get<TrackerManager>().mdList }
 
@@ -80,7 +90,7 @@ class MangaDex(delegate: HttpSource, val context: Context) :
 
     private val mangadexService by lazy { MangaDexService(client, headers) }
     private val mangadexAuthService by lazy { MangaDexAuthService(authClient, headers) }
-    private val apiMangaParser by lazy { ApiMangaParser(mdLang.lang) }
+    private val apiMangaParser by lazy { ApiMangaParser(mdLang.lang, context) }
     private val mangaHandler by lazy { MangaHandler(mdLang.lang, mangadexService) }
     private val followsHandler by lazy { FollowsHandler(mdLang.lang, mangadexAuthService) }
 
@@ -99,10 +109,12 @@ class MangaDex(delegate: HttpSource, val context: Context) :
             input.first,
             input.second,
             input.third,
-            // Per-language prefs (cover quality, title-language preference, data-saver, blocked
-            // groups, ...) have their SharedPreferences plumbing and settings UI elsewhere; this
-            // call uses the defaults: full-quality cover, prefer the extension-language title.
+            // The other per-language prefs (cover quality, title language, data-saver, blocked
+            // groups, ...) are not read here; this call uses the defaults: full-quality cover,
+            // prefer the extension-language title.
             coverQuality = "",
+            altTitlesInDesc = altTitlesInDesc(),
+            finalChapterInDesc = finalChapterInDesc(),
             preferExtensionLangTitle = true,
         )
     }

@@ -16,6 +16,7 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.Call
 import okhttp3.Request
 import okio.FileSystem
+import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.domain.source.service.SourceManager
 import java.io.IOException
 
@@ -61,13 +62,16 @@ class MangaDexTrackCoverFetcher(
     class Factory(
         private val callFactoryLazy: Lazy<Call.Factory>,
         private val sourcePreferences: SourcePreferences,
+        private val reikaiSourcePreferences: ReikaiSourcePreferences,
         private val sourceManager: SourceManager,
     ) : Fetcher.Factory<MangaDexTrackCover> {
 
         override fun create(data: MangaDexTrackCover, options: Options, imageLoader: ImageLoader): Fetcher =
             MangaDexTrackCoverFetcher(
                 url = data.url,
-                sourceLazy = lazy { runBlocking { MdUtil.getEnabledMangaDex(sourcePreferences, sourceManager) } },
+                sourceLazy = lazy {
+                    runBlocking { MdUtil.getEnabledMangaDex(sourcePreferences, reikaiSourcePreferences, sourceManager) }
+                },
                 callFactoryLazy = callFactoryLazy,
             )
     }
