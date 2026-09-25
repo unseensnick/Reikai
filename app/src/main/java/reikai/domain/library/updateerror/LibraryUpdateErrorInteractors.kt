@@ -8,7 +8,6 @@ class GetLibraryUpdateErrors(
     private val repository: LibraryUpdateErrorRepository,
 ) {
     fun subscribeAll(): Flow<List<LibraryUpdateError>> = repository.subscribeAll()
-    fun count(): Flow<Long> = repository.countAsFlow()
 }
 
 @Inject

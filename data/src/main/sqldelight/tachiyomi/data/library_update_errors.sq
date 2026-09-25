@@ -36,7 +36,3 @@ WHERE NOT EXISTS (
     WHERE library_update_errors.manga_id = mangas._id
     AND mangas.favorite = 1
 );
-
-count:
-SELECT COUNT(*)
-FROM library_update_errors;

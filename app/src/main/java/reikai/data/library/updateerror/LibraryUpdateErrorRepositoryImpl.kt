@@ -9,7 +9,6 @@ import reikai.domain.library.updateerror.LibraryUpdateError
 import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
-import tachiyomi.data.subscribeToOne
 
 @Inject
 @SingleIn(AppScope::class)
@@ -20,10 +19,6 @@ class LibraryUpdateErrorRepositoryImpl(
 
     override fun subscribeAll(): Flow<List<LibraryUpdateError>> {
         return database.library_update_error_viewQueries.errors(::mapError).subscribeToList()
-    }
-
-    override fun countAsFlow(): Flow<Long> {
-        return database.library_update_errorsQueries.count().subscribeToOne()
     }
 
     override suspend fun upsert(mangaId: Long, message: String) {
