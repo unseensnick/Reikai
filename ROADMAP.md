@@ -14,6 +14,10 @@ Backlog, grouped by area. Unordered within an area.
 
 - **Fix the 2026-09-24 whole-repo audit findings** `[L]` - 491 confirmed defects across every surface (8 high), fixed in eleven owner-ruled batches with proper fixes at the owning layer; the work list and rulings live locally in `docs/dev/audits/2026-09-24-fix-plan.md`.
 
+### Browse
+
+- **Open a shared web link as a novel** `[M]` - a link shared into the app resolves to a manga through the extension that owns its site, but novel sources have no rule for turning a web address back into a novel, so a novel link falls through to a text search. Needs a typed link-resolution capability across the three novel source kinds.
+
 ### UI & design
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move shape, typography, component styling, spacing and layout off stock Material 3 across the shared `Entry*` surfaces, under whichever theme the reader picked. Exploratory; it starts by seeding tokens in `DESIGN.md`. [Plan](docs/dev/plans/unified-content-ui.md).

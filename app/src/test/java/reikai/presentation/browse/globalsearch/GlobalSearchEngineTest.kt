@@ -59,6 +59,12 @@ class GlobalSearchEngineTest {
     }
 
     @Test
+    fun `an unscoped search, as shared text opens, starts on the Browse content type`() = runTest(dispatcher) {
+        preferences.browseContentType.set(ContentType.NOVELS)
+        engine().state.first { it.searched }.contentType shouldBe ContentType.NOVELS
+    }
+
+    @Test
     fun `choosing the sources remembers them for the next search`() = runTest(dispatcher) {
         engine().setSourceFilter(SearchSourceFilter.All)
         preferences.globalSearchSourceFilter.get() shouldBe SearchSourceFilter.All
