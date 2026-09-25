@@ -35,12 +35,6 @@ interface CategoryRepository {
 
     suspend fun updateFlags(categoryId: Long, flags: Long)
 
-    // RK: per-category flag writes in one transaction. The manga twin clears every row through
-    // updateAllFlags, which the shared table cannot do when only one content type is meant to change.
-    suspend fun updateFlags(flagsById: Map<Long, Long>)
-
-    suspend fun updateAllFlags(flags: Long?)
-
     suspend fun updateAllOrders(orderedIds: List<Long>)
 
     // RK: clear the per-category sort-override marker on every category (see reikai CATEGORY_SORT_CUSTOMIZED).

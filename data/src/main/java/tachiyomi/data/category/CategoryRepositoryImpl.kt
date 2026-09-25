@@ -100,19 +100,6 @@ class CategoryRepositoryImpl(
         database.categoriesQueries.updateFlags(flags = flags, categoryId = categoryId)
     }
 
-    // RK: see the interface; one transaction so a partial write cannot leave half the rows overridden.
-    override suspend fun updateFlags(flagsById: Map<Long, Long>) {
-        database.transaction {
-            flagsById.forEach { (categoryId, flags) ->
-                database.categoriesQueries.updateFlags(flags = flags, categoryId = categoryId)
-            }
-        }
-    }
-
-    override suspend fun updateAllFlags(flags: Long?) {
-        database.categoriesQueries.updateAllFlags(flags = flags)
-    }
-
     override suspend fun updateAllOrders(orderedIds: List<Long>) {
         database.transaction {
             orderedIds.forEachIndexed { index, categoryId ->

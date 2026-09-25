@@ -285,9 +285,8 @@ object SettingsLibraryScreen : SearchableSettings {
                     onValueChanged = {
                         if (!it) {
                             scope.launch {
+                                // RK: the shared table's clear covers novel categories too
                                 context.appGraph.resetCategoryFlags.await()
-                                // RK: reset novel category sorts too, so novels honor the toggle like manga
-                                context.appGraph.resetNovelCategoryFlags.await()
                             }
                         }
                         true

@@ -69,7 +69,6 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.RepairNovelDetails
-import reikai.domain.novel.interactor.ResetNovelCategoryFlags
 import reikai.domain.novel.track.NovelDelayedTrackingUpdateJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
@@ -243,7 +242,6 @@ interface AppGraph : ViewModelGraph {
     val trustExtension: TrustExtension
     val resetViewerFlags: ResetViewerFlags
     val resetCategoryFlags: ResetCategoryFlags
-    val resetNovelCategoryFlags: ResetNovelCategoryFlags
     val repairNovelDetails: RepairNovelDetails
 
     // RK: an accessor rather than upstream's injected App field. A field builds the whole set at
