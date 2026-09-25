@@ -23,14 +23,14 @@ private val SearchCardWidth = 112.dp
 /**
  * The horizontal row of result cards for one source in a global search, rendered through the shared
  * [EntryBrowseGridCell]. Generic over the item type [T] so each catalogue keeps its own domain object
- * for the key and click callbacks; [toUi] is `@Composable` so the manga side can resolve a live
- * in-library badge per card. An empty list renders the shared "no results" text (matches Mihon).
+ * for the key and click callbacks; [resolve] is where the manga side reads a card's live in-library
+ * state. An empty list renders the shared "no results" text (matches Mihon).
  */
 @Composable
 fun <T> EntrySearchCardRow(
     entries: List<T>,
     key: (T) -> Any,
-    toUi: @Composable (T) -> EntryBrowseItemUi,
+    toUi: (T) -> EntryBrowseItemUi,
     onClick: (T) -> Unit,
     onLongClick: (T) -> Unit,
     isSelected: (T) -> Boolean,

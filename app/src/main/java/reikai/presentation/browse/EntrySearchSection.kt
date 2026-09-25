@@ -19,15 +19,15 @@ import tachiyomi.presentation.core.components.material.padding
 
 /**
  * One per-source section in a global-search result list: a tappable header (source name + subtitle +
- * forward arrow) over a [content] slot that renders that source's results / loading / error. The
- * header is clickable only when [onClick] is non-null. Shared by the manga and novel global search so
- * the two can't drift (ported from Mihon's GlobalSearchResultItem shape).
+ * forward arrow) over a [content] slot that renders that source's results / loading / error. Shared by
+ * the manga and novel global search so the two can't drift (ported from Mihon's GlobalSearchResultItem
+ * shape).
  */
 @Composable
 fun EntrySearchSection(
     title: String,
     subtitle: String,
-    onClick: (() -> Unit)?,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     /** Long-pressing the header, where a surface offers something on it. */
     onLongClick: (() -> Unit)? = null,
@@ -40,12 +40,7 @@ fun EntrySearchSection(
             modifier = Modifier
                 .padding(start = MaterialTheme.padding.medium, end = MaterialTheme.padding.extraSmall)
                 .fillMaxWidth()
-                .then(
-                    when {
-                        onClick == null -> Modifier
-                        else -> Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
-                    },
-                ),
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -59,10 +54,8 @@ fun EntrySearchSection(
                 }
                 Text(text = subtitle)
             }
-            if (onClick != null) {
-                IconButton(onClick = onClick) {
-                    Icon(imageVector = MaterialSymbols.AutoMirroredRounded.ArrowForward, contentDescription = null)
-                }
+            IconButton(onClick = onClick) {
+                Icon(imageVector = MaterialSymbols.AutoMirroredRounded.ArrowForward, contentDescription = null)
             }
         }
         content()

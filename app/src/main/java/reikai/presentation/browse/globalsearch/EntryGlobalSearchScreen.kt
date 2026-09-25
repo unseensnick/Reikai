@@ -78,7 +78,7 @@ class EntryGlobalSearchScreen(
         val haptic = LocalHapticFeedback.current
 
         val mangaModel = assistedMetroViewModel<GlobalSearchViewModel, GlobalSearchViewModel.Factory> {
-            create(initialQuery = searchQuery, initialExtensionFilter = extensionFilter)
+            create(initialExtensionFilter = extensionFilter)
         }
         val novelModel = metroViewModel<NovelGlobalSearchViewModel>()
         val providers = remember(mangaModel, novelModel) {
@@ -232,16 +232,7 @@ class EntryGlobalSearchScreen(
                         mangaSelection = mangaBulkState.selection,
                         novelSelection = novelBulkState.selection,
                         getManga = { mangaModel.getManga(it) },
-                        onClickSource = { row ->
-                            // The key carries the id, so routing never unwraps the opaque payload:
-                            // the manga half holds the extension-facing Source, not the domain one.
-                            when (val key = row.key) {
-                                is SourceKey.Manga ->
-                                    navigator.push(EntryCatalogueScreen(key, state.query))
-                                is SourceKey.Novel ->
-                                    navigator.push(EntryCatalogueScreen(key, state.query))
-                            }
-                        },
+                        onClickSource = { row -> navigator.push(EntryCatalogueScreen(row.key, state.query)) },
                         onClickManga = { manga ->
                             if (selectionMode) {
                                 mangaBulk.toggleSelection(

@@ -17,7 +17,7 @@ import tachiyomi.domain.source.service.SourceManager
 
 @AssistedInject
 class GlobalSearchViewModel(
-    @Assisted initialQuery: String,
+    // RK: upstream's assisted `initialQuery` dropped, since the shared engine owns the query.
     @Assisted initialExtensionFilter: String?,
     sourcePreferences: SourcePreferences,
     sourceManager: SourceManager,
@@ -32,7 +32,6 @@ class GlobalSearchViewModel(
     extensionManager = extensionManager,
     networkToLocalManga = networkToLocalManga,
     getManga = getManga,
-    preferences = sourcePreferences,
     mangaLibraryAdder = mangaLibraryAdder,
 ) {
 
@@ -40,7 +39,7 @@ class GlobalSearchViewModel(
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
-        fun create(initialQuery: String, initialExtensionFilter: String?): GlobalSearchViewModel
+        fun create(initialExtensionFilter: String?): GlobalSearchViewModel
     }
 
     init {

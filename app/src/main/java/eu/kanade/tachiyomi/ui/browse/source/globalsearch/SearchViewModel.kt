@@ -8,18 +8,13 @@ import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.Source
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mihon.domain.manga.model.toDomainManga
 import reikai.presentation.browse.AddDecision
@@ -28,7 +23,6 @@ import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
 import tachiyomi.core.common.preference.CheckboxState
-import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.manga.interactor.GetManga
@@ -45,7 +39,7 @@ abstract class SearchViewModel(
     private val extensionManager: ExtensionManager,
     private val networkToLocalManga: NetworkToLocalManga,
     private val getManga: GetManga,
-    private val preferences: SourcePreferences,
+    // RK: upstream's `preferences` dropped, unread since the shared engine took over the search.
     // RK: shared long-press add-to-library orchestration (also used by the Browse screen)
     private val mangaLibraryAdder: MangaLibraryAdder,
 ) : ViewModel() {
