@@ -903,7 +903,7 @@ class LibraryViewModel(
         val loggedInTrackerIds: Set<Long> = emptySet(),
         // RK: display-only custom title/cover overrides, keyed by real manga id. Never read by
         //     search/filter/sort/selection (those use the raw favorites); applied only at the
-        //     per-category display read in State.getItemsForCategory.
+        //     display read in State.withOverlay, through the adapter.
         val customInfo: Map</* Manga */ Long, CustomMangaInfo> = emptyMap(),
     ) {
         val favoritesById by lazy { favorites.associateBy { it.id } }

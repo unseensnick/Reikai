@@ -9,7 +9,6 @@ import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.manga.DownloadAction
-import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.Dispatchers
@@ -29,14 +28,10 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import mihon.domain.library.model.search.QueryNode
-import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.library.librarySortComparator
-import reikai.domain.library.sortForCategory
-import reikai.domain.library.toSortMode
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -68,32 +63,27 @@ import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.langCode
 import reikai.presentation.category.toLongIdSet
 import reikai.presentation.library.LibraryFilterPrefs
-import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
-import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.novelSourceBadge
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.novel.selectChaptersForDownloadAction
-import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.i18n.MR
 import kotlin.time.Duration.Companion.seconds
 
 /**
  * Drives the novel half of the Library tab: reads favorited novels and categories reactively, shapes
- * each into the shared [LibraryItem], filters and per-category-sorts them, and exposes the same
+ * each into the shared [LibraryItem], filters them (LibraryEngine buckets and sorts), and exposes the same
  * accessor surface the manga model does so `LibraryTab` can feed either. Mihon's library core is
  * untouched. Selection lives in the shared LibraryEngine, which hands this model the novel ids to act
  * on; display settings are shared with manga, and tracker filter/sort/group reuse the shared tracker
@@ -203,17 +193,9 @@ class NovelLibraryViewModel(
         reikaiLibraryPreferences.sourceBadge.changes(),
     ) { download, unread, language, source -> BadgePrefs(download, unread, language, source) }
 
-    /** Folds the badge, sort, and filter prefs into one flow so the main combine stays at its 5-arg max. */
+    /** Folds the badge and filter prefs into one flow so the main combine stays at its 5-arg max. Sorting
+     *  is LibraryEngine's, so no sort input rides here: it would rebuild this list for nothing. */
     private fun settingsFlow(): Flow<LibrarySettings> {
-        val miscFlow = combine(
-            // The library-wide global sort and Random seed, shared with the manga library (the retired
-            // novel keys were dropped, not migrated; per-category overrides live in category flags).
-            libraryPreferences.sortingMode.changes(),
-            libraryPreferences.randomSortSeed.changes(),
-            libraryPreferences.showContinueReadingButton.changes(),
-            reikaiLibraryPreferences.showHiddenCategories.changes(),
-            reikaiLibraryPreferences.categorySortOrder.changes(),
-        ) { sort, seed, cont, showHidden, catSort -> Misc(sort.flag, seed.toLong(), cont, showHidden, catSort) }
         // The library-wide filter preferences, shared with the manga library since the filter
         // unification: a filter describes the list, not a content type.
         val triStateFilterFlow = combine(
@@ -270,13 +252,16 @@ class NovelLibraryViewModel(
         // group-mode change would rebuild the filtered list for a decision it no longer makes.
         return combine(
             badgePrefsFlow(),
-            miscFlow,
+            libraryPreferences.showContinueReadingButton.changes(),
             filterFlow,
             mergeFlow,
-        ) { badges, misc, filterSettings, merge ->
+        ) { badges, showContinue, filterSettings, merge ->
             LibrarySettings(
-                badges, misc.defaultSort, misc.randomSeed, misc.showContinue, misc.showHidden,
-                filterSettings.filters, filterSettings.downloadedOnly, merge, misc.categorySortOrder,
+                badges,
+                showContinue,
+                filterSettings.filters,
+                filterSettings.downloadedOnly,
+                merge,
                 filterSettings.trackingFilter,
             )
         }
@@ -343,7 +328,7 @@ class NovelLibraryViewModel(
         val withCounts = library.map {
             it.copy(downloadCount = novelDownloadCache.getDownloadCount(it.novel).toLong())
         }
-        // Collapse merged groups into one representative entry (the most-chapters novel) BEFORE
+        // Collapse merged groups into one representative entry (the top-ranked source) BEFORE
         // filtering, matching the manga library. Filtering first would test each source separately, so a
         // group could survive on a member the user never sees, and the representative would be picked
         // from whichever members happened to pass, changing the cover as filters change.
@@ -400,9 +385,9 @@ class NovelLibraryViewModel(
         // per-novel metadata (genre / author / source / status) the row cannot carry, and the search
         // needs the source name and slug, since a novel row has no Mihon Source to read either off.
         val novelById = groups.associate { it.representative.novel.id to it.representative }
-        // Display-only custom-info overlay, keyed by the real novel id. Carried into the state and
-        // applied at the display read (see State.getItemsForCategory), never here, so collapse, filter,
-        // sort, grouping and search all keep reading the source values. Mirrors the manga library.
+        // Display-only custom-info overlay, keyed by the real novel id. Carried into the state and applied
+        // at the display read (State.withOverlay, via LibraryProvider.overlaid), never here, so collapse,
+        // filter, sort, grouping and search all keep reading the source values. Mirrors the manga library.
         val overlay = customInfo.associateBy { it.novelId }
         // Build the shared library row BEFORE filtering and sorting, so both content types reach the
         // shared kernels at the same point in the type chain (the manga library already builds first).
@@ -494,7 +479,7 @@ class NovelLibraryViewModel(
         )
     }
 
-    // --- search / selection / collapse mutators (read by LibraryTab) ---
+    // --- search and the active page (read by LibraryTab) ---
 
     fun search(query: String?) {
         searchQuery.value = query
@@ -662,14 +647,6 @@ class NovelLibraryViewModel(
         val categoriesExclude: Set<Long> = emptySet(),
     )
 
-    private data class Misc(
-        val defaultSort: Long,
-        val randomSeed: Long,
-        val showContinue: Boolean,
-        val showHidden: Boolean,
-        val categorySortOrder: Int,
-    )
-
     private data class MergeSettings(
         val membership: Map<Long, Long>,
         val mergingEnabled: Boolean,
@@ -695,14 +672,10 @@ class NovelLibraryViewModel(
 
     private data class LibrarySettings(
         val badges: BadgePrefs,
-        val defaultSort: Long,
-        val randomSeed: Long,
         val showContinue: Boolean,
-        val showHidden: Boolean,
         val filters: NovelFilters,
         val downloadedOnly: Boolean,
         val merge: MergeSettings,
-        val categorySortOrder: Int,
         // Per-logged-in-tracker filter (trackerId -> tri-state); keys are the logged-in tracker ids.
         val trackingFilter: Map<Long, TriState>,
     )
