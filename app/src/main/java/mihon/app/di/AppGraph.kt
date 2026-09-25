@@ -62,6 +62,7 @@ import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.track.TrackerRefreshJob
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.extension.ExtensionUpdateCounts
+import reikai.domain.library.GetLibraryExportRows
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelChapterRepository
@@ -100,7 +101,6 @@ import tachiyomi.domain.category.interactor.ResetCategoryFlags
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
-import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.InsertFlatMetadata
@@ -230,7 +230,9 @@ interface AppGraph : ViewModelGraph {
     // shape: Injekt registered every one of these with addFactory, never addSingletonFactory.
     val getCategories: GetCategories
     val getNovelCategories: GetNovelCategories
-    val getFavorites: GetFavorites
+
+    // RK: in place of upstream's getFavorites, whose one reader was the library list export
+    val getLibraryExportRows: GetLibraryExportRows
 
     // The metadata trio backs source-api's MetadataSource contract, which installed extensions
     // implement, so these three are reached through Injekt rather than the graph.

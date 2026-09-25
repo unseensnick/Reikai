@@ -59,6 +59,7 @@ import logcat.LogPriority
 import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Help
+import reikai.domain.library.LibraryExportRow
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.displayablePath
@@ -66,7 +67,6 @@ import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.backup.service.BackupPreferences
-import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.storage.service.StoragePreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.TextButton
@@ -377,8 +377,10 @@ object SettingsDataScreen : SearchableSettings {
 
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val getFavorites = remember { context.appGraph.getFavorites }
-        var favorites by remember { mutableStateOf<List<Manga>>(emptyList()) }
+        // RK --> novels too, and a merged series once
+        val getFavorites = remember { context.appGraph.getLibraryExportRows }
+        var favorites by remember { mutableStateOf<List<LibraryExportRow>>(emptyList()) }
+        // RK <--
         LaunchedEffect(Unit) {
             favorites = getFavorites.await()
         }
