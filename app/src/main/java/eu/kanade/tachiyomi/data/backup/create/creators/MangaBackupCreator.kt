@@ -1,38 +1,37 @@
 package eu.kanade.tachiyomi.data.backup.create.creators
 
-import app.cash.sqldelight.async.coroutines.awaitAsList
-import app.cash.sqldelight.async.coroutines.awaitAsOne
-import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTag
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTitle
-import eu.kanade.tachiyomi.data.backup.models.backupChapterMapper
-import eu.kanade.tachiyomi.data.backup.models.backupTrackMapper
 import eu.kanade.tachiyomi.data.backup.models.customInfo
+import eu.kanade.tachiyomi.data.backup.models.toBackupChapter
+import eu.kanade.tachiyomi.data.backup.models.toBackupTracking
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import kotlinx.coroutines.flow.first
+import mihon.core.common.extensions.toByteArray
 import reikai.data.backup.BackupEntryParts
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
-import tachiyomi.data.Database
-import tachiyomi.data.MemoColumnAdapter
-import tachiyomi.data.manga.MangaMapper
 import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.manga.interactor.GetFavorites
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
 import tachiyomi.domain.manga.repository.MangaMetadataRepository
 import tachiyomi.domain.manga.repository.MangaRepository
+import tachiyomi.domain.track.repository.TrackRepository
 
 @Inject
 class MangaBackupCreator(
-    private val database: Database,
+    private val mangaRepository: MangaRepository,
+    private val chapterRepository: ChapterRepository,
+    private val trackRepository: TrackRepository,
     private val getCategories: GetCategories,
     private val getHistory: GetHistory,
     // RK: source of captured adult/EXH gallery metadata for the backup.
@@ -41,7 +40,7 @@ class MangaBackupCreator(
     private val customMangaInfoRepository: CustomMangaInfoRepository,
     // RK: which manga are backed up, read here since the shared driver asks each type for its own.
     private val getFavorites: GetFavorites,
-    private val mangaRepository: MangaRepository,
+    private val getManga: GetManga,
     // RK: merge group members outside the library are backed up so a restored group keeps them.
     private val mergeGroupRepository: MergeGroupRepository,
 ) : BackupEntryParts<Manga, BackupManga> { // RK
@@ -53,19 +52,17 @@ class MangaBackupCreator(
 
     override suspend fun readNotInLibrary(): List<Manga> = mangaRepository.getReadMangaNotInLibrary()
 
-    // getMangaById on the repository throws on a missing row; a membership whose row has gone is skipped.
+    // A membership whose row has gone is skipped rather than failing the backup.
     override suspend fun groupMembersOutsideLibrary(): List<Manga> =
         mergeGroupRepository.getAllMemberships(ContentType.MANGA).keys
-            .mapNotNull { database.mangasQueries.getMangaById(it, MangaMapper::mapManga).awaitAsOneOrNull() }
+            .mapNotNull { getManga.await(it) }
             .filterNot { it.favorite }
 
     override suspend fun base(entry: Manga): BackupManga {
         // Entry for this manga
         val mangaObject = entry.toBackupManga()
 
-        mangaObject.excludedScanlators = database.excluded_scanlatorsQueries
-            .getExcludedScanlatorsByMangaId(entry.id)
-            .awaitAsList()
+        mangaObject.excludedScanlators = mangaRepository.getExcludedScanlators(entry.id).toList()
 
         // Carry captured adult/EXH gallery metadata so a restore brings the tags back.
         mangaMetadataRepository.getMetadataById(entry.id)?.let { meta ->
@@ -86,14 +83,9 @@ class MangaBackupCreator(
 
     override suspend fun chapters(entry: Manga, backup: BackupManga) {
         // Backup all the chapters
-        database.chaptersQueries
-            .getChaptersByMangaId(
-                mangaId = entry.id,
-                applyScanlatorFilter = 0, // false
-                mapper = backupChapterMapper,
-            )
-            .awaitAsList()
-            .takeUnless(List<BackupChapter>::isEmpty)
+        chapterRepository.getChapterByMangaId(entry.id, applyScanlatorFilter = false)
+            .map { it.toBackupChapter() }
+            .takeUnless { it.isEmpty() }
             ?.let { backup.chapters = it }
     }
 
@@ -106,9 +98,7 @@ class MangaBackupCreator(
     }
 
     override suspend fun tracking(entry: Manga, backup: BackupManga) {
-        val tracks = database.manga_syncQueries
-            .getTracksByMangaId(entry.id, backupTrackMapper)
-            .awaitAsList()
+        val tracks = trackRepository.getTracksByMangaId(entry.id).map { it.toBackupTracking() }
         if (tracks.isNotEmpty()) {
             backup.tracking = tracks
         }
@@ -118,9 +108,7 @@ class MangaBackupCreator(
         val historyByMangaId = getHistory.await(entry.id)
         if (historyByMangaId.isNotEmpty()) {
             val history = historyByMangaId.map { history ->
-                val chapter = database.chaptersQueries
-                    .getChapterById(history.chapterId)
-                    .awaitAsOne()
+                val chapter = checkNotNull(chapterRepository.getChapterById(history.chapterId))
                 BackupHistory(chapter.url, history.readAt?.time ?: 0L, history.readDuration)
             }
             if (history.isNotEmpty()) {
@@ -165,5 +153,5 @@ private fun Manga.toBackupManga() =
         favoriteModifiedAt = this.favoriteModifiedAt,
         notes = this.notes,
         initialized = this.initialized,
-        memo = MemoColumnAdapter.encode(this.memo),
+        memo = this.memo.toByteArray(),
     )

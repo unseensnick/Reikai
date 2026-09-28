@@ -55,9 +55,9 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.components.NovelSourceIcon
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchUI
-import tachiyomi.core.common.util.lang.toLong
 import tachiyomi.core.common.util.lang.withNonCancellableContext
-import tachiyomi.data.Database
+import tachiyomi.domain.history.repository.HistoryRepository
+import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.interactor.GetSourcesWithNonLibraryManga
 import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.model.SourceWithCount
@@ -303,8 +303,9 @@ class ClearDatabaseScreen : Screen() {
 @ViewModelKey
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class ClearDatabaseViewModel(
+    private val mangaRepository: MangaRepository,
+    private val historyRepository: HistoryRepository,
     private val getSourcesWithNonLibraryManga: GetSourcesWithNonLibraryManga,
-    private val database: Database, // RK: follows getSourcesWithNonLibraryManga, from Reikai's Metro migration
     // RK -->
     private val novelRepository: NovelRepository,
     private val novelSourceManager: NovelSourceManager,
@@ -352,10 +353,10 @@ class ClearDatabaseViewModel(
         // RK --> guarded: a novel-only selection reaches here with no manga selected, and SQLDelight
         // renders an empty collection as `IN ()`, which SQLite rejects, crashing the whole clear.
         if (state.selection.isNotEmpty()) {
-            database.mangasQueries.deleteNonLibraryManga(state.selection, keepReadManga.toLong())
+            mangaRepository.deleteNonLibraryManga(state.selection, keepReadManga)
         }
         // RK <--
-        database.historyQueries.removeResettedHistory()
+        historyRepository.deleteResetHistory()
         // RK --> novel side of the clear; the keep-read toggle covers both content types
         if (state.novelSelection.isNotEmpty()) {
             novelRepository.deleteNonLibraryNovels(state.novelSelection, keepReadManga)

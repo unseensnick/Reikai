@@ -10,6 +10,11 @@ plugins {
 android {
     namespace = "tachiyomi.data"
 
+    // RK: the data module's own instrumented test, ForeignKeyEnforcementTest
+    defaultConfig {
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
     sqldelight {
         databases {
             create("Database") {
@@ -41,7 +46,8 @@ dependencies {
 
     implementation(libs.kotlinx.datetime)
 
-    api(libs.bundles.sqldelight)
+    implementation(libs.androidx.sqlite.bundled)
+    implementation(libs.bundles.sqldelight)
 
     // RK -->
     // JVM tests for Reikai's repositories over an in-memory SQLite database. Mihon has no data tests.
@@ -49,5 +55,9 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.sqldelight.sqliteDriver)
     testRuntimeOnly(libs.junit.platform.launcher)
+    // The production driver's foreign-key enforcement, checked on a device (ForeignKeyEnforcementTest).
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation(libs.kotlinx.coroutines.core)
     // RK <--
 }

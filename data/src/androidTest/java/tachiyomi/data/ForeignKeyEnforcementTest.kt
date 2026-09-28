@@ -1,4 +1,4 @@
-package mihon.app.di
+package tachiyomi.data
 
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -20,7 +20,7 @@ import org.junit.runner.RunWith
  * Nineteen `.sq` files declare a foreign key, and every `ON DELETE CASCADE` in the schema assumes the
  * connection enforces them. The unit tests that demonstrate enforcement build a `JdbcSqliteDriver` and
  * turn it on with a hand-written pragma, which is neither the driver nor the mechanism production uses,
- * so they cannot answer for it. This opens the driver with `AppBindings.sqlDriverConfiguration`, the
+ * so they cannot answer for it. This opens the driver with `DatabaseBindings.sqlDriverConfiguration`, the
  * value `providesSqlDriver` passes, over a probe schema rather than the app's own database, with a
  * control that turns only enforcement off to prove the probe can tell the two apart.
  */
@@ -84,9 +84,9 @@ class ForeignKeyEnforcementTest {
             databaseType = AndroidxSqliteDatabaseType.File(context.getDatabasePath(name).absolutePath),
             schema = ProbeSchema,
             configuration = if (enforced) {
-                AppBindings.sqlDriverConfiguration
+                DatabaseBindings.sqlDriverConfiguration
             } else {
-                AppBindings.sqlDriverConfiguration.copy(isForeignKeyConstraintsEnabled = false)
+                DatabaseBindings.sqlDriverConfiguration.copy(isForeignKeyConstraintsEnabled = false)
             },
         )
         opened += driver to name

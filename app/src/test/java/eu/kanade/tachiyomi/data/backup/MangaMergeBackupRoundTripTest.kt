@@ -26,16 +26,11 @@ class MangaMergeBackupRoundTripTest {
         getByUrlSource: GetMangaByUrlAndSourceId,
         repository: MergeGroupRepository,
     ) = MangaRestorer(
-        database = mockk(relaxed = true),
+        restoreRepository = mockk(relaxed = true),
         getCategories = mockk(relaxed = true),
-        getMangaByUrlAndSourceId = getByUrlSource,
-        getChaptersByMangaId = mockk(relaxed = true),
-        updateManga = mockk(relaxed = true),
-        getTracks = mockk(relaxed = true),
-        upsertTrack = mockk(relaxed = true),
         fetchInterval = mockk(relaxed = true),
+        getMangaByUrlAndSourceId = getByUrlSource,
         restoreMergeGroups = RestoreMergeGroups(repository, PassThroughTransactions),
-        mangaMetadataRepository = mockk(relaxed = true),
         setCustomMangaInfo = mockk(relaxed = true),
     )
 

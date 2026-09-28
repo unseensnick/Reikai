@@ -45,7 +45,6 @@ import reikai.presentation.recents.MangaRecentsAdapter
 import reikai.presentation.recents.NovelRecentsAdapter
 import reikai.presentation.widget.UnifiedUpdatesGlanceWidget
 import tachiyomi.core.common.preference.PreferenceStore
-import tachiyomi.data.Database
 import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetManga
@@ -69,8 +68,6 @@ interface ReikaiGraph {
 
     fun inject(ehLoginActivity: EhLoginActivity)
 
-    // App's cold-start warm-up reads it beside Mihon's networkHelper, sourceManager and downloadManager.
-    val database: Database
     val preferenceStore: PreferenceStore
 
     // Read through Context.appGraph by companions, objects and composable bodies, none of which can

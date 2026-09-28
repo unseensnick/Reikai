@@ -283,13 +283,9 @@ dependencies {
 
     implementation(libs.androidx.palette) // RK: cover seed colours for the details and reader theming
 
-    implementation(libs.androidx.sqlite.bundled)
-
     implementation(libs.kotlin.reflect)
 
     implementation(libs.bundles.kotlinx.coroutines)
-
-    implementation(libs.sqldelight.async)
 
     implementation(libs.kotlinx.datetime)
 
@@ -408,10 +404,11 @@ dependencies {
 
     testImplementation(libs.kotlinx.coroutines.test)
 
-    // RK: in-memory SQLite (pure-JVM) for the merge-system rebuild's DB round-trip / cascade tests.
-    // Test-only, never ships. Mihon has no JVM database test harness, so this is a
-    // Reikai-only test dependency; the app itself keeps using the native androidx bundled driver.
+    // RK: in-memory SQLite (pure-JVM) for the tests that need a real database and the app's own
+    // classes, such as the backup models. Test-only, never ships; the app reaches the database only
+    // through :data, so the SQLDelight runtime those tests compile against is test-only here too.
     testImplementation(libs.sqldelight.sqliteDriver)
+    testImplementation(libs.bundles.sqldelight)
 }
 
 apollo {

@@ -71,7 +71,7 @@ class ExtensionStoreRepositoryImpl(
         }
     }
 
-    private suspend fun upsert(store: ExtensionStore) {
+    override suspend fun upsert(store: ExtensionStore) {
         database.extension_storeQueries.upsert(
             indexUrl = store.indexUrl,
             name = store.name,

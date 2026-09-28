@@ -1,10 +1,6 @@
 package eu.kanade.tachiyomi.data.backup
 
 import android.net.Uri
-import app.cash.sqldelight.Query
-import app.cash.sqldelight.SuspendingTransactionWithoutReturn
-import app.cash.sqldelight.db.QueryResult
-import app.cash.sqldelight.db.SqlCursor
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.backup.create.BackupCreator
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
@@ -40,9 +36,6 @@ import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.repository.CustomNovelInfoRepository
-import tachiyomi.data.Database
-import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
-import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
 import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
@@ -124,24 +117,6 @@ class BackupCustomInfoConformanceTest {
                 every { openOutputStream() } returns out
                 every { this@mockk.uri } returns uri
             }
-            // No excluded scanlators: a query whose cursor is empty.
-            val scanlators = object : Query<String>({ it.getString(0)!! }) {
-                override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>) = mapper(
-                    object : SqlCursor {
-                        override fun next() = QueryResult.Value(false)
-                        override fun getString(index: Int): String? = null
-                        override fun getLong(index: Int): Long? = null
-                        override fun getBytes(index: Int): ByteArray? = null
-                        override fun getDouble(index: Int): Double? = null
-                        override fun getBoolean(index: Int): Boolean? = null
-                    },
-                )
-                override fun addListener(listener: Query.Listener) = Unit
-                override fun removeListener(listener: Query.Listener) = Unit
-            }
-            val database = mockk<Database>(relaxed = true) {
-                every { excluded_scanlatorsQueries.getExcludedScanlatorsByMangaId(7) } returns scanlators
-            }
             val mangaCustomInfo = mockk<CustomMangaInfoRepository> {
                 every { getByMangaIdAsFlow(7) } returns flowOf(EVERY_FIELD.toManga(7))
             }
@@ -157,7 +132,9 @@ class BackupCustomInfoConformanceTest {
                 mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                 categoriesBackupCreator = mockk(relaxed = true),
                 mangaBackupCreator = MangaBackupCreator(
-                    database = database,
+                    mangaRepository = mockk { coEvery { getExcludedScanlators(7) } returns emptySet() },
+                    chapterRepository = mockk(),
+                    trackRepository = mockk(),
                     getCategories = mockk(relaxed = true),
                     getHistory = mockk(relaxed = true),
                     mangaMetadataRepository = mockk { coEvery { getMetadataById(7) } returns null },
@@ -165,7 +142,7 @@ class BackupCustomInfoConformanceTest {
                     getFavorites = mockk {
                         coEvery { await() } returns listOf(Manga.create().copy(id = 7, url = "/7", source = 1L))
                     },
-                    mangaRepository = mockk(),
+                    getManga = mockk(),
                     mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                 ),
                 preferenceBackupCreator = mockk(relaxed = true),
@@ -290,36 +267,17 @@ class MangaCustomInfoRestorer : CustomInfoRestorer {
                     )
             }
         }
-        val database = mockk<Database>(relaxed = true) {
-            coEvery { transaction(any(), any()) } coAnswers {
-                secondArg<suspend SuspendingTransactionWithoutReturn.() -> Unit>().invoke(mockk(relaxed = true))
+        MangaRestoreHarness.create().use { harness ->
+            harness.insertBare(BackupCustomInfoConformanceTest.LOCAL_ID, url = "u", source = 1L)
+            val restorer = harness.restorer(customInfo = repository)
+            backup.backupManga.forEach {
+                restorer.restore(
+                    listOf(legacy.decodeManga(ProtoBuf, ProtoBuf.encodeToByteArray(BackupManga.serializer(), it))),
+                    emptyList(),
+                )
             }
+            legacy.unclaimedManga().forEach { (ref, info) -> restorer.restoreCustomInfo(ref.first, ref.second, info) }
         }
-        val restorer = MangaRestorer(
-            database = database,
-            getCategories = mockk(relaxed = true),
-            getMangaByUrlAndSourceId = mockk<GetMangaByUrlAndSourceId> {
-                coEvery { await("u", 1L) } returns
-                    Manga.create().copy(id = BackupCustomInfoConformanceTest.LOCAL_ID, url = "u", source = 1L)
-            },
-            getChaptersByMangaId = mockk<GetChaptersByMangaId> {
-                coEvery { await(BackupCustomInfoConformanceTest.LOCAL_ID) } returns emptyList()
-            },
-            updateManga = mockk(relaxed = true),
-            getTracks = mockk(relaxed = true),
-            upsertTrack = mockk(relaxed = true),
-            fetchInterval = mockk(relaxed = true),
-            restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
-            mangaMetadataRepository = mockk(relaxed = true),
-            setCustomMangaInfo = SetCustomMangaInfo(repository),
-        )
-        backup.backupManga.forEach {
-            restorer.restore(
-                legacy.decodeManga(ProtoBuf, ProtoBuf.encodeToByteArray(BackupManga.serializer(), it)),
-                emptyList(),
-            )
-        }
-        legacy.unclaimedManga().forEach { (ref, info) -> restorer.restoreCustomInfo(ref.first, ref.second, info) }
         return written
     }
 

@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.backup
 
-import app.cash.sqldelight.SuspendingTransactionWithoutReturn
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
@@ -23,7 +22,6 @@ import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
-import tachiyomi.data.Database
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.track.model.Track
@@ -33,7 +31,8 @@ import tachiyomi.domain.track.model.Track
  * content types: the device's details win unless only the backup ever fetched them, the earlier library
  * date survives, a chapter keeps read and bookmark from either side and
  * the further progress, and a bound track keeps the device's row, remote link included, taking only a
- * further chapter read. Runs each type's real restorer over one series and one chapter or track.
+ * further chapter read. Runs each type's real restorer over one series and one chapter or track; the
+ * manga side over real SQL, since its rules live in the restore repository.
  */
 class RestoreMergeConformanceTest {
 
@@ -160,136 +159,94 @@ class MangaMergeRestorer : MergeRestorer {
 
     override fun toString() = "manga"
 
-    private val deviceManga = Manga.create().copy(id = RestoreMergeConformanceTest.DEVICE_ID, url = "u", source = 1L)
+    private val deviceManga = Manga.create().copy(url = "u", source = 1L, title = "T")
 
     override suspend fun description(deviceInitialized: Boolean, backupInitialized: Boolean): String? =
         restoreOver(
             deviceManga.copy(description = "device", initialized = deviceInitialized),
             BackupManga(source = 1L, url = "u", description = "backup", initialized = backupInitialized),
-        )?.description
+        ).description
 
     override suspend fun addedAt(device: Long, backup: Long): Long? = restoreOver(
         deviceManga.copy(favorite = true, dateAdded = device),
         BackupManga(source = 1L, url = "u", favorite = true, dateAdded = backup),
-    )?.dateAdded
+    ).dateAdded
 
-    /** Restores [backup] over [dbManga], returning the series as written. */
-    private suspend fun restoreOver(dbManga: Manga, backup: BackupManga): Manga? {
-        var written: Manga? = null
-        val database = database {
-            coEvery {
-                mangasQueries.updateFromBackup(
-                    any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                    any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                )
-            } coAnswers {
-                written = dbManga.copy(description = arg(2), dateAdded = arg(13))
-                0L
-            }
+    /** Restores [backup] over the device's [dbManga], returning the series as stored after. */
+    private suspend fun restoreOver(dbManga: Manga, backup: BackupManga): Manga =
+        MangaRestoreHarness.create().use { harness ->
+            val id = harness.insert(dbManga)
+            harness.restorer().restore(listOf(backup), emptyList())
+            harness.mangas.getMangaById(id)
         }
-        restorer(database, dbManga).restore(backup, emptyList())
-        return written
-    }
 
-    override suspend fun chapter(device: ChapterState, backup: ChapterState): ChapterState {
-        var result = device
-        val database = database {
-            coEvery {
-                chaptersQueries.updateFromBackup(any(), any(), any(), any(), any(), any())
-            } coAnswers {
-                result = ChapterState(arg(0), arg(1), arg(2))
-                0L
-            }
+    override suspend fun chapter(device: ChapterState, backup: ChapterState): ChapterState =
+        MangaRestoreHarness.create().use { harness ->
+            val id = harness.insert(deviceManga)
+            harness.insert(
+                Chapter.create().copy(
+                    mangaId = id,
+                    url = "c",
+                    name = "C",
+                    read = device.read,
+                    bookmark = device.bookmark,
+                    lastPageRead = device.progress,
+                ),
+            )
+            val backupChapter = BackupChapter(
+                url = "c",
+                name = "C",
+                read = backup.read,
+                bookmark = backup.bookmark,
+                lastPageRead = backup.progress,
+            )
+            harness.restorer().restore(
+                listOf(BackupManga(source = 1L, url = "u", chapters = listOf(backupChapter))),
+                emptyList(),
+            )
+            val stored = harness.chapters.getChapterByMangaId(id).single()
+            ChapterState(stored.read, stored.bookmark, stored.lastPageRead)
         }
-        val dbChapter = Chapter.create().copy(
-            id = 1,
-            mangaId = RestoreMergeConformanceTest.DEVICE_ID,
-            url = "c",
-            name = "C",
-            read = device.read,
-            bookmark = device.bookmark,
-            lastPageRead = device.progress,
-        )
-        val backupChapter = BackupChapter(
-            url = "c",
-            name = "C",
-            read = backup.read,
-            bookmark = backup.bookmark,
-            lastPageRead = backup.progress,
-        )
-        restorer(database, deviceManga, chapters = listOf(dbChapter))
-            .restore(BackupManga(source = 1L, url = "u", chapters = listOf(backupChapter)), emptyList())
-        return result
-    }
 
-    override suspend fun track(device: TrackState, backup: TrackState): TrackState? {
-        var result: TrackState? = null
-        val database = database {
-            coEvery {
-                manga_syncQueries.update(
-                    any(), any(), any(), any(), any(), any(), any(),
-                    any(), any(), any(), any(), any(), any(), any(),
-                )
-            } coAnswers {
-                result = TrackState(arg(2), arg(3), arg(7), arg(8), arg(5))
-                0L
-            }
+    override suspend fun track(device: TrackState, backup: TrackState): TrackState? =
+        MangaRestoreHarness.create().use { harness ->
+            val id = harness.insert(deviceManga)
+            harness.tracks.upsert(
+                Track(
+                    id = 0,
+                    mangaId = id,
+                    trackerId = RestoreMergeConformanceTest.TRACKER_ID,
+                    remoteId = device.remoteId,
+                    libraryId = device.libraryId,
+                    title = "T",
+                    lastChapterRead = device.lastChapterRead,
+                    totalChapters = 0,
+                    status = device.status,
+                    score = device.score,
+                    remoteUrl = "",
+                    startDate = 0,
+                    finishDate = 0,
+                    private = false,
+                ),
+            )
+            val before = harness.tracks.getTracksByMangaId(id).single()
+            val backupTrack = BackupTracking(
+                syncId = RestoreMergeConformanceTest.TRACKER_ID.toInt(),
+                libraryId = backup.libraryId!!,
+                title = "T",
+                lastChapterRead = backup.lastChapterRead.toFloat(),
+                score = backup.score.toFloat(),
+                status = backup.status.toInt(),
+                mediaId = backup.remoteId,
+            )
+            harness.restorer().restore(
+                listOf(BackupManga(source = 1L, url = "u", tracking = listOf(backupTrack))),
+                emptyList(),
+            )
+            // Null when the row was left as it was, as the novel side reports a restore that wrote nothing.
+            harness.tracks.getTracksByMangaId(id).single().takeIf { it != before }
+                ?.let { TrackState(it.remoteId, it.libraryId, it.status, it.score, it.lastChapterRead) }
         }
-        val dbTrack = Track(
-            id = 1,
-            mangaId = RestoreMergeConformanceTest.DEVICE_ID,
-            trackerId = RestoreMergeConformanceTest.TRACKER_ID,
-            remoteId = device.remoteId,
-            libraryId = device.libraryId,
-            title = "T",
-            lastChapterRead = device.lastChapterRead,
-            totalChapters = 0,
-            status = device.status,
-            score = device.score,
-            remoteUrl = "",
-            startDate = 0,
-            finishDate = 0,
-            private = false,
-        )
-        val backupTrack = BackupTracking(
-            syncId = RestoreMergeConformanceTest.TRACKER_ID.toInt(),
-            libraryId = backup.libraryId!!,
-            title = "T",
-            lastChapterRead = backup.lastChapterRead.toFloat(),
-            score = backup.score.toFloat(),
-            status = backup.status.toInt(),
-            mediaId = backup.remoteId,
-        )
-        restorer(database, deviceManga, tracks = listOf(dbTrack))
-            .restore(BackupManga(source = 1L, url = "u", tracking = listOf(backupTrack)), emptyList())
-        return result
-    }
-
-    private fun database(block: Database.() -> Unit) = mockk<Database>(relaxed = true) {
-        coEvery { transaction(any(), any()) } coAnswers {
-            secondArg<suspend SuspendingTransactionWithoutReturn.() -> Unit>().invoke(mockk(relaxed = true))
-        }
-        block()
-    }
-
-    private fun restorer(
-        database: Database,
-        dbManga: Manga,
-        chapters: List<Chapter> = emptyList(),
-        tracks: List<Track> = emptyList(),
-    ) = MangaRestorer(
-        database = database,
-        getCategories = mockk { coEvery { await() } returns emptyList() },
-        getMangaByUrlAndSourceId = mockk { coEvery { await("u", 1L) } returns dbManga },
-        getChaptersByMangaId = mockk { coEvery { await(dbManga.id) } returns chapters },
-        updateManga = mockk(relaxed = true),
-        getTracks = mockk { coEvery { await(dbManga.id) } returns tracks },
-        upsertTrack = mockk(relaxed = true),
-        fetchInterval = mockk(relaxed = true),
-        restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
-        mangaMetadataRepository = mockk(relaxed = true),
-        setCustomMangaInfo = mockk(relaxed = true),
-    )
 }
 
 class NovelMergeRestorer : MergeRestorer {

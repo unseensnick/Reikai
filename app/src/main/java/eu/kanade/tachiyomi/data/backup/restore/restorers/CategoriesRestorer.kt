@@ -9,8 +9,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
 
 @Inject
 class CategoriesRestorer(
+    private val categoryRepository: CategoryRepository,
     private val getCategories: GetCategories,
-    private val categoryRepository: CategoryRepository, // RK: inserts with the backup's content type
     private val libraryPreferences: LibraryPreferences,
 ) {
 
@@ -24,21 +24,13 @@ class CategoriesRestorer(
 
             val categories = backupCategories
                 .sortedBy { it.order }
-                .map { backupCategory ->
-                    val sameName = dbCategoriesByName[backupCategory.name].orEmpty()
-                    // RK: prefer a row of the same content type, then settle for any row with that
-                    // name. The fallback is what keeps a backup made before the content type existed
-                    // (every entry reads as manga) matching a category the user has since made
-                    // universal, instead of inserting a duplicate next to it.
-                    val dbCategory = sameName.preferring(backupCategory.contentType)
-                    if (dbCategory != null) return@map dbCategory
-                    // RK: insert through the repository. It writes the backup's content type, so a
-                    // category spanning both libraries no longer lands as manga-only and gets re-created
-                    // by the novel list's copy, and it returns the new row id; the raw query returns
-                    // rows affected, which every restored Category was using as its id.
-                    val category = backupCategory.toCategory(id = 0L).copy(order = nextOrder++)
-                    category.copy(id = categoryRepository.insert(category, category.contentType))
-                }
+                // RK: a row of the same content type matches first, then any row with that name. The
+                // fallback keeps a backup made before the content type existed (every entry reads as
+                // manga) matching a category the user has since made universal, instead of adding a
+                // duplicate beside it. Each new row keeps the backup's content type.
+                .filter { dbCategoriesByName[it.name].orEmpty().preferring(it.contentType) == null }
+                .map { it.toCategory(id = 0).copy(order = nextOrder++) }
+            categoryRepository.insertAll(categories)
 
             libraryPreferences.categorizedDisplaySettings.set(
                 (dbCategories + categories)

@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.backup
 
-import app.cash.sqldelight.SuspendingTransactionWithoutReturn
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
@@ -12,12 +11,9 @@ import org.junit.jupiter.api.Test
 import reikai.domain.category.CategoryContentType
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.RestoreMergeGroups
-import tachiyomi.data.Database
+import tachiyomi.domain.backup.model.RestoredManga
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
-import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
-import tachiyomi.domain.manga.model.Manga
 
 /**
  * Backups store a manga's categories as the *order* indices of the source device's categories, never
@@ -40,48 +36,25 @@ class MangaRestoreCategoriesTest {
         BackupCategory(name = "Ghost", order = 3),
     )
 
-    /**
-     * Runs [backupManga] through restore() against [deviceCategories] and returns the category ids
-     * the manga gets assigned (the second arg of each mangas_categories insert).
-     */
+    /** Runs [backupManga] through restore() against [deviceCategories] and returns the ids it files it under. */
     private suspend fun restoredCategoryIds(
         backupManga: BackupManga,
         deviceCategories: List<Category> = this.deviceCategories,
     ): List<Long> {
-        val insertedCategoryIds = mutableListOf<Long>()
-        val database = mockk<Database>(relaxed = true) {
-            // Run the suspend transaction body inline so the inserts actually fire.
-            coEvery { transaction(any(), any()) } coAnswers {
-                // arg 0 = noEnclosing, arg 1 = the suspend body (arg 2 is the continuation).
-                secondArg<suspend SuspendingTransactionWithoutReturn.() -> Unit>().invoke(mockk(relaxed = true))
-            }
-            coEvery { mangas_categoriesQueries.insert(any(), any()) } coAnswers {
-                val categoryId = secondArg<Long>()
-                insertedCategoryIds.add(categoryId)
-                categoryId
-            }
-        }
-        // Existing-manga path (dbManga != null) avoids the insertReturningId(...).awaitAsOne() of the
-        // new-manga branch, which a relaxed mock can't satisfy.
-        val dbManga = Manga.create().copy(id = 7, url = "u", source = 1L)
+        val entries = mutableListOf<RestoredManga>()
         val restorer = MangaRestorer(
-            database = database,
-            getCategories = mockk { coEvery { await() } returns deviceCategories },
-            getMangaByUrlAndSourceId = mockk<GetMangaByUrlAndSourceId> {
-                coEvery { await("u", 1L) } returns dbManga
+            restoreRepository = mockk {
+                coEvery { restoreManga(any(), any()) } answers { entries += firstArg<List<RestoredManga>>() }
             },
-            getChaptersByMangaId = mockk<GetChaptersByMangaId> { coEvery { await(7) } returns emptyList() },
-            updateManga = mockk(relaxed = true),
-            getTracks = mockk(relaxed = true),
-            upsertTrack = mockk(relaxed = true),
+            getCategories = mockk { coEvery { await() } returns deviceCategories },
             fetchInterval = mockk(relaxed = true),
+            getMangaByUrlAndSourceId = mockk(),
             restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
-            mangaMetadataRepository = mockk(relaxed = true),
             setCustomMangaInfo = mockk(relaxed = true),
         )
 
-        restorer.restore(backupManga, backupCategories)
-        return insertedCategoryIds
+        restorer.restore(listOf(backupManga), backupCategories)
+        return entries.single().categoryIds
     }
 
     @Test

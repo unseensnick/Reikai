@@ -3,8 +3,9 @@ package eu.kanade.tachiyomi.data.backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import io.kotest.matchers.shouldBe
+import io.mockk.Runs
 import io.mockk.coEvery
-import io.mockk.coVerify
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
@@ -27,67 +28,56 @@ class CategoriesRestorerTest {
     private val libraryPreferences = mockk<LibraryPreferences>(relaxed = true)
 
     private val restorer = CategoriesRestorer(
-        getCategories = GetCategories(repository),
         categoryRepository = repository,
+        getCategories = GetCategories(repository),
         libraryPreferences = libraryPreferences,
     )
 
+    /** Restores [backup] over [device] and returns the rows the restorer inserted. */
+    private suspend fun inserted(device: List<Category>, backup: List<BackupCategory>): List<Category> {
+        coEvery { repository.getAll(any()) } returns device
+        val inserted = slot<List<Category>>()
+        coEvery { repository.insertAll(capture(inserted)) } just Runs
+        restorer(backup)
+        return inserted.captured
+    }
+
     @Test
     fun `a category spanning both libraries is inserted with its own content type`() = runTest {
-        coEvery { repository.getAll(any()) } returns emptyList()
-        val contentType = slot<Long>()
-        coEvery { repository.insert(any(), capture(contentType)) } returns 5L
-
-        restorer(listOf(BackupCategory(name = "Reading", contentType = CategoryContentType.UNIVERSAL)))
-
-        contentType.captured shouldBe CategoryContentType.UNIVERSAL
+        inserted(emptyList(), listOf(BackupCategory(name = "Reading", contentType = CategoryContentType.UNIVERSAL)))
+            .single().contentType shouldBe CategoryContentType.UNIVERSAL
     }
 
     @Test
     fun `a manga-only category is inserted as manga-only`() = runTest {
-        coEvery { repository.getAll(any()) } returns emptyList()
-        val contentType = slot<Long>()
-        coEvery { repository.insert(any(), capture(contentType)) } returns 5L
-
-        restorer(listOf(BackupCategory(name = "Manga stuff", contentType = CategoryContentType.MANGA)))
-
-        contentType.captured shouldBe CategoryContentType.MANGA
+        inserted(emptyList(), listOf(BackupCategory(name = "Manga stuff", contentType = CategoryContentType.MANGA)))
+            .single().contentType shouldBe CategoryContentType.MANGA
     }
 
     @Test
     fun `a category already on the device is reused rather than created again`() = runTest {
-        coEvery { repository.getAll(any()) } returns listOf(
-            category(id = 3, name = "Reading", contentType = CategoryContentType.UNIVERSAL),
-        )
-
-        restorer(listOf(BackupCategory(name = "Reading", contentType = CategoryContentType.UNIVERSAL)))
-
-        coVerify(exactly = 0) { repository.insert(any(), any()) }
+        inserted(
+            listOf(category(id = 3, name = "Reading", contentType = CategoryContentType.UNIVERSAL)),
+            listOf(BackupCategory(name = "Reading", contentType = CategoryContentType.UNIVERSAL)),
+        ) shouldBe emptyList()
     }
 
     @Test
     fun `a backup written before the content type existed matches a category now spanning both libraries`() =
         runTest {
-            coEvery { repository.getAll(any()) } returns listOf(
-                category(id = 3, name = "Reading", contentType = CategoryContentType.UNIVERSAL),
-            )
-
             // No content type on the wire, so it reads as manga-only and would miss a strict type match.
-            restorer(listOf(BackupCategory(name = "Reading")))
-
-            coVerify(exactly = 0) { repository.insert(any(), any()) }
+            inserted(
+                listOf(category(id = 3, name = "Reading", contentType = CategoryContentType.UNIVERSAL)),
+                listOf(BackupCategory(name = "Reading")),
+            ) shouldBe emptyList()
         }
 
     @Test
     fun `a category the device does not have is created`() = runTest {
-        coEvery { repository.getAll(any()) } returns listOf(
-            category(id = 3, name = "Reading", contentType = CategoryContentType.UNIVERSAL),
-        )
-        coEvery { repository.insert(any(), any()) } returns 6L
-
-        restorer(listOf(BackupCategory(name = "Finished", contentType = CategoryContentType.MANGA)))
-
-        coVerify(exactly = 1) { repository.insert(any(), CategoryContentType.MANGA) }
+        inserted(
+            listOf(category(id = 3, name = "Reading", contentType = CategoryContentType.UNIVERSAL)),
+            listOf(BackupCategory(name = "Finished", contentType = CategoryContentType.MANGA)),
+        ).map { it.name to it.contentType } shouldBe listOf("Finished" to CategoryContentType.MANGA)
     }
 
     private fun category(id: Long, name: String, contentType: Long) = Category(

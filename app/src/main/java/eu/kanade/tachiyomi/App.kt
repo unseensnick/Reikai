@@ -184,14 +184,14 @@ class App :
         if (!isMainProcess) return
         // RK <--
 
-        // Warm the expensive singletons off the critical path, as the old app module did. Posted, so
-        // it runs after onCreate returns.
+        // RK --> warm the expensive singletons off the critical path, as the old app module did. Posted,
+        // so it runs after onCreate returns. The database opens with the first repository that needs it.
         ContextCompat.getMainExecutor(this).execute {
             graph.networkHelper
             graph.sourceManager
-            graph.database
             graph.downloadManager
         }
+        // RK <--
 
         setupNotificationChannels()
 

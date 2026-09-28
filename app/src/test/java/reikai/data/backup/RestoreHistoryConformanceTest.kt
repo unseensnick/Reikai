@@ -2,13 +2,13 @@ package reikai.data.backup
 
 import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import eu.kanade.tachiyomi.data.backup.mangaRestorer
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
-import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -127,29 +127,17 @@ class RestoreHistoryConformanceTest {
             )
 
             override suspend fun restore(database: Database, copies: List<Copy>) {
-                val dbManga = Manga.create().copy(id = 1L, url = "u", source = 1L, title = "T", favorite = true)
-                val dbChapter = Chapter.create().copy(id = 1L, mangaId = 1L, url = "c", name = "C", read = true)
-                MangaRestorer(
-                    database = database,
-                    getCategories = mockk { coEvery { await() } returns emptyList() },
-                    getMangaByUrlAndSourceId = mockk { coEvery { await("u", 1L) } returns dbManga },
-                    getChaptersByMangaId = mockk { coEvery { await(1L) } returns listOf(dbChapter) },
-                    updateManga = mockk(relaxed = true),
-                    getTracks = mockk { coEvery { await(1L) } returns emptyList() },
-                    upsertTrack = mockk(relaxed = true),
-                    fetchInterval = mockk(relaxed = true),
-                    restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
-                    mangaMetadataRepository = mockk(relaxed = true),
-                    setCustomMangaInfo = mockk(relaxed = true),
-                ).restore(
-                    BackupManga(
-                        source = 1L,
-                        url = "u",
-                        title = "T",
-                        chapters = listOf(BackupChapter(url = "c", name = "C", read = true)),
-                        history = copies.map {
-                            BackupHistory(url = "c", lastRead = it.readAt, readDuration = it.duration)
-                        },
+                mangaRestorer(database).restore(
+                    listOf(
+                        BackupManga(
+                            source = 1L,
+                            url = "u",
+                            title = "T",
+                            chapters = listOf(BackupChapter(url = "c", name = "C", read = true)),
+                            history = copies.map {
+                                BackupHistory(url = "c", lastRead = it.readAt, readDuration = it.duration)
+                            },
+                        ),
                     ),
                     emptyList(),
                 )

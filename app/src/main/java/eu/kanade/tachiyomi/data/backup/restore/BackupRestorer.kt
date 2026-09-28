@@ -47,7 +47,6 @@ import reikai.domain.merge.ReconcileMergedChapters
 import reikai.novel.download.NovelDownloadCache
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.data.Database
 import tachiyomi.i18n.MR
 import java.io.File
 import java.text.SimpleDateFormat
@@ -64,7 +63,6 @@ class BackupRestorer(
     @Assisted private val notifier: BackupNotifier,
     @Assisted private val isSync: Boolean,
     private val context: Context,
-    private val database: Database,
     private val downloadCache: DownloadCache,
     private val categoriesRestorer: CategoriesRestorer,
     private val preferenceRestorer: PreferenceRestorer,
@@ -373,7 +371,7 @@ class BackupRestorer(
             uri,
             fieldNumber = 1,
             decode = { legacyCustomInfo.decodeManga(parser, it) },
-            restore = { mangaRestorer.restore(it, backupCategories) },
+            restore = { mangaRestorer.restore(listOf(it), backupCategories) },
             title = { it.title },
             sourceName = { sourceMapping[it.source] ?: it.source.toString() },
             isAdult = { adultContentChecker.adultIdsAmong(listOf(it.getMangaImpl())).isNotEmpty() },
@@ -483,18 +481,16 @@ class BackupRestorer(
         backupExtensionStores
             .chunked(RESTORE_CHUNK) // RK
             .forEach { chunk ->
-                database.transaction {
-                    chunk.forEach {
-                        ensureActive()
+                chunk.forEach {
+                    ensureActive()
 
-                        try {
-                            extensionStoreRestorer(it)
-                        } catch (e: Exception) {
-                            errors.add(Date() to "Error Adding Repo: ${it.name} : ${e.message}")
-                        }
-
-                        restoreProgress.incrementAndFetch()
+                    try {
+                        extensionStoreRestorer(it)
+                    } catch (e: Exception) {
+                        errors.add(Date() to "Error Adding Repo: ${it.name} : ${e.message}")
                     }
+
+                    restoreProgress.incrementAndFetch()
                 }
                 notifier.showRestoreProgress(
                     context.stringResource(MR.strings.extensionStores),

@@ -31,6 +31,9 @@ interface CategoryRepository {
     // create/restore paths that need it. Manga callers ignore the returned id.
     suspend fun insert(category: Category, contentType: Long = CategoryContentType.MANGA): Long
 
+    // RK: each row is inserted with its own content type
+    suspend fun insertAll(categories: List<Category>)
+
     suspend fun updateName(categoryId: Long, name: String)
 
     suspend fun updateFlags(categoryId: Long, flags: Long)

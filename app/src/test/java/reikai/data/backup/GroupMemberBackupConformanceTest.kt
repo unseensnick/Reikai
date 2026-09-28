@@ -28,6 +28,8 @@ import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.data.Novels
 import tachiyomi.data.StringListColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
+import tachiyomi.data.manga.MangaRepositoryImpl
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -106,7 +108,9 @@ class GroupMemberBackupConformanceTest {
         )
         return if (type == ContentType.MANGA) {
             val creator = MangaBackupCreator(
-                database = database,
+                mangaRepository = MangaRepositoryImpl(database),
+                chapterRepository = mockk(),
+                trackRepository = mockk(),
                 getCategories = mockk(),
                 getHistory = mockk(),
                 mangaMetadataRepository = mockk { coEvery { getMetadataById(any()) } returns null },
@@ -115,7 +119,7 @@ class GroupMemberBackupConformanceTest {
                     coEvery { await() } returns
                         listOf(Manga.create().copy(id = 1, url = "url-1", source = 1L, favorite = true))
                 },
-                mangaRepository = mockk(),
+                getManga = GetManga(MangaRepositoryImpl(database)),
                 mergeGroupRepository = groups,
             )
             options.backupEntries(creator).toList().map { it.url to it.favorite }
