@@ -516,6 +516,24 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertTrue("an inverted volume-down moved the page from $before to $after", after < before)
     }
 
+    /** A stored step below the slider's range still moves a tenth of the screen, in both renderers. */
+    @Test
+    fun aVolumeKeyStepBelowTheMinimumMovesATenthOfTheScreen() {
+        volumeKeysOn = true
+        open(chapter(FIRST, long("first")))
+        instrumentation.runOnMainSync { (viewport as ReaderViewport).seekTo(ChapterProgress.Percent(5_000)) }
+        awaitScrollStill()
+        instrumentation.runOnMainSync { viewport.applySettings(readerTestSettings.copy(volumeButtonsFraction = 0.05f)) }
+        settle()
+        val before = scrollOffset()
+        instrumentation.runOnMainSync {
+            (viewport as ReaderViewport).handleKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN))
+        }
+        awaitScrollStill()
+        val moved = (scrollOffset() - before) / viewportHeight()
+        assertTrue("a volume-down moved $moved of the screen", moved in 0.08f..0.12f)
+    }
+
     /** A chapter that fits on screen has no room to seek within, so the rail lands on its start rather
      *  than leaving the reader where they were. */
     @Test

@@ -1000,16 +1000,17 @@ class NovelTextViewport(
 
     /** The same contract [NovelWebViewport] answers, so a volume press behaves the same in either. */
     override fun handleKeyEvent(event: KeyEvent): Boolean {
-        val isVolumeKey = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
-            event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
-        if (!isVolumeKey || !volumeKeysActive()) return false
+        if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !volumeKeysActive()) return false
         val current = settings ?: return false
         if (event.action == KeyEvent.ACTION_DOWN) {
             readerMoved()
-            val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != current.volumeButtonsInverted
-            val fraction = current.volumeButtonsFraction.coerceIn(0.1f, 1f)
-            val step = (recycler.height * fraction).roundToInt()
-            recycler.smoothScrollBy(0, if (forward) step else -step)
+            val fraction = NovelVolumeKeys.scrollFraction(
+                event.keyCode,
+                current.volumeButtonsInverted,
+                current.volumeButtonsFraction,
+            )
+            val step = (recycler.height * abs(fraction)).roundToInt()
+            recycler.smoothScrollBy(0, if (fraction > 0) step else -step)
         }
         // Consume the key-up too, so the system volume UI never shows during a press.
         return true

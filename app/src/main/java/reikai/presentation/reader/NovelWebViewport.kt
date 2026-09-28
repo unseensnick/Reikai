@@ -272,14 +272,16 @@ class NovelWebViewport(
     }
 
     override fun handleKeyEvent(event: KeyEvent): Boolean {
-        val isVolumeKey = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
-            event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
-        if (!isVolumeKey || !volumeKeysActive()) return false
+        if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !volumeKeysActive()) return false
         val current = documentSettings ?: return false
         if (event.action == KeyEvent.ACTION_DOWN) {
-            val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != current.volumeButtonsInverted
-            val fraction = current.volumeButtonsFraction.coerceIn(0.1f, 1f)
-            scrollByFraction(if (forward) fraction else -fraction)
+            scrollByFraction(
+                NovelVolumeKeys.scrollFraction(
+                    event.keyCode,
+                    current.volumeButtonsInverted,
+                    current.volumeButtonsFraction,
+                ),
+            )
         }
         // Consume the key-up too, so the system volume UI never shows during a press.
         return true
