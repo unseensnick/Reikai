@@ -23,12 +23,12 @@ import reikai.domain.category.byNamePreferring
 import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
-import tachiyomi.data.Database
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
 
@@ -40,7 +40,7 @@ class NovelRestorer(
     private val novelTrackRepository: NovelTrackRepository,
     private val restoreMergeGroups: RestoreMergeGroups,
     private val setCustomNovelInfo: SetCustomNovelInfo,
-    private val database: Database,
+    private val novelHistoryRepository: NovelHistoryRepository,
 ) {
 
     /** Create any novel categories the backup has that the device doesn't, matched by name. */
@@ -96,7 +96,7 @@ class NovelRestorer(
         // An old backup carries the Last read stamp without history; after the history above, so a
         // backup that has history keeps it as is.
         backupNovel.lastReadAt?.takeIf { it > 0 }?.let { lastRead ->
-            database.novel_historyQueries.seedLastRead(readAt = lastRead, novelId = novelId)
+            novelHistoryRepository.seedLastRead(novelId, lastRead)
         }
         // An entry without custom info leaves the device's own alone, as manga does.
         backupNovel.customInfo?.let { restoreCustomInfo(novelId, it) }
@@ -195,7 +195,7 @@ class NovelRestorer(
     ) {
         backupHistory.forEach { history ->
             val chapter = novelChapterRepository.getByUrlAndNovelId(history.url, novelId) ?: return@forEach
-            database.novel_historyQueries.restoreUpsert(chapter.id, history.lastRead, history.readDuration)
+            novelHistoryRepository.restoreHistory(chapter.id, history.lastRead, history.readDuration)
         }
     }
 

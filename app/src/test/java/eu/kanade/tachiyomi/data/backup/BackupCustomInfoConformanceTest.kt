@@ -182,7 +182,7 @@ class BackupCustomInfoConformanceTest {
                     novelTrackRepository = mockk(),
                     mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                     customNovelInfoRepository = novelCustomInfo,
-                    database = mockk(),
+                    novelHistoryRepository = mockk(),
                     novelSourceManager = mockk { coEvery { nameOf("src") } returns "Novel source" },
                 ),
                 extensionBackupCreator = mockk(relaxed = true),
@@ -382,7 +382,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             novelTrackRepository = mockk(relaxed = true),
             restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
             setCustomNovelInfo = SetCustomNovelInfo(repository),
-            database = mockk(relaxed = true),
+            novelHistoryRepository = mockk(relaxed = true),
         )
         backup.backupNovels.forEach {
             restorer.restore(

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.merge.MergeGroupRepositoryImpl
+import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.library.ContentType
 import tachiyomi.data.Chapters
@@ -127,7 +128,7 @@ class GroupMemberBackupConformanceTest {
                 novelTrackRepository = mockk(),
                 mergeGroupRepository = groups,
                 customNovelInfoRepository = mockk(),
-                database = database,
+                novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                 novelSourceManager = mockk(),
             )
             options.backupEntries(creator).toList().map { it.url to it.favorite }

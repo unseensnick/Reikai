@@ -56,17 +56,9 @@ SET
     time_read = time_read + :timeRead
 WHERE chapter_id = :chapterId;
 
--- Backup read. Every history row for one novel, joined to its chapter's url (the stable key the
--- backup serializes, since chapter ids change on restore). Soft-deleted rows (last_read = 0) included,
--- as manga's read includes them: they keep the time_read the Stats total counts.
-getByNovelId:
-SELECT C.url AS chapterUrl, H.last_read, H.time_read
-FROM novels N
-INNER JOIN novel_chapters C ON N._id = C.novel_id
-INNER JOIN novel_history H ON C._id = H.chapter_id
-WHERE N._id = :novelId;
-
--- Every history row of one novel's chapters, twin of history.sq getHistoryByMangaId (the migrate carry).
+-- Every history row of one novel's chapters, twin of history.sq getHistoryByMangaId (the migrate carry
+-- and the backup, which keys each row by its chapter's url). Soft-deleted rows (last_read = 0) are
+-- included, as manga's read includes them: they keep the time_read the Stats total counts.
 getHistoryByNovelId:
 SELECT H.chapter_id, H.last_read, H.time_read
 FROM novel_chapters C

@@ -9,6 +9,8 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.domain.novel.model.Novel
 import tachiyomi.data.Chapters
 import tachiyomi.data.Custom_manga_info
@@ -78,12 +80,12 @@ class NovelHistoryBackupTest {
 
     private fun creator() = NovelBackupCreator(
         novelRepository = mockk(),
-        novelChapterRepository = mockk(),
+        novelChapterRepository = NovelChapterRepositoryImpl(database),
         categoryRepository = mockk(),
         novelTrackRepository = mockk(),
         mergeGroupRepository = mockk(),
         customNovelInfoRepository = mockk(),
-        database = database,
+        novelHistoryRepository = NovelHistoryRepositoryImpl(database),
         novelSourceManager = mockk(),
     )
 }

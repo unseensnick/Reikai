@@ -30,6 +30,15 @@ interface NovelHistoryRepository {
     /** When [novelId] was first read, in epoch millis, or null when none of its chapters has been. */
     suspend fun getEarliestReadAt(novelId: Long): Long?
 
+    /** Backup restore of one chapter's history: the later read time and the longer duration win. */
+    suspend fun restoreHistory(chapterId: Long, readAt: Long, readDuration: Long)
+
+    /**
+     * Backup restore of an old backup's novel-level Last read stamp: a novel with no history row gets
+     * one on its latest-read chapter, and one with any history keeps it untouched.
+     */
+    suspend fun seedLastRead(novelId: Long, readAt: Long)
+
     /** Total novel reading time (ms) across all chapters, for the Stats screen. */
     suspend fun getTotalReadDuration(): Long
 }

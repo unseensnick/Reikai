@@ -34,7 +34,7 @@ class NovelBackupRoundTripTest {
         novelTrackRepository = mockk(relaxed = true),
         restoreMergeGroups = RestoreMergeGroups(repository, PassThroughTransactions),
         setCustomNovelInfo = mockk(relaxed = true),
-        database = mockk(relaxed = true),
+        novelHistoryRepository = mockk(relaxed = true),
     )
 
     @Test
@@ -97,7 +97,7 @@ class NovelBackupRoundTripTest {
             novelTrackRepository = mockk(relaxed = true),
             mergeGroupRepository = backupMergeRepo,
             customNovelInfoRepository = mockk(relaxed = true),
-            database = mockk(relaxed = true),
+            novelHistoryRepository = mockk(relaxed = true),
             novelSourceManager = mockk(),
         )
         // Library + merges only; skip chapters/categories/tracking/history so no DB is touched.

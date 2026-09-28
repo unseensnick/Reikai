@@ -1,19 +1,20 @@
 package mihon.core.migration.migrations
 
-import app.cash.sqldelight.async.coroutines.awaitAsList
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoSet
 import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
+import reikai.domain.category.CategoryContentType
+import reikai.domain.db.Transactions
 import reikai.domain.library.novelCategoryFlagsToMangaLayout
 import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.data.Database
+import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
  * Second half of the category schema unification (companion to migration 33.sqm). The .sqm moved novel
@@ -28,7 +29,8 @@ import tachiyomi.data.Database
 @Inject
 @ContributesIntoSet(AppScope::class)
 class MigrateNovelCategoriesToSharedTableMigration(
-    private val database: Database,
+    private val categoryRepository: CategoryRepository,
+    private val transactions: Transactions,
     private val novelPreferences: NovelPreferences,
     private val preferenceStore: PreferenceStore,
 ) : Migration {
@@ -45,15 +47,12 @@ class MigrateNovelCategoriesToSharedTableMigration(
 
         runCatching {
             // 1. Translate the moved novel categories' sort flags from the novel layout to the manga one.
-            val novelCategories = database.categoriesQueries
-                .getCategoriesByContentType(NOVEL_CONTENT_TYPE) { id, flags -> id to flags }
-                .awaitAsList()
-            database.transaction {
-                novelCategories.forEach { (id, flags) ->
-                    val fixed = novelCategoryFlagsToMangaLayout(flags)
-                    if (fixed != flags) {
-                        database.categoriesQueries.updateFlags(flags = fixed, categoryId = id)
-                    }
+            val novelCategories = categoryRepository.getUnfiltered()
+                .filter { it.contentType == CategoryContentType.NOVEL }
+            transactions.run {
+                novelCategories.forEach { category ->
+                    val fixed = novelCategoryFlagsToMangaLayout(category.flags)
+                    if (fixed != category.flags) categoryRepository.updateFlags(category.id, fixed)
                 }
             }
 
@@ -93,9 +92,6 @@ class MigrateNovelCategoriesToSharedTableMigration(
     private fun isPreMoveId(id: Long) = id in 1 until NOVEL_CATEGORY_ID_MIGRATION_OFFSET
 
     companion object {
-        // content_type 2 = novel (see categories.sq).
-        private const val NOVEL_CONTENT_TYPE = 2L
-
         // Keep in sync with the offset literal in 33.sqm.
         const val NOVEL_CATEGORY_ID_MIGRATION_OFFSET = 100_000_000L
     }

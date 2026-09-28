@@ -82,6 +82,14 @@ class NovelHistoryRepositoryImpl(
             NovelHistory(chapterId, readAt, readDuration)
         }.awaitAsList()
 
+    override suspend fun restoreHistory(chapterId: Long, readAt: Long, readDuration: Long) {
+        database.novel_historyQueries.restoreUpsert(chapterId, readAt, readDuration)
+    }
+
+    override suspend fun seedLastRead(novelId: Long, readAt: Long) {
+        database.novel_historyQueries.seedLastRead(readAt = readAt, novelId = novelId)
+    }
+
     override suspend fun getTotalReadDuration(): Long =
         database.novel_historyQueries.getTotalReadDuration().awaitAsOne()
 }

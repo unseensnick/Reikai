@@ -132,9 +132,3 @@ WHERE NC.novel_id = :novelId;
 
 selectLastInsertedRowId:
 SELECT last_insert_rowid();
-
--- RK: used once by the novel-categories fold-in migration to fix the moved rows' sort flags.
-getCategoriesByContentType:
-SELECT _id AS id, flags
-FROM categories
-WHERE content_type = :contentType;

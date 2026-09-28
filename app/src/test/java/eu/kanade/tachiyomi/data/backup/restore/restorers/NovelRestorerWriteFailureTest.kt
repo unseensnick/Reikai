@@ -91,7 +91,7 @@ class NovelRestorerWriteFailureTest {
         novelTrackRepository = repos.tracks,
         restoreMergeGroups = mockk(relaxed = true),
         setCustomNovelInfo = mockk(relaxed = true),
-        database = mockk(relaxed = true),
+        novelHistoryRepository = mockk(relaxed = true),
     )
 
     private val backup = BackupNovel(

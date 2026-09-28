@@ -369,6 +369,6 @@ class NovelMergeRestorer : MergeRestorer {
         novelTrackRepository = tracks,
         restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
         setCustomNovelInfo = mockk(relaxed = true),
-        database = mockk(relaxed = true),
+        novelHistoryRepository = mockk(relaxed = true),
     )
 }

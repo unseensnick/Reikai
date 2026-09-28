@@ -13,6 +13,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.mapLibraryNovel
 import tachiyomi.data.Chapters
@@ -99,6 +100,6 @@ class NovelLegacyLastReadRestoreTest {
         novelTrackRepository = mockk(),
         restoreMergeGroups = mockk(),
         setCustomNovelInfo = mockk(),
-        database = database,
+        novelHistoryRepository = NovelHistoryRepositoryImpl(database),
     )
 }

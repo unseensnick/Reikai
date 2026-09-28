@@ -4,7 +4,6 @@
 // (novels are first-class library content, no separate UI toggle).
 package eu.kanade.tachiyomi.data.backup.create.creators
 
-import app.cash.sqldelight.async.coroutines.awaitAsList
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfo
@@ -24,6 +23,7 @@ import reikai.domain.category.CategoryContentType
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.model.Novel
@@ -31,7 +31,6 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.repository.CustomNovelInfoRepository
 import reikai.novel.source.NovelSourceManager
-import tachiyomi.data.Database
 import tachiyomi.domain.category.repository.CategoryRepository
 
 @Inject
@@ -42,7 +41,7 @@ class NovelBackupCreator(
     private val novelTrackRepository: NovelTrackRepository,
     private val mergeGroupRepository: MergeGroupRepository,
     private val customNovelInfoRepository: CustomNovelInfoRepository,
-    private val database: Database,
+    private val novelHistoryRepository: NovelHistoryRepository,
     private val novelSourceManager: NovelSourceManager,
 ) : BackupEntryParts<Novel, BackupNovel> {
 
@@ -91,11 +90,12 @@ class NovelBackupCreator(
     }
 
     override suspend fun history(entry: Novel, backup: BackupNovel) {
-        val history = database.novel_historyQueries
-            .getByNovelId(entry.id) { url, lastRead, timeRead ->
-                BackupNovelHistory(url = url, lastRead = lastRead ?: 0L, readDuration = timeRead)
+        val urls = novelChapterRepository.getByNovelId(entry.id).associate { it.id to it.url }
+        val history = novelHistoryRepository.getHistoryByNovelId(entry.id).mapNotNull { row ->
+            urls[row.chapterId]?.let {
+                BackupNovelHistory(url = it, lastRead = row.readAt ?: 0L, readDuration = row.readDuration)
             }
-            .awaitAsList()
+        }
         if (history.isNotEmpty()) {
             backup.history = history
         }
