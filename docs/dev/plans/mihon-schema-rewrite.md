@@ -55,8 +55,10 @@ manga restore repository and `NovelRestorer` both call rather than restating.
 
 ## Status
 
-In progress on `feat/0.4.0`. The preparation steps and the fixes ported ahead of the schema chain land
-first; the migrations follow.
+In progress on `feat/0.4.0`. The preparation has landed (`81e4d65d4`, `cf8245ca9`, `80dd087cf`,
+`cb089a37d`, `800c694ea`), with `532575e29` as the synced base and every later fix in the range ported
+ahead of the chain (`02cb0ff90` to `9c8ef9a09`). The chain itself, from the scaffold drop through the
+rename and dedupe migrations, is next.
 
 ## Decisions & tradeoffs
 
