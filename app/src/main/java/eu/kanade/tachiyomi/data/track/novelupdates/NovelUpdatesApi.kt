@@ -8,10 +8,13 @@ import eu.kanade.tachiyomi.util.asJsoup
 import kotlinx.serialization.json.Json
 import okhttp3.FormBody
 import okhttp3.Headers
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import org.jsoup.nodes.Document
 import tachiyomi.core.common.util.lang.withIOContext
 import uy.kohesive.injekt.injectLazy
+import java.net.URLEncoder
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -35,10 +38,7 @@ class NovelUpdatesApi(client: OkHttpClient) {
 
     private val headers = Headers.headersOf("Referer", "$BASE_URL/")
 
-    suspend fun search(query: String): List<NovelUpdatesSeries> {
-        val url = "$BASE_URL/series-finder/?sf=1&sh=${query.replace(" ", "+")}&sort=sdate&order=desc"
-        return get(url, ::parseSearch)
-    }
+    suspend fun search(query: String): List<NovelUpdatesSeries> = get(searchUrl(query).toString(), ::parseSearch)
 
     suspend fun findNovelId(seriesUrl: String): String? = get(seriesUrl, ::parseNovelId)
 
@@ -122,5 +122,14 @@ class NovelUpdatesApi(client: OkHttpClient) {
         private const val AJAX_URL = "$BASE_URL/wp-admin/admin-ajax.php"
 
         fun seriesUrl(slug: String): String = "$BASE_URL/series/$slug/"
+
+        // Form encoding keeps a space as '+', the form the site has always been sent, where
+        // addQueryParameter would send %20.
+        internal fun searchUrl(query: String): HttpUrl = "$BASE_URL/series-finder/".toHttpUrl().newBuilder()
+            .addQueryParameter("sf", "1")
+            .addEncodedQueryParameter("sh", URLEncoder.encode(query, Charsets.UTF_8))
+            .addQueryParameter("sort", "sdate")
+            .addQueryParameter("order", "desc")
+            .build()
     }
 }
