@@ -42,7 +42,8 @@ object SettingsMangaReaderScreen : SearchableSettings {
         val readerPref = remember { context.appGraph.readerPreferences }
 
         // RK: the two renderers read different width controls, so the group offers whichever one is
-        // live. Side padding is inert under the high quality renderer and Min width under the old one.
+        // live. Side padding is inert under the high quality renderer and Min width under the old one, and
+        // so is the volume-key scroll amount, since that renderer's long strip turns whole pages.
         val highQualityRenderer by remember { context.appGraph.basePreferences.highQualityRenderer }
             .collectAsState()
 
@@ -81,7 +82,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
             getReadingGroup(readerPreferences = readerPref),
             getPagedGroup(readerPreferences = readerPref),
             getWebtoonGroup(readerPreferences = readerPref, highQualityRenderer = highQualityRenderer), // RK
-            getNavigationGroup(readerPreferences = readerPref),
+            getNavigationGroup(readerPreferences = readerPref, highQualityRenderer = highQualityRenderer), // RK
             getActionsGroup(readerPreferences = readerPref),
         )
     }
@@ -448,7 +449,10 @@ object SettingsMangaReaderScreen : SearchableSettings {
     }
 
     @Composable
-    private fun getNavigationGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+    private fun getNavigationGroup(
+        readerPreferences: ReaderPreferences,
+        highQualityRenderer: Boolean, // RK
+    ): Preference.PreferenceGroup {
         val readWithVolumeKeysPref = readerPreferences.readWithVolumeKeys
         val readWithVolumeKeys by readWithVolumeKeysPref.collectAsState()
         // RK: volume-key scroll amount (long-strip viewers), novel-reader parity
@@ -480,7 +484,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_volume_keys_scroll_amount),
                     subtitle = stringResource(MR.strings.pref_volume_keys_scroll_amount_long_strip),
                     valueString = "$volumeScrollPercent%",
-                    enabled = readWithVolumeKeys,
+                    enabled = readWithVolumeKeys && !highQualityRenderer,
                     onValueChanged = { volumeScrollAmountPref.set(it / 100f) },
                 ),
                 // RK -->
