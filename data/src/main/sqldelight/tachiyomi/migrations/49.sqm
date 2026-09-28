@@ -55,7 +55,6 @@ SELECT
     mangas.favorite_at IS NOT NULL AS favorite,
     mangas.cover_last_modified,
     chapters.chapter_number AS chapterNumber,
--- RK --> the recents read lane acts on the chapter it names, so the row carries that chapter's own
 -- state (read, bookmark, progress) and the four values its download state is looked up by. Upstream
 -- selects none of these: its History screen only ever showed a number and a time.
     chapters.name AS chapterName,
@@ -65,7 +64,6 @@ SELECT
     chapters.bookmark,
     chapters.last_page_read AS lastPageRead,
     chapters.page_count AS pageCount,
--- RK <--
     history.last_read AS readAt,
     history.time_read AS readDuration,
     max_last_read.last_read AS maxReadAt,
@@ -132,7 +130,7 @@ SELECT
     chapters.read,
     chapters.bookmark,
     chapters.last_page_read,
-    chapters.page_count, -- RK: the progress line says how far through the chapter reading stopped
+    chapters.page_count,
     mangas.source,
     mangas.favorite_at IS NOT NULL AS favorite,
     mangas.thumbnail_url AS thumbnailUrl,

@@ -16,6 +16,7 @@ import reikai.domain.backup.RestoredChapterState
 import reikai.domain.backup.backupChapterReadAhead
 import reikai.domain.backup.backupDetailsWin
 import reikai.domain.backup.foldBackup
+import reikai.domain.backup.foldChapterCopies
 import reikai.domain.backup.foldHistoryCopies
 import reikai.domain.backup.restoredFavoriteAt
 import tachiyomi.data.Database
@@ -160,6 +161,14 @@ class RestoreRepositoryImpl(
             .associateBy { it.url }
 
         val (existingChapters, newChapters) = restoredChapters
+            // RK: the copies fold through the kernel the novel restore calls too
+            .foldChapterCopies(
+                url = { it.url },
+                state = { RestoredChapterState(it.read, it.bookmark, it.lastPageRead) },
+                withState = { kept, state ->
+                    kept.copy(read = state.read, bookmark = state.bookmark, lastPageRead = state.progress)
+                },
+            )
             .mapNotNull {
                 val chapter = it.copy(mangaId = manga.id)
 

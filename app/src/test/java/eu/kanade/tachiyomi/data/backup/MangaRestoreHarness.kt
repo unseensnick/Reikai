@@ -113,7 +113,9 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
     ).awaitAsOne()
 
     /** Stores [chapter] on the device and returns it with its id. */
-    suspend fun insert(chapter: Chapter): Chapter = chapters.addAll(listOf(chapter)).single()
+    suspend fun insert(
+        chapter: Chapter,
+    ): Chapter = chapters.updateFromRemote(emptyList(), listOf(chapter), emptyList()).single()
 
     override fun close() = driver.close()
 

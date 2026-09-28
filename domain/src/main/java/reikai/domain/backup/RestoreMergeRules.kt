@@ -32,6 +32,18 @@ fun RestoredChapterState.foldBackup(backup: RestoredChapterState) = RestoredChap
 )
 
 /**
+ * A backup can list one chapter more than once; its copies fold into one by [foldBackup] before meeting
+ * the device's row, so the restore writes the chapter once (mihon 6ee529c5a).
+ */
+fun <T> List<T>.foldChapterCopies(
+    url: (T) -> String,
+    state: (T) -> RestoredChapterState,
+    withState: (T, RestoredChapterState) -> T,
+): List<T> = groupBy(url).map { (_, copies) ->
+    copies.reduce { kept, other -> withState(kept, state(kept).foldBackup(state(other))) }
+}
+
+/**
  * What a backup track changes on the device's track on the same tracker: only a further chapter read.
  * The device's row, remote link included, is the one synced with the tracker, and taking the backup's
  * link would pair one remote entry's id with another's url and title (mihon 4b48a84ec). Null when the

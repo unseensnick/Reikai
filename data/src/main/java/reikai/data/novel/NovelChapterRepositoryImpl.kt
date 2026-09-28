@@ -117,7 +117,16 @@ class NovelChapterRepositoryImpl(
         updated: List<NovelChapter>,
     ): List<NovelChapter> = database.transactionWithResult {
         removedIds.forEach { database.novel_chaptersQueries.delete(it) }
-        val stored = added.map { chapter ->
+        // Read inside the transaction, as the manga sync does, so a sync racing another never adds a
+        // chapter the novel already has.
+        val existing = added.map { it.novelId }
+            .distinct()
+            .flatMap { novelId ->
+                database.novel_chaptersQueries.getByNovelId(novelId, ::mapNovelChapter).awaitAsList()
+                    .map { novelId to it.url }
+            }
+            .toMutableSet()
+        val stored = added.filter { existing.add(it.novelId to it.url) }.map { chapter ->
             database.novel_chaptersQueries.insert(
                 novelId = chapter.novelId,
                 url = chapter.url,

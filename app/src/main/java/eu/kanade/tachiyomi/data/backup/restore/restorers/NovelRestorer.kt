@@ -20,6 +20,7 @@ import reikai.domain.backup.RestoredChapterState
 import reikai.domain.backup.backupChapterReadAhead
 import reikai.domain.backup.backupDetailsWin
 import reikai.domain.backup.foldBackup
+import reikai.domain.backup.foldChapterCopies
 import reikai.domain.backup.foldHistoryCopies
 import reikai.domain.backup.restoredFavoriteAt
 import reikai.domain.category.CategoryContentType
@@ -123,7 +124,18 @@ class NovelRestorer(
         backupChapters: List<BackupNovelChapter>,
     ) {
         val dbChaptersByUrl = novelChapterRepository.getByNovelId(novelId).associateBy { it.url }
-        backupChapters.forEach { backupChapter ->
+        backupChapters.foldChapterCopies(
+            url = { it.url },
+            state = { RestoredChapterState(it.read, it.bookmark, it.lastTextProgress) },
+            // A decoded backup chapter is this restore's own, so the kept copy takes the fold in place.
+            withState = { kept, state ->
+                kept.also {
+                    it.read = state.read
+                    it.bookmark = state.bookmark
+                    it.lastTextProgress = state.progress
+                }
+            },
+        ).forEach { backupChapter ->
             val incoming = backupChapter.toChapterImpl(novelId)
             val dbChapter = dbChaptersByUrl[backupChapter.url]
             if (dbChapter == null) {

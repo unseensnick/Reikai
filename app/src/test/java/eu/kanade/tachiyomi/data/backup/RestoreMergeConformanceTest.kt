@@ -68,6 +68,17 @@ class RestoreMergeConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("restorers")
+    fun `a backup holding two copies of one chapter restores it once, with both copies' state`(
+        restorer: MergeRestorer,
+    ) = runTest {
+        restorer.chapterCopies(
+            ChapterState(read = true, progress = 5),
+            ChapterState(bookmark = true, progress = 9),
+        ) shouldBe listOf(ChapterState(read = true, bookmark = true, progress = 9))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("restorers")
     fun `a backup behind the device does not rewind a chapter's progress`(restorer: MergeRestorer) = runTest {
         restorer.chapter(device = ChapterState(progress = 30), backup = ChapterState(progress = 10)) shouldBe
             ChapterState(progress = 30)
@@ -151,6 +162,9 @@ interface MergeRestorer {
     /** Restores one chapter over the device's copy, returning the device's state afterwards. */
     suspend fun chapter(device: ChapterState, backup: ChapterState): ChapterState
 
+    /** Restores a backup listing [copies] of one chapter the device lacks, returning what was stored. */
+    suspend fun chapterCopies(vararg copies: ChapterState): List<ChapterState>
+
     /** Restores one track over the device's track on the same tracker, returning the device's row afterwards. */
     suspend fun track(device: TrackState, backup: TrackState): TrackState?
 }
@@ -178,6 +192,19 @@ class MangaMergeRestorer : MergeRestorer {
             val id = harness.insert(dbManga)
             harness.restorer().restore(listOf(backup), emptyList())
             harness.mangas.getMangaById(id)
+        }
+
+    override suspend fun chapterCopies(vararg copies: ChapterState): List<ChapterState> =
+        MangaRestoreHarness.create().use { harness ->
+            val id = harness.insert(deviceManga)
+            val backupChapters = copies.map {
+                BackupChapter(url = "c", name = "C", read = it.read, bookmark = it.bookmark, lastPageRead = it.progress)
+            }
+            harness.restorer().restore(
+                listOf(BackupManga(source = 1L, url = "u", chapters = backupChapters)),
+                emptyList(),
+            )
+            harness.chapters.getChapterByMangaId(id).map { ChapterState(it.read, it.bookmark, it.lastPageRead) }
         }
 
     override suspend fun chapter(device: ChapterState, backup: ChapterState): ChapterState =
@@ -313,6 +340,30 @@ class NovelMergeRestorer : MergeRestorer {
         restorer(novels(deviceNovel), chapters = chapters)
             .restore(BackupNovel(source = "s", url = "u", chapters = listOf(backupChapter)), emptyList())
         return result
+    }
+
+    override suspend fun chapterCopies(vararg copies: ChapterState): List<ChapterState> {
+        val stored = mutableListOf<ChapterState>()
+        val chapters = mockk<NovelChapterRepository>(relaxed = true) {
+            coEvery { getByNovelId(RestoreMergeConformanceTest.DEVICE_ID) } returns emptyList()
+            coEvery { insert(any()) } coAnswers {
+                val chapter = firstArg<NovelChapter>()
+                stored += ChapterState(chapter.read, chapter.bookmark, chapter.lastTextProgress)
+                stored.size.toLong()
+            }
+        }
+        val backupChapters = copies.map {
+            BackupNovelChapter(
+                url = "c",
+                name = "C",
+                read = it.read,
+                bookmark = it.bookmark,
+                lastTextProgress = it.progress,
+            )
+        }
+        restorer(novels(deviceNovel), chapters = chapters)
+            .restore(BackupNovel(source = "s", url = "u", chapters = backupChapters), emptyList())
+        return stored
     }
 
     override suspend fun track(device: TrackState, backup: TrackState): TrackState? {

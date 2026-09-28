@@ -126,8 +126,7 @@ class EHentaiUpdateHelper(
             updateManga.awaitAll(mangaUpdates)
             // Insert new chapters for accepted manga
             chapterRepository.updateAll(chapterUpdates)
-            chapterRepository.updateAllRemote(chapterRenames)
-            chapterRepository.addAll(newChapters)
+            chapterRepository.updateFromRemote(removedIds = emptyList(), added = newChapters, updated = chapterRenames)
 
             val (newHistory, deleteHistory) = getHistory(
                 getChaptersByMangaId.await(accepted.manga.id),
