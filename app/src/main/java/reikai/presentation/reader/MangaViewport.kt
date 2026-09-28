@@ -5,10 +5,15 @@ import android.view.MotionEvent
 import android.view.View
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
+import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
+import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
+import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
+import kotlinx.coroutines.flow.Flow
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.pageIndex
+import tachiyomi.core.common.preference.Preference
 import kotlin.math.min
 
 /**
@@ -28,6 +33,9 @@ class MangaViewport(
     private val visibleChapter: () -> ReaderChapter?,
     /** The chapter that has just become active, which is what a step or a pick lands inside. */
     private val activeChapter: () -> ReaderChapter?,
+    private val interval: Preference<Int>,
+    private val speed: Preference<Float>,
+    private val shownPage: Flow<ShownPage>,
 ) : ReaderViewport {
 
     override val view: View
@@ -57,6 +65,26 @@ class MangaViewport(
     // The two viewer families spell right-to-left differently, and this is the one place that knows.
     override val isRtl: Boolean
         get() = viewer is R2LPagerViewer || (viewer as? WebGpuViewer)?.isReversed == true
+
+    // A strip scrolls through its own viewer, the only thing that knows which pages are coming into
+    // view; everything else turns pages on the interval. Lazy, so a stand-in viewer never has to answer.
+    override val autoScroll: ViewportAutoScroll by lazy {
+        when (viewer) {
+            is WebtoonViewer -> continuous(viewer::autoScrollBy)
+            is WebGpuViewerContinuous -> continuous(viewer::autoScrollBy)
+            is PagerViewer -> ViewportAutoScroll.Stepped(interval, shownPage, viewer::moveToNext)
+            // WebGPU's next verb walks a right-to-left book backwards, as its PAGE_DOWN key does.
+            is WebGpuViewer -> ViewportAutoScroll.Stepped(interval, shownPage) {
+                if (viewer.isReversed) viewer.moveToPrevious() else viewer.moveToNext()
+            }
+            else -> error("No auto-scroll for ${viewer::class}")
+        }
+    }
+
+    private fun continuous(scrollBy: (Int) -> Boolean): ViewportAutoScroll {
+        val scroller = FrameScroller(viewer.getView().resources.displayMetrics.density, scrollBy)
+        return ViewportAutoScroll.Continuous(speed, scroller::run)
+    }
 
     override fun destroy() = viewer.destroy()
 

@@ -60,6 +60,7 @@ import reikai.presentation.reader.text.ReadAloudMark
 import reikai.presentation.reader.text.RubySpan
 import reikai.presentation.reader.text.TiledPicture
 import reikai.presentation.reader.text.pngOf
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -151,6 +152,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 onChapterFits = { id, fit -> fits[id] = fit },
                 onChapterEndSeen = { endsSeen += it },
                 onReaderScrolled = { scrolls += it },
+                autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
             )
             Renderer.WEB -> NovelWebViewport(
                 context = activity,
@@ -171,6 +173,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 onChapterFits = { id, fit -> fits[id] = fit },
                 onChapterEndSeen = { endsSeen += it },
                 onReaderScrolled = { scrolls += it },
+                autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
             )
         }
 

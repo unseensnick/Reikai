@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.recents.EmittingPreferenceStore
 
 /** The novel session's half of the viewport lifecycle, over a real model on [NovelReaderViewModelHarness]. */
 class NovelReaderProviderTest {
@@ -110,6 +111,8 @@ private class FakeTextViewport : ReaderViewport, TextViewport {
 
     override fun onChapterStepped() = Unit
 
+    override val autoScroll = ViewportAutoScroll.Continuous(EmittingPreferenceStore().getFloat("speed", 0f)) {}
+
     override fun destroy() = Unit
 
     override fun handleKeyEvent(event: KeyEvent) = false
@@ -119,8 +122,6 @@ private class FakeTextViewport : ReaderViewport, TextViewport {
     override suspend fun load(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) = Unit
 
     override fun applySettings(settings: NovelReaderSettings) = Unit
-
-    override fun setAutoScroll(running: Boolean, pixelsPerFrame: Float) = Unit
 
     override val window: ChapterWindow get() = error("no window in a unit test")
 

@@ -46,6 +46,9 @@ interface ReaderViewport {
      */
     fun onChapterOpened() = Unit
 
+    /** How this viewport moves while auto-scroll runs. */
+    val autoScroll: ViewportAutoScroll
+
     fun destroy()
 
     fun handleKeyEvent(event: KeyEvent): Boolean

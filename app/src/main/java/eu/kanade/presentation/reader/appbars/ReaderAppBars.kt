@@ -102,7 +102,7 @@ fun ReaderAppBars(
     onEditBottomButtons: () -> Unit,
     onReloadChapter: (fromSource: Boolean) -> Unit,
     autoScrollActive: Boolean,
-    onClickAutoScroll: (() -> Unit)?,
+    onClickAutoScroll: () -> Unit,
     bionicActive: Boolean,
     onClickBionic: (() -> Unit)?,
     // Null where the session cannot read aloud, which keeps both the bar button and the controls away.

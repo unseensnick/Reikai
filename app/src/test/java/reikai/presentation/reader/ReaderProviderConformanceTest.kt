@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.reader.ChapterTitleFormat
@@ -73,12 +74,45 @@ class ReaderProviderConformanceTest {
             provider.chrome.first().chapterTitle shouldBe "Chapter 3"
         }
 
+    /** A reader that opens scrolling on its own is a choice made in Settings, never the default. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sessions")
+    fun `auto-scroll does not start on open by default`(
+        @Suppress("UNUSED_PARAMETER") name: String,
+        provider: ReaderProvider,
+    ) {
+        provider.autoScrollOnOpen.get() shouldBe false
+    }
+
     companion object {
         @JvmStatic
         fun probes() = listOf(MangaOrientationProbe(), NovelOrientationProbe())
 
         @JvmStatic
         fun titleProbes() = listOf(MangaChapterTitleProbe(), NovelChapterTitleProbe())
+
+        @JvmStatic
+        fun sessions() = listOf(
+            Arguments.of(
+                "manga",
+                MangaReaderProvider(
+                    viewModel = mockk(relaxed = true),
+                    readerPreferences = ReaderPreferences(InMemoryPreferenceStore()),
+                    downloadManager = mockk(relaxed = true),
+                    titleWords = EnglishChapterTitleWords,
+                ),
+            ),
+            Arguments.of(
+                "novel",
+                NovelReaderProvider(
+                    viewModel = mockk(relaxed = true),
+                    novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
+                    fontManager = mockk(),
+                    imageRequests = mockk(),
+                    titleWords = EnglishChapterTitleWords,
+                ),
+            ),
+        )
     }
 }
 

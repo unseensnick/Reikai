@@ -55,6 +55,7 @@ import reikai.presentation.reader.text.chunkRange
 import reikai.presentation.reader.text.readAloudParagraphs
 import reikai.presentation.reader.text.shownCharOffset
 import reikai.presentation.reader.text.shownCharPrefix
+import tachiyomi.core.common.preference.Preference
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -102,6 +103,8 @@ class NovelTextViewport(
     /** A scroll the reader's finger made, in pixels; the provider hides the menu past its threshold. The
      *  viewport's own scrolls (seek, keys, read aloud, auto-scroll) never report. */
     private val onReaderScrolled: (dyPx: Int) -> Unit,
+    /** Auto-scroll's speed, which the engine runs this at while it is on. */
+    autoScrollSpeed: Preference<Float>,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -845,10 +848,6 @@ class NovelTextViewport(
         }
     }
 
-    override fun setAutoScroll(running: Boolean, pixelsPerFrame: Float) {
-        autoScroller.run(if (running) pixelsPerFrame else 0f)
-    }
-
     /** The text column: what is left of the reader once the page's side margins are taken off. The
      *  recycler answers for its own width once laid out, and the display stands in before that. */
     private fun columnWidthPx(settings: NovelReaderSettings): Int {
@@ -958,8 +957,10 @@ class NovelTextViewport(
     /** A step reopens through [load], which replaces the window, so there is nothing to carry over. */
     override fun onChapterStepped() = Unit
 
+    override val autoScroll = ViewportAutoScroll.Continuous(autoScrollSpeed, autoScroller::run)
+
     override fun destroy() {
-        setAutoScroll(running = false, pixelsPerFrame = 0f)
+        autoScroller.run(0f)
         scope.cancel()
         evictAll()
     }

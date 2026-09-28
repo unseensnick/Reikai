@@ -19,6 +19,5 @@ object NovelTextRanges {
     val autoSplitWords = 20..2000
     val readAloudRateTenths = 1..30
     val readAloudPitchTenths = 1..20
-    val autoScrollSpeedTenths = 2..40
     val autoLoadNextAtPercent = 50..100
 }

@@ -31,8 +31,11 @@ import org.junit.jupiter.api.Test
 import reikai.data.novel.tts.SleepTimer
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class ReaderEngineTest {
 
@@ -409,38 +412,213 @@ class ReaderEngineTest {
         calls shouldBe listOf("detach", "destroy")
     }
 
-    /**
-     * The manga shape. A session that offers no continuous scroll still has to answer the bar, and
-     * answering false is what leaves the button off rather than lit over nothing.
-     */
-    @Test
-    fun `a session without auto-scroll reports it off`() {
-        val engine = engine()
+    // Auto-scroll. These drive the main scheduler by hand instead of through runTest: a stepped loop
+    // never goes idle, so runTest's closing drain would spin on one a test left running.
 
-        engine.autoScroll shouldBe null
-        engine.autoScrollEnabled.value shouldBe false
+    private fun running(engine: ReaderEngine, auto: ViewportAutoScroll): ReaderEngine {
+        engine.installViewport(FakeViewport(autoScroll = auto))
+        engine.toggleAutoScroll()
+        return engine
+    }
+
+    /** Runs the main scheduler [by] forward, including whatever falls due at that instant. */
+    private fun advance(by: Duration = Duration.ZERO) {
+        scheduler.advanceTimeBy(by)
+        scheduler.runCurrent()
     }
 
     @Test
-    fun `auto-scroll follows the session that offers it`() {
-        val provider = FakeReaderProvider()
-        val auto = FakeAutoScroll()
-        provider.autoScrollSlot = auto
-        val engine = engine(provider)
+    fun `turns one interval after its page is ready`() {
+        val stepped = FakeStepped()
+        running(engine(), stepped.shape)
 
-        auto.toggle()
+        advance(5.seconds)
 
-        engine.autoScrollEnabled.value shouldBe true
+        stepped.advances shouldBe 1
     }
 
-    /** The bar draws the auto-scroll button only when the engine hands it a toggle to call. */
     @Test
-    fun `a session that offers auto-scroll gets the button`() {
-        val provider = FakeReaderProvider()
-        val auto = FakeAutoScroll()
-        provider.autoScrollSlot = auto
+    fun `a loading page does not count down`() {
+        val stepped = FakeStepped(ready = false)
+        running(engine(), stepped.shape)
 
-        engine(provider).autoScroll shouldBe auto
+        advance(10.seconds)
+
+        stepped.advances shouldBe 0
+    }
+
+    /** Three seconds loading, then ready: the full interval runs from there. */
+    @Test
+    fun `the countdown starts when the page is ready`() {
+        val stepped = FakeStepped(ready = false)
+        running(engine(), stepped.shape)
+        advance(3.seconds)
+        stepped.shownPage.value = ShownPage("p1", ready = true)
+
+        advance(5.seconds)
+
+        stepped.advances shouldBe 1
+    }
+
+    @Test
+    fun `a new page restarts the countdown`() {
+        val stepped = FakeStepped()
+        running(engine(), stepped.shape)
+        advance(3.seconds)
+        stepped.shownPage.value = ShownPage("p2", ready = true)
+
+        advance(3.seconds)
+
+        stepped.advances shouldBe 0
+    }
+
+    /** A pan step on navigate-to-pan, or a failed turn, shows no new page, and it must still turn. */
+    @Test
+    fun `with no new page it keeps turning`() {
+        val stepped = FakeStepped()
+        running(engine(), stepped.shape)
+
+        advance(10.seconds)
+
+        stepped.advances shouldBe 2
+    }
+
+    @Test
+    fun `closing the menu restarts from full`() {
+        val stepped = FakeStepped()
+        val engine = running(engine(), stepped.shape)
+        advance(3.seconds)
+        engine.setMenuVisible(true)
+        advance(1.seconds)
+        engine.setMenuVisible(false)
+
+        advance(4.seconds)
+
+        stepped.advances shouldBe 0
+    }
+
+    @Test
+    fun `a finger down pauses and release resumes`() {
+        val continuous = FakeContinuous()
+        val engine = running(engine(), continuous.shape)
+        engine.setTouching(true)
+        advance()
+        val during = continuous.runs.lastOrNull()
+
+        engine.setTouching(false)
+        advance()
+
+        "$during ${continuous.runs.lastOrNull()}" shouldBe "0.0 2.0"
+    }
+
+    @Test
+    fun `a finger down restarts the stepped countdown`() {
+        val stepped = FakeStepped()
+        val engine = running(engine(), stepped.shape)
+        advance(3.seconds)
+        engine.setTouching(true)
+        engine.setTouching(false)
+
+        advance(3.seconds)
+
+        stepped.advances shouldBe 0
+    }
+
+    @Test
+    fun `off screen pauses and coming back resumes`() {
+        val stepped = FakeStepped()
+        val engine = running(engine(), stepped.shape)
+        engine.setOnScreen(false)
+        advance(10.seconds)
+        val during = stepped.advances
+
+        engine.setOnScreen(true)
+        advance(5.seconds)
+
+        "$during ${stepped.advances}" shouldBe "0 1"
+    }
+
+    @Test
+    fun `read-aloud pauses and resumes when it ends`() {
+        val provider = FakeReaderProvider()
+        val readAloud = FakeReadAloud()
+        provider.readAloudSlot = readAloud
+        val continuous = FakeContinuous()
+        running(engine(provider), continuous.shape)
+        readAloud.play()
+        advance()
+        val during = continuous.runs.lastOrNull()
+
+        readAloud.state.value = ReaderReadAloudState(playback = TtsPlayback.Stopped)
+        advance()
+
+        "$during ${continuous.runs.lastOrNull()}" shouldBe "0.0 2.0"
+    }
+
+    /** A scrub no longer stops the scroll; it only holds a continuous one for a moment. */
+    @Test
+    fun `seeking leaves it running`() {
+        val engine = running(engine(), FakeStepped().shape)
+
+        engine.seek(ChapterProgress.Percent(hundredths = 5000))
+
+        engine.autoScrollRunning.value shouldBe true
+    }
+
+    @Test
+    fun `seeking holds a continuous scroll then resumes`() {
+        val continuous = FakeContinuous()
+        val engine = running(engine(), continuous.shape)
+        engine.seek(ChapterProgress.Percent(hundredths = 5000))
+        advance()
+        val held = continuous.runs.lastOrNull()
+
+        advance(ReaderEngine.SEEK_HOLD)
+
+        "$held ${continuous.runs.lastOrNull()}" shouldBe "0.0 2.0"
+    }
+
+    /** A paged scroll moves on to the page the scrub picked, which restarts its countdown anyway. */
+    @Test
+    fun `seeking does not hold a stepped scroll`() {
+        val stepped = FakeStepped()
+        val engine = running(engine(), stepped.shape)
+        advance(3.seconds)
+        engine.seek(ChapterProgress.Percent(hundredths = 5000))
+
+        advance(2.seconds)
+
+        stepped.advances shouldBe 1
+    }
+
+    @Test
+    fun `the setting starts it`() {
+        val provider = FakeReaderProvider()
+        provider.autoScrollOnOpen.set(true)
+
+        engine(provider).autoScrollRunning.value shouldBe true
+    }
+
+    /** Start-on-open is a Settings choice; the bar and the sheet only say whether it runs now. */
+    @Test
+    fun `toggling never writes the setting`() {
+        val provider = FakeReaderProvider()
+
+        engine(provider).toggleAutoScroll()
+
+        provider.autoScrollOnOpen.get() shouldBe false
+    }
+
+    @Test
+    fun `replacing the viewport stops the outgoing drive`() {
+        val outgoing = FakeContinuous()
+        val engine = running(engine(), outgoing.shape)
+        advance()
+
+        engine.installViewport(FakeViewport())
+        advance()
+
+        outgoing.runs.lastOrNull() shouldBe 0f
     }
 
     /** The manga shape again: an image has no words to bold, so the button is absent, not lit. */
@@ -474,7 +652,7 @@ class ReaderEngineTest {
         engine(provider).bionicReading shouldBe bionic
     }
 
-    /** The manga shape: nothing to read, so the host never pauses auto-scroll for speech. */
+    /** The manga shape: nothing to read, so auto-scroll never pauses for speech. */
     @Test
     fun `a session without read-aloud reports it stopped`() {
         val engine = engine()
@@ -483,7 +661,7 @@ class ReaderEngineTest {
         engine.readAloudState.value shouldBe ReaderReadAloudState()
     }
 
-    /** Eager, because the host's auto-scroll decision reads it with nothing composed. */
+    /** Eager, because the auto-scroll pause reads it with nothing composed. */
     @Test
     fun `read-aloud state follows the session that offers it`() {
         val provider = FakeReaderProvider()
@@ -494,24 +672,6 @@ class ReaderEngineTest {
         readAloud.play()
 
         engine.readAloudState.value.playback shouldBe TtsPlayback.Playing
-    }
-
-    /**
-     * A scrub is an explicit position choice, and a running auto-scroll would carry the reader off it
-     * within a frame, so the engine stops it before the viewport moves.
-     */
-    @Test
-    fun `scrubbing stops a running auto-scroll`() {
-        val provider = FakeReaderProvider()
-        val auto = FakeAutoScroll()
-        provider.autoScrollSlot = auto
-        val engine = engine(provider)
-        engine.installViewport(FakeViewport())
-        auto.toggle()
-
-        engine.seek(ChapterProgress.Percent(hundredths = 5000))
-
-        engine.autoScrollEnabled.value shouldBe false
     }
 
     /**
@@ -725,16 +885,23 @@ private class FakeBionicReading : ReaderBionicReading {
     }
 }
 
-private class FakeAutoScroll : ReaderAutoScroll {
-    override val enabled = MutableStateFlow(false)
+/** A paged viewport: a 5-second interval, one page on screen, counting its turns. */
+private class FakeStepped(ready: Boolean = true) {
+    val shownPage = MutableStateFlow(ShownPage("p1", ready))
 
-    override fun toggle() {
-        enabled.value = !enabled.value
-    }
+    var advances = 0
+        private set
 
-    override fun stop() {
-        enabled.value = false
+    val shape = ViewportAutoScroll.Stepped(EmittingPreferenceStore().getInt("interval", 5), shownPage) {
+        advances++
     }
+}
+
+/** A continuous viewport at speed 2, recording every speed it was run at. */
+private class FakeContinuous {
+    val runs = mutableListOf<Float>()
+
+    val shape = ViewportAutoScroll.Continuous(EmittingPreferenceStore().getFloat("speed", 2f)) { runs += it }
 }
 
 /** The colour the fake's cover answers with, so a test can tell it from the off case's null. */
@@ -783,10 +950,8 @@ private class FakeReaderProvider(
 
     override val textSettings: ReaderTextSettings? = null
 
-    /** Set by the test that needs a session offering it; null is the manga shape. */
-    var autoScrollSlot: ReaderAutoScroll? = null
-
-    override val autoScroll: ReaderAutoScroll? get() = autoScrollSlot
+    // One instance, since the in-memory store hands out a fresh unwritten one per read.
+    override val autoScrollOnOpen = InMemoryPreference("auto_scroll_on_open", null, false)
 
     var bionicReadingSlot: ReaderBionicReading? = null
 
@@ -907,7 +1072,11 @@ private class FakeChapterList : ReaderChapterList {
     }
 }
 
-private class FakeViewport(private val calls: MutableList<String> = mutableListOf()) : ReaderViewport {
+private class FakeViewport(
+    private val calls: MutableList<String> = mutableListOf(),
+    override val autoScroll: ViewportAutoScroll =
+        ViewportAutoScroll.Continuous(EmittingPreferenceStore().getFloat("speed", 0f)) {},
+) : ReaderViewport {
     var sought: ChapterProgress? = null
         private set
 

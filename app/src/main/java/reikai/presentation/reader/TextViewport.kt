@@ -26,13 +26,6 @@ interface TextViewport {
      */
     fun applySettings(settings: NovelReaderSettings)
 
-    /**
-     * Runs or stops the continuous scroll at [pixelsPerFrame], the speed the user set. The host
-     * decides rather than the renderer, because auto-scroll pauses while the chrome is showing and
-     * only the host knows that it is.
-     */
-    fun setAutoScroll(running: Boolean, pixelsPerFrame: Float)
-
     /** How this renderer holds more than one chapter, which is how the host grows it across a seam. */
     val window: ChapterWindow
 

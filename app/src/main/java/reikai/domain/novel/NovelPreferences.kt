@@ -371,8 +371,17 @@ class NovelPreferences(
     /** Swipe left / right to go to the next / previous chapter. */
     fun readerSwipeGestures() = preferenceStore.getBoolean("ln_reader_swipe_gestures", false)
 
-    /** Continuously scroll the chapter while reading (paused while the chrome is shown). */
-    fun readerAutoScroll() = preferenceStore.getBoolean("ln_reader_auto_scroll", false)
+    /** Start auto-scroll when the reader opens. Running it from the bar or the sheet never writes this. */
+    fun readerAutoScrollOnOpen() = preferenceStore.getBoolean("ln_reader_auto_scroll_on_open", false)
+
+    /**
+     * Carries the retired [DEAD_READER_AUTO_SCROLL_KEY], which was whether the scroll ran, into
+     * [readerAutoScrollOnOpen]: a reader who left it on keeps it starting. Shared with the restorer,
+     * because a backup lands the old key after the upgrade migration has run.
+     */
+    fun carryReaderAutoScroll(enabled: Boolean) {
+        readerAutoScrollOnOpen().set(enabled)
+    }
 
     /** Auto-scroll speed in CSS pixels per frame (~60fps). */
     fun readerAutoScrollSpeed() = preferenceStore.getFloat("ln_reader_auto_scroll_speed", 1.0f)
@@ -626,6 +635,10 @@ const val DEAD_READER_PADDING_KEY = "ln_reader_padding"
 
 /** The novel reader's retired tap-to-scroll switch, carried into the tap layouts by [NovelPreferences.carryReaderTapToScroll]. */
 const val DEAD_READER_TAP_TO_SCROLL_KEY = "ln_reader_tap_to_scroll"
+
+/** The novel reader's retired auto-scroll switch, carried into start-on-open by
+ *  [NovelPreferences.carryReaderAutoScroll]. */
+const val DEAD_READER_AUTO_SCROLL_KEY = "ln_reader_auto_scroll"
 
 /**
  * Keys only the retired standalone novel reader wrote: its read-aloud master switch and the floating

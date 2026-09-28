@@ -309,25 +309,10 @@ private fun ColumnScope.NovelChapterTextRows(preferences: NovelPreferences) {
     }
 }
 
-/** Scrolling on its own, taps and swipes, and the volume keys. */
+/** Seamless chapters, taps and swipes, and the volume keys; auto-scroll sits above, shared with manga. */
 @Composable
 internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
     HeadingItem(MR.strings.pref_category_scrolling)
-    val autoScroll by preferences.readerAutoScroll().collectAsState()
-    CheckboxItem(label = stringResource(MR.strings.pref_auto_scroll), pref = preferences.readerAutoScroll())
-    if (autoScroll) {
-        val speedPref = preferences.readerAutoScrollSpeed()
-        val speed by speedPref.collectAsState()
-        SliderItem(
-            value = (speed * TENTHS).roundToInt(),
-            valueRange = NovelTextRanges.autoScrollSpeedTenths,
-            label = stringResource(MR.strings.pref_auto_scroll_speed),
-            valueString = "%.1fx".format(speed),
-            onChange = { speedPref.set(it / TENTHS) },
-            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-    }
-
     val seamless by preferences.readerSeamlessChapters().collectAsState()
     if (seamless) {
         val autoLoadPref = preferences.readerAutoLoadNextAt()

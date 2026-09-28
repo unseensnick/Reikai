@@ -134,6 +134,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                 onChapterFits = { _, _ -> rendered.countDown() },
                 onChapterEndSeen = {},
                 onReaderScrolled = {},
+                autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
             )
             activity.setContentView(viewport.view)
         }

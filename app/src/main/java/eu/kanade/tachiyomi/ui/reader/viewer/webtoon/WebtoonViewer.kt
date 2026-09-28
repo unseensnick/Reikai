@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import mihon.app.di.appGraph
+import reikai.presentation.reader.holdsStripAutoScroll
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.asMangaCover
 import kotlin.math.max
@@ -279,6 +280,18 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             }
         }
     }
+
+    // RK --> auto-scroll's smooth step, held while a page on screen or the next below it is loading
+    fun autoScrollBy(px: Int): Boolean {
+        val first = layoutManager.findFirstVisibleItemPosition()
+        if (first == RecyclerView.NO_POSITION) return false
+        val ahead = (first..layoutManager.findLastVisibleItemPosition() + 1)
+            .mapNotNull { (adapter.items.getOrNull(it) as? ReaderPage)?.status }
+        if (holdsStripAutoScroll(ahead)) return false
+        recycler.scrollBy(0, px)
+        return true
+    }
+    // RK <--
 
     // RK --> the volume-key path passes a user-settable distance (novel parity); tap/keyboard nav keep the
     // fixed scrollDistance. Fraction of the screen, matching the novel reader's volume scroll amount.

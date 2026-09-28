@@ -32,6 +32,7 @@ import reikai.domain.category.byNamePreferring
 import reikai.domain.category.translateCategoryId
 import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.novel.DEAD_READER_AUTO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_TTS_BUTTON_KEYS
@@ -223,6 +224,11 @@ class PreferenceRestorer(
             // RK: the retired novel tap-to-scroll switch, carried into the tap layout for the same reason.
             if (key == DEAD_READER_TAP_TO_SCROLL_KEY) {
                 (value as? BooleanPreferenceValue)?.let { novelPreferences.carryReaderTapToScroll(it.value) }
+                return@forEach
+            }
+            // RK: the retired novel auto-scroll switch, carried into start-on-open for the same reason.
+            if (key == DEAD_READER_AUTO_SCROLL_KEY) {
+                (value as? BooleanPreferenceValue)?.let { novelPreferences.carryReaderAutoScroll(it.value) }
                 return@forEach
             }
             // RK: keys only the retired standalone novel reader wrote; skip so an old backup can't

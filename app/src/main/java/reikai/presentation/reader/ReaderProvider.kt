@@ -145,8 +145,8 @@ interface ReaderProvider {
     /** Typography, or null for a type whose pages are images rather than text. */
     val textSettings: ReaderTextSettings?
 
-    /** Continuous scrolling, or null for a type that offers no such setting. */
-    val autoScroll: ReaderAutoScroll?
+    /** Whether auto-scroll starts when the reader opens. Read once; running it from the bar never writes it. */
+    val autoScrollOnOpen: Preference<Boolean>
 
     /** Bionic reading, or null for a type whose pages are images and so have no words to bold. */
     val bionicReading: ReaderBionicReading?

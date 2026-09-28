@@ -32,7 +32,7 @@ fun ReaderBottomBar(
     onClickTheme: (() -> Unit)?,
     onClickScrollToTop: () -> Unit,
     autoScrollActive: Boolean,
-    onClickAutoScroll: (() -> Unit)?,
+    onClickAutoScroll: () -> Unit,
     bionicActive: Boolean,
     onClickBionic: (() -> Unit)?,
     readAloudControlsVisible: Boolean,

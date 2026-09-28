@@ -415,7 +415,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val autoLoadNextAt by autoLoadNextAtPref.collectAsState()
         val autoScrollSpeedPref = novelPreferences.readerAutoScrollSpeed()
         val autoScrollSpeed by autoScrollSpeedPref.collectAsState()
-        val autoScroll by novelPreferences.readerAutoScroll().collectAsState()
         val fullscreen by novelPreferences.readerFullscreen().collectAsState()
         val tapLayout by novelPreferences.readerTapLayout().collectAsState()
         val markReadPercentPref = novelPreferences.readerMarkReadPercent()
@@ -534,16 +533,16 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_mark_read_on_skip),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerAutoScroll(),
-                    title = stringResource(MR.strings.pref_auto_scroll),
+                    preference = novelPreferences.readerAutoScrollOnOpen(),
+                    title = stringResource(MR.strings.pref_auto_scroll_on_open),
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = (autoScrollSpeed * TENTHS).roundToInt(),
-                    valueRange = NovelTextRanges.autoScrollSpeedTenths,
+                    valueRange = ReaderRanges.autoScrollSpeedTenths,
                     title = stringResource(MR.strings.pref_auto_scroll_speed),
                     valueString = "%.1fx".format(autoScrollSpeed),
                     onValueChanged = { autoScrollSpeedPref.set(it / TENTHS) },
-                ).takeIf { autoScroll },
+                ),
                 readerBottomButtonsPreference(ReaderBottomButton.BarPreferences.novel(novelPreferences)),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerPreserveReadingPosition(),

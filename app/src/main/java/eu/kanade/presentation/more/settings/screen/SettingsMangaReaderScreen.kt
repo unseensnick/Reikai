@@ -191,9 +191,11 @@ object SettingsMangaReaderScreen : SearchableSettings {
 
     @Composable
     private fun getReadingGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
-        // RK: collected for the preload slider
+        // RK: collected for the preload and auto-scroll sliders
         val preloadSizePref = readerPreferences.preloadSize
         val preloadSize by preloadSizePref.collectAsState()
+        val autoScrollInterval by readerPreferences.autoScrollInterval.collectAsState() // RK
+        val autoScrollSpeed by readerPreferences.autoScrollSpeed.collectAsState() // RK
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reading),
             preferenceItems = listOf(
@@ -231,6 +233,26 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_reader_preload_size),
                     valueString = pluralStringResource(MR.plurals.pref_pages, preloadSize, preloadSize),
                     onValueChanged = { preloadSizePref.set(it) },
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.autoScrollOnOpen,
+                    title = stringResource(MR.strings.pref_auto_scroll_on_open),
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = autoScrollInterval,
+                    valueRange = ReaderRanges.autoScrollIntervalSeconds,
+                    title = stringResource(MR.strings.pref_auto_scroll_interval),
+                    subtitle = stringResource(MR.strings.pref_auto_scroll_paged_only),
+                    valueString = stringResource(MR.strings.seconds_short, autoScrollInterval),
+                    onValueChanged = { readerPreferences.autoScrollInterval.set(it) },
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = (autoScrollSpeed * TENTHS).roundToInt(),
+                    valueRange = ReaderRanges.autoScrollSpeedTenths,
+                    title = stringResource(MR.strings.pref_auto_scroll_speed),
+                    subtitle = stringResource(MR.strings.pref_volume_keys_scroll_amount_long_strip),
+                    valueString = "%.1fx".format(autoScrollSpeed),
+                    onValueChanged = { readerPreferences.autoScrollSpeed.set(it / TENTHS) },
                 ),
                 // RK <--
                 Preference.PreferenceItem.SwitchPreference(
@@ -537,3 +559,6 @@ object SettingsMangaReaderScreen : SearchableSettings {
         )
     }
 }
+
+// RK: the auto-scroll speed is stored as itself and stepped in tenths, as the novel reader's is
+private const val TENTHS = 10f

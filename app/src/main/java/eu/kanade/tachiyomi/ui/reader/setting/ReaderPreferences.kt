@@ -132,6 +132,14 @@ class ReaderPreferences(
 
     val preloadSize: Preference<Int> = preferenceStore.getInt("reader_preload_size", 4)
 
+    val autoScrollOnOpen: Preference<Boolean> = preferenceStore.getBoolean("reader_auto_scroll_on_open", false)
+
+    /** Seconds a page shows before a paged reader turns it. */
+    val autoScrollInterval: Preference<Int> = preferenceStore.getInt("reader_auto_scroll_interval", 5)
+
+    /** A long strip's speed, in the novel reader's unit: CSS pixels a frame at 60Hz. */
+    val autoScrollSpeed: Preference<Float> = preferenceStore.getFloat("reader_auto_scroll_speed", 1.0f)
+
     /** Its own key rather than the novel reader's, since each reader keeps its own settings. */
     val chapterTitleFormat: Preference<ChapterTitleFormat> =
         preferenceStore.getEnum("pref_reader_chapter_title_format", ChapterTitleFormat.NAME)

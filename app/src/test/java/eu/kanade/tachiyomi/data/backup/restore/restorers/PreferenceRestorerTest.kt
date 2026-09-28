@@ -32,6 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.category.CategoryIdPreferences
+import reikai.domain.novel.DEAD_READER_AUTO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_TTS_BUTTON_KEYS
@@ -217,6 +218,17 @@ class PreferenceRestorerTest {
     }
 
     @Test
+    @DisplayName("a backup taken with novel auto-scroll on starts it when the reader opens")
+    fun retiredAutoScrollReachesStartOnOpen() = runTest {
+        restorer.restoreApp(
+            listOf(BackupPreference(DEAD_READER_AUTO_SCROLL_KEY, BooleanPreferenceValue(true))),
+            backupCategories = null,
+        )
+
+        novelPreferences.readerAutoScrollOnOpen().get() shouldBe true
+    }
+
+    @Test
     @DisplayName("a backup taken with tap to scroll on keeps tapping the top and bottom of the page")
     fun retiredTapToScrollReachesTheTapLayout() = runTest {
         restorer.restoreApp(
@@ -361,6 +373,7 @@ class PreferenceRestorerTest {
         fun retiredKeys() = listOf(
             Arguments.of(DEAD_READER_PADDING_KEY, IntPreferenceValue(32)),
             Arguments.of(DEAD_READER_TAP_TO_SCROLL_KEY, BooleanPreferenceValue(true)),
+            Arguments.of(DEAD_READER_AUTO_SCROLL_KEY, BooleanPreferenceValue(true)),
             Arguments.of(ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY, BooleanPreferenceValue(false)),
             Arguments.of(DEAD_READER_TTS_ENABLED_KEY, BooleanPreferenceValue(true)),
             Arguments.of(ReikaiSourcePreferences.DEAD_DOWNLOAD_CONTENT_TYPE_KEY, StringPreferenceValue("NOVELS")),

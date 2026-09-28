@@ -670,6 +670,9 @@
     <string name="pref_reader_bottom_buttons">Bottom bar buttons</string>
     <string name="pref_auto_scroll">Auto-scroll</string>
     <string name="pref_auto_scroll_speed">Scroll speed</string>
+    <string name="pref_auto_scroll_on_open">Start auto-scroll when opening a chapter</string>
+    <string name="pref_auto_scroll_interval">Page turn interval</string>
+    <string name="pref_auto_scroll_paged_only">Paged modes only</string>
     <string name="pref_bionic_reading">Bionic reading</string>
     <string name="pref_reader_text_size">Text size</string>
     <!-- RK: the in-reader settings sheet's +/- steppers -->

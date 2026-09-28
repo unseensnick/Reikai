@@ -247,15 +247,6 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
-    /** Whether the reader is on screen, which auto-scroll reads so it does not keep running behind
-     *  another app. Not `lifecycleScope`'s job: that scope lives to onDestroy. */
-    internal val isOnScreen: StateFlow<Boolean>
-        field = MutableStateFlow(false)
-
-    /** The host's menu visibility as it changes, for a session that pauses its own work under the chrome. */
-    internal val menuVisibility: Flow<Boolean>
-        get() = viewModel.state.map { it.menuVisible }
-
     /** The novel half of the session, or null when this launch is a manga one. */
     private val novelSession: NovelReaderProvider? by lazy {
         (intent.entryId() as? EntryId.Novel)?.let {
@@ -559,8 +550,15 @@ class ReaderActivity : BaseActivity() {
                             appGraph.novelFontManager.installed()
                         }
                     } ?: ReaderSettingsPages.Manga(settingsViewModel, filters)
+                    // RK --> the sheet's auto-scroll rows, whose rate is whichever the viewport showing runs on
+                    val autoScrollRunning by engine.autoScrollRunning.collectAsState()
+                    val viewport by engine.viewport.collectAsState()
                     ReaderSettingsSheet(
                         pages = pages,
+                        autoScrollRunning = autoScrollRunning,
+                        onToggleAutoScroll = engine::toggleAutoScroll,
+                        autoScroll = viewport?.autoScroll,
+                        // RK <--
                         onDismissRequest = onDismissRequest,
                         onShowMenus = { setMenuVisibility(true) },
                         onHideMenus = { setMenuVisibility(false) },
@@ -752,14 +750,14 @@ class ReaderActivity : BaseActivity() {
         super.onPause()
     }
 
-    // RK --> whether the reader is on screen, which pauses novel auto-scroll behind another app.
+    // RK --> whether the reader is on screen, which pauses auto-scroll behind another app.
     override fun onStart() {
         super.onStart()
-        isOnScreen.value = true
+        engine.setOnScreen(true)
     }
 
     override fun onStop() {
-        isOnScreen.value = false
+        engine.setOnScreen(false)
         super.onStop()
     }
     // RK <--
@@ -842,6 +840,7 @@ class ReaderActivity : BaseActivity() {
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                engine.setTouching(true)
                 touchDownX = ev.x
                 touchDownY = ev.y
             }
@@ -851,6 +850,8 @@ class ReaderActivity : BaseActivity() {
             ) {
                 engine.provider.onReaderMoved()
             }
+            // A finger on the screen pauses auto-scroll, released only by the last finger up.
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> engine.setTouching(false)
         }
         return super.dispatchTouchEvent(ev)
     }
@@ -907,7 +908,7 @@ class ReaderActivity : BaseActivity() {
         val navigator by engine.navigator.collectAsState()
         val orientation by engine.orientation.collectAsState()
         val keepScreenOn by engine.keepScreenOn.collectAsState()
-        val autoScrollActive by engine.autoScrollEnabled.collectAsState()
+        val autoScrollActive by engine.autoScrollRunning.collectAsState()
         val bionicActive by engine.bionicReadingEnabled.collectAsState()
         val readAloudState by engine.readAloudState.collectAsState()
         val readAloud = engine.readAloud
@@ -986,7 +987,7 @@ class ReaderActivity : BaseActivity() {
             onEditBottomButtons = { engine.openDialog(ReaderDialog.BottomButtons(engine.provider.bottomButtonScope)) },
             onReloadChapter = engine::reloadChapter,
             autoScrollActive = autoScrollActive,
-            onClickAutoScroll = engine.autoScroll?.let { auto -> { auto.toggle() } },
+            onClickAutoScroll = engine::toggleAutoScroll,
             bionicActive = bionicActive,
             onClickBionic = engine.bionicReading?.let { bionic -> { bionic.toggle() } },
             onClickReadAloud = readAloud?.let { { it.toggleControls() } },
@@ -1011,6 +1012,7 @@ class ReaderActivity : BaseActivity() {
      */
     private fun setMenuVisibility(visible: Boolean) {
         viewModel.showMenus(visible)
+        engine.setMenuVisible(visible) // RK: auto-scroll pauses under the chrome
         // RK: fullscreen is the open session's own setting, as the inset pair below is.
         if (visible) {
             windowInsetsController.show(WindowInsetsCompat.Type.systemBars())

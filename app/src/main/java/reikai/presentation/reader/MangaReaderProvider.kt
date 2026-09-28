@@ -6,6 +6,7 @@ import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
@@ -34,6 +35,7 @@ import reikai.data.coil.seedColor
 import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.reader.pageIndex
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.pageProgressLabel
 import tachiyomi.core.common.Constants
@@ -259,10 +261,7 @@ class MangaReaderProvider(
     // act on. The buttons are absent rather than shown doing nothing.
     override val textSettings: ReaderTextSettings? = null
 
-    // Never offered for manga, so the button is absent rather than doing nothing. Whether an image
-    // viewer should scroll itself is a reading-mode question those viewers own, and it has not been
-    // asked; this stays the novel session's until it is.
-    override val autoScroll: ReaderAutoScroll? = null
+    override val autoScrollOnOpen = readerPreferences.autoScrollOnOpen
 
     // Same reason as the typography above: an image has no words whose openings could be bolded.
     override val bionicReading: ReaderBionicReading? = null
@@ -292,7 +291,21 @@ class MangaReaderProvider(
             // list for as long as the model took to swap, which is the tear the chrome comment names.
             visibleChapter = { viewModel.state.value.visibleChapter },
             activeChapter = { viewModel.state.value.currentChapter },
+            interval = readerPreferences.autoScrollInterval,
+            speed = readerPreferences.autoScrollSpeed,
+            shownPage = shownPage,
         )
+
+    /**
+     * The page a paged auto-scroll counts on, ready once its image is. Keyed by the page object rather
+     * than its index, so a reloaded chapter's page counts as a new one and its countdown starts over.
+     */
+    internal val shownPage: Flow<ShownPage> = viewModel.state
+        .map { state -> state.position?.progress?.pageIndex?.let { state.visibleChapter?.pages?.getOrNull(it) } }
+        .distinctUntilChanged { old, new -> old === new }
+        .flatMapLatest { page ->
+            page?.statusFlow?.map { ShownPage(page, it == Page.State.Ready) } ?: flowOf(ShownPage(Unit, ready = false))
+        }
 
     // Nothing to wire at creation: Mihon's updateViewer builds manga's viewport once the manga arrives in
     // state, and setChapters feeds it, which the host keeps as upstream has them.

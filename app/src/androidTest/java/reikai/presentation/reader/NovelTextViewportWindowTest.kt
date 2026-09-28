@@ -31,6 +31,7 @@ import reikai.presentation.reader.text.ChapterImageSpan
 import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.PngServer
 import reikai.presentation.reader.text.pngOf
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -100,6 +101,7 @@ class NovelTextViewportWindowTest {
                 onChapterFits = { id, fit -> fits[id] = fit },
                 onChapterEndSeen = {},
                 onReaderScrolled = {},
+                autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
             )
             activity.setContentView(viewport.view)
         }

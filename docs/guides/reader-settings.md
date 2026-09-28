@@ -138,6 +138,15 @@ Skips over chapters detected as duplicates.
 #### Mark chapter read when skipping ahead <Badge type="info" text="Off" />
 When you jump to the next chapter, marks the one you skipped as read.
 
+#### Start auto-scroll when opening a chapter <Badge type="info" text="Off" />
+Starts auto-scroll each time you open the reader. The **Auto-scroll** button on the bottom bar and in the reader's Controls tab start or stop it for the chapter you are reading without changing this setting. It pauses while the menu is open and while your finger is on the screen.
+
+#### Page turn interval <Badge type="info" text="5 s" />
+Paged modes only. How long a page stays on screen before auto-scroll turns it, counted from when the page has loaded, so it never turns past a page that is still loading.
+
+#### Scroll speed <Badge type="info" text="1.0x" />
+Long strip modes only. How fast auto-scroll moves the strip. It waits at a page that is still loading and scrolls on past one that failed, so its Retry button comes into view.
+
 #### Auto webtoon mode <Badge type="info" text="On" />
 Opens manhwa, manhua and webtoons in webtoon mode without you setting it per series.
 
@@ -369,8 +378,11 @@ How far into a chapter you have to get before it counts as read.
 #### Mark chapter read when skipping ahead <Badge type="info" text="Off" />
 When you jump to the next chapter, marks the one you skipped as read.
 
-#### Auto-scroll <Badge type="info" text="Off" />
-Scrolls the text on its own, so you can read without touching the screen. **Scroll speed** <Badge type="info" text="1.0x" /> appears below it once it is on.
+#### Start auto-scroll when opening a chapter <Badge type="info" text="Off" />
+Starts scrolling the text on its own each time you open the reader. The **Auto-scroll** button on the bottom bar and in the reader's Controls tab start or stop it for the chapter you are reading without changing this setting. It pauses while the menu is open, while your finger is on the screen and during read aloud.
+
+#### Scroll speed <Badge type="info" text="1.0x" />
+How fast auto-scroll moves the text.
 
 #### Bottom bar buttons
 Which buttons sit in the novel reader's bottom bar, and in what order. View chapters, rotation, text size, theme and read aloud are on by default. The settings gear can be moved like the others but not switched off.

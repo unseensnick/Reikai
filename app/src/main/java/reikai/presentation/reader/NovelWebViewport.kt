@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -43,6 +44,7 @@ import reikai.util.isDebugInspectorBuild
 import reikai.util.webContentsDebugging
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import kotlin.coroutines.resume
 import kotlin.math.roundToInt
@@ -99,6 +101,8 @@ class NovelWebViewport(
     private val onChapterEndSeen: (chapterId: Long) -> Unit,
     /** A scroll the reader's finger made, in pixels, as the native viewport reports it. */
     private val onReaderScrolled: (dyPx: Int) -> Unit,
+    /** Auto-scroll's speed, which the engine runs this at while it is on. */
+    autoScrollSpeed: Preference<Float>,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     /** The chapter the reader is actually in, which the rail seeks inside of. */
@@ -111,8 +115,7 @@ class NovelWebViewport(
     /** Above the WebView, whose client is built with it. */
     private val webImages = NovelWebImages()
 
-    /** The last auto-scroll state the host asked for, so a freshly built document can be given it. */
-    private var autoScrollRunning = false
+    /** The last auto-scroll speed the engine asked for, 0 when stopped, so a new document can be given it. */
     private var autoScrollPixelsPerFrame = 0f
 
     /** What the chrome covers from each edge in CSS pixels, held for the same reason. */
@@ -435,18 +438,18 @@ class NovelWebViewport(
     }
 
     /**
-     * Auto-scroll, run by the page. The values are held because the document is rebuilt on every
-     * chapter and starts with the scroller stopped, so they are pushed again from the page's ready
-     * report rather than only when the host changes them.
+     * Auto-scroll, run by the page. The speed is held because the document is rebuilt on every chapter
+     * and starts with the scroller stopped, so it is pushed again from the page's ready report. The
+     * engine sends its stop after [destroy] when the viewport is replaced, which must not reach the
+     * destroyed WebView.
      */
-    override fun setAutoScroll(running: Boolean, pixelsPerFrame: Float) {
-        autoScrollRunning = running
+    override val autoScroll = ViewportAutoScroll.Continuous(autoScrollSpeed) { pixelsPerFrame ->
         autoScrollPixelsPerFrame = pixelsPerFrame
-        pushAutoScroll()
+        if (scope.isActive) pushAutoScroll()
     }
 
     private fun pushAutoScroll() {
-        val js = if (autoScrollRunning) {
+        val js = if (autoScrollPixelsPerFrame > 0f) {
             "if (window.rkReader) rkReader.autoScrollStart($autoScrollPixelsPerFrame);"
         } else {
             "if (window.rkReader) rkReader.autoScrollStop();"

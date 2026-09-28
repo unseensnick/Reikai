@@ -28,7 +28,6 @@ import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
-import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
@@ -188,15 +187,7 @@ class NovelReaderProvider(
             viewModel.setThemeColors(background, textColor)
     }
 
-    override val autoScroll: ReaderAutoScroll = object : ReaderAutoScroll {
-        override val enabled: Flow<Boolean> = viewModel.settings.map { it.autoScroll }
-
-        override fun toggle() = viewModel.setAutoScroll(!viewModel.settings.value.autoScroll)
-
-        override fun stop() {
-            if (viewModel.settings.value.autoScroll) viewModel.setAutoScroll(false)
-        }
-    }
+    override val autoScrollOnOpen = novelPreferences.readerAutoScrollOnOpen()
 
     override val bionicReading: ReaderBionicReading = object : ReaderBionicReading {
         override val enabled: Flow<Boolean> = viewModel.settings.map { it.bionicReading }
@@ -284,6 +275,7 @@ class NovelReaderProvider(
         // viewport, so a changed threshold takes effect on the next open, as manga's does.
         val hideThreshold = novelPreferences.readerHideThreshold().get().threshold
         val onReaderScrolled = { dy: Int -> if (abs(dy) > hideThreshold) host.hideMenu() }
+        val autoScrollSpeed = novelPreferences.readerAutoScrollSpeed()
         if (novelPreferences.readerRenderingMode().get() == NovelRenderingMode.NATIVE) {
             return NovelTextViewport(
                 context = host,
@@ -303,6 +295,7 @@ class NovelReaderProvider(
                 onChapterFits = viewModel::reportFitsOnScreen,
                 onChapterEndSeen = viewModel::reportChapterEndSeen,
                 onReaderScrolled = onReaderScrolled,
+                autoScrollSpeed = autoScrollSpeed,
             )
         }
         return NovelWebViewport(
@@ -331,6 +324,7 @@ class NovelReaderProvider(
             onChapterFits = viewModel::reportFitsOnScreen,
             onChapterEndSeen = viewModel::reportChapterEndSeen,
             onReaderScrolled = onReaderScrolled,
+            autoScrollSpeed = autoScrollSpeed,
         )
     }
 
@@ -426,23 +420,6 @@ class NovelReaderProvider(
             .distinctUntilChanged()
             .drop(1)
             .onEach(viewport::applySettings)
-            .launchIn(scope)
-
-        // Auto-scroll pauses while the chrome is showing and while the reader is off screen, both of
-        // which are the host's own state rather than settings, so the decision is made once here and
-        // each renderer only starts and stops. Off screen matters because the loop is not lifecycle
-        // aware: left running it advances the chapter behind whatever the reader is looking at. Speech
-        // pauses it too, since read-aloud keeps its own paragraph in view and the two would fight.
-        combine(
-            resolvedSettings,
-            host.menuVisibility,
-            host.isOnScreen,
-            host.engine.readAloudState.map { it.playback == TtsPlayback.Playing },
-        ) { settings, menuVisible, onScreen, speaking ->
-            (settings.autoScroll && !menuVisible && onScreen && !speaking) to settings.autoScrollSpeed
-        }
-            .distinctUntilChanged()
-            .onEach { (running, speed) -> viewport.setAutoScroll(running, speed) }
             .launchIn(scope)
     }
 }

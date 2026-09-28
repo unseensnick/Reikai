@@ -45,8 +45,6 @@ data class NovelReaderSettings(
     val swipeGestures: Boolean,
     /** Always-on reading percentage overlay while reading (chrome hidden). */
     val showProgressPercentage: Boolean,
-    val autoScroll: Boolean,
-    val autoScrollSpeed: Float,
     val useVolumeButtons: Boolean,
     val volumeButtonsInverted: Boolean,
     val volumeButtonsFraction: Float,

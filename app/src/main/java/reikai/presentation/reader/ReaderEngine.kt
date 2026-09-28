@@ -14,11 +14,16 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
@@ -26,10 +31,13 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
+import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.seekTo
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The Reikai-owned reader engine, above one provider per content type. It owns dialog dispatch and
@@ -108,9 +116,9 @@ class ReaderEngine(
         provider.webUrl.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Scrubbing goes to the viewport rather than the provider, since only it can move the reader.
-     *  A running auto-scroll is stopped first: it would drag the reader off the position just picked. */
+     *  A continuous auto-scroll is held a moment first, so the reader sees where the scrub landed. */
     fun seek(progress: ChapterProgress) {
-        provider.autoScroll?.stop()
+        holdForSeek()
         viewport.value?.seekTo(progress)
     }
 
@@ -172,13 +180,46 @@ class ReaderEngine(
     /** Typography, or null where this session's pages are images. */
     val textSettings: ReaderTextSettings? get() = provider.textSettings
 
-    /** Continuous scrolling, or null where this session offers none. */
-    val autoScroll: ReaderAutoScroll? get() = provider.autoScroll
+    /**
+     * Whether auto-scroll is running now, which the bar and the sheet flip. Seeded once from the
+     * session's start-on-open setting and never written back, so the engine outliving a rotation
+     * keeps it as the reader left it.
+     */
+    val autoScrollRunning: StateFlow<Boolean>
+        field = MutableStateFlow(provider.autoScrollOnOpen.get())
 
-    /** Whether it is on, so the bar button lights. False for a session that has no such setting. */
-    val autoScrollEnabled: StateFlow<Boolean> =
-        (provider.autoScroll?.enabled ?: flowOf(false))
-            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    fun toggleAutoScroll() {
+        autoScrollRunning.value = !autoScrollRunning.value
+    }
+
+    // What pauses it, none of which stops it: each clears on its own and the scroll carries on.
+    private data class AutoScrollPause(
+        val menuVisible: Boolean = false,
+        val onScreen: Boolean = true,
+        val touching: Boolean = false,
+    )
+
+    private val autoScrollPause = MutableStateFlow(AutoScrollPause())
+
+    fun setMenuVisible(visible: Boolean) = autoScrollPause.update { it.copy(menuVisible = visible) }
+
+    /** Off screen pauses it, since nothing else stops a frame loop running behind another app. */
+    fun setOnScreen(onScreen: Boolean) = autoScrollPause.update { it.copy(onScreen = onScreen) }
+
+    /** A finger on the screen pauses it, so a drag is never fought and a stepped countdown restarts. */
+    fun setTouching(touching: Boolean) = autoScrollPause.update { it.copy(touching = touching) }
+
+    private val seekHeld = MutableStateFlow(false)
+    private var seekHoldJob: Job? = null
+
+    private fun holdForSeek() {
+        seekHoldJob?.cancel()
+        seekHeld.value = true
+        seekHoldJob = viewModelScope.launch {
+            delay(SEEK_HOLD)
+            seekHeld.value = false
+        }
+    }
 
     /** Bionic reading, or null where this session's pages are images. */
     val bionicReading: ReaderBionicReading? get() = provider.bionicReading
@@ -190,7 +231,7 @@ class ReaderEngine(
     /** Read-aloud, or null where this session's pages are images. */
     val readAloud: ReaderReadAloud? get() = provider.readAloud
 
-    /** Eager like the rest, because the host pauses auto-scroll off it whether or not the bar is composed. */
+    /** Eager like the rest, because auto-scroll pauses off it whether or not the bar is composed. */
     val readAloudState: StateFlow<ReaderReadAloudState> =
         (provider.readAloud?.state ?: flowOf(ReaderReadAloudState()))
             .stateIn(viewModelScope, SharingStarted.Eagerly, ReaderReadAloudState())
@@ -294,5 +335,60 @@ class ReaderEngine(
     private fun release(viewport: ReaderViewport) {
         provider.detach(viewport)
         viewport.destroy()
+    }
+
+    // Auto-scroll's one driver, below the viewport slot it reads, since an init block runs in declaration
+    // order. A new viewport, a pause or a stop cancels the running drive, which is what restarts a
+    // stepped countdown from full and sends a continuous one its 0.
+    init {
+        viewModelScope.launch {
+            combine(
+                autoScrollRunning,
+                mutableViewport,
+                autoScrollPause,
+                readAloudState,
+                seekHeld,
+            ) { running, viewport, pause, readAloud, held ->
+                val shape = if (running) viewport?.autoScroll else null
+                val paused = pause.menuVisible || !pause.onScreen || pause.touching ||
+                    readAloud.playback == TtsPlayback.Playing ||
+                    (held && shape is ViewportAutoScroll.Continuous)
+                AutoScrollDrive(shape, paused)
+            }
+                .distinctUntilChanged { old, new -> old.shape === new.shape && old.paused == new.paused }
+                .collectLatest(::drive)
+        }
+    }
+
+    private class AutoScrollDrive(val shape: ViewportAutoScroll?, val paused: Boolean)
+
+    private suspend fun drive(drive: AutoScrollDrive) {
+        if (drive.paused) return
+        when (val shape = drive.shape) {
+            null -> Unit
+            // Each new page, or the one on screen becoming ready, starts the count over.
+            is ViewportAutoScroll.Stepped -> combine(
+                shape.shownPage.distinctUntilChanged(),
+                shape.intervalSeconds.changes(),
+                ::Pair,
+            ).collectLatest { (page, seconds) ->
+                if (!page.ready) return@collectLatest
+                while (true) {
+                    delay(seconds.seconds)
+                    shape.advance()
+                }
+            }
+            is ViewportAutoScroll.Continuous -> try {
+                shape.speed.changes().collect { shape.run(it) }
+                awaitCancellation()
+            } finally {
+                shape.run(0f)
+            }
+        }
+    }
+
+    internal companion object {
+        /** How long a scrub holds a continuous scroll, so the reader sees where it landed. */
+        val SEEK_HOLD = 2.seconds
     }
 }

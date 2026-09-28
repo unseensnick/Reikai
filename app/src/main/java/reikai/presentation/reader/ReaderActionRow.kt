@@ -82,9 +82,9 @@ fun ReaderActionRow(
     keepScreenOn: Boolean,
     onClickKeepScreenOn: () -> Unit,
     onClickScrollToTop: () -> Unit,
-    // Novel toggles. The active flag tints the icon.
+    // Toggles. The active flag tints the icon.
     autoScrollActive: Boolean,
-    onClickAutoScroll: (() -> Unit)?,
+    onClickAutoScroll: () -> Unit,
     bionicActive: Boolean,
     onClickBionic: (() -> Unit)?,
     // Novel pickers: open a small chooser (theme / text size), like the rotation button.
@@ -174,7 +174,7 @@ private fun ActionButtons(
     onClickKeepScreenOn: () -> Unit,
     onClickScrollToTop: () -> Unit,
     autoScrollActive: Boolean,
-    onClickAutoScroll: (() -> Unit)?,
+    onClickAutoScroll: () -> Unit,
     bionicActive: Boolean,
     onClickBionic: (() -> Unit)?,
     onClickTheme: (() -> Unit)?,
@@ -243,14 +243,12 @@ private fun ActionButtons(
                 )
             }
 
-            ReaderBottomButton.Autoscroll -> if (onClickAutoScroll != null) {
-                ToggleActionButton(
-                    onClick = onClickAutoScroll,
-                    icon = ReikaiIcons.SwipeVertical,
-                    description = stringResource(MR.strings.pref_auto_scroll),
-                    active = autoScrollActive,
-                )
-            }
+            ReaderBottomButton.Autoscroll -> ToggleActionButton(
+                onClick = onClickAutoScroll,
+                icon = ReikaiIcons.SwipeVertical,
+                description = stringResource(MR.strings.pref_auto_scroll),
+                active = autoScrollActive,
+            )
 
             ReaderBottomButton.KeepScreenOn -> ToggleActionButton(
                 onClick = onClickKeepScreenOn,

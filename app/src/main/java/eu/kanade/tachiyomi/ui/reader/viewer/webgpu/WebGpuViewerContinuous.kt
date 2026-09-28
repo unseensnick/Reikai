@@ -5,6 +5,7 @@ import ca.mpreg.webgpuviewer.viewer.ImagePage
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import kotlinx.coroutines.launch
+import reikai.presentation.reader.holdsStripAutoScroll
 import kotlin.math.max
 
 class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = false) :
@@ -31,6 +32,11 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
                 readThrough?.let { select(it) }
             }
 
+            // RK: the pages auto-scroll's smooth step is held by, read here since only the renderer thread walks them
+            autoScrollAhead = (0..state.pagesBelow + 1).mapNotNull { i ->
+                state.getPage(i)?.let { (viewerPageFor(it) as? ViewerReaderPage)?.page }
+            }
+
             val page0 = state.getPage(0)
             val edge = (page0 is TransitionPage && page0.prevChapter == null) ||
                 (readThrough is TransitionPage && readThrough.nextChapter == null)
@@ -45,6 +51,20 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
             }
         }
     }
+
+    // RK --> auto-scroll's smooth step, held while a page on screen or the next below it is loading. It
+    // reads the pages' own load state rather than the draw state, because a refused step draws no frame
+    // and the draw state would then never change.
+    @Volatile
+    private var autoScrollAhead: List<ReaderPage> = emptyList()
+
+    fun autoScrollBy(px: Int): Boolean {
+        if (holdsStripAutoScroll(autoScrollAhead.map { it.status })) return false
+        state.scrollBy(px.toFloat())
+        state.invalidate()
+        return true
+    }
+    // RK <--
 
     /** Null until the first frame, so opening mid-document neither shows nor hides. */
     @Volatile

@@ -292,8 +292,6 @@ class NovelReaderViewModel(
 
     fun setKeepScreenOn(enabled: Boolean) = novelPreferences.readerKeepScreenOn().set(enabled)
 
-    fun setAutoScroll(enabled: Boolean) = novelPreferences.readerAutoScroll().set(enabled)
-
     fun setBionicReading(enabled: Boolean) = novelPreferences.readerBionicReading().set(enabled)
 
     fun setFontSize(size: Int) = novelPreferences.readerFontSize().set(size)
@@ -365,13 +363,11 @@ class NovelReaderViewModel(
                 FlagPrefs(bionic, tapZones, swipe, showProgress)
             },
             combine(
-                novelPreferences.readerAutoScroll().changes(),
-                novelPreferences.readerAutoScrollSpeed().changes(),
                 novelPreferences.readerRailHeight().changes(),
                 novelPreferences.readerRailOnLeft().changes(),
                 novelPreferences.readerUseRail().changes(),
-            ) { autoScroll, speed, railHeight, railOnLeft, useRail ->
-                ScrollPrefs(autoScroll, speed, railHeight, railOnLeft, useRail)
+            ) { railHeight, railOnLeft, useRail ->
+                ScrollPrefs(railHeight, railOnLeft, useRail)
             },
             combine(
                 novelPreferences.readerUseVolumeButtons().changes(),
@@ -1118,8 +1114,6 @@ class NovelReaderViewModel(
         tapZones = extra.flags.tapZones,
         swipeGestures = extra.flags.swipeGestures,
         showProgressPercentage = extra.flags.showProgressPercentage,
-        autoScroll = extra.scroll.autoScroll,
-        autoScrollSpeed = extra.scroll.autoScrollSpeed,
         railHeightPercent = extra.scroll.railHeight,
         railOnLeft = extra.scroll.railOnLeft,
         useRail = extra.scroll.useRail,
@@ -1164,8 +1158,6 @@ class NovelReaderViewModel(
                     readerShowProgressPercentage().get(),
                 ),
                 ScrollPrefs(
-                    readerAutoScroll().get(),
-                    readerAutoScrollSpeed().get(),
                     readerRailHeight().get(),
                     readerRailOnLeft().get(),
                     readerUseRail().get(),
@@ -1606,8 +1598,6 @@ class NovelReaderViewModel(
         val showProgressPercentage: Boolean,
     )
     private data class ScrollPrefs(
-        val autoScroll: Boolean,
-        val autoScrollSpeed: Float,
         val railHeight: Int,
         val railOnLeft: Boolean,
         val useRail: Boolean,

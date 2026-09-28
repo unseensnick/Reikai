@@ -8,10 +8,15 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
+import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import io.kotest.matchers.shouldBe
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
+import kotlinx.coroutines.flow.flowOf
 import org.junit.jupiter.api.Test
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.recents.EmittingPreferenceStore
 
 /**
  * The adapter is all delegation, and a member that silently stops delegating breaks the reader in a
@@ -155,6 +160,16 @@ class MangaViewportTest {
         viewer.movedTo shouldBe null
     }
 
+    /** WebGPU's next verb walks a reversed book backwards, so auto-scroll turns it with the other one. */
+    @Test
+    fun `R2L WebGPU advances with its previous verb`() {
+        val viewer = mockk<WebGpuViewer>(relaxed = true) { every { isReversed } returns true }
+
+        (viewport(viewer).autoScroll as ViewportAutoScroll.Stepped).advance()
+
+        verify { viewer.moveToPrevious() }
+    }
+
     @Test
     fun `the wrapped viewer stays reachable for the questions the contract does not answer`() {
         val viewer = RecordingViewer()
@@ -167,7 +182,14 @@ private fun viewport(
     viewer: Viewer,
     visible: ReaderChapter? = null,
     active: ReaderChapter? = null,
-) = MangaViewport(viewer, visibleChapter = { visible }, activeChapter = { active })
+) = MangaViewport(
+    viewer,
+    visibleChapter = { visible },
+    activeChapter = { active },
+    interval = EmittingPreferenceStore().getInt("interval", 5),
+    speed = EmittingPreferenceStore().getFloat("speed", 1f),
+    shownPage = flowOf(ShownPage(Unit, ready = true)),
+)
 
 // Pages are stand-ins: their real constructor reaches Android through Page, and the adapter only
 // passes them through to the viewer.

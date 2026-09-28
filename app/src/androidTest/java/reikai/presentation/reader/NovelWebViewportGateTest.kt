@@ -20,6 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.novel.content.NovelCodeSnippet
 import reikai.presentation.reader.web.NovelWebSnippets
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -87,6 +88,7 @@ class NovelWebViewportGateTest {
                 onChapterFits = { id, _ -> fitsReports += id },
                 onChapterEndSeen = { endsSeen += it },
                 onReaderScrolled = {},
+                autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
             )
             (activity.webView.parent as ViewGroup).addView(
                 viewport.view,

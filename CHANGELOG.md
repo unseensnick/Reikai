@@ -224,7 +224,7 @@ every stable release now also ships a foss build with neither in it.
 - **A manga or novel chapter that fails to load now offers Retry and Open in WebView, where a manga reader used to close on a brief message.** For a source that takes pages, saving the page there opens the chapter.
 - **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transitions, a display cutout mode, HDR, a Min width slider for the long strip modes, and a page Gap slider for Continuous vertical.
 - **Settings -> Novel reader can switch on selecting, copying and sharing text in the novel reader, which costs link taps in native text mode.** Both rendering modes keep every other gesture while it is on.
-- **Settings -> Novel reader now has a Scroll speed slider under Auto-scroll.**
+- **Settings -> Novel reader now has a Scroll speed slider for auto-scroll.**
 - **The novel reader now reads straight on into the next and previous chapters, which Settings -> Novel reader -> Continuous chapters can switch off.** A marker names each boundary, and Add the next chapter at sets how far in the next one appears, 95% by default.
 - **Settings -> Novel reader can now find and replace text in a chapter before you read it.** Each rule matches plain text or a pattern, and a sample box shows what it would do before you save it.
 - **Novel read-aloud now starts from a Read aloud button on the reader's bar and has a sleep timer, with the time left shown in its notification.** Its floating controls read from the paragraph on screen and step between paragraphs.
@@ -240,6 +240,7 @@ every stable release now also ships a foss build with neither in it.
 - **Novel chapters in the WebView rendering mode now show the styling their light-novel plugin ships, such as the boxes some chapters draw stats in.** A plugin already installed picks it up on its next update or reinstall.
 - **The novel reader's menu now hides when you scroll the page, as long-strip manga's does, with its sensitivity under Settings -> Novel reader -> Navigation.**
 - **The manga reader's bottom bar can now carry a Keep screen on button, as the novel reader's can.**
+- **Manga can now auto-scroll, turning pages on a timer or scrolling long strips smoothly, set up under Settings -> Manga reader.** Start it from the Auto-scroll button on the bottom bar or the reader's Controls tab; it waits on a page that is still loading.
 
 #### Changed
 
@@ -254,6 +255,8 @@ every stable release now also ships a foss build with neither in it.
 - **Novel chapters that "After reading automatically delete" removes now stay downloaded until you leave the reader, as manga chapters do.** Paging back to one offline used to fail.
 - **Finishing a novel chapter in the reader no longer deletes it under "After manually marked as read", which now applies only to marking by hand, as for manga.**
 - **The manga reader's chapter list now shows the page you stopped on in a chapter you have started, as the details screen does.** The novel reader's list already showed how far in you were.
+- **Novel auto-scroll now starts by itself only when Settings -> Novel reader -> Start auto-scroll when opening a chapter is on, which it is if you had left auto-scroll on.** The bottom bar button and the Controls tab start or stop it without changing that setting.
+- **Auto-scroll in either reader now pauses while your finger is on the screen, and scrubbing the chapter pauses it a moment instead of turning it off.**
 
 #### Fixed
 
