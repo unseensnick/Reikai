@@ -354,9 +354,9 @@ class ReaderViewModel(
         // RK: source scope shows only the opened source's own chapters; group scope (default) shows
         // the unified cross-source list resolved in init (falling back to the single-source list if
         // accessed before init). A group-scoped chapter opened from outside the merged view (history)
-        // can be deduped out of the unified list, so it is put back through withOpenedChapter, the
-        // kernel the novel readers share. In source scope the opened chapter is always present, so
-        // that is a no-op.
+        // can be deduped out of the unified list, and in either scope a chapter whose scanlator is
+        // excluded is filtered out of it (mihon 2b4b8472b); both are put back through
+        // withOpenedChapter, the kernel the novel readers share, looked up in the unfiltered list.
         val merged = if (sourceScoped) {
             runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
         } else {
@@ -365,9 +365,7 @@ class ReaderViewModel(
         }
         val chapters = withOpenedChapter(
             unified = merged,
-            opened = merged.find { it.id == chapterId }
-                ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
-                    .find { it.id == chapterId },
+            opened = merged.find { it.id == chapterId } ?: unfilteredChapterList.find { it.id == chapterId },
             stitch = mergedGroup?.stitch.orEmpty(),
             id = { it.id },
             // A merged manga list runs newest-first, as its sources' own lists do.

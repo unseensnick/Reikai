@@ -261,6 +261,7 @@ every stable release now also ships a foss build with neither in it.
 #### Fixed
 
 - **Reading time is no longer counted twice when two saves of one reading session overlap, in the manga and novel readers (synced from Mihon).**
+- **Manga chapters from an excluded scanlator now open from History and Updates (synced from Mihon).** The reader's chapter list still leaves the excluded scanlator's other chapters out.
 - **A merged series now opens in webtoon mode when any of its sources calls it a manhwa, manhua or webtoon.** Before, only the source the chapter came from was consulted, and that is usually not the one carrying the tag.
 - **Chapters you have read no longer disappear from the manga reader's chapter list, and tapping one opens it.**
 - **Rotating the screen while a chapter is opening no longer leaves the reader stuck loading (synced from Mihon, mihonapp/mihon#3686).**
