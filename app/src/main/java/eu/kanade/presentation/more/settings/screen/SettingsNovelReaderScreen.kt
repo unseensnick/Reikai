@@ -30,15 +30,13 @@ import reikai.domain.novel.tts.baseLanguages
 import reikai.domain.novel.tts.inLanguages
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.novel.content.NovelSnippetKind
-import reikai.novel.font.fontDisplayName
 import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.toHexRgb
 import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.TtsOptions
 import reikai.presentation.reader.readerBottomButtonsPreference
-import reikai.presentation.reader.readerFonts
-import reikai.presentation.reader.readerGenericFonts
+import reikai.presentation.reader.readerFontLabel
 import reikai.presentation.reader.rememberTtsOptions
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -247,13 +245,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         // Named from whichever list it came from, since the preference holds a key or a file name and
         // neither reads as the font it selects.
         val defaultFontLabel = stringResource(MR.strings.pref_novel_font_default)
-        val fontLabel = remember(fontFamily, defaultFontLabel) {
-            when {
-                fontFamily.isEmpty() -> defaultFontLabel
-                else -> (readerGenericFonts + readerFonts).firstOrNull { it.family == fontFamily }?.name
-                    ?: fontDisplayName(fontFamily)
-            }
-        }
+        val fontLabel = remember(fontFamily, defaultFontLabel) { readerFontLabel(fontFamily, defaultFontLabel) }
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_text_display),

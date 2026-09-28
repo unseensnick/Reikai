@@ -51,7 +51,6 @@ import reikai.domain.novel.tts.baseLanguages
 import reikai.domain.novel.tts.inLanguages
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.novel.font.NovelFont
-import reikai.novel.font.fontDisplayName
 import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.StepperItem
 import reikai.presentation.components.toHexRgb
@@ -65,9 +64,9 @@ import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.PresetSwatch
 import reikai.presentation.reader.ReaderFont
 import reikai.presentation.reader.TtsOptions
+import reikai.presentation.reader.builtInReaderFonts
 import reikai.presentation.reader.readerBackgroundColorInt
-import reikai.presentation.reader.readerFonts
-import reikai.presentation.reader.readerGenericFonts
+import reikai.presentation.reader.readerFontLabel
 import reikai.presentation.reader.readerTextColorInt
 import reikai.presentation.reader.readerThemePresets
 import reikai.presentation.reader.readerThemeShown
@@ -539,57 +538,26 @@ private fun FontRow(pref: Preference<String>, installedFonts: suspend () -> List
     val family by pref.collectAsState()
     var picking by remember { mutableStateOf(false) }
     val defaultLabel = stringResource(MR.strings.pref_novel_font_default)
-    val builtIn = remember { readerFonts.take(1) + readerGenericFonts + readerFonts.drop(1) }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { picking = true }
-            .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = SettingsItemsPaddings.Vertical),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = stringResource(MR.strings.pref_novel_font),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = fontLabel(family, builtIn, defaultLabel),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
+    PickerRow(MR.strings.pref_novel_font, readerFontLabel(family, defaultLabel)) { picking = true }
 
     if (picking) {
         val installed by produceState(emptyList<ReaderFont>()) {
             value = installedFonts().map { ReaderFont(it.fileName, it.displayName) }
         }
-        AlertDialog(
-            onDismissRequest = { picking = false },
-            title = { Text(stringResource(MR.strings.pref_novel_font)) },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .heightIn(max = 420.dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    (builtIn + installed).forEach { font ->
-                        val select = {
-                            pref.set(font.family)
-                            picking = false
-                        }
-                        if (font.family.isEmpty()) {
-                            DefaultFontItem(defaultLabel, selected = family.isEmpty(), onClick = select)
-                        } else {
-                            RadioItem(label = font.name, selected = font.family == family, onClick = select)
-                        }
-                    }
+        ListPickerDialog(MR.strings.pref_novel_font, onDismiss = { picking = false }) {
+            (builtInReaderFonts + installed).forEach { font ->
+                val select = {
+                    pref.set(font.family)
+                    picking = false
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { picking = false }) { Text(stringResource(MR.strings.action_cancel)) }
-            },
-        )
+                if (font.family.isEmpty()) {
+                    DefaultFontItem(defaultLabel, selected = family.isEmpty(), onClick = select)
+                } else {
+                    RadioItem(label = font.name, selected = font.family == family, onClick = select)
+                }
+            }
+        }
     }
 }
 
@@ -823,9 +791,4 @@ private fun ColumnScope.TtsColorRow(pref: Preference<Int>, presets: List<TtsColo
             },
         )
     }
-}
-
-private fun fontLabel(family: String, builtIn: List<ReaderFont>, defaultLabel: String): String = when {
-    family.isEmpty() -> defaultLabel
-    else -> builtIn.firstOrNull { it.family == family }?.name ?: fontDisplayName(family)
 }

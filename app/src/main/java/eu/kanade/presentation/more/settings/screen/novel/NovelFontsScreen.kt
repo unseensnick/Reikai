@@ -49,8 +49,7 @@ import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Folder
 import mihon.icons.materialsymbols.roundedfilled.CheckCircle
 import reikai.novel.font.GoogleFont
-import reikai.presentation.reader.readerFonts
-import reikai.presentation.reader.readerGenericFonts
+import reikai.presentation.reader.builtInReaderFonts
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -75,13 +74,6 @@ class NovelFontsScreen : Screen() {
         val state by viewModel.state.collectAsStateWithLifecycle()
         val lazyListState = rememberLazyListState()
         val snackbarHostState = remember { SnackbarHostState() }
-        // The source's own font leads because it is the default, then the three families every device
-        // has, then the faces shipped with the app.
-        val builtInFonts = remember {
-            val (original, bundled) = readerFonts.partition { it.family.isEmpty() }
-            original + readerGenericFonts + bundled
-        }
-
         // Any file, because a picker filtered on font MIME types hides fonts on the devices that
         // report them as application/octet-stream. What the file actually is, is checked on import.
         val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -123,7 +115,7 @@ class NovelFontsScreen : Screen() {
                     item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
                 }
                 item { SectionHeader(stringResource(MR.strings.novel_font_section_built_in)) }
-                items(builtInFonts, key = { "b:${it.family}" }) { font ->
+                items(builtInReaderFonts, key = { "b:${it.family}" }) { font ->
                     val isDefault = font.family.isEmpty()
                     FontRow(
                         // The one row whose name does not describe it: it sets no font at all, so it

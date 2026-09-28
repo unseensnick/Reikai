@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import reikai.domain.novel.tts.TtsHighlightStyle
+import reikai.novel.font.fontDisplayName
 import reikai.presentation.reader.web.NovelWebSnippets
 
 /**
@@ -101,14 +102,14 @@ fun readerThemeShown(followSystem: Boolean, isDark: Boolean, background: String,
 data class ReaderFont(val family: String, val name: String)
 
 /** The three families Android guarantees, offered above the bundled faces. */
-val readerGenericFonts = listOf(
+private val readerGenericFonts = listOf(
     ReaderFont("sans-serif", "Sans serif"),
     ReaderFont("serif", "Serif"),
     ReaderFont("monospace", "Monospace"),
 )
 
 /** Bundled fonts from LNReader (Default + 9 families shipped under assets/fonts/). */
-val readerFonts = listOf(
+private val readerFonts = listOf(
     ReaderFont("", "Default"),
     ReaderFont("lora", "Lora"),
     ReaderFont("nunito", "Nunito"),
@@ -120,3 +121,15 @@ val readerFonts = listOf(
     ReaderFont("pt-serif", "PT Serif"),
     ReaderFont("OpenDyslexic3-Regular", "OpenDyslexic"),
 )
+
+/** The source's own font first because it is the default, then the families every device has, then the
+ *  bundled faces. The one order every font list shows. */
+val builtInReaderFonts: List<ReaderFont> = readerFonts.take(1) + readerGenericFonts + readerFonts.drop(1)
+
+/** A font's name as every screen shows it: [defaultLabel] for the source's own, else a built-in's name,
+ *  else the name of the file the user added. */
+fun readerFontLabel(family: String, defaultLabel: String): String = if (family.isEmpty()) {
+    defaultLabel
+} else {
+    builtInReaderFonts.firstOrNull { it.family == family }?.name ?: fontDisplayName(family)
+}
