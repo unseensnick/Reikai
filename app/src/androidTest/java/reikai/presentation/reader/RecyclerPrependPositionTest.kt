@@ -456,6 +456,11 @@ class RecyclerPrependPositionTest {
     fun shortLastChapter_prependGrowsAfterLayout() {
         val (afterInsert, settled) = measureShortLastPrepend("short-last, grows-after", growAfterLayout = true)
         Log.i(TAG, "RESULT short-last grows-after: afterInsert=$afterInsert settled=$settled")
+        assertEquals(
+            "the placeholder moves the short chapter by its height, then its text pushes it off the bottom",
+            UNMEASURED_TEXT to null,
+            afterInsert to settled,
+        )
     }
 
     /** The chapter before arrives already measured: the gap closes once and nothing grows after. */
