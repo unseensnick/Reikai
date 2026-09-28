@@ -28,6 +28,8 @@ import reikai.presentation.reader.WebViewHostActivity
 import reikai.presentation.reader.readerTestSettings
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.NovelBionicSpans
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.i18n.MR
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentHashMap
@@ -441,6 +443,17 @@ class NovelWebDocumentTest {
             "the appended chapter is not last",
             "99",
             eval("document.querySelectorAll('.rk-chapter')[1].getAttribute('data-rk-chapter-id')"),
+        )
+    }
+
+    /** The seam's words come from the app's strings, which the build writes into the page's script. */
+    @Test
+    fun aSeamNamesItsChaptersInTheAppsWords() {
+        loadDocument()
+        eval("window.rkReader.appendChapter('99', '<p>next chapter</p>', null, $SEAM)")
+        assertEquals(
+            instrumentation.targetContext.stringResource(MR.strings.transition_finished),
+            eval("document.querySelector('.rk-seam .rk-seam-label').textContent"),
         )
     }
 

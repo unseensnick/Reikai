@@ -2,7 +2,9 @@ package reikai.presentation.reader.web
 
 import android.content.Context
 import com.google.android.material.color.MaterialColors
+import dev.icerock.moko.resources.StringResource
 import org.json.JSONObject
+import reikai.presentation.components.toHexRgb
 import reikai.presentation.reader.NovelReaderSettings
 import reikai.presentation.reader.NovelTextScale
 import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
@@ -51,15 +53,15 @@ object NovelWebDocument {
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
                 "__INITIAL_LINE__" to (initialLine?.coerceAtLeast(0) ?: -1).toString(),
                 "__IMAGE_WAIT_MS__" to CHAPTER_IMAGE_WAIT_MS.toString(),
-                "__DOCUMENT_TOKEN__" to jsString(documentToken),
+                "__DOCUMENT_TOKEN__" to NovelWebSnippets.jsLiteral(documentToken),
                 // The seam names both chapters under these, the way TransitionText does. Resolved
                 // here because the page has no resources of its own.
-                "__LABEL_FINISHED__" to jsString(context.stringResource(MR.strings.transition_finished)),
-                "__LABEL_NEXT__" to jsString(context.stringResource(MR.strings.transition_next)),
-                "__LABEL_NO_NEXT__" to jsString(context.stringResource(MR.strings.transition_no_next)),
-                "__LABEL_DOWNLOADED__" to jsString(context.stringResource(MR.strings.label_downloaded)),
-                "__LABEL_IMAGE_ERROR__" to jsString(context.stringResource(MR.strings.decode_image_error)),
-                "__LABEL_RETRY__" to jsString(context.stringResource(MR.strings.action_retry)),
+                "__LABEL_FINISHED__" to context.label(MR.strings.transition_finished),
+                "__LABEL_NEXT__" to context.label(MR.strings.transition_next),
+                "__LABEL_NO_NEXT__" to context.label(MR.strings.transition_no_next),
+                "__LABEL_DOWNLOADED__" to context.label(MR.strings.label_downloaded),
+                "__LABEL_IMAGE_ERROR__" to context.label(MR.strings.decode_image_error),
+                "__LABEL_RETRY__" to context.label(MR.strings.action_retry),
                 "__SOURCE_CSS__" to sourceCssLiteral(sourceStylesheet.orEmpty()),
                 // Last, because the tokens are replaced in order and a stylesheet naming one of the
                 // tokens above would otherwise have it filled in, the document token included.
@@ -141,16 +143,14 @@ object NovelWebDocument {
         // Both attrs are read off appcompat rather than material: material 1.14.0 stopped declaring
         // colorError and colorPrimary in its own R, keeping only the ones it owns (colorOnBackground).
         val error = MaterialColors.getColor(context, androidx.appcompat.R.attr.colorError, FALLBACK_ERROR)
-        append("--rk-error:").append(cssHex(error)).append(';')
+        append("--rk-error:").append(error.toHexRgb()).append(';')
         val primary = MaterialColors.getColor(
             context,
             androidx.appcompat.R.attr.colorPrimary,
             FALLBACK_PRIMARY,
         )
-        append("--rk-primary:").append(cssHex(primary)).append(';')
+        append("--rk-primary:").append(primary.toHexRgb()).append(';')
     }
-
-    private fun cssHex(color: Int): String = "#%06X".format(Locale.ROOT, color and 0xFFFFFF)
 
     /** Material's baseline error red and primary purple, for a context whose theme names neither. */
     private const val FALLBACK_ERROR = 0xFFB3261E.toInt()
@@ -201,12 +201,7 @@ $sizedElements
         ".0",
     )}em !important; }"
 
-    /** Safe inside the single quotes the script writes it into, which is all it has to survive. */
-    private fun jsString(value: String): String = value
-        .replace("\\", "\\\\")
-        .replace("'", "\\'")
-        .replace("\n", " ")
-        .replace("\r", " ")
+    private fun Context.label(resource: StringResource): String = NovelWebSnippets.jsLiteral(stringResource(resource))
 
     /** The block the page's own settings object is given, for what a custom property cannot express. */
     fun behaviourJson(settings: NovelReaderSettings): JSONObject = JSONObject().apply {

@@ -17,7 +17,7 @@
   // Names this document to the host, which hears only the document it built last, so every bridge call
   // passes it first. The page being replaced, a chapter's script, or a frame one creates (the bridge is
   // in every frame) can reach the bridge too, and none of them has this.
-  var DOCUMENT_TOKEN = '__DOCUMENT_TOKEN__';
+  var DOCUMENT_TOKEN = __DOCUMENT_TOKEN__;
 
   var CHAPTER_SELECTOR = '.rk-chapter';
   var CHAPTER_ID_ATTR = 'data-rk-chapter-id';
@@ -44,12 +44,12 @@
 
   // Resolved by the host, since the page has no resources of its own.
   var labels = {
-    finished: '__LABEL_FINISHED__',
-    next: '__LABEL_NEXT__',
-    noNext: '__LABEL_NO_NEXT__',
-    downloaded: '__LABEL_DOWNLOADED__',
-    imageError: '__LABEL_IMAGE_ERROR__',
-    retry: '__LABEL_RETRY__',
+    finished: __LABEL_FINISHED__,
+    next: __LABEL_NEXT__,
+    noNext: __LABEL_NO_NEXT__,
+    downloaded: __LABEL_DOWNLOADED__,
+    imageError: __LABEL_IMAGE_ERROR__,
+    retry: __LABEL_RETRY__,
   };
 
   // The user's stylesheet, set as text so nothing in it is parsed as markup. It follows the reader's own
