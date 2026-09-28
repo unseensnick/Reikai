@@ -264,4 +264,48 @@ class NovelReaderViewModelTest {
 
         harness.isRead(first) shouldBe true
     }
+
+    /** The source reload failed; the setting change is a different open and reads the download. */
+    @Test
+    fun `a failed reload from the source does not stop a settings change reading the download`() =
+        readerTest { harness ->
+            val source = harness.source("src")
+            val novel = harness.novel(source)
+            val first = harness.chapter(novel, 1.0)
+            harness.download(first, "<p>From the download</p>")
+            val model = harness.open(novel, first.id)
+            advanceUntilIdle()
+            source.failing += first.url
+            model.reloadChapter(fromSource = true)
+            advanceUntilIdle()
+
+            harness.novelPreferences.readerForceLowercase().set(true)
+            advanceUntilIdle()
+
+            model.loadState.value shouldBe ReaderLoadState.Idle
+        }
+
+    /** Seamless off, so no warm refills the dropped cache and only the open reads the chapter. */
+    @Test
+    fun `a failed reload from the source does not follow the reader back to that chapter`() = readerTest { harness ->
+        harness.novelPreferences.readerSeamlessChapters().set(false)
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val first = harness.chapter(novel, 1.0)
+        val second = harness.chapter(novel, 2.0)
+        harness.download(first, "<p>Chapter one on disk</p>")
+        harness.download(second, "<p>Chapter two on disk</p>")
+        val model = harness.open(novel, first.id)
+        advanceUntilIdle()
+        source.failing += first.url
+        model.reloadChapter(fromSource = true)
+        advanceUntilIdle()
+
+        model.nextChapter()
+        advanceUntilIdle()
+        model.previousChapter()
+        advanceUntilIdle()
+
+        model.chapter.value?.html.orEmpty() shouldContain "Chapter one on disk"
+    }
 }

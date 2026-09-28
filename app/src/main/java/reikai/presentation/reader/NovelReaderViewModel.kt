@@ -219,7 +219,8 @@ class NovelReaderViewModel(
 
     fun retryLoad() = load()
 
-    /** The chapter the next open fetches from its source rather than its downloaded copy, once. */
+    /** The chapter the pending open fetches from its source rather than its downloaded copy. Any other
+     *  open clears it, and Retry keeps it. */
     @Volatile
     private var sourceReloadId: Long? = null
 
@@ -231,10 +232,10 @@ class NovelReaderViewModel(
         viewModelScope.launchIO {
             val id = lane.withLock {
                 if (loadState.value == ReaderLoadState.Loading) return@launchIO
+                sourceReloadId = currentChapterId.takeIf { fromSource }
                 currentChapterId.also { pendingChapterId = it }
             }
             htmlCache.remove(id)
-            sourceReloadId = id.takeIf { fromSource }
             load()
         }
     }
@@ -423,7 +424,8 @@ class NovelReaderViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, currentSettings())
 
-    /** The chapter the viewport renders, or null while it is loading (or after a failed load). */
+    /** The chapter the viewport renders: null until the first chapter loads, and still null if that
+     *  first load fails. A later failed load keeps the chapter already rendered. */
     data class LoadedChapter(
         val chapterId: Long,
         val title: String,
@@ -797,7 +799,10 @@ class NovelReaderViewModel(
                 // on. Not done in cross(), which would also redirect a retry. A step still loading keeps
                 // its target, or the reload silently dropped it. In the lane, as goTo sets it there.
                 lane.withLock {
-                    if (loadState.value != ReaderLoadState.Loading) pendingChapterId = currentChapterId
+                    if (loadState.value != ReaderLoadState.Loading) {
+                        pendingChapterId = currentChapterId
+                        sourceReloadId = null
+                    }
                 }
                 load()
             }
@@ -913,6 +918,7 @@ class NovelReaderViewModel(
                 flushProgress()
                 updateHistory()
                 pendingChapterId = chapterId
+                sourceReloadId = null
                 if (!markDepartedRead) return@withLock null
                 // One that fit on the screen was read in full, whatever the skip setting says: it has
                 // no scroll room, so this step is the only point it can be called finished.
