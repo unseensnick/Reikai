@@ -15,8 +15,6 @@ class RecommendationHideFilter(
     private val malTrackerId: Long,
 ) {
 
-    val isNoOp: Boolean get() = inLibrary.isEmpty && hiddenStatus.isEmpty
-
     fun shouldHide(candidate: RelatedMangaCandidate): Boolean =
         matches(candidate, inLibrary) || matches(candidate, hiddenStatus)
 

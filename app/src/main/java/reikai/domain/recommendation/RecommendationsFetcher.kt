@@ -29,8 +29,7 @@ class RecommendationsFetcher(
     suspend fun fetch(
         title: String,
         tracks: List<Track>,
-        skipTrackerIds: Set<Long> = emptySet(),
-        exceptionHandler: (Throwable) -> Unit,
+        skipTrackerIds: Set<Long>,
         pushResults: suspend (List<RelatedMangaCandidate>) -> Unit,
     ) {
         val enabledTrackerIds = preferences.enabledRecommendationTrackerIds(trackerManager)
@@ -44,7 +43,7 @@ class RecommendationsFetcher(
             // tracked), so recs(M) isn't queried twice.
             if (trackerId in skipTrackerIds) return
             val provider = providers.forTracker(trackerId) ?: return
-            runOne(provider, remoteId(trackerId), title, exceptionHandler, pushResults)
+            runOne(provider, remoteId(trackerId), title, pushResults)
         }
 
         coroutineScope {
@@ -56,7 +55,6 @@ class RecommendationsFetcher(
         provider: TrackerRecommendations,
         remoteId: Long?,
         title: String,
-        exceptionHandler: (Throwable) -> Unit,
         pushResults: suspend (List<RelatedMangaCandidate>) -> Unit,
     ) {
         runCatching { withTimeout(REQUEST_TIMEOUT) { provider.fetch(remoteId, title) } }
@@ -70,7 +68,6 @@ class RecommendationsFetcher(
                     is CancellationException -> throw e
                     else -> {
                         logcat(LogPriority.WARN, e) { "Tracker recommendations fetch failed (${provider.trackerName})" }
-                        exceptionHandler(e)
                     }
                 }
             }

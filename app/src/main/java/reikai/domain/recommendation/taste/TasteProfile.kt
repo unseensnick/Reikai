@@ -13,11 +13,6 @@ data class TasteProfile(
     val tagEntryCounts: Map<String, Int>,
     val totalEntries: Int,
 ) {
-    fun topTags(n: Int): List<String> = tagScores.entries
-        .sortedByDescending { it.value }
-        .take(n)
-        .map { it.key }
-
     companion object {
         val EMPTY = TasteProfile(emptyMap(), emptyMap(), 0)
     }

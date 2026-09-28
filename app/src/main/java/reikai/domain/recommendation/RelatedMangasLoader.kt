@@ -88,7 +88,6 @@ class RelatedMangasLoader(
                     source = source,
                     mediaContexts = contexts,
                     sourceGenres = currentGenres,
-                    exceptionHandler = { /* already logged by the fetcher */ },
                     pushResults = { candidates -> accumulator.add(candidates)?.let { onUpdate(it) } },
                 )
             }
@@ -97,7 +96,6 @@ class RelatedMangasLoader(
                     title = manga.title,
                     tracks = tracks,
                     skipTrackerIds = handledTrackerIds,
-                    exceptionHandler = { /* already logged by the fetcher */ },
                     pushResults = { candidates -> accumulator.add(candidates)?.let { onUpdate(it) } },
                 )
             }

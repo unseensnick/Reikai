@@ -39,7 +39,6 @@ class TasteCandidateFetcher(
         source: CatalogueSource,
         mediaContexts: Map<Long, TrackerRecommendations.MediaContext>,
         sourceGenres: List<String>,
-        exceptionHandler: (Throwable) -> Unit,
         pushResults: suspend (List<RelatedMangaCandidate>) -> Unit,
     ) {
         val tagSearchEnabled = preferences.injectTagSearchCandidates.get()
@@ -54,14 +53,14 @@ class TasteCandidateFetcher(
         coroutineScope {
             if (tagSearchEnabled) {
                 val genres = mediaContexts.values.flatMap { it.genres }.distinct().ifEmpty { sourceGenres }
-                launch { runTagSearch(source, profile, genres, exceptionHandler, pushResults) }
+                launch { runTagSearch(source, profile, genres, pushResults) }
             }
             if (crossRecEnabled && entries.isNotEmpty()) {
                 mediaContexts.forEach { (trackerId, context) ->
                     val provider = providers.forTracker(trackerId) ?: return@forEach
                     val recsIds = context.recommendations.mapNotNullTo(HashSet()) { it.remoteId }
                     val seeds = selectCrossRecSeeds(entries, recsIds, trackerId, MAX_FAVORITES)
-                    launch { runCrossRecommendation(provider, seeds, exceptionHandler, pushResults) }
+                    launch { runCrossRecommendation(provider, seeds, pushResults) }
                 }
             }
         }
@@ -71,7 +70,6 @@ class TasteCandidateFetcher(
         source: CatalogueSource,
         profile: TasteProfile,
         genres: List<String>,
-        exceptionHandler: (Throwable) -> Unit,
         pushResults: suspend (List<RelatedMangaCandidate>) -> Unit,
     ) {
         val tags = selectContextualTags(profile, genres, TASTE_TOP_TAG_COUNT)
@@ -91,7 +89,7 @@ class TasteCandidateFetcher(
                             }
                         }
                         .onFailure {
-                            handleFailure(it, exceptionHandler) { "Tag-search candidate fetch failed for \"$tag\"" }
+                            handleFailure(it) { "Tag-search candidate fetch failed for \"$tag\"" }
                         }
                 }
             }
@@ -101,7 +99,6 @@ class TasteCandidateFetcher(
     private suspend fun runCrossRecommendation(
         provider: TrackerRecommendations,
         seeds: List<TrackedEntry>,
-        exceptionHandler: (Throwable) -> Unit,
         pushResults: suspend (List<RelatedMangaCandidate>) -> Unit,
     ) {
         coroutineScope {
@@ -114,7 +111,7 @@ class TasteCandidateFetcher(
                             }
                         }
                         .onFailure {
-                            handleFailure(it, exceptionHandler) {
+                            handleFailure(it) {
                                 "Cross-recommendation candidate fetch failed for \"${seed.title}\""
                             }
                         }
@@ -126,16 +123,13 @@ class TasteCandidateFetcher(
     private fun candidate(source: CatalogueSource, manga: SManga, origin: RecommendationOrigin) =
         RelatedMangaCandidate(sourceId = source.id, manga = manga, origin = origin)
 
-    private fun handleFailure(e: Throwable, exceptionHandler: (Throwable) -> Unit, message: () -> String) {
+    private fun handleFailure(e: Throwable, message: () -> String) {
         when (e) {
             // A slow source search shouldn't gate the carousel.
             is TimeoutCancellationException -> Unit
             // A real cancellation (screen closed) must propagate so structured concurrency unwinds.
             is CancellationException -> throw e
-            else -> {
-                logcat(LogPriority.WARN, e) { message() }
-                exceptionHandler(e)
-            }
+            else -> logcat(LogPriority.WARN, e) { message() }
         }
     }
 

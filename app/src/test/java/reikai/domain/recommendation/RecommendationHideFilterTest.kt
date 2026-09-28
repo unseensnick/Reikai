@@ -67,9 +67,4 @@ class RecommendationHideFilterTest {
         val f = filter(inLibrary = index(), status = index(pairs = setOf(ANILIST to 100L)))
         f.shouldHide(candidate("Completed", trackerId = ANILIST, remoteId = 100L)) shouldBe true
     }
-
-    @Test
-    fun `an empty filter is a no-op`() {
-        filter(index()).isNoOp shouldBe true
-    }
 }

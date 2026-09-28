@@ -31,11 +31,9 @@ abstract class TrackerRecommendations {
     /**
      * The tracker's view of one media the user already tracks: recommendations plus genres, for the
      * taste-driven injection, which needs the tracker's own "similar" list (cross-rec) and its clean
-     * genres (tag-search). The default fetches recommendations only; a provider that can return
-     * genres in the same call overrides this.
+     * genres (tag-search).
      */
-    open suspend fun getMediaContext(remoteId: Long): MediaContext =
-        MediaContext(genres = emptyList(), recommendations = getRecsById(remoteId))
+    abstract suspend fun getMediaContext(remoteId: Long): MediaContext
 
     data class MediaContext(
         val genres: List<String>,
