@@ -400,8 +400,10 @@ every stable release now also ships a foss build with neither in it.
 - **Choosing what a manga migrates to now browses the source the normal way, with chips, filters and your grid layout.** It used to open a stripped-down grid, while light novels already used the full one.
 - **Browsing a light-novel source now offers the same toolbar as a manga source.** Search, display mode, Select, Open in WebView and the source settings sit in the same places on either.
 - **A light-novel source only offers Latest when it can really list latest.** Around half the plugins ignore the request and hand back the popular list, so the chip is hidden on those instead of quietly repeating Popular.
+- **The duplicate warning when adding a novel now also catches a library novel tracked to the same tracker entry, as the manga one does.**
 
 #### Fixed
+- **Adding a manga no longer flags an unrelated library manga as a duplicate because both are tracked on a tracker that gives no entry id (synced from Mihon, mihonapp/mihon#4008).**
 - **Tapping "Back up all favorites now" again while an adult source's favorites backup runs no longer starts a second one.** Two at once pushed every favorite twice.
 - **When an adult gallery source replaces a gallery with a newer version, chapters the new version already had now keep the old version's read state, bookmark and progress.** Only chapters new to it carried them over, while History still showed them as read.
 - **The large mainstream source the app enhances now syncs follows, tracks and signs in through the language you set as preferred in its settings.** It always used the first enabled language.

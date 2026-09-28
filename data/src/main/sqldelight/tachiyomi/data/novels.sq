@@ -114,16 +114,29 @@ AND (
     )
 );
 
--- Novel twin of mangas.sq getDuplicateLibraryManga, minus the tracker CTE (novels are untracked):
--- a title-substring match over favorited novels with each candidate's chapter count. DB-side and
--- bounded by the favorite partial index, so it scales to large libraries instead of an in-memory scan.
+-- Novel twin of mangas.sq getDuplicateLibraryManga: favorited novels whose title contains :title or
+-- that are tracked to the same remote entry, each with its chapter count. A remote id of 0 is a tracker
+-- that never set one, so it matches nothing. DuplicateTrackMatchConformanceTest pins both halves.
 getDuplicateLibraryNovel:
-WITH duplicates AS (
+WITH
+track_dupes AS (
+    SELECT DISTINCT T2.novel_id
+    FROM novel_tracks T1
+    INNER JOIN novel_tracks T2
+    ON T1.sync_id = T2.sync_id
+    AND T1.remote_id = T2.remote_id
+    AND T1.remote_id != 0
+    AND T1.novel_id != T2.novel_id
+    WHERE T1.novel_id = :id
+),
+duplicates AS (
     SELECT N.*
     FROM novels N
-    WHERE favorite = 1
-    AND _id != :id
-    AND lower(title) LIKE '%' || lower(:title) || '%'
+    LEFT JOIN track_dupes D
+    ON D.novel_id = N._id
+    WHERE N.favorite = 1
+    AND N._id != :id
+    AND (lower(N.title) LIKE '%' || lower(:title) || '%' OR D.novel_id IS NOT NULL)
 ),
 chapter_counts AS (
     SELECT
