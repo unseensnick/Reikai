@@ -27,14 +27,14 @@ class ReadAloudTextTest {
 
     @Test
     fun `a line is counted without its spaces or pictures`() {
-        shownCharCount("A b\n\uFFFCcd", "A b\n\uFFFCc".length) shouldBe 3
+        shownCharPrefix("A b\n\uFFFCcd")["A b\n\uFFFCc".length] shouldBe 3
     }
 
     @Test
     fun `a counted character is found again at its offset`() {
         val chunk = "A b\n\uFFFCcd"
 
-        shownCharOffset(chunk, shownCharCount(chunk, chunk.indexOf('c'))) shouldBe chunk.indexOf('c')
+        shownCharOffset(chunk, shownCharPrefix(chunk)[chunk.indexOf('c')]) shouldBe chunk.indexOf('c')
     }
 
     /** The viewport looks a line's count up in the prefix, so it must be the count at every offset. */
@@ -42,7 +42,7 @@ class ReadAloudTextTest {
     fun `the prefix holds the count before every offset`() {
         val chunk = "A b\n￼cd  e　f"
 
-        shownCharPrefix(chunk).toList() shouldBe (0..chunk.length).map { shownCharCount(chunk, it) }
+        shownCharPrefix(chunk).toList() shouldBe listOf(0, 1, 1, 2, 2, 2, 3, 4, 4, 4, 5, 5, 6)
     }
 
     @Test

@@ -80,7 +80,7 @@ class NovelTextViewport(
      *  on whichever the model happens to hold. */
     private val onProgressChanged: (chapterId: Long, percent: Int) -> Unit,
     private val onProgressSettled: (chapterId: Long, percent: Int) -> Unit,
-    /** The line at the top of the screen as characters into its chapter (`shownCharCount`), null while the
+    /** The line at the top of the screen as characters into its chapter (`shownCharPrefix`), null while the
      *  chapter's text starts on screen. Sent when it changes. */
     private val onTopLine: (chapterId: Long, line: Int?) -> Unit,
     private val onToggleMenu: () -> Unit,
@@ -174,7 +174,7 @@ class NovelTextViewport(
         data class Line(val chunk: Int, val offset: Int, val y: Int) : Landing
 
         /**
-         * The line holding counted character [line] of the chapter (`shownCharCount`), put at the top: what a
+         * The line holding counted character [line] of the chapter (`shownCharPrefix`), put at the top: what a
          * rebuilt renderer is handed, where the chunking and the width may both have changed. A line the
          * text does not reach lands on the saved [fraction] instead, as the page falls back to it.
          */

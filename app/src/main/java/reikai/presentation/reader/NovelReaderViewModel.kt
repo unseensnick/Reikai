@@ -434,7 +434,7 @@ class NovelReaderViewModel(
         val html: String,
         val baseUrl: String?,
         val progressPercent: Int,
-        /** The line the reader had at the top, as characters into the chapter (`shownCharCount`), which a
+        /** The line the reader had at the top, as characters into the chapter (`shownCharPrefix`), which a
          *  renderer lands on in place of [progressPercent]; null where there is no line to hold. */
         val topLine: Int? = null,
         /** What the marker between two chapters reads (`NovelSeam`): the number its missing-chapters

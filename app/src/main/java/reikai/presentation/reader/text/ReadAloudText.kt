@@ -69,16 +69,10 @@ private fun shownText(chunk: CharSequence, lineStart: Int, lineEnd: Int): Pair<S
 }
 
 /**
- * How many characters of [chunk] before [end] a reading line is counted in: every one read-aloud keeps
- * except its spaces. The page counts its text the same way (`reader.js`), so a line named by a count of
- * these is the same line in either renderer.
+ * Entry `i` is how many characters of [chunk] before offset `i` a reading line is counted in: every one
+ * read-aloud keeps except its spaces. The page counts its text the same way (`reader.js`), so a line
+ * named by a count of these is the same line in either renderer.
  */
-internal fun shownCharCount(chunk: CharSequence, end: Int): Int {
-    val readings = rubyCoverage(chunk, 0, end)
-    return (0 until end).count { chunk.isCounted(it, readings) }
-}
-
-/** [shownCharCount] at every offset of [chunk] in one pass: entry `i` is the count before offset `i`. */
 internal fun shownCharPrefix(chunk: CharSequence): IntArray {
     val readings = rubyCoverage(chunk, 0, chunk.length)
     val prefix = IntArray(chunk.length + 1)
@@ -86,7 +80,7 @@ internal fun shownCharPrefix(chunk: CharSequence): IntArray {
     return prefix
 }
 
-/** The offset in [chunk] of its counted character [index] (see [shownCharCount]), or null past its last. */
+/** The offset in [chunk] of its counted character [index] (see [shownCharPrefix]), or null past its last. */
 internal fun shownCharOffset(chunk: CharSequence, index: Int): Int? {
     if (index < 0) return null
     val readings = rubyCoverage(chunk, 0, chunk.length)

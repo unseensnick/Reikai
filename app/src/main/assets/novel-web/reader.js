@@ -375,7 +375,7 @@
 
   /*
    * The line at the top of the screen, as the characters of its chapter before it that read-aloud keeps,
-   * less spaces: the native renderer's shownCharCount, so a rebuilt page lands on the line the reader had
+   * less spaces: the native renderer's shownCharPrefix, so a rebuilt page lands on the line the reader had
    * whichever renderer rebuilds it. Sent when it changes, -1 while no chapter text is at the top.
    */
   var topLine = (function () {

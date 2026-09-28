@@ -27,11 +27,6 @@ class ReadAloudRubyCountTest {
     private fun expected(end: Int) = (0 until end).count { it !in covered && !chunk[it].isWhitespace() }
 
     @Test
-    fun theCountLeavesOutEveryReadingCharacter() {
-        assertEquals((0..chunk.length).map(::expected), (0..chunk.length).map { shownCharCount(chunk, it) })
-    }
-
-    @Test
     fun thePrefixMatchesTheCountAtEveryOffset() {
         assertEquals((0..chunk.length).map(::expected), shownCharPrefix(chunk).toList())
     }
