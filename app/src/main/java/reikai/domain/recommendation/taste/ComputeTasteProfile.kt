@@ -15,13 +15,14 @@ import kotlin.math.abs
 class ComputeTasteProfile {
 
     operator fun invoke(entries: List<TrackedEntry>): TasteProfile {
-        if (entries.isEmpty()) return TasteProfile.EMPTY
+        val unique = entries.dedupedAcrossTrackers()
+        if (unique.isEmpty()) return TasteProfile.EMPTY
 
         val numerators = HashMap<String, Double>()
         val denominators = HashMap<String, Double>()
         val tagCounts = HashMap<String, Int>()
 
-        for (entry in entries) {
+        for (entry in unique) {
             // Novelty wants exposure breadth across the whole library, so count every entry's tags
             // regardless of status weight; PLAN_TO_READ / UNKNOWN are skipped for scoring but still
             // register as "I've seen this tag."
@@ -46,11 +47,26 @@ class ComputeTasteProfile {
         return TasteProfile(
             tagScores = scores,
             tagEntryCounts = tagCounts,
-            totalEntries = entries.size,
+            totalEntries = unique.size,
         )
     }
 
+    /**
+     * One series tracked on several services counts once: rows are joined by malId, then by anilistId,
+     * and the AniList row is kept over MAL's, MAL's over Kitsu's. Rows without the key pass through.
+     */
+    private fun List<TrackedEntry>.dedupedAcrossTrackers(): List<TrackedEntry> =
+        dedupBy { it.malId }.dedupBy { it.anilistId }
+
+    private fun List<TrackedEntry>.dedupBy(key: (TrackedEntry) -> Long?): List<TrackedEntry> {
+        val (keyed, unkeyed) = partition { key(it) != null }
+        return keyed.sortedBy { TRACKER_PRIORITY[it.trackerId] ?: Int.MAX_VALUE }.distinctBy(key) + unkeyed
+    }
+
     companion object {
+        // TrackerManager's persisted ids (MyAnimeList 1, AniList 2, Kitsu 3); AniList carries the richest tags.
+        private val TRACKER_PRIORITY = mapOf(2L to 0, 1L to 1, 3L to 2)
+
         val STATUS_WEIGHTS: Map<TrackStatus, Double> = mapOf(
             TrackStatus.COMPLETED to 1.0,
             TrackStatus.READING to 0.7,

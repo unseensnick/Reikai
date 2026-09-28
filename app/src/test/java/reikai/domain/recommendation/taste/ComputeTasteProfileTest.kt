@@ -18,6 +18,34 @@ class ComputeTasteProfileTest {
 
     private var nextId = 1L
 
+    private fun tracked(
+        trackerId: Long,
+        remoteId: Long,
+        tags: List<String>,
+        status: TrackStatus,
+        score: Double,
+        malId: Long? = null,
+        anilistId: Long? = null,
+    ) = TrackedEntry(trackerId, remoteId, "t$remoteId", score, status, tags, malId, anilistId)
+
+    /** The MAL row comes first and carries more tags, so only the AniList-first priority keeps the AniList row. */
+    @Test
+    fun `a series tracked on AniList and MyAnimeList counts once, as its AniList row`() {
+        val aniRow = tracked(2L, 10L, listOf("action"), TrackStatus.COMPLETED, 1.0, malId = 5L, anilistId = 10L)
+        val malRow = tracked(1L, 5L, listOf("action", "drama"), TrackStatus.DROPPED, -1.0, malId = 5L)
+        val single = tracked(2L, 11L, listOf("romance"), TrackStatus.COMPLETED, 1.0, malId = 6L, anilistId = 11L)
+
+        compute(listOf(malRow, aniRow, single)) shouldBe compute(listOf(aniRow, single))
+    }
+
+    @Test
+    fun `a series joined only by its AniList id counts once, as its AniList row`() {
+        val aniRow = tracked(2L, 20L, listOf("horror"), TrackStatus.COMPLETED, 1.0, anilistId = 20L)
+        val kitsuRow = tracked(3L, 30L, listOf("horror", "mystery"), TrackStatus.DROPPED, -1.0, anilistId = 20L)
+
+        compute(listOf(kitsuRow, aniRow)) shouldBe compute(listOf(aniRow))
+    }
+
     @Test
     fun `empty input yields the empty profile`() {
         compute(emptyList()) shouldBe TasteProfile.EMPTY

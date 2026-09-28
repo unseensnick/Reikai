@@ -214,6 +214,7 @@ every stable release now also ships a foss build with neither in it.
 - **Related-manga suggestions no longer shrink while they refresh, or disappear when a refresh fails offline.** The ones you had stay until a complete new set arrives.
 - **When two manga chapters share a number, upload date or name, Resume, Continue reading and Download next now pick the one the reader opens next.** Ties follow the source's own order, as they already did for novels.
 - **Chapter selection on a manga or novel page now counts and acts on only the chapters your filters show.** On manga, Select all and Invert also picked hidden chapters, so a bulk action could change rows you could not see.
+- **Related-manga suggestions no longer count a series twice toward your taste when you track it on more than one service.**
 
 ### Reader
 
