@@ -7,6 +7,7 @@ import io.kotest.matchers.string.shouldNotContain
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPreferences
@@ -206,6 +207,24 @@ class NovelContentPipelineTest {
         )
 
         shouldThrow<EmptyChapterException> { loader.load(chapter(url = "/book/ch1.html")) }
+    }
+
+    @Test
+    fun `a cancelled plugin load cancels the source resolve`() = runTest {
+        val source = mockk<NovelSource> {
+            every { site } returns "https://example.test"
+        }
+        val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get(any()) } returns source }
+        val loader = NovelChapterTextLoader(
+            context = mockk(relaxed = true),
+            novelRepo = mockk { coEvery { getById(any()) } returns Novel.create().copy(id = 1L, source = "s") },
+            sourceManager = sourceManager,
+            installer = mockk { coEvery { ensureLoaded() } throws CancellationException("cancelled") },
+            preferences = preferences,
+            readDownloaded = { _, _ -> null },
+        )
+
+        shouldThrow<CancellationException> { loader.resolveSource(1L) }
     }
 
     @Test

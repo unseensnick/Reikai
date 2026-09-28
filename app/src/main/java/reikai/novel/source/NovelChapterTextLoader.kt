@@ -16,6 +16,7 @@ import reikai.novel.content.NovelContentPipeline
 import reikai.novel.content.NovelHtmlUtils
 import reikai.novel.content.RenderTarget
 import reikai.novel.install.LnPluginInstaller
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.util.Collections
@@ -139,7 +140,7 @@ class NovelChapterTextLoader(
     suspend fun resolveSource(forNovelId: Long): NovelSource {
         sourcesByNovel[forNovelId]?.let { return it }
         if (!pluginsLoaded) {
-            runCatching { installer.ensureLoaded() }.onSuccess { pluginsLoaded = true }
+            runCatchingCancellable { installer.ensureLoaded() }.onSuccess { pluginsLoaded = true }
         }
         val sourceId = novelRepo.getById(forNovelId)?.source ?: error("Novel not found")
         val resolved = sourceManager.get(sourceId)

@@ -69,6 +69,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.runCatchingCancellable
 import reikai.util.workRunningFlow
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.getAndSet
@@ -194,7 +195,7 @@ class NovelUpdateJob(
         pendingDownloads: MutableList<NovelChapter>,
     ): Boolean {
         // One load brings every installed plugin into the host; per-novel resolution is then cheap.
-        runCatching { installer.ensureLoaded() }
+        runCatchingCancellable { installer.ensureLoaded() }
             .onFailure { logcat(LogPriority.ERROR, it) { "Could not load the novel plugins" } }
 
         // Category scope + smart-update restrictions both need suspend per-novel lookups, so filter in

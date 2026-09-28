@@ -46,6 +46,7 @@ import reikai.presentation.browse.catalogue.trackBrowseColumns
 import reikai.presentation.browse.catalogue.trackDisplayMode
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.migrate.flow.MigrationPickHandoff
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -139,9 +140,7 @@ class NovelBrowseViewModel(
     /** Resolve the plugin and seed the first listing. Opened from global search with a query, it
      *  jumps straight to those results instead. */
     private suspend fun loadSource() {
-        try {
-            installer.ensureLoaded()
-        } catch (_: Throwable) {}
+        runCatchingCancellable { installer.ensureLoaded() }
         val source = manager.get(sourceId)
         if (source == null) {
             state.update { it.copy(missingSourceLabel = manager.nameOf(sourceId)) }

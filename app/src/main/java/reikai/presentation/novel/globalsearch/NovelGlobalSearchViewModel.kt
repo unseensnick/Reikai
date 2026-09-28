@@ -20,6 +20,7 @@ import reikai.novel.source.NovelSource
 import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelCategoryTarget
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
 
 /**
@@ -57,9 +58,7 @@ class NovelGlobalSearchViewModel(
     suspend fun searchableSources(pinnedOnly: Boolean): List<NovelSource> {
         // Plugins load in the background and the registry answers "missing" for every source until
         // that finishes, so resolving the set any earlier searches nothing at all.
-        try {
-            installer.ensureLoaded()
-        } catch (_: Throwable) {}
+        runCatchingCancellable { installer.ensureLoaded() }
         val pinned = sourcePreferences.pinnedNovelSources.get()
         return getEnabledNovelSources.get().filter { !pinnedOnly || it.id in pinned }
     }

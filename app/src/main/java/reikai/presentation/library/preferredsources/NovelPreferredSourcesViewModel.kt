@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.update
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
 
 /**
@@ -40,7 +41,7 @@ class NovelPreferredSourcesViewModel(
 
     init {
         viewModelScope.launchIO {
-            runCatching { installer.ensureLoaded() }
+            runCatchingCancellable { installer.ensureLoaded() }
             combine(sourceManager.sources, pref.changes()) { sources, ordered ->
                 preferredSourcesState(ordered, sources.map { PreferredSourceItem(it.id, it.name, it.lang) })
             }.collectLatest { success -> state.update { success } }

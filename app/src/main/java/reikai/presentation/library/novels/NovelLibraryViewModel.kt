@@ -76,6 +76,7 @@ import reikai.presentation.library.novelSourceBadge
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.novel.selectChaptersForDownloadAction
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -176,7 +177,7 @@ class NovelLibraryViewModel(
     init {
         // Load the plugin host so the library can resolve each novel's source (lang + source-icon
         // badges); the source flow above re-emits the build once the sources register.
-        viewModelScope.launchIO { runCatching { installer.ensureLoaded() } }
+        viewModelScope.launchIO { runCatchingCancellable { installer.ensureLoaded() } }
         // A newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
         // unread count would be wrong until something wrote them. Reconciling off the membership flow
         // covers every merge and unmerge from one place. The membership query re-runs on every write to
