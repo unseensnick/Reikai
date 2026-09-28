@@ -1,11 +1,11 @@
 package eu.kanade.tachiyomi.data.track.shikimori
 
-import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMOAuth
 import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.Response
+import reikai.data.track.REIKAI_TRACKER_USER_AGENT
 import uy.kohesive.injekt.injectLazy
 
 class ShikimoriInterceptor(private val shikimori: Shikimori) : Interceptor {
@@ -37,8 +37,8 @@ class ShikimoriInterceptor(private val shikimori: Shikimori) : Interceptor {
         // Add the authorization header to the original request.
         val authRequest = originalRequest.newBuilder()
             .addHeader("Authorization", "Bearer ${oauth!!.accessToken}")
-            // RK: Reikai's own user agent
-            .header("User-Agent", "Reikai v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+            // RK: Reikai's own user agent, shared with the Shikimori recommendations
+            .header("User-Agent", REIKAI_TRACKER_USER_AGENT)
             .build()
 
         return chain.proceed(authRequest)
