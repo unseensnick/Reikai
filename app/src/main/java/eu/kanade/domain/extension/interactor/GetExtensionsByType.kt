@@ -47,19 +47,12 @@ internal fun partitionExtensions(
     failed: List<Extension.NotLoaded>,
     offered: List<Extension.Available>,
 ): Extensions {
-    val (loadedUpdates, loaded) = installed
-        .sortedWith(
-            compareBy<Extension.Loaded> { !it.isObsolete }
-                .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name },
-        )
-        .partition { it.hasUpdate }
+    val byName = compareBy<Extension, String>(String.CASE_INSENSITIVE_ORDER) { it.name }
 
-    val (notLoadedUpdates, notLoaded) = failed
-        .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
-        .partition { it.hasUpdate }
+    val (loadedUpdates, loaded) = installed.partition { it.hasUpdate }
+    val (notLoadedUpdates, notLoaded) = failed.partition { it.hasUpdate }
 
-    val updates = (loadedUpdates + notLoadedUpdates)
-        .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+    val updates = (loadedUpdates + notLoadedUpdates).sortedWith(byName)
 
     val available = offered
         .filter { extension ->
@@ -78,12 +71,18 @@ internal fun partitionExtensions(
                     )
                 }
         }
-        .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+        .sortedWith(byName)
 
     val updateVersions = updates.mapNotNull { update ->
         offered.find { it.pkgName == update.pkgName }?.let { update.pkgName to it.versionName }
     }.toMap()
 
-    return Extensions(updates, loaded, available, notLoaded, updateVersions)
+    return Extensions(
+        updates = updates,
+        loaded = loaded.sortedWith(compareBy<Extension.Loaded> { !it.isObsolete }.then(byName)),
+        available = available,
+        notLoaded = notLoaded.sortedWith(byName),
+        updateVersions = updateVersions,
+    )
 }
 // RK <--

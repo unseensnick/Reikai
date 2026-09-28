@@ -70,7 +70,6 @@ import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.extension.ExtensionManager
-import eu.kanade.tachiyomi.extension.api.ExtensionApi
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
@@ -122,9 +121,7 @@ class MainActivity : BaseActivity() {
 
     @Inject private lateinit var libraryPreferences: LibraryPreferences
 
-    // RK: these two moved up from the end of upstream's field list, unchanged
-    @Inject private lateinit var extensionApi: ExtensionApi
-
+    // RK: moved up from the end of upstream's field list, unchanged
     @Inject private lateinit var extensionManager: ExtensionManager
 
     @Inject private lateinit var preferences: BasePreferences
@@ -347,11 +344,7 @@ class MainActivity : BaseActivity() {
         // Extensions updates
         LaunchedEffect(Unit) {
             try {
-                // RK: novel apks share the manga notice, since one store index lists both
-                extensionApi.checkForUpdates(
-                    extensionManager.getLoadedExtensions() + extensionManager.getNotLoadedExtensions() +
-                        extensionManager.getLoadedNovelExtensions() + extensionManager.getNotLoadedNovelExtensions(),
-                )
+                extensionManager.checkForUpdates()
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e)
             }
