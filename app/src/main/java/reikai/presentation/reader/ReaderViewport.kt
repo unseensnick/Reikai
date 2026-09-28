@@ -34,6 +34,7 @@ interface ReaderViewport {
     /**
      * The session has stepped to another chapter. A viewer that keeps one long view of many chapters
      * needs telling where the new one starts; a viewer that re-renders per chapter already knows.
+     * Called only after a step that moved, so a failed step leaves the page where it was.
      */
     fun onChapterStepped()
 

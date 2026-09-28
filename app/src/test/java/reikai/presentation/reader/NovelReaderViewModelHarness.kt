@@ -203,6 +203,9 @@ class NovelReaderViewModelHarness private constructor(
     /** Where the reader stored its place in [chapter], in hundredths of a percent. */
     suspend fun progressOf(chapter: SeededChapter): Long? = chapterRepo.getById(chapter.id)?.lastTextProgress
 
+    /** Whether [chapter] is marked read. */
+    suspend fun isRead(chapter: SeededChapter): Boolean? = chapterRepo.getById(chapter.id)?.read
+
     /** Groups [novelIds] into one merged novel, as the merge dialog does. */
     suspend fun merge(vararg novelIds: Long) {
         groups.createGroup(ContentType.NOVELS, novelIds.toList())

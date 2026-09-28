@@ -321,6 +321,17 @@ class ReaderEngineTest {
     }
 
     @Test
+    fun `a step that did not move leaves the viewport where it is`() {
+        val calls = mutableListOf<String>()
+        val engine = engine(FakeReaderProvider(calls).apply { moves = false })
+        engine.installViewport(FakeViewport(calls))
+
+        engine.nextChapter()
+
+        calls shouldBe listOf("session")
+    }
+
+    @Test
     fun `stepping back goes back`() {
         val provider = FakeReaderProvider()
         val engine = engine(provider)
@@ -832,14 +843,19 @@ private class FakeReaderProvider(
     var stepped = 0
         private set
 
-    override suspend fun previousChapter() {
+    /** Whether a step lands; false is a step with no neighbour or a load that failed. */
+    var moves = true
+
+    override suspend fun previousChapter(): Boolean {
         stepped--
         calls += "session"
+        return moves
     }
 
-    override suspend fun nextChapter() {
+    override suspend fun nextChapter(): Boolean {
         stepped++
         calls += "session"
+        return moves
     }
 
     override fun setKeepScreenOn(enabled: Boolean) {

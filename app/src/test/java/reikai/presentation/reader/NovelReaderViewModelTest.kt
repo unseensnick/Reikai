@@ -231,4 +231,37 @@ class NovelReaderViewModelTest {
 
         model.chapterRows.first().map { it.subtitle }.distinct() shouldBe listOf("Alpha Source")
     }
+
+    /** The step failed, so the reader is still in the chapter it would have marked. */
+    @Test
+    fun `a Next whose chapter fails to load leaves the chapter you are on unread`() = readerTest { harness ->
+        harness.novelPreferences.readerMarkReadOnSkip().set(true)
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val first = harness.chapter(novel, 1.0)
+        val second = harness.chapter(novel, 2.0)
+        source.failing += second.url
+        val model = harness.open(novel, first.id)
+        advanceUntilIdle()
+
+        model.nextChapter()
+        advanceUntilIdle()
+
+        harness.isRead(first) shouldBe false
+    }
+
+    @Test
+    fun `a Next that loads marks the chapter you left read`() = readerTest { harness ->
+        harness.novelPreferences.readerMarkReadOnSkip().set(true)
+        val novel = harness.novel(harness.source("src"))
+        val first = harness.chapter(novel, 1.0)
+        harness.chapter(novel, 2.0)
+        val model = harness.open(novel, first.id)
+        advanceUntilIdle()
+
+        model.nextChapter()
+        advanceUntilIdle()
+
+        harness.isRead(first) shouldBe true
+    }
 }

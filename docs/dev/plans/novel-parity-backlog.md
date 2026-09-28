@@ -36,7 +36,7 @@ Grouped by the area of the app each touches. Each entry describes current behavi
 
 **Keep screen on (novel reader).** A "Keep screen on" switch in the novel reader's Display settings drives a `DisposableEffect` that sets and clears `FLAG_KEEP_SCREEN_ON` on the activity window. Because the novel reader is a Voyager screen inside MainActivity, the flag is toggled on enter and cleared on leave.
 
-**Mark chapter read when skipping ahead (novel).** Matching manga, tapping Next marks only the departed chapter as read, never the in-between range, never on backward paging, never in incognito, and skips chapters already read. It is gated on a new opt-in preference (default off). The reader's existing inline tracker push fires for the departed chapter when auto-update is on.
+**Mark chapter read when skipping ahead (novel).** Matching manga, tapping Next marks only the departed chapter as read, and only once the next chapter has loaded, never the in-between range, never on backward paging, never in incognito, and skips chapters already read. It is gated on a new opt-in preference (default off). The reader's existing inline tracker push fires for the departed chapter when auto-update is on.
 
 See `novel-reader.md` for the reader architecture these settings hang off.
 

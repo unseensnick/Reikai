@@ -820,15 +820,17 @@ class NovelReaderViewModel(
     }
 
     /** Forward only, so it is the step that can mark the departed chapter read. */
-    fun nextChapter() = neighbours.value.next?.let {
+    fun nextChapter(): Boolean = neighbours.value.next?.let {
         readAloud.onUserNavigated()
         goTo(it, markDepartedRead = true)
-    } ?: Unit
+        true
+    } ?: false
 
-    fun previousChapter() = neighbours.value.previous?.let {
+    fun previousChapter(): Boolean = neighbours.value.previous?.let {
         readAloud.onUserNavigated()
         goTo(it)
-    } ?: Unit
+        true
+    } ?: false
 
     /**
      * The renderer scrolled into a different chapter of the window. Not a step: nothing is fetched
@@ -902,35 +904,36 @@ class NovelReaderViewModel(
 
     private fun goTo(chapterId: Long, markDepartedRead: Boolean = false) {
         viewModelScope.launchIO {
-            // The departed chapter is stamped into history before the switch, and marked read while it
-            // and its owning novel are still the current ones. Its pending position is written first,
-            // or the debounce would still be waiting when the chapter it belongs to stops being current.
-            // With the lane held, so a crossing cannot stamp the same stretch of reading again or move
-            // the chapter the mark is for.
-            lane.withLock {
+            // The departed chapter is stamped into history before the switch, and marked read once the
+            // chapter it steps to has landed, since a failed load leaves the reader in it. Its pending
+            // position is written first, or the debounce would still be waiting when the chapter it
+            // belongs to stops being current. With the lane held, so a crossing cannot stamp the same
+            // stretch of reading again or move the chapter the mark is for.
+            val departed = lane.withLock {
                 flushProgress()
                 updateHistory()
-                if (markDepartedRead) {
-                    // One that fit on the screen was read in full, whatever the skip setting says: it has
-                    // no scroll room, so this step is the only point it can be called finished.
-                    if (currentChapterId in fitsOnScreen) {
-                        persistProgress(currentChapterId, 100)
-                    } else {
-                        markReadOnSkip(currentChapterId)
-                    }
-                }
                 pendingChapterId = chapterId
+                if (!markDepartedRead) return@withLock null
+                // One that fit on the screen was read in full, whatever the skip setting says: it has
+                // no scroll room, so this step is the only point it can be called finished.
+                if (currentChapterId in fitsOnScreen) {
+                    persistProgress(currentChapterId, 100)
+                    null
+                } else {
+                    currentChapterId
+                }
             }
-            load()
+            load(markReadOnLanding = departed)
         }
     }
 
     /**
      * A missing row, an uninstalled source or a parse failure leaves the rendered chapter as it was
      * and reports [ReaderLoadState.Failed], so the host offers a retry rather than tearing down or
-     * leaving the reader looking like nothing happened.
+     * leaving the reader looking like nothing happened. [markReadOnLanding] is the chapter a step left,
+     * marked by the skip setting only if this load commits.
      */
-    private fun load() {
+    private fun load(markReadOnLanding: Long? = null) {
         val target = pendingChapterId
         // An explicit open is the reader asking for chapters afresh, so nothing a previous warm
         // recorded may go on suppressing one. Without this the window strands on a chapter that has
@@ -955,6 +958,7 @@ class NovelReaderViewModel(
                     // the reader back on the chapter they had moved on from.
                     if (target != pendingChapterId) return@launchIO
                     commitOpen(row, html, baseUrl, bookmarked)
+                    markReadOnLanding?.let { markReadOnSkip(it) }
                 }
                 loadState.value = ReaderLoadState.Idle
             } catch (e: Throwable) {

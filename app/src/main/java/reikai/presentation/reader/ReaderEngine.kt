@@ -198,10 +198,9 @@ class ReaderEngine(
 
     fun nextChapter() = stepChapter { provider.nextChapter() }
 
-    private fun stepChapter(step: suspend () -> Unit) {
+    private fun stepChapter(step: suspend () -> Boolean) {
         viewModelScope.launch {
-            step()
-            viewport.value?.onChapterStepped()
+            if (step()) viewport.value?.onChapterStepped()
         }
     }
 

@@ -959,23 +959,27 @@ class ReaderViewModel(
     /**
      * Called from the activity to load and set the next chapter as active.
      */
-    suspend fun loadNextChapter() {
-        val nextChapter = state.value.viewerChapters?.nextChapter ?: return
-        // RK --> mark-read-on-skip: the chapter being left behind on a forward skip
+    suspend fun loadNextChapter(): Boolean { // RK: whether the reader moved
+        val nextChapter = state.value.viewerChapters?.nextChapter ?: return false // RK
+        // RK --> mark-read-on-skip: the chapter being left behind, marked only once the step landed,
+        // since a failed load leaves the reader in it
         val departedChapter = getCurrentChapter()
-        // RK <--
         loadAdjacent(nextChapter)
-        // RK -->
-        departedChapter?.let { markChapterReadOnSkip(it) }
+        val moved = getCurrentChapter()?.chapter?.id == nextChapter.chapter.id
+        if (moved) departedChapter?.let { markChapterReadOnSkip(it) }
+        return moved
         // RK <--
     }
 
     /**
      * Called from the activity to load and set the previous chapter as active.
      */
-    suspend fun loadPreviousChapter() {
-        val prevChapter = state.value.viewerChapters?.prevChapter ?: return
+    suspend fun loadPreviousChapter(): Boolean { // RK: whether the reader moved
+        val prevChapter = state.value.viewerChapters?.prevChapter ?: return false // RK
+        // RK -->
         loadAdjacent(prevChapter)
+        return getCurrentChapter()?.chapter?.id == prevChapter.chapter.id
+        // RK <--
     }
 
     /**

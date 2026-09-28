@@ -92,10 +92,12 @@ interface ReaderProvider {
     fun onActivityFinish()
 
     /** Steps a chapter. Both types resolve their own neighbour, since what is next depends on the
-     *  reading order and skip settings of that type's own chapter list. */
-    suspend fun previousChapter()
+     *  reading order and skip settings of that type's own chapter list. False only when the step
+     *  certainly left the reader where it was (no neighbour, or a failed load); for a type that loads
+     *  asynchronously, true means the step was issued, not that it landed. */
+    suspend fun previousChapter(): Boolean
 
-    suspend fun nextChapter()
+    suspend fun nextChapter(): Boolean
 
     /**
      * Whether to show how far into the chapter the reader is while the chrome is hidden. Each type

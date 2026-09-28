@@ -280,6 +280,8 @@ every stable release now also ships a foss build with neither in it.
 - **Scrolling into the next manga chapter and straight back no longer leaves the reader on the chapter you left.** The bookmark button and Open in WebView could act on it.
 - **Bookmarking or marking a novel chapter read just before closing the reader is no longer lost, and a grouped novel's copies are bookmarked together.** Before, a bookmark could land on some sources' copies and not others.
 - **Retrying a manga page that failed to load now always fetches it again (from mihonapp/mihon#3770).**
+- **A chapter step in the manga reader that fails to load, or has no chapter to go to, no longer sends you back to page 1.**
+- **With Mark chapter read when skipping ahead on (Settings -> Manga reader or Novel reader), a Next that fails to load no longer marks the chapter you are still on as read.**
 
 ### Light novels
 
