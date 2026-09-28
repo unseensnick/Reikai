@@ -488,6 +488,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                         false
                     },
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerShowTapZonesOnStart(),
+                    title = stringResource(MR.strings.pref_show_navigation_mode),
+                    subtitle = stringResource(MR.strings.pref_show_navigation_mode_summary),
+                ).takeIf { tapLayout != NovelTapLayout.DISABLED },
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerTapInvert(),
                     entries = tapLayout.invertModes.associateWith { stringResource(it.titleRes) },

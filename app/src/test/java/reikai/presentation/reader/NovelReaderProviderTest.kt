@@ -6,15 +6,18 @@ import android.view.View
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterProgress
 
 /** The novel session's half of the viewport lifecycle, over a real model on [NovelReaderViewModelHarness]. */
@@ -45,6 +48,42 @@ class NovelReaderProviderTest {
         advanceUntilIdle()
 
         viewport.asked shouldBe false
+    }
+
+    @Test
+    fun `changing the tap layout reaches the overlay`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+        val emissions = mutableListOf<NovelTapZones>()
+        backgroundScope.launch { provider.tapZoneChanges.collect { emissions += it } }
+        runCurrent()
+
+        harness.novelPreferences.readerTapLayout().set(NovelTapLayout.THIRDS)
+        advanceUntilIdle()
+        // The collector is background work, which advanceUntilIdle leaves queued.
+        runCurrent()
+
+        emissions.last().layout shouldBe NovelTapLayout.THIRDS
+    }
+
+    /** Every reader setting arrives in one value, so the zones must not re-emit for an unrelated change. */
+    @Test
+    fun `a change to another reader setting does not show the overlay again`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+        val emissions = mutableListOf<NovelTapZones>()
+        backgroundScope.launch { provider.tapZoneChanges.collect { emissions += it } }
+        runCurrent()
+
+        harness.novelPreferences.readerFontSize().set(20)
+        advanceUntilIdle()
+        runCurrent()
+
+        emissions.size shouldBe 1
     }
 }
 

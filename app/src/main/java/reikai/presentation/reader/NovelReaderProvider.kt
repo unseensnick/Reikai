@@ -50,6 +50,10 @@ class NovelReaderProvider(
     private val titleWords: ChapterTitleWords,
 ) : ReaderProvider {
 
+    /** The tap zones as the host's overlay draws them. Distinct, since every reader setting arrives in one
+     *  value and the overlay shows on each call. */
+    internal val tapZoneChanges: Flow<NovelTapZones> = viewModel.settings.map { it.tapZones }.distinctUntilChanged()
+
     override val chrome: Flow<ReaderChromeState> = combine(
         viewModel.entryTitle,
         viewModel.chapter,
@@ -353,6 +357,12 @@ class NovelReaderProvider(
             .map { it.resolvedOrientation }
             .distinctUntilChanged()
             .onEach(host::setOrientation)
+            .launchIn(host.lifecycleScope)
+        // The shared overlay owns when to show, as it does for manga's viewers: on every change after
+        // the first, and on the first only when the reader asked to see the zones on start.
+        val showOnStart = novelPreferences.readerShowTapZonesOnStart().get()
+        tapZoneChanges
+            .onEach { host.binding.navigationOverlay.setNavigation(it.navigation, showOnStart) }
             .launchIn(host.lifecycleScope)
     }
 

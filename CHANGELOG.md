@@ -310,7 +310,7 @@ every stable release now also ships a foss build with neither in it.
 - **The novel web page reader can now add your own CSS and JavaScript snippets to every chapter, under Settings -> Novel reader.** JavaScript snippets restored from a backup come back switched off.
 - **Settings -> Advanced has a switch, off by default, that opens every web page in the app to a computer's browser inspector and shows the novel reader's script errors as toasts.**
 - **Settings -> Novel reader can now swap the vertical chapter navigator for a horizontal slider above the bar's buttons.**
-- **The novel reader now has the manga reader's tap zones plus top and bottom, center and bottom-only layouts, in its Controls tab and Settings -> Novel reader.** Zones can be inverted, and a reader who had Tap edges to scroll on keeps it as Top and bottom.
+- **The novel reader now has the manga reader's tap zones plus top and bottom, center and bottom-only layouts, in its Controls tab and Settings -> Novel reader.** Zones can be inverted and shown on the page, and Tap edges to scroll carries over as Top and bottom.
 
 #### Changed
 

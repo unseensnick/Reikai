@@ -25,7 +25,8 @@ data class NovelTapZones(
     val invert: TappingInvertMode,
     val bottomZoneHeightPercent: Int,
 ) {
-    private val navigation: ViewerNavigation by lazy {
+    /** The zones as regions, which the host's tap-zone overlay draws. */
+    val navigation: ViewerNavigation by lazy {
         when (layout) {
             NovelTapLayout.DISABLED -> DisabledNavigation()
             NovelTapLayout.THIRDS -> ThirdsNavigation()
