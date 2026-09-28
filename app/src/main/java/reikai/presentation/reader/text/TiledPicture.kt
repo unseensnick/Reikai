@@ -18,7 +18,8 @@ import java.io.Closeable
  * A tall picture drawn from the slices around what is on screen, so a strip the loader had to shrink to
  * fit a decode is still drawn at the page's width and its own sharpness. What is held is the slices on
  * screen plus one either side, which is what bounds the memory: nothing else of the picture is decoded.
- * Until a slice arrives its part is drawn from [preview], the shrunken whole the loader decoded.
+ * Until a slice arrives its part is drawn from [preview], a small stand-in decoded for it, or the
+ * loader's own copy when that decode fails.
  */
 internal class TiledPicture(
     private val reader: TileReader,
