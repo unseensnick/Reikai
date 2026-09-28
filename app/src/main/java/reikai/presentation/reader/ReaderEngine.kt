@@ -33,8 +33,9 @@ import reikai.domain.reader.seekTo
 
 /**
  * The Reikai-owned reader engine, above one provider per content type. It owns dialog dispatch and
- * the viewport slot. Navigation and position stay with the provider for now, and menu visibility
- * belongs to the host, because half of it is the insets controller.
+ * the viewport slot, sequences chapter steps and picks, and routes seeking to the viewport; the
+ * provider performs the load and reports position. Menu visibility belongs to the host, because half
+ * of it is the insets controller.
  */
 @AssistedInject
 class ReaderEngine(

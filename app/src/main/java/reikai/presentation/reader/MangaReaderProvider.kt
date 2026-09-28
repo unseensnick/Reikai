@@ -102,8 +102,6 @@ class MangaReaderProvider(
     // The source builds the URL and an extension may override that, so it is not main-thread work.
     override suspend fun chapterWebUrl(chapterId: Long): String? = withIOContext { viewModel.getChapterUrl(chapterId) }
 
-    // A manga chapter's browser offers nothing to save.
-
     // Upstream's ReaderActivity.openMangaScreen, moved here so the host asks the session.
     override fun detailsIntent(context: Context): Intent? = viewModel.manga?.id?.let { id ->
         Intent(context, MainActivity::class.java).apply {

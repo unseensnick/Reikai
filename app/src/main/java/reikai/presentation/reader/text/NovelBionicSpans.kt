@@ -7,8 +7,8 @@ import android.text.style.StyleSpan
 /**
  * Bionic reading: bold the opening of each word so the eye can skim on the emphasised stems.
  *
- * The word-length-to-bold-length table is the vendored `text-vide` bundle's own, so the native
- * renderer emphasises exactly what the WebView modes do. Its shape is a list of length boundaries:
+ * The word-length-to-bold-length table is `text-vide`'s. This file is the reference, and the WebView
+ * mode's reader.js mirrors it, so both modes emphasise the same letters. Its shape is a list of length boundaries:
  * a word bolds its length minus the index of the first boundary it fits in, which grows the bold
  * run as words get longer rather than taking a flat fraction.
  */
@@ -16,7 +16,7 @@ object NovelBionicSpans {
 
     private val fixationBoundaries = intArrayOf(0, 4, 12, 17, 24, 29, 35, 42, 48)
 
-    /** Letters and digits containing at least one letter, matching the bundle's own word rule. */
+    /** Letters and digits containing at least one letter, matching text-vide's word rule. */
     private val word = Regex("""(\p{L}|\p{Nd})*\p{L}(\p{L}|\p{Nd})*""")
 
     fun apply(text: Spannable) {
