@@ -42,12 +42,9 @@ class MangaRestoreChaptersTest {
                 secondArg<suspend SuspendingTransactionWithoutReturn.() -> Unit>().invoke(mockk(relaxed = true))
             }
             coEvery {
-                chaptersQueries.update(
-                    any(), any(), any(), any(), any(), any(), any(),
-                    any(), any(), any(), any(), any(), any(), any(),
-                )
+                chaptersQueries.updateFromBackup(any(), any(), any(), any(), any(), any())
             } coAnswers {
-                updates.add(RestoredUpdate(arg<Boolean?>(4), arg<Long?>(6), arg<Long?>(12)))
+                updates.add(RestoredUpdate(arg<Boolean?>(0), arg<Long?>(2), arg<Long?>(4)))
                 0L
             }
         }

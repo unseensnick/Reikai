@@ -16,6 +16,7 @@ import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetChapterByUrl
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.chapter.model.ChapterRemoteUpdate
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.interactor.GetHistory
@@ -102,7 +103,7 @@ class EHentaiUpdateHelper(
 
         return if (toDiscard.isNotEmpty()) {
             // Copy chain chapters to curChapters
-            val (chapterUpdates, newChapters) = getChapterList(accepted, toDiscard, chainsAsChapters)
+            val (chapterUpdates, chapterRenames, newChapters) = getChapterList(accepted, toDiscard, chainsAsChapters)
 
             // The discarded galleries leave the library, so each is handed its own copy of its group's
             // shared tracker first; the hand-out skips non-favorites.
@@ -129,6 +130,7 @@ class EHentaiUpdateHelper(
             updateManga.awaitAll(mangaUpdates)
             // Insert new chapters for accepted manga
             chapterRepository.updateAll(chapterUpdates)
+            chapterRepository.updateAllRemote(chapterRenames)
             chapterRepository.addAll(newChapters)
 
             val (newHistory, deleteHistory) = getHistory(
@@ -189,11 +191,21 @@ class EHentaiUpdateHelper(
     }
 }
 
+/**
+ * What merging the discarded versions changes on the accepted gallery: its chapters' reading state, the
+ * version names and numbers they are given, which are source fields and written as such, and new rows.
+ */
+internal data class ChapterListChanges(
+    val updates: List<ChapterUpdate>,
+    val renames: List<ChapterRemoteUpdate>,
+    val newChapters: List<Chapter>,
+)
+
 internal fun getChapterList(
     accepted: ChapterChain,
     toDiscard: List<ChapterChain>,
     chainsAsChapters: List<Chapter>,
-): Pair<List<ChapterUpdate>, List<Chapter>> {
+): ChapterListChanges {
     val newLastPageRead = chainsAsChapters.maxOfOrNull { it.lastPageRead }
     val stored = accepted.chapters.associateBy { it.id }
     return toDiscard
@@ -246,6 +258,7 @@ internal fun getChapterList(
         .sortedBy { it.dateUpload }
         .let { chapters ->
             val updates = mutableListOf<ChapterUpdate>()
+            val renames = mutableListOf<ChapterRemoteUpdate>()
             val newChapters = mutableListOf<Chapter>()
             chapters.mapIndexed { index, chapter ->
                 val name = "v${index + 1}: " + chapter.name.substringAfter(" ")
@@ -269,15 +282,25 @@ internal fun getChapterList(
                                 read = chapter.read.takeUnless { row.read == it },
                                 bookmark = chapter.bookmark.takeUnless { row.bookmark == it },
                                 lastPageRead = chapter.lastPageRead.takeUnless { row.lastPageRead == it },
-                                name = name.takeUnless { row.name == it },
-                                chapterNumber = chapterNumber.takeUnless { row.chapterNumber == it },
-                                sourceOrder = sourceOrder.takeUnless { row.sourceOrder == it },
                             ),
                         )
+                        if (row.name != name || row.chapterNumber != chapterNumber || row.sourceOrder != sourceOrder) {
+                            renames.add(
+                                ChapterRemoteUpdate(
+                                    id = chapter.id,
+                                    name = name,
+                                    scanlator = null,
+                                    chapterNumber = chapterNumber,
+                                    dateUpload = null,
+                                    sourceOrder = sourceOrder,
+                                    memo = row.memo,
+                                ),
+                            )
+                        }
                     }
                 }
             }
-            updates.toList() to newChapters.toList()
+            ChapterListChanges(updates.toList(), renames.toList(), newChapters.toList())
         }
 }
 

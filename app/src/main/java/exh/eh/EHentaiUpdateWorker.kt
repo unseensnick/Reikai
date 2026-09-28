@@ -15,10 +15,6 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkerParameters
 import dev.zacsweers.metro.Inject
-import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
-import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.manga.model.copyFrom
-import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.tachiyomi.data.library.LibraryUpdateNotifier
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.online.all.EHentai
@@ -35,6 +31,7 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
+import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.merge.ReconcileMergedChapters
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.system.logcat
@@ -48,7 +45,6 @@ import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.InsertFlatMetadata
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.toMangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -71,9 +67,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
 
     @Inject private lateinit var updateHelper: EHentaiUpdateHelper
 
-    @Inject private lateinit var updateManga: UpdateManga
-
-    @Inject private lateinit var syncChaptersWithSource: SyncChaptersWithSource
+    @Inject private lateinit var updateMangaFromRemote: UpdateMangaFromRemote
 
     @Inject private lateinit var getChaptersByMangaId: GetChaptersByMangaId
 
@@ -253,12 +247,13 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
             )
 
         try {
-            // Komikku splits getMangaDetails + getChapterList; Reikai's source-api combines them.
-            val update = source.getMangaUpdate(manga.toSManga(), emptyList(), fetchDetails = true, fetchChapters = true)
-            updateManga.awaitAll(listOf(manga.copyFrom(update.manga).toMangaUpdate()))
-
-            val new = syncChaptersWithSource.await(update.chapters, manga, source)
-            return new to getChaptersByMangaId.await(manga.id)
+            val result = updateMangaFromRemote(
+                source = source,
+                manga = manga,
+                fetchDetails = true,
+                fetchChapters = true,
+            ).getOrThrow()
+            return result.newChapters to getChaptersByMangaId.await(manga.id)
         } catch (t: Throwable) {
             if (t is EHentai.GalleryNotFoundException) {
                 val meta = getFlatMetadataById.await(manga.id)?.raise<EHentaiSearchMetadata>()

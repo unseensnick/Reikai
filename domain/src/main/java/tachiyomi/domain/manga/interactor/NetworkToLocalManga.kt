@@ -4,7 +4,7 @@ import dev.zacsweers.metro.Inject
 import reikai.domain.source.healedCover
 import reikai.domain.source.keptCover
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.MangaUpdate
+import tachiyomi.domain.manga.model.MangaRemoteUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
 
 @Inject
@@ -22,7 +22,24 @@ class NetworkToLocalManga(
         return mangaRepository.insertNetworkManga(listed).mapIndexed { i, stored ->
             val cover = healedCover(stored.thumbnailUrl, listed[i].thumbnailUrl)
             if (cover != null) {
-                mangaRepository.update(MangaUpdate(id = stored.id, thumbnailUrl = cover))
+                // The cover is the source's, so it goes through the source-details write, which keeps
+                // every field it is handed null for and rewrites the rest with the row just read.
+                mangaRepository.updateRemote(
+                    MangaRemoteUpdate(
+                        id = stored.id,
+                        title = null,
+                        author = null,
+                        artist = null,
+                        description = null,
+                        genre = null,
+                        status = stored.status,
+                        thumbnailUrl = cover,
+                        updateStrategy = stored.updateStrategy,
+                        memo = stored.memo,
+                        initialized = stored.initialized,
+                        coverLastModified = null,
+                    ),
+                )
                 stored.copy(thumbnailUrl = cover)
             } else {
                 stored

@@ -23,9 +23,10 @@ class EHentaiUpdateHelperTest {
 
     private val discarded = stored.copy(id = 20L, mangaId = 2L, read = true, bookmark = true, lastPageRead = 7L)
 
-    private fun updateFor(accepted: Chapter) =
+    private fun changesFor(accepted: Chapter) =
         getChapterList(chain(1L, accepted), listOf(chain(2L, discarded)), listOf(accepted, discarded))
-            .first.single { it.id == accepted.id }
+
+    private fun updateFor(accepted: Chapter) = changesFor(accepted).updates.single { it.id == accepted.id }
 
     @Test
     @DisplayName("an existing chapter keeps the read state merged from a discarded version")
@@ -43,6 +44,18 @@ class EHentaiUpdateHelperTest {
     @DisplayName("an existing chapter keeps the progress merged from a discarded version")
     fun progressIsSaved() {
         updateFor(stored).lastPageRead shouldBe 7L
+    }
+
+    @Test
+    @DisplayName("a chapter numbered apart from its version is renamed to it")
+    fun versionRenameIsWritten() {
+        changesFor(stored.copy(name = "Gallery", chapterNumber = 3.0)).renames.single().name shouldBe "v1: Gallery"
+    }
+
+    @Test
+    @DisplayName("a chapter already named for its version is not renamed")
+    fun matchingVersionIsNotRenamed() {
+        changesFor(stored).renames shouldBe emptyList()
     }
 
     @Test

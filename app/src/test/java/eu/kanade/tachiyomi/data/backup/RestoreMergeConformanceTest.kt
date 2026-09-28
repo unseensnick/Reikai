@@ -178,12 +178,12 @@ class MangaMergeRestorer : MergeRestorer {
         var written: Manga? = null
         val database = database {
             coEvery {
-                mangasQueries.update(
-                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                mangasQueries.updateFromBackup(
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(),
                 )
             } coAnswers {
-                written = dbManga.copy(description = arg(4), dateAdded = arg(16))
+                written = dbManga.copy(description = arg(2), dateAdded = arg(13))
                 0L
             }
         }
@@ -195,12 +195,9 @@ class MangaMergeRestorer : MergeRestorer {
         var result = device
         val database = database {
             coEvery {
-                chaptersQueries.update(
-                    any(), any(), any(), any(), any(), any(), any(),
-                    any(), any(), any(), any(), any(), any(), any(),
-                )
+                chaptersQueries.updateFromBackup(any(), any(), any(), any(), any(), any())
             } coAnswers {
-                result = ChapterState(arg(4), arg(5), arg(6))
+                result = ChapterState(arg(0), arg(1), arg(2))
                 0L
             }
         }

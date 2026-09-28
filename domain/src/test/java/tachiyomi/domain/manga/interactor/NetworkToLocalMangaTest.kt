@@ -17,7 +17,7 @@ class NetworkToLocalMangaTest {
             inserted += firstArg<List<Manga>>()
             listOf(stored)
         }
-        coEvery { update(any()) } returns true
+        coEvery { updateRemote(any()) } returns true
     }
     private val networkToLocalManga = NetworkToLocalManga(repository)
 

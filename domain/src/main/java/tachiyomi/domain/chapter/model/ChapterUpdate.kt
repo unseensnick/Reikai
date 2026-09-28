@@ -1,7 +1,5 @@
 package tachiyomi.domain.chapter.model
 
-import kotlinx.serialization.json.JsonObject
-
 data class ChapterUpdate(
     val id: Long,
     val mangaId: Long? = null,
@@ -9,31 +7,17 @@ data class ChapterUpdate(
     val bookmark: Boolean? = null,
     val lastPageRead: Long? = null,
     val dateFetch: Long? = null,
-    val sourceOrder: Long? = null,
-    val url: String? = null,
-    val name: String? = null,
-    val dateUpload: Long? = null,
-    val chapterNumber: Double? = null,
-    val scanlator: String? = null,
-    val memo: JsonObject? = null,
     val pageCount: Long? = null, // RK: set once the reader knows the page count
 )
 
 fun Chapter.toChapterUpdate(): ChapterUpdate {
     return ChapterUpdate(
-        id,
-        mangaId,
-        read,
-        bookmark,
-        lastPageRead,
-        dateFetch,
-        sourceOrder,
-        url,
-        name,
-        dateUpload,
-        chapterNumber,
-        scanlator,
-        memo,
-        pageCount, // RK
+        id = id,
+        mangaId = mangaId,
+        read = read,
+        bookmark = bookmark,
+        lastPageRead = lastPageRead,
+        dateFetch = dateFetch,
+        pageCount = pageCount, // RK
     )
 }
