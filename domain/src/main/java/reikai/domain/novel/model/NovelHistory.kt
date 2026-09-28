@@ -1,7 +1,6 @@
 package reikai.domain.novel.model
 
 import androidx.compose.runtime.Immutable
-import reikai.data.coil.NovelCover
 
 /**
  * One History-tab novel row: a novel's most-recently-read chapter plus its cover. Novel twin of

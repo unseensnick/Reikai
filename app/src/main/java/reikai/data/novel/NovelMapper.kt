@@ -1,10 +1,10 @@
 package reikai.data.novel
 
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
-import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.novel.model.NovelWithChapterCount

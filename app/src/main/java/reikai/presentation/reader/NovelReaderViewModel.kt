@@ -41,8 +41,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
-import reikai.data.coil.NovelCover
-import reikai.data.coil.asNovelCover
 import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.download.downloadStateOf
 import reikai.domain.manga.AdultContentChecker
@@ -63,7 +61,9 @@ import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.NovelHistoryUpdate
+import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.track.TrackNovelChapter

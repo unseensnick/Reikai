@@ -56,9 +56,9 @@ import mihon.icons.materialsymbols.rounded.Pause
 import mihon.icons.materialsymbols.rounded.Person
 import mihon.icons.materialsymbols.rounded.Schedule
 import mihon.icons.materialsymbols.rounded.Warning
-import reikai.data.coil.NovelCover
-import reikai.data.coil.asNovelCover
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelCover
+import reikai.domain.novel.model.asNovelCover
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding

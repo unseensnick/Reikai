@@ -1,8 +1,7 @@
-package reikai.data.coil
+package reikai.domain.novel.model
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
-import reikai.domain.novel.model.Novel
 
 class NovelCoverTest {
 

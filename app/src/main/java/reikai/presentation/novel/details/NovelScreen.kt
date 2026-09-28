@@ -29,10 +29,10 @@ import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
-import reikai.data.coil.asNovelCover
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelSettings

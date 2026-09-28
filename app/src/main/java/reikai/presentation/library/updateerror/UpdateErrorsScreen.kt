@@ -34,8 +34,8 @@ import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.icons.materialsymbols.rounded.SwapCalls
-import reikai.data.coil.NovelCover
 import reikai.domain.library.ContentType
+import reikai.domain.novel.model.NovelCover
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.details.NovelScreen

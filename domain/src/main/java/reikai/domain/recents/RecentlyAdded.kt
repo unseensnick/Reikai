@@ -1,6 +1,6 @@
 package reikai.domain.recents
 
-import reikai.data.coil.NovelCover
+import reikai.domain.novel.model.NovelCover
 import tachiyomi.domain.manga.model.MangaCover
 
 /**

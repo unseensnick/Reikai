@@ -1,6 +1,4 @@
-package reikai.data.coil
-
-import reikai.domain.novel.model.Novel
+package reikai.domain.novel.model
 
 /**
  * Coil model for a light-novel cover, the novel twin of [tachiyomi.domain.manga.model.MangaCover].

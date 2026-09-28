@@ -1,7 +1,6 @@
 package reikai.domain.novel.model
 
 import androidx.compose.runtime.Immutable
-import reikai.data.coil.NovelCover
 
 /**
  * One light-novel "recent update" row, the novel twin of

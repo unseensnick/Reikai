@@ -5,7 +5,7 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
-import reikai.data.coil.NovelCover
+import reikai.domain.novel.model.NovelCover
 import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedNovel
 import reikai.domain.recents.RecentlyAddedRepository

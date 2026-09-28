@@ -2,6 +2,7 @@ package reikai.data.coil
 
 import coil3.key.Keyer
 import coil3.request.Options
+import reikai.domain.novel.model.NovelCover
 
 /** Coil cache key for [NovelCover] (the novel twin of [eu.kanade.tachiyomi.data.coil.MangaCoverKeyer]).
  *  Includes the novel id so a custom cover keys distinctly from the source cover, plus the last-modified

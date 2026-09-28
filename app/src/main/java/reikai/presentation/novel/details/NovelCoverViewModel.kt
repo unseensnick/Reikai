@@ -7,12 +7,12 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import reikai.data.coil.asNovelCover
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.details.EntryCoverViewModel
 import java.io.InputStream

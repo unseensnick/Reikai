@@ -44,8 +44,8 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Folder
 import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Warning
-import reikai.data.coil.NovelCover
 import reikai.domain.entry.EntryId
+import reikai.domain.novel.model.NovelCover
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.source.model.Source
 import tachiyomi.presentation.core.components.Badge

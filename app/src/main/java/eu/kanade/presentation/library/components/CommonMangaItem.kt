@@ -72,7 +72,7 @@ internal const val GRID_SELECTED_COVER_ALPHA = 0.76f
  */
 @Composable
 fun MangaCompactGridItem(
-    coverData: Any, // RK: Any (not MangaCover) so reikai.data.coil.NovelCover renders through these cells too
+    coverData: Any, // RK: Any (not MangaCover) so reikai.domain.novel.model.NovelCover renders through these cells too
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     isSelected: Boolean = false,
@@ -177,7 +177,7 @@ private fun BoxScope.CoverTextOverlay(
  */
 @Composable
 fun MangaComfortableGridItem(
-    coverData: Any, // RK: Any (not MangaCover) so reikai.data.coil.NovelCover renders through these cells too
+    coverData: Any, // RK: Any (not MangaCover) so reikai.domain.novel.model.NovelCover renders through these cells too
     title: String,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -333,7 +333,7 @@ private fun Modifier.selectedOutline(
  */
 @Composable
 fun MangaListItem(
-    coverData: Any, // RK: Any (not MangaCover) so reikai.data.coil.NovelCover renders through these cells too
+    coverData: Any, // RK: Any (not MangaCover) so reikai.domain.novel.model.NovelCover renders through these cells too
     title: String,
     onClick: () -> Unit,
     onLongClick: () -> Unit,

@@ -6,7 +6,7 @@ import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.library.components.MangaComfortableGridItem
 import eu.kanade.presentation.library.components.MangaCompactGridItem
 import eu.kanade.presentation.library.components.MangaListItem
-import reikai.data.coil.NovelCover
+import reikai.domain.novel.model.NovelCover
 import reikai.novel.host.NovelItem
 import reikai.presentation.library.ReikaiComfortableGridPanoramaItem
 import tachiyomi.domain.library.model.LibraryDisplayMode

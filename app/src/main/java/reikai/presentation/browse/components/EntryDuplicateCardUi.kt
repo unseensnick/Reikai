@@ -1,6 +1,6 @@
 package reikai.presentation.browse.components
 
-import reikai.data.coil.NovelCover
+import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.NovelWithChapterCount
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 

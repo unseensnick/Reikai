@@ -21,6 +21,7 @@ import okio.Source
 import okio.buffer
 import okio.sink
 import reikai.domain.entry.EntryId
+import reikai.domain.novel.model.NovelCover
 import reikai.novel.network.NovelImageRequests
 import tachiyomi.core.common.util.system.logcat
 import java.io.File

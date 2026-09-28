@@ -6,8 +6,6 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import reikai.data.coil.NovelCover
-import reikai.data.coil.asNovelCover
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.toNovel
 import reikai.domain.entry.EntryId
@@ -18,7 +16,9 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.NovelMigrationFlag
+import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences

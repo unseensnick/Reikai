@@ -40,7 +40,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import reikai.data.coil.asNovelCover
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.novel.NovelStatusCode
@@ -84,6 +83,7 @@ import reikai.domain.novel.model.NovelChapterFlags
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.NovelWithChapterCount
+import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.effectiveBookmarkedFilter
 import reikai.domain.novel.model.effectiveDownloadedFilter
 import reikai.domain.novel.model.effectiveHideChapterTitles
