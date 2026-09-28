@@ -18,6 +18,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import reikai.novel.content.NovelCodeSnippet
+import reikai.presentation.reader.web.NovelWebSnippets
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -205,6 +207,29 @@ class NovelWebViewportGateTest {
         }
         instrumentation.waitForIdleSync()
         assertEquals(false, 4L in fitsReports)
+    }
+
+    /** A per-append snippet leans on the page's one-shot setup, so a chapter added before ready runs after it. */
+    @Test
+    fun aChapterAddedWhileThePageLoadsRunsItsSnippetsAfterThePagesOwn() {
+        val settings = readerTestSettings.copy(
+            webSnippets = NovelWebSnippets(
+                js = listOf(
+                    NovelCodeSnippet("setup", "window.rkT=1"),
+                    NovelCodeSnippet(
+                        "each",
+                        "window.rkSeen=(window.rkSeen||[]).concat([window.rkT===1])",
+                        runOnAppend = true,
+                    ),
+                ),
+            ),
+        )
+        instrumentation.runOnMainSync {
+            scope.launch { viewport.load(chapter(1L), settings) }
+            scope.launch { viewport.append(chapter(2L)) }
+        }
+        assertEquals("1,2", awaitChapters("1,2"))
+        assertEquals("true,true", awaitEval("String(window.rkSeen)", "true,true"))
     }
 
     /** rkReader is the page's to overwrite, and a chapter's script replacing an answer used to crash the app. */

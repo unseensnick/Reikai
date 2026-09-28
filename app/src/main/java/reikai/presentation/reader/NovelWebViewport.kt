@@ -384,6 +384,13 @@ class NovelWebViewport(
         snippets.forEach { snippetsRan[it.id] = it.code }
     }
 
+    // A chapter that lands before the page's own run would run its per-append code before the setup it
+    // relies on, so those runs are counted and made after it, from the snippets as they stand then.
+    private var appendsBeforeReady = 0
+
+    private fun appendRunner(): String? =
+        documentSettings?.webSnippets?.js?.filter { it.runOnAppend }?.let(NovelWebSnippets::runner)
+
     /** Re-decides every seam the document holds, each named by the chapter it introduces, since the
      *  page cannot tell which of its seams the setting hides. The end marker shows either way. */
     private fun redrawSeams() {
@@ -490,7 +497,7 @@ class NovelWebViewport(
             runOrQueue("rkReader.addSourceCss(${NovelWebDocument.sourceCssLiteral(it.css)});")
         }
         runOrQueue(js)
-        documentSettings?.webSnippets?.js?.filter { it.runOnAppend }?.let(NovelWebSnippets::runner)?.let(::runOrQueue)
+        if (gate.isReady) appendRunner()?.let(::runOrQueue) else appendsBeforeReady++
         syncEnd()
     }
 
@@ -554,6 +561,7 @@ class NovelWebViewport(
      */
     private fun dropPendingCalls() {
         pendingWindowVerbs.clear()
+        appendsBeforeReady = 0
         val unanswered = awaitingResult.toList()
         awaitingResult.clear()
         unanswered.forEach { it.onResult?.invoke(null) }
@@ -613,6 +621,8 @@ class NovelWebViewport(
         pushAutoScroll()
         // After the held calls, so a snippet finds every chapter that arrived while the page loaded.
         documentSettings?.let { runSnippets(it.webSnippets.js) }
+        appendRunner()?.let { runner -> repeat(appendsBeforeReady) { webView.evaluateJavascript(runner, null) } }
+        appendsBeforeReady = 0
     }
 
     override fun setBoundaryFailures(
