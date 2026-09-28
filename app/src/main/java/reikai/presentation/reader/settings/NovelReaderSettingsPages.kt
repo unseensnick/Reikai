@@ -87,8 +87,9 @@ import kotlin.math.roundToInt
 
 /*
  * The novel half of the reader's settings sheet, in tsundoku's look: the rows a reader adjusts while
- * looking at the page. Every one but the novel's own rotation is also on Settings -> Novel reader, and
- * both write the same values. Read aloud is a novel's tab alone.
+ * looking at the page. Settings -> Novel reader writes the same values for every row except this novel's
+ * rotation, the text size and the page colours, which live here and on the reader's Theme and Text size
+ * bar buttons. Read aloud is a novel's tab alone.
  */
 
 private const val TENTHS = 10f
@@ -251,6 +252,13 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
         CheckboxItem(label = stringResource(MR.strings.pref_cutout_short), pref = preferences.readerDrawUnderCutout())
     }
     CheckboxItem(label = stringResource(MR.strings.pref_keep_screen_on), pref = preferences.readerKeepScreenOn())
+    val seamless by preferences.readerSeamlessChapters().collectAsState()
+    if (seamless) {
+        CheckboxItem(
+            label = stringResource(MR.strings.pref_always_show_chapter_transition),
+            pref = preferences.readerAlwaysShowChapterTransition(),
+        )
+    }
 
     NovelChapterTextRows(preferences)
 }
@@ -353,6 +361,22 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
     )
     if (showNavigator) {
         CheckboxItem(label = stringResource(MR.strings.pref_novel_use_rail), pref = preferences.readerUseRail())
+        val useRail by preferences.readerUseRail().collectAsState()
+        if (useRail) {
+            CheckboxItem(
+                label = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left),
+                pref = preferences.readerRailOnLeft(),
+            )
+            val railHeight by preferences.readerRailHeight().collectAsState()
+            SliderItem(
+                value = railHeight,
+                valueRange = 65..100,
+                steps = 6,
+                label = stringResource(MR.strings.pref_vertical_navigator_height),
+                onChange = preferences.readerRailHeight()::set,
+                pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
+        }
     }
     val volumeKeys by preferences.readerUseVolumeButtons().collectAsState()
     CheckboxItem(
