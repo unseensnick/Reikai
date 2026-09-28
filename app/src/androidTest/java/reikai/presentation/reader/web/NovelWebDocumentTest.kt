@@ -1042,20 +1042,21 @@ class NovelWebDocumentTest {
 
     private fun chapterCount(): String = eval("document.querySelectorAll('.rk-chapter').length")
 
-    /** Waits for the page to report [chapterId]'s end, since an image's decode and the frame after it
-     *  are not bounded by a settle on a loaded device. Returns either way; the caller asserts. */
-    // Waits for the page to report the chapter's progress, which a loaded device can take longer than
-    // a settle to send. Returns either way; the caller asserts.
+    /** Waits for a boundary retry past [after], the count before the tap. */
     private fun awaitRetry(after: Int) {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
         while (retries.get() <= after && System.currentTimeMillis() < deadline) Thread.sleep(50)
     }
 
+    /** Waits for the page to report the chapter's progress, which a loaded device can take longer than
+     *  a settle to send. Returns either way; the caller asserts. */
     private fun awaitProgress(chapterId: String) {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
         while (!progressByChapter.containsKey(chapterId) && System.currentTimeMillis() < deadline) Thread.sleep(50)
     }
 
+    /** Waits for the page to report [chapterId]'s end, since an image's decode and the frame after it
+     *  are not bounded by a settle on a loaded device. Returns either way; the caller asserts. */
     private fun awaitEndSeen(chapterId: String) {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
         while (chapterId !in endsSeen && System.currentTimeMillis() < deadline) Thread.sleep(50)
