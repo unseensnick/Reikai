@@ -62,7 +62,7 @@ private fun String.withoutLeadingNumber(number: String): String {
 
 private fun String.hasNumberAfterVolume(number: String): Boolean =
     Regex(
-        """^\s*vol(?:ume)?\.?\s*\d+(?:\.\d+)?[\s:.,\-–—]*(?:ch(?:apter)?\.?\s*)?#?0*${Regex.escape(
+        """^\s*vol(?:ume)?\.?\s*\d+(?:\.\d+)?(?!\d|\.\d)[\s:.,\-–—]*(?:ch(?:apter)?\.?\s*)?#?0*${Regex.escape(
             number,
         )}(?!\d|\.\d)""",
         RegexOption.IGNORE_CASE,

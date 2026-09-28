@@ -64,6 +64,22 @@ class ChapterTitleTest {
         ChapterTitleFormat.NUMBER_AND_NAME.of("Vol.1 Ch.3 - The Duel", 3.0) shouldBe "Vol.1 Ch.3 - The Duel"
     }
 
+    /** "Vol.13" is a volume, so a chapter 3 whose name opens with it still gets its number. */
+    @Test
+    fun `a volume number does not read as the chapter number`() {
+        ChapterTitleFormat.NUMBER_AND_NAME.of("Vol.13 The Duel", 3.0) shouldBe "Ch. 3: Vol.13 The Duel"
+    }
+
+    @Test
+    fun `a spelled out volume number does not read as the chapter number`() {
+        ChapterTitleFormat.NUMBER_AND_NAME.of("Volume 12: Side Story", 2.0) shouldBe "Ch. 2: Volume 12: Side Story"
+    }
+
+    @Test
+    fun `a part volume number does not read as the chapter number`() {
+        ChapterTitleFormat.NUMBER_AND_NAME.of("Vol.2.5 Extra", 5.0) shouldBe "Ch. 5: Vol.2.5 Extra"
+    }
+
     @Test
     fun `a part chapter's number comes off its own name`() {
         ChapterTitleFormat.NUMBER_AND_NAME.of("Chapter 1.5: Interlude", 1.5) shouldBe "Ch. 1.5: Interlude"
