@@ -17,7 +17,7 @@ import eu.kanade.tachiyomi.data.backup.models.customInfo
 import reikai.data.novel.updateNovelFetchInterval
 import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.backup.RestoredChapterState
-import reikai.domain.backup.RestoredTrackLink
+import reikai.domain.backup.backupChapterReadAhead
 import reikai.domain.backup.foldBackup
 import reikai.domain.backup.foldHistoryCopies
 import reikai.domain.category.CategoryContentType
@@ -175,19 +175,14 @@ class NovelRestorer(
         backupTracks.forEach { backupTrack ->
             val incoming = backupTrack.toTrackImpl(novelId)
             val dbTrack = dbTracksByTracker[incoming.trackerId]
-            val toInsert = if (dbTrack == null) {
+            val toUpsert = if (dbTrack == null) {
                 incoming
             } else {
-                val link = RestoredTrackLink(dbTrack.remoteId, dbTrack.libraryId, dbTrack.lastChapterRead)
-                    .foldBackup(RestoredTrackLink(incoming.remoteId, incoming.libraryId, incoming.lastChapterRead))
-                dbTrack.copy(
-                    remoteId = link.remoteId,
-                    libraryId = link.libraryId,
-                    lastChapterRead = link.lastChapterRead,
-                )
+                val lastChapterRead = backupChapterReadAhead(dbTrack.lastChapterRead, incoming.lastChapterRead)
+                    ?: return@forEach
+                dbTrack.copy(lastChapterRead = lastChapterRead)
             }
-            if (toInsert == dbTrack) return@forEach
-            check(novelTrackRepository.upsert(toInsert)) { "Failed to upsert track ${toInsert.trackerId}" }
+            check(novelTrackRepository.upsert(toUpsert)) { "Failed to upsert track ${toUpsert.trackerId}" }
         }
     }
 

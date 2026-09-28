@@ -22,7 +22,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.backup.RestoredChapterState
-import reikai.domain.backup.RestoredTrackLink
+import reikai.domain.backup.backupChapterReadAhead
 import reikai.domain.backup.foldBackup
 import reikai.domain.backup.foldHistoryCopies
 import reikai.domain.category.CategoryContentType
@@ -470,20 +470,13 @@ class MangaRestorer(
                         mangaId = manga.id,
                     )
 
-                if (track.forComparison() == dbTrack.forComparison()) {
-                    // Same state; skip
-                    return@mapNotNull null
-                }
+                // RK --> the rule novels share (reikai.domain.backup.backupChapterReadAhead), upstream's
+                // mihon 4b48a84ec ported ahead of the move to RestoreRepositoryImpl.
+                val lastChapterRead = backupChapterReadAhead(dbTrack.lastChapterRead, track.lastChapterRead)
+                    ?: return@mapNotNull null
 
                 // Update to an existing track
-                // RK --> the fold novels share (reikai.domain.backup.foldBackup), same rule as upstream's.
-                val link = RestoredTrackLink(dbTrack.remoteId, dbTrack.libraryId, dbTrack.lastChapterRead)
-                    .foldBackup(RestoredTrackLink(track.remoteId, track.libraryId, track.lastChapterRead))
-                dbTrack.copy(
-                    remoteId = link.remoteId,
-                    libraryId = link.libraryId,
-                    lastChapterRead = link.lastChapterRead,
-                )
+                dbTrack.copy(lastChapterRead = lastChapterRead)
                 // RK <--
             }
             .partition { it.id > 0 }
@@ -514,8 +507,6 @@ class MangaRestorer(
             }
         }
     }
-
-    private fun Track.forComparison() = this.copy(id = 0L, mangaId = 0L)
 
     /**
      * Restores the excluded scanlators for the manga.

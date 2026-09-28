@@ -31,7 +31,7 @@ import tachiyomi.domain.track.model.Track
 /**
  * Restoring over a series the device already has merges the two copies by the same rules for both
  * content types: the newer version's details win, a chapter keeps read and bookmark from either side and
- * the further progress, and a bound track keeps the device's row with the backup's remote link and the
+ * the further progress, and a bound track keeps the device's row, remote link included, taking only a
  * further chapter read. Runs each type's real restorer over one series and one chapter or track.
  */
 class RestoreMergeConformanceTest {
@@ -82,13 +82,22 @@ class RestoreMergeConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("restorers")
-    fun `a bound track keeps the device's row and takes the backup's link and further chapter`(
+    fun `a bound track keeps the device's row, remote link included, and takes the further chapter`(
         restorer: MergeRestorer,
     ) = runTest {
         restorer.track(
             device = TrackState(remoteId = 1, libraryId = 1, status = COMPLETED, score = 9.0, lastChapterRead = 5.0),
             backup = TrackState(remoteId = 2, libraryId = 2, status = READING, score = 0.0, lastChapterRead = 8.0),
-        ) shouldBe TrackState(remoteId = 2, libraryId = 2, status = COMPLETED, score = 9.0, lastChapterRead = 8.0)
+        ) shouldBe TrackState(remoteId = 1, libraryId = 1, status = COMPLETED, score = 9.0, lastChapterRead = 8.0)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("restorers")
+    fun `a backup track behind the device writes nothing`(restorer: MergeRestorer) = runTest {
+        restorer.track(
+            device = TrackState(remoteId = 1, libraryId = 1, status = COMPLETED, score = 9.0, lastChapterRead = 8.0),
+            backup = TrackState(remoteId = 2, libraryId = 2, status = READING, score = 0.0, lastChapterRead = 5.0),
+        ) shouldBe null
     }
 
     companion object {
@@ -122,7 +131,7 @@ interface MergeRestorer {
     suspend fun chapter(device: ChapterState, backup: ChapterState): ChapterState
 
     /** Restores one track over the device's track on the same tracker, returning the device's row afterwards. */
-    suspend fun track(device: TrackState, backup: TrackState): TrackState
+    suspend fun track(device: TrackState, backup: TrackState): TrackState?
 }
 
 class MangaMergeRestorer : MergeRestorer {
@@ -183,8 +192,8 @@ class MangaMergeRestorer : MergeRestorer {
         return result
     }
 
-    override suspend fun track(device: TrackState, backup: TrackState): TrackState {
-        var result = device
+    override suspend fun track(device: TrackState, backup: TrackState): TrackState? {
+        var result: TrackState? = null
         val database = database {
             coEvery {
                 manga_syncQueries.update(
@@ -310,8 +319,8 @@ class NovelMergeRestorer : MergeRestorer {
         return result
     }
 
-    override suspend fun track(device: TrackState, backup: TrackState): TrackState {
-        var result = device
+    override suspend fun track(device: TrackState, backup: TrackState): TrackState? {
+        var result: TrackState? = null
         val dbTrack = NovelTrack(
             id = 1,
             novelId = RestoreMergeConformanceTest.DEVICE_ID,

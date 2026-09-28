@@ -16,19 +16,13 @@ fun RestoredChapterState.foldBackup(backup: RestoredChapterState) = RestoredChap
     progress = max(progress, backup.progress),
 )
 
-/** The part of a bound track a restore takes from the backup. */
-data class RestoredTrackLink(val remoteId: Long, val libraryId: Long?, val lastChapterRead: Double)
-
 /**
- * Folds a backup track onto the device's track on the same tracker: the backup's remote link and the
- * further chapter read. Everything else stays the device's, since that row is the one synced with the
- * tracker and a track carries no version to say which side is newer. This is Mihon's manga rule.
+ * What a backup track changes on the device's track on the same tracker: only a further chapter read.
+ * The device's row, remote link included, is the one synced with the tracker, and taking the backup's
+ * link would pair one remote entry's id with another's url and title (mihon 4b48a84ec). Null when the
+ * backup is not ahead, so nothing is written.
  */
-fun RestoredTrackLink.foldBackup(backup: RestoredTrackLink) = RestoredTrackLink(
-    remoteId = backup.remoteId,
-    libraryId = backup.libraryId,
-    lastChapterRead = max(lastChapterRead, backup.lastChapterRead),
-)
+fun backupChapterReadAhead(device: Double, backup: Double): Double? = backup.takeIf { it > device }
 
 /** One backup history entry as a restore reads it; [readAt] is 0 for an entry the user removed. */
 data class RestoredChapterHistory(val chapterUrl: String, val readAt: Long, val readDuration: Long)

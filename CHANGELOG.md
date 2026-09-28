@@ -591,6 +591,7 @@ every stable release now also ships a foss build with neither in it.
 #### Fixed
 
 - **Restoring a backup that lists one chapter's history twice now adds up its reading time and keeps its latest read, on manga and novels (synced from Mihon).**
+- **Restoring a backup over a series you already track keeps the tracker entry you have and only moves its progress forward, on manga and novels (synced from Mihon).**
 - **Restoring a backup now keeps a default category set to Always ask.**
 - **Restoring a backup with App settings ticked now brings your light-novel plugins back by itself, and names any it could not.** A backup carries a plugin's address but not its script, so its novels could not open until you reinstalled each plugin by hand.
 - **Restored light-novel plugins are now always checked against your added repos before they load.** A backup made after an earlier check could switch the check off.
