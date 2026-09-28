@@ -70,7 +70,8 @@ C.content_type
 FROM categories C
 JOIN mangas_categories MC
 ON C._id = MC.category_id
-WHERE MC.manga_id = :mangaId;
+WHERE MC.manga_id = :mangaId
+ORDER BY C.sort;
 
 -- RK: content_type is a parameter (was two statements, one per type, neither able to write the universal
 -- 0). A universal category is a single row both libraries read, so the create path must be able to name it.
@@ -128,7 +129,8 @@ C.content_type
 FROM categories C
 JOIN novels_categories NC
 ON C._id = NC.category_id
-WHERE NC.novel_id = :novelId;
+WHERE NC.novel_id = :novelId
+ORDER BY C.sort;
 
 selectLastInsertedRowId:
 SELECT last_insert_rowid();

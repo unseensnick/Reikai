@@ -31,6 +31,7 @@ getRecentNovelUpdates:
 SELECT *
 FROM novelUpdatesView
 WHERE dateFetch > :after
+ORDER BY dateFetch DESC
 LIMIT :limit;
 
 -- Novel twin of updatesView's getRecentUpdatesWithFilters, same predicate shapes so the two feeds
@@ -73,4 +74,5 @@ AND (
         )
     )
 )
+ORDER BY dateFetch DESC
 LIMIT :limit;
