@@ -14,6 +14,8 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.novel.content.NovelCodeSnippet
+import reikai.novel.content.NovelSnippets
 
 /** The novel reader's session rules that only show once a real model is driven, over [NovelReaderViewModelHarness]. */
 class NovelReaderViewModelTest {
@@ -325,5 +327,18 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
 
         model.webUrlFor(earlier) shouldBe "https://alpha.example" + opened.url
+    }
+
+    /** Read before anything is advanced, so it is the seed value a first render would be built with. */
+    @Test
+    fun `a snippet saved before the reader opens is in its first settings`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val chapter = harness.chapter(novel, 1.0)
+        harness.novelPreferences.readerCssSnippets()
+            .set(NovelSnippets.encode(listOf(NovelCodeSnippet(title = "t", code = "p { color: red; }"))))
+
+        val model = harness.open(novel, chapter.id)
+
+        model.settings.value.webSnippets.css shouldBe "p { color: red; }"
     }
 }
