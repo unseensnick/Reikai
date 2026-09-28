@@ -9,7 +9,6 @@ import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.method.ArrowKeyMovementMethod
-import android.view.Choreographer
 import android.view.GestureDetector
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -213,11 +212,10 @@ class NovelTextViewport(
     private var failedPrevious: NovelReaderViewModel.BoundaryFailure? = null
     private var failedNext: NovelReaderViewModel.BoundaryFailure? = null
 
-    /** Auto-scroll in pixels a second, zero when it is off. Carry and timestamp belong to the frame
-     *  callback below and are held here so stopping can reset them. */
-    private var autoScrollRate = 0f
-    private var autoScrollCarry = 0f
-    private var autoScrollLastFrameNanos = 0L
+    private val autoScroller = FrameScroller(context.resources.displayMetrics.density) { px ->
+        recycler.scrollBy(0, px)
+        true
+    }
 
     private val adapter = BlockAdapter()
 
@@ -847,44 +845,8 @@ class NovelTextViewport(
         }
     }
 
-    /**
-     * Auto-scroll, driven by a frame callback so it moves the recycler the same way a drag does
-     * rather than competing with it. [pixelsPerFrame] is the WebView renderer's unit, a CSS pixel
-     * per frame at 60Hz, so it becomes a rate and crosses into the device pixels a recycler scrolls
-     * in. Without the density the same setting would move three times as far over there.
-     */
     override fun setAutoScroll(running: Boolean, pixelsPerFrame: Float) {
-        val density = context.resources.displayMetrics.density
-        val rate = if (running) pixelsPerFrame * FRAMES_PER_SECOND * density else 0f
-        if (rate == autoScrollRate) return
-        val wasRunning = autoScrollRate > 0f
-        autoScrollRate = rate
-        if (rate <= 0f) {
-            Choreographer.getInstance().removeFrameCallback(autoScrollFrames)
-        } else if (!wasRunning) {
-            autoScrollLastFrameNanos = 0L
-            autoScrollCarry = 0f
-            Choreographer.getInstance().postFrameCallback(autoScrollFrames)
-        }
-    }
-
-    /** The fraction is carried between frames, or a speed below one pixel a frame never moves at all.
-     *  The first frame only takes a timestamp, since there is no interval to scroll over yet. */
-    private val autoScrollFrames = object : Choreographer.FrameCallback {
-        override fun doFrame(frameTimeNanos: Long) {
-            if (autoScrollRate <= 0f) return
-            val previous = autoScrollLastFrameNanos
-            autoScrollLastFrameNanos = frameTimeNanos
-            if (previous != 0L) {
-                autoScrollCarry += autoScrollRate * ((frameTimeNanos - previous) / NANOS_PER_SECOND)
-                val whole = autoScrollCarry.toInt()
-                if (whole != 0) {
-                    autoScrollCarry -= whole
-                    recycler.scrollBy(0, whole)
-                }
-            }
-            Choreographer.getInstance().postFrameCallback(this)
-        }
+        autoScroller.run(if (running) pixelsPerFrame else 0f)
     }
 
     /** The text column: what is left of the reader once the page's side margins are taken off. The
@@ -1591,10 +1553,6 @@ class NovelTextViewport(
         /** The one partial change an item takes: what its seam draws, since the chapter above it moved
          *  or the setting that hides seams changed. */
         val SEAM_CHANGED = Any()
-
-        /** The frame rate the WebView renderer's per-frame speed was written against. */
-        const val FRAMES_PER_SECOND = 60f
-        const val NANOS_PER_SECOND = 1_000_000_000f
 
         /** How far sideways a swipe must run to count, in dp, also `core.js`'s number. */
         const val SWIPE_MIN_DP = 180f
