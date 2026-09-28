@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.readerBottomButtonsPreference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -480,7 +481,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 // RK: volume-key scroll amount, novel-reader parity
                 Preference.PreferenceItem.SliderPreference(
                     value = volumeScrollPercent,
-                    valueRange = 25..100,
+                    valueRange = ReaderRanges.volumeKeyScrollPercent,
                     title = stringResource(MR.strings.pref_volume_keys_scroll_amount),
                     subtitle = stringResource(MR.strings.pref_volume_keys_scroll_amount_long_strip),
                     valueString = "$volumeScrollPercent%",
@@ -508,8 +509,8 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = verticalNavigatorHeight,
-                    valueRange = 65..100,
-                    steps = 6,
+                    valueRange = ReaderRanges.railHeightPercent, // RK
+                    steps = ReaderRanges.railHeightSteps, // RK
                     title = stringResource(MR.strings.pref_vertical_navigator_height),
                     onValueChanged = { verticalNavigatorHeightPref.set(it) },
                     enabled = showNavigator && verticalNavigator.isNotEmpty(), // RK

@@ -17,4 +17,8 @@ object NovelTextRanges {
     /** A third of a phone's short edge, past which a column of text stops being readable. */
     val marginDp = 0..64
     val autoSplitWords = 20..2000
+    val readAloudRateTenths = 1..30
+    val readAloudPitchTenths = 1..20
+    val autoScrollSpeedTenths = 2..40
+    val autoLoadNextAtPercent = 50..100
 }

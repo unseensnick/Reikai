@@ -63,6 +63,7 @@ import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.PresetSwatch
 import reikai.presentation.reader.ReaderFont
+import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.TtsOptions
 import reikai.presentation.reader.builtInReaderFonts
 import reikai.presentation.reader.readerBackgroundColorInt
@@ -319,7 +320,7 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
         val speed by speedPref.collectAsState()
         SliderItem(
             value = (speed * TENTHS).roundToInt(),
-            valueRange = 2..40,
+            valueRange = NovelTextRanges.autoScrollSpeedTenths,
             label = stringResource(MR.strings.pref_auto_scroll_speed),
             valueString = "%.1fx".format(speed),
             onChange = { speedPref.set(it / TENTHS) },
@@ -333,7 +334,7 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
         val autoLoad by autoLoadPref.collectAsState()
         SliderItem(
             value = autoLoad,
-            valueRange = 50..100,
+            valueRange = NovelTextRanges.autoLoadNextAtPercent,
             label = stringResource(MR.strings.pref_novel_auto_load_next_at),
             valueString = "$autoLoad%",
             onChange = autoLoadPref::set,
@@ -369,8 +370,8 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
             val railHeight by preferences.readerRailHeight().collectAsState()
             SliderItem(
                 value = railHeight,
-                valueRange = 65..100,
-                steps = 6,
+                valueRange = ReaderRanges.railHeightPercent,
+                steps = ReaderRanges.railHeightSteps,
                 label = stringResource(MR.strings.pref_vertical_navigator_height),
                 onChange = preferences.readerRailHeight()::set,
                 pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -392,7 +393,7 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
         val percent = (fraction * 100).roundToInt()
         SliderItem(
             value = percent,
-            valueRange = 25..100,
+            valueRange = ReaderRanges.volumeKeyScrollPercent,
             label = stringResource(MR.strings.pref_volume_keys_scroll_amount),
             valueString = "$percent%",
             onChange = { fractionPref.set(it / 100f) },
@@ -571,8 +572,18 @@ internal fun ColumnScope.NovelReadAloudPage(preferences: NovelPreferences) {
     EngineRow(preferences, options)
     VoiceLanguagesRow(preferences, options)
     VoiceRow(preferences, options)
-    TenthsStepper(preferences.readerTtsRate(), MR.strings.pref_tts_rate, tenths = 1..30, format = "%.1fx")
-    TenthsStepper(preferences.readerTtsPitch(), MR.strings.pref_tts_pitch, tenths = 1..20, format = "%.1f")
+    TenthsStepper(
+        preferences.readerTtsRate(),
+        MR.strings.pref_tts_rate,
+        tenths = NovelTextRanges.readAloudRateTenths,
+        format = "%.1fx",
+    )
+    TenthsStepper(
+        preferences.readerTtsPitch(),
+        MR.strings.pref_tts_pitch,
+        tenths = NovelTextRanges.readAloudPitchTenths,
+        format = "%.1f",
+    )
 
     HeadingItem(MR.strings.pref_category_playback)
     CheckboxItem(

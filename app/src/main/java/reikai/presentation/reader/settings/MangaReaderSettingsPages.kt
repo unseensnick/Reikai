@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.presentation.reader.ReaderRanges
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -331,8 +332,8 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel) {
         SliderItem(
             label = stringResource(MR.strings.pref_vertical_navigator_height),
             value = verticalNavigatorHeight,
-            valueRange = 65..100,
-            steps = 6,
+            valueRange = ReaderRanges.railHeightPercent,
+            steps = ReaderRanges.railHeightSteps,
             onChange = { preferences.verticalNavigatorHeight.set(it) },
         )
     }

@@ -34,6 +34,7 @@ import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.toHexRgb
 import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
+import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.TtsOptions
 import reikai.presentation.reader.readerBottomButtonsPreference
 import reikai.presentation.reader.readerFontLabel
@@ -137,14 +138,14 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = (rate * TENTHS).roundToInt(),
-                    valueRange = 1..30,
+                    valueRange = NovelTextRanges.readAloudRateTenths,
                     title = stringResource(MR.strings.pref_tts_rate),
                     valueString = "%.1fx".format(rate),
                     onValueChanged = { ratePref.set(it / TENTHS) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = (pitch * TENTHS).roundToInt(),
-                    valueRange = 1..20,
+                    valueRange = NovelTextRanges.readAloudPitchTenths,
                     title = stringResource(MR.strings.pref_tts_pitch),
                     valueString = "%.1f".format(pitch),
                     onValueChanged = { pitchPref.set(it / TENTHS) },
@@ -451,7 +452,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ).takeIf { seamless },
                 Preference.PreferenceItem.SliderPreference(
                     value = autoLoadNextAt,
-                    valueRange = 50..100,
+                    valueRange = NovelTextRanges.autoLoadNextAtPercent,
                     title = stringResource(MR.strings.pref_novel_auto_load_next_at),
                     valueString = "$autoLoadNextAt%",
                     onValueChanged = { autoLoadNextAtPref.set(it) },
@@ -538,7 +539,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = (autoScrollSpeed * TENTHS).roundToInt(),
-                    valueRange = 2..40,
+                    valueRange = NovelTextRanges.autoScrollSpeedTenths,
                     title = stringResource(MR.strings.pref_auto_scroll_speed),
                     valueString = "%.1fx".format(autoScrollSpeed),
                     onValueChanged = { autoScrollSpeedPref.set(it / TENTHS) },
@@ -580,7 +581,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = volumeButtonsPercent,
-                    valueRange = 25..100,
+                    valueRange = ReaderRanges.volumeKeyScrollPercent,
                     title = stringResource(MR.strings.pref_volume_keys_scroll_amount),
                     valueString = "$volumeButtonsPercent%",
                     enabled = useVolumeButtons,
@@ -611,8 +612,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ).takeIf { showNavigator && useRail },
                 Preference.PreferenceItem.SliderPreference(
                     value = railHeight,
-                    valueRange = 65..100,
-                    steps = 6,
+                    valueRange = ReaderRanges.railHeightPercent,
+                    steps = ReaderRanges.railHeightSteps,
                     title = stringResource(MR.strings.pref_vertical_navigator_height),
                     onValueChanged = { railHeightPref.set(it) },
                 ).takeIf { showNavigator && useRail },
