@@ -3,6 +3,7 @@ package reikai.domain.track.autobind
 import dev.zacsweers.metro.Inject
 import reikai.domain.novel.interactor.AddNovelTrack
 import reikai.domain.novel.model.Novel
+import reikai.domain.track.supportsContent
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withNonCancellableContext
@@ -20,7 +21,7 @@ class BindNovelTrackers(
 
     suspend fun await(novel: Novel) = withNonCancellableContext {
         withIOContext {
-            val trackers = autoBindTrackers.loggedIn().filter { it.tracker.supportsNovels }
+            val trackers = autoBindTrackers.loggedIn().filter { it.tracker.supportsContent(isNovel = true) }
             // Checked first, so an add with nothing to bind never resolves the source and loads plugins.
             if (trackers.isEmpty()) return@withIOContext
             val source = sourceManager.get(novel.source) ?: return@withIOContext

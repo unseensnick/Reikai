@@ -98,6 +98,7 @@ import reikai.domain.novel.track.toUiTrack
 import reikai.domain.source.healedCover
 import reikai.domain.source.keptCover
 import reikai.domain.track.source.SourceTrackerDispatcher
+import reikai.domain.track.supportingContent
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -304,8 +305,9 @@ class NovelDetailsViewModel(
         }
     }
 
-    /** Mirror the bound-tracker count (on logged-in services) into [NovelDetailsState.Loaded.trackingCount],
-     *  so the action-row Tracking button shows the count + flips its icon, like the manga header. */
+    /** Mirror the bound-tracker count (on logged-in services that catalogue novels) into
+     *  [NovelDetailsState.Loaded.trackingCount], so the action-row Tracking button shows the count + flips
+     *  its icon, like the manga header. */
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun observeTrackingCount() {
         viewModelScope.launchIO {
@@ -321,7 +323,7 @@ class NovelDetailsViewModel(
                             getNovelTracks.subscribeGroup(novelId),
                             trackerManager.loggedInTrackersFlow(),
                         ) { tracks, loggedIn ->
-                            val loggedInIds = loggedIn.mapTo(HashSet()) { it.id }
+                            val loggedInIds = loggedIn.supportingContent(isNovel = true).mapTo(HashSet()) { it.id }
                             tracks.count { it.trackerId in loggedInIds }
                         }
                     }
@@ -1294,8 +1296,9 @@ class NovelDetailsViewModel(
         return chapters + ids.flatMap { chapterRepo.getByNovelId(it) }.filter { it.id in wanted }
     }
 
-    /** True if any tracker is logged in; gates the toolbar action (sheet vs Settings > Tracking). */
-    fun hasLoggedInTrackers(): Boolean = trackerManager.loggedInTrackers().isNotEmpty()
+    /** True if a logged-in tracker catalogues novels; gates the Tracking button (sheet vs Settings > Tracking). */
+    fun hasLoggedInTrackers(): Boolean =
+        trackerManager.loggedInTrackers().supportingContent(isNovel = true).isNotEmpty()
 
     fun showTrackDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.TrackSheet) }
 

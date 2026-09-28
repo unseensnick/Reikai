@@ -31,6 +31,16 @@ class TrackerContentSupportTest {
         all.supportingContent(isNovel = false) shouldBe listOf(bothTypes, mangaOnly)
     }
 
+    @Test
+    fun `a manga-only tracker does not support novels`() {
+        mangaOnly.supportsContent(isNovel = true) shouldBe false
+    }
+
+    @Test
+    fun `a manga-only tracker supports manga`() {
+        mangaOnly.supportsContent(isNovel = false) shouldBe true
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = [true, false])
     fun `never offers a tracker that catalogues neither type`(isNovel: Boolean) {
