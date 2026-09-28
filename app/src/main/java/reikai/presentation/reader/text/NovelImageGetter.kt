@@ -75,7 +75,7 @@ class DrawableWrapper : Drawable() {
 class NovelImageGetter(
     private val context: Context,
     private val scope: CoroutineScope,
-    contentWidthPx: Int,
+    private val contentWidth: Int,
     private val sourceId: String?,
     /** The text size in pixels and colour, which a failed picture's box is drawn in. */
     private val textSizePx: Float,
@@ -88,9 +88,6 @@ class NovelImageGetter(
      */
     private val onImagesLanded: suspend (views: List<TextView>, swapIn: () -> Unit, allLanded: Boolean) -> Unit,
 ) : Html.ImageGetter {
-
-    private val contentWidth: Int =
-        contentWidthPx.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
 
     private val density: Float = context.resources.displayMetrics.density
 
@@ -113,7 +110,6 @@ class NovelImageGetter(
      */
     override fun getDrawable(source: String?): Drawable {
         val wrapper = DrawableWrapper()
-        val density = context.resources.displayMetrics.density
         val placeholder = ImageLoadingDrawable(
             width = contentWidth,
             height = (PLACEHOLDER_HEIGHT_DP * density).toInt(),

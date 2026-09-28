@@ -41,7 +41,7 @@ class NovelImageFailureTest {
     private fun getter() = NovelImageGetter(
         context = context,
         scope = scope,
-        contentWidthPx = 600,
+        contentWidth = 600,
         sourceId = null,
         textSizePx = 18f,
         textColor = { 0xFF000000.toInt() },

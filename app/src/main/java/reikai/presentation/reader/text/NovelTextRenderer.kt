@@ -94,7 +94,7 @@ class NovelTextRenderer(
             val imageGetter = NovelImageGetter(
                 context = context,
                 scope = pictureScope,
-                contentWidthPx = contentWidth,
+                contentWidth = contentWidth,
                 sourceId = sourceId,
                 textSizePx = textSizePx,
                 textColor = { block.chunkViews.firstOrNull()?.currentTextColor ?: Color.GRAY },
