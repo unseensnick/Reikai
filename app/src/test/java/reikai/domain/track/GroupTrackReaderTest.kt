@@ -2,6 +2,8 @@ package reikai.domain.track
 
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
 class GroupTrackReaderTest {
@@ -34,6 +36,20 @@ class GroupTrackReaderTest {
             Row(member = 1L, trackerId = 10L, lastChapterRead = 7.0),
             Row(member = 2L, trackerId = 10L, lastChapterRead = 7.0),
         ).map { it.member } shouldContainExactly listOf(1L)
+    }
+
+    @Test
+    fun `the span is the entry alone when sharing is off`() = runTest {
+        val reader = GroupTrackReader<Row>(
+            sharingEnabled = { false },
+            relatedIds = { listOf(it, 2L) },
+            readOne = { emptyList() },
+            observeOne = { emptyFlow() },
+            trackerId = Row::trackerId,
+            lastChapterRead = Row::lastChapterRead,
+        )
+
+        reader.groupIds(1L) shouldBe listOf(1L)
     }
 
     @Test

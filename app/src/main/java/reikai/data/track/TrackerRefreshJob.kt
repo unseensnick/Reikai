@@ -31,8 +31,8 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import reikai.domain.library.ContentType
+import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.merge.MergeGroupRepository
-import reikai.domain.merge.dedupeByMergeGroup
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
@@ -70,6 +70,8 @@ class TrackerRefreshJob(
 
     @Inject private lateinit var getNovelTracks: GetNovelTracks
 
+    @Inject private lateinit var getTracksInGroup: GetTracksInGroup
+
     @Inject private lateinit var refreshTracks: RefreshTracks
 
     @Inject private lateinit var refreshNovelTracks: RefreshNovelTracks
@@ -83,21 +85,11 @@ class TrackerRefreshJob(
 
     private val notifier by lazy { TrackerRefreshNotifier(context, cancelIntent) }
 
-    override suspend fun getForegroundInfo(): ForegroundInfo {
-        val notification = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_PROGRESS) {
-            setContentTitle(context.stringResource(MR.strings.tracker_refresh_progress))
-            setSmallIcon(R.drawable.ic_refresh_24dp)
-            setOngoing(true)
-            setOnlyAlertOnce(true)
-            priority = NotificationCompat.PRIORITY_LOW
-            addAction(R.drawable.ic_close_24dp, context.stringResource(MR.strings.action_cancel), cancelIntent)
-        }.build()
-        return ForegroundInfo(
-            Notifications.ID_TRACKER_REFRESH_PROGRESS,
-            notification,
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
-        )
-    }
+    override suspend fun getForegroundInfo(): ForegroundInfo = ForegroundInfo(
+        Notifications.ID_TRACKER_REFRESH_PROGRESS,
+        notifier.progressBuilder.build(),
+        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+    )
 
     override suspend fun doWork(): Result {
         return try {
@@ -131,19 +123,21 @@ class TrackerRefreshJob(
 
         // Intersect favorites with the entries carrying a live track: a track row survives removing an
         // entry from the library, so refreshing straight off the track table would hit entries nobody sees.
-        // One refresh per merge group: the interactors refresh the group's canonical rows, so two members
-        // that each carry track rows would refresh the same rows twice.
+        // One refresh per span the interactors cover: they refresh that span's canonical rows, so two members
+        // inside one span would refresh the same rows twice, while a member outside it would never refresh.
         val mangaTracks = getTracksPerManga.subscribe().first()
+        val mangaGroups = mergeGroupRepository.getAllMemberships(ContentType.MANGA)
         val mangaIds = getLibraryManga.await()
             .map { it.id }
             .filter { id -> mangaTracks[id]?.any { it.trackerId in loggedIn } == true }
-            .dedupeByMergeGroup(mergeGroupRepository.getAllMemberships(ContentType.MANGA)) { it }
+            .let { refreshTargets(it, mangaGroups, getTracksInGroup::groupIds) }
 
         val novelTracks = getNovelTracks.subscribeAll().first()
+        val novelGroups = mergeGroupRepository.getAllMemberships(ContentType.NOVELS)
         val novelIds = novelRepository.getLibraryNovelAsFlow().first()
             .map { it.novel.id }
             .filter { id -> novelTracks[id]?.any { it.trackerId in loggedIn } == true }
-            .dedupeByMergeGroup(mergeGroupRepository.getAllMemberships(ContentType.NOVELS)) { it }
+            .let { refreshTargets(it, novelGroups, getNovelTracks::groupIds) }
 
         val total = mangaIds.size + novelIds.size
         if (total == 0) {
@@ -205,13 +199,31 @@ class TrackerRefreshJob(
     }
 }
 
+/**
+ * The ids to refresh: an id already inside an earlier id's [span] is skipped, since that refresh
+ * reaches its rows. Only a stored group member ([membership]) has a span wider than itself, so an
+ * ungrouped id costs no lookup.
+ */
+internal suspend fun refreshTargets(
+    ids: List<Long>,
+    membership: Map<Long, Long>,
+    span: suspend (Long) -> List<Long>,
+): List<Long> {
+    val covered = HashSet<Long>()
+    return ids.filter { id ->
+        if (id in covered) return@filter false
+        if (id in membership) covered += span(id)
+        true
+    }
+}
+
 /** Progress and result notifications for [TrackerRefreshJob], on the shared library channels. */
 private class TrackerRefreshNotifier(
     private val context: Context,
     cancelIntent: PendingIntent,
 ) {
 
-    private val progressBuilder = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_PROGRESS) {
+    val progressBuilder = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_PROGRESS) {
         setContentTitle(context.stringResource(MR.strings.tracker_refresh_progress))
         setSmallIcon(R.drawable.ic_refresh_24dp)
         setOngoing(true)

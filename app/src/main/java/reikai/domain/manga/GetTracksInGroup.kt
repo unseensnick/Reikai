@@ -30,5 +30,8 @@ class GetTracksInGroup(
 
     suspend fun await(mangaId: Long): List<Track> = reader.await(mangaId)
 
+    /** The entries a refresh of [mangaId] reaches. */
+    suspend fun groupIds(mangaId: Long): List<Long> = reader.groupIds(mangaId)
+
     fun subscribe(mangaId: Long): Flow<List<Track>> = reader.subscribe(mangaId)
 }

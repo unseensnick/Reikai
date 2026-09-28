@@ -25,8 +25,10 @@ class GroupTrackReader<T>(
     private val lastChapterRead: (T) -> Double,
 ) {
 
-    suspend fun await(entryId: Long): List<T> =
-        canonical(trackGroupIds(entryId, sharingEnabled, relatedIds).flatMap { readOne(it) })
+    /** The entries a tracker operation on [entryId] reaches, per [trackGroupIds]. */
+    suspend fun groupIds(entryId: Long): List<Long> = trackGroupIds(entryId, sharingEnabled, relatedIds)
+
+    suspend fun await(entryId: Long): List<T> = canonical(groupIds(entryId).flatMap { readOne(it) })
 
     /**
      * Reactive [await]. Emits the entry's own tracks first, so a tracking icon shows without waiting on
@@ -34,7 +36,7 @@ class GroupTrackReader<T>(
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun subscribe(entryId: Long): Flow<List<T>> =
-        flow { emit(trackGroupIds(entryId, sharingEnabled, relatedIds)) }
+        flow { emit(groupIds(entryId)) }
             .onStart { emit(listOf(entryId)) }
             .distinctUntilChanged()
             .flatMapLatest { groupIds ->

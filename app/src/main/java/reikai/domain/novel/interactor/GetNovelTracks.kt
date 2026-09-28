@@ -56,6 +56,9 @@ class GetNovelTracks(
     /** Tracks bound on any member of [novelId]'s merge group, one per tracker. */
     suspend fun awaitGroup(novelId: Long): List<NovelTrack> = groupReader.await(novelId)
 
+    /** The entries a refresh of [novelId] reaches. */
+    suspend fun groupIds(novelId: Long): List<Long> = groupReader.groupIds(novelId)
+
     /** Reactive [awaitGroup]. */
     fun subscribeGroup(novelId: Long): Flow<List<NovelTrack>> = groupReader.subscribe(novelId)
 }
