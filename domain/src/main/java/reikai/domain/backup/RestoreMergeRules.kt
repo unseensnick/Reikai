@@ -1,4 +1,4 @@
-package reikai.data.backup
+package reikai.domain.backup
 
 import kotlin.math.max
 

@@ -47,9 +47,9 @@ manga restore repository and `NovelRestorer` both call rather than restating.
 
 - `data/src/main/sqldelight/tachiyomi/migrations/`: the Reikai-numbered migrations (never Mihon's
   numbers).
-- `app/src/main/java/reikai/data/backup/RestoreMergeRules.kt`: the restore kernels, which move to
-  `:domain`.
-- `app/src/main/java/reikai/data/`: the Reikai repositories, which move to `:data`.
+- `domain/src/main/java/reikai/domain/backup/RestoreMergeRules.kt`: the restore kernels both restorers
+  call.
+- `data/src/main/java/reikai/data/`: the Reikai repositories.
 - `app/src/main/java/mihon/app/di/AppBindings.kt`: the driver and database providers, which upstream
   moves to a `DatabaseBindings` in `:data`.
 

@@ -20,9 +20,9 @@ import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import reikai.data.backup.RestoredChapterState
-import reikai.data.backup.RestoredTrackLink
-import reikai.data.backup.foldBackup
+import reikai.domain.backup.RestoredChapterState
+import reikai.domain.backup.RestoredTrackLink
+import reikai.domain.backup.foldBackup
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
 import reikai.domain.library.ContentType
@@ -476,7 +476,7 @@ class MangaRestorer(
                 }
 
                 // Update to an existing track
-                // RK --> the fold novels share (reikai.data.backup.foldBackup), same rule as upstream's.
+                // RK --> the fold novels share (reikai.domain.backup.foldBackup), same rule as upstream's.
                 val link = RestoredTrackLink(dbTrack.remoteId, dbTrack.libraryId, dbTrack.lastChapterRead)
                     .foldBackup(RestoredTrackLink(track.remoteId, track.libraryId, track.lastChapterRead))
                 dbTrack.copy(

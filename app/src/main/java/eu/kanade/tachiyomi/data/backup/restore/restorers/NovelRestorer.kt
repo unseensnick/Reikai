@@ -14,10 +14,10 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.customInfo
-import reikai.data.backup.RestoredChapterState
-import reikai.data.backup.RestoredTrackLink
-import reikai.data.backup.foldBackup
 import reikai.data.novel.updateNovelFetchInterval
+import reikai.domain.backup.RestoredChapterState
+import reikai.domain.backup.RestoredTrackLink
+import reikai.domain.backup.foldBackup
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
 import reikai.domain.library.ContentType
