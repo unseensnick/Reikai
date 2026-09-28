@@ -16,8 +16,6 @@ data class Chapter(
     val dateUpload: Long,
     val chapterNumber: Double,
     val scanlator: String?,
-    val lastModifiedAt: Long,
-    val version: Long,
     val memo: JsonObject,
     // RK: pages in the chapter, 0 where the reader has never loaded it. Unknown, not empty.
     val pageCount: Long,
@@ -49,8 +47,6 @@ data class Chapter(
             dateUpload = -1,
             chapterNumber = -1.0,
             scanlator = null,
-            lastModifiedAt = 0,
-            version = 1,
             memo = JsonObject.EMPTY,
             pageCount = 0, // RK: unknown until the reader loads it
         )

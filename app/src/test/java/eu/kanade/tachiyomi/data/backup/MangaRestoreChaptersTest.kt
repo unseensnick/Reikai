@@ -43,11 +43,11 @@ class MangaRestoreChaptersTest {
             }
             coEvery {
                 chaptersQueries.update(
-                    any(), any(), any(), any(), any(), any(), any(), any(),
-                    any(), any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(), any(), any(), any(), any(),
                 )
             } coAnswers {
-                updates.add(RestoredUpdate(arg<Boolean?>(4), arg<Long?>(6), arg<Long?>(14)))
+                updates.add(RestoredUpdate(arg<Boolean?>(4), arg<Long?>(6), arg<Long?>(12)))
                 0L
             }
         }

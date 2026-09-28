@@ -43,12 +43,6 @@ data class Novel(
      * default orientation". See `readerOrientation`.
      */
     val viewerFlags: Long,
-    /**
-     * Edit-count bumped by the `update_novel_version` DB trigger on real detail changes (the novel
-     * twin of `Manga.version`). Backup restore compares it to keep the newer copy rather than
-     * blindly overwriting; see `NovelRestorer`.
-     */
-    val version: Long,
     /** When smart update next fetches this novel, in epoch millis; 0 until one is predicted. */
     val nextUpdate: Long = 0L,
     /** The release interval in days that [nextUpdate] was predicted from, negative when the user set it. */
@@ -77,7 +71,6 @@ data class Novel(
             totalPages = 1L,
             notes = "",
             viewerFlags = 0L,
-            version = 0L,
         )
     }
 }

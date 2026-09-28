@@ -115,7 +115,6 @@ class NovelRepositoryImpl(
                 totalPages = novel.totalPages,
                 notes = novel.notes,
                 viewerFlags = novel.viewerFlags,
-                version = novel.version,
             )
             database.novelsQueries.selectLastInsertedRowId().awaitAsOne()
         }
@@ -124,7 +123,7 @@ class NovelRepositoryImpl(
         null
     }
 
-    override suspend fun update(novel: Novel, isSyncing: Boolean): Boolean = try {
+    override suspend fun update(novel: Novel): Boolean = try {
         database.novelsQueries.update(
             source = novel.source,
             url = novel.url,
@@ -145,8 +144,6 @@ class NovelRepositoryImpl(
             totalPages = novel.totalPages,
             notes = novel.notes,
             viewerFlags = novel.viewerFlags,
-            version = novel.version,
-            isSyncing = if (isSyncing) 1L else 0L,
             novelId = novel.id,
         )
         true

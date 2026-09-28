@@ -181,7 +181,6 @@ class MangaRepositoryImpl(
                     coverLastModified = it.coverLastModified,
                     dateAdded = it.dateAdded,
                     updateStrategy = it.updateStrategy,
-                    version = it.version,
                     memo = it.memo,
                     updateTitle = it.title.isNotBlank(),
                     updateCover = !it.thumbnailUrl.isNullOrBlank(),
@@ -217,8 +216,6 @@ class MangaRepositoryImpl(
                     dateAdded = value.dateAdded,
                     mangaId = value.id,
                     updateStrategy = value.updateStrategy,
-                    version = value.version,
-                    isSyncing = 0,
                     notes = value.notes,
                     memo = value.memo,
                 )

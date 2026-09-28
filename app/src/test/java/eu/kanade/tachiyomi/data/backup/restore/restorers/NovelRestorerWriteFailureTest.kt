@@ -27,7 +27,7 @@ class NovelRestorerWriteFailureTest {
         val novels = mockk<NovelRepository>(relaxed = true) {
             coEvery { getByUrlAndSource(any(), any()) } returns null
             coEvery { insert(any()) } returns NOVEL_ID
-            coEvery { update(any<Novel>(), any()) } returns true
+            coEvery { update(any<Novel>()) } returns true
         }
         val chapters = mockk<NovelChapterRepository>(relaxed = true) {
             coEvery { getByNovelId(any()) } returns emptyList()
@@ -45,7 +45,7 @@ class NovelRestorerWriteFailureTest {
         NOVEL_UPDATE({
             coEvery { novels.getByUrlAndSource(any(), any()) } returns
                 Novel.create().copy(id = NOVEL_ID, url = URL, source = SOURCE)
-            coEvery { novels.update(any<Novel>(), any()) } returns false
+            coEvery { novels.update(any<Novel>()) } returns false
         }),
         CHAPTER_INSERT({ coEvery { chapters.insert(any()) } returns null }),
         CHAPTER_UPDATE({

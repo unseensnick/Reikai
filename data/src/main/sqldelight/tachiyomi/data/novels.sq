@@ -32,28 +32,12 @@ CREATE TABLE novels(
     total_pages INTEGER NOT NULL DEFAULT 1,
     notes TEXT NOT NULL DEFAULT '',
     viewer_flags INTEGER NOT NULL DEFAULT 0,
-    version INTEGER NOT NULL DEFAULT 0,
-    is_syncing INTEGER NOT NULL DEFAULT 0,
     next_update INTEGER NOT NULL DEFAULT 0,
     calculate_interval INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX novels_url_index ON novels(url);
 CREATE INDEX novels_library_favorite_index ON novels(favorite) WHERE favorite = 1;
-
--- Novel twin of mangas.sq's update_manga_version: an edit-count bumped whenever a synced detail
--- (url / description / favorite) really changes, so backup restore can keep the newer copy. The
--- `is_syncing` guard lets restore write without inflating the count; recursive_triggers is off by
--- default, so the nested version bump does not re-fire this trigger.
-CREATE TRIGGER update_novel_version AFTER UPDATE ON novels
-BEGIN
-    UPDATE novels SET version = version + 1
-    WHERE _id = new._id AND new.is_syncing = 0 AND (
-        new.url != old.url OR
-        new.description != old.description OR
-        new.favorite != old.favorite
-    );
-END;
 
 findAll:
 SELECT *
@@ -155,8 +139,8 @@ LEFT JOIN chapter_counts CC
 ON N._id = CC.novel_id;
 
 insert:
-INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, notes, viewer_flags, version)
-VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :notes, :viewerFlags, :version);
+INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, notes, viewer_flags)
+VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :notes, :viewerFlags);
 
 -- Full-row update for the paths that legitimately write a complete Novel: restore and edit-info
 -- (which set columns back to null, something `coalesce` can't express). Surgical single/few-column
@@ -182,9 +166,7 @@ UPDATE novels SET
     cover_last_modified = :coverLastModified,
     total_pages = :totalPages,
     notes = :notes,
-    viewer_flags = :viewerFlags,
-    version = :version,
-    is_syncing = :isSyncing
+    viewer_flags = :viewerFlags
 WHERE _id = :novelId;
 
 -- Partial update (the novel twin of mangas.sq's coalesce update): each column `coalesce(:x, x)`s, so a
@@ -213,8 +195,7 @@ UPDATE novels SET
     notes = coalesce(:notes, notes),
     viewer_flags = coalesce(:viewerFlags, viewer_flags),
     next_update = coalesce(:nextUpdate, next_update),
-    calculate_interval = coalesce(:calculateInterval, calculate_interval),
-    is_syncing = 0
+    calculate_interval = coalesce(:calculateInterval, calculate_interval)
 WHERE _id = :id;
 
 -- The partial update's genre column, written apart because it keeps its adapter only without coalesce.

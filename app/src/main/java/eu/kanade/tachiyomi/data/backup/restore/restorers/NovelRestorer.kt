@@ -18,6 +18,8 @@ import reikai.data.novel.updateNovelFetchInterval
 import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.backup.RestoredChapterState
 import reikai.domain.backup.backupChapterReadAhead
+import reikai.domain.backup.backupDetailsWin
+import reikai.domain.backup.earliestAddedAt
 import reikai.domain.backup.foldBackup
 import reikai.domain.backup.foldHistoryCopies
 import reikai.domain.category.CategoryContentType
@@ -75,15 +77,7 @@ class NovelRestorer(
         val novelId = if (dbNovel == null) {
             checkNotNull(novelRepository.insert(novel)) { "Failed to insert novel ${novel.url}" }
         } else {
-            // Keep the newer copy (higher version), the novel twin of MangaRestorer: take details from
-            // whichever side has the larger edit count, preserve the other's local fields. isSyncing =
-            // true so the restore write itself does not inflate the version via the DB trigger.
-            val merged = if (novel.version > dbNovel.version) {
-                dbNovel.copyFrom(novel)
-            } else {
-                novel.copyFrom(dbNovel)
-            }
-            check(novelRepository.update(merged.copy(id = dbNovel.id), isSyncing = true)) {
+            check(novelRepository.update(mergeNovel(novel, dbNovel))) {
                 "Failed to update novel ${novel.url}"
             }
             dbNovel.id
@@ -105,21 +99,25 @@ class NovelRestorer(
     }
 
     /**
-     * Fold the newer copy's source details (and edit-count) onto this base, preserving the base's
-     * local fields. User edits are not in the row (they live in the custom_novel_info overlay, restored
-     * from the entry's custom fields), so only source-owned details travel here.
+     * The device's row with the backup folded in by the rules manga's restore shares. User edits are not
+     * in the row (they live in the custom_novel_info overlay, restored from the entry's custom fields).
      */
-    private fun Novel.copyFrom(newer: Novel): Novel = this.copy(
-        favorite = this.favorite || newer.favorite,
-        author = newer.author,
-        artist = newer.artist,
-        description = newer.description,
-        genre = newer.genre,
-        thumbnailUrl = newer.thumbnailUrl,
-        status = newer.status,
-        initialized = this.initialized || newer.initialized,
-        version = newer.version,
-    )
+    private fun mergeNovel(novel: Novel, dbNovel: Novel): Novel {
+        val details = if (backupDetailsWin(dbNovel.initialized, novel.initialized)) novel else dbNovel
+        return dbNovel.copy(
+            favorite = dbNovel.favorite || novel.favorite,
+            dateAdded = earliestAddedAt(dbNovel.dateAdded, novel.dateAdded),
+            title = details.title,
+            author = details.author,
+            artist = details.artist,
+            description = details.description,
+            genre = details.genre,
+            status = details.status,
+            thumbnailUrl = details.thumbnailUrl,
+            updateStrategy = details.updateStrategy,
+            initialized = dbNovel.initialized || novel.initialized,
+        )
+    }
 
     private suspend fun restoreChapters(
         novelId: Long,

@@ -11,13 +11,6 @@ CREATE TABLE mangas_categories(
 CREATE INDEX idx_mangas_categories_manga_id ON mangas_categories(manga_id);
 CREATE INDEX idx_mangas_categories_category_id ON mangas_categories(category_id);
 
-CREATE TRIGGER insert_manga_category_update_version AFTER INSERT ON mangas_categories
-BEGIN
-    UPDATE mangas
-    SET version = version + 1
-    WHERE _id = new.manga_id AND (SELECT is_syncing FROM mangas WHERE _id = new.manga_id) = 0;
-END;
-
 -- RK --> only a category a manga picker can show: universal (0) or manga (1). A novels-only row
 -- written here appears in no picker, so nothing could ever remove it. Every writer, restore included,
 -- ends here, so it is refused once rather than per caller. The novel insert is its twin, pinned by

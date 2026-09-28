@@ -39,7 +39,7 @@ class BackupNovel(
     @ProtoNumber(23) var history: List<BackupNovelHistory> = emptyList(),
     @ProtoNumber(24) var notes: String = "",
     @ProtoNumber(25) var viewerFlags: Long = 0,
-    @ProtoNumber(26) var version: Long = 0,
+    // @ProtoNumber(26) var version: Long, dropped with the manga edit count (mihon c67a33f3d)
     // The user's custom info, on the same numbers BackupManga uses (see BackupCustomInfoFields).
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,
@@ -70,7 +70,6 @@ class BackupNovel(
             totalPages = this@BackupNovel.totalPages,
             notes = this@BackupNovel.notes,
             viewerFlags = this@BackupNovel.viewerFlags,
-            version = this@BackupNovel.version,
         )
     }
 }

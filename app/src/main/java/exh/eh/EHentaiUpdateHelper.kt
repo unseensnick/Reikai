@@ -237,8 +237,6 @@ internal fun getChapterList(
                     chapterNumber = -1.0,
                     scanlator = null,
                     sourceOrder = -1,
-                    lastModifiedAt = 0,
-                    version = 0,
                     memo = JsonObject.EMPTY,
                     // The same chapter moving to the accepted gallery, so its length comes with it.
                     pageCount = chapter.pageCount,

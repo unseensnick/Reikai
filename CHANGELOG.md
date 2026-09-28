@@ -589,6 +589,7 @@ every stable release now also ships a foss build with neither in it.
 #### Changed
 
 - **Light-novel plugin and IReader extension settings now back up with Source settings instead of App settings.** Backups made before this update still bring them back with App settings.
+- **Restoring a backup over a manga or novel you already have now keeps its details unless only the backup ever loaded them, and keeps the earlier date it was added (synced from Mihon).** Before, whichever copy had been edited more often won.
 - **Details you edited yourself now back up in Komikku and Yōkai's format, so they restore in either app and theirs restore here, though Reikai 0.3.2 and older nightly builds restore them without your edits.** Backups from any earlier Reikai still bring them back.
 
 #### Fixed

@@ -2,6 +2,17 @@ package reikai.domain.backup
 
 import kotlin.math.max
 
+/**
+ * Whether a restore takes the backup's source details over the device's: only when the backup fetched
+ * them and the device never did, so a restore cannot roll back details the device refreshed since
+ * (mihon c67a33f3d, which replaced the edit-count comparison).
+ */
+fun backupDetailsWin(deviceInitialized: Boolean, backupInitialized: Boolean): Boolean =
+    backupInitialized && !deviceInitialized
+
+/** The library date a restore keeps: the earlier of the two, where 0 means never added. */
+fun earliestAddedAt(device: Long, backup: Long): Long = listOf(device, backup).filter { it > 0 }.minOrNull() ?: 0L
+
 /** A chapter's user state as a restore merges it; [progress] is the type's own resume position. */
 data class RestoredChapterState(val read: Boolean, val bookmark: Boolean, val progress: Long)
 

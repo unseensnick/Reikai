@@ -30,7 +30,8 @@ import tachiyomi.domain.track.model.Track
 
 /**
  * Restoring over a series the device already has merges the two copies by the same rules for both
- * content types: the newer version's details win, a chapter keeps read and bookmark from either side and
+ * content types: the device's details win unless only the backup ever fetched them, the earlier library
+ * date survives, a chapter keeps read and bookmark from either side and
  * the further progress, and a bound track keeps the device's row, remote link included, taking only a
  * further chapter read. Runs each type's real restorer over one series and one chapter or track.
  */
@@ -38,14 +39,32 @@ class RestoreMergeConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("restorers")
-    fun `an older backup keeps the device's newer details`(restorer: MergeRestorer) = runTest {
-        restorer.description(deviceVersion = 5, backupVersion = 2) shouldBe "device"
+    fun `an initialized device keeps its details over an initialized backup`(restorer: MergeRestorer) = runTest {
+        restorer.description(deviceInitialized = true, backupInitialized = true) shouldBe "device"
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("restorers")
-    fun `a newer backup replaces the device's older details`(restorer: MergeRestorer) = runTest {
-        restorer.description(deviceVersion = 2, backupVersion = 5) shouldBe "backup"
+    fun `an initialized backup fills in a device that never fetched its details`(restorer: MergeRestorer) = runTest {
+        restorer.description(deviceInitialized = false, backupInitialized = true) shouldBe "backup"
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("restorers")
+    fun `an uninitialized backup never replaces the device's details`(restorer: MergeRestorer) = runTest {
+        restorer.description(deviceInitialized = false, backupInitialized = false) shouldBe "device"
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("restorers")
+    fun `the earlier library date survives, whichever side has it`(restorer: MergeRestorer) = runTest {
+        restorer.addedAt(device = 200, backup = 500) shouldBe 200
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("restorers")
+    fun `an unset library date never wins`(restorer: MergeRestorer) = runTest {
+        restorer.addedAt(device = 300, backup = 0) shouldBe 300
     }
 
     @ParameterizedTest(name = "{0}")
@@ -125,7 +144,10 @@ data class TrackState(
 interface MergeRestorer {
 
     /** Restores a series described "backup" over one described "device", returning the description kept. */
-    suspend fun description(deviceVersion: Long, backupVersion: Long): String?
+    suspend fun description(deviceInitialized: Boolean, backupInitialized: Boolean): String?
+
+    /** Restores a series added at [backup] over one added at [device], returning the date kept. */
+    suspend fun addedAt(device: Long, backup: Long): Long?
 
     /** Restores one chapter over the device's copy, returning the device's state afterwards. */
     suspend fun chapter(device: ChapterState, backup: ChapterState): ChapterState
@@ -140,21 +162,32 @@ class MangaMergeRestorer : MergeRestorer {
 
     private val deviceManga = Manga.create().copy(id = RestoreMergeConformanceTest.DEVICE_ID, url = "u", source = 1L)
 
-    override suspend fun description(deviceVersion: Long, backupVersion: Long): String? {
-        var written: String? = null
+    override suspend fun description(deviceInitialized: Boolean, backupInitialized: Boolean): String? =
+        restoreOver(
+            deviceManga.copy(description = "device", initialized = deviceInitialized),
+            BackupManga(source = 1L, url = "u", description = "backup", initialized = backupInitialized),
+        )?.description
+
+    override suspend fun addedAt(device: Long, backup: Long): Long? = restoreOver(
+        deviceManga.copy(favorite = true, dateAdded = device),
+        BackupManga(source = 1L, url = "u", favorite = true, dateAdded = backup),
+    )?.dateAdded
+
+    /** Restores [backup] over [dbManga], returning the series as written. */
+    private suspend fun restoreOver(dbManga: Manga, backup: BackupManga): Manga? {
+        var written: Manga? = null
         val database = database {
             coEvery {
                 mangasQueries.update(
-                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
                 )
             } coAnswers {
-                written = arg(4)
+                written = dbManga.copy(description = arg(4), dateAdded = arg(16))
                 0L
             }
         }
-        restorer(database, deviceManga.copy(description = "device", version = deviceVersion))
-            .restore(BackupManga(source = 1L, url = "u", description = "backup", version = backupVersion), emptyList())
+        restorer(database, dbManga).restore(backup, emptyList())
         return written
     }
 
@@ -163,8 +196,8 @@ class MangaMergeRestorer : MergeRestorer {
         val database = database {
             coEvery {
                 chaptersQueries.update(
-                    any(), any(), any(), any(), any(), any(), any(), any(),
-                    any(), any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(), any(), any(), any(), any(),
                 )
             } coAnswers {
                 result = ChapterState(arg(4), arg(5), arg(6))
@@ -268,18 +301,27 @@ class NovelMergeRestorer : MergeRestorer {
 
     private val deviceNovel = Novel.create().copy(id = RestoreMergeConformanceTest.DEVICE_ID, url = "u", source = "s")
 
-    override suspend fun description(deviceVersion: Long, backupVersion: Long): String? {
-        var written: String? = null
-        val novels = novels(deviceNovel.copy(description = "device", version = deviceVersion)) {
-            coEvery { update(any<Novel>(), any()) } coAnswers {
-                written = firstArg<Novel>().description
+    override suspend fun description(deviceInitialized: Boolean, backupInitialized: Boolean): String? =
+        restoreOver(
+            deviceNovel.copy(description = "device", initialized = deviceInitialized),
+            BackupNovel(source = "s", url = "u", description = "backup", initialized = backupInitialized),
+        )?.description
+
+    override suspend fun addedAt(device: Long, backup: Long): Long? = restoreOver(
+        deviceNovel.copy(favorite = true, dateAdded = device),
+        BackupNovel(source = "s", url = "u", favorite = true, dateAdded = backup),
+    )?.dateAdded
+
+    /** Restores [backup] over [dbNovel], returning the novel as written. */
+    private suspend fun restoreOver(dbNovel: Novel, backup: BackupNovel): Novel? {
+        var written: Novel? = null
+        val novels = novels(dbNovel) {
+            coEvery { update(any<Novel>()) } coAnswers {
+                written = firstArg()
                 true
             }
         }
-        restorer(novels).restore(
-            BackupNovel(source = "s", url = "u", description = "backup", version = backupVersion),
-            emptyList(),
-        )
+        restorer(novels).restore(backup, emptyList())
         return written
     }
 
@@ -363,7 +405,7 @@ class NovelMergeRestorer : MergeRestorer {
         mockk<NovelRepository>(relaxed = true) {
             coEvery { getByUrlAndSource("u", "s") } returns dbNovel
             coEvery { getById(RestoreMergeConformanceTest.DEVICE_ID) } returns null
-            coEvery { update(any<Novel>(), any()) } returns true
+            coEvery { update(any<Novel>()) } returns true
             block()
         }
 

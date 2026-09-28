@@ -41,7 +41,6 @@ class ChapterRepositoryImpl(
                         chapter.sourceOrder,
                         chapter.dateFetch,
                         chapter.dateUpload,
-                        chapter.version,
                         chapter.memo,
                         chapter.pageCount, // RK: the chapter's page count column
                     )
@@ -79,8 +78,6 @@ class ChapterRepositoryImpl(
                     dateFetch = chapterUpdate.dateFetch,
                     dateUpload = chapterUpdate.dateUpload,
                     chapterId = chapterUpdate.id,
-                    version = chapterUpdate.version,
-                    isSyncing = 0,
                     memo = chapterUpdate.memo,
                     pageCount = chapterUpdate.pageCount, // RK: page count column
                 )
@@ -168,9 +165,6 @@ class ChapterRepositoryImpl(
         sourceOrder: Long,
         dateFetch: Long,
         dateUpload: Long,
-        lastModifiedAt: Long,
-        version: Long,
-        isSyncing: Long,
         memo: JsonObject,
         pageCount: Long, // RK: page count column
     ): Chapter = Chapter(
@@ -186,8 +180,6 @@ class ChapterRepositoryImpl(
         dateUpload = dateUpload,
         chapterNumber = chapterNumber,
         scanlator = scanlator,
-        lastModifiedAt = lastModifiedAt,
-        version = version,
         memo = memo,
         pageCount = pageCount, // RK: page count column
     )

@@ -20,9 +20,12 @@ import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.json.JsonObject
 import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.backup.RestoredChapterState
 import reikai.domain.backup.backupChapterReadAhead
+import reikai.domain.backup.backupDetailsWin
+import reikai.domain.backup.earliestAddedAt
 import reikai.domain.backup.foldBackup
 import reikai.domain.backup.foldHistoryCopies
 import reikai.domain.category.CategoryContentType
@@ -101,24 +104,24 @@ class MangaRestorer(
     }
 
     private suspend fun restoreExistingManga(manga: Manga, dbManga: Manga): Manga {
-        return if (manga.version > dbManga.version) {
-            updateManga(dbManga.copyFrom(manga).copy(id = dbManga.id))
-        } else {
-            updateManga(manga.copyFrom(dbManga).copy(id = dbManga.id))
-        }
-    }
-
-    private fun Manga.copyFrom(newer: Manga): Manga {
-        return this.copy(
-            favorite = this.favorite || newer.favorite,
-            author = newer.author,
-            artist = newer.artist,
-            description = newer.description,
-            genre = newer.genre,
-            thumbnailUrl = newer.thumbnailUrl,
-            status = newer.status,
-            initialized = this.initialized || newer.initialized,
-            version = newer.version,
+        // RK: which copy's details win, and the library date, are kernels the novel restore shares
+        val details = if (backupDetailsWin(dbManga.initialized, manga.initialized)) manga else dbManga
+        return updateManga(
+            dbManga.copy(
+                favorite = dbManga.favorite || manga.favorite,
+                dateAdded = earliestAddedAt(dbManga.dateAdded, manga.dateAdded), // RK
+                title = details.title,
+                artist = details.artist,
+                author = details.author,
+                description = details.description,
+                genre = details.genre,
+                status = details.status,
+                thumbnailUrl = details.thumbnailUrl,
+                updateStrategy = details.updateStrategy,
+                initialized = dbManga.initialized || manga.initialized,
+                // Merge both backup and local data with local winning
+                memo = JsonObject(manga.memo + dbManga.memo),
+            ),
         )
     }
 
@@ -144,8 +147,6 @@ class MangaRestorer(
             dateAdded = manga.dateAdded,
             mangaId = manga.id,
             updateStrategy = manga.updateStrategy,
-            version = manga.version,
-            isSyncing = 1,
             notes = manga.notes,
             memo = manga.memo,
         )
@@ -177,29 +178,24 @@ class MangaRestorer(
                     return@mapNotNull null
                 }
 
-                // Update to an existing chapter
-                var updatedChapter = chapter
+                // RK: read state folds through the kernel novels share
+                val readState = RestoredChapterState(dbChapter.read, dbChapter.bookmark, dbChapter.lastPageRead)
+                    .foldBackup(RestoredChapterState(chapter.read, chapter.bookmark, chapter.lastPageRead))
+                chapter
                     .copyFrom(dbChapter)
                     .copy(
                         id = dbChapter.id,
-                        bookmark = chapter.bookmark || dbChapter.bookmark,
+                        read = readState.read, // RK
+                        bookmark = readState.bookmark, // RK
+                        lastPageRead = readState.progress, // RK
+                        dateFetch = dbChapter.dateFetch,
+                        sourceOrder = dbChapter.sourceOrder,
+                        // Merge both backup and local data with local winning
+                        memo = JsonObject(chapter.memo + dbChapter.memo),
+                        // RK: 0 means the reader never loaded the chapter, so whichever side knows the
+                        // count wins and a backup predating the column cannot erase one on the device.
+                        pageCount = maxOf(chapter.pageCount, dbChapter.pageCount),
                     )
-                // RK --> read state folds by the rule novels share, where the further progress wins
-                // instead of upstream's any non-zero backup position.
-                val readState = RestoredChapterState(dbChapter.read, dbChapter.bookmark, dbChapter.lastPageRead)
-                    .foldBackup(RestoredChapterState(chapter.read, chapter.bookmark, chapter.lastPageRead))
-                updatedChapter = updatedChapter.copy(
-                    read = readState.read,
-                    bookmark = readState.bookmark,
-                    lastPageRead = readState.progress,
-                )
-                // 0 means the reader never loaded the chapter, so whichever side knows the count
-                // wins and a backup predating the column cannot erase one already on the device.
-                updatedChapter = updatedChapter.copy(
-                    pageCount = maxOf(updatedChapter.pageCount, dbChapter.pageCount),
-                )
-                // RK <--
-                updatedChapter
             }
             .partition { it.id > 0 }
 
@@ -214,8 +210,6 @@ class MangaRestorer(
         mangaId = 0L,
         dateFetch = 0L,
         dateUpload = 0L,
-        lastModifiedAt = 0L,
-        version = 0L,
         pageCount = 0L,
     )
 
@@ -234,7 +228,6 @@ class MangaRestorer(
                     chapter.sourceOrder,
                     chapter.dateFetch,
                     chapter.dateUpload,
-                    chapter.version,
                     chapter.memo,
                     chapter.pageCount, // RK: page count
                 )
@@ -258,8 +251,6 @@ class MangaRestorer(
                     dateFetch = null,
                     dateUpload = null,
                     chapterId = chapter.id,
-                    version = chapter.version,
-                    isSyncing = 0,
                     memo = chapter.memo,
                     pageCount = chapter.pageCount, // RK: page count
                 )
@@ -293,7 +284,6 @@ class MangaRestorer(
             coverLastModified = manga.coverLastModified,
             dateAdded = manga.dateAdded,
             updateStrategy = manga.updateStrategy,
-            version = manga.version,
             notes = manga.notes,
             memo = manga.memo,
         )

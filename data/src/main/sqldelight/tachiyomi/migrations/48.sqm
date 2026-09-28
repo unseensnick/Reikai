@@ -1,0 +1,33 @@
+-- Remove the sync scaffolding: version, is_syncing and last_modified_at.
+
+DROP TRIGGER update_manga_version;
+DROP TRIGGER update_last_modified_at_mangas;
+DROP TRIGGER update_chapter_and_manga_version;
+DROP TRIGGER update_last_modified_at_chapters;
+DROP TRIGGER insert_manga_category_update_version;
+
+ALTER TABLE mangas DROP COLUMN version;
+ALTER TABLE mangas DROP COLUMN is_syncing;
+ALTER TABLE mangas DROP COLUMN last_modified_at;
+
+ALTER TABLE chapters DROP COLUMN version;
+ALTER TABLE chapters DROP COLUMN is_syncing;
+ALTER TABLE chapters DROP COLUMN last_modified_at;
+
+-- Novels carried the same edit count for backup restore to compare, and it goes with the manga one:
+-- restore now keeps whichever copy is initialized instead.
+DROP TRIGGER update_novel_version;
+
+ALTER TABLE novels DROP COLUMN version;
+ALTER TABLE novels DROP COLUMN is_syncing;
+
+-- Dropping a column makes SQLite rewrite every double-quoted string in the schema to single quotes, which
+-- leaves this trigger reading differently from the one categories.sq creates, so it is created again.
+DROP TRIGGER system_category_delete_trigger;
+CREATE TRIGGER system_category_delete_trigger BEFORE DELETE
+ON categories
+BEGIN SELECT CASE
+    WHEN old._id <= 0 THEN
+        RAISE(ABORT, "System category can't be deleted")
+    END;
+END;
