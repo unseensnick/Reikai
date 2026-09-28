@@ -87,7 +87,7 @@ class DownloadNewChaptersConformanceTest {
                 val filter = FilterChaptersForDownload(chapters, prefs, categories)
                 return Filter { favorite, new ->
                     filter.await(
-                        Manga.create().copy(id = 1, favorite = favorite),
+                        Manga.create().copy(id = 1, favoriteAt = 0L.takeIf { favorite }),
                         new.map { Chapter.create().copy(chapterNumber = it) },
                     ).map { it.chapterNumber }
                 }
@@ -112,7 +112,7 @@ class DownloadNewChaptersConformanceTest {
                 }
                 val filter = FilterNovelChaptersForDownload(chapters, prefs, categories)
                 return Filter { favorite, new ->
-                    filter.await(Novel.create().copy(id = 1, favorite = favorite), new.map(::chapter))
+                    filter.await(Novel.create().copy(id = 1, favoriteAt = 0L.takeIf { favorite }), new.map(::chapter))
                         .map { it.chapterNumber }
                 }
             }

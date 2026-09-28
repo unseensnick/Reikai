@@ -27,7 +27,6 @@ fun LibraryNovel.toLibraryItem(
     val n = novel
     val synthetic = Manga.create().copy(
         id = n.id,
-        favorite = true,
         url = n.url,
         title = n.title,
         artist = n.artist,
@@ -36,7 +35,7 @@ fun LibraryNovel.toLibraryItem(
         genre = n.genre,
         status = n.status,
         thumbnailUrl = n.thumbnailUrl,
-        dateAdded = n.dateAdded,
+        favoriteAt = n.favoriteAt ?: 0L,
         lastUpdate = n.lastUpdate,
         coverLastModified = n.coverLastModified,
         initialized = n.initialized,

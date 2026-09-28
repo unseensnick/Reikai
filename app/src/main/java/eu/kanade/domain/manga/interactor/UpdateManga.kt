@@ -51,16 +51,11 @@ class UpdateManga(
     }
 
     suspend fun awaitUpdateFavorite(mangaId: Long, favorite: Boolean): Boolean {
-        val dateAdded = when (favorite) {
-            true -> Clock.System.now().toEpochMilliseconds()
-            false -> 0
+        val update = when (favorite) {
+            true -> MangaUpdate(mangaId) { favoriteAt = Clock.System.now().toEpochMilliseconds() }
+            false -> MangaUpdate(mangaId) { favoriteAt = null }
         }
-        return mangaRepository.update(
-            MangaUpdate(mangaId) {
-                this.favorite = favorite
-                this.dateAdded = dateAdded
-            },
-        )
+        return mangaRepository.update(update)
             // RK: an extension syncing to its own site hears of an add or remove made through here
             .also { updated -> if (updated) sourceTracker.favoriteChanged(EntryId.Manga(mangaId), favorite) }
     }

@@ -89,9 +89,8 @@ class MergedGroupRankingTest {
         listOf(1L, 2L).forEach { id ->
             driver.execute(
                 null,
-                "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
-                    "chapter_flags, cover_last_modified, date_added) " +
-                    "VALUES ($id, $id, 'm-url-$id', 'title', 0, 1, 0, 0, 0, 0, 0)",
+                "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                    "cover_last_modified, favorite_at) VALUES ($id, $id, 'm-url-$id', 'title', 0, 0, 0, 0, 0, 0)",
                 0,
             ).await()
         }

@@ -11,7 +11,7 @@ SELECT
     chapters.last_page_read,
     chapters.page_count, -- RK: the progress line says how far through the chapter reading stopped
     mangas.source,
-    mangas.favorite,
+    mangas.favorite_at IS NOT NULL AS favorite,
     mangas.thumbnail_url AS thumbnailUrl,
     mangas.cover_last_modified AS coverLastModified,
     chapters.date_upload AS dateUpload,
@@ -22,8 +22,8 @@ ON mangas._id = chapters.manga_id
 LEFT JOIN excluded_scanlators
 ON mangas._id = excluded_scanlators.manga_id
 AND chapters.scanlator = excluded_scanlators.scanlator
-WHERE favorite = 1
-AND date_fetch > date_added
+WHERE favorite_at IS NOT NULL
+AND date_fetch > favorite_at
 ORDER BY date_fetch DESC;
 
 getRecentUpdates:

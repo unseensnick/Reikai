@@ -154,26 +154,18 @@ class MigrateNovelUseCase(
             // feeding chapters into it while invisible there and unreachable to unmerge. Everything
             // above touches only satellite state, so a failure there leaves both entries' library
             // membership untouched.
-            val currentUpdate = NovelUpdate(
-                id = current.id,
-                favorite = false,
-                // dateAdded zeroes like manga migration, so a later re-add stamps fresh instead of
-                // inheriting the pre-migration date.
-                dateAdded = 0,
-            ).takeIf { replace }
-            val targetUpdate = NovelUpdate(
-                id = target.id,
-                favorite = true,
-                // Inherit the source's added-date on a replace, else stamp now, matching manga
-                // migration; this favorite path bypasses awaitUpdateFavorite, which is the only
-                // other place dateAdded is set, so without this a migrated novel sorts to epoch 0.
-                dateAdded = if (replace) current.dateAdded else Clock.System.now().toEpochMilliseconds(),
+            val currentUpdate = NovelUpdate(current.id) {
+                favoriteAt = null
+            }.takeIf { replace }
+            val targetUpdate = NovelUpdate(target.id) {
+                // Inherit the source's added-date on a replace, else stamp now, matching manga migration.
+                favoriteAt = current.favoriteAt?.takeIf { replace } ?: Clock.System.now().toEpochMilliseconds()
                 // Carry the chapter-list (sort/filter/display) and reader (orientation) flags onto
                 // the target unconditionally, matching manga migration.
-                chapterFlags = current.chapterFlags,
-                viewerFlags = current.viewerFlags,
-                notes = if (NovelMigrationFlag.NOTES in flags) current.notes else null,
-            )
+                chapterFlags = current.chapterFlags
+                viewerFlags = current.viewerFlags
+                if (NovelMigrationFlag.NOTES in flags) notes = current.notes
+            }
             transactions.run {
                 // Keep the merge consistent: the target takes the source's place in the group on a
                 // replace, or joins it on a copy.

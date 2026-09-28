@@ -26,7 +26,7 @@ class LibraryAssemblyTest {
         dateAdded: Long = 0,
         novel: Boolean = false,
     ): LibraryItem {
-        val manga = Manga.create().copy(id = id, title = title, dateAdded = dateAdded)
+        val manga = Manga.create().copy(id = id, title = title, favoriteAt = dateAdded)
         return LibraryItem(
             libraryManga = LibraryManga(
                 manga = manga,

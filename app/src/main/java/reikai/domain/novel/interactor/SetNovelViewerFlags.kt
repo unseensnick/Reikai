@@ -20,10 +20,7 @@ class SetNovelViewerFlags(
     suspend fun awaitSetOrientation(id: Long, flag: Long) {
         val novel = novelRepository.getById(id) ?: return
         novelRepository.update(
-            NovelUpdate(
-                id = id,
-                viewerFlags = setNovelFlag(novel.viewerFlags, flag, ReaderOrientation.MASK.toLong()),
-            ),
+            NovelUpdate(id) { viewerFlags = setNovelFlag(novel.viewerFlags, flag, ReaderOrientation.MASK.toLong()) },
         )
     }
 }

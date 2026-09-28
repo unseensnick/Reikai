@@ -152,7 +152,7 @@ class BackupCustomInfoConformanceTest {
                 novelBackupCreator = NovelBackupCreator(
                     novelRepository = mockk {
                         coEvery { getFavorites() } returns
-                            listOf(Novel.create().copy(id = 7, url = "/7", source = "src", favorite = true))
+                            listOf(Novel.create().copy(id = 7, url = "/7", source = "src", favoriteAt = 0L))
                     },
                     novelChapterRepository = mockk(),
                     categoryRepository = mockk(),

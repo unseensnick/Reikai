@@ -298,7 +298,7 @@ class NovelDetailsViewModel(
         viewModelScope.launchIO {
             val stored = novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId).filterNotNull().first()
             healedCover(stored.thumbnailUrl, listingCover)?.let {
-                novelRepo.update(NovelUpdate(id = stored.id, thumbnailUrl = it))
+                novelRepo.update(NovelUpdate(stored.id) { thumbnailUrl = it })
             }
         }
     }
@@ -831,15 +831,7 @@ class NovelDetailsViewModel(
         anchorId = { anchorNovelId },
         mergeManager = mergeManager,
         dismissDialog = ::dismissDialog,
-        // Written directly to keep the original date added, so the source's own tracker is told here, as the
-        // manga twin's awaitUpdateFavorite tells it.
-        setFavorite = { ids, favorite ->
-            ids.forEach {
-                if (updateNovel.await(NovelUpdate(id = it, favorite = favorite))) {
-                    sourceTracker.favoriteChanged(EntryId.Novel(it), favorite)
-                }
-            }
-        },
+        setFavorite = { ids, favorite -> ids.forEach { updateNovel.awaitUpdateFavorite(it, favorite) } },
     )
 
     /** Switch the chapter view between the unified list (null) and a single grouped source's list. */

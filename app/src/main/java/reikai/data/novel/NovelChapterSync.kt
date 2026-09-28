@@ -110,7 +110,7 @@ suspend fun syncChaptersWithNovelSource(
     val insertedChapters = novelChapterRepository.updateFromRemote(toDelete.map { it.id }, updatedToAdd, toChange)
 
     // novels.last_update tracks the last time the chapter list changed at all; only on a real change.
-    novelRepository.update(NovelUpdate(id = novel.id, lastUpdate = System.currentTimeMillis()))
+    novelRepository.update(NovelUpdate(novel.id) { lastUpdate = System.currentTimeMillis() })
 
     // Relocate any downloaded file whose chapter was re-titled, so recognition follows the new name
     // (mirrors the manga rename-on-sync). No-op when the chapter isn't downloaded.

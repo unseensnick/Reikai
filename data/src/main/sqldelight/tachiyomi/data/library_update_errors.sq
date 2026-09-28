@@ -34,5 +34,5 @@ WHERE NOT EXISTS (
     SELECT 1
     FROM mangas
     WHERE library_update_errors.manga_id = mangas._id
-    AND mangas.favorite = 1
+    AND mangas.favorite_at IS NOT NULL
 );

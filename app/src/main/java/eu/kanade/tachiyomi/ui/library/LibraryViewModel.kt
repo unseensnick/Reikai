@@ -760,7 +760,7 @@ class LibraryViewModel(
                 val toDelete = targets.map {
                     it.removeCovers(coverCache)
                     MangaUpdate(it.id) {
-                        favorite = false
+                        favoriteAt = null
                     }
                 }
                 // RK --> a removal written in bulk, so the source's own tracker is told here, once it landed

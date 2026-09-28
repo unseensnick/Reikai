@@ -85,18 +85,17 @@ class GroupMemberBackupConformanceTest {
         val table = if (type == ContentType.MANGA) "mangas" else "novels"
         listOf(1L, 2L).forEach { id ->
             val insert = if (type == ContentType.MANGA) {
-                "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
-                    "chapter_flags, cover_last_modified, date_added) " +
-                    "VALUES ($id, 1, 'url-$id', 'title', 0, 1, 0, 0, 0, 0, 0)"
+                "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                    "cover_last_modified, favorite_at) VALUES ($id, 1, 'url-$id', 'title', 0, 0, 0, 0, 0, 0)"
             } else {
-                "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags) " +
-                    "VALUES ($id, 'src', 'url-$id', 'title', 0, 1, 0, 0)"
+                "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                    "favorite_at) VALUES ($id, 'src', 'url-$id', 'title', 0, 0, 0, 0)"
             }
             driver.execute(null, insert, 0).await()
         }
         val groups = MergeGroupRepositoryImpl(database)
         groups.createGroup(type, listOf(1L, 2L))!!
-        driver.execute(null, "UPDATE $table SET favorite = 0 WHERE _id = 2", 0).await()
+        driver.execute(null, "UPDATE $table SET favorite_at = NULL WHERE _id = 2", 0).await()
 
         val options = BackupOptions(
             readEntries = false,
@@ -117,7 +116,7 @@ class GroupMemberBackupConformanceTest {
                 customMangaInfoRepository = mockk(),
                 getFavorites = mockk {
                     coEvery { await() } returns
-                        listOf(Manga.create().copy(id = 1, url = "url-1", source = 1L, favorite = true))
+                        listOf(Manga.create().copy(id = 1, url = "url-1", source = 1L, favoriteAt = 0L))
                 },
                 getManga = GetManga(MangaRepositoryImpl(database)),
                 mergeGroupRepository = groups,

@@ -83,7 +83,7 @@ SELECT MGM.group_id AS groupId
 FROM merge_group_manga MGM
 JOIN mangas M
 ON M._id = MGM.manga_id
-AND M.favorite = 1
+AND M.favorite_at IS NOT NULL
 JOIN chapters C
 ON C.manga_id = MGM.manga_id
 LEFT JOIN merged_chapter_unit U
@@ -100,7 +100,7 @@ ON MGM.manga_id = C.manga_id
 AND MGM.group_id = U.group_id
 LEFT JOIN mangas M
 ON M._id = MGM.manga_id
-AND M.favorite = 1
+AND M.favorite_at IS NOT NULL
 WHERE M._id IS NULL
 UNION ALL
 SELECT R.group_id AS groupId
@@ -113,7 +113,7 @@ SELECT MGN.group_id AS groupId
 FROM merge_group_novel MGN
 JOIN novels N
 ON N._id = MGN.novel_id
-AND N.favorite = 1
+AND N.favorite_at IS NOT NULL
 JOIN novel_chapters C
 ON C.novel_id = MGN.novel_id
 LEFT JOIN merged_novel_chapter_unit U
@@ -130,7 +130,7 @@ ON MGN.novel_id = C.novel_id
 AND MGN.group_id = U.group_id
 LEFT JOIN novels N
 ON N._id = MGN.novel_id
-AND N.favorite = 1
+AND N.favorite_at IS NOT NULL
 WHERE N._id IS NULL
 UNION ALL
 SELECT R.group_id AS groupId
@@ -253,7 +253,7 @@ FROM (
     ON C._id = U.chapter_id
     JOIN mangas M
     ON M._id = C.manga_id
-    AND M.favorite = 1
+    AND M.favorite_at IS NOT NULL
     LEFT JOIN excluded_scanlators ES
     ON C.manga_id = ES.manga_id
     AND C.scanlator = ES.scanlator
@@ -281,7 +281,7 @@ FROM (
     ON C._id = U.chapter_id
     JOIN novels N
     ON N._id = C.novel_id
-    AND N.favorite = 1
+    AND N.favorite_at IS NOT NULL
     WHERE U.unit IS NOT NULL
     GROUP BY U.group_id, U.unit
 ) AS G
@@ -298,7 +298,7 @@ SELECT DISTINCT C.manga_id AS mangaId, C.chapter_number AS chapterNumber
 FROM merge_group_manga MGM
 JOIN mangas M
 ON M._id = MGM.manga_id
-AND M.favorite = 1
+AND M.favorite_at IS NOT NULL
 JOIN chapters C
 ON C.manga_id = MGM.manga_id
 WHERE C.chapter_number >= 0;
@@ -314,7 +314,7 @@ JOIN chapters C
 ON C._id = U.chapter_id
 JOIN mangas M
 ON M._id = C.manga_id
-AND M.favorite = 1
+AND M.favorite_at IS NOT NULL
 LEFT JOIN excluded_scanlators ES
 ON C.manga_id = ES.manga_id
 AND C.scanlator = ES.scanlator
@@ -329,5 +329,5 @@ JOIN novel_chapters C
 ON C._id = U.chapter_id
 JOIN novels N
 ON N._id = C.novel_id
-AND N.favorite = 1
+AND N.favorite_at IS NOT NULL
 WHERE U.unit IS NOT NULL;

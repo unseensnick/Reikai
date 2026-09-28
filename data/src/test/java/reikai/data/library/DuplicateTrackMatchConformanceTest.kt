@@ -77,9 +77,9 @@ class DuplicateTrackMatchConformanceTest {
     enum class Type {
         MANGA {
             override fun statements(remoteId: Long) = listOf(
-                "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
-                    "chapter_flags, cover_last_modified, date_added) VALUES " +
-                    "(1, 1, 'a', 'Alpha', 0, 1, 0, 0, 0, 0, 0), (2, 1, 'b', 'Beta', 0, 1, 0, 0, 0, 0, 0)",
+                "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                    "cover_last_modified, favorite_at) VALUES (1, 1, 'a', 'Alpha', 0, 0, 0, 0, 0, 0), (2, 1, 'b', " +
+                    "'Beta', 0, 0, 0, 0, 0, 0)",
                 "INSERT INTO manga_sync(manga_id, sync_id, remote_id, title, last_chapter_read, total_chapters, " +
                     "status, score, remote_url, start_date, finish_date) VALUES " +
                     "(1, 1, $remoteId, 't', 0, 0, 0, 0, '', 0, 0), (2, 1, $remoteId, 't', 0, 0, 0, 0, '', 0, 0)",
@@ -90,8 +90,8 @@ class DuplicateTrackMatchConformanceTest {
         },
         NOVEL {
             override fun statements(remoteId: Long) = listOf(
-                "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags, " +
-                    "date_added) VALUES (1, 'src', 'a', 'Alpha', 0, 1, 0, 0, 0), (2, 'src', 'b', 'Beta', 0, 1, 0, 0, 0)",
+                "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                    "favorite_at) VALUES (1, 'src', 'a', 'Alpha', 0, 0, 0, 0), (2, 'src', 'b', 'Beta', 0, 0, 0, 0)",
                 "INSERT INTO novel_tracks(novel_id, sync_id, remote_id, title, last_chapter_read, total_chapters, " +
                     "status, score, remote_url, start_date, finish_date) VALUES " +
                     "(1, 1, $remoteId, 't', 0, 0, 0, 0, '', 0, 0), (2, 1, $remoteId, 't', 0, 0, 0, 0, '', 0, 0)",

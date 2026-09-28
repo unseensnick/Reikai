@@ -8,7 +8,7 @@ class NovelCoverTest {
     private val novel = Novel.create().copy(
         id = 7L,
         source = "plugin",
-        favorite = true,
+        favoriteAt = 0L,
         thumbnailUrl = "https://stored",
         coverLastModified = 42L,
     )

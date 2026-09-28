@@ -15,9 +15,9 @@ import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.backup.RestoredChapterState
 import reikai.domain.backup.backupChapterReadAhead
 import reikai.domain.backup.backupDetailsWin
-import reikai.domain.backup.earliestAddedAt
 import reikai.domain.backup.foldBackup
 import reikai.domain.backup.foldHistoryCopies
+import reikai.domain.backup.restoredFavoriteAt
 import tachiyomi.data.Database
 import tachiyomi.domain.backup.model.RestoredHistory
 import tachiyomi.domain.backup.model.RestoredManga
@@ -91,8 +91,7 @@ class RestoreRepositoryImpl(
         // RK: which copy's details win, and the library date, are kernels the novel restore shares
         val details = if (backupDetailsWin(dbManga.initialized, manga.initialized)) manga else dbManga
         return dbManga.copy(
-            favorite = dbManga.favorite || manga.favorite,
-            dateAdded = earliestAddedAt(dbManga.dateAdded, manga.dateAdded), // RK
+            favoriteAt = restoredFavoriteAt(dbManga.favoriteAt, manga.favoriteAt), // RK
             title = details.title,
             artist = details.artist,
             author = details.author,
@@ -109,6 +108,7 @@ class RestoreRepositoryImpl(
 
     private suspend fun updateManga(manga: Manga): Manga {
         database.mangasQueries.updateFromBackup(
+            favoriteAt = manga.favoriteAt,
             artist = manga.artist,
             author = manga.author,
             description = manga.description,
@@ -116,13 +116,11 @@ class RestoreRepositoryImpl(
             title = manga.title,
             status = manga.status,
             thumbnailUrl = manga.thumbnailUrl,
-            favorite = manga.favorite,
             lastUpdate = manga.lastUpdate,
             initialized = manga.initialized,
             viewer = manga.viewerFlags,
             chapterFlags = manga.chapterFlags,
             coverLastModified = manga.coverLastModified,
-            dateAdded = manga.dateAdded,
             mangaId = manga.id,
             updateStrategy = manga.updateStrategy,
             notes = manga.notes,
@@ -133,6 +131,7 @@ class RestoreRepositoryImpl(
 
     private suspend fun insertManga(manga: Manga): Long {
         return database.mangasQueries.insertReturningId(
+            favoriteAt = manga.favoriteAt,
             source = manga.source,
             url = manga.url,
             artist = manga.artist,
@@ -142,7 +141,6 @@ class RestoreRepositoryImpl(
             title = manga.title,
             status = manga.status,
             thumbnailUrl = manga.thumbnailUrl,
-            favorite = manga.favorite,
             lastUpdate = manga.lastUpdate,
             nextUpdate = 0L,
             calculateInterval = 0L,
@@ -150,7 +148,6 @@ class RestoreRepositoryImpl(
             viewerFlags = manga.viewerFlags,
             chapterFlags = manga.chapterFlags,
             coverLastModified = manga.coverLastModified,
-            dateAdded = manga.dateAdded,
             updateStrategy = manga.updateStrategy,
             notes = manga.notes,
             memo = manga.memo,

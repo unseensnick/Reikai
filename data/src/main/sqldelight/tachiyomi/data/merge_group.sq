@@ -88,7 +88,7 @@ FROM merge_group_manga MGM
 JOIN mangas M
 ON M._id = MGM.manga_id
 WHERE MGM.group_id = :groupId
-AND M.favorite = 1
+AND M.favorite_at IS NOT NULL
 ORDER BY MGM.source_priority, MGM._id;
 
 deleteMangaMember:
@@ -117,7 +117,7 @@ FROM merge_group_novel MGN
 JOIN novels N
 ON N._id = MGN.novel_id
 WHERE MGN.group_id = :groupId
-AND N.favorite = 1
+AND N.favorite_at IS NOT NULL
 ORDER BY MGN.source_priority, MGN._id;
 
 deleteNovelMember:
@@ -154,14 +154,14 @@ SELECT MGM.manga_id, MGM.group_id
 FROM merge_group_manga MGM
 CROSS JOIN mangas M
 ON M._id = MGM.manga_id
-WHERE M.favorite = 1;
+WHERE M.favorite_at IS NOT NULL;
 
 libraryNovelMemberships:
 SELECT MGN.novel_id, MGN.group_id
 FROM merge_group_novel MGN
 CROSS JOIN novels N
 ON N._id = MGN.novel_id
-WHERE N.favorite = 1;
+WHERE N.favorite_at IS NOT NULL;
 
 -- Per-group source-ranking overrides for the library collapse (group id -> members in trunk order),
 -- only for groups whose override_source_ranking is on. Lets the collapsed library row lead on the same
@@ -189,14 +189,14 @@ rankedMangaMembers:
 SELECT MGM.group_id, MGM.manga_id, M.source, MG.override_source_ranking
 FROM merge_group_manga MGM
 JOIN merge_group MG ON MG._id = MGM.group_id
-JOIN mangas M ON M._id = MGM.manga_id AND M.favorite = 1
+JOIN mangas M ON M._id = MGM.manga_id AND M.favorite_at IS NOT NULL
 ORDER BY MGM.group_id, MGM.source_priority, MGM._id;
 
 rankedNovelMembers:
 SELECT MGN.group_id, MGN.novel_id, N.source, MG.override_source_ranking
 FROM merge_group_novel MGN
 JOIN merge_group MG ON MG._id = MGN.group_id
-JOIN novels N ON N._id = MGN.novel_id AND N.favorite = 1
+JOIN novels N ON N._id = MGN.novel_id AND N.favorite_at IS NOT NULL
 ORDER BY MGN.group_id, MGN.source_priority, MGN._id;
 
 -- Dissolve every group of a content type (members cascade); the Settings "clear all merges" action.

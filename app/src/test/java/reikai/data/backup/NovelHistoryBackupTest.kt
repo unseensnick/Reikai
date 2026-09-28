@@ -65,8 +65,8 @@ class NovelHistoryBackupTest {
     @Test
     fun `a history row cleared from History is backed up with its reading time`() = runTest {
         listOf(
-            "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags) " +
-                "VALUES (1, 'src', 'novel', 'title', 0, 1, 0, 0)",
+            "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                "favorite_at) VALUES (1, 'src', 'novel', 'title', 0, 0, 0, 0)",
             "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, chapter_number, " +
                 "source_order, date_fetch, date_upload) VALUES (10, 1, 'chapter', 'c', 1, 0, 1, 0, 0, 0)",
             "INSERT INTO novel_history(chapter_id, last_read, time_read) VALUES (10, 0, 500)",

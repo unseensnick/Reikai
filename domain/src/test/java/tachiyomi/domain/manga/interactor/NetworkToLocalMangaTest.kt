@@ -23,7 +23,7 @@ class NetworkToLocalMangaTest {
 
     @Test
     fun `a favourite stuck on a placeholder takes the listing cover`() = runTest {
-        stored = Manga.create().copy(id = 1, favorite = true, thumbnailUrl = PLACEHOLDER)
+        stored = Manga.create().copy(id = 1, favoriteAt = 0L, thumbnailUrl = PLACEHOLDER)
 
         networkToLocalManga(Manga.create().copy(thumbnailUrl = COVER)).thumbnailUrl shouldBe COVER
     }

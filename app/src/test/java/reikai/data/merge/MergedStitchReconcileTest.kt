@@ -401,12 +401,11 @@ class MergedStitchReconcileTest {
         override val type = ContentType.MANGA
 
         override suspend fun insertEntry(id: Long, source: Long) {
-            mangas[id] = Manga.create().copy(id = id, source = source, favorite = true)
+            mangas[id] = Manga.create().copy(id = id, source = source, favoriteAt = 0L)
             driver.execute(
                 null,
-                "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
-                    "chapter_flags, cover_last_modified, date_added) " +
-                    "VALUES ($id, $source, 'm-url-$id', 'title', 0, 1, 0, 0, 0, 0, 0)",
+                "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                    "cover_last_modified, favorite_at) VALUES ($id, $source, 'm-url-$id', 'title', 0, 0, 0, 0, 0, 0)",
                 0,
             ).await()
         }
@@ -472,11 +471,11 @@ class MergedStitchReconcileTest {
         override val type = ContentType.NOVELS
 
         override suspend fun insertEntry(id: Long, source: Long) {
-            novels[id] = Novel.create().copy(id = id, source = source.toString(), favorite = true)
+            novels[id] = Novel.create().copy(id = id, source = source.toString(), favoriteAt = 0L)
             driver.execute(
                 null,
-                "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags) " +
-                    "VALUES ($id, '$source', 'n-url-$id', 'title', 0, 1, 0, 0)",
+                "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                    "favorite_at) VALUES ($id, '$source', 'n-url-$id', 'title', 0, 0, 0, 0)",
                 0,
             ).await()
         }

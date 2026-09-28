@@ -10,7 +10,7 @@ SELECT
     novels.title,
     novels.thumbnail_url AS thumbnailUrl,
     novels.source,
-    novels.favorite,
+    novels.favorite_at IS NOT NULL AS favorite,
     novels.cover_last_modified,
     novel_chapters.chapter_number AS chapterNumber,
 -- Twin of historyView's block: the read lane acts on the chapter it names, so the row carries that

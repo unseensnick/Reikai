@@ -1,0 +1,344 @@
+-- Merge favorite, date_added and favorite_modified_at into favorite_at. Ported from Mihon's 16.sqm
+-- (mihon 986f46c09), Reikai-numbered. Novels take the same single column, and every view that reads
+-- either table's favourite columns is dropped and created again, not only upstream's three, since
+-- SQLite will not drop a column a view still names.
+
+DROP VIEW historyView;
+DROP VIEW libraryView;
+DROP VIEW updatesView;
+DROP VIEW library_update_error_view;
+DROP VIEW mergedChapterStaleView;
+DROP VIEW novelHistoryView;
+DROP VIEW novelLibraryView;
+DROP VIEW novelUpdatesView;
+DROP VIEW novel_update_error_view;
+DROP VIEW mergedNovelChapterStaleView;
+
+DROP TRIGGER update_last_favorited_at_mangas;
+DROP INDEX library_favorite_index;
+
+ALTER TABLE mangas ADD COLUMN favorite_at INTEGER;
+
+UPDATE mangas
+SET favorite_at = coalesce(nullif(date_added, 0), favorite_modified_at * 1000, 0)
+WHERE favorite = 1;
+
+ALTER TABLE mangas DROP COLUMN favorite;
+ALTER TABLE mangas DROP COLUMN date_added;
+ALTER TABLE mangas DROP COLUMN favorite_modified_at;
+
+CREATE INDEX library_favorite_at_index ON mangas(favorite_at) WHERE favorite_at IS NOT NULL;
+
+-- Novels never had favorite_modified_at, and their date_added is nullable, so a favourite with no
+-- date lands on 0 like a manga without either.
+DROP INDEX novels_library_favorite_index;
+
+ALTER TABLE novels ADD COLUMN favorite_at INTEGER;
+
+UPDATE novels
+SET favorite_at = coalesce(nullif(date_added, 0), 0)
+WHERE favorite = 1;
+
+ALTER TABLE novels DROP COLUMN favorite;
+ALTER TABLE novels DROP COLUMN date_added;
+
+CREATE INDEX novels_library_favorite_at_index ON novels(favorite_at) WHERE favorite_at IS NOT NULL;
+
+CREATE VIEW historyView AS
+SELECT
+    history._id AS id,
+    mangas._id AS mangaId,
+    chapters._id AS chapterId,
+    mangas.title,
+    mangas.thumbnail_url AS thumbnailUrl,
+    mangas.source,
+    mangas.favorite_at IS NOT NULL AS favorite,
+    mangas.cover_last_modified,
+    chapters.chapter_number AS chapterNumber,
+-- RK --> the recents read lane acts on the chapter it names, so the row carries that chapter's own
+-- state (read, bookmark, progress) and the four values its download state is looked up by. Upstream
+-- selects none of these: its History screen only ever showed a number and a time.
+    chapters.name AS chapterName,
+    chapters.scanlator,
+    chapters.url AS chapterUrl,
+    chapters.read,
+    chapters.bookmark,
+    chapters.last_page_read AS lastPageRead,
+    chapters.page_count AS pageCount,
+-- RK <--
+    history.last_read AS readAt,
+    history.time_read AS readDuration,
+    max_last_read.last_read AS maxReadAt,
+    max_last_read.chapter_id AS maxReadAtChapterId
+FROM mangas
+JOIN chapters
+ON mangas._id = chapters.manga_id
+JOIN history
+ON chapters._id = history.chapter_id
+JOIN (
+    SELECT chapters.manga_id,chapters._id AS chapter_id, MAX(history.last_read) AS last_read
+    FROM chapters JOIN history
+    ON chapters._id = history.chapter_id
+    GROUP BY chapters.manga_id
+) AS max_last_read
+ON chapters.manga_id = max_last_read.manga_id;
+
+CREATE VIEW libraryView AS
+SELECT
+    M.*,
+    coalesce(C.total, 0) AS totalCount,
+    coalesce(C.readCount, 0) AS readCount,
+    coalesce(C.latestUpload, 0) AS latestUpload,
+    coalesce(C.fetchedAt, 0) AS chapterFetchedAt,
+    coalesce(C.lastRead, 0) AS lastRead,
+    coalesce(C.bookmarkCount, 0) AS bookmarkCount,
+    coalesce(MC.categories, '0') AS categories
+FROM mangas M
+LEFT JOIN (
+    SELECT
+        chapters.manga_id,
+        count(*) AS total,
+        sum(read) AS readCount,
+        coalesce(max(chapters.date_upload), 0) AS latestUpload,
+        coalesce(max(history.last_read), 0) AS lastRead,
+        coalesce(max(chapters.date_fetch), 0) AS fetchedAt,
+        sum(chapters.bookmark) AS bookmarkCount
+    FROM chapters
+    LEFT JOIN excluded_scanlators
+    ON chapters.manga_id = excluded_scanlators.manga_id
+    AND chapters.scanlator = excluded_scanlators.scanlator
+    LEFT JOIN history
+    ON chapters._id = history.chapter_id
+    WHERE excluded_scanlators.scanlator IS NULL
+    GROUP BY chapters.manga_id
+) AS C
+ON M._id = C.manga_id
+LEFT JOIN (
+    SELECT manga_id, group_concat(category_id) AS categories
+    FROM mangas_categories
+    GROUP BY manga_id
+) AS MC
+ON MC.manga_id = M._id
+WHERE M.favorite_at IS NOT NULL;
+
+CREATE VIEW updatesView AS
+SELECT
+    mangas._id AS mangaId,
+    mangas.title AS mangaTitle,
+    chapters._id AS chapterId,
+    chapters.name AS chapterName,
+    chapters.scanlator,
+    chapters.url AS chapterUrl,
+    chapters.read,
+    chapters.bookmark,
+    chapters.last_page_read,
+    chapters.page_count, -- RK: the progress line says how far through the chapter reading stopped
+    mangas.source,
+    mangas.favorite_at IS NOT NULL AS favorite,
+    mangas.thumbnail_url AS thumbnailUrl,
+    mangas.cover_last_modified AS coverLastModified,
+    chapters.date_upload AS dateUpload,
+    chapters.date_fetch AS datefetch,
+    excluded_scanlators.scanlator AS excludedScanlator
+FROM mangas JOIN chapters
+ON mangas._id = chapters.manga_id
+LEFT JOIN excluded_scanlators
+ON mangas._id = excluded_scanlators.manga_id
+AND chapters.scanlator = excluded_scanlators.scanlator
+WHERE favorite_at IS NOT NULL
+AND date_fetch > favorite_at
+ORDER BY date_fetch DESC;
+
+CREATE VIEW library_update_error_view AS
+SELECT
+    mangas._id AS mangaId,
+    mangas.title AS mangaTitle,
+    mangas.source,
+    mangas.thumbnail_url AS thumbnailUrl,
+    mangas.cover_last_modified AS coverLastModified,
+    library_update_errors._id AS errorId,
+    library_update_errors.message AS message,
+    library_update_errors.last_update AS lastUpdate
+FROM mangas JOIN library_update_errors
+ON mangas._id = library_update_errors.manga_id
+WHERE mangas.favorite_at IS NOT NULL
+ORDER BY library_update_errors.last_update DESC;
+
+CREATE VIEW mergedChapterStaleView AS
+SELECT MGM.group_id AS groupId
+FROM merge_group_manga MGM
+JOIN mangas M
+ON M._id = MGM.manga_id
+AND M.favorite_at IS NOT NULL
+JOIN chapters C
+ON C.manga_id = MGM.manga_id
+LEFT JOIN merged_chapter_unit U
+ON U.chapter_id = C._id
+AND U.group_id = MGM.group_id
+WHERE U.chapter_id IS NULL OR U.derived_number != C.chapter_number
+UNION ALL
+SELECT U.group_id AS groupId
+FROM merged_chapter_unit U
+LEFT JOIN chapters C
+ON C._id = U.chapter_id
+LEFT JOIN merge_group_manga MGM
+ON MGM.manga_id = C.manga_id
+AND MGM.group_id = U.group_id
+LEFT JOIN mangas M
+ON M._id = MGM.manga_id
+AND M.favorite_at IS NOT NULL
+WHERE M._id IS NULL
+UNION ALL
+SELECT R.group_id AS groupId
+FROM merged_group_ranking R
+WHERE EXISTS (SELECT 1 FROM merge_group_manga MGM WHERE MGM.group_id = R.group_id)
+AND R.chapter_count != (SELECT count(*) FROM merged_chapter_unit U WHERE U.group_id = R.group_id);
+
+CREATE VIEW novelHistoryView AS
+SELECT
+    novel_history._id AS id,
+    novels._id AS novelId,
+    novel_chapters._id AS chapterId,
+    novels.title,
+    novels.thumbnail_url AS thumbnailUrl,
+    novels.source,
+    novels.favorite_at IS NOT NULL AS favorite,
+    novels.cover_last_modified,
+    novel_chapters.chapter_number AS chapterNumber,
+-- Twin of historyView's block: the read lane acts on the chapter it names, so the row carries that
+-- chapter's own state and the values its download state is looked up by. This side has no scanlator,
+-- and progress is a hundredths scroll percent rather than a page count.
+    novel_chapters.name AS chapterName,
+    novel_chapters.url AS chapterUrl,
+    novel_chapters.read,
+    novel_chapters.bookmark,
+    novel_chapters.last_text_progress AS lastTextProgress,
+    novel_history.last_read AS readAt,
+    novel_history.time_read AS readDuration,
+    max_last_read.last_read AS maxReadAt,
+    max_last_read.chapter_id AS maxReadAtChapterId
+FROM novels
+JOIN novel_chapters
+ON novels._id = novel_chapters.novel_id
+JOIN novel_history
+ON novel_chapters._id = novel_history.chapter_id
+JOIN (
+    SELECT novel_chapters.novel_id, novel_chapters._id AS chapter_id, MAX(novel_history.last_read) AS last_read
+    FROM novel_chapters JOIN novel_history
+    ON novel_chapters._id = novel_history.chapter_id
+    GROUP BY novel_chapters.novel_id
+) AS max_last_read
+ON novel_chapters.novel_id = max_last_read.novel_id;
+
+CREATE VIEW novelLibraryView AS
+SELECT
+    N.*,
+    coalesce(C.total, 0) AS totalCount,
+    coalesce(C.readCount, 0) AS readCount,
+    coalesce(C.latestUpload, 0) AS latestUpload,
+    coalesce(C.fetchedAt, 0) AS chapterFetchedAt,
+    coalesce(C.lastRead, 0) AS lastRead,
+    coalesce(C.bookmarkCount, 0) AS bookmarkCount,
+    coalesce(NC.categories, '0') AS categories
+FROM novels N
+LEFT JOIN (
+    SELECT
+        novel_chapters.novel_id,
+        count(*) AS total,
+        sum(read) AS readCount,
+        coalesce(max(novel_chapters.date_upload), 0) AS latestUpload,
+        coalesce(max(novel_history.last_read), 0) AS lastRead,
+        coalesce(max(novel_chapters.date_fetch), 0) AS fetchedAt,
+        sum(novel_chapters.bookmark) AS bookmarkCount
+    FROM novel_chapters
+    LEFT JOIN novel_history
+    ON novel_chapters._id = novel_history.chapter_id
+    GROUP BY novel_chapters.novel_id
+) AS C
+ON N._id = C.novel_id
+LEFT JOIN (
+    SELECT novel_id, group_concat(category_id) AS categories
+    FROM novels_categories
+    GROUP BY novel_id
+) AS NC
+ON NC.novel_id = N._id
+WHERE N.favorite_at IS NOT NULL;
+
+CREATE VIEW novelUpdatesView AS
+SELECT
+    novels._id AS novelId,
+    novels.title AS novelTitle,
+    novel_chapters._id AS chapterId,
+    novel_chapters.name AS chapterName,
+    novel_chapters.url AS chapterUrl,
+    novel_chapters.read,
+    novel_chapters.bookmark,
+    novel_chapters.last_text_progress AS lastTextProgress,
+    novels.source,
+    novels.favorite_at IS NOT NULL AS favorite,
+    novels.thumbnail_url AS thumbnailUrl,
+    novels.cover_last_modified AS coverLastModified,
+    novel_chapters.date_fetch AS dateFetch,
+    novels.url AS novelUrl
+FROM novels JOIN novel_chapters
+ON novels._id = novel_chapters.novel_id
+WHERE novels.favorite_at IS NOT NULL
+AND novel_chapters.date_fetch > novels.favorite_at
+ORDER BY novel_chapters.date_fetch DESC;
+
+CREATE VIEW novel_update_error_view AS
+SELECT
+    novels._id AS novelId,
+    novels.title AS novelTitle,
+    novels.source,
+    novels.url,
+    novels.thumbnail_url AS thumbnailUrl,
+    novels.cover_last_modified AS coverLastModified,
+    novel_update_errors._id AS errorId,
+    novel_update_errors.message AS message,
+    novel_update_errors.last_update AS lastUpdate
+FROM novels JOIN novel_update_errors
+ON novels._id = novel_update_errors.novel_id
+WHERE novels.favorite_at IS NOT NULL
+ORDER BY novel_update_errors.last_update DESC;
+
+CREATE VIEW mergedNovelChapterStaleView AS
+SELECT MGN.group_id AS groupId
+FROM merge_group_novel MGN
+JOIN novels N
+ON N._id = MGN.novel_id
+AND N.favorite_at IS NOT NULL
+JOIN novel_chapters C
+ON C.novel_id = MGN.novel_id
+LEFT JOIN merged_novel_chapter_unit U
+ON U.chapter_id = C._id
+AND U.group_id = MGN.group_id
+WHERE U.chapter_id IS NULL OR U.derived_name != C.name OR U.derived_number != C.chapter_number
+UNION ALL
+SELECT U.group_id AS groupId
+FROM merged_novel_chapter_unit U
+LEFT JOIN novel_chapters C
+ON C._id = U.chapter_id
+LEFT JOIN merge_group_novel MGN
+ON MGN.novel_id = C.novel_id
+AND MGN.group_id = U.group_id
+LEFT JOIN novels N
+ON N._id = MGN.novel_id
+AND N.favorite_at IS NOT NULL
+WHERE N._id IS NULL
+UNION ALL
+SELECT R.group_id AS groupId
+FROM merged_group_ranking R
+WHERE EXISTS (SELECT 1 FROM merge_group_novel MGN WHERE MGN.group_id = R.group_id)
+AND R.chapter_count != (SELECT count(*) FROM merged_novel_chapter_unit U WHERE U.group_id = R.group_id);
+
+-- Dropping a column makes SQLite rewrite every double-quoted string in the schema to single quotes, so
+-- the system category trigger is created again with the text categories.sq declares.
+DROP TRIGGER system_category_delete_trigger;
+CREATE TRIGGER system_category_delete_trigger BEFORE DELETE
+ON categories
+BEGIN SELECT CASE
+    WHEN old._id <= 0 THEN
+        RAISE(ABORT, "System category can't be deleted")
+    END;
+END;

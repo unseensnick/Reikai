@@ -11,10 +11,9 @@ SELECT
     mangas.source,
     mangas.thumbnail_url AS thumbnailUrl,
     mangas.cover_last_modified AS coverLastModified,
-    mangas.date_added AS dateAdded
+    coalesce(mangas.favorite_at, 0) AS dateAdded
 FROM mangas
-WHERE mangas.favorite = 1
-AND mangas.date_added > :after
+WHERE mangas.favorite_at > :after
 AND (
     :includedEmpty
     OR EXISTS (
@@ -40,12 +39,11 @@ AND (
         )
     )
 )
-ORDER BY mangas.date_added DESC
+ORDER BY mangas.favorite_at DESC
 LIMIT :limit;
 
--- Novel twin. date_added is nullable here where the manga column is NOT NULL, so it is coalesced to 0
--- and the comparison stays false rather than going NULL. A novel with no recorded add date is not
--- newly added and does not enter the lane at any cutoff, which is why the ordering never sees one.
+-- Novel twin. An entry out of the library has no favorite_at, so the cutoff keeps it out of the lane;
+-- the coalesce only gives the column a non-null type.
 getRecentlyAddedNovels:
 SELECT
     novels._id AS novelId,
@@ -53,10 +51,9 @@ SELECT
     novels.source,
     novels.thumbnail_url AS thumbnailUrl,
     novels.cover_last_modified AS coverLastModified,
-    COALESCE(novels.date_added, 0) AS dateAdded
+    coalesce(novels.favorite_at, 0) AS dateAdded
 FROM novels
-WHERE novels.favorite = 1
-AND COALESCE(novels.date_added, 0) > :after
+WHERE novels.favorite_at > :after
 AND (
     :includedEmpty
     OR EXISTS (

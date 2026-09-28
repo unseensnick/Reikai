@@ -311,9 +311,8 @@ class MergedCountConformanceTest {
     private suspend fun insertManga(id: Long) {
         driver.execute(
             null,
-            "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
-                "chapter_flags, cover_last_modified, date_added) " +
-                "VALUES ($id, 1, 'm-url-$id', 'title', 0, 1, 0, 0, 0, 0, 0)",
+            "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                "cover_last_modified, favorite_at) VALUES ($id, 1, 'm-url-$id', 'title', 0, 0, 0, 0, 0, 0)",
             0,
         ).await()
     }
@@ -321,8 +320,8 @@ class MergedCountConformanceTest {
     private suspend fun insertNovel(id: Long) {
         driver.execute(
             null,
-            "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags) " +
-                "VALUES ($id, 'src', 'n-url-$id', 'title', 0, 1, 0, 0)",
+            "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                "favorite_at) VALUES ($id, 'src', 'n-url-$id', 'title', 0, 0, 0, 0)",
             0,
         ).await()
     }

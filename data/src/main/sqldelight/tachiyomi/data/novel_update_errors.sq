@@ -34,5 +34,5 @@ WHERE NOT EXISTS (
     SELECT 1
     FROM novels
     WHERE novel_update_errors.novel_id = novels._id
-    AND novels.favorite = 1
+    AND novels.favorite_at IS NOT NULL
 );

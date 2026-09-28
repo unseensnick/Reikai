@@ -36,7 +36,12 @@ suspend fun updateNovelFetchInterval(
         window
     }
     val nextUpdate = ReleaseInterval.nextUpdate(novel.nextUpdate, novel.lastUpdate, interval, now, zone, currentWindow)
-    novelRepository.update(NovelUpdate(id = novel.id, nextUpdate = nextUpdate, fetchInterval = interval))
+    novelRepository.update(
+        NovelUpdate(novel.id) {
+            this.nextUpdate = nextUpdate
+            fetchInterval = interval
+        },
+    )
 }
 
 /**

@@ -266,9 +266,9 @@ class RecentsFilterQueriesTest {
     ) {
         driver.execute(
             null,
-            "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
-                "chapter_flags, cover_last_modified, date_added) " +
-                "VALUES ($id, 1, 'm-url-$id', 'title $id', 0, ${favorite.toSql()}, 0, 0, 0, 0, 0)",
+            "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                "cover_last_modified, favorite_at) VALUES ($id, 1, 'm-url-$id', 'title $id', 0, 0, 0, 0, 0, " +
+                "CASE WHEN ${favorite.toSql()} = 1 THEN 0 END)",
             0,
         ).await()
         driver.execute(
@@ -297,8 +297,9 @@ class RecentsFilterQueriesTest {
     ) {
         driver.execute(
             null,
-            "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags, " +
-                "date_added) VALUES ($id, 'src', 'n-url-$id', 'title $id', 0, ${favorite.toSql()}, 0, 0, 0)",
+            "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                "favorite_at) VALUES ($id, 'src', 'n-url-$id', 'title $id', 0, 0, 0, " +
+                "CASE WHEN ${favorite.toSql()} = 1 THEN 0 END)",
             0,
         ).await()
         driver.execute(

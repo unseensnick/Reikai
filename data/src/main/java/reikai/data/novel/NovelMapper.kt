@@ -12,9 +12,8 @@ import reikai.domain.novel.model.NovelWithChapterCount
 /**
  * Mappers from the generated SQLDelight row types to the domain models. SQLDelight invokes these
  * as the `mapper:` argument; the parameter order must match the column order declared in the
- * `.sq` file. The `genre` / `favorite` / `update_strategy` columns arrive already typed via the
- * registered column adapters, so no conversion happens here beyond null-coalescing the nullable
- * `last_update` / `date_added` columns.
+ * `.sq` file. The `genre` / `update_strategy` columns arrive already typed via the registered column
+ * adapters, so no conversion happens here beyond null-coalescing the nullable `last_update` column.
  */
 
 fun mapNovel(
@@ -28,11 +27,9 @@ fun mapNovel(
     genre: List<String>?,
     status: Long,
     thumbnailUrl: String?,
-    favorite: Boolean,
     lastUpdate: Long?,
     initialized: Boolean,
     chapterFlags: Long,
-    dateAdded: Long?,
     updateStrategy: UpdateStrategy,
     coverLastModified: Long,
     totalPages: Long,
@@ -40,6 +37,7 @@ fun mapNovel(
     viewerFlags: Long,
     nextUpdate: Long,
     calculateInterval: Long,
+    favoriteAt: Long?,
 ): Novel = Novel(
     id = id,
     source = source,
@@ -51,11 +49,10 @@ fun mapNovel(
     genre = genre,
     status = status,
     thumbnailUrl = thumbnailUrl,
-    favorite = favorite,
+    favoriteAt = favoriteAt,
     lastUpdate = lastUpdate ?: 0L,
     initialized = initialized,
     chapterFlags = chapterFlags,
-    dateAdded = dateAdded ?: 0L,
     updateStrategy = updateStrategy,
     coverLastModified = coverLastModified,
     totalPages = totalPages,
@@ -82,11 +79,9 @@ fun mapLibraryNovel(
     genre: List<String>?,
     status: Long,
     thumbnailUrl: String?,
-    favorite: Boolean,
     lastUpdate: Long?,
     initialized: Boolean,
     chapterFlags: Long,
-    dateAdded: Long?,
     updateStrategy: UpdateStrategy,
     coverLastModified: Long,
     totalPages: Long,
@@ -94,6 +89,7 @@ fun mapLibraryNovel(
     viewerFlags: Long,
     nextUpdate: Long,
     calculateInterval: Long,
+    favoriteAt: Long?,
     totalCount: Long,
     readCount: Double,
     latestUpload: Long,
@@ -113,11 +109,9 @@ fun mapLibraryNovel(
         genre,
         status,
         thumbnailUrl,
-        favorite,
         lastUpdate,
         initialized,
         chapterFlags,
-        dateAdded,
         updateStrategy,
         coverLastModified,
         totalPages,
@@ -125,6 +119,7 @@ fun mapLibraryNovel(
         viewerFlags,
         nextUpdate,
         calculateInterval,
+        favoriteAt,
     ),
     categories = categories.split(",").map { it.toLong() },
     totalChapters = totalCount,
@@ -152,11 +147,9 @@ fun mapNovelWithChapterCount(
     genre: List<String>?,
     status: Long,
     thumbnailUrl: String?,
-    favorite: Boolean,
     lastUpdate: Long?,
     initialized: Boolean,
     chapterFlags: Long,
-    dateAdded: Long?,
     updateStrategy: UpdateStrategy,
     coverLastModified: Long,
     totalPages: Long,
@@ -164,6 +157,7 @@ fun mapNovelWithChapterCount(
     viewerFlags: Long,
     nextUpdate: Long,
     calculateInterval: Long,
+    favoriteAt: Long?,
     chapterCount: Long,
 ): NovelWithChapterCount = NovelWithChapterCount(
     novel = mapNovel(
@@ -177,11 +171,9 @@ fun mapNovelWithChapterCount(
         genre,
         status,
         thumbnailUrl,
-        favorite,
         lastUpdate,
         initialized,
         chapterFlags,
-        dateAdded,
         updateStrategy,
         coverLastModified,
         totalPages,
@@ -189,6 +181,7 @@ fun mapNovelWithChapterCount(
         viewerFlags,
         nextUpdate,
         calculateInterval,
+        favoriteAt,
     ),
     chapterCount = chapterCount,
 )

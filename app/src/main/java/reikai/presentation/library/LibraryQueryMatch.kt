@@ -37,7 +37,7 @@ class LibraryQueryFields<T>(
     val unreadCount: (T) -> Long,
     val readCount: (T) -> Long,
     val totalChapters: (T) -> Long,
-    val dateAdded: (T) -> Long,
+    val dateAdded: (T) -> Long?,
     val fetchInterval: (T) -> Int,
     val nextUpdate: (T) -> Long,
     /**
@@ -193,7 +193,7 @@ private fun <T> ComparisonQueryNode.matches(row: T, fields: LibraryQueryFields<T
 
     val match = when (field) {
         ComparisonField.ID -> value.toLongOrNull()?.let { queryComparator.apply(fields.id(row), it) }
-        ComparisonField.DATE_ADDED -> compareDates(fields.dateAdded(row))
+        ComparisonField.DATE_ADDED -> fields.dateAdded(row)?.let { compareDates(it) }
         ComparisonField.FETCH_INTERVAL -> value.toIntOrNull()
             ?.let { queryComparator.apply(abs(fields.fetchInterval(row)), it) }
         ComparisonField.NEXT_UPDATE -> compareDates(fields.nextUpdate(row))

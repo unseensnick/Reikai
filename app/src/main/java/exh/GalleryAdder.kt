@@ -20,6 +20,7 @@ import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
+import kotlin.time.Clock
 
 /**
  * Resolves a gallery URL into a local manga (and its chapters) by routing it to the matching
@@ -104,7 +105,7 @@ class GalleryAdder(
 
             if (fav) {
                 updateManga.awaitUpdateFavorite(manga.id, true)
-                manga = manga.copy(favorite = true)
+                manga = manga.copy(favoriteAt = manga.favoriteAt ?: Clock.System.now().toEpochMilliseconds())
             }
 
             if (cleanedChapterUrl != null) {

@@ -80,7 +80,7 @@ class SetNovelChapterFlagsTest {
     @Test
     fun `applying the defaults to the library returns every library novel to them`() = runTest {
         val sorted = NovelChapterFlags.SORT_LOCAL or NovelChapterFlags.SORTING_ALPHABET
-        val library = listOf(1L, 2L).map { Novel.create().copy(id = it, favorite = true, chapterFlags = sorted) }
+        val library = listOf(1L, 2L).map { Novel.create().copy(id = it, favoriteAt = 0L, chapterFlags = sorted) }
         val sent = mutableListOf<NovelUpdate>()
         val repository = mockk<NovelRepository> {
             coEvery { getFavorites() } returns library

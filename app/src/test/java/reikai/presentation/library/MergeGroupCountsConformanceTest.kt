@@ -186,7 +186,7 @@ class NovelGroupCountCollapse : GroupCountCollapse {
         val library = members.map { (id, counts) ->
             val (chapters, unread, downloads) = counts
             LibraryNovel(
-                novel = Novel.create().copy(id = id, source = "src", favorite = true),
+                novel = Novel.create().copy(id = id, source = "src", favoriteAt = 0L),
                 categories = emptyList(),
                 totalChapters = chapters,
                 readCount = chapters - unread,

@@ -8,7 +8,7 @@ import reikai.domain.novel.model.Novel
 class RepairNovelDetailsTest {
 
     private fun novel(id: Long, title: String, source: String, url: String, author: String? = "Author") =
-        Novel.create().copy(id = id, title = title, source = source, url = url, author = author, favorite = true)
+        Novel.create().copy(id = id, title = title, source = source, url = url, author = author, favoriteAt = 0L)
 
     @Test
     fun `same source, title and author at different urls flags both`() {

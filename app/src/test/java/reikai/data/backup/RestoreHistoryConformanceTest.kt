@@ -116,8 +116,8 @@ class RestoreHistoryConformanceTest {
     enum class Type {
         MANGA {
             override fun statements(device: Stored?) = listOfNotNull(
-                "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
-                    "chapter_flags, cover_last_modified, date_added) VALUES (1, 1, 'u', 'T', 0, 1, 0, 0, 0, 0, 0)",
+                "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                    "cover_last_modified, favorite_at) VALUES (1, 1, 'u', 'T', 0, 0, 0, 0, 0, 0)",
                 "INSERT INTO chapters(_id, manga_id, url, name, scanlator, read, bookmark, last_page_read, " +
                     "chapter_number, source_order, date_fetch, date_upload) VALUES " +
                     "(1, 1, 'c', 'C', NULL, 1, 0, 0, 1.0, 0, 0, 0)",
@@ -150,8 +150,8 @@ class RestoreHistoryConformanceTest {
         },
         NOVEL {
             override fun statements(device: Stored?) = listOfNotNull(
-                "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags, " +
-                    "date_added) VALUES (1, 'src', 'u', 'T', 0, 1, 0, 0, 0)",
+                "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                    "favorite_at) VALUES (1, 'src', 'u', 'T', 0, 0, 0, 0)",
                 "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, last_text_progress, " +
                     "chapter_number, source_order, date_fetch, date_upload) VALUES (1, 1, 'c', 'C', 1, 0, 0, 1.0, 0, 0, 0)",
                 device?.let {

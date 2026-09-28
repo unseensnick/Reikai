@@ -62,7 +62,7 @@ fun libraryItemQueryFields(
     unreadCount = { it.unreadCount },
     readCount = { it.libraryManga.readCount },
     totalChapters = { it.libraryManga.totalChapters },
-    dateAdded = { it.libraryManga.manga.dateAdded },
+    dateAdded = { it.libraryManga.manga.favoriteAt },
     fetchInterval = { it.libraryManga.manga.fetchInterval },
     nextUpdate = { it.libraryManga.manga.nextUpdate },
     // Keyed by the row's own raw id: each side resolved the set from its own chapter table, so the
@@ -99,7 +99,7 @@ fun libraryItemSortFields(
     totalChapters = { it.libraryManga.totalChapters },
     latestUpload = { it.libraryManga.latestUpload },
     chapterFetchedAt = { it.libraryManga.chapterFetchedAt },
-    dateAdded = { it.libraryManga.manga.dateAdded },
+    dateAdded = { it.libraryManga.manga.favoriteAt ?: 0L },
     downloadCount = { it.downloadCount.toLong() },
     trackerMean = trackerMean,
 )

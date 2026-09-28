@@ -79,7 +79,7 @@ class RelatedMangasBrowseViewModelTest {
             coEvery { awaitUpdateFavorite(any(), true) } answers {
                 favorites.update {
                     it +
-                        Manga.create().copy(id = firstArg(), url = "a", source = SOURCE_ID, favorite = true)
+                        Manga.create().copy(id = firstArg(), url = "a", source = SOURCE_ID, favoriteAt = 0L)
                 }
                 true
             }

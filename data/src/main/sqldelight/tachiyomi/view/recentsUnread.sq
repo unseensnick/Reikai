@@ -21,7 +21,7 @@ unitCopies AS (
     SELECT U.group_id AS groupId, sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies
     FROM merged_chapter_unit U
     JOIN chapters C ON C._id = U.chapter_id
-    JOIN mangas M ON M._id = C.manga_id AND M.favorite = 1
+    JOIN mangas M ON M._id = C.manga_id AND M.favorite_at IS NOT NULL
     LEFT JOIN excluded_scanlators ES ON C.manga_id = ES.manga_id AND C.scanlator = ES.scanlator
     WHERE U.unit IS NOT NULL
     AND ES.scanlator IS NULL
@@ -32,7 +32,7 @@ groupJudged AS (
     FROM merge_group_manga MGM
     JOIN mangas M ON M._id = MGM.manga_id
     JOIN unitCopies UC ON UC.groupId = MGM.group_id
-    WHERE :mergingEnabled AND M.favorite = 1
+    WHERE :mergingEnabled AND M.favorite_at IS NOT NULL
     GROUP BY MGM.manga_id
 )
 SELECT mangaId FROM groupJudged WHERE hasUnread = 1
@@ -51,7 +51,7 @@ unitCopies AS (
     SELECT U.group_id AS groupId, sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies
     FROM merged_novel_chapter_unit U
     JOIN novel_chapters C ON C._id = U.chapter_id
-    JOIN novels N ON N._id = C.novel_id AND N.favorite = 1
+    JOIN novels N ON N._id = C.novel_id AND N.favorite_at IS NOT NULL
     WHERE U.unit IS NOT NULL
     GROUP BY U.group_id, U.unit
 ),
@@ -60,7 +60,7 @@ groupJudged AS (
     FROM merge_group_novel MGN
     JOIN novels N ON N._id = MGN.novel_id
     JOIN unitCopies UC ON UC.groupId = MGN.group_id
-    WHERE :mergingEnabled AND N.favorite = 1
+    WHERE :mergingEnabled AND N.favorite_at IS NOT NULL
     GROUP BY MGN.novel_id
 )
 SELECT novelId FROM groupJudged WHERE hasUnread = 1

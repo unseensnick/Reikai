@@ -1,8 +1,7 @@
 -- Novel twin of updatesView. Favorited novels' chapters that were
--- fetched after the novel was added to the library (date_fetch > date_added), i.e. the recent-updates
+-- fetched after the novel was added to the library (date_fetch > favorite_at), i.e. the recent-updates
 -- feed. Filters/sorts on date_fetch (not date_upload): many LN sources leave date_upload at 0, so the
--- manga side's dateUpload cutoff would hide them. No scanlator joins (novels have none); date_added is
--- nullable on novels so it is coalesced to 0.
+-- manga side's dateUpload cutoff would hide them. No scanlator joins (novels have none).
 CREATE VIEW novelUpdatesView AS
 SELECT
     novels._id AS novelId,
@@ -14,15 +13,15 @@ SELECT
     novel_chapters.bookmark,
     novel_chapters.last_text_progress AS lastTextProgress,
     novels.source,
-    novels.favorite,
+    novels.favorite_at IS NOT NULL AS favorite,
     novels.thumbnail_url AS thumbnailUrl,
     novels.cover_last_modified AS coverLastModified,
     novel_chapters.date_fetch AS dateFetch,
     novels.url AS novelUrl
 FROM novels JOIN novel_chapters
 ON novels._id = novel_chapters.novel_id
-WHERE novels.favorite = 1
-AND novel_chapters.date_fetch > coalesce(novels.date_added, 0)
+WHERE novels.favorite_at IS NOT NULL
+AND novel_chapters.date_fetch > novels.favorite_at
 ORDER BY novel_chapters.date_fetch DESC;
 
 -- Unfiltered feed. Kept alongside the filtered query below because the home-screen widget wants raw

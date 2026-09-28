@@ -72,8 +72,8 @@ class EntryCategoryOrderConformanceTest {
     enum class Type(val statements: List<String>) {
         MANGA(
             listOf(
-                "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, chapter_flags, " +
-                    "cover_last_modified, date_added) VALUES (1, 1, 'u', 'T', 0, 1, 0, 0, 0, 0, 0)",
+                "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                    "cover_last_modified, favorite_at) VALUES (1, 1, 'u', 'T', 0, 0, 0, 0, 0, 0)",
                 "INSERT INTO mangas_categories(manga_id, category_id) VALUES (1, 1), (1, 2), (1, 3)",
             ),
         ) {
@@ -82,8 +82,8 @@ class EntryCategoryOrderConformanceTest {
         },
         NOVEL(
             listOf(
-                "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags, " +
-                    "date_added) VALUES (1, 'src', 'u', 'T', 0, 1, 0, 0, 0)",
+                "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                    "favorite_at) VALUES (1, 'src', 'u', 'T', 0, 0, 0, 0)",
                 "INSERT INTO novels_categories(novel_id, category_id) VALUES (1, 1), (1, 2), (1, 3)",
             ),
         ) {

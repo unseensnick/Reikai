@@ -19,9 +19,9 @@ import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.backup.RestoredChapterState
 import reikai.domain.backup.backupChapterReadAhead
 import reikai.domain.backup.backupDetailsWin
-import reikai.domain.backup.earliestAddedAt
 import reikai.domain.backup.foldBackup
 import reikai.domain.backup.foldHistoryCopies
+import reikai.domain.backup.restoredFavoriteAt
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
 import reikai.domain.library.ContentType
@@ -105,8 +105,7 @@ class NovelRestorer(
     private fun mergeNovel(novel: Novel, dbNovel: Novel): Novel {
         val details = if (backupDetailsWin(dbNovel.initialized, novel.initialized)) novel else dbNovel
         return dbNovel.copy(
-            favorite = dbNovel.favorite || novel.favorite,
-            dateAdded = earliestAddedAt(dbNovel.dateAdded, novel.dateAdded),
+            favoriteAt = restoredFavoriteAt(dbNovel.favoriteAt, novel.favoriteAt),
             title = details.title,
             author = details.author,
             artist = details.artist,

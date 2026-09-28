@@ -628,9 +628,9 @@ class MergeGroupRepositoryTest {
     private suspend fun insertManga(id: Long, favorite: Boolean = true) {
         driver.execute(
             null,
-            "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
-                "chapter_flags, cover_last_modified, date_added) " +
-                "VALUES ($id, 1, 'm-url-$id', 'title', 0, ${if (favorite) 1 else 0}, 0, 0, 0, 0, 0)",
+            "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                "cover_last_modified, favorite_at) VALUES ($id, 1, 'm-url-$id', 'title', 0, 0, 0, 0, 0, " +
+                "${if (favorite) 0 else "NULL"})",
             0,
         ).await()
     }
@@ -640,14 +640,19 @@ class MergeGroupRepositoryTest {
 
     private suspend fun setFavorite(type: ContentType, id: Long, favorite: Boolean) {
         val table = if (type == ContentType.MANGA) "mangas" else "novels"
-        driver.execute(null, "UPDATE $table SET favorite = ${if (favorite) 1 else 0} WHERE _id = $id", 0).await()
+        driver.execute(
+            null,
+            "UPDATE $table SET favorite_at = ${if (favorite) 0 else "NULL"} WHERE _id = $id",
+            0,
+        ).await()
     }
 
     private suspend fun insertNovel(id: Long, favorite: Boolean = true) {
         driver.execute(
             null,
-            "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags) " +
-                "VALUES ($id, 'src', 'n-url-$id', 'title', 0, ${if (favorite) 1 else 0}, 0, 0)",
+            "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                "favorite_at) VALUES ($id, 'src', 'n-url-$id', 'title', 0, 0, 0, " +
+                "${if (favorite) 0 else "NULL"})",
             0,
         ).await()
     }

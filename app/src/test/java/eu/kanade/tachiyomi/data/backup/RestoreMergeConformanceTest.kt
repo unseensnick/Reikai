@@ -168,9 +168,9 @@ class MangaMergeRestorer : MergeRestorer {
         ).description
 
     override suspend fun addedAt(device: Long, backup: Long): Long? = restoreOver(
-        deviceManga.copy(favorite = true, dateAdded = device),
+        deviceManga.copy(favoriteAt = device),
         BackupManga(source = 1L, url = "u", favorite = true, dateAdded = backup),
-    ).dateAdded
+    ).favoriteAt
 
     /** Restores [backup] over the device's [dbManga], returning the series as stored after. */
     private suspend fun restoreOver(dbManga: Manga, backup: BackupManga): Manga =
@@ -262,9 +262,9 @@ class NovelMergeRestorer : MergeRestorer {
         )?.description
 
     override suspend fun addedAt(device: Long, backup: Long): Long? = restoreOver(
-        deviceNovel.copy(favorite = true, dateAdded = device),
+        deviceNovel.copy(favoriteAt = device),
         BackupNovel(source = "s", url = "u", favorite = true, dateAdded = backup),
-    )?.dateAdded
+    )?.favoriteAt
 
     /** Restores [backup] over [dbNovel], returning the novel as written. */
     private suspend fun restoreOver(dbNovel: Novel, backup: BackupNovel): Novel? {

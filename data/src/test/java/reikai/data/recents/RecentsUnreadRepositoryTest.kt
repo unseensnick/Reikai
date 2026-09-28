@@ -191,9 +191,9 @@ class RecentsUnreadRepositoryTest {
                 type = ContentType.MANGA,
                 unread = { repository, merging -> repository.subscribeMangaIdsWithUnread(merging) },
                 entry = { id, favorite ->
-                    "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
-                        "chapter_flags, cover_last_modified, date_added) " +
-                        "VALUES ($id, 1, 'm-$id', 't', 0, ${favorite.toSql()}, 0, 0, 0, 0, 0)"
+                    "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                        "cover_last_modified, favorite_at) VALUES ($id, 1, 'm-$id', 't', 0, 0, 0, 0, 0, " +
+                        "CASE WHEN ${favorite.toSql()} = 1 THEN 0 END)"
                 },
                 chapter = { id, entryId, read, scanlator ->
                     val scanlatorSql = scanlator?.let { "'$it'" } ?: "NULL"
@@ -211,8 +211,9 @@ class RecentsUnreadRepositoryTest {
                 type = ContentType.NOVELS,
                 unread = { repository, merging -> repository.subscribeNovelIdsWithUnread(merging) },
                 entry = { id, favorite ->
-                    "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags, " +
-                        "date_added) VALUES ($id, 'src', 'n-$id', 't', 0, ${favorite.toSql()}, 0, 0, 0)"
+                    "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                        "favorite_at) VALUES ($id, 'src', 'n-$id', 't', 0, 0, 0, " +
+                        "CASE WHEN ${favorite.toSql()} = 1 THEN 0 END)"
                 },
                 chapter = { id, entryId, read, _ ->
                     "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, last_text_progress, " +

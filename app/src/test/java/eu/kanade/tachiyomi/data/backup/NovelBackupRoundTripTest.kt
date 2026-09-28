@@ -25,7 +25,7 @@ import reikai.domain.novel.model.Novel
 class NovelBackupRoundTripTest {
 
     private fun novel(id: Long, url: String, source: String, title: String = "T") =
-        Novel.create().copy(id = id, url = url, source = source, title = title, favorite = true)
+        Novel.create().copy(id = id, url = url, source = source, title = title, favoriteAt = 0L)
 
     private fun restorer(repo: NovelRepository, repository: MergeGroupRepository) = NovelRestorer(
         novelRepository = repo,

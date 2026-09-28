@@ -82,8 +82,8 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
     suspend fun insertBare(id: Long, url: String, source: Long) {
         driver.execute(
             null,
-            "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, chapter_flags, " +
-                "cover_last_modified, date_added) VALUES ($id, $source, '$url', '', 0, 0, 0, 0, 0, 0, 0)",
+            "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                "cover_last_modified, favorite_at) VALUES ($id, $source, '$url', '', 0, 0, 0, 0, 0, NULL)",
             0,
         ).await()
     }
@@ -99,7 +99,7 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
         title = manga.title,
         status = manga.status,
         thumbnailUrl = manga.thumbnailUrl,
-        favorite = manga.favorite,
+        favoriteAt = manga.favoriteAt,
         lastUpdate = manga.lastUpdate,
         nextUpdate = manga.nextUpdate,
         calculateInterval = manga.fetchInterval.toLong(),
@@ -107,7 +107,6 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
         viewerFlags = manga.viewerFlags,
         chapterFlags = manga.chapterFlags,
         coverLastModified = manga.coverLastModified,
-        dateAdded = manga.dateAdded,
         updateStrategy = manga.updateStrategy,
         notes = manga.notes,
         memo = manga.memo,

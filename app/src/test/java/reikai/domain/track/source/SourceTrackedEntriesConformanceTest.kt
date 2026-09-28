@@ -120,7 +120,7 @@ class MangaProbe : SourceTrackedEntriesConformanceTest.LoaderProbe {
             mangaRepository = mockk {
                 if (exists) {
                     coEvery { getMangaById(1) } returns
-                        Manga.create().copy(id = 1, source = 7, url = "/1", favorite = favorite)
+                        Manga.create().copy(id = 1, source = 7, url = "/1", favoriteAt = 0L.takeIf { favorite })
                 } else {
                     coEvery { getMangaById(1) } throws IllegalStateException("gone")
                 }
@@ -166,7 +166,18 @@ class NovelProbe : SourceTrackedEntriesConformanceTest.LoaderProbe {
             sourceManager = mockk(),
             novelRepository = mockk {
                 coEvery { getById(1) } returns
-                    if (exists) Novel.create().copy(id = 1, source = "s", url = "/1", favorite = favorite) else null
+                    if (exists) {
+                        Novel.create().copy(
+                            id = 1,
+                            source = "s",
+                            url = "/1",
+                            favoriteAt = 0L.takeIf {
+                                favorite
+                            },
+                        )
+                    } else {
+                        null
+                    }
             },
             novelChapterRepository = mockk {
                 coEvery { getByNovelId(1) } returns chapters.map {

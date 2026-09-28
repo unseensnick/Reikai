@@ -24,21 +24,16 @@ class UpdateNovel(
 
     suspend fun awaitUpdateCoverLastModified(novelId: Long): Boolean {
         return novelRepository.update(
-            NovelUpdate(
-                id = novelId,
-                coverLastModified = Clock.System.now().toEpochMilliseconds(),
-            ),
+            NovelUpdate(novelId) { coverLastModified = Clock.System.now().toEpochMilliseconds() },
         )
     }
 
     suspend fun awaitUpdateFavorite(novelId: Long, favorite: Boolean): Boolean {
-        val dateAdded = when (favorite) {
-            true -> Clock.System.now().toEpochMilliseconds()
-            false -> 0
+        val update = when (favorite) {
+            true -> NovelUpdate(novelId) { favoriteAt = Clock.System.now().toEpochMilliseconds() }
+            false -> NovelUpdate(novelId) { favoriteAt = null }
         }
-        return novelRepository.update(
-            NovelUpdate(id = novelId, favorite = favorite, dateAdded = dateAdded),
-        )
+        return novelRepository.update(update)
             // An extension syncing to its own site hears of an add or remove made through here.
             .also { updated -> if (updated) sourceTracker.favoriteChanged(EntryId.Novel(novelId), favorite) }
     }

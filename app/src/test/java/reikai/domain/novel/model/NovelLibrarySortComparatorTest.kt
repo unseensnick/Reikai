@@ -33,9 +33,8 @@ class NovelLibrarySortComparatorTest {
         novel = Novel.create().copy(
             id = id,
             title = title,
-            favorite = true,
             lastUpdate = lastUpdate,
-            dateAdded = dateAdded,
+            favoriteAt = dateAdded,
         ),
         categories = emptyList(),
         totalChapters = totalChapters,

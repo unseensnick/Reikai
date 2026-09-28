@@ -36,7 +36,7 @@ LEFT JOIN (
     GROUP BY novel_id
 ) AS NC
 ON NC.novel_id = N._id
-WHERE N.favorite = 1;
+WHERE N.favorite_at IS NOT NULL;
 
 novelLibrary:
 SELECT *

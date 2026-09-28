@@ -50,8 +50,8 @@ class NovelChapterUpdateFromRemoteTest {
             repository = NovelChapterRepositoryImpl(database)
             driver.execute(
                 null,
-                "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags, " +
-                    "date_added) VALUES (1, 'src', 'n-url', 'title', 0, 1, 0, 0, 0)",
+                "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                    "favorite_at) VALUES (1, 'src', 'n-url', 'title', 0, 0, 0, 0)",
                 0,
             ).await()
             listOf(1L, 2L).forEach { id ->

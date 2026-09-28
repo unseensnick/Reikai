@@ -10,8 +10,12 @@ import kotlin.math.max
 fun backupDetailsWin(deviceInitialized: Boolean, backupInitialized: Boolean): Boolean =
     backupInitialized && !deviceInitialized
 
-/** The library date a restore keeps: the earlier of the two, where 0 means never added. */
-fun earliestAddedAt(device: Long, backup: Long): Long = listOf(device, backup).filter { it > 0 }.minOrNull() ?: 0L
+/**
+ * When a restored entry was added to the library: null while neither copy is in it, else the earlier of
+ * the two known dates, 0 when neither knows one (mihon 986f46c09).
+ */
+fun restoredFavoriteAt(device: Long?, backup: Long?): Long? =
+    if (device == null && backup == null) null else listOfNotNull(device, backup).filter { it > 0 }.minOrNull() ?: 0L
 
 /** A chapter's user state as a restore merges it; [progress] is the type's own resume position. */
 data class RestoredChapterState(val read: Boolean, val bookmark: Boolean, val progress: Long)

@@ -6,7 +6,7 @@ SELECT
     mangas.title,
     mangas.thumbnail_url AS thumbnailUrl,
     mangas.source,
-    mangas.favorite,
+    mangas.favorite_at IS NOT NULL AS favorite,
     mangas.cover_last_modified,
     chapters.chapter_number AS chapterNumber,
 -- RK --> the recents read lane acts on the chapter it names, so the row carries that chapter's own

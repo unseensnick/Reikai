@@ -19,7 +19,7 @@ class RemoveNovelsFromLibraryTest {
     @TempDir
     lateinit var dir: File
 
-    private val novel = Novel.create().copy(id = 5L, thumbnailUrl = "https://example.org/cover.jpg", favorite = true)
+    private val novel = Novel.create().copy(id = 5L, thumbnailUrl = "https://example.org/cover.jpg", favoriteAt = 0L)
 
     private fun coverCache(): CoverCache {
         val context = mockk<Context> {

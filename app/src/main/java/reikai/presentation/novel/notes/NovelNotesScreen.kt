@@ -76,7 +76,7 @@ class NovelNotesScreen(
             if (content == state.value.notes) return
             state.update { it.copy(notes = content) }
             viewModelScope.launchNonCancellable {
-                novelRepository.update(NovelUpdate(id = novelId, notes = content))
+                novelRepository.update(NovelUpdate(novelId) { notes = content })
             }
         }
     }

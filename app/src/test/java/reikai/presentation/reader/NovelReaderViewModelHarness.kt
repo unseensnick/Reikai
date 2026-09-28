@@ -164,7 +164,7 @@ class NovelReaderViewModelHarness private constructor(
 
     suspend fun novel(source: FakeNovelSource, title: String = "Novel"): Long {
         val url = "/novel/${source.id}/$title"
-        return novelRepo.insert(Novel.create().copy(source = source.id, url = url, title = title, favorite = true))!!
+        return novelRepo.insert(Novel.create().copy(source = source.id, url = url, title = title, favoriteAt = 0L))!!
     }
 
     /** [progressPercent] is where the reader last was in it, stored as the reader stores it. */

@@ -2,6 +2,7 @@ package reikai.domain.novel.model
 
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
+import tachiyomi.domain.manga.model.Manga
 import java.io.Serializable
 
 /**
@@ -22,11 +23,11 @@ data class Novel(
     val genre: List<String>?,
     val status: Long,
     val thumbnailUrl: String?,
-    val favorite: Boolean,
+    /** When the novel was added to the library, null while it is not in it (as [Manga.favoriteAt]). */
+    val favoriteAt: Long?,
     val lastUpdate: Long,
     val initialized: Boolean,
     val chapterFlags: Long,
-    val dateAdded: Long,
     val updateStrategy: UpdateStrategy,
     val coverLastModified: Long,
     /**
@@ -49,6 +50,9 @@ data class Novel(
     val fetchInterval: Int = 0,
 ) : Serializable {
 
+    val favorite: Boolean
+        get() = favoriteAt != null
+
     companion object {
         fun create() = Novel(
             id = -1L,
@@ -61,11 +65,10 @@ data class Novel(
             genre = null,
             status = 0L,
             thumbnailUrl = null,
-            favorite = false,
+            favoriteAt = null,
             lastUpdate = 0L,
             initialized = false,
             chapterFlags = 0L,
-            dateAdded = 0L,
             updateStrategy = UpdateStrategy.ALWAYS_UPDATE,
             coverLastModified = 0L,
             totalPages = 1L,

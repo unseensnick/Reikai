@@ -179,9 +179,8 @@ class MergedTrunkConformanceTest {
         override suspend fun entry(id: Long, source: Long, chapters: Int, hidden: Int) {
             members[id] = source
             exec(
-                "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
-                    "chapter_flags, cover_last_modified, date_added) " +
-                    "VALUES ($id, $source, 'm$id', 'title', 0, 1, 0, 0, 0, 0, 0)",
+                "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                    "cover_last_modified, favorite_at) VALUES ($id, $source, 'm$id', 'title', 0, 0, 0, 0, 0, 0)",
             )
             (1..chapters).forEach { number ->
                 val scanlator = if (number <= hidden) "'hidden'" else "NULL"
@@ -254,8 +253,8 @@ class MergedTrunkConformanceTest {
         override suspend fun entry(id: Long, source: Long, chapters: Int, hidden: Int) {
             members[id] = source.toString()
             exec(
-                "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags) " +
-                    "VALUES ($id, '$source', 'n$id', 'title', 0, 1, 0, 0)",
+                "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                    "favorite_at) VALUES ($id, '$source', 'n$id', 'title', 0, 0, 0, 0)",
             )
             (1..chapters).forEach { number ->
                 exec(

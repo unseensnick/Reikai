@@ -26,7 +26,7 @@ class MangaMergeCollapseTest {
         lastRead: Long = 0,
         isLocal: Boolean = false,
     ): LibraryItem {
-        val manga = Manga.create().copy(id = id, source = source, title = title, dateAdded = dateAdded)
+        val manga = Manga.create().copy(id = id, source = source, title = title, favoriteAt = dateAdded)
         return LibraryItem(
             libraryManga = LibraryManga(
                 manga = manga,

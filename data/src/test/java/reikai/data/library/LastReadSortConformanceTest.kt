@@ -82,8 +82,8 @@ class LastReadSortConformanceTest {
     enum class Type(private val statements: List<String>) {
         MANGA(
             listOf(
-                "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
-                    "chapter_flags, cover_last_modified, date_added) VALUES (1, 1, 'm', 't', 0, 1, 0, 0, 0, 0, 0)",
+                "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
+                    "cover_last_modified, favorite_at) VALUES (1, 1, 'm', 't', 0, 0, 0, 0, 0, 0)",
                 "INSERT INTO chapters(_id, manga_id, url, name, scanlator, read, bookmark, last_page_read, " +
                     "chapter_number, source_order, date_fetch, date_upload) VALUES " +
                     "(1, 1, 'a', 'n', NULL, 1, 0, 0, 1.0, 1, 0, 0), (2, 1, 'b', 'n', NULL, 1, 0, 0, 2.0, 0, 0, 0)",
@@ -98,8 +98,8 @@ class LastReadSortConformanceTest {
         },
         NOVEL(
             listOf(
-                "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags, " +
-                    "date_added) VALUES (1, 'src', 'n', 't', 0, 1, 0, 0, 0)",
+                "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                    "favorite_at) VALUES (1, 'src', 'n', 't', 0, 0, 0, 0)",
                 "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, last_text_progress, " +
                     "chapter_number, source_order, date_fetch, date_upload) VALUES " +
                     "(1, 1, 'a', 'n', 1, 0, 0, 1.0, 1, 0, 0), (2, 1, 'b', 'n', 1, 0, 0, 2.0, 0, 0, 0)",

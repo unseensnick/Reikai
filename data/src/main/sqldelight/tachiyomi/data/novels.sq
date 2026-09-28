@@ -22,22 +22,23 @@ CREATE TABLE novels(
     genre TEXT AS List<String>,
     status INTEGER NOT NULL,
     thumbnail_url TEXT,
-    favorite INTEGER AS Boolean NOT NULL,
     last_update INTEGER,
     initialized INTEGER AS Boolean NOT NULL,
     chapter_flags INTEGER NOT NULL,
-    date_added INTEGER,
     update_strategy INTEGER AS UpdateStrategy NOT NULL DEFAULT 0,
     cover_last_modified INTEGER NOT NULL DEFAULT 0,
     total_pages INTEGER NOT NULL DEFAULT 1,
     notes TEXT NOT NULL DEFAULT '',
     viewer_flags INTEGER NOT NULL DEFAULT 0,
     next_update INTEGER NOT NULL DEFAULT 0,
-    calculate_interval INTEGER NOT NULL DEFAULT 0
+    calculate_interval INTEGER NOT NULL DEFAULT 0,
+    -- When the novel was added to the library, null while it is not in it: the manga table's
+    -- favorite_at, which replaced its favorite flag and date added (mihon 986f46c09).
+    favorite_at INTEGER
 );
 
 CREATE INDEX novels_url_index ON novels(url);
-CREATE INDEX novels_library_favorite_index ON novels(favorite) WHERE favorite = 1;
+CREATE INDEX novels_library_favorite_at_index ON novels(favorite_at) WHERE favorite_at IS NOT NULL;
 
 findAll:
 SELECT *
@@ -57,7 +58,7 @@ WHERE _id = :novelId;
 findFavorites:
 SELECT *
 FROM novels
-WHERE favorite = 1
+WHERE favorite_at IS NOT NULL
 ORDER BY title;
 
 -- Novel twin of mangas.sq getReadMangaNotInLibrary (last_text_progress replaces last_page_read).
@@ -66,7 +67,7 @@ ORDER BY title;
 getReadNovelsNotInLibrary:
 SELECT *
 FROM novels
-WHERE favorite = 0 AND _id IN (
+WHERE favorite_at IS NULL AND _id IN (
     SELECT DISTINCT novel_chapters.novel_id
     FROM novel_chapters
     WHERE read = 1 OR last_text_progress != 0
@@ -77,7 +78,7 @@ WHERE favorite = 0 AND _id IN (
 getSourcesWithNonLibraryNovel:
 SELECT source, COUNT(*) AS novel_count
 FROM novels
-WHERE favorite = 0
+WHERE favorite_at IS NULL
 GROUP BY source;
 
 -- Novel twin of mangas.sq deleteNonLibraryManga. The keep-read guard mirrors
@@ -86,7 +87,7 @@ GROUP BY source;
 -- memberships) go via their ON DELETE CASCADE foreign keys; the app driver enables enforcement.
 deleteNonLibraryNovel:
 DELETE FROM novels
-WHERE favorite = 0
+WHERE favorite_at IS NULL
 AND source IN :sources
 AND (
     :keepReadNovel = 0
@@ -118,7 +119,7 @@ duplicates AS (
     FROM novels N
     LEFT JOIN track_dupes D
     ON D.novel_id = N._id
-    WHERE N.favorite = 1
+    WHERE N.favorite_at IS NOT NULL
     AND N._id != :id
     AND (lower(N.title) LIKE '%' || lower(:title) || '%' OR D.novel_id IS NOT NULL)
 ),
@@ -139,8 +140,8 @@ LEFT JOIN chapter_counts CC
 ON N._id = CC.novel_id;
 
 insert:
-INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, notes, viewer_flags)
-VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :notes, :viewerFlags);
+INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite_at, last_update, initialized, chapter_flags, update_strategy, cover_last_modified, total_pages, notes, viewer_flags)
+VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favoriteAt, :lastUpdate, :initialized, :chapterFlags, :updateStrategy, :coverLastModified, :totalPages, :notes, :viewerFlags);
 
 -- Full-row update for the paths that legitimately write a complete Novel: restore and edit-info
 -- (which set columns back to null, something `coalesce` can't express). Surgical single/few-column
@@ -157,11 +158,10 @@ UPDATE novels SET
     genre = :genre,
     status = :status,
     thumbnail_url = :thumbnailUrl,
-    favorite = :favorite,
+    favorite_at = :favoriteAt,
     last_update = :lastUpdate,
     initialized = :initialized,
     chapter_flags = :chapterFlags,
-    date_added = :dateAdded,
     update_strategy = :updateStrategy,
     cover_last_modified = :coverLastModified,
     total_pages = :totalPages,
@@ -185,11 +185,11 @@ UPDATE novels SET
     description = coalesce(:description, description),
     status = coalesce(:status, status),
     thumbnail_url = coalesce(:thumbnailUrl, thumbnail_url),
-    favorite = coalesce(:favorite, favorite),
+    -- NULL is a real value here (not in the library), which coalesce cannot write
+    favorite_at = CASE WHEN :favoriteAtSet THEN :favoriteAt ELSE favorite_at END,
     last_update = coalesce(:lastUpdate, last_update),
     initialized = coalesce(:initialized, initialized),
     chapter_flags = coalesce(:chapterFlags, chapter_flags),
-    date_added = coalesce(:dateAdded, date_added),
     cover_last_modified = coalesce(:coverLastModified, cover_last_modified),
     total_pages = coalesce(:totalPages, total_pages),
     notes = coalesce(:notes, notes),

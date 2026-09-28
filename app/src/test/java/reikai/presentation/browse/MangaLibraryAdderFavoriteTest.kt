@@ -1,6 +1,7 @@
 package reikai.presentation.browse
 
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.slot
@@ -45,15 +46,15 @@ class MangaLibraryAdderFavoriteTest {
     }
 
     @Test
-    fun `adding marks the manga as a favourite`() = runTest {
+    fun `adding stamps when the manga joined the library`() = runTest {
         adder.changeFavorite(manga)
 
-        written.captured.favorite shouldBe true
+        written.captured.favoriteAt shouldNotBe null
     }
 
     @Test
     fun `removing leaves the notes alone`() = runTest {
-        adder.changeFavorite(manga.copy(favorite = true))
+        adder.changeFavorite(manga.copy(favoriteAt = 1L))
 
         written.captured.notes shouldBe null
     }

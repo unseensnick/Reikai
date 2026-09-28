@@ -109,7 +109,7 @@ class NovelRefreshTest {
                 source = "src",
                 url = "/novel",
                 title = "Novel",
-                favorite = true,
+                favoriteAt = 0L,
                 nextUpdate = nextUpdate,
                 totalPages = totalPages,
                 thumbnailUrl = cover,
@@ -150,7 +150,12 @@ class NovelRefreshTest {
     @Test
     fun `a library change made while a refresh runs survives it`() = runTest {
         val novel = storedNovel()
-        novels.update(NovelUpdate(id = novel.id, favorite = false, notes = "x"))
+        novels.update(
+            NovelUpdate(novel.id) {
+                favoriteAt = null
+                notes = "x"
+            },
+        )
 
         refresh(novel, PagedSource(oneChapter, summary = "New description"))
 

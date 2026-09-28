@@ -64,19 +64,18 @@ suspend fun storeRefreshedNovel(
     if (merged == existing && coverLastModified == null) return existing
     val newTitle = merged.title.takeIf { it != existing.title }
     val stored = novelRepository.update(
-        NovelUpdate(
-            id = existing.id,
-            title = newTitle,
-            author = merged.author,
-            artist = merged.artist,
-            description = merged.description,
-            genre = merged.genre,
-            status = merged.status,
-            thumbnailUrl = merged.thumbnailUrl,
-            coverLastModified = coverLastModified,
-            totalPages = merged.totalPages,
-            initialized = true,
-        ),
+        NovelUpdate(existing.id) {
+            title = newTitle
+            author = merged.author
+            artist = merged.artist
+            description = merged.description
+            genre = merged.genre
+            status = merged.status
+            thumbnailUrl = merged.thumbnailUrl
+            this.coverLastModified = coverLastModified
+            totalPages = merged.totalPages
+            initialized = true
+        },
     )
     if (stored && newTitle != null) novelDownloadManager?.renameNovel(existing, newTitle)
     return coverLastModified?.let { merged.copy(coverLastModified = it) } ?: merged

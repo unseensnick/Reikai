@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.Source
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.coEvery
 import io.mockk.every
@@ -111,8 +112,14 @@ class MigrateEngineConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
-    fun `a replace clears the source's date added, so a later re-add stamps fresh`(engine: MigrateEngine) = runTest {
-        engine.migrate(Setup(), replace = true).swap?.single { it.id == SOURCE }?.dateAdded shouldBe 0L
+    fun `a replace carries the source's library date onto the target`(engine: MigrateEngine) = runTest {
+        engine.migrate(Setup(), replace = true).targetSwap?.favoriteAt shouldBe SOURCE_ADDED
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a copy stamps the target as added now`(engine: MigrateEngine) = runTest {
+        engine.migrate(Setup(), replace = false).targetSwap?.favoriteAt shouldNotBe SOURCE_ADDED
     }
 
     @ParameterizedTest(name = "{0}")
@@ -354,6 +361,7 @@ class MigrateEngineConformanceTest {
     companion object {
         const val SOURCE = 1L
         const val TARGET = 2L
+        const val SOURCE_ADDED = 1234L
 
         @JvmStatic
         fun engines() = listOf(MangaEngine(), NovelEngine())
@@ -392,10 +400,21 @@ data class Setup(
     val swapFails: Boolean = false,
 )
 
+/** One entry's part of the favourite swap; [Swap.favorite] is null when the write leaves membership alone. */
+fun swapOf(
+    id: Long,
+    favoriteAtSet: Boolean,
+    favoriteAt: Long?,
+    notes: String?,
+    chapterFlags: Long?,
+    viewerFlags: Long?,
+) =
+    Swap(id, (favoriteAt != null).takeIf { favoriteAtSet }, favoriteAt, notes, chapterFlags, viewerFlags)
+
 data class Swap(
     val id: Long,
     val favorite: Boolean?,
-    val dateAdded: Long?,
+    val favoriteAt: Long?,
     val notes: String?,
     val chapterFlags: Long?,
     val viewerFlags: Long?,
@@ -539,7 +558,16 @@ class MangaEngine : MigrateEngine {
         val updateManga = mockk<UpdateManga>(relaxed = true) {
             coEvery { awaitAll(any<List<MangaUpdate>>()) } answers {
                 val updates = firstArg<List<MangaUpdate>>()
-                    .map { Swap(it.id, it.favorite, it.dateAdded, it.notes, it.chapterFlags, it.viewerFlags) }
+                    .map {
+                        swapOf(
+                            it.id,
+                            it.isSet(it::favoriteAt),
+                            it.favoriteAt,
+                            it.notes,
+                            it.chapterFlags,
+                            it.viewerFlags,
+                        )
+                    }
                 rec.swap(updates, succeeds = !setup.swapFails)
             }
             coEvery { awaitUpdateCoverLastModified(any()) } answers {
@@ -614,6 +642,7 @@ class MangaEngine : MigrateEngine {
         )
         val current = Manga.create().copy(
             id = MigrateEngineConformanceTest.SOURCE,
+            favoriteAt = MigrateEngineConformanceTest.SOURCE_ADDED,
             source = 1L,
             url = "/1",
             notes = setup.notes,
@@ -699,7 +728,16 @@ class NovelEngine : MigrateEngine {
         val novelRepository = mockk<NovelRepository>(relaxed = true) {
             coEvery { updateAll(any()) } answers {
                 val updates = firstArg<List<NovelUpdate>>()
-                    .map { Swap(it.id, it.favorite, it.dateAdded, it.notes, it.chapterFlags, it.viewerFlags) }
+                    .map {
+                        swapOf(
+                            it.id,
+                            it.isSet(it::favoriteAt),
+                            it.favoriteAt,
+                            it.notes,
+                            it.chapterFlags,
+                            it.viewerFlags,
+                        )
+                    }
                 rec.swap(updates, succeeds = !setup.swapFails)
             }
         }
@@ -764,6 +802,7 @@ class NovelEngine : MigrateEngine {
         )
         val current = Novel.create().copy(
             id = MigrateEngineConformanceTest.SOURCE,
+            favoriteAt = MigrateEngineConformanceTest.SOURCE_ADDED,
             notes = setup.notes,
             chapterFlags = setup.chapterFlags,
             viewerFlags = setup.viewerFlags,

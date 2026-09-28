@@ -24,7 +24,7 @@ class SetNovelChapterFlags(
         var flags = setNovelFlag(novel.chapterFlags, sort, NovelChapterFlags.SORTING_MASK)
         flags = setNovelFlag(flags, direction, NovelChapterFlags.SORT_DIR_MASK)
         flags = setNovelFlag(flags, NovelChapterFlags.SORT_LOCAL, NovelChapterFlags.SORT_LOCAL_MASK)
-        return novelRepository.update(NovelUpdate(id = novel.id, chapterFlags = flags))
+        return novelRepository.update(NovelUpdate(novel.id) { chapterFlags = flags })
     }
 
     suspend fun awaitSetFilters(novel: Novel, read: Long, bookmarked: Long, downloaded: Long): Boolean {
@@ -32,14 +32,14 @@ class SetNovelChapterFlags(
         flags = setNovelFlag(flags, bookmarked, NovelChapterFlags.BOOKMARKED_MASK)
         flags = setNovelFlag(flags, downloaded, NovelChapterFlags.DOWNLOADED_MASK)
         flags = setNovelFlag(flags, NovelChapterFlags.FILTER_LOCAL, NovelChapterFlags.FILTER_LOCAL_MASK)
-        return novelRepository.update(NovelUpdate(id = novel.id, chapterFlags = flags))
+        return novelRepository.update(NovelUpdate(novel.id) { chapterFlags = flags })
     }
 
     suspend fun awaitSetHideTitles(novel: Novel, hide: Boolean): Boolean {
         val display = if (hide) NovelChapterFlags.DISPLAY_NUMBER else NovelChapterFlags.DISPLAY_NAME
         var flags = setNovelFlag(novel.chapterFlags, display, NovelChapterFlags.DISPLAY_MASK)
         flags = setNovelFlag(flags, NovelChapterFlags.DISPLAY_LOCAL, NovelChapterFlags.DISPLAY_LOCAL_MASK)
-        return novelRepository.update(NovelUpdate(id = novel.id, chapterFlags = flags))
+        return novelRepository.update(NovelUpdate(novel.id) { chapterFlags = flags })
     }
 
     /** Drop this novel's local sort, filter and display overrides so the global defaults apply again. */
@@ -47,7 +47,7 @@ class SetNovelChapterFlags(
         var flags = setNovelFlag(novel.chapterFlags, 0L, NovelChapterFlags.SORT_LOCAL_MASK)
         flags = setNovelFlag(flags, 0L, NovelChapterFlags.FILTER_LOCAL_MASK)
         flags = setNovelFlag(flags, 0L, NovelChapterFlags.DISPLAY_LOCAL_MASK)
-        return novelRepository.update(NovelUpdate(id = novel.id, chapterFlags = flags))
+        return novelRepository.update(NovelUpdate(novel.id) { chapterFlags = flags })
     }
 
     /** Return every library novel to the global defaults, as manga's apply-to-library does for favorites. */
