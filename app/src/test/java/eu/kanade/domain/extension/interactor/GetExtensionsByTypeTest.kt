@@ -83,6 +83,7 @@ class GetExtensionsByTypeTest {
         lang = "en",
         contentWarning = ContentWarning.SAFE,
         isShared = true,
+        signatures = emptyList(),
         kind = kind,
         pkgFactory = null,
         sources = emptyList(),

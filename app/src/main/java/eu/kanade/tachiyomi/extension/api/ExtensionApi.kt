@@ -6,6 +6,7 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.extension.model.Extension
 import mihon.domain.extension.interactor.UpdateExtensionStores
 import mihon.domain.extension.repository.ExtensionStoreRepository
+import reikai.domain.extension.hasSigningKey
 import tachiyomi.core.common.util.lang.withIOContext
 
 @Inject
@@ -35,17 +36,9 @@ class ExtensionApi(
 
         val extensions = findExtensions()
 
-        val extensionsWithUpdate = mutableListOf<Extension.Loaded>()
-        for (installedExt in loadedExtensions) {
-            val pkgName = installedExt.pkgName
-            val availableExt = extensions.find { it.pkgName == pkgName } ?: continue
-            val hasUpdatedVer = availableExt.versionCode > installedExt.versionCode
-            val hasUpdatedLib = availableExt.libVersion > installedExt.libVersion
-            val hasUpdate = hasUpdatedVer || hasUpdatedLib
-            if (hasUpdate) {
-                extensionsWithUpdate.add(installedExt)
-            }
-        }
+        // RK: the stored keys decide a keyless store's listings (Extension.findListing)
+        val storeKeys = repository.getAll().filter { it.hasSigningKey }.mapTo(HashSet()) { it.signingKey }
+        val extensionsWithUpdate = loadedExtensions.filter { it.findUpdate(extensions, storeKeys) != null }
 
         if (extensionsWithUpdate.isNotEmpty()) {
             extensionUpdateNotifier.promptUpdates(extensionsWithUpdate.map { it.name })

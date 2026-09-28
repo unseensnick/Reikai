@@ -150,6 +150,7 @@ class NovelSourceManagerTest {
         lang = "en",
         contentWarning = ContentWarning.SAFE,
         isShared = true,
+        signatures = emptyList(),
         kind = Extension.Kind.TACHIYOMI_NOVEL,
         pkgFactory = null,
         sources = catalogues.toList(),

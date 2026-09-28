@@ -64,6 +64,7 @@ class SourcesProviderTest {
         lang = "en",
         contentWarning = ContentWarning.NSFW,
         isShared = true,
+        signatures = emptyList(),
         kind = kind,
         pkgFactory = null,
         sources = sources,

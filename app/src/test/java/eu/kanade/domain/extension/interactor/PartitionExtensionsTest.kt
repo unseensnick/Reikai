@@ -31,6 +31,7 @@ class PartitionExtensionsTest {
         lang = "en",
         contentWarning = ContentWarning.SAFE,
         isShared = true,
+        signatures = emptyList(),
         kind = Extension.Kind.MANGA,
         pkgFactory = null,
         sources = emptyList(),

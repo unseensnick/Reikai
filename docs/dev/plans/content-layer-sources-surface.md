@@ -144,6 +144,7 @@ What tsundoku's host (`b04f9a4d3`) and IReader's (`de8cf8b31`) do with these APK
 
 ## Decisions & tradeoffs
 
+- **A keyless store updates only what no keyed store signs** (owner, 2026-09-28). Mihon now takes an update or an install only from a store whose signing key matches the apk (mihon 093841105). A store with no key, such as a third-party IReader repo, cannot match, so its listing counts for an installed apk only when none of the added stores' keys signs it, read from the stored store list so a keyed store whose fetch failed still claims its apks. Its downloads skip the key check; the loader's trust prompt and Android's own signature match on an update still apply.
 - **Both ecosystems, full version, in 0.4.0** (owner, 2026-09-21). IReader was offered as a separate item because it needs a second runtime; the owner ruled it in.
 - **Ids are prefixed by format, not by app** (owner, 2026-09-21): `tachiyomi:` names what the extension is, a manifest format any repository can publish, where `tsundoku:` would mislabel a repository that is not tsundoku.
 - **No APK size ceiling** (owner, 2026-09-21): measured and recorded rather than capped. Trimming the kept code to what extensions call today was declined, because an extension update calling something new would crash.

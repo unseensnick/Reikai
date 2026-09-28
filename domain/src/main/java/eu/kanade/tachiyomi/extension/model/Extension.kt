@@ -4,6 +4,7 @@ import android.graphics.drawable.Drawable
 import eu.kanade.tachiyomi.source.Source
 import mihon.domain.extension.model.ContentWarning
 import mihon.domain.extension.model.ExtensionStore
+import reikai.domain.extension.hasSigningKey
 import tachiyomi.domain.source.model.StubSource
 
 sealed interface Extension {
@@ -25,6 +26,49 @@ sealed interface Extension {
      */
     sealed interface Installed : Extension {
         val isShared: Boolean
+
+        /** SHA-256 digests of the certificates its apk is signed with. */
+        val signatures: List<String>
+
+        /**
+         * The newest listing of this extension among the stores whose signing key it's signed with. An
+         * apk from any other store can't replace it, so only these are where its updates come from.
+         */
+        fun findListing(
+            available: Collection<Available>,
+            storeKeys: Set<String>, // RK: see isFromItsStore
+        ): Available? {
+            return available
+                .filter { it.pkgName == pkgName && isFromItsStore(it, storeKeys) } // RK
+                .maxWithOrNull(compareBy<Available> { it.versionCode }.thenBy { it.libVersion })
+        }
+
+        fun findUpdate(
+            available: Collection<Available>,
+            storeKeys: Set<String>, // RK
+        ): Available? {
+            val installedLibVersion = libVersion
+            return findListing(available, storeKeys)?.takeIf {
+                // RK
+                it.versionCode > versionCode || (installedLibVersion != null && it.libVersion > installedLibVersion)
+            }
+        }
+
+        // RK -->
+
+        /**
+         * Upstream's rule: the listing's store key signs this apk. A keyless store (a third-party IReader
+         * repo, a store carried over from a preference) cannot pass it, so its listing counts only for an
+         * apk no added store's key signs. [storeKeys] are the stored keys, not the fetched ones, so a keyed
+         * store whose fetch failed still claims its apks. See content-layer-sources-surface.md.
+         */
+        private fun isFromItsStore(listing: Available, storeKeys: Set<String>): Boolean =
+            if (listing.store.hasSigningKey) {
+                listing.store.signingKey in signatures
+            } else {
+                signatures.none { it in storeKeys }
+            }
+        // RK <--
     }
 
     // RK -->
@@ -109,6 +153,7 @@ sealed interface Extension {
         override val lang: String,
         override val contentWarning: ContentWarning,
         override val isShared: Boolean,
+        override val signatures: List<String>,
         // RK -->
         override val kind: Kind,
         // RK <--
@@ -131,6 +176,7 @@ sealed interface Extension {
         override val versionCode: Long,
         override val isShared: Boolean,
         override val contentWarning: ContentWarning,
+        override val signatures: List<String>,
         // RK -->
         override val kind: Kind,
         // RK <--

@@ -139,6 +139,7 @@ class IReaderNovelSourceTest {
         lang = "en",
         contentWarning = ContentWarning.SAFE,
         isShared = true,
+        signatures = emptyList(),
         kind = Extension.Kind.IREADER,
         pkgFactory = null,
         sources = emptyList(),
