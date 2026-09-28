@@ -1,0 +1,14 @@
+# Upstream's search excludes format NOVEL; a light novel is type MANGA with format NOVEL.
+query ReikaiAniListSearchNovel(
+  $search: String!,
+) {
+  Page (perPage: 50) {
+    media(
+      search: $search,
+      type: MANGA,
+      format: NOVEL,
+    ) {
+      ...MangaFragment
+    }
+  }
+}

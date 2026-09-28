@@ -212,7 +212,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
             logcat(LogPriority.ERROR) { "Unsupported Kitsu score type: $ratingSystem" }
             scorePreference.set(RATING_ADVANCED)
         }
-        saveDisplayUsername(currentUser.profile.name)
+        saveDisplayUsername(currentUser.name)
         saveCredentials(username, currentUser.id)
     }
 
@@ -226,7 +226,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
             logcat(LogPriority.ERROR) { "Unsupported Kitsu score type: $ratingSystem" }
             scorePreference.set(RATING_ADVANCED)
         }
-        saveDisplayUsername(currentUser.profile.name)
+        saveDisplayUsername(currentUser.name)
     }
 
     override fun logout() {

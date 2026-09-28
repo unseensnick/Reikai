@@ -1,0 +1,22 @@
+# Fill from tracker: adds genres to what upstream's fragment selects.
+query ReikaiShikimoriGetMangaMetadata(
+  $ids: String!,
+) {
+  mangas(ids: $ids) {
+    id
+    name
+    description
+    poster {
+      mainUrl
+    }
+    genres {
+      name
+    }
+    personRoles {
+      person {
+        name
+      }
+      rolesEn
+    }
+  }
+}

@@ -1,0 +1,28 @@
+# Fill from tracker: genres and the full staff name set, which upstream's fragment does not select.
+query ReikaiAniListGetMangaMetadata(
+  $manga_id: Int!,
+) {
+  Media(id: $manga_id) {
+    id
+    title {
+      userPreferred
+    }
+    coverImage {
+      large
+    }
+    description
+    genres
+    staff {
+      edges {
+        role
+        node {
+          name {
+            userPreferred
+            full
+            native
+          }
+        }
+      }
+    }
+  }
+}

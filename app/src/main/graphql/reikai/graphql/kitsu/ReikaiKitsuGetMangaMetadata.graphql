@@ -1,0 +1,31 @@
+# Fill from tracker: upstream's fragment caps staff at five and selects no categories.
+query ReikaiKitsuGetMangaMetadata(
+  $id: ID!,
+) {
+  findMangaById(id: $id) {
+    id
+    titles {
+      preferred
+    }
+    description(locales: "en")
+    posterImage {
+      original {
+        name
+        url
+      }
+    }
+    staff(first: 50) {
+      nodes {
+        role
+        person {
+          name
+        }
+      }
+    }
+    categories(first: 100) {
+      nodes {
+        title(locales: ["en"])
+      }
+    }
+  }
+}

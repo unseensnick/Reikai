@@ -2,37 +2,45 @@ package eu.kanade.tachiyomi.data.track.anilist
 
 import android.net.Uri
 import androidx.core.net.toUri
+import com.apollographql.apollo.ApolloClient
+import com.apollographql.apollo.api.Optional
+import com.apollographql.apollo.network.okHttpClient
 import eu.kanade.tachiyomi.data.database.models.Track
-import eu.kanade.tachiyomi.data.track.anilist.dto.ALAddMangaResult
-import eu.kanade.tachiyomi.data.track.anilist.dto.ALCurrentUserResult
-import eu.kanade.tachiyomi.data.track.anilist.dto.ALError
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALLibraryEntry
-import eu.kanade.tachiyomi.data.track.anilist.dto.ALMangaMetadata
-import eu.kanade.tachiyomi.data.track.anilist.dto.ALSearchResult
+import eu.kanade.tachiyomi.data.track.anilist.dto.ALUser
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserLibraryResult
-import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserListMangaQueryResult
-import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserViewerData
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.network.dataOrElse
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.network.jsonMime
 import eu.kanade.tachiyomi.network.parseAs
 import eu.kanade.tachiyomi.util.lang.htmlDecode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import mihon.graphql.anilist.AniListAddMangaMutation
+import mihon.graphql.anilist.AniListDeleteMangaMutation
+import mihon.graphql.anilist.AniListGetCurrentUserQuery
+import mihon.graphql.anilist.AniListGetLibMangaQuery
+import mihon.graphql.anilist.AniListGetMangaDetailsQuery
+import mihon.graphql.anilist.AniListSearchMangaQuery
+import mihon.graphql.anilist.AniListUpdateMangaMutation
+import mihon.graphql.anilist.ReikaiAniListGetMangaMetadataQuery
+import mihon.graphql.anilist.ReikaiAniListGetNovelDetailsQuery
+import mihon.graphql.anilist.ReikaiAniListSearchNovelQuery
+import mihon.graphql.anilist.type.FuzzyDateInput
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
 import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.injectLazy
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -44,6 +52,7 @@ class AnilistApi(
     interceptor: AnilistInterceptor,
 ) {
 
+    // RK: the library pull stays on raw JSON (ALLibrary.kt)
     private val json: Json by injectLazy()
 
     private val authClient = client.newBuilder()
@@ -51,450 +60,225 @@ class AnilistApi(
         .rateLimit(permits = 25, period = 1.minutes)
         .build()
 
-    // RK: surface AniList GraphQL errors (downtime, expired token) with a clear message instead of a
-    // generic failure (from Komikku ca26501aef).
-    private fun Response.parseALError() {
-        val bodyString = peekBody(1024 * 1024).string()
-        val errorObj = try {
-            json.decodeFromString<ALError>(bodyString)
-        } catch (_: Exception) {
-            null
-        }
-        errorObj?.errors?.firstOrNull()?.let {
-            val msg = it.message
-            if (msg.contains("Invalid token") || it.status == 401) {
-                throw Exception("AniList token expired, please login again")
-            }
-            throw Exception(msg)
-        }
+    private val graphQlClient by lazy {
+        ApolloClient.Builder()
+            .serverUrl("https://graphql.anilist.co")
+            .okHttpClient(authClient)
+            .dispatcher(Dispatchers.IO)
+            // required to log the error body in dataOrElse, which also properly closes it
+            .httpExposeErrorBody(true)
+            .build()
     }
 
     suspend fun addLibManga(track: Track): Track {
-        return withIOContext {
-            val query = $$"""
-            |mutation AddManga($mangaId: Int, $progress: Int, $status: MediaListStatus, $private: Boolean) {
-                |SaveMediaListEntry (mediaId: $mangaId, progress: $progress, status: $status, private: $private) {
-                |   id
-                |   status
-                |}
-            |}
-            |
-            """.trimMargin()
-            val payload = buildJsonObject {
-                put("query", query)
-                putJsonObject("variables") {
-                    put("mangaId", track.remote_id)
-                    put("progress", track.last_chapter_read.toInt())
-                    put("status", track.toApiStatus())
-                    put("private", track.private)
+        return graphQlClient
+            .mutation(
+                AniListAddMangaMutation(
+                    manga_id = track.remote_id.toInt(),
+                    progress = track.last_chapter_read.toInt(),
+                    status = track.toApiStatus(),
+                    private = track.private,
+                ),
+            )
+            .execute()
+            .throwOnAniListError() // RK
+            .dataOrElse(
+                errorLog = "AniList: Failed to add manga",
+                default = { null },
+            ) {
+                it.SaveMediaListEntry?.id?.let { libraryId ->
+                    track.library_id = libraryId.toLong()
+                    track
                 }
             }
-            with(json) {
-                authClient.newCall(
-                    POST(
-                        API_URL,
-                        body = payload.toString().toRequestBody(jsonMime),
-                    ),
-                )
-                    .awaitSuccess()
-                    .also { it.parseALError() } // RK
-                    .parseAs<ALAddMangaResult>()
-                    .let {
-                        track.library_id = it.data.entry.id
-                        track
-                    }
-            }
-        }
+            ?: throw Exception("Failed to add manga")
     }
 
     suspend fun updateLibManga(track: Track): Track {
-        return withIOContext {
-            val query = $$"""
-            |mutation UpdateManga(
-                |$listId: Int, $progress: Int, $status: MediaListStatus, $private: Boolean,
-                |$score: Int, $startedAt: FuzzyDateInput, $completedAt: FuzzyDateInput
-            |) {
-                |SaveMediaListEntry(
-                    |id: $listId, progress: $progress, status: $status, private: $private,
-                    |scoreRaw: $score, startedAt: $startedAt, completedAt: $completedAt
-                |) {
-                    |id
-                    |status
-                    |progress
-                |}
-            |}
-            |
-            """.trimMargin()
-            val payload = buildJsonObject {
-                put("query", query)
-                putJsonObject("variables") {
-                    put("listId", track.library_id)
-                    put("progress", track.last_chapter_read.toInt())
-                    put("status", track.toApiStatus())
-                    put("score", track.score.toInt())
-                    put("startedAt", createDate(track.started_reading_date))
-                    put("completedAt", createDate(track.finished_reading_date))
-                    put("private", track.private)
+        val libraryId = track.library_id
+        requireNotNull(libraryId) { "AniList cannot update track with null library_id" }
+
+        return graphQlClient
+            .mutation(
+                AniListUpdateMangaMutation(
+                    library_id = libraryId.toInt(),
+                    progress = track.last_chapter_read.toInt(),
+                    status = track.toApiStatus(),
+                    private = track.private,
+                    score = track.score.toInt(),
+                    startedAt = createFuzzyDate(track.started_reading_date),
+                    completedAt = createFuzzyDate(track.finished_reading_date),
+                ),
+            )
+            .execute()
+            .throwOnAniListError() // RK
+            .dataOrElse(
+                errorLog = "AniList: Failed to update manga",
+                default = { null },
+            ) {
+                it.SaveMediaListEntry?.id?.let { remoteLibraryId ->
+                    track.library_id = remoteLibraryId.toLong()
+                    track
                 }
             }
-            authClient.newCall(POST(API_URL, body = payload.toString().toRequestBody(jsonMime)))
-                .awaitSuccess()
-                .use { it.parseALError() } // RK
-            track
-        }
+            ?: throw Exception("Failed to update manga")
     }
 
     suspend fun deleteLibManga(track: DomainTrack) {
-        withIOContext {
-            val query = $$"""
-            |mutation DeleteManga($listId: Int) {
-                |DeleteMediaListEntry(id: $listId) {
-                    |deleted
-                |}
-            |}
-            |
-            """.trimMargin()
-            val payload = buildJsonObject {
-                put("query", query)
-                putJsonObject("variables") {
-                    put("listId", track.libraryId)
-                }
-            }
-            authClient.newCall(POST(API_URL, body = payload.toString().toRequestBody(jsonMime)))
-                .awaitSuccess()
-                .use { it.parseALError() } // RK
-        }
-    }
+        val libraryId = track.libraryId
+        requireNotNull(libraryId) { "AniList cannot delete track with null library_id" }
 
-    // RK: novel picks the light-novel format filter used in the query
-    suspend fun search(search: String, novel: Boolean = false): List<TrackSearch> {
-        return withIOContext {
-            // RK --> light novels are type: MANGA with format: NOVEL, which manga search excludes
-            val formatFilter = if (novel) "format: NOVEL" else "format_not_in: [NOVEL]"
-            val query = $$"""
-            |query Search($query: String) {
-                |Page (perPage: 50) {
-                    |media(search: $query, type: MANGA, $${formatFilter}) {
-                        |id
-                        |staff {
-                            |edges {
-                                |role
-                                |id
-                                |node {
-                                    |name {
-                                        |full
-                                        |userPreferred
-                                        |native
-                                    |}
-                                |}
-                            |}
-                        |}
-                        |title {
-                            |userPreferred
-                        |}
-                        |coverImage {
-                            |large
-                        |}
-                        |format
-                        |countryOfOrigin
-                        |status
-                        |chapters
-                        |description
-                        |startDate {
-                            |year
-                            |month
-                            |day
-                        |}
-                        |averageScore
-                    |}
-                |}
-            |}
-            |
-            """.trimMargin()
-            // RK <--
-            val payload = buildJsonObject {
-                put("query", query)
-                putJsonObject("variables") {
-                    put("query", search)
-                }
-            }
-            with(json) {
-                authClient.newCall(
-                    POST(
-                        API_URL,
-                        body = payload.toString().toRequestBody(jsonMime),
-                    ),
-                )
-                    .awaitSuccess()
-                    .also { it.parseALError() } // RK
-                    .parseAs<ALSearchResult>()
-                    .data.page.media
-                    .map { it.toALManga().toTrack(trackerId) }
-            }
-        }
-    }
-
-    // RK: novel picks the light-novel format filter, as search does
-    suspend fun getMangaDetails(id: Int, novel: Boolean = false): TrackSearch? {
-        return withIOContext {
-            // RK --> same split the title search makes: a light novel is type MANGA, format NOVEL
-            val formatFilter = if (novel) "format: NOVEL" else "format_not_in: [NOVEL]"
-            // RK <--
-            val query = $$"""
-            |query Search($manga_id: Int) {
-                |Page (perPage: 1) {
-                    |media(id: $manga_id, type: MANGA, $${formatFilter}) {
-                        |id
-                        |staff {
-                            |edges {
-                                |role
-                                |id
-                                |node {
-                                    |name {
-                                        |full
-                                        |userPreferred
-                                        |native
-                                    |}
-                                |}
-                            |}
-                        |}
-                        |title {
-                            |userPreferred
-                        |}
-                        |coverImage {
-                            |large
-                        |}
-                        |format
-                        |countryOfOrigin
-                        |status
-                        |chapters
-                        |description
-                        |startDate {
-                            |year
-                            |month
-                            |day
-                        |}
-                        |averageScore
-                    |}
-                |}
-            |}
-            |
-            """.trimMargin()
-
-            val payload = buildJsonObject {
-                put("query", query)
-                putJsonObject("variables") {
-                    put("manga_id", id)
-                }
-            }
-
-            with(json) {
-                authClient.newCall(
-                    POST(
-                        API_URL,
-                        body = payload.toString().toRequestBody(jsonMime),
-                    ),
-                )
-                    .awaitSuccess()
-                    .also { it.parseALError() } // RK
-                    .parseAs<ALSearchResult>()
-                    .data.page.media
-                    .firstOrNull()
-                    ?.toALManga()
-                    ?.toTrack(trackerId)
-            }
-        }
-    }
-
-    // RK --> metadata for the "Fill from tracker" editor action (Fill from tracker). Ported from Komikku,
-    // plus genres.
-    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
-        return withIOContext {
-            val query = $$"""
-            |query ($mangaId: Int!) {
-                |Media (id: $mangaId) {
-                    |id
-                    |title {
-                        |userPreferred
-                    |}
-                    |coverImage {
-                        |large
-                    |}
-                    |description
-                    |genres
-                    |staff {
-                        |edges {
-                            |role
-                            |id
-                            |node {
-                                |name {
-                                    |userPreferred
-                                    |native
-                                    |full
-                                |}
-                            |}
-                        |}
-                    |}
-                |}
-            |}
-            |
-            """.trimMargin()
-            val payload = buildJsonObject {
-                put("query", query)
-                putJsonObject("variables") {
-                    put("mangaId", track.remoteId)
-                }
-            }
-            with(json) {
-                authClient.newCall(POST(API_URL, body = payload.toString().toRequestBody(jsonMime)))
-                    .awaitSuccess()
-                    .also { it.parseALError() }
-                    .parseAs<ALMangaMetadata>()
-                    .let { metadata ->
-                        val media = metadata.data.media
-                        TrackMangaMetadata(
-                            remoteId = media.id,
-                            title = media.title.userPreferred,
-                            thumbnailUrl = media.coverImage.large,
-                            description = media.description?.htmlDecode()?.ifEmpty { null },
-                            authors = media.staff.edges
-                                .filter { "Story" in it.role }
-                                .mapNotNull { it.node.name() }
-                                .joinToString(", ")
-                                .ifEmpty { null },
-                            artists = media.staff.edges
-                                .filter { "Art" in it.role }
-                                .mapNotNull { it.node.name() }
-                                .joinToString(", ")
-                                .ifEmpty { null },
-                            genres = media.genres?.takeIf { it.isNotEmpty() },
-                        )
+        graphQlClient
+            .mutation(
+                AniListDeleteMangaMutation(library_id = libraryId.toInt()),
+            )
+            .execute()
+            .throwOnAniListError() // RK
+            .dataOrElse(
+                errorLog = "AniList: Failed to delete manga",
+                default = { null },
+            ) {
+                it.DeleteMediaListEntry?.deleted?.let { deleted ->
+                    if (deleted) {
+                        logcat { "AniList: Deleted manga ${track.libraryId} successfully" }
                     }
-            }
-        }
-    }
-    // RK <--
-
-    suspend fun findLibManga(track: Track, userid: Int): Track? {
-        return withIOContext {
-            val query = $$"""
-            |query ($id: Int!, $manga_id: Int!) {
-                |Page {
-                    |mediaList(userId: $id, type: MANGA, mediaId: $manga_id) {
-                        |id
-                        |status
-                        |scoreRaw: score(format: POINT_100)
-                        |progress
-                        |private
-                        |startedAt {
-                            |year
-                            |month
-                            |day
-                        |}
-                        |completedAt {
-                            |year
-                            |month
-                            |day
-                        |}
-                        |media {
-                            |id
-                            |title {
-                                |userPreferred
-                            |}
-                            |coverImage {
-                                |large
-                            |}
-                            |format
-                            |status
-                            |chapters
-                            |description
-                            |startDate {
-                                |year
-                                |month
-                                |day
-                            |}
-                            |staff {
-                                |edges {
-                                    |role
-                                    |id
-                                    |node {
-                                        |name {
-                                            |full
-                                            |userPreferred
-                                            |native
-                                        |}
-                                    |}
-                                |}
-                            |}
-                        |}
-                    |}
-                |}
-            |}
-            |
-            """.trimMargin()
-            val payload = buildJsonObject {
-                put("query", query)
-                putJsonObject("variables") {
-                    put("id", userid)
-                    put("manga_id", track.remote_id)
                 }
             }
-            with(json) {
-                authClient.newCall(
-                    POST(
-                        API_URL,
-                        body = payload.toString().toRequestBody(jsonMime),
-                    ),
-                )
-                    .awaitSuccess()
-                    .also { it.parseALError() } // RK
-                    .parseAs<ALUserListMangaQueryResult>()
-                    .data.page.mediaList
-                    .map { it.toALUserManga() }
-                    .firstOrNull()
+            ?: throw Exception("Failed to delete manga")
+    }
+
+    // RK: novel picks Reikai's novel operation, since upstream's query hardcodes the novel exclusion
+    suspend fun search(search: String, novel: Boolean = false): List<TrackSearch> {
+        // RK -->
+        if (novel) {
+            return graphQlClient
+                .query(ReikaiAniListSearchNovelQuery(search = search))
+                .execute()
+                .throwOnAniListError()
+                .dataOrElse(
+                    errorLog = "AniList: Novel search failed",
+                    default = { emptyList() },
+                ) {
+                    it.Page?.media
+                        ?.mapNotNull { alNovel -> alNovel?.toTrackSearch(trackerId) }
+                        ?: emptyList()
+                }
+        }
+        // RK <--
+        return graphQlClient
+            .query(
+                AniListSearchMangaQuery(search = search),
+            )
+            .execute()
+            .throwOnAniListError() // RK
+            .dataOrElse(
+                errorLog = "AniList: Search failed",
+                default = { emptyList() },
+            ) {
+                it.Page?.media
+                    ?.mapNotNull { alManga -> alManga?.toTrackSearch(trackerId) }
+                    ?: emptyList()
+            }
+    }
+
+    suspend fun findLibManga(track: Track, userId: Int): Track? {
+        return graphQlClient
+            .query(
+                AniListGetLibMangaQuery(
+                    user_id = userId,
+                    manga_id = track.remote_id.toInt(),
+                ),
+            )
+            .execute()
+            .throwOnAniListError() // RK
+            .dataOrElse(
+                errorLog = "AniList: Failed to find manga in library",
+                default = { null },
+            ) {
+                it.Page?.mediaList
+                    ?.firstOrNull()
                     ?.toTrack(trackerId)
             }
-        }
     }
 
-    suspend fun getLibManga(track: Track, userId: Int): Track {
-        return findLibManga(track, userId) ?: throw Exception("Could not find manga")
-    }
-
-    suspend fun getCurrentUser(): ALUserViewerData {
-        return withIOContext {
-            val query = """
-            |query User {
-                |Viewer {
-                    |id
-                    |name
-                    |mediaListOptions {
-                        |scoreFormat
-                    |}
-                |}
-            |}
-            |
-            """.trimMargin()
-            val payload = buildJsonObject {
-                put("query", query)
+    suspend fun getCurrentUser(): ALUser {
+        return graphQlClient
+            .query(AniListGetCurrentUserQuery())
+            .execute()
+            .throwOnAniListError() // RK
+            .dataOrElse(
+                errorLog = "AniList: Failed to get current user",
+                default = { null },
+            ) {
+                it.Viewer?.toALUser()
             }
-            with(json) {
-                authClient.newCall(
-                    POST(
-                        API_URL,
-                        body = payload.toString().toRequestBody(jsonMime),
-                    ),
-                )
-                    .awaitSuccess()
-                    .also { it.parseALError() } // RK
-                    .parseAs<ALCurrentUserResult>()
-                    .data.viewer
-            }
-        }
+            ?: throw Exception("Failed to get AniList user data")
     }
 
-    // RK --> full library pull for the recommendation taste profile (one MediaListCollection call,
-    // genres + tag names inline; scoreRaw as POINT_100 regardless of the user's display format).
+    // RK: novel picks Reikai's novel operation, as search does
+    suspend fun getMangaDetails(id: Int, novel: Boolean = false): TrackSearch? {
+        // RK -->
+        if (novel) {
+            return graphQlClient
+                .query(ReikaiAniListGetNovelDetailsQuery(manga_id = id))
+                .execute()
+                .throwOnAniListError()
+                .dataOrElse(
+                    errorLog = "AniList: Failed to get novel details",
+                    default = { null },
+                ) {
+                    it.Page?.media
+                        ?.firstOrNull()
+                        ?.toTrackSearch(trackerId)
+                }
+        }
+        // RK <--
+        return graphQlClient
+            .query(
+                AniListGetMangaDetailsQuery(manga_id = id),
+            )
+            .execute()
+            .throwOnAniListError() // RK
+            .dataOrElse(
+                errorLog = "AniList: Failed to get manga details",
+                default = { null },
+            ) {
+                it.Page?.media
+                    ?.firstOrNull()
+                    ?.toTrackSearch(trackerId)
+            }
+    }
+
+    // RK --> metadata for the "Fill from tracker" editor action. Ported from Komikku, plus genres.
+    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        val media = graphQlClient
+            .query(ReikaiAniListGetMangaMetadataQuery(manga_id = track.remoteId.toInt()))
+            .execute()
+            .throwOnAniListError()
+            .dataOrElse(
+                errorLog = "AniList: Failed to get manga metadata",
+                default = { null },
+            ) { it.Media }
+            ?: throw Exception("Could not get metadata from AniList")
+        fun credits(role: String) = media.staff?.edges.orEmpty()
+            .filter { role in it?.role.orEmpty() }
+            .mapNotNull { it?.node?.name?.let { name -> name.userPreferred ?: name.full ?: name.native } }
+            .joinToString(", ")
+            .ifEmpty { null }
+        return TrackMangaMetadata(
+            remoteId = media.id.toLong(),
+            title = media.title?.userPreferred,
+            thumbnailUrl = media.coverImage?.large,
+            description = media.description?.htmlDecode()?.ifEmpty { null },
+            authors = credits("Story"),
+            artists = credits("Art"),
+            genres = media.genres?.filterNotNull()?.takeIf { it.isNotEmpty() },
+        )
+    }
+
+    // Full library pull for the recommendation taste profile (one MediaListCollection call, genres
+    // and tag names inline; scoreRaw as POINT_100 regardless of the user's display format). Stays on
+    // raw JSON: its DTOs are pinned by the taste-profile tests.
     suspend fun getUserLibrary(userId: Int): List<ALLibraryEntry> {
         return withIOContext {
             val query = $$"""
@@ -526,7 +310,6 @@ class AnilistApi(
             with(json) {
                 authClient.newCall(POST(API_URL, body = payload.toString().toRequestBody(jsonMime)))
                     .awaitSuccess()
-                    .also { it.parseALError() } // RK
                     .parseAs<ALUserLibraryResult>()
                     .data.mediaListCollection.lists
                     .flatMap { it.entries }
@@ -535,34 +318,23 @@ class AnilistApi(
     }
     // RK <--
 
-    private fun createDate(dateValue: Long): JsonObject {
-        if (dateValue == 0L) {
-            return buildJsonObject {
-                put("year", JsonNull)
-                put("month", JsonNull)
-                put("day", JsonNull)
-            }
-        }
+    private fun createFuzzyDate(dateValue: Long): FuzzyDateInput {
+        // all absent/null
+        if (dateValue == 0L) return FuzzyDateInput()
 
         val dateTime = Instant.fromEpochMilliseconds(dateValue).toLocalDateTime(TimeZone.currentSystemDefault())
-        return buildJsonObject {
-            put("year", dateTime.year)
-            put("month", dateTime.month.number)
-            put("day", dateTime.day)
-        }
+        return FuzzyDateInput(
+            year = Optional.present(dateTime.year),
+            month = Optional.present(dateTime.month.number),
+            day = Optional.present(dateTime.day),
+        )
     }
 
     companion object {
         private const val CLIENT_ID = "16329"
-        private const val API_URL = "https://graphql.anilist.co/"
-        private const val BASE_URL = "https://anilist.co/api/v2/"
-        private const val BASE_MANGA_URL = "https://anilist.co/manga/"
+        private const val API_URL = "https://graphql.anilist.co/" // RK: the raw library pull
 
-        fun mangaUrl(mediaId: Long): String {
-            return BASE_MANGA_URL + mediaId
-        }
-
-        fun authUrl(): Uri = "${BASE_URL}oauth/authorize".toUri().buildUpon()
+        fun authUrl(): Uri = "https://anilist.co/api/v2/oauth/authorize".toUri().buildUpon()
             .appendQueryParameter("client_id", CLIENT_ID)
             .appendQueryParameter("response_type", "token")
             .build()

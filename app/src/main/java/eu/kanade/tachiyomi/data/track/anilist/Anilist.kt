@@ -225,7 +225,7 @@ class Anilist(id: Long) : BaseTracker(id, "AniList"), DeletableTracker {
     // RK <--
 
     override suspend fun refresh(track: Track): Track {
-        val remoteTrack = api.getLibManga(track, getUsername().toInt())
+        val remoteTrack = api.findLibManga(track, getUsername().toInt()) ?: throw Exception("Could not find manga")
         track.copyPersonalFrom(remoteTrack)
         track.title = remoteTrack.title
         track.total_chapters = remoteTrack.total_chapters
@@ -240,7 +240,7 @@ class Anilist(id: Long) : BaseTracker(id, "AniList"), DeletableTracker {
 
     override suspend fun updateUserConfig() {
         val currentUser = api.getCurrentUser()
-        scorePreference.set(currentUser.mediaListOptions.scoreFormat)
+        scorePreference.set(currentUser.scoreFormat)
         saveDisplayUsername(currentUser.name)
     }
 
@@ -251,7 +251,7 @@ class Anilist(id: Long) : BaseTracker(id, "AniList"), DeletableTracker {
             val oauth = ALOAuth(token)
             interceptor.setAuth(oauth)
             val currentUser = api.getCurrentUser()
-            scorePreference.set(currentUser.mediaListOptions.scoreFormat)
+            scorePreference.set(currentUser.scoreFormat)
             saveDisplayUsername(currentUser.name)
             saveCredentials(currentUser.id.toString(), oauth.accessToken)
         } catch (_: Throwable) {

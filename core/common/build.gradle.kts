@@ -47,6 +47,8 @@ dependencies {
     api(libs.okhttp.dnsOverHttps)
     api(libs.okio)
 
+    api(libs.apollo)
+
     implementation(libs.image.decoder)
 
     implementation(libs.unifile)

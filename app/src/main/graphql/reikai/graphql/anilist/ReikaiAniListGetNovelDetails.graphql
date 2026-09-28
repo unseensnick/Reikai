@@ -1,0 +1,13 @@
+query ReikaiAniListGetNovelDetails(
+  $manga_id: Int!,
+) {
+  Page (perPage: 1) {
+    media(
+      id: $manga_id,
+      type: MANGA,
+      format: NOVEL,
+    ) {
+      ...MangaFragment
+    }
+  }
+}
