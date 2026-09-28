@@ -126,7 +126,7 @@ abstract class Installer(private val service: Service) {
     @CallSuper
     open fun onDestroy() {
         cancelListeners -= cancelListener
-        stallHandler.removeCallbacks(giveUp)
+        stallHandler.removeCallbacks(giveUp) // RK: the stall timer goes with the service
         // RK: the one being installed counts too. Without this a give-up leaves its row reading
         //     "installing" with nothing left to finish it, until the app is restarted.
         waitingInstall.exchange(null)?.let {

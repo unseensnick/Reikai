@@ -81,10 +81,10 @@ class ExtensionInstaller(
                 }
 
                 // The store's index names the apk, but nothing ties what's served there to the store's key
+                // RK: a store with no key has nothing to match; the loader's trust check and, for an update,
+                // Android's own signature match on the installed package still apply.
                 val packageInfo = ExtensionLoader.getArchivePackageInfo(context, tmpFile)
                     ?.takeIf {
-                        // RK: a store with no key has nothing to match; the loader's trust check and, for an
-                        // update, Android's own signature match on the installed package still apply.
                         !extension.store.hasSigningKey ||
                             extension.store.signingKey in ExtensionLoader.getSignatures(it).orEmpty()
                     }

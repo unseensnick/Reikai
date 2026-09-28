@@ -95,7 +95,7 @@ class ExtensionManager(
 
     // Stores sharing a signing key serve the same apks, so only the newest of their listings is shown. Stores
     // with different keys offer different apks, each installable, so each keeps its own.
-    val availableExtensionsFlow = availableExtensionListFlow.mapListings(scope)
+    val availableExtensionsFlow = availableExtensionListFlow.mapListings(scope) // RK: through the EH gate
 
     private val notLoadedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.NotLoaded>())
     val notLoadedExtensionsFlow = notLoadedExtensionMapFlow.mapExtensionsWhenInitialized()
@@ -592,7 +592,7 @@ class ExtensionManager(
      * than whichever of them was added first.
      */
     private fun Extension.Installed.pickStore(
-        available: List<Extension.Available>, // RK: the listings of this apk's own kind
+        available: List<Extension.Available> = availableExtensionListFlow.value, // RK: this apk kind's listings
     ): ExtensionStore? {
         val signingStores = stores.filter { it.signingKey in signatures }
         val listedBy = available
@@ -610,14 +610,10 @@ class ExtensionManager(
     private fun assignStores(stores: List<ExtensionStore>) {
         this.stores = stores
         loadedExtensionMapFlow.update { extensions ->
-            extensions.mapValues { (_, extension) ->
-                extension.copy(store = extension.pickStore(availableExtensionListFlow.value))
-            }
+            extensions.mapValues { (_, extension) -> extension.copy(store = extension.pickStore()) }
         }
         notLoadedExtensionMapFlow.update { extensions ->
-            extensions.mapValues { (_, extension) ->
-                extension.copy(store = extension.pickStore(availableExtensionListFlow.value))
-            }
+            extensions.mapValues { (_, extension) -> extension.copy(store = extension.pickStore()) }
         }
         // RK -->
         loadedNovelExtensionMapFlow.update { extensions ->
