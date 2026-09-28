@@ -8,7 +8,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 
-/** MangaTrackWriter forwards each write straight to the tracker (BaseTracker persists to manga_sync). */
+/** MangaTrackWriter forwards each write straight to the tracker (BaseTracker persists to manga_track). */
 class MangaTrackWriterTest {
 
     private val track = mockk<DbTrack>()

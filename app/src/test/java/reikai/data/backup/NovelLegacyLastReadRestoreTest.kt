@@ -16,17 +16,8 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.mapLibraryNovel
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
-import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
+import tachiyomi.data.DatabaseBindings
 
 /**
  * Backups made before the novel Last read sort came from history carry it as a stamp on the novel and
@@ -42,22 +33,7 @@ class NovelLegacyLastReadRestoreTest {
     fun setUp() = runTest {
         driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         Database.Schema.create(driver).await()
-        database = Database(
-            driver = driver,
-            historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-            mangasAdapter = Mangas.Adapter(
-                genreAdapter = StringListColumnAdapter,
-                update_strategyAdapter = UpdateStrategyColumnAdapter,
-                memoAdapter = MemoColumnAdapter,
-            ),
-            chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-            novelsAdapter = Novels.Adapter(
-                genreAdapter = StringListColumnAdapter,
-                update_strategyAdapter = UpdateStrategyColumnAdapter,
-            ),
-            custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-            custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-        )
+        database = DatabaseBindings.providesDatabase(driver)
     }
 
     @AfterEach

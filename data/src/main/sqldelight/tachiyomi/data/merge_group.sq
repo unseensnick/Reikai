@@ -24,7 +24,7 @@ CREATE TABLE merge_group_manga (
     source_priority INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY(group_id) REFERENCES merge_group (_id)
     ON DELETE CASCADE,
-    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
     ON DELETE CASCADE,
     UNIQUE(manga_id)
 );
@@ -85,10 +85,10 @@ ORDER BY source_priority, _id;
 mangaFavoriteMembers:
 SELECT MGM.manga_id
 FROM merge_group_manga MGM
-JOIN mangas M
-ON M._id = MGM.manga_id
+JOIN manga M
+ON M.id = MGM.manga_id
 WHERE MGM.group_id = :groupId
-AND M.favorite_at IS NOT NULL
+AND M.user_favorite_at IS NOT NULL
 ORDER BY MGM.source_priority, MGM._id;
 
 deleteMangaMember:
@@ -152,9 +152,9 @@ FROM merge_group_novel;
 libraryMangaMemberships:
 SELECT MGM.manga_id, MGM.group_id
 FROM merge_group_manga MGM
-CROSS JOIN mangas M
-ON M._id = MGM.manga_id
-WHERE M.favorite_at IS NOT NULL;
+CROSS JOIN manga M
+ON M.id = MGM.manga_id
+WHERE M.user_favorite_at IS NOT NULL;
 
 libraryNovelMemberships:
 SELECT MGN.novel_id, MGN.group_id
@@ -186,10 +186,10 @@ ORDER BY mgn.group_id, mgn.source_priority, mgn._id;
 -- the global preferred list, and the group's override flag, with rows in the group's own member order.
 -- The stored stitch is checked against these, so a ranking change reads as stale like a chapter change.
 rankedMangaMembers:
-SELECT MGM.group_id, MGM.manga_id, M.source, MG.override_source_ranking
+SELECT MGM.group_id, MGM.manga_id, M.source_id AS source, MG.override_source_ranking
 FROM merge_group_manga MGM
 JOIN merge_group MG ON MG._id = MGM.group_id
-JOIN mangas M ON M._id = MGM.manga_id AND M.favorite_at IS NOT NULL
+JOIN manga M ON M.id = MGM.manga_id AND M.user_favorite_at IS NOT NULL
 ORDER BY MGM.group_id, MGM.source_priority, MGM._id;
 
 rankedNovelMembers:

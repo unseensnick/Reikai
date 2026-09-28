@@ -13,17 +13,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
-import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
+import tachiyomi.data.DatabaseBindings
 
 /**
  * Proves the persisted merge-group storage round-trips and that the FK cascade removes membership when
@@ -44,22 +35,7 @@ class MergeGroupRepositoryTest {
             Database.Schema.create(driver).await()
             // Cascade only fires with foreign keys on; the app enables the same pragma in AppBindings.
             driver.execute(null, "PRAGMA foreign_keys=ON", 0).await()
-            database = Database(
-                driver = driver,
-                historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                    memoAdapter = MemoColumnAdapter,
-                ),
-                chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-                novelsAdapter = Novels.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                ),
-                custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-                custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-            )
+            database = DatabaseBindings.providesDatabase(driver)
             repository = MergeGroupRepositoryImpl(database)
         }
     }
@@ -154,7 +130,7 @@ class MergeGroupRepositoryTest {
         insertManga(2)
         val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
 
-        driver.execute(null, "DELETE FROM mangas WHERE _id = 1", 0).await()
+        driver.execute(null, "DELETE FROM manga WHERE id = 1", 0).await()
 
         repository.getGroupId(ContentType.MANGA, 1).shouldBeNull()
         repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(2L)
@@ -628,9 +604,12 @@ class MergeGroupRepositoryTest {
     private suspend fun insertManga(id: Long, favorite: Boolean = true) {
         driver.execute(
             null,
-            "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
-                "cover_last_modified, favorite_at) VALUES ($id, 1, 'm-url-$id', 'title', 0, 0, 0, 0, 0, " +
-                "${if (favorite) 0 else "NULL"})",
+            "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, " +
+                "state_initialized, user_reader_flags, user_chapter_flags, " +
+                "state_cover_last_modified, user_favorite_at, remote_update_strategy, " +
+                "state_chapter_fetch_interval, user_notes, remote_memo) VALUES ($id, 1, " +
+                "'m-url-$id', 'title', 0, 0, 0, 0, 0, ${if (favorite) 0 else "NULL"}, 0, 0, '', " +
+                "'{}')",
             0,
         ).await()
     }
@@ -639,12 +618,13 @@ class MergeGroupRepositoryTest {
         if (type == ContentType.MANGA) insertManga(id) else insertNovel(id)
 
     private suspend fun setFavorite(type: ContentType, id: Long, favorite: Boolean) {
-        val table = if (type == ContentType.MANGA) "mangas" else "novels"
-        driver.execute(
-            null,
-            "UPDATE $table SET favorite_at = ${if (favorite) 0 else "NULL"} WHERE _id = $id",
-            0,
-        ).await()
+        val favoriteAt = if (favorite) "0" else "NULL"
+        val update = if (type == ContentType.MANGA) {
+            "UPDATE manga SET user_favorite_at = $favoriteAt WHERE id = $id"
+        } else {
+            "UPDATE novels SET favorite_at = $favoriteAt WHERE _id = $id"
+        }
+        driver.execute(null, update, 0).await()
     }
 
     private suspend fun insertNovel(id: Long, favorite: Boolean = true) {

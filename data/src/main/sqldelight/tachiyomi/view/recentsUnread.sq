@@ -18,11 +18,11 @@
 getMangaIdsWithUnread:
 WITH
 unitCopies AS (
-    SELECT U.group_id AS groupId, sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies
+    SELECT U.group_id AS groupId, sum(CASE WHEN C.user_read = 1 THEN 1 ELSE 0 END) AS readCopies
     FROM merged_chapter_unit U
-    JOIN chapters C ON C._id = U.chapter_id
-    JOIN mangas M ON M._id = C.manga_id AND M.favorite_at IS NOT NULL
-    LEFT JOIN excluded_scanlators ES ON C.manga_id = ES.manga_id AND C.scanlator = ES.scanlator
+    JOIN chapter C ON C.id = U.chapter_id
+    JOIN manga M ON M.id = C.manga_id AND M.user_favorite_at IS NOT NULL
+    LEFT JOIN excluded_scanlator ES ON C.manga_id = ES.manga_id AND C.remote_scanlator = ES.scanlator
     WHERE U.unit IS NOT NULL
     AND ES.scanlator IS NULL
     GROUP BY U.group_id, U.unit
@@ -30,17 +30,17 @@ unitCopies AS (
 groupJudged AS (
     SELECT MGM.manga_id AS mangaId, max(CASE WHEN UC.readCopies = 0 THEN 1 ELSE 0 END) AS hasUnread
     FROM merge_group_manga MGM
-    JOIN mangas M ON M._id = MGM.manga_id
+    JOIN manga M ON M.id = MGM.manga_id
     JOIN unitCopies UC ON UC.groupId = MGM.group_id
-    WHERE :mergingEnabled AND M.favorite_at IS NOT NULL
+    WHERE :mergingEnabled AND M.user_favorite_at IS NOT NULL
     GROUP BY MGM.manga_id
 )
 SELECT mangaId FROM groupJudged WHERE hasUnread = 1
 UNION
 SELECT C.manga_id
-FROM chapters C
-LEFT JOIN excluded_scanlators ES ON C.manga_id = ES.manga_id AND C.scanlator = ES.scanlator
-WHERE C.read = 0
+FROM chapter C
+LEFT JOIN excluded_scanlator ES ON C.manga_id = ES.manga_id AND C.remote_scanlator = ES.scanlator
+WHERE C.user_read = 0
 AND ES.scanlator IS NULL
 AND C.manga_id NOT IN (SELECT mangaId FROM groupJudged);
 
@@ -75,9 +75,9 @@ AND C.novel_id NOT IN (SELECT novelId FROM groupJudged);
 -- the chapter rows a target is read from and the stitch a merged one is resolved over. The caller
 -- never runs them, which is why the select is only something valid to name the tables with.
 mangaChapterWrites:
-SELECT chapters._id
-FROM chapters
-JOIN merged_chapter_unit ON merged_chapter_unit.chapter_id = chapters._id
+SELECT chapter.id
+FROM chapter
+JOIN merged_chapter_unit ON merged_chapter_unit.chapter_id = chapter.id
 LIMIT 1;
 
 novelChapterWrites:

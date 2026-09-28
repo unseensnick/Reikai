@@ -7,17 +7,8 @@ import io.mockk.mockk
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
-import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.backup.RestoreRepositoryImpl
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
@@ -82,34 +73,37 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
     suspend fun insertBare(id: Long, url: String, source: Long) {
         driver.execute(
             null,
-            "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
-                "cover_last_modified, favorite_at) VALUES ($id, $source, '$url', '', 0, 0, 0, 0, 0, NULL)",
+            "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, " +
+                "state_initialized, user_reader_flags, user_chapter_flags, " +
+                "state_cover_last_modified, user_favorite_at, remote_update_strategy, " +
+                "state_chapter_fetch_interval, user_notes, remote_memo) VALUES ($id, $source, " +
+                "'$url', '', 0, 0, 0, 0, 0, NULL, 0, 0, '', '{}')",
             0,
         ).await()
     }
 
     /** Stores [manga] as the device's copy and returns its id. */
-    suspend fun insert(manga: Manga): Long = database.mangasQueries.insertReturningId(
-        source = manga.source,
-        url = manga.url,
-        artist = manga.artist,
-        author = manga.author,
-        description = manga.description,
-        genre = manga.genre,
-        title = manga.title,
-        status = manga.status,
-        thumbnailUrl = manga.thumbnailUrl,
-        favoriteAt = manga.favoriteAt,
-        lastUpdate = manga.lastUpdate,
-        nextUpdate = manga.nextUpdate,
-        calculateInterval = manga.fetchInterval.toLong(),
-        initialized = manga.initialized,
-        viewerFlags = manga.viewerFlags,
-        chapterFlags = manga.chapterFlags,
-        coverLastModified = manga.coverLastModified,
-        updateStrategy = manga.updateStrategy,
-        notes = manga.notes,
-        memo = manga.memo,
+    suspend fun insert(manga: Manga): Long = database.mangaQueries.insertReturningId(
+        sourceId = manga.source,
+        remoteUrl = manga.url,
+        remoteArtist = manga.artist,
+        remoteAuthor = manga.author,
+        remoteDescription = manga.description,
+        remoteGenre = manga.genre,
+        remoteTitle = manga.title,
+        remoteStatus = manga.status,
+        remoteCover = manga.thumbnailUrl,
+        userFavoriteAt = manga.favoriteAt,
+        stateChapterLastUpdate = manga.lastUpdate,
+        stateChapterNextUpdate = manga.nextUpdate,
+        stateChapterFetchInterval = manga.fetchInterval.toLong(),
+        stateInitialized = manga.initialized,
+        userReaderFlags = manga.viewerFlags,
+        userChapterFlags = manga.chapterFlags,
+        stateCoverLastModified = manga.coverLastModified,
+        remoteUpdateStrategy = manga.updateStrategy,
+        userNotes = manga.notes,
+        remoteMemo = manga.memo,
     ).awaitAsOne()
 
     /** Stores [chapter] on the device and returns it with its id. */
@@ -123,22 +117,7 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
         suspend fun create(): MangaRestoreHarness {
             val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
-            val database = Database(
-                driver = driver,
-                historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                    memoAdapter = MemoColumnAdapter,
-                ),
-                chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-                novelsAdapter = Novels.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                ),
-                custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-                custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-            )
+            val database = DatabaseBindings.providesDatabase(driver)
             return MangaRestoreHarness(driver, database)
         }
     }

@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
  * Ported from Komikku's EXH subsystem. The favorites-join queries
  * (getExhFavoriteMangaWithMetadata / getIdsOfFavoriteMangaWithMetadata) are deferred to the
  * E-Hentai favorites-sync phase, since they depend on the E-Hentai source ids and custom
- * mangas.sq queries that ship with that phase.
+ * manga.sq queries that ship with that phase.
  */
 interface MangaMetadataRepository {
     suspend fun getMetadataById(id: Long): SearchMetadata?

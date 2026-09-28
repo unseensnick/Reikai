@@ -10,17 +10,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.category.CategoryContentType
 import reikai.domain.library.ContentType
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
-import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
+import tachiyomi.data.DatabaseBindings
 
 /**
  * A category link is refused at the query when no picker for that content type could show the
@@ -38,26 +29,14 @@ class CategoryLinkGuardTest {
             driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
             driver.execute(null, "PRAGMA foreign_keys=ON", 0).await()
-            database = Database(
-                driver = driver,
-                historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                    memoAdapter = MemoColumnAdapter,
-                ),
-                chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-                novelsAdapter = Novels.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                ),
-                custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-                custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-            )
+            database = DatabaseBindings.providesDatabase(driver)
             driver.execute(
                 null,
-                "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
-                    "cover_last_modified, favorite_at) VALUES ($ENTRY_ID, 1, 'm', 't', 0, 0, 0, 0, 0, 0)",
+                "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, " +
+                    "state_initialized, user_reader_flags, user_chapter_flags, " +
+                    "state_cover_last_modified, user_favorite_at, remote_update_strategy, " +
+                    "state_chapter_fetch_interval, user_notes, remote_memo) VALUES ($ENTRY_ID, 1, " +
+                    "'m', 't', 0, 0, 0, 0, 0, 0, 0, 0, '', '{}')",
                 0,
             ).await()
             driver.execute(
@@ -104,7 +83,8 @@ class CategoryLinkGuardTest {
         val id = nextCategoryId++
         driver.execute(
             null,
-            "INSERT INTO categories(_id, name, sort, flags, content_type) VALUES ($id, 'c$id', $id, 0, $contentType)",
+            "INSERT INTO category(id, name, `order`, flags, content_type) VALUES ($id, 'c$id', $id, 0, " +
+                "$contentType)",
             0,
         ).await()
         return id
@@ -112,13 +92,13 @@ class CategoryLinkGuardTest {
 
     private suspend fun link(type: ContentType, categoryId: Long) {
         when (type) {
-            ContentType.MANGA -> database.mangas_categoriesQueries.insert(ENTRY_ID, categoryId)
+            ContentType.MANGA -> database.manga_categoryQueries.insert(ENTRY_ID, categoryId)
             else -> database.novels_categoriesQueries.insert(ENTRY_ID, categoryId)
         }
     }
 
     private suspend fun linkCount(type: ContentType): Long {
-        val table = if (type == ContentType.MANGA) "mangas_categories" else "novels_categories"
+        val table = if (type == ContentType.MANGA) "manga_category" else "novels_categories"
         return driver.executeQuery(
             null,
             "SELECT count(*) FROM $table",

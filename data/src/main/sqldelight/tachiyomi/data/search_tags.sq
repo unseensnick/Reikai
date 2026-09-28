@@ -6,7 +6,7 @@ CREATE TABLE search_tags (
     namespace TEXT,
     name TEXT NOT NULL,
     type INTEGER NOT NULL,
-    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
     ON DELETE CASCADE
 );
 

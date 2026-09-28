@@ -4,7 +4,7 @@ import androidx.compose.runtime.Immutable
 import reikai.domain.entry.EntryId
 
 /**
- * A chapter, identified so it cannot be confused with another content type's. `chapters._id` and
+ * A chapter, identified so it cannot be confused with another content type's. `chapter.id` and
  * `novel_chapters._id` are rowids in separate tables and overlap exactly the way entry ids do, so a
  * bare `Long` in a mixed feed cross-wires silently: a set of selected chapter ids would mark a novel
  * chapter because a manga chapter happened to share its number. Nothing crosses the provider seam

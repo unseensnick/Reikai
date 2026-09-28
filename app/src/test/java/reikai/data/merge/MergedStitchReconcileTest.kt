@@ -33,17 +33,8 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
-import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
@@ -70,22 +61,7 @@ class MergedStitchReconcileTest {
             driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
             driver.execute(null, "PRAGMA foreign_keys=ON", 0).await()
-            val database = Database(
-                driver = driver,
-                historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                    memoAdapter = MemoColumnAdapter,
-                ),
-                chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-                novelsAdapter = Novels.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                ),
-                custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-                custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-            )
+            val database = DatabaseBindings.providesDatabase(driver)
             groups = MergeGroupRepositoryImpl(database)
             units = MergedChapterUnitRepositoryImpl(database)
         }
@@ -367,17 +343,25 @@ class MergedStitchReconcileTest {
 
         /** What a source sync writes when a chapter is renumbered: the row changes, nothing is added. */
         suspend fun renumber(chapterId: Long, number: Double) {
-            driver.execute(null, "UPDATE $chapterTable SET chapter_number = $number WHERE _id = $chapterId", 0).await()
+            driver.execute(
+                null,
+                "UPDATE $chapterTable SET $numberColumn = $number WHERE $idColumn = $chapterId",
+                0,
+            ).await()
             renumberLoaded(chapterId, number)
         }
 
         /** What a source sync does when the source stops listing a chapter: the row goes. */
         suspend fun deleteChapter(chapterId: Long) {
-            driver.execute(null, "DELETE FROM $chapterTable WHERE _id = $chapterId", 0).await()
+            driver.execute(null, "DELETE FROM $chapterTable WHERE $idColumn = $chapterId", 0).await()
             forgetLoaded(chapterId)
         }
 
         abstract val chapterTable: String
+
+        abstract val idColumn: String
+
+        abstract val numberColumn: String
 
         abstract fun chapterIdsOf(owner: Long): List<Long>
 
@@ -404,8 +388,11 @@ class MergedStitchReconcileTest {
             mangas[id] = Manga.create().copy(id = id, source = source, favoriteAt = 0L)
             driver.execute(
                 null,
-                "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
-                    "cover_last_modified, favorite_at) VALUES ($id, $source, 'm-url-$id', 'title', 0, 0, 0, 0, 0, 0)",
+                "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, " +
+                    "state_initialized, user_reader_flags, user_chapter_flags, " +
+                    "state_cover_last_modified, user_favorite_at, remote_update_strategy, " +
+                    "state_chapter_fetch_interval, user_notes, remote_memo) VALUES ($id, $source, " +
+                    "'m-url-$id', 'title', 0, 0, 0, 0, 0, 0, 0, 0, '', '{}')",
                 0,
             ).await()
         }
@@ -421,9 +408,10 @@ class MergedStitchReconcileTest {
             )
             driver.execute(
                 null,
-                "INSERT INTO chapters(_id, manga_id, url, name, scanlator, read, bookmark, " +
-                    "last_page_read, chapter_number, source_order, date_fetch, date_upload) " +
-                    "VALUES ($id, $owner, '/$owner/$id', '$name', NULL, 0, 0, 0, $number, $id, 0, 0)",
+                "INSERT INTO chapter(id, manga_id, remote_url, remote_name, remote_scanlator, " +
+                    "user_read, user_bookmark, user_last_page_read, remote_chapter_number, " +
+                    "remote_order, state_date_fetch, remote_date_upload, remote_memo) VALUES ($id, " +
+                    "$owner, '/$owner/$id', '$name', NULL, 0, 0, 0, $number, $id, 0, 0, '{}')",
                 0,
             ).await()
         }
@@ -451,7 +439,11 @@ class MergedStitchReconcileTest {
 
         override fun ownerOf(chapterId: Long) = chapters.first { it.id == chapterId }.mangaId
 
-        override val chapterTable = "chapters"
+        override val chapterTable = "chapter"
+
+        override val idColumn = "id"
+
+        override val numberColumn = "remote_chapter_number"
 
         override fun chapterIdsOf(owner: Long) = chapters.filter { it.mangaId == owner }.map { it.id }
 
@@ -526,6 +518,10 @@ class MergedStitchReconcileTest {
         override fun ownerOf(chapterId: Long) = chapters.first { it.id == chapterId }.novelId
 
         override val chapterTable = "novel_chapters"
+
+        override val idColumn = "_id"
+
+        override val numberColumn = "chapter_number"
 
         override fun chapterIdsOf(owner: Long) = chapters.filter { it.novelId == owner }.map { it.id }
 

@@ -6,12 +6,12 @@ This is the add-time duplicate check. For how same-series-different-source entri
 
 ## How it works
 
-Adding a manga runs `MangaLibraryAdder.getDuplicates`, which calls the `GetDuplicateLibraryManga` interactor and runs the `getDuplicateLibraryManga` query in `mangas.sq`. The query flags an existing favorite as a duplicate of the manga being added when either of two conditions holds:
+Adding a manga runs `MangaLibraryAdder.getDuplicates`, which calls the `GetDuplicateLibraryManga` interactor and runs the `getDuplicateLibraryManga` query in `manga.sq`. The query flags an existing favorite as a duplicate of the manga being added when either of two conditions holds:
 
 - **Title match:** the existing favorite's title contains the new manga's title (case-insensitive substring), across any source. This is the original behavior.
-- **Tracker identity:** the two manga share a `(sync_id, remote_id)` row in `manga_sync`, meaning they are the same entry on the same tracker regardless of how each source titles them locally. A `track_dupes` CTE self-joins `manga_sync` on `(sync_id, remote_id)` (excluding the manga's own id) to find every other library manga bound to the same tracker entry.
+- **Tracker identity:** the two manga share a `(tracker_id, remote_id)` row in `manga_track`, meaning they are the same entry on the same tracker regardless of how each source titles them locally. A `track_dupes` CTE self-joins `manga_track` on `(tracker_id, remote_id)` (excluding the manga's own id) to find every other library manga bound to the same tracker entry. A `remote_id` of 0 is a tracker that gave no entry id, so it never matches.
 
-The tracker half is what catches a different-romanization duplicate (for example "Boku no Hero Academia" against "My Hero Academia"): the titles never match as substrings, but if both carry the same AniList / MAL / MangaUpdates entry, they collapse to the same `(sync_id, remote_id)` and the query returns the existing card.
+The tracker half is what catches a different-romanization duplicate (for example "Boku no Hero Academia" against "My Hero Academia"): the titles never match as substrings, but if both carry the same AniList / MAL / MangaUpdates entry, they collapse to the same `(tracker_id, remote_id)` and the query returns the existing card.
 
 ## Where it surfaces
 
@@ -19,23 +19,19 @@ The tracker half is what catches a different-romanization duplicate (for example
 
 ## Precondition and caveat
 
-The tracker half only fires when the manga being added already has `manga_sync` rows. A freshly browsed manga usually has none until a tracker is bound, so:
+The tracker half only fires when the manga being added already has `manga_track` rows. A freshly browsed manga usually has none until a tracker is bound, so:
 
 - **`EnhancedTrackService` sources** (for example MangaDex, Komga, Suwayomi) auto-bind a tracker entry on the details visit, before the favorite tap, so the tracker half works on the add path.
 - **Migration** has both the source and target manga with their tracker rows already, so it works there too.
 - For a plain source with no prior tracker binding, only the title-substring half applies at add time.
 
-## Remaining gap
-
-The query ships, but the covering index from the upstream change (`idx_manga_sync_sync_id_remote_id` on `(sync_id, remote_id, manga_id)`) was not ported. Only `idx_manga_sync_manga_id` exists in `manga_sync.sq`. The self-join is correct without it but is not index-optimized; adding that index is a worthwhile follow-up if the duplicate check ever shows up in a profile. It would need a new additive migration.
-
 ## Key files
 
-- `data/src/main/sqldelight/tachiyomi/data/mangas.sq`: the `getDuplicateLibraryManga` query with the `track_dupes` CTE.
-- `data/src/main/sqldelight/tachiyomi/data/manga_sync.sq`: the `manga_sync` schema and its `idx_manga_sync_manga_id` index (the `(sync_id, remote_id, manga_id)` covering index is not present).
+- `data/src/main/sqldelight/tachiyomi/data/manga.sq`: the `getDuplicateLibraryManga` query with the `track_dupes` CTE.
+- `data/src/main/sqldelight/tachiyomi/data/manga_track.sq`: the `manga_track` schema and the `(tracker_id, remote_id)` index the self-join reads.
 - `domain/src/main/java/tachiyomi/domain/manga/interactor/GetDuplicateLibraryManga.kt`: the interactor.
 - `app/src/main/java/reikai/presentation/browse/MangaLibraryAdder.kt`: `getDuplicates` and `resolveAddFavorite`, the shared add-to-library path.
 
 ## Provenance
 
-The tracker-identity signal follows the upstream pattern in mihonapp/mihon#2978 ("Utilize tracker for library duplicate detection"). The query landed in Reikai through the Mihon base; the covering index did not.
+The tracker-identity signal follows the upstream pattern in mihonapp/mihon#2978 ("Utilize tracker for library duplicate detection"). The query landed in Reikai through the Mihon base, and its index with the schema rewrite (mihonapp/mihon#3805).

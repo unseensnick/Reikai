@@ -2,7 +2,7 @@
 -- read, latest upload, fetch date, last read, bookmarks) and the concatenated category ids. The
 -- download count is not here: downloaded state now comes from NovelDownloadCache (disk), filled in the
 -- model. lastRead is derived from novel_history exactly as libraryView derives it from history, so
--- clearing a novel's history drops it in the Last read sort. No excluded_scanlators join: novels have
+-- clearing a novel's history drops it in the Last read sort. No excluded_scanlator join: novels have
 -- no scanlators.
 CREATE VIEW novelLibraryView AS
 SELECT

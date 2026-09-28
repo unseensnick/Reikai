@@ -1,0 +1,26 @@
+CREATE TABLE manga_category(
+    manga_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    UNIQUE(manga_id, category_id),
+    FOREIGN KEY(category_id) REFERENCES category (id)
+    ON DELETE CASCADE,
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX manga_category_category_id_index ON manga_category(category_id);
+
+-- RK --> only a category a manga picker can show: universal (0) or manga (1). A novels-only row
+-- written here appears in no picker, so nothing could ever remove it. Every writer, restore included,
+-- ends here, so it is refused once rather than per caller. The novel insert is its twin, pinned by
+-- CategoryLinkGuardTest over both tables.
+insert:
+INSERT INTO manga_category(manga_id, category_id)
+SELECT :mangaId, id FROM category
+WHERE id = :categoryId AND content_type IN (0, 1)
+ON CONFLICT(manga_id, category_id) DO NOTHING;
+-- RK <--
+
+deleteMangaCategoryByMangaId:
+DELETE FROM manga_category
+WHERE manga_id = :mangaId;

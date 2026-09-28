@@ -10,7 +10,7 @@ CREATE TABLE custom_manga_info(
     genre TEXT AS List<String>,
     status INTEGER,
     thumbnail_url TEXT,
-    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
     ON DELETE CASCADE
 );
 

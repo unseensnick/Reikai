@@ -9,7 +9,7 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  * Bridge between [NovelTrack] and the mutable [DbTrack] the tracker services operate on, mirroring the
  * manga `toDbTrack` / `toDomainTrack` (eu.kanade.domain.track.model.Track). The remote APIs only read
  * `remote_id`, so the `manga_id` slot carries the `novelId` purely to round-trip it; novel persistence
- * never touches `manga_sync`.
+ * never touches `manga_track`.
  */
 fun NovelTrack.toDbTrack(): DbTrack = DbTrack.create(trackerId).also {
     it.id = id

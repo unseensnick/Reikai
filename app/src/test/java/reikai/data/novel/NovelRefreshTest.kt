@@ -29,17 +29,8 @@ import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
-import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
 import java.io.File
@@ -73,22 +64,7 @@ class NovelRefreshTest {
         runTest {
             driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
-            database = Database(
-                driver = driver,
-                historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                    memoAdapter = MemoColumnAdapter,
-                ),
-                chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-                novelsAdapter = Novels.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                ),
-                custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-                custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-            )
+            database = DatabaseBindings.providesDatabase(driver)
             novels = RecordingNovelRepository(NovelRepositoryImpl(database))
             chapters = NovelChapterRepositoryImpl(database)
             val context = mockk<Context> {

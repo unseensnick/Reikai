@@ -20,33 +20,33 @@ class TrackRepositoryImpl(
 ) : TrackRepository {
 
     override suspend fun getTrackById(id: Long): Track? {
-        return database.manga_syncQueries
+        return database.manga_trackQueries
             .getTrackById(id, TrackMapper::mapTrack)
             .awaitAsOneOrNull()
     }
 
     override suspend fun getTracksByMangaId(mangaId: Long): List<Track> {
-        return database.manga_syncQueries
+        return database.manga_trackQueries
             .getTracksByMangaId(mangaId, TrackMapper::mapTrack)
             .awaitAsList()
     }
 
     override fun getTracksAsFlow(): Flow<List<Track>> {
-        return database.manga_syncQueries
+        return database.manga_trackQueries
             .getTracks(TrackMapper::mapTrack)
             .subscribeToList()
     }
 
     override fun getTracksByMangaIdAsFlow(mangaId: Long): Flow<List<Track>> {
-        return database.manga_syncQueries
+        return database.manga_trackQueries
             .getTracksByMangaId(mangaId, TrackMapper::mapTrack)
             .subscribeToList()
     }
 
     override suspend fun delete(mangaId: Long, trackerId: Long) {
-        database.manga_syncQueries.delete(
+        database.manga_trackQueries.delete(
             mangaId = mangaId,
-            syncId = trackerId,
+            trackerId = trackerId,
         )
     }
 
@@ -61,9 +61,9 @@ class TrackRepositoryImpl(
     private suspend fun upsertValues(vararg tracks: Track) {
         database.transaction {
             tracks.forEach { mangaTrack ->
-                database.manga_syncQueries.upsert(
+                database.manga_trackQueries.upsert(
                     mangaId = mangaTrack.mangaId,
-                    syncId = mangaTrack.trackerId,
+                    trackerId = mangaTrack.trackerId,
                     remoteId = mangaTrack.remoteId,
                     libraryId = mangaTrack.libraryId,
                     title = mangaTrack.title,

@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filter
@@ -61,6 +62,7 @@ import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.interactor.GetRemoteManga
 import tachiyomi.domain.source.repository.SourcePagingSource
 import tachiyomi.domain.source.service.SourceManager
+import kotlin.time.Duration.Companion.seconds
 
 // RK: open, with createSourcePagingSource / combineMetadata as overridable hooks and a `filterable`
 // state flag, so the MangaDex follows screen can subclass this and swap in its own paging source
@@ -167,7 +169,7 @@ open class BrowseSourceViewModel(
                     getManga.subscribe(manga.url, manga.source)
                         .map { it ?: manga }
                         .combineMetadata(metadata)
-                        .stateIn(viewModelScope)
+                        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), manga to metadata)
                 }
                     .filter { !hideInLibraryItems || !it.value.first.favorite }
                 // RK <--

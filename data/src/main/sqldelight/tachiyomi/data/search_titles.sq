@@ -5,7 +5,7 @@ CREATE TABLE search_titles (
     manga_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     type INTEGER NOT NULL,
-    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
     ON DELETE CASCADE
 );
 

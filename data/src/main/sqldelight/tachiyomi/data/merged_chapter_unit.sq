@@ -28,7 +28,7 @@ CREATE TABLE merged_chapter_unit (
     unit INTEGER,
     copy_order INTEGER NOT NULL,
     derived_number REAL NOT NULL,
-    FOREIGN KEY(chapter_id) REFERENCES chapters (_id)
+    FOREIGN KEY(chapter_id) REFERENCES chapter (id)
     ON DELETE CASCADE,
     FOREIGN KEY(group_id) REFERENCES merge_group (_id)
     ON DELETE CASCADE
@@ -81,27 +81,27 @@ CREATE TABLE merged_group_ranking (
 CREATE VIEW mergedChapterStaleView AS
 SELECT MGM.group_id AS groupId
 FROM merge_group_manga MGM
-JOIN mangas M
-ON M._id = MGM.manga_id
-AND M.favorite_at IS NOT NULL
-JOIN chapters C
+JOIN manga M
+ON M.id = MGM.manga_id
+AND M.user_favorite_at IS NOT NULL
+JOIN chapter C
 ON C.manga_id = MGM.manga_id
 LEFT JOIN merged_chapter_unit U
-ON U.chapter_id = C._id
+ON U.chapter_id = C.id
 AND U.group_id = MGM.group_id
-WHERE U.chapter_id IS NULL OR U.derived_number != C.chapter_number
+WHERE U.chapter_id IS NULL OR U.derived_number != C.remote_chapter_number
 UNION ALL
 SELECT U.group_id AS groupId
 FROM merged_chapter_unit U
-LEFT JOIN chapters C
-ON C._id = U.chapter_id
+LEFT JOIN chapter C
+ON C.id = U.chapter_id
 LEFT JOIN merge_group_manga MGM
 ON MGM.manga_id = C.manga_id
 AND MGM.group_id = U.group_id
-LEFT JOIN mangas M
-ON M._id = MGM.manga_id
-AND M.favorite_at IS NOT NULL
-WHERE M._id IS NULL
+LEFT JOIN manga M
+ON M.id = MGM.manga_id
+AND M.user_favorite_at IS NOT NULL
+WHERE M.id IS NULL
 UNION ALL
 SELECT R.group_id AS groupId
 FROM merged_group_ranking R
@@ -176,8 +176,8 @@ deleteGroup:
 DELETE FROM merged_chapter_unit
 WHERE group_id = :groupId
 OR chapter_id IN (
-    SELECT C._id FROM merge_group_manga MGM
-    JOIN chapters C ON C.manga_id = MGM.manga_id
+    SELECT C.id FROM merge_group_manga MGM
+    JOIN chapter C ON C.manga_id = MGM.manga_id
     WHERE MGM.group_id = :groupId
 );
 
@@ -197,7 +197,7 @@ OR chapter_id IN (
 insert:
 INSERT OR REPLACE INTO merged_chapter_unit(chapter_id, group_id, unit, copy_order, derived_number)
 SELECT :chapterId, :groupId, :unit, :copyOrder, :derivedNumber
-WHERE EXISTS (SELECT 1 FROM chapters WHERE _id = :chapterId);
+WHERE EXISTS (SELECT 1 FROM chapter WHERE id = :chapterId);
 
 insertNovel:
 INSERT OR REPLACE INTO merged_novel_chapter_unit(
@@ -246,17 +246,17 @@ FROM (
     SELECT
         U.group_id AS group_id,
         U.unit AS unit,
-        sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies,
-        sum(CASE WHEN C.bookmark = 1 THEN 1 ELSE 0 END) AS bookmarkedCopies
+        sum(CASE WHEN C.user_read = 1 THEN 1 ELSE 0 END) AS readCopies,
+        sum(CASE WHEN C.user_bookmark = 1 THEN 1 ELSE 0 END) AS bookmarkedCopies
     FROM merged_chapter_unit U
-    JOIN chapters C
-    ON C._id = U.chapter_id
-    JOIN mangas M
-    ON M._id = C.manga_id
-    AND M.favorite_at IS NOT NULL
-    LEFT JOIN excluded_scanlators ES
+    JOIN chapter C
+    ON C.id = U.chapter_id
+    JOIN manga M
+    ON M.id = C.manga_id
+    AND M.user_favorite_at IS NOT NULL
+    LEFT JOIN excluded_scanlator ES
     ON C.manga_id = ES.manga_id
-    AND C.scanlator = ES.scanlator
+    AND C.remote_scanlator = ES.scanlator
     WHERE U.unit IS NOT NULL
     AND ES.scanlator IS NULL
     GROUP BY U.group_id, U.unit
@@ -294,30 +294,30 @@ GROUP BY G.group_id;
 -- exists. A row count cannot stand in: a source listing one chapter under several scanlators wins on
 -- rows while covering no more of the series. A member absent from the result lists no recognized number.
 recognizedChapterNumbersByManga:
-SELECT DISTINCT C.manga_id AS mangaId, C.chapter_number AS chapterNumber
+SELECT DISTINCT C.manga_id AS mangaId, C.remote_chapter_number AS chapterNumber
 FROM merge_group_manga MGM
-JOIN mangas M
-ON M._id = MGM.manga_id
-AND M.favorite_at IS NOT NULL
-JOIN chapters C
+JOIN manga M
+ON M.id = MGM.manga_id
+AND M.user_favorite_at IS NOT NULL
+JOIN chapter C
 ON C.manga_id = MGM.manga_id
-WHERE C.chapter_number >= 0;
+WHERE C.remote_chapter_number >= 0;
 
 -- Every merged group's member chapters, with what a download probe needs to find the file. Whether a
 -- chapter is on disk is not in this database, so the count itself cannot be a query: the caller probes
 -- the download cache over these rows and counts the units that answer. Scanlator rides along because
 -- the manga download folder name is built from it.
 downloadUnitsByGroup:
-SELECT U.group_id AS groupId, U.unit AS unit, C.manga_id AS ownerId, C.name, C.scanlator, C.url
+SELECT U.group_id AS groupId, U.unit AS unit, C.manga_id AS ownerId, C.remote_name AS name, C.remote_scanlator AS scanlator, C.remote_url AS url
 FROM merged_chapter_unit U
-JOIN chapters C
-ON C._id = U.chapter_id
-JOIN mangas M
-ON M._id = C.manga_id
-AND M.favorite_at IS NOT NULL
-LEFT JOIN excluded_scanlators ES
+JOIN chapter C
+ON C.id = U.chapter_id
+JOIN manga M
+ON M.id = C.manga_id
+AND M.user_favorite_at IS NOT NULL
+LEFT JOIN excluded_scanlator ES
 ON C.manga_id = ES.manga_id
-AND C.scanlator = ES.scanlator
+AND C.remote_scanlator = ES.scanlator
 WHERE U.unit IS NOT NULL
 AND ES.scanlator IS NULL;
 

@@ -1,17 +1,17 @@
--- Junction table for novel <-> category. Mirrors `mangas_categories.sq`: category_id references the
--- shared `categories` table (novel categories live there at content_type 2 since the schema unification).
+-- Junction table for novel <-> category. Mirrors `manga_category.sq`: category_id references the
+-- shared `category` table (novel categories live there at content_type 2 since the schema unification).
 -- Cascading FKs keep junction rows consistent when a novel or category is deleted.
 CREATE TABLE novels_categories(
     _id INTEGER NOT NULL PRIMARY KEY,
     novel_id INTEGER NOT NULL,
     category_id INTEGER NOT NULL,
-    FOREIGN KEY(category_id) REFERENCES categories (_id)
+    FOREIGN KEY(category_id) REFERENCES category (id)
     ON DELETE CASCADE,
     FOREIGN KEY(novel_id) REFERENCES novels (_id)
     ON DELETE CASCADE
 );
 
--- Both columns indexed, mirroring mangas_categories: the recents feeds run an EXISTS over this table
+-- Both columns indexed, mirroring manga_category: the recents feeds run an EXISTS over this table
 -- per row, which is a scan per row without them. Added for existing installs by migration 34.
 CREATE INDEX idx_novels_categories_novel_id ON novels_categories(novel_id);
 CREATE INDEX idx_novels_categories_category_id ON novels_categories(category_id);
@@ -25,5 +25,5 @@ WHERE novel_id = :novelId;
 -- no picker, so nothing could ever remove it.
 insert:
 INSERT INTO novels_categories(novel_id, category_id)
-SELECT :novelId, _id FROM categories
-WHERE _id = :categoryId AND content_type IN (0, 2);
+SELECT :novelId, id FROM category
+WHERE id = :categoryId AND content_type IN (0, 2);

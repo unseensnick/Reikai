@@ -18,17 +18,9 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.domain.library.ContentType
 import reikai.domain.recents.RecentsUnreadRepository
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
 
 /**
  * The recents surface's chapter-side reads, over a real schema. The write signal is what drops a
@@ -47,22 +39,7 @@ class RecentsUnreadRepositoryTest {
         runTest {
             driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
-            database = Database(
-                driver = driver,
-                historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                    memoAdapter = MemoColumnAdapter,
-                ),
-                chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-                novelsAdapter = Novels.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                ),
-                custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-                custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-            )
+            database = DatabaseBindings.providesDatabase(driver)
             repository = RecentsUnreadRepositoryImpl(database)
         }
     }
@@ -151,7 +128,7 @@ class RecentsUnreadRepositoryTest {
         seed(
             manga.entry(1, true),
             manga.chapter(10, 1, false, "hidden"),
-            "INSERT INTO excluded_scanlators(manga_id, scanlator) VALUES (1, 'hidden')",
+            "INSERT INTO excluded_scanlator(manga_id, scanlator) VALUES (1, 'hidden')",
         )
 
         unread(manga) shouldBe emptySet()
@@ -191,15 +168,20 @@ class RecentsUnreadRepositoryTest {
                 type = ContentType.MANGA,
                 unread = { repository, merging -> repository.subscribeMangaIdsWithUnread(merging) },
                 entry = { id, favorite ->
-                    "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
-                        "cover_last_modified, favorite_at) VALUES ($id, 1, 'm-$id', 't', 0, 0, 0, 0, 0, " +
-                        "CASE WHEN ${favorite.toSql()} = 1 THEN 0 END)"
+                    "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, " +
+                        "state_initialized, user_reader_flags, user_chapter_flags, " +
+                        "state_cover_last_modified, user_favorite_at, remote_update_strategy, " +
+                        "state_chapter_fetch_interval, user_notes, remote_memo) VALUES ($id, 1, 'm-$id', " +
+                        "'t', 0, 0, 0, 0, 0, CASE WHEN ${favorite.toSql()} = 1 THEN 0 END, 0, 0, '', " +
+                        "'{}')"
                 },
                 chapter = { id, entryId, read, scanlator ->
                     val scanlatorSql = scanlator?.let { "'$it'" } ?: "NULL"
-                    "INSERT INTO chapters(_id, manga_id, url, name, scanlator, read, bookmark, last_page_read, " +
-                        "chapter_number, source_order, date_fetch, date_upload) " +
-                        "VALUES ($id, $entryId, 'c-$id', 'n', $scanlatorSql, ${read.toSql()}, 0, 0, 1.0, 0, 0, 0)"
+                    "INSERT INTO chapter(id, manga_id, remote_url, remote_name, remote_scanlator, " +
+                        "user_read, user_bookmark, user_last_page_read, remote_chapter_number, " +
+                        "remote_order, state_date_fetch, remote_date_upload, remote_memo) VALUES ($id, " +
+                        "$entryId, 'c-$id', 'n', $scanlatorSql, ${read.toSql()}, 0, 0, 1.0, 0, 0, 0, " +
+                        "'{}')"
                 },
                 unit = { chapterId, groupId, unit ->
                     "INSERT INTO merged_chapter_unit(chapter_id, group_id, unit, copy_order, derived_number) " +
@@ -232,7 +214,7 @@ class RecentsUnreadRepositoryTest {
             ChapterWriteProbe(
                 label = "manga",
                 signal = { it.mangaChapterWrites() },
-                writeChapter = { it.chaptersQueries.removeChaptersWithIds(listOf(99L)) },
+                writeChapter = { it.chapterQueries.removeChaptersWithIds(listOf(99L)) },
                 writeStitch = { it.merged_chapter_unitQueries.deleteGroup(99L) },
             ),
             ChapterWriteProbe(

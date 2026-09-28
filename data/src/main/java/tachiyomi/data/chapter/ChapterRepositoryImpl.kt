@@ -39,45 +39,49 @@ class ChapterRepositoryImpl(
     ): List<Chapter> {
         return database.transactionWithResult {
             if (removedIds.isNotEmpty()) {
-                database.chaptersQueries.removeChaptersWithIds(removedIds)
+                database.chapterQueries.removeChaptersWithIds(removedIds)
             }
             val existing = added.map { it.mangaId }
                 .distinct()
                 .flatMap { mangaId ->
-                    database.chaptersQueries
-                        .getChaptersByMangaId(mangaId, applyScanlatorFilter = false.toLong(), ::mapChapter)
+                    database.chapterQueries
+                        .getChaptersByMangaId(
+                            mangaId = mangaId,
+                            applyScanlatorFilter = false.toLong(),
+                            mapper = ::mapChapter,
+                        )
                         .awaitAsList()
                         .map { mangaId to it.url }
                 }
                 .toMutableSet()
             val stored = added.filter { existing.add(it.mangaId to it.url) }.map { chapter ->
-                val chapterId = database.chaptersQueries.insertReturningId(
-                    chapter.mangaId,
-                    chapter.url,
-                    chapter.name,
-                    chapter.scanlator,
-                    chapter.read,
-                    chapter.bookmark,
-                    chapter.lastPageRead,
-                    chapter.chapterNumber,
-                    chapter.sourceOrder,
-                    chapter.dateFetch,
-                    chapter.dateUpload,
-                    chapter.memo,
-                    chapter.pageCount, // RK: the chapter's page count column
+                val chapterId = database.chapterQueries.insertReturningId(
+                    mangaId = chapter.mangaId,
+                    remoteUrl = chapter.url,
+                    remoteName = chapter.name,
+                    remoteScanlator = chapter.scanlator,
+                    userRead = chapter.read,
+                    userBookmark = chapter.bookmark,
+                    userLastPageRead = chapter.lastPageRead,
+                    remoteChapterNumber = chapter.chapterNumber,
+                    remoteOrder = chapter.sourceOrder,
+                    stateDateFetch = chapter.dateFetch,
+                    remoteDateUpload = chapter.dateUpload,
+                    remoteMemo = chapter.memo,
+                    pageCount = chapter.pageCount, // RK: the chapter's page count column
                 )
                     .awaitAsOne()
                 chapter.copy(id = chapterId)
             }
             updated.forEach { chapterUpdate ->
-                database.chaptersQueries.updateRemote(
-                    name = chapterUpdate.name,
-                    scanlator = chapterUpdate.scanlator,
-                    chapterNumber = chapterUpdate.chapterNumber,
-                    sourceOrder = chapterUpdate.sourceOrder,
-                    dateUpload = chapterUpdate.dateUpload,
-                    chapterId = chapterUpdate.id,
-                    memo = chapterUpdate.memo,
+                database.chapterQueries.updateRemote(
+                    remoteName = chapterUpdate.name,
+                    remoteScanlator = chapterUpdate.scanlator,
+                    remoteChapterNumber = chapterUpdate.chapterNumber,
+                    remoteOrder = chapterUpdate.sourceOrder,
+                    remoteDateUpload = chapterUpdate.dateUpload,
+                    id = chapterUpdate.id,
+                    remoteMemo = chapterUpdate.memo,
                 )
             }
             stored
@@ -87,12 +91,12 @@ class ChapterRepositoryImpl(
     private suspend fun partialUpdate(vararg chapterUpdates: ChapterUpdate) {
         database.transaction {
             chapterUpdates.forEach { chapterUpdate ->
-                database.chaptersQueries.update(
-                    read = chapterUpdate.read,
-                    bookmark = chapterUpdate.bookmark,
-                    lastPageRead = chapterUpdate.lastPageRead,
-                    dateFetch = chapterUpdate.dateFetch,
-                    chapterId = chapterUpdate.id,
+                database.chapterQueries.update(
+                    userRead = chapterUpdate.read,
+                    userBookmark = chapterUpdate.bookmark,
+                    userLastPageRead = chapterUpdate.lastPageRead,
+                    stateDateFetch = chapterUpdate.dateFetch,
+                    id = chapterUpdate.id,
                     pageCount = chapterUpdate.pageCount, // RK: page count column
                 )
             }
@@ -100,20 +104,24 @@ class ChapterRepositoryImpl(
     }
 
     override suspend fun getChapterByMangaId(mangaId: Long, applyScanlatorFilter: Boolean): List<Chapter> {
-        return database.chaptersQueries
-            .getChaptersByMangaId(mangaId, applyScanlatorFilter.toLong(), ::mapChapter)
+        return database.chapterQueries
+            .getChaptersByMangaId(
+                mangaId = mangaId,
+                applyScanlatorFilter = applyScanlatorFilter.toLong(),
+                mapper = ::mapChapter,
+            )
             .awaitAsList()
     }
 
     override suspend fun getScanlatorsByMangaId(mangaId: Long): List<String> {
-        return database.chaptersQueries
+        return database.chapterQueries
             .getScanlatorsByMangaId(mangaId) { it.orEmpty() }
             .awaitAsList()
     }
 
     // RK -->
     override suspend fun getMangaIdsWithChapterNameLike(name: String): Set<Long> {
-        return database.chaptersQueries
+        return database.chapterQueries
             .getMangaIdsWithChapterNameLike(name)
             .awaitAsList()
             .toSet()
@@ -121,72 +129,75 @@ class ChapterRepositoryImpl(
     // RK <--
 
     override fun getScanlatorsByMangaIdAsFlow(mangaId: Long): Flow<List<String>> {
-        return database.chaptersQueries
+        return database.chapterQueries
             .getScanlatorsByMangaId(mangaId) { it.orEmpty() }
             .subscribeToList()
     }
 
     override suspend fun getBookmarkedChaptersByMangaId(mangaId: Long): List<Chapter> {
-        return database.chaptersQueries
+        return database.chapterQueries
             .getBookmarkedChaptersByMangaId(mangaId, ::mapChapter)
             .awaitAsList()
     }
 
     override suspend fun getChapterById(id: Long): Chapter? {
-        return database.chaptersQueries
+        return database.chapterQueries
             .getChapterById(id, ::mapChapter)
             .awaitAsOneOrNull()
     }
 
     override suspend fun getChapterByMangaIdAsFlow(mangaId: Long, applyScanlatorFilter: Boolean): Flow<List<Chapter>> {
-        return database.chaptersQueries
-            .getChaptersByMangaId(mangaId, applyScanlatorFilter.toLong(), ::mapChapter)
+        return database.chapterQueries
+            .getChaptersByMangaId(
+                mangaId = mangaId,
+                applyScanlatorFilter = applyScanlatorFilter.toLong(),
+                mapper = ::mapChapter,
+            )
             .subscribeToList()
     }
 
     override suspend fun getChapterByUrlAndMangaId(url: String, mangaId: Long): Chapter? {
-        return database.chaptersQueries
-            .getChapterByUrlAndMangaId(url, mangaId, ::mapChapter)
+        return database.chapterQueries
+            .getChapterByUrlAndMangaId(mangaId = mangaId, remoteUrl = url, mapper = ::mapChapter)
             .awaitAsOneOrNull()
     }
 
     // RK: backs GetChapterByUrl for EHentai gallery-version reconciliation.
     override suspend fun getChapterByUrl(url: String): List<Chapter> {
-        return database.chaptersQueries
+        return database.chapterQueries
             .getChapterByUrl(url, ::mapChapter)
             .awaitAsList()
     }
 
-    @Suppress("UNUSED_PARAMETER")
     private fun mapChapter(
         id: Long,
         mangaId: Long,
-        url: String,
-        name: String,
-        scanlator: String?,
-        read: Boolean,
-        bookmark: Boolean,
-        lastPageRead: Long,
-        chapterNumber: Double,
-        sourceOrder: Long,
-        dateFetch: Long,
-        dateUpload: Long,
-        memo: JsonObject,
+        remoteUrl: String,
+        remoteName: String,
+        remoteScanlator: String?,
+        remoteChapterNumber: Double,
+        remoteDateUpload: Long,
+        remoteOrder: Long,
+        remoteMemo: JsonObject,
+        userRead: Boolean,
+        userBookmark: Boolean,
+        userLastPageRead: Long,
+        stateDateFetch: Long,
         pageCount: Long, // RK: page count column
     ): Chapter = Chapter(
         id = id,
         mangaId = mangaId,
-        read = read,
-        bookmark = bookmark,
-        lastPageRead = lastPageRead,
-        dateFetch = dateFetch,
-        sourceOrder = sourceOrder,
-        url = url,
-        name = name,
-        dateUpload = dateUpload,
-        chapterNumber = chapterNumber,
-        scanlator = scanlator,
-        memo = memo,
+        read = userRead,
+        bookmark = userBookmark,
+        lastPageRead = userLastPageRead,
+        dateFetch = stateDateFetch,
+        sourceOrder = remoteOrder,
+        url = remoteUrl,
+        name = remoteName,
+        dateUpload = remoteDateUpload,
+        chapterNumber = remoteChapterNumber,
+        scanlator = remoteScanlator,
+        memo = remoteMemo,
         pageCount = pageCount, // RK: page count column
     )
 }

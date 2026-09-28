@@ -1,7 +1,7 @@
--- Parallel of manga_sync. Held disjoint from manga_sync because novel ids and manga ids share
+-- Parallel of manga_track. Held disjoint from manga_track because novel ids and manga ids share
 -- the same INTEGER PRIMARY KEY space across separate tables; a single shared sync table would
--- need a media_type discriminator or risk silent id collisions. Field names mirror manga_sync
--- wherever they have a direct analogue. `upsert` updates a stored row in place, as manga_sync's does,
+-- need a media_type discriminator or risk silent id collisions. Field names mirror manga_track
+-- wherever they have a direct analogue. `upsert` updates a stored row in place, as manga_track's does,
 -- so the table's ON CONFLICT REPLACE never gets to delete a row and give it a new id.
 import kotlin.Boolean;
 
@@ -27,7 +27,7 @@ CREATE TABLE novel_tracks(
 
 CREATE INDEX novel_tracks_novel_id_index ON novel_tracks(novel_id);
 
--- Queries mirror manga_sync.sq. The `private` column was added in 25.sqm (the table
+-- Queries mirror manga_track.sq. The `private` column was added in 25.sqm (the table
 -- shipped in 14.sqm without it), so novel tracking supports private listing like manga.
 
 delete:

@@ -19,7 +19,7 @@ interface TrackWriter {
     suspend fun setRemotePrivate(tracker: Tracker, track: Track, private: Boolean)
 }
 
-/** Manga writes call the tracker's own `setRemoteX` (BaseTracker persists to `manga_sync`). Stateless. */
+/** Manga writes call the tracker's own `setRemoteX` (BaseTracker persists to `manga_track`). Stateless. */
 object MangaTrackWriter : TrackWriter {
     override suspend fun setRemoteStatus(tracker: Tracker, track: Track, status: Long) {
         tracker.setRemoteStatus(track, status)

@@ -11,17 +11,9 @@ import reikai.data.db.SqlDelightTransactions
 import reikai.domain.category.CategoryContentType
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.recents.EmittingPreferenceStore
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
 import tachiyomi.data.category.CategoryRepositoryImpl
 
 /**
@@ -42,24 +34,9 @@ class MigrateNovelCategoriesToSharedTableMigrationTest {
         runTest {
             driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
-            val database = Database(
-                driver = driver,
-                historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                    memoAdapter = MemoColumnAdapter,
-                ),
-                chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-                novelsAdapter = Novels.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                ),
-                custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-                custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-            )
-            database.categoriesQueries.insert(name = "Novels", flags = NOVEL_DOWNLOADED, contentType = 2L)
-            database.categoriesQueries.insert(name = "Manga", flags = NOVEL_DOWNLOADED, contentType = 1L)
+            val database = DatabaseBindings.providesDatabase(driver)
+            database.categoryQueries.insert(name = "Novels", flags = NOVEL_DOWNLOADED, contentType = 2L)
+            database.categoryQueries.insert(name = "Manga", flags = NOVEL_DOWNLOADED, contentType = 1L)
             novelPreferences.defaultNovelCategory().set(5)
             categories = CategoryRepositoryImpl(database)
             migration = MigrateNovelCategoriesToSharedTableMigration(

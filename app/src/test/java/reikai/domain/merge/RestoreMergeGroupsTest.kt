@@ -12,17 +12,8 @@ import org.junit.jupiter.api.Test
 import reikai.data.db.SqlDelightTransactions
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.domain.library.ContentType
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
-import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
+import tachiyomi.data.DatabaseBindings
 
 /**
  * Restoring backed-up merge groups onto a library that already has grouping of its own. Runs against
@@ -41,22 +32,7 @@ class RestoreMergeGroupsTest {
             driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
             driver.execute(null, "PRAGMA foreign_keys=ON", 0).await()
-            database = Database(
-                driver = driver,
-                historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                    memoAdapter = MemoColumnAdapter,
-                ),
-                chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-                novelsAdapter = Novels.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                ),
-                custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-                custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-            )
+            database = DatabaseBindings.providesDatabase(driver)
             repository = MergeGroupRepositoryImpl(database)
             // The real one, not a fake: the whole point of the change is that materializeGroup's own
             // transaction nests inside this outer one, and only the real driver proves that.
@@ -70,8 +46,11 @@ class RestoreMergeGroupsTest {
     private suspend fun insertManga(id: Long) {
         driver.execute(
             null,
-            "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
-                "cover_last_modified, favorite_at) VALUES ($id, 1, 'm-url-$id', 'title', 0, 0, 0, 0, 0, NULL)",
+            "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, " +
+                "state_initialized, user_reader_flags, user_chapter_flags, " +
+                "state_cover_last_modified, user_favorite_at, remote_update_strategy, " +
+                "state_chapter_fetch_interval, user_notes, remote_memo) VALUES ($id, 1, " +
+                "'m-url-$id', 'title', 0, 0, 0, 0, 0, NULL, 0, 0, '', '{}')",
             0,
         ).await()
     }

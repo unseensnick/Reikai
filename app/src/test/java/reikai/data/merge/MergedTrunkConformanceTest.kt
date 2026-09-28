@@ -26,17 +26,9 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.novels.NovelMergeCollapse
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
 import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
@@ -61,22 +53,7 @@ class MergedTrunkConformanceTest {
             driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
             driver.execute(null, "PRAGMA foreign_keys=ON", 0).await()
-            database = Database(
-                driver = driver,
-                historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                    memoAdapter = MemoColumnAdapter,
-                ),
-                chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-                novelsAdapter = Novels.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                ),
-                custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-                custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-            )
+            database = DatabaseBindings.providesDatabase(driver)
             groups = MergeGroupRepositoryImpl(database)
         }
     }
@@ -121,7 +98,7 @@ class MergedTrunkConformanceTest {
         groups.createGroup(type, listOf(LARGER, SMALLER))
         side.storedLead()
 
-        exec("DELETE FROM ${side.chapterTable} WHERE ${side.ownerColumn} = $LARGER AND chapter_number > 2")
+        exec("DELETE FROM ${side.chapterTable} WHERE ${side.ownerColumn} = $LARGER AND ${side.numberColumn} > 2")
 
         side.libraryPrimary(preferred = emptyList()) shouldBe side.storedLead()
     }
@@ -132,6 +109,8 @@ class MergedTrunkConformanceTest {
         val chapterTable: String
 
         val ownerColumn: String
+
+        val numberColumn: String
 
         suspend fun entry(id: Long, source: Long, chapters: Int, hidden: Int = 0)
 
@@ -159,9 +138,11 @@ class MergedTrunkConformanceTest {
     private inner class MangaSide : Side {
         private val members = mutableMapOf<Long, Long>()
 
-        override val chapterTable = "chapters"
+        override val chapterTable = "chapter"
 
         override val ownerColumn = "manga_id"
+
+        override val numberColumn = "remote_chapter_number"
 
         override suspend fun storedLead(): Long {
             val chapters = ChapterRepositoryImpl(database)
@@ -179,19 +160,23 @@ class MergedTrunkConformanceTest {
         override suspend fun entry(id: Long, source: Long, chapters: Int, hidden: Int) {
             members[id] = source
             exec(
-                "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
-                    "cover_last_modified, favorite_at) VALUES ($id, $source, 'm$id', 'title', 0, 0, 0, 0, 0, 0)",
+                "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, " +
+                    "state_initialized, user_reader_flags, user_chapter_flags, " +
+                    "state_cover_last_modified, user_favorite_at, remote_update_strategy, " +
+                    "state_chapter_fetch_interval, user_notes, remote_memo) VALUES ($id, $source, " +
+                    "'m$id', 'title', 0, 0, 0, 0, 0, 0, 0, 0, '', '{}')",
             )
             (1..chapters).forEach { number ->
                 val scanlator = if (number <= hidden) "'hidden'" else "NULL"
                 exec(
-                    "INSERT INTO chapters(manga_id, url, name, scanlator, read, bookmark, last_page_read, " +
-                        "chapter_number, source_order, date_fetch, date_upload) " +
-                        "VALUES ($id, '/$id/$number', 'Chapter $number', $scanlator, 0, 0, 0, $number, " +
-                        "$number, 0, 0)",
+                    "INSERT INTO chapter(manga_id, remote_url, remote_name, remote_scanlator, " +
+                        "user_read, user_bookmark, user_last_page_read, remote_chapter_number, " +
+                        "remote_order, state_date_fetch, remote_date_upload, remote_memo) VALUES ($id, " +
+                        "'/$id/$number', 'Chapter $number', $scanlator, 0, 0, 0, $number, $number, 0, 0, " +
+                        "'{}')",
                 )
             }
-            if (hidden > 0) exec("INSERT INTO excluded_scanlators(manga_id, scanlator) VALUES ($id, 'hidden')")
+            if (hidden > 0) exec("INSERT INTO excluded_scanlator(manga_id, scanlator) VALUES ($id, 'hidden')")
         }
 
         override suspend fun libraryPrimary(preferred: List<Long>): Long {
@@ -237,6 +222,8 @@ class MergedTrunkConformanceTest {
         override val chapterTable = "novel_chapters"
 
         override val ownerColumn = "novel_id"
+
+        override val numberColumn = "chapter_number"
 
         override suspend fun storedLead(): Long {
             val chapters = NovelChapterRepositoryImpl(database)

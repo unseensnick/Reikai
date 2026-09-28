@@ -6,40 +6,40 @@
 
 getRecentlyAddedManga:
 SELECT
-    mangas._id AS mangaId,
-    mangas.title,
-    mangas.source,
-    mangas.thumbnail_url AS thumbnailUrl,
-    mangas.cover_last_modified AS coverLastModified,
-    coalesce(mangas.favorite_at, 0) AS dateAdded
-FROM mangas
-WHERE mangas.favorite_at > :after
+    manga.id AS mangaId,
+    manga.remote_title AS title,
+    manga.source_id AS source,
+    manga.remote_cover AS thumbnailUrl,
+    manga.state_cover_last_modified AS coverLastModified,
+    coalesce(manga.user_favorite_at, 0) AS dateAdded
+FROM manga
+WHERE manga.user_favorite_at > :after
 AND (
     :includedEmpty
     OR EXISTS (
-        SELECT 1 FROM mangas_categories
-        WHERE mangas_categories.manga_id = mangas._id
-        AND COALESCE(mangas_categories.category_id, 0) IN :includedCategories
+        SELECT 1 FROM manga_category
+        WHERE manga_category.manga_id = manga.id
+        AND COALESCE(manga_category.category_id, 0) IN :includedCategories
     )
     OR (0 IN :includedCategories AND NOT EXISTS (
-        SELECT 1 FROM mangas_categories mc WHERE mc.manga_id = mangas._id)
+        SELECT 1 FROM manga_category mc WHERE mc.manga_id = manga.id)
     )
 )
 AND (
     :excludedEmpty
     OR (
         NOT EXISTS (
-            SELECT 1 FROM mangas_categories
-            WHERE mangas_categories.manga_id = mangas._id
-            AND COALESCE(mangas_categories.category_id, 0) IN :excludedCategories
+            SELECT 1 FROM manga_category
+            WHERE manga_category.manga_id = manga.id
+            AND COALESCE(manga_category.category_id, 0) IN :excludedCategories
         )
         AND (
             0 NOT IN :excludedCategories
-            OR EXISTS (SELECT 1 FROM mangas_categories WHERE mangas_categories.manga_id = mangas._id)
+            OR EXISTS (SELECT 1 FROM manga_category WHERE manga_category.manga_id = manga.id)
         )
     )
 )
-ORDER BY mangas.favorite_at DESC
+ORDER BY manga.user_favorite_at DESC
 LIMIT :limit;
 
 -- Novel twin. An entry out of the library has no favorite_at, so the cutoff keeps it out of the lane;

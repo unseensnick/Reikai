@@ -16,7 +16,7 @@ import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 
 /**
  * Novel twin of [eu.kanade.tachiyomi.data.track.BaseTracker]'s `setRemoteX` + `updateRemote`: pushes a
- * field change to the remote tracker and persists the result to `novel_tracks` (never `manga_sync`).
+ * field change to the remote tracker and persists the result to `novel_tracks` (never `manga_track`).
  * The status/chapter/score transitions come from the shared [reikai.domain.track.TrackFieldMutations],
  * the same source [eu.kanade.tachiyomi.data.track.BaseTracker] uses, so a novel behaves identically to
  * a manga and inherits any upstream change instead of drifting from a hand-copy.

@@ -11,17 +11,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.domain.novel.model.NovelChapter
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
-import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.domain.chapter.model.Chapter
 
@@ -38,22 +29,7 @@ class ChapterSyncConformanceTest {
     fun setUp() = runTest {
         driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         Database.Schema.create(driver).await()
-        database = Database(
-            driver = driver,
-            historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-            mangasAdapter = Mangas.Adapter(
-                genreAdapter = StringListColumnAdapter,
-                update_strategyAdapter = UpdateStrategyColumnAdapter,
-                memoAdapter = MemoColumnAdapter,
-            ),
-            chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-            novelsAdapter = Novels.Adapter(
-                genreAdapter = StringListColumnAdapter,
-                update_strategyAdapter = UpdateStrategyColumnAdapter,
-            ),
-            custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-            custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-        )
+        database = DatabaseBindings.providesDatabase(driver)
     }
 
     @AfterEach
@@ -82,12 +58,13 @@ class ChapterSyncConformanceTest {
     enum class Type {
         MANGA {
             override suspend fun seed(database: Database, url: String) {
-                database.mangasQueries.insertReturningId(
-                    source = 1, url = "m", artist = null, author = null, description = null, genre = null,
-                    title = "T", status = 0, thumbnailUrl = null, favoriteAt = 0, lastUpdate = 0, nextUpdate = 0,
-                    initialized = false, viewerFlags = 0, chapterFlags = 0, coverLastModified = 0,
-                    updateStrategy = UpdateStrategy.ALWAYS_UPDATE,
-                    calculateInterval = 0, notes = "", memo = JsonObject(emptyMap()),
+                database.mangaQueries.insertReturningId(
+                    sourceId = 1, remoteUrl = "m", remoteArtist = null, remoteAuthor = null, remoteDescription = null,
+                    remoteGenre = null, remoteTitle = "T", remoteStatus = 0, remoteCover = null, userFavoriteAt = 0,
+                    stateChapterLastUpdate = 0, stateChapterNextUpdate = 0, stateInitialized = false,
+                    userReaderFlags = 0, userChapterFlags = 0, stateCoverLastModified = 0,
+                    remoteUpdateStrategy = UpdateStrategy.ALWAYS_UPDATE,
+                    stateChapterFetchInterval = 0, userNotes = "", remoteMemo = JsonObject(emptyMap()),
                 )
                 sync(database, listOf(url))
             }

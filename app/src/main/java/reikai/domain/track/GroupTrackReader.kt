@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.onStart
  * type. A tracker bound on one source of a merged series has to count while reading or displaying any
  * other source, so tracking spans the group rather than the single entry the per-type repositories read.
  *
- * The engines stay split (manga rows live in `manga_sync`, novels in `novel_tracks`), so the per-type halves
+ * The engines stay split (manga rows live in `manga_track`, novels in `novel_tracks`), so the per-type halves
  * come in as lambdas: the group resolver, the single-entry read, and the two fields the shared rule needs.
  */
 class GroupTrackReader<T>(

@@ -61,7 +61,7 @@ FROM novels
 WHERE favorite_at IS NOT NULL
 ORDER BY title;
 
--- Novel twin of mangas.sq getReadMangaNotInLibrary (last_text_progress replaces last_page_read).
+-- Novel twin of manga.sq getReadMangaNotInLibrary (last_text_progress replaces last_page_read).
 -- Backs the read-entries backup option, so read history survives e.g. a replace-migration that
 -- unfavorited the old novel.
 getReadNovelsNotInLibrary:
@@ -73,7 +73,7 @@ WHERE favorite_at IS NULL AND _id IN (
     WHERE read = 1 OR last_text_progress != 0
 );
 
--- Novel twin of mangas.sq getSourceIdsWithNonLibraryManga, backing the Clear database screen's
+-- Novel twin of manga.sq getSourceIdsWithNonLibraryManga, backing the Clear database screen's
 -- novel section. Source ids are the lnreader plugin String ids.
 getSourcesWithNonLibraryNovel:
 SELECT source, COUNT(*) AS novel_count
@@ -81,7 +81,7 @@ FROM novels
 WHERE favorite_at IS NULL
 GROUP BY source;
 
--- Novel twin of mangas.sq deleteNonLibraryManga. The keep-read guard mirrors
+-- Novel twin of manga.sq deleteNonLibraryManga. The keep-read guard mirrors
 -- getReadNovelsNotInLibrary above: a chapter marked read or with a mid-chapter position counts as
 -- progress. Child rows (chapters, category junctions, tracks, custom info, update errors, merge
 -- memberships) go via their ON DELETE CASCADE foreign keys; the app driver enables enforcement.
@@ -99,7 +99,7 @@ AND (
     )
 );
 
--- Novel twin of mangas.sq getDuplicateLibraryManga: favorited novels whose title contains :title or
+-- Novel twin of manga.sq getDuplicateLibraryManga: favorited novels whose title contains :title or
 -- that are tracked to the same remote entry, each with its chapter count. A remote id of 0 is a tracker
 -- that never set one, so it matches nothing. DuplicateTrackMatchConformanceTest pins both halves.
 getDuplicateLibraryNovel:
@@ -169,7 +169,7 @@ UPDATE novels SET
     viewer_flags = :viewerFlags
 WHERE _id = :novelId;
 
--- Partial update (the novel twin of mangas.sq's coalesce update): each column `coalesce(:x, x)`s, so a
+-- Partial update (the novel twin of manga.sq's coalesce update): each column `coalesce(:x, x)`s, so a
 -- NovelUpdate patch writes only the fields it sets (null = leave unchanged). Used for surgical edits
 -- (e.g. notes); the full-row `update` above stays for restore / edit-info, which need to write nulls.
 -- NOTE: `genre` (List<String>) and `update_strategy` (UpdateStrategy) are omitted: SQLDelight does not

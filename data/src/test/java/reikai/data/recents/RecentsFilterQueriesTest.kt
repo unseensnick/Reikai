@@ -1,6 +1,7 @@
 package reikai.data.recents
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -9,17 +10,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
-import tachiyomi.data.Chapters
-import tachiyomi.data.Custom_manga_info
-import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.History
-import tachiyomi.data.Mangas
-import tachiyomi.data.MemoColumnAdapter
-import tachiyomi.data.Novels
-import tachiyomi.data.StringListColumnAdapter
-import tachiyomi.data.UpdateStrategyColumnAdapter
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.history.HistoryRepositoryImpl
 import tachiyomi.data.updates.UpdatesRepositoryImpl
 
@@ -45,22 +37,7 @@ class RecentsFilterQueriesTest {
             driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
             driver.execute(null, "PRAGMA foreign_keys=ON", 0).await()
-            database = Database(
-                driver = driver,
-                historyAdapter = History.Adapter(last_readAdapter = DateColumnAdapter),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                    memoAdapter = MemoColumnAdapter,
-                ),
-                chaptersAdapter = Chapters.Adapter(memoAdapter = MemoColumnAdapter),
-                novelsAdapter = Novels.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                ),
-                custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
-                custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
-            )
+            database = DatabaseBindings.providesDatabase(driver)
             updates = UpdatesRepositoryImpl(database)
             novels = NovelRepositoryImpl(database)
             history = HistoryRepositoryImpl(database)
@@ -117,7 +94,8 @@ class RecentsFilterQueriesTest {
         seedManga(id = 1, categoryId = 1)
         seedManga(id = 2, categoryId = null)
 
-        mangaUpdateIds() shouldBe listOf(1L, 2L)
+        // Both rows share a fetch date, and the feed orders by nothing else
+        mangaUpdateIds().shouldContainExactlyInAnyOrder(1L, 2L)
     }
 
     @Test
@@ -125,7 +103,7 @@ class RecentsFilterQueriesTest {
         seedNovel(id = 1, categoryId = 2)
         seedNovel(id = 2, categoryId = null)
 
-        novelUpdateIds() shouldBe listOf(1L, 2L)
+        novelUpdateIds().shouldContainExactlyInAnyOrder(1L, 2L)
     }
 
     @Test
@@ -266,23 +244,28 @@ class RecentsFilterQueriesTest {
     ) {
         driver.execute(
             null,
-            "INSERT INTO mangas(_id, source, url, title, status, initialized, viewer, chapter_flags, " +
-                "cover_last_modified, favorite_at) VALUES ($id, 1, 'm-url-$id', 'title $id', 0, 0, 0, 0, 0, " +
-                "CASE WHEN ${favorite.toSql()} = 1 THEN 0 END)",
+            "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, " +
+                "state_initialized, user_reader_flags, user_chapter_flags, " +
+                "state_cover_last_modified, user_favorite_at, remote_update_strategy, " +
+                "state_chapter_fetch_interval, user_notes, remote_memo) VALUES ($id, 1, " +
+                "'m-url-$id', 'title $id', 0, 0, 0, 0, 0, " +
+                "CASE WHEN ${favorite.toSql()} = 1 THEN 0 END, 0, 0, '', '{}')",
             0,
         ).await()
         driver.execute(
             null,
-            "INSERT INTO chapters(_id, manga_id, url, name, scanlator, read, bookmark, " +
-                "last_page_read, chapter_number, source_order, date_fetch, date_upload) " +
-                "VALUES ($id, $id, 'c-url-$id', 'name', NULL, ${read.toSql()}, 0, 0, 1.0, 0, 1000, 1000)",
+            "INSERT INTO chapter(id, manga_id, remote_url, remote_name, remote_scanlator, " +
+                "user_read, user_bookmark, user_last_page_read, remote_chapter_number, " +
+                "remote_order, state_date_fetch, remote_date_upload, remote_memo) VALUES ($id, " +
+                "$id, 'c-url-$id', 'name', NULL, ${read.toSql()}, 0, 0, 1.0, 0, 1000, 1000, '{}')",
             0,
         ).await()
         if (categoryId != null) addMangaCategory(id, categoryId)
         if (withHistory) {
             driver.execute(
                 null,
-                "INSERT INTO history(_id, chapter_id, last_read, time_read) VALUES ($id, $id, ${2000 - id}, 0)",
+                "INSERT INTO history(id, chapter_id, read_at, read_duration, manga_id) VALUES ($id, $id, " +
+                    "${2000 - id}, 0, (SELECT manga_id FROM chapter WHERE id = $id))",
                 0,
             ).await()
         }
@@ -323,7 +306,7 @@ class RecentsFilterQueriesTest {
         ensureCategory(categoryId)
         driver.execute(
             null,
-            "INSERT INTO mangas_categories(manga_id, category_id) VALUES ($mangaId, $categoryId)",
+            "INSERT INTO manga_category(manga_id, category_id) VALUES ($mangaId, $categoryId)",
             0,
         ).await()
     }
@@ -340,7 +323,7 @@ class RecentsFilterQueriesTest {
     private suspend fun ensureCategory(id: Long) {
         driver.execute(
             null,
-            "INSERT OR IGNORE INTO categories(_id, name, sort, flags, content_type) " +
+            "INSERT OR IGNORE INTO category(id, name, `order`, flags, content_type) " +
                 "VALUES ($id, 'cat $id', $id, 0, 0)",
             0,
         ).await()
