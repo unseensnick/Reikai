@@ -17,7 +17,6 @@ import reikai.novel.download.NovelChapterSaver
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.data.Database
 import tachiyomi.domain.library.service.LibraryPreferences
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -31,7 +30,6 @@ class NovelPageFetcher(
     private val novelRepo: NovelRepository,
     private val chapterRepo: NovelChapterRepository,
     private val sourceManager: NovelSourceManager,
-    private val database: Database,
     private val libraryPreferences: LibraryPreferences,
     private val coverCache: CoverCache,
     private val saver: NovelChapterSaver,
@@ -67,7 +65,6 @@ class NovelPageFetcher(
             novel,
             chapterRepo,
             novelRepo,
-            database,
             libraryPreferences,
             novelDownloadManager = novelDownloadManager(),
         )

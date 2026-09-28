@@ -1,13 +1,10 @@
 package reikai.data.novel
 
-import app.cash.sqldelight.SuspendingTransactionWithoutReturn
-import app.cash.sqldelight.async.coroutines.awaitAsOne
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
-import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
@@ -20,14 +17,9 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
-import tachiyomi.data.Database
 import tachiyomi.domain.library.service.LibraryPreferences
 
-/**
- * The writes happen inside a suspend `database.transaction`, so the test runs that body inline and
- * captures the insert arguments; selectLastInsertedRowId().awaitAsOne() is stubbed via the async
- * extension facade.
- */
+/** The sync's rules over a stubbed repository; the one-transaction write is [NovelChapterUpdateFromRemoteTest]'s. */
 class NovelChapterSyncTest {
 
     private data class InsertedRow(val url: String, val read: Boolean, val bookmark: Boolean, val dateFetch: Long)
@@ -62,24 +54,14 @@ class NovelChapterSyncTest {
         downloadManager: NovelDownloadManager? = null,
         markDuplicates: Set<String> = setOf(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW),
     ): Synced {
-        mockkStatic("app.cash.sqldelight.async.coroutines.QueryExtensionsKt")
         val inserted = mutableListOf<InsertedRow>()
-        val database = mockk<Database>(relaxed = true) {
-            coEvery { transaction(any(), any()) } coAnswers {
-                secondArg<suspend SuspendingTransactionWithoutReturn.() -> Unit>().invoke(mockk(relaxed = true))
-            }
-            coEvery {
-                novel_chaptersQueries.insert(
-                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                )
-            } coAnswers {
-                inserted.add(InsertedRow(url = arg(1), read = arg(3), bookmark = arg(4), dateFetch = arg(8)))
-                0L
-            }
-            coEvery { novel_chaptersQueries.selectLastInsertedRowId().awaitAsOne() } returns 100L
-        }
         val novelChapterRepository = mockk<NovelChapterRepository>(relaxed = true) {
             coEvery { getByNovelId(1L) } returns db
+            coEvery { updateFromRemote(any(), any(), any()) } coAnswers {
+                val added = secondArg<List<NovelChapter>>()
+                added.forEach { inserted.add(InsertedRow(it.url, it.read, it.bookmark, it.dateFetch)) }
+                added.mapIndexed { i, chapter -> chapter.copy(id = 100L + i) }
+            }
         }
         val novelRepository = mockk<NovelRepository>(relaxed = true)
         val novel = Novel.create().copy(id = 1L, title = "Test")
@@ -89,7 +71,6 @@ class NovelChapterSyncTest {
             novel,
             novelChapterRepository,
             novelRepository,
-            database,
             LibraryPreferences(
                 InMemoryPreferenceStore(
                     sequenceOf(InMemoryPreference("mark_duplicate_read_chapter_read", markDuplicates, emptySet())),

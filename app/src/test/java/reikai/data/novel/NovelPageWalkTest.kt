@@ -29,7 +29,6 @@ class NovelPageWalkTest {
                 toPage = 5L,
                 novelChapterRepository = mockk(),
                 novelRepository = mockk(),
-                database = mockk(),
                 libraryPreferences = mockk(),
             )
         }

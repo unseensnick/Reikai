@@ -757,7 +757,6 @@ class NovelEngine : MigrateEngine {
             insertNovelTrack = insertTrack,
             sourceManager = sourceManager,
             novelRepository = novelRepository,
-            database = mockk(relaxed = true),
             libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
             transactions = rec,
             sourceTracker = sourceTracker,

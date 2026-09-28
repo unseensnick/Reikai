@@ -6,7 +6,6 @@ import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import reikai.util.runCatchingCancellable
-import tachiyomi.data.Database
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -24,7 +23,6 @@ suspend fun walkNovelPages(
     toPage: Long,
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
-    database: Database,
     libraryPreferences: LibraryPreferences,
     novelDownloadManager: NovelDownloadManager? = null,
 ): NovelChapterSyncResult {
@@ -40,7 +38,6 @@ suspend fun walkNovelPages(
                     novel,
                     novelChapterRepository,
                     novelRepository,
-                    database,
                     libraryPreferences,
                     page = key,
                     novelDownloadManager = novelDownloadManager,

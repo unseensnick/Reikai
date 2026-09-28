@@ -139,7 +139,6 @@ class NovelRefreshTest {
         source,
         chapters,
         novels,
-        database,
         preferences,
         coverCache,
         novelDownloadManager = downloadManager,
@@ -311,7 +310,6 @@ class NovelRefreshTest {
         novels.getById(novel.id)!!,
         chapters,
         novels,
-        database,
         libraryPreferences,
         page = page,
     )

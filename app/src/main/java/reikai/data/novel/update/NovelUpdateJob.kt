@@ -75,7 +75,6 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.data.Database
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
@@ -103,8 +102,6 @@ class NovelUpdateJob(
     @Inject private lateinit var novelRepo: NovelRepository
 
     @Inject private lateinit var chapterRepo: NovelChapterRepository
-
-    @Inject private lateinit var database: Database
 
     @Inject private lateinit var downloadManager: NovelDownloadManager
 
@@ -313,7 +310,6 @@ class NovelUpdateJob(
         source,
         chapterRepo,
         novelRepo,
-        database,
         libraryPreferences,
         coverCache,
         novelDownloadManager = downloadManager,

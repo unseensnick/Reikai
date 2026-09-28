@@ -111,6 +111,38 @@ class NovelChapterRepositoryImpl(
         false
     }
 
+    override suspend fun updateFromRemote(
+        removedIds: List<Long>,
+        added: List<NovelChapter>,
+        updated: List<NovelChapter>,
+    ): List<NovelChapter> = database.transactionWithResult {
+        removedIds.forEach { database.novel_chaptersQueries.delete(it) }
+        val stored = added.map { chapter ->
+            database.novel_chaptersQueries.insert(
+                novelId = chapter.novelId,
+                url = chapter.url,
+                name = chapter.name,
+                read = chapter.read,
+                bookmark = chapter.bookmark,
+                lastTextProgress = chapter.lastTextProgress,
+                chapterNumber = chapter.chapterNumber,
+                sourceOrder = chapter.sourceOrder,
+                dateFetch = chapter.dateFetch,
+                dateUpload = chapter.dateUpload,
+                page = chapter.page,
+            )
+            chapter.copy(id = database.novel_chaptersQueries.selectLastInsertedRowId().awaitAsOne())
+        }
+        updated.forEach { chapter ->
+            database.novel_chaptersQueries.update(
+                novelId = null, url = null, name = chapter.name, read = null, bookmark = null,
+                lastTextProgress = null, chapterNumber = chapter.chapterNumber, sourceOrder = chapter.sourceOrder,
+                dateFetch = null, dateUpload = chapter.dateUpload, page = chapter.page, chapterId = chapter.id,
+            )
+        }
+        stored
+    }
+
     override suspend fun setLastTextProgress(id: Long, progress: Long): Boolean = try {
         // Null every column but last_text_progress so coalesce keeps the rest.
         database.novel_chaptersQueries.update(

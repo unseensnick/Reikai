@@ -29,6 +29,17 @@ interface NovelChapterRepository {
      *  carry's batched `UpdateChapter.awaitAll`. */
     suspend fun updateAll(chapters: List<NovelChapter>): Boolean
 
+    /**
+     * One source sync in ONE transaction: deletes [removedIds], inserts [added], and writes only the
+     * source-owned fields (name, number, order, upload date, page) of [updated], so read state,
+     * bookmark and progress survive. Returns [added] with their new ids.
+     */
+    suspend fun updateFromRemote(
+        removedIds: List<Long>,
+        added: List<NovelChapter>,
+        updated: List<NovelChapter>,
+    ): List<NovelChapter>
+
     /** Focused write for the reader's auto-save path; avoids the round-trip a full update needs. */
     suspend fun setLastTextProgress(id: Long, progress: Long): Boolean
 

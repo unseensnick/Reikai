@@ -56,7 +56,6 @@ class NovelMigrationFlowAdapterTest {
         novelPreferences = mockk(),
         novelRepository = novelRepository,
         chapterRepository = chapterRepository,
-        database = mockk(),
         libraryPreferences = mockk(),
         coverCache = mockk(),
         downloadManagerProvider = { mockk() },

@@ -132,7 +132,6 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.lang.withUIContext
-import tachiyomi.data.Database
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
@@ -159,7 +158,6 @@ class NovelDetailsViewModel(
     private val coverCache: CoverCache,
     private val setNovelChapterFlags: SetNovelChapterFlags,
     private val chapterRepo: NovelChapterRepository,
-    private val database: Database,
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val novelDownloadCache: NovelDownloadCache,
     private val sourceManager: NovelSourceManager,
@@ -729,7 +727,6 @@ class NovelDetailsViewModel(
                 target,
                 chapterRepo,
                 novelRepo,
-                database,
                 libraryPreferences,
                 page = pageTag,
                 novelDownloadManager = downloadManager,
@@ -763,7 +760,6 @@ class NovelDetailsViewModel(
                         novel,
                         chapterRepo,
                         novelRepo,
-                        database,
                         libraryPreferences,
                         page = pageKey,
                         novelDownloadManager = downloadManager,
@@ -973,7 +969,6 @@ class NovelDetailsViewModel(
             src,
             chapterRepo,
             novelRepo,
-            database,
             libraryPreferences,
             coverCache,
             novelDownloadManager = downloadManager,
@@ -993,7 +988,6 @@ class NovelDetailsViewModel(
                         updated,
                         chapterRepo,
                         novelRepo,
-                        database,
                         libraryPreferences,
                         page = key,
                         novelDownloadManager = downloadManager,

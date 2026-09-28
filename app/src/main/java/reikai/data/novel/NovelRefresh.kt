@@ -12,7 +12,6 @@ import reikai.domain.source.refreshedCover
 import reikai.domain.source.refreshedTitle
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
-import tachiyomi.data.Database
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
 import kotlin.time.Clock
@@ -98,7 +97,6 @@ suspend fun refreshNovelFromSource(
     source: NovelSource,
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
-    database: Database,
     libraryPreferences: LibraryPreferences,
     coverCache: CoverCache,
     novelDownloadManager: NovelDownloadManager? = null,
@@ -130,7 +128,6 @@ suspend fun refreshNovelFromSource(
             merged,
             novelChapterRepository,
             novelRepository,
-            database,
             libraryPreferences,
             page = pageTag,
             novelDownloadManager = novelDownloadManager,
@@ -144,7 +141,6 @@ suspend fun refreshNovelFromSource(
             merged.totalPages,
             novelChapterRepository,
             novelRepository,
-            database,
             libraryPreferences,
             novelDownloadManager = novelDownloadManager,
         )

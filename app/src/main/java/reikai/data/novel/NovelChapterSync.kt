@@ -1,6 +1,5 @@
 package reikai.data.novel
 
-import app.cash.sqldelight.async.coroutines.awaitAsOne
 import reikai.domain.chapter.ArrivingChapter
 import reikai.domain.chapter.StoredChapter
 import reikai.domain.chapter.chapterArrivals
@@ -11,7 +10,6 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
-import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -28,7 +26,6 @@ suspend fun syncChaptersWithNovelSource(
     novel: Novel,
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
-    database: Database,
     libraryPreferences: LibraryPreferences,
     page: String? = null,
     novelDownloadManager: NovelDownloadManager? = null,
@@ -110,46 +107,7 @@ suspend fun syncChaptersWithNovelSource(
         chapter.copy(dateFetch = arrival.dateFetch, read = arrival.read, bookmark = arrival.bookmark)
     }
 
-    val insertedChapters = mutableListOf<NovelChapter>()
-    database.transaction {
-        toDelete.forEach { database.novel_chaptersQueries.delete(it.id) }
-
-        for (chapter in updatedToAdd) {
-            database.novel_chaptersQueries.insert(
-                novelId = chapter.novelId,
-                url = chapter.url,
-                name = chapter.name,
-                read = chapter.read,
-                bookmark = chapter.bookmark,
-                lastTextProgress = chapter.lastTextProgress,
-                chapterNumber = chapter.chapterNumber,
-                sourceOrder = chapter.sourceOrder,
-                dateFetch = chapter.dateFetch,
-                dateUpload = chapter.dateUpload,
-                page = chapter.page,
-            )
-            val insertedId = database.novel_chaptersQueries.selectLastInsertedRowId().awaitAsOne()
-            insertedChapters += chapter.copy(id = insertedId)
-        }
-
-        for (chapter in toChange) {
-            // Null every column but the changed metadata so coalesce preserves read/bookmark/progress.
-            database.novel_chaptersQueries.update(
-                novelId = null,
-                url = null,
-                name = chapter.name,
-                read = null,
-                bookmark = null,
-                lastTextProgress = null,
-                chapterNumber = chapter.chapterNumber,
-                sourceOrder = chapter.sourceOrder,
-                dateFetch = null,
-                dateUpload = chapter.dateUpload,
-                page = chapter.page,
-                chapterId = chapter.id,
-            )
-        }
-    }
+    val insertedChapters = novelChapterRepository.updateFromRemote(toDelete.map { it.id }, updatedToAdd, toChange)
 
     // novels.last_update tracks the last time the chapter list changed at all; only on a real change.
     novelRepository.update(NovelUpdate(id = novel.id, lastUpdate = System.currentTimeMillis()))

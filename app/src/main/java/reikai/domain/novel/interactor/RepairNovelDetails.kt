@@ -11,7 +11,6 @@ import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.data.Database
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -29,7 +28,6 @@ class RepairNovelDetails(
     // A Provider, not the manager: constructing it restores the persisted queue and can start the
     // download worker, and a repair run must not do that just by existing.
     private val downloadManager: () -> NovelDownloadManager,
-    private val database: Database,
     private val libraryPreferences: LibraryPreferences,
     private val coverCache: CoverCache,
     private val reconcileMergedChapters: ReconcileMergedChapters,
@@ -53,7 +51,6 @@ class RepairNovelDetails(
                         source,
                         novelChapterRepository,
                         novelRepository,
-                        database,
                         libraryPreferences,
                         coverCache,
                         novelDownloadManager = downloadManager(),

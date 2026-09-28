@@ -43,7 +43,6 @@ class MigrateNovelUseCaseTest {
         insertNovelTrack = mockk(relaxed = true),
         sourceManager = mockk(relaxed = true),
         novelRepository = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(any()) } returns true },
-        database = mockk(relaxed = true),
         libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
         transactions = PassThroughTransactions,
         sourceTracker = mockk(relaxed = true),

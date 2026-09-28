@@ -31,7 +31,6 @@ import reikai.novel.source.SmartNovelSearchEngine
 import reikai.novel.source.langCode
 import reikai.presentation.migrate.PickMember
 import reikai.util.runCatchingCancellable
-import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -55,7 +54,6 @@ class NovelMigrationFlowAdapter(
     private val novelPreferences: NovelPreferences,
     private val novelRepository: NovelRepository,
     private val chapterRepository: NovelChapterRepository,
-    private val database: Database,
     private val libraryPreferences: LibraryPreferences,
     private val coverCache: CoverCache,
     private val downloadManagerProvider: () -> NovelDownloadManager,
@@ -273,7 +271,6 @@ class NovelMigrationFlowAdapter(
                     source,
                     chapterRepository,
                     novelRepository,
-                    database,
                     libraryPreferences,
                     coverCache,
                     novelDownloadManager = downloadManager,
