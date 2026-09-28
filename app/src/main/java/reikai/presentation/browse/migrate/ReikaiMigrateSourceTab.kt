@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -168,8 +170,8 @@ private fun MigrateSourcesList(
                 badge = { if (showContentType) ContentTypeBadge(row.key.contentType) },
                 icon = {
                     when (row.key) {
-                        is SourceKey.Manga -> SourceIcon(source = row.source as Source)
-                        is SourceKey.Novel -> NovelSourceIcon((row.source as NovelMigrateSource).iconUrl)
+                        is SourceKey.Manga -> SourceIcon(source = row.source as Source, modifier = Modifier.size(48.dp))
+                        is SourceKey.Novel -> NovelSourceIcon((row.source as NovelMigrateSource).iconUrl, size = 48.dp)
                     }
                 },
             )

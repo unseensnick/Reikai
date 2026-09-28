@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.extension.model.Extension
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import mihon.domain.extension.model.ContentWarning
+import reikai.domain.extension.hasSigningKey
 
 @Inject
 class GetExtensionsByType(
@@ -56,8 +57,11 @@ internal fun partitionExtensions(
 
     val available = offered
         .filter { extension ->
-            installed.none { it.pkgName == extension.pkgName } &&
-                failed.none { it.pkgName == extension.pkgName } &&
+            (installed + failed).none {
+                it.pkgName == extension.pkgName &&
+                    // RK: a keyless store's listing has no key to tell apart, so it hides behind any install
+                    (extension.store.signingKey in it.signatures || !extension.store.hasSigningKey)
+            } &&
                 extension.contentWarning in enabledContentWarnings
         }
         .flatMap { ext ->
@@ -71,7 +75,10 @@ internal fun partitionExtensions(
                     )
                 }
         }
-        .sortedWith(byName)
+        .sortedWith(
+            compareBy<Extension.Available, String>(String.CASE_INSENSITIVE_ORDER) { it.name }
+                .thenBy { it.store.signingKey },
+        )
 
     val updateVersions = updates.mapNotNull { update ->
         offered.find { it.pkgName == update.pkgName }?.let { update.pkgName to it.versionName }

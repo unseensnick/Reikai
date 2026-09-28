@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -12,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import tachiyomi.domain.source.model.Source
 import tachiyomi.presentation.core.components.material.padding
@@ -53,7 +55,7 @@ fun BaseSourceItem(
 }
 
 private val defaultIcon: @Composable RowScope.(Source) -> Unit = { source ->
-    SourceIcon(source = source)
+    SourceIcon(source = source, modifier = Modifier.size(48.dp))
 }
 
 // RK: was a val, now a function so the badge slot and title above can reach the name row.

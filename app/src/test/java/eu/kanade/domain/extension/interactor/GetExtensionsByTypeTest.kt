@@ -83,7 +83,8 @@ class GetExtensionsByTypeTest {
         lang = "en",
         contentWarning = ContentWarning.SAFE,
         isShared = true,
-        signatures = emptyList(),
+        // Signed by the store that lists it, so its listing is this apk rather than another store's
+        signatures = listOf(KEY),
         kind = kind,
         pkgFactory = null,
         sources = emptyList(),
@@ -114,10 +115,14 @@ class GetExtensionsByTypeTest {
             "",
             "",
             "",
-            "",
+            KEY,
             ExtensionStore.Contact("", null),
             isLegacy = false,
             extensionListUrl = null,
         ),
     )
+
+    private companion object {
+        const val KEY = "key"
+    }
 }

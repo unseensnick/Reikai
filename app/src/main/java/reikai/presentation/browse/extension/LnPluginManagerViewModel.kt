@@ -8,6 +8,7 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import eu.kanade.tachiyomi.extension.model.InstallStep
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import reikai.domain.extension.repoNameFromAddress
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
@@ -91,6 +93,8 @@ class LnPluginManagerViewModel(
             installed = installed,
             notLoaded = failures.values.toList(),
             installedVersions = fetched?.installedVersions.orEmpty(),
+            repoNames = fetched?.repoNames.orEmpty(),
+            installedRepoNames = fetched?.installedRepoNames.orEmpty(),
             available = fetched?.available.orEmpty(),
             updates = fetched?.updates.orEmpty(),
             inProgress = installs.inProgress,
@@ -110,10 +114,13 @@ class LnPluginManagerViewModel(
         // Merge in repo order, so first-write-wins on URL collisions matches the install/check surfaces.
         val registries = results.values.map { (it as? LnRepoResult.Reached)?.entries.orEmpty() }
         val byUrl = LinkedHashMap<String, LnRegistryEntry>()
-        registries.forEach { entries ->
-            entries.forEach { entry ->
+        val repoByUrl = HashMap<String, String>()
+        results.forEach { (repoUrl, result) ->
+            val repoName = repoNameFromAddress(repoUrl).first
+            (result as? LnRepoResult.Reached)?.entries.orEmpty().forEach { entry ->
                 val key = canonicalizePluginUrl(entry.url)
                 if (key !in byUrl) byUrl[key] = entry
+                repoByUrl.putIfAbsent(key, repoName)
             }
         }
         return RepoFetch(
@@ -127,6 +134,10 @@ class LnPluginManagerViewModel(
             ),
             installedVersions = metadata.values
                 .mapNotNull { meta -> meta.version?.let { meta.pluginId to it } }
+                .toMap(),
+            repoNames = repoByUrl,
+            installedRepoNames = metadata
+                .mapNotNull { (url, meta) -> repoByUrl[canonicalizePluginUrl(url)]?.let { meta.pluginId to it } }
                 .toMap(),
         )
     }
@@ -166,7 +177,7 @@ class LnPluginManagerViewModel(
             try {
                 installer.installFromUrl(url, metadata)
             } catch (e: Throwable) {
-                installs.update { it.copy(errors = it.errors + (key to (e.message ?: "Install failed"))) }
+                installs.update { it.copy(errors = it.errors + (key to InstallStep.Error.from(e))) }
             } finally {
                 installs.update { it.copy(inProgress = it.inProgress - key) }
             }
@@ -200,13 +211,18 @@ class LnPluginManagerViewModel(
         customCssUrl = customCSS,
     )
 
-    private data class Installs(val inProgress: Set<String> = emptySet(), val errors: Map<String, String> = emptyMap())
+    private data class Installs(
+        val inProgress: Set<String> = emptySet(),
+        val errors: Map<String, InstallStep.Error> = emptyMap(),
+    )
 
     private class RepoFetch(
         val hasRepos: Boolean,
         val available: List<LnRegistryEntry>,
         val updates: List<LnPluginUpdate>,
         val installedVersions: Map<String, String>,
+        val repoNames: Map<String, String>,
+        val installedRepoNames: Map<String, String>,
     )
 
     @Immutable
@@ -226,7 +242,14 @@ class LnPluginManagerViewModel(
         val updates: List<LnPluginUpdate> = emptyList(),
         /** Canonical URLs with an install/update in flight. */
         val inProgress: Set<String> = emptySet(),
-        /** Canonical URL -> last install error, shown inline. */
-        val errors: Map<String, String> = emptyMap(),
+        /** Canonical URL -> last install error, behind the row's Retry menu as an apk row's is. */
+        val errors: Map<String, InstallStep.Error> = emptyMap(),
+        /**
+         * Canonical plugin URL -> the name of the first added repo listing it, the plugin half of an
+         * apk row's store line. Named from the repo address, as the Repositories screen names it.
+         */
+        val repoNames: Map<String, String> = emptyMap(),
+        /** Plugin id -> the repo its installed script's URL is listed by, when one still lists it. */
+        val installedRepoNames: Map<String, String> = emptyMap(),
     )
 }

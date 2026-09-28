@@ -129,8 +129,18 @@ abstract class Installer(private val service: Service) {
         stallHandler.removeCallbacks(giveUp)
         // RK: the one being installed counts too. Without this a give-up leaves its row reading
         //     "installing" with nothing left to finish it, until the app is restarted.
-        waitingInstall.exchange(null)?.let { extensionManager.updateInstallStep(it.downloadId, InstallStep.Error) }
-        queue.forEach { extensionManager.updateInstallStep(it.downloadId, InstallStep.Error) }
+        waitingInstall.exchange(null)?.let {
+            extensionManager.updateInstallStep(
+                it.downloadId,
+                InstallStep.Error("The installer stopped before this one finished"),
+            )
+        }
+        queue.forEach {
+            extensionManager.updateInstallStep(
+                it.downloadId,
+                InstallStep.Error("The installer stopped before it got to this one"),
+            )
+        }
         queue.clear()
     }
 

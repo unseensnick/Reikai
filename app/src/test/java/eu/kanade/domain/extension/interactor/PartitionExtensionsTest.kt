@@ -2,9 +2,10 @@ package eu.kanade.domain.extension.interactor
 
 import eu.kanade.tachiyomi.extension.model.Extension
 import io.kotest.matchers.shouldBe
-import io.mockk.mockk
 import mihon.domain.extension.model.ContentWarning
+import mihon.domain.extension.model.ExtensionStore
 import org.junit.jupiter.api.Test
+import reikai.domain.extension.NO_SIGNING_KEY
 
 /** An installed extension with an update pending carries the version its store now lists. */
 class PartitionExtensionsTest {
@@ -49,6 +50,32 @@ class PartitionExtensionsTest {
         extensions.updateVersions shouldBe mapOf("app" to "1.6.8")
     }
 
+    @Test
+    fun `a listing from a store whose key does not sign the installed apk is offered beside it`() {
+        val extensions = partitionExtensions(
+            enabledLanguages = null,
+            enabledContentWarnings = ContentWarning.entries.toSet(),
+            installed = listOf(installed("app", "1.0.0")),
+            failed = emptyList(),
+            offered = listOf(offered("app", "1.0.0"), offered("app", "1.0.0", store = otherKey)),
+        )
+
+        extensions.available.map { it.store.signingKey } shouldBe listOf("other")
+    }
+
+    @Test
+    fun `a keyless store's listing of an installed extension is not offered again`() {
+        val extensions = partitionExtensions(
+            enabledLanguages = null,
+            enabledContentWarnings = ContentWarning.entries.toSet(),
+            installed = listOf(installed("app", "1.0.0")),
+            failed = emptyList(),
+            offered = listOf(offered("app", "1.0.0", store = keyless)),
+        )
+
+        extensions.available shouldBe emptyList()
+    }
+
     private fun failed(pkg: String, hasUpdate: Boolean = false) = Extension.NotLoaded(
         name = pkg,
         pkgName = pkg,
@@ -56,7 +83,7 @@ class PartitionExtensionsTest {
         versionCode = 1,
         isShared = true,
         contentWarning = ContentWarning.SAFE,
-        signatures = emptyList(),
+        signatures = listOf(KEY),
         kind = Extension.Kind.MANGA,
         hasUpdate = hasUpdate,
         reason = Extension.NotLoaded.Reason.Unsigned,
@@ -71,7 +98,7 @@ class PartitionExtensionsTest {
         lang = "en",
         contentWarning = ContentWarning.SAFE,
         isShared = true,
-        signatures = emptyList(),
+        signatures = listOf(KEY),
         kind = Extension.Kind.MANGA,
         pkgFactory = null,
         sources = emptyList(),
@@ -79,7 +106,7 @@ class PartitionExtensionsTest {
         hasUpdate = hasUpdate,
     )
 
-    private fun offered(pkg: String, version: String) = Extension.Available(
+    private fun offered(pkg: String, version: String, store: ExtensionStore = keyed) = Extension.Available(
         name = pkg,
         pkgName = pkg,
         versionName = version,
@@ -88,9 +115,25 @@ class PartitionExtensionsTest {
         lang = "en",
         contentWarning = ContentWarning.SAFE,
         kind = Extension.Kind.MANGA,
-        sources = emptyList(),
+        sources = listOf(Extension.Available.Source(id = 1, lang = "en", name = pkg, baseUrl = "")),
         apkUrl = "",
         iconUrl = "",
-        store = mockk(),
+        store = store,
     )
+
+    private companion object {
+        const val KEY = "key"
+
+        val keyed = ExtensionStore(
+            indexUrl = "https://a.example/index.min.json",
+            name = "A",
+            badgeLabel = "A",
+            signingKey = KEY,
+            contact = ExtensionStore.Contact(website = "", discord = null),
+            isLegacy = false,
+            extensionListUrl = null,
+        )
+        val otherKey = keyed.copy(indexUrl = "https://b.example/index.min.json", signingKey = "other")
+        val keyless = keyed.copy(indexUrl = "https://c.example/index.min.json", signingKey = NO_SIGNING_KEY)
+    }
 }

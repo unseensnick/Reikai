@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -30,8 +32,10 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
+import eu.kanade.presentation.browse.ExtensionInstallErrorDialog
 import eu.kanade.presentation.browse.ExtensionItem
 import eu.kanade.presentation.browse.ExtensionNotLoadedDialog
+import eu.kanade.presentation.browse.ExtensionSplitButton
 import eu.kanade.presentation.browse.ExtensionTrustDialog
 import eu.kanade.presentation.browse.ExtensionUninstallConfirmation
 import eu.kanade.presentation.browse.NotLoadedDialog
@@ -40,6 +44,7 @@ import eu.kanade.presentation.components.TabContent
 import eu.kanade.presentation.components.WarningBanner
 import eu.kanade.presentation.util.rememberRequestPackageInstallsPermissionState
 import eu.kanade.tachiyomi.extension.model.Extension
+import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionFilterScreen
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionUiModel
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel
@@ -50,7 +55,6 @@ import eu.kanade.tachiyomi.util.system.launchRequestPackageInstallsPermission
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Info
-import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Settings
 import reikai.domain.library.ContentType
@@ -236,6 +240,7 @@ private fun ExtensionsList(
     var privateExtensionToUninstall by remember { mutableStateOf<Extension.Installed?>(null) }
     var pluginToUninstall by remember { mutableStateOf<NovelSource?>(null) }
     var failedPlugin by remember { mutableStateOf<LnPluginLoadFailure?>(null) }
+    var installError by remember { mutableStateOf<InstallStep.Error?>(null) }
 
     FastScrollLazyColumn(contentPadding = contentPadding + topSmallPaddingValues) {
         if (!installGranted && state.needsInstallPermission) {
@@ -291,6 +296,7 @@ private fun ExtensionsList(
                             badge = badge,
                             onNotLoaded = { notLoadedState = it },
                             onConfirmPrivateUninstall = { privateExtensionToUninstall = it },
+                            onInstallError = { installError = it },
                         )
                         is ExtensionKey.Novel -> NovelExtensionRow(
                             row = item.row,
@@ -299,6 +305,7 @@ private fun ExtensionsList(
                             badge = badge,
                             onConfirmUninstall = { pluginToUninstall = it },
                             onNotLoaded = { failedPlugin = it },
+                            onInstallError = { installError = it },
                             modifier = Modifier.animateItem(),
                         )
                     }
@@ -364,6 +371,13 @@ private fun ExtensionsList(
         )
     }
 
+    installError?.let { error ->
+        ExtensionInstallErrorDialog(
+            error = error,
+            onDismissRequest = { installError = null },
+        )
+    }
+
     privateExtensionToUninstall?.let { extension ->
         ExtensionUninstallConfirmation(
             extensionName = extension.name,
@@ -415,6 +429,7 @@ private fun ApkExtensionRow(
     badge: @Composable () -> Unit,
     onNotLoaded: (Extension.NotLoaded) -> Unit,
     onConfirmPrivateUninstall: (Extension.Installed) -> Unit,
+    onInstallError: (InstallStep.Error) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
@@ -446,6 +461,7 @@ private fun ApkExtensionRow(
             }
         },
         onClickItemCancel = model::cancelInstallUpdateExtension,
+        onClickItemError = onInstallError,
         onClickItemAction = {
             when (it) {
                 is Extension.Available -> model.installExtension(it)
@@ -466,6 +482,7 @@ private fun ApkExtensionRow(
                     navigator.push(WebViewScreen(url = source.baseUrl, initialTitle = source.name, sourceId = sourceId))
                 }
                 is Extension.Loaded -> navigator.push(ExtensionDetailsScreen(it.pkgName))
+                // Trust, or why it did not load, which the row's menu and its button both name.
                 is Extension.NotLoaded -> onNotLoaded(it)
             }
         },
@@ -480,6 +497,7 @@ private fun NovelExtensionRow(
     badge: @Composable () -> Unit,
     onConfirmUninstall: (NovelSource) -> Unit,
     onNotLoaded: (LnPluginLoadFailure) -> Unit,
+    onInstallError: (InstallStep.Error) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
@@ -489,23 +507,29 @@ private fun NovelExtensionRow(
             // Keyed as the install writes it, so a reinstall from the dialog shows its progress and error here.
             val key = canonicalizePluginUrl(payload.url)
             val installing = key in state.inProgress
+            val details = stringResource(MR.strings.ext_not_loaded_details) to { onNotLoaded(payload) }
             NovelSourceRow(
                 modifier = modifier,
                 name = payload.name,
                 lang = lang,
                 iconUrl = payload.iconUrl,
                 version = payload.version,
-                subtitle = state.errors[key],
+                repoName = state.repoNames[key],
                 onClickItem = { if (!installing) onNotLoaded(payload) },
                 onLongClickItem = { if (!installing) onNotLoaded(payload) },
                 badge = badge,
                 action = {
                     NovelRowAction(inProgress = installing) {
-                        IconButton(onClick = { onNotLoaded(payload) }) {
-                            Icon(
-                                imageVector = MaterialSymbols.Rounded.Info,
-                                contentDescription = stringResource(MR.strings.ext_not_loaded),
-                            )
+                        val error = state.errors[key]
+                        if (error != null) {
+                            PluginRetryButton(error, onInstallError, listOf(details)) { model.reinstall(payload) }
+                        } else {
+                            IconButton(onClick = details.second) {
+                                Icon(
+                                    imageVector = MaterialSymbols.Rounded.Info,
+                                    contentDescription = details.first,
+                                )
+                            }
                         }
                     }
                 },
@@ -513,20 +537,28 @@ private fun NovelExtensionRow(
         }
         is LnPluginUpdate -> {
             val key = canonicalizePluginUrl(payload.entry.url)
+            val settings = stringResource(MR.strings.action_settings) to {
+                navigator.push(NovelPluginDetailsScreen(payload.entry.id))
+            }
             NovelSourceRow(
                 modifier = modifier,
                 name = payload.entry.name,
                 lang = lang,
                 iconUrl = payload.entry.iconUrl,
                 version = versionLabel(payload.installedVersion, row.updateVersion),
-                subtitle = state.errors[key],
+                repoName = state.repoNames[key],
                 badge = badge,
                 action = {
                     NovelRowAction(inProgress = key in state.inProgress) {
-                        IconButton(onClick = { model.update(payload) }) {
-                            Icon(
-                                imageVector = MaterialSymbols.Rounded.Download,
+                        val error = state.errors[key]
+                        if (error != null) {
+                            PluginRetryButton(error, onInstallError, listOf(settings)) { model.update(payload) }
+                        } else {
+                            ExtensionSplitButton(
+                                icon = MaterialSymbols.Rounded.Download,
                                 contentDescription = stringResource(MR.strings.ext_update),
+                                onClick = { model.update(payload) },
+                                menuItems = listOf(settings),
                             )
                         }
                     }
@@ -539,12 +571,13 @@ private fun NovelExtensionRow(
             lang = lang,
             iconUrl = payload.iconUrl,
             version = state.installedVersions[payload.id],
+            repoName = state.installedRepoNames[payload.id],
             // As an installed manga extension's row: a tap or its settings button opens its page.
             onClickItem = { navigator.push(NovelPluginDetailsScreen(payload.id)) },
             onLongClickItem = { onConfirmUninstall(payload) },
             badge = badge,
             action = {
-                IconButton(onClick = { navigator.push(NovelPluginDetailsScreen(payload.id)) }) {
+                FilledTonalIconButton(onClick = { navigator.push(NovelPluginDetailsScreen(payload.id)) }) {
                     Icon(
                         imageVector = MaterialSymbols.Rounded.Settings,
                         contentDescription = stringResource(MR.strings.action_settings),
@@ -554,30 +587,30 @@ private fun NovelExtensionRow(
         )
         is LnRegistryEntry -> {
             val key = canonicalizePluginUrl(payload.url)
+            val webView = payload.site.takeIf { it.isNotEmpty() }?.let {
+                stringResource(MR.strings.action_open_in_web_view) to { navigator.push(webViewFor(payload)) }
+            }
             NovelSourceRow(
                 modifier = modifier,
                 name = payload.name,
                 lang = lang,
                 iconUrl = payload.iconUrl,
                 version = payload.version,
-                subtitle = state.errors[key],
+                repoName = state.repoNames[key],
                 badge = badge,
                 action = {
-                    // The same pair of icon buttons the manga rows use, so one list reads as one
-                    // list. Both go while an install runs, as they do on the manga side.
+                    // The apk rows' own buttons, so one list reads as one list. They go while an
+                    // install runs, as they do on the apk side.
                     NovelRowAction(inProgress = key in state.inProgress) {
-                        if (payload.site.isNotEmpty()) {
-                            IconButton(onClick = { navigator.push(webViewFor(payload)) }) {
-                                Icon(
-                                    imageVector = MaterialSymbols.Rounded.Public,
-                                    contentDescription = stringResource(MR.strings.action_open_in_web_view),
-                                )
-                            }
-                        }
-                        IconButton(onClick = { model.install(payload) }) {
-                            Icon(
-                                imageVector = MaterialSymbols.Rounded.Download,
+                        val error = state.errors[key]
+                        if (error != null) {
+                            PluginRetryButton(error, onInstallError, listOfNotNull(webView)) { model.install(payload) }
+                        } else {
+                            ExtensionSplitButton(
+                                icon = MaterialSymbols.Rounded.Download,
                                 contentDescription = stringResource(MR.strings.ext_install),
+                                onClick = { model.install(payload) },
+                                menuItems = listOfNotNull(webView),
                             )
                         }
                     }
@@ -585,6 +618,23 @@ private fun NovelExtensionRow(
             )
         }
     }
+}
+
+/** A failed install's Retry, with why it failed ahead of the row's other actions, as an apk row has it. */
+@Composable
+private fun PluginRetryButton(
+    error: InstallStep.Error,
+    onInstallError: (InstallStep.Error) -> Unit,
+    otherActions: List<Pair<String, () -> Unit>>,
+    onRetry: () -> Unit,
+) {
+    ExtensionSplitButton(
+        icon = MaterialSymbols.Rounded.Refresh,
+        contentDescription = stringResource(MR.strings.action_retry),
+        onClick = onRetry,
+        menuItems = listOf(stringResource(MR.strings.ext_install_error_details) to { onInstallError(error) }) +
+            otherActions,
+    )
 }
 
 /**
@@ -597,12 +647,15 @@ private fun webViewFor(entry: LnRegistryEntry) =
 /**
  * A novel row's trailing buttons, or a spinner while its install runs.
  *
- * The Row and its spacing are the manga rows' own, so the two kinds line their buttons up in the
+ * The Row and its spacing are the apk rows' own, so the two kinds line their buttons up in the
  * same columns; emitting the buttons bare leaves the group narrower and shifts all but the last.
  */
 @Composable
 private fun NovelRowAction(inProgress: Boolean, buttons: @Composable RowScope.() -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         if (inProgress) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
         } else {

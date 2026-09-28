@@ -57,13 +57,15 @@ fun NovelSourceRow(
     onLongClickItem: () -> Unit = {},
     /** Content-type badge, beside the name, drawn by a shared list that holds both types. */
     badge: @Composable () -> Unit = {},
+    /** The repo a plugin comes from, under the name as an apk extension row names its store. */
+    repoName: String? = null,
     action: @Composable RowScope.() -> Unit = {},
 ) {
     BaseBrowseItem(
         modifier = modifier,
         onClickItem = onClickItem,
         onLongClickItem = onLongClickItem,
-        icon = { NovelSourceIcon(iconUrl) },
+        icon = { NovelSourceIcon(iconUrl, size = 48.dp) },
         action = action,
         content = {
             Column(
@@ -83,6 +85,15 @@ fun NovelSourceRow(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     badge()
+                }
+                if (repoName != null) {
+                    Text(
+                        text = repoName,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 val secondary = subtitle ?: listOfNotNull(
                     lang.takeIf { it.isNotEmpty() }

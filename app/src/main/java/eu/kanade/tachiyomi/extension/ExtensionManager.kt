@@ -84,11 +84,17 @@ class ExtensionManager(
 
     private val iconMap = mutableMapOf<String, Drawable>()
 
+    @Volatile
+    private var stores = emptyList<ExtensionStore>()
+
     private val loadedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Loaded>())
     val loadedExtensionsFlow = loadedExtensionMapFlow.mapExtensionsWhenInitialized()
 
     // Every store's listing, since more than one store can list the same extension
     private val availableExtensionListFlow = MutableStateFlow(emptyList<Extension.Available>())
+
+    // Stores sharing a signing key serve the same apks, so only the newest of their listings is shown. Stores
+    // with different keys offer different apks, each installable, so each keeps its own.
     val availableExtensionsFlow = availableExtensionListFlow.mapListings(scope)
 
     private val notLoadedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.NotLoaded>())
@@ -565,45 +571,64 @@ class ExtensionManager(
             extension.copy(
                 hasUpdate = extension.findUpdate(available, storeKeys) != null,
                 isObsolete = listing == null,
-                store = extension.store ?: listing?.keylessStore(),
+                store = if (stores.isEmpty()) extension.store else extension.pickStore(available),
             )
         }
         notLoaded.value = notLoaded.value.mapValues { (_, extension) ->
             extension.copy(
                 hasUpdate = extension.findUpdate(available, storeKeys) != null,
-                store = extension.store ?: extension.findListing(available, storeKeys)?.keylessStore(),
+                store = if (stores.isEmpty()) extension.store else extension.pickStore(available),
             )
         }
     }
     // RK <--
 
-    // RK: the loader names the store whose key signs an apk; a keyless store signs nothing, so an apk it
-    // lists takes that store from its listing instead
-    private fun Extension.Available.keylessStore() = store.takeUnless { it.hasSigningKey }
-
     // RK: a keyless store's key is no key at all, so it never counts as one an apk could be signed with
     private suspend fun readStoreKeys(): Set<String> =
         extensionStoreRepository.getAll().filter { it.hasSigningKey }.mapTo(HashSet()) { it.signingKey }
 
-    private fun assignStores(stores: List<ExtensionStore>) {
-        fun Extension.Installed.signingStore() = stores.firstOrNull { it.signingKey in signatures }
-            // RK: a keyless store names no key, so an apk it listed keeps it while it is still added
+    /**
+     * Several stores can share a signing key, so one that lists the extension names where it comes from better
+     * than whichever of them was added first.
+     */
+    private fun Extension.Installed.pickStore(
+        available: List<Extension.Available>, // RK: the listings of this apk's own kind
+    ): ExtensionStore? {
+        val signingStores = stores.filter { it.signingKey in signatures }
+        val listedBy = available
+            .filter { it.pkgName == pkgName }
+            .mapTo(HashSet()) { it.store.indexUrl }
+        return signingStores.firstOrNull { it.indexUrl in listedBy } ?: signingStores.firstOrNull()
+            // RK: a keyless store names no key, so an apk it lists takes it from the listing, and keeps it
+            // while that store is still added
+            ?: findListing(available, storeKeys)?.store?.takeUnless { it.hasSigningKey }
             ?: store?.takeUnless {
                 it.hasSigningKey
             }?.let { current -> stores.find { it.indexUrl == current.indexUrl } }
+    }
 
+    private fun assignStores(stores: List<ExtensionStore>) {
+        this.stores = stores
         loadedExtensionMapFlow.update { extensions ->
-            extensions.mapValues { (_, extension) -> extension.copy(store = extension.signingStore()) }
+            extensions.mapValues { (_, extension) ->
+                extension.copy(store = extension.pickStore(availableExtensionListFlow.value))
+            }
         }
         notLoadedExtensionMapFlow.update { extensions ->
-            extensions.mapValues { (_, extension) -> extension.copy(store = extension.signingStore()) }
+            extensions.mapValues { (_, extension) ->
+                extension.copy(store = extension.pickStore(availableExtensionListFlow.value))
+            }
         }
         // RK -->
         loadedNovelExtensionMapFlow.update { extensions ->
-            extensions.mapValues { (_, extension) -> extension.copy(store = extension.signingStore()) }
+            extensions.mapValues { (_, extension) ->
+                extension.copy(store = extension.pickStore(availableNovelExtensionListFlow.value))
+            }
         }
         notLoadedNovelExtensionMapFlow.update { extensions ->
-            extensions.mapValues { (_, extension) -> extension.copy(store = extension.signingStore()) }
+            extensions.mapValues { (_, extension) ->
+                extension.copy(store = extension.pickStore(availableNovelExtensionListFlow.value))
+            }
         }
         // RK <--
     }
@@ -622,13 +647,18 @@ class ExtensionManager(
 
     private operator fun <T : Extension> Map<String, T>.plus(extension: T) = plus(extension.pkgName to extension)
 
-    // RK: one entry per package, as upstream shows, through the EH gate: the stock E-Hentai extension
-    //     shares source ids with built-in EH and would shadow it while that is active.
+    // RK: upstream's per-key listings, through the EH gate: the stock E-Hentai extension shares source
+    //     ids with built-in EH and would shadow it while that is active.
     private fun StateFlow<List<Extension.Available>>.mapListings(
         scope: CoroutineScope,
     ): StateFlow<List<Extension.Available>> {
         return combine(exhPreferences.isHentaiEnabled().changes()) { extensions, hentaiEnabled ->
-            extensions.associateBy { it.pkgName }.values
+            extensions
+                .groupBy { it.pkgName to it.store.signingKey }
+                .values
+                .map { listings ->
+                    listings.maxWith(compareBy<Extension.Available> { it.versionCode }.thenBy { it.libVersion })
+                }
                 .filterNot { hentaiEnabled && it.pkgName in BlacklistedSources.BLACKLISTED_EXTENSIONS }
         }.stateIn(scope, SharingStarted.Lazily, emptyList())
     }

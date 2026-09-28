@@ -48,7 +48,7 @@ class ExtensionRestorerTest {
     @Test
     fun `an extension a repo offers but that fails to install is reported`() = runTest {
         every { extensionManager.installExtension(available) } returns
-            flowOf(InstallStep.Pending, InstallStep.Downloading, InstallStep.Error)
+            flowOf(InstallStep.Pending, InstallStep.Downloading, InstallStep.Error("failed"))
 
         restorer.restore(listOf(backup)) shouldBe listOf(NotRestored("Foo", Reason.InstallFailed))
     }
