@@ -43,6 +43,10 @@ class NovelWebViewportGateTest {
     private val steps = CopyOnWriteArrayList<Boolean>()
     private val endsSeen = CopyOnWriteArrayList<Long>()
 
+    /** Every chapter the viewport reported a fits-on-screen answer for. */
+    private val fitsReports = CopyOnWriteArrayList<Long>()
+    private var destroyedByTest = false
+
     private val webView: WebView get() = viewport.view as WebView
 
     private companion object {
@@ -78,7 +82,7 @@ class NovelWebViewportGateTest {
                 onVisibleChapter = { visibleReports += it },
                 onRetryBoundary = {},
                 cutoutTopDp = { 0 },
-                onChapterFits = { _, _ -> },
+                onChapterFits = { id, _ -> fitsReports += id },
                 onChapterEndSeen = { endsSeen += it },
             )
             (activity.webView.parent as ViewGroup).addView(
@@ -91,7 +95,7 @@ class NovelWebViewportGateTest {
     @After
     fun tearDown() {
         scope.cancel()
-        if (::viewport.isInitialized) instrumentation.runOnMainSync { viewport.destroy() }
+        if (::viewport.isInitialized && !destroyedByTest) instrumentation.runOnMainSync { viewport.destroy() }
         if (::scenario.isInitialized) scenario.close()
     }
 
@@ -181,6 +185,26 @@ class NovelWebViewportGateTest {
         }
         assertEquals(true, reportFromThePageItself())
         assertEquals(emptyList<Boolean>(), steps.toList())
+    }
+
+    /** A report the page posted before teardown runs after it, so a destroyed viewport must not pass it on. */
+    @Test
+    fun aReportQueuedBeforeTeardownIsNotPassedOn() {
+        openAndAwaitReady(1L)
+        // Positive control: the page's own token-bearing fits report reaches the host with no frame.
+        evalOnPage("rkReader.appendChapter('3', '<p>x</p>', null, null)")
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
+        while (3L !in fitsReports && System.currentTimeMillis() < deadline) Thread.sleep(50)
+        assertEquals(true, 3L in fitsReports)
+        instrumentation.runOnMainSync {
+            webView.evaluateJavascript("rkReader.appendChapter('4', '<p>x</p>', null, null)", null)
+            // Held, so the report is queued on this thread behind the teardown.
+            Thread.sleep(REPORT_QUEUED_MS)
+            viewport.destroy()
+            destroyedByTest = true
+        }
+        instrumentation.waitForIdleSync()
+        assertEquals(false, 4L in fitsReports)
     }
 
     /** rkReader is the page's to overwrite, and a chapter's script replacing an answer used to crash the app. */

@@ -259,6 +259,8 @@ class NovelWebViewport(
     override fun onChapterStepped() = Unit
 
     override fun destroy() {
+        // First: a caller dropPendingCalls resumes can queue again, and a closed gate parks it.
+        gate.close()
         dropPendingCalls()
         scope.cancel()
         webView.stopLoading()

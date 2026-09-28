@@ -63,4 +63,39 @@ class NovelDocumentGateTest {
 
         gate.admitsReaderCall(old) shouldBe false
     }
+
+    @Test
+    fun `a closed gate hears no report from the document it had`() {
+        val t = gate.open()
+        gate.markReady(t)
+        gate.close()
+
+        gate.admitsReport(t) shouldBe false
+    }
+
+    @Test
+    fun `a closed gate hears no reader call from the document it had`() {
+        val t = gate.open()
+        gate.markReady(t)
+        gate.close()
+
+        gate.admitsReaderCall(t) shouldBe false
+    }
+
+    @Test
+    fun `a ready after close does not reopen it`() {
+        val t = gate.open()
+        gate.close()
+
+        gate.markReady(t) shouldBe false
+    }
+
+    @Test
+    fun `a closed gate is not ready`() {
+        val t = gate.open()
+        gate.markReady(t)
+        gate.close()
+
+        gate.isReady shouldBe false
+    }
 }
