@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.network.NetworkPreferences
+import exh.eh.EHentaiUpdateWorker
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -24,6 +25,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -74,16 +77,17 @@ class CategoryPreferenceRestoreTest {
 
     @BeforeEach
     fun stubTheJobs() {
-        mockkObject(LibraryUpdateJob)
-        mockkObject(BackupCreateJob)
+        mockkObject(LibraryUpdateJob, BackupCreateJob, NovelUpdateJob, TrackerLibraryRefreshJob, EHentaiUpdateWorker)
         every { LibraryUpdateJob.setupTask(any(), any()) } returns Unit
         every { BackupCreateJob.setupTask(any(), any()) } returns Unit
+        every { NovelUpdateJob.setupTask(any(), any()) } returns Unit
+        every { TrackerLibraryRefreshJob.setupTask(any(), any()) } returns Unit
+        every { EHentaiUpdateWorker.setupTask(any(), any(), any()) } returns Unit
     }
 
     @AfterEach
     fun releaseTheJobs() {
-        unmockkObject(LibraryUpdateJob)
-        unmockkObject(BackupCreateJob)
+        unmockkObject(LibraryUpdateJob, BackupCreateJob, NovelUpdateJob, TrackerLibraryRefreshJob, EHentaiUpdateWorker)
     }
 
     /** Yōkai's own categories as its backup encodes them: name, order and flags, no id. */

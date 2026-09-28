@@ -597,6 +597,7 @@ every stable release now also ships a foss build with neither in it.
 - **The warning before a restore and the restore log now name a missing light-novel source instead of showing its id.** Backups made before this update still show the id.
 - **The warning before a restore no longer claims your light-novel sources are missing.** It read the source list before the plugins had loaded, so a restore begun from a fresh launch listed every one of them.
 - **Settings -> Data and storage -> Library List now exports your novels too, and writes a merged series once.**
+- **Restoring a backup now schedules automatic light-novel updates, adult gallery source updates and the tracker library refresh straight away.** They used to wait until the app next updated or the setting was changed.
 
 ### App
 

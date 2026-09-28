@@ -20,6 +20,9 @@ import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.interceptor.FLARESOLVERR_URL_KEY
 import eu.kanade.tachiyomi.network.interceptor.carryFlareSolverrUserInfo
 import eu.kanade.tachiyomi.source.sourcePreferences
+import exh.eh.EHentaiUpdateWorker
+import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
@@ -74,6 +77,11 @@ class PreferenceRestorer(
 
         LibraryUpdateJob.setupTask(context)
         BackupCreateJob.setupTask(context)
+        // RK --> Reikai's periodic jobs read their restored interval only when set up
+        NovelUpdateJob.setupTask(context)
+        TrackerLibraryRefreshJob.setupTask(context)
+        EHentaiUpdateWorker.setupTask(context)
+        // RK <--
     }
 
     suspend fun restoreSource(preferences: List<BackupSourcePreferences>) {

@@ -9,7 +9,7 @@ import mihon.core.migration.MigrationContext
 import reikai.data.novel.update.NovelUpdateJob
 
 /**
- * Schedules the periodic light-novel chapter-update check on every app start, mirroring
+ * Schedules the periodic light-novel chapter-update check on install and on each app upgrade, mirroring
  * [SetupLibraryUpdateMigration]. Idempotent: [NovelUpdateJob.setupTask] reads the stored interval and
  * either (re)enqueues the unique periodic work or cancels it when the interval is 0 (off).
  */

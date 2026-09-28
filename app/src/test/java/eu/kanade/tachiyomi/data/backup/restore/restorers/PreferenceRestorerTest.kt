@@ -13,11 +13,13 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.interceptor.FLARESOLVERR_URL_KEY
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
+import exh.eh.EHentaiUpdateWorker
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.AfterEach
@@ -27,6 +29,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
@@ -44,7 +48,7 @@ import tachiyomi.domain.category.interactor.GetCategories
  * What a restore does with a preference key the app has retired. The store answers null for a key it
  * does not hold, which satisfies the restorer's type check, so a retired key is written back unless
  * the restorer says otherwise: the six Yōkai-era keys it already skips, and the novel reader's page
- * padding, whose value has somewhere to go.
+ * padding, whose value has somewhere to go. Also that a restore re-arms the periodic jobs.
  */
 class PreferenceRestorerTest {
 
@@ -65,19 +69,29 @@ class PreferenceRestorerTest {
         getNovelCategories = mockk(),
     )
 
-    /** Both are WorkManager scheduling the restore does on its way out, which needs a real app. */
+    /** All five are WorkManager scheduling the restore does on its way out, which needs a real app. */
     @BeforeEach
     fun stubTheJobs() {
-        mockkObject(LibraryUpdateJob)
-        mockkObject(BackupCreateJob)
+        mockkObject(LibraryUpdateJob, BackupCreateJob, NovelUpdateJob, TrackerLibraryRefreshJob, EHentaiUpdateWorker)
         every { LibraryUpdateJob.setupTask(any(), any()) } returns Unit
         every { BackupCreateJob.setupTask(any(), any()) } returns Unit
+        every { NovelUpdateJob.setupTask(any(), any()) } returns Unit
+        every { TrackerLibraryRefreshJob.setupTask(any(), any()) } returns Unit
+        every { EHentaiUpdateWorker.setupTask(any(), any(), any()) } returns Unit
     }
 
     @AfterEach
     fun releaseTheJobs() {
-        unmockkObject(LibraryUpdateJob)
-        unmockkObject(BackupCreateJob)
+        unmockkObject(LibraryUpdateJob, BackupCreateJob, NovelUpdateJob, TrackerLibraryRefreshJob, EHentaiUpdateWorker)
+    }
+
+    /** A job reads its interval only when set up, so one left alone keeps running on the pre-restore one. */
+    @ParameterizedTest(name = "a restore re-arms {0} from the restored settings")
+    @MethodSource("rearmedJobs")
+    fun restoreRearmsThePeriodicJobs(name: String, check: (Context) -> Unit) = runTest {
+        restorer.restoreApp(emptyList(), backupCategories = null)
+
+        check(context)
     }
 
     private fun margins() = with(novelPreferences) {
@@ -330,6 +344,19 @@ class PreferenceRestorerTest {
     }
 
     companion object {
+        @JvmStatic
+        fun rearmedJobs() = listOf(
+            Arguments.of("novel updates", { c: Context -> verify { NovelUpdateJob.setupTask(c, null) } }),
+            Arguments.of(
+                "the tracker library refresh",
+                { c: Context -> verify { TrackerLibraryRefreshJob.setupTask(c, null) } },
+            ),
+            Arguments.of(
+                "adult gallery updates",
+                { c: Context -> verify { EHentaiUpdateWorker.setupTask(c, null, null) } },
+            ),
+        )
+
         @JvmStatic
         fun retiredKeys() = listOf(
             Arguments.of(DEAD_READER_PADDING_KEY, IntPreferenceValue(32)),
