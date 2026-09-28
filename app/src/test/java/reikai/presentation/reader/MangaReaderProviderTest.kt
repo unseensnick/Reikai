@@ -63,4 +63,21 @@ class MangaReaderProviderTest {
 
         second.loadState.first() shouldNotBe first.loadState.first()
     }
+
+    /** The emission names its chapter; the session may already have moved past it when the map runs. */
+    @Test
+    fun `the web address is built for the chapter the state names`() = runTest {
+        val viewModel = mockk<ReaderViewModel>(relaxed = true) {
+            every { getChapterUrl(7L) } returns "https://site.example/7"
+        }
+        val state = ReaderViewModel.State(
+            viewerChapters = ViewerChapters(
+                ReaderChapter(Chapter.create().copy(id = 7L).toDbChapter()),
+                prevChapter = null,
+                nextChapter = null,
+            ),
+        )
+
+        provider(state, viewModel).webUrl.first() shouldBe "https://site.example/7"
+    }
 }

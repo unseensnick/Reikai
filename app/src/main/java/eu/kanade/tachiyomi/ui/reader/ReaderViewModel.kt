@@ -1029,17 +1029,7 @@ class ReaderViewModel(
         (memberSources[mangaForChapterId(chapter.manga_id).source] ?: state.value.source) as? HttpSource
     // RK <--
 
-    fun getChapterUrl(): String? {
-        val sChapter = getCurrentChapter()?.chapter ?: return null
-        val source = getSource() ?: return null
-
-        return try {
-            source.getChapterUrl(sChapter)
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
-            null
-        }
-    }
+    // RK: getChapterUrl() removed; the reader builds a chapter's URL by id through getChapterUrl(chapterId)
 
     /**
      * Bookmarks the currently active chapter.

@@ -308,4 +308,22 @@ class NovelReaderViewModelTest {
 
         model.chapter.value?.html.orEmpty() shouldContain "Chapter one on disk"
     }
+
+    /** The provider maps an emission that can arrive after the session moved to another source's chapter. */
+    @Test
+    fun `a chapter of another source of a merged novel gets that source's web address`() = readerTest { harness ->
+        val first = harness.novel(harness.source("alpha"))
+        val second = harness.novel(harness.source("beta"))
+        val opened = harness.chapter(first, 1.0)
+        val other = harness.chapter(second, 2.0)
+        harness.merge(first, second)
+        val model = harness.open(first, opened.id)
+        advanceUntilIdle()
+        val earlier = model.chapter.value!!
+
+        model.open(other.id)
+        advanceUntilIdle()
+
+        model.webUrlFor(earlier) shouldBe "https://alpha.example" + opened.url
+    }
 }
