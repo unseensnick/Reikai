@@ -58,8 +58,8 @@ class MigrateNovelCategoriesToSharedTableMigrationTest {
                 custom_manga_infoAdapter = Custom_manga_info.Adapter(genreAdapter = StringListColumnAdapter),
                 custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
             )
-            database.categoriesQueries.insert(name = "Novels", order = 1L, flags = NOVEL_DOWNLOADED, contentType = 2L)
-            database.categoriesQueries.insert(name = "Manga", order = 2L, flags = NOVEL_DOWNLOADED, contentType = 1L)
+            database.categoriesQueries.insert(name = "Novels", flags = NOVEL_DOWNLOADED, contentType = 2L)
+            database.categoriesQueries.insert(name = "Manga", flags = NOVEL_DOWNLOADED, contentType = 1L)
             novelPreferences.defaultNovelCategory().set(5)
             categories = CategoryRepositoryImpl(database)
             migration = MigrateNovelCategoriesToSharedTableMigration(

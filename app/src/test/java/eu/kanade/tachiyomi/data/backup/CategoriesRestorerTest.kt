@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.category.CategoryContentType
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.model.NewCategory
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -34,9 +35,9 @@ class CategoriesRestorerTest {
     )
 
     /** Restores [backup] over [device] and returns the rows the restorer inserted. */
-    private suspend fun inserted(device: List<Category>, backup: List<BackupCategory>): List<Category> {
+    private suspend fun inserted(device: List<Category>, backup: List<BackupCategory>): List<NewCategory> {
         coEvery { repository.getAll(any()) } returns device
-        val inserted = slot<List<Category>>()
+        val inserted = slot<List<NewCategory>>()
         coEvery { repository.insertAll(capture(inserted)) } just Runs
         restorer(backup)
         return inserted.captured

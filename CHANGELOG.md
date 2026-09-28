@@ -595,6 +595,8 @@ every stable release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **Restoring a backup that lists one chapter twice now restores it once instead of adding a duplicate, on manga and novels (synced from Mihon).**
+- **A novel category restored from a backup now takes its own place in the category order instead of sharing one with a manga category (synced from Mihon).**
 - **Restoring a backup that lists one chapter's history twice now adds up its reading time and keeps its latest read, on manga and novels (synced from Mihon).**
 - **Restoring a backup over a series you already track keeps the tracker entry you have and only moves its progress forward, on manga and novels (synced from Mihon).**
 - **Restoring a backup now keeps a default category set to Always ask.**

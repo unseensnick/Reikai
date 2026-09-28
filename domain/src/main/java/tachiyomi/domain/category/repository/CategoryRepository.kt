@@ -3,6 +3,7 @@ package tachiyomi.domain.category.repository
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.category.CategoryContentType
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.model.NewCategory
 
 interface CategoryRepository {
 
@@ -29,10 +30,9 @@ interface CategoryRepository {
 
     // RK: contentType picks the manga (default) or novel insert; returns the new row id for the novel
     // create/restore paths that need it. Manga callers ignore the returned id.
-    suspend fun insert(category: Category, contentType: Long = CategoryContentType.MANGA): Long
+    suspend fun insert(category: NewCategory): Long
 
-    // RK: each row is inserted with its own content type
-    suspend fun insertAll(categories: List<Category>)
+    suspend fun insertAll(categories: List<NewCategory>)
 
     suspend fun updateName(categoryId: Long, name: String)
 

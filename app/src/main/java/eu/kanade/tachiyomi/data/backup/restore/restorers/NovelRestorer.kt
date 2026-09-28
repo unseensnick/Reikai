@@ -34,7 +34,7 @@ import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
-import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.model.NewCategory
 import tachiyomi.domain.category.repository.CategoryRepository
 
 @Inject
@@ -51,24 +51,14 @@ class NovelRestorer(
     /** Create any novel categories the backup has that the device doesn't, matched by name. */
     suspend fun restoreCategories(backupCategories: List<BackupNovelCategory>) {
         if (backupCategories.isEmpty()) return
-        val dbCategories = categoryRepository.getAll(CategoryContentType.NOVEL)
-        val dbCategoryNames = dbCategories.mapTo(HashSet()) { it.name }
-        var nextOrder = dbCategories.maxOfOrNull { it.order }?.plus(1) ?: 0L
-
-        backupCategories
-            .sortedBy { it.order }
-            .forEach { backupCategory ->
-                if (backupCategory.name in dbCategoryNames) return@forEach
-                categoryRepository.insert(
-                    Category(
-                        id = 0L,
-                        name = backupCategory.name,
-                        order = nextOrder++,
-                        flags = backupCategory.flags,
-                    ),
-                    CategoryContentType.NOVEL,
-                )
-            }
+        val dbCategoryNames = categoryRepository.getAll(CategoryContentType.NOVEL).mapTo(HashSet()) { it.name }
+        // The database places each after every row of either library, and all of them or none land.
+        categoryRepository.insertAll(
+            backupCategories
+                .filter { it.name !in dbCategoryNames }
+                .sortedBy { it.order }
+                .map { NewCategory(name = it.name, flags = it.flags, contentType = CategoryContentType.NOVEL) },
+        )
     }
 
     suspend fun restore(backupNovel: BackupNovel, backupCategories: List<BackupNovelCategory>) {

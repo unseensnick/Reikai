@@ -12,6 +12,7 @@ import reikai.domain.category.CategoryContentType
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.model.NewCategory
 import tachiyomi.domain.category.repository.CategoryRepository
 
 @Inject
@@ -81,22 +82,21 @@ class CategoryRepositoryImpl(
 
     // RK --> contentType is written straight through, so a universal category (0) is expressible and not
     // silently demoted to manga. Returns the new row id for the create/restore paths that key off it.
-    override suspend fun insert(category: Category, contentType: Long): Long {
+    override suspend fun insert(category: NewCategory): Long {
         return database.transactionWithResult {
             database.categoriesQueries.insert(
                 name = category.name,
-                order = category.order,
                 flags = category.flags,
-                contentType = contentType,
+                contentType = category.contentType,
             )
             database.categoriesQueries.selectLastInsertedRowId().awaitAsOne()
         }
     }
     // RK <--
 
-    override suspend fun insertAll(categories: List<Category>) {
+    override suspend fun insertAll(categories: List<NewCategory>) {
         database.transaction {
-            categories.forEach { insert(it, it.contentType) } // RK: each with its own content type
+            categories.forEach { insert(it) }
         }
     }
 
@@ -110,10 +110,12 @@ class CategoryRepositoryImpl(
 
     override suspend fun updateAllOrders(orderedIds: List<Long>) {
         database.transaction {
-            orderedIds.forEachIndexed { index, categoryId ->
+            val current = database.categoriesQueries.getUserCategoryIds().awaitAsList()
+            val ids = orderedIds.filter { it in current } + current.filterNot { it in orderedIds }
+            ids.forEachIndexed { index, categoryId ->
                 database.categoriesQueries.updateOrder(order = -index - 2L, categoryId = categoryId)
             }
-            orderedIds.forEachIndexed { index, categoryId ->
+            ids.forEachIndexed { index, categoryId ->
                 database.categoriesQueries.updateOrder(order = index.toLong(), categoryId = categoryId)
             }
         }

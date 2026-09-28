@@ -77,7 +77,8 @@ ORDER BY C.sort;
 -- 0). A universal category is a single row both libraries read, so the create path must be able to name it.
 insert:
 INSERT INTO categories(name, sort, flags, content_type)
-VALUES (:name, :order, :flags, :contentType);
+SELECT :name, coalesce(max(sort), -1) + 1, :flags, :contentType
+FROM categories;
 
 delete:
 DELETE FROM categories
@@ -87,6 +88,12 @@ updateName:
 UPDATE categories
 SET name = :name
 WHERE _id = :categoryId;
+
+getUserCategoryIds:
+SELECT _id
+FROM categories
+WHERE _id > 0
+ORDER BY sort;
 
 updateOrder:
 UPDATE categories

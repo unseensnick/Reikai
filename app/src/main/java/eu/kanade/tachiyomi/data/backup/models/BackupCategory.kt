@@ -6,6 +6,7 @@ import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.isHidden
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.model.NewCategory
 
 @Serializable
 class BackupCategory(
@@ -28,14 +29,8 @@ class BackupCategory(
     private val flagsWithHidden: Long
         get() = if (hidden) flags or CATEGORY_HIDDEN_MASK else flags
 
-    fun toCategory(id: Long) = Category(
-        id = id,
-        name = this@BackupCategory.name,
-        // RK: was `flags`
-        flags = this@BackupCategory.flagsWithHidden,
-        order = this@BackupCategory.order,
-        contentType = this@BackupCategory.contentType,
-    )
+    // RK: the database assigns the position, so a restored category carries only what it keeps
+    fun toNewCategory() = NewCategory(name = name, flags = flagsWithHidden, contentType = contentType)
 }
 
 val backupCategoryMapper = { category: Category ->

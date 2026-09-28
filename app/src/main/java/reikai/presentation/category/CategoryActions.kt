@@ -14,6 +14,7 @@ import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.RenameCategory
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.model.NewCategory
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -36,13 +37,11 @@ class CategoryActions(
     fun subscribe(): Flow<List<Category>> = categoryRepository.getUnfilteredAsFlow()
 
     suspend fun create(name: String, contentType: Long): Boolean = try {
-        val nextOrder = nonSystemCategories().maxOfOrNull { it.order }?.plus(1) ?: 0L
         categoryRepository.insert(
             // Seeded with the global sort like Mihon's CreateCategoryWithName. The bits only take effect
             // once the override marker is set, so this is the same as starting blank until the user sets
-            // a per-category sort.
-            Category(id = 0L, name = name, order = nextOrder, flags = initialFlags(), contentType = contentType),
-            contentType,
+            // a per-category sort. The database places it after every row of either library.
+            NewCategory(name = name, flags = initialFlags(), contentType = contentType),
         )
         true
     } catch (e: Exception) {
