@@ -101,6 +101,10 @@ class NovelImageGetter(
     private val dirtyViews = mutableSetOf<TextView>()
     private val arrivals = Channel<Unit>(Channel.CONFLATED)
 
+    // Main thread. A span edit made while a re-measure is suspended lands on the text its copy replaces,
+    // so it runs once the batch it came with has set the text.
+    private val spanEdits = mutableListOf<() -> Unit>()
+
     /** Main thread: the line each picture sits in, so redrawing it costs one span search per picture. */
     private val lines = mutableMapOf<DrawableWrapper, PulseLine>()
 
@@ -158,9 +162,12 @@ class NovelImageGetter(
                 arrivals.receive()
                 val batch = swaps.toList()
                 swaps.clear()
+                val edits = spanEdits.toList()
+                spanEdits.clear()
                 val views = dirtyViews.toList()
                 dirtyViews.clear()
                 onImagesLanded(views, { batch.forEach { it() } }, outstandingLoads.get() == 0)
+                edits.forEach { it() }
             }
         }
     }
@@ -191,7 +198,9 @@ class NovelImageGetter(
     /** Redraws the line [wrapper] sits in, for a pulse or a slice landing. Found once: finding a picture's
      *  line searches every span of its view, too much for each frame of a pulse. */
     private fun redraw(wrapper: DrawableWrapper) {
-        (lines[wrapper] ?: markLine(wrapper)?.also { lines[wrapper] = it })?.redraw()
+        if (lines[wrapper]?.redraw() == true) return
+        lines.remove(wrapper)
+        markLine(wrapper)?.also { lines[wrapper] = it }?.redraw()
     }
 
     private fun markLine(wrapper: DrawableWrapper): PulseLine? {
@@ -207,16 +216,18 @@ class NovelImageGetter(
     /**
      * A loading picture's line. A selectable view's editor keeps each block of text drawn and replays it on
      * an invalidate, so the line is redrawn by re-setting a span over it, which marks its block dirty. Read
-     * off the view each time: a re-measure sets a copy of the text, which carries the mark across.
+     * off the view each time: a re-measure sets a copy of the text, which carries a mark set before the copy
+     * was taken. One set after it is lost with the old text, and [redraw] answers false so it is marked again.
      */
     private class PulseLine(val view: TextView, val mark: RedrawMark) {
-        fun redraw() {
-            val text = view.text as? Spannable ?: return
+        fun redraw(): Boolean {
+            val text = view.text as? Spannable ?: return false
             val start = text.getSpanStart(mark)
-            // Gone once a re-render replaced the text.
-            if (start < 0) return
+            // Gone once a re-measure or a re-render replaced the text.
+            if (start < 0) return false
             text.setSpan(mark, start, text.getSpanEnd(mark), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             view.invalidate()
+            return true
         }
 
         fun clear() {
@@ -344,7 +355,7 @@ class NovelImageGetter(
      */
     private fun arrive(imageUrl: String, wrapper: DrawableWrapper, landed: Landed?) {
         queueSwap(wrapper, landed?.let { drawnFrom(it, wrapper) } ?: failureBox(retryable = true))
-        if (landed == null) offerRetry(imageUrl, wrapper)
+        if (landed == null) spanEdits += { offerRetry(imageUrl, wrapper) }
     }
 
     /** The picture from its slices when it was worth reading in parts, else the decoded copy. */
@@ -431,7 +442,8 @@ class NovelImageGetter(
         textColor = textColor,
     )
 
-    /** Main thread, once the text holds the picture: a tap on its box asks for it again. */
+    /** Main thread, once the batch carrying the failure box has set its text: a tap on the box asks for the
+     *  picture again. */
     private fun offerRetry(imageUrl: String, wrapper: DrawableWrapper) {
         val view = resolveView(wrapper) ?: return
         val text = view.text as? Spannable ?: return
@@ -460,7 +472,11 @@ class NovelImageGetter(
                     widget.invalidate()
                     return@launch
                 }
-                ((widget as TextView).text as? Spannable)?.removeSpan(this@RetryImageSpan)
+                // Now and once more after the batch that carries the picture sets its text, since a
+                // re-measure holding a copy would bring the span back.
+                val removeRetry = { ((widget as TextView).text as? Spannable)?.removeSpan(this@RetryImageSpan) }
+                removeRetry()
+                spanEdits += { removeRetry() }
                 queueSwap(wrapper, drawnFrom(landed, wrapper))
                 arrivals.trySend(Unit)
             }
