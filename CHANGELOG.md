@@ -542,6 +542,7 @@ every stable release now also ships a foss build with neither in it.
 
 - **The light-novel plugin update notice now leaves out plugin names under Settings -> Security and privacy -> Hide notification content, and goes away once no plugin needs updating, as the extension notice does.**
 - **Installing an extension through Shizuku works again.**
+- **An extension repo you remove while the repos are refreshing no longer comes back (synced from Mihon).**
 - **An extension row no longer shows a stray dot before its version after an install is cancelled.**
 - **Extensions marked Orphaned lose the mark as soon as you add a repo that lists them, rather than after a restart.**
 - **An extension whose repo publishes no icon now shows the default source icon instead of a broken image.**
