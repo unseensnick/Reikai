@@ -42,4 +42,12 @@ dependencies {
     implementation(libs.kotlinx.datetime)
 
     api(libs.bundles.sqldelight)
+
+    // RK -->
+    // JVM tests for Reikai's repositories over an in-memory SQLite database. Mihon has no data tests.
+    testImplementation(libs.bundles.test)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.sqldelight.sqliteDriver)
+    testRuntimeOnly(libs.junit.platform.launcher)
+    // RK <--
 }
