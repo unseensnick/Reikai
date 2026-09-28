@@ -663,9 +663,7 @@ class ReaderEngineTest {
     fun `with cover theming on the chrome tints from the cover`() = runTest(scheduler) {
         val provider = FakeReaderProvider()
 
-        engine(provider, themeCoverBased = true).coverSeed(mockk()).first()
-
-        provider.seedAsked shouldBe true
+        engine(provider, themeCoverBased = true).coverSeed(mockk()).first() shouldBe COVER_SEED
     }
 
     /** The sheet's other verbs are the provider's own, so wrapping open must not swallow them. */
@@ -739,6 +737,9 @@ private class FakeAutoScroll : ReaderAutoScroll {
     }
 }
 
+/** The colour the fake's cover answers with, so a test can tell it from the off case's null. */
+private const val COVER_SEED = 0xFF123456.toInt()
+
 /**
  * The engine only ever holds the provider for the host to build through, and no test here builds a
  * viewport, so this never has to answer. Building is the half that needs a real Activity.
@@ -800,7 +801,7 @@ private class FakeReaderProvider(
 
     override fun seedColor(context: Context): Flow<Int?> {
         seedAsked = true
-        return flowOf(null)
+        return flowOf(COVER_SEED)
     }
 
     override fun pageBackground(context: Context): Flow<Int> = flowOf(0)
