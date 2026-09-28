@@ -17,7 +17,7 @@ import tachiyomi.core.common.util.system.logcat
  * in parallel and replaces only its own rows, so one failing leaves the others' cached data intact.
  * The pull is the only thing that hits the network; the profile is recomputed locally from the cache.
  * Registered as a singleton so the [mutex] and the staleness check coalesce concurrent triggers into
- * one pull. A user schedule and a cooldown-guarded manual [refreshNow] sit on top of [await].
+ * one pull. A user schedule and the manual Refresh now (gated by [tryStartManual]) run [await] in a worker.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -28,7 +28,7 @@ class RefreshTrackerLibrary(
     private val mutex = Mutex()
     private var lastManualRefresh = 0L
 
-    /** Unconditional, unlike [refreshIfStale] and [refreshNow]. */
+    /** Unconditional, unlike [refreshIfStale]; the manual pull's cooldown is [tryStartManual]'s. */
     suspend fun await() {
         mutex.withLock {
             dropUnrequestedTrackers()
@@ -36,17 +36,17 @@ class RefreshTrackerLibrary(
         }
     }
 
-    /** Returns false and does nothing when pressed again within [cooldownMs]. The check-and-set runs
-     *  under the [mutex] with the pull, so two near-simultaneous taps can't both slip past. */
-    suspend fun refreshNow(cooldownMs: Long = MANUAL_COOLDOWN_MS): Boolean =
-        mutex.withLock {
-            val now = System.currentTimeMillis()
-            if (now - lastManualRefresh < cooldownMs) return@withLock false
-            lastManualRefresh = now
-            dropUnrequestedTrackers()
-            runPull(fetchers.filter { it.isEnabled() })
-            true
-        }
+    /**
+     * The manual Refresh now's cooldown gate: false when pressed again within the cooldown. It never
+     * waits on the [mutex], so the tap answers at once even while a pull is running; the pull itself
+     * is [await], run by the caller's worker. Synchronized, so two near-simultaneous taps can't both pass.
+     */
+    @Synchronized
+    fun tryStartManual(now: Long = System.currentTimeMillis()): Boolean {
+        if (now - lastManualRefresh < MANUAL_COOLDOWN_MS) return false
+        lastManualRefresh = now
+        return true
+    }
 
     /** Bootstraps the profile lazily on first use without re-pulling on every details open. */
     suspend fun refreshIfStale(maxAgeMs: Long = DEFAULT_STALE_MS) {

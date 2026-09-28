@@ -4,18 +4,14 @@ import android.text.format.DateUtils
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.SearchableSettings
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
-import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
@@ -131,15 +127,14 @@ object SettingsRecommendationsScreen : SearchableSettings {
         trackerManager: TrackerManager,
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
-        val scope = rememberCoroutineScope()
-        val refreshTrackerLibrary = remember { context.appGraph.refreshTrackerLibrary }
         val repository = remember { context.appGraph.tasteLibraryRepository }
-        // Bump to recompute the last-refresh summary after a manual pull lands.
-        var refreshTick by remember { mutableIntStateOf(0) }
         val neverLabel = stringResource(MR.strings.pref_last_refresh_never)
-        // withIOContext because a produceState body runs on Main, and this is one DB read per tracker.
-        val lastRefreshSummary by produceState("", refreshTick, neverLabel) {
-            value = withIOContext { buildLastRefreshSummary(repository, trackerManager, neverLabel) }
+        // Re-read whenever the manual pull starts or ends, so the summary updates as it lands. withIOContext
+        // because a produceState body runs on Main, and this is one DB read per tracker.
+        val lastRefreshSummary by produceState("", neverLabel) {
+            TrackerLibraryRefreshJob.isRunningFlow(context).collect {
+                value = withIOContext { buildLastRefreshSummary(repository, trackerManager, neverLabel) }
+            }
         }
 
         // enabled = visible in Mihon's preference DSL, so a tracker's pull toggle only appears once
@@ -176,13 +171,13 @@ object SettingsRecommendationsScreen : SearchableSettings {
                     // Per-tracker last-pull times under the title, so it actually tells the user something.
                     subtitle = lastRefreshSummary.ifBlank { stringResource(MR.strings.pref_refresh_now_summary) },
                     onClick = {
-                        scope.launch {
-                            val ran = refreshTrackerLibrary.refreshNow()
-                            context.toast(
-                                if (ran) MR.strings.pref_refresh_now_started else MR.strings.pref_refresh_now_cooldown,
-                            )
-                            refreshTick++
-                        }
+                        context.toast(
+                            if (TrackerLibraryRefreshJob.startNow(context)) {
+                                MR.strings.pref_refresh_now_started
+                            } else {
+                                MR.strings.pref_refresh_now_cooldown
+                            },
+                        )
                     },
                 ),
             ),

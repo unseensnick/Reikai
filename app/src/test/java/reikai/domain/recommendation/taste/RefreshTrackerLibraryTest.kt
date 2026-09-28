@@ -2,6 +2,10 @@ package reikai.domain.recommendation.taste
 
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
@@ -20,6 +24,46 @@ class RefreshTrackerLibraryTest {
         override fun isPullRequested() = pullRequested
         override fun isEnabled() = pullRequested && loggedIn
         override suspend fun fetchLibrary(): List<TrackedEntry> = emptyList()
+    }
+
+    /** A pull that holds until [release] completes, as a large library does. */
+    private class BlockingFetcher(val release: CompletableDeferred<Unit>) : TrackerLibraryFetcher {
+        override val trackerId = 1L
+        override fun isPullRequested() = true
+        override fun isEnabled() = true
+        override suspend fun fetchLibrary(): List<TrackedEntry> {
+            release.await()
+            return emptyList()
+        }
+    }
+
+    @Test
+    fun `a second manual refresh inside the cooldown is refused`() {
+        val library = RefreshTrackerLibrary(emptyList(), RecordingRepository())
+        library.tryStartManual(now = 1_000_000)
+
+        library.tryStartManual(now = 1_059_999) shouldBe false
+    }
+
+    @Test
+    fun `a manual refresh is accepted once the cooldown has passed`() {
+        val library = RefreshTrackerLibrary(emptyList(), RecordingRepository())
+        library.tryStartManual(now = 1_000_000)
+
+        library.tryStartManual(now = 1_060_000) shouldBe true
+    }
+
+    @Test
+    fun `the manual gate answers while a pull is still running`() = runTest {
+        val release = CompletableDeferred<Unit>()
+        val library = RefreshTrackerLibrary(listOf(BlockingFetcher(release)), RecordingRepository())
+        launch { library.await() }
+        runCurrent()
+
+        val answer = library.tryStartManual(now = 1_000_000)
+        release.complete(Unit)
+
+        answer shouldBe true
     }
 
     private class RecordingRepository : TasteLibraryRepository {

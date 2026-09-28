@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.map
 
 /**
  * Whether any work tagged [tag] is running, as a flow rather than the one-shot `isRunning` beside it,
- * so a screen can show a refreshing state that ends when the job does. Written once because both
- * library update jobs need it and each only supplies its own tag.
+ * so a screen can show a refreshing state that ends when the job does. Written once because several
+ * jobs need it and each only supplies its own tag.
  *
  * A job's tag covers its scheduled and its manual request alike, which is what `startNow` already
  * treats as "already running", so this reports a background update too, not only a pulled one.
