@@ -285,7 +285,7 @@ private fun ExtensionItemActions(
                     }
                     is Extension.NotLoaded -> {
                         val isUntrusted = extension.reason is Extension.NotLoaded.Reason.Untrusted
-                        IconButton(onClick = { onClickItemAction(extension) }) {
+                        IconButton(onClick = { onClickItemSecondaryAction(extension) }) {
                             Icon(
                                 imageVector = if (isUntrusted) {
                                     MaterialSymbols.Rounded.VerifiedUser
@@ -298,6 +298,15 @@ private fun ExtensionItemActions(
                                     stringResource(MR.strings.ext_not_loaded)
                                 },
                             )
+                        }
+
+                        if (extension.hasUpdate) {
+                            IconButton(onClick = { onClickItemAction(extension) }) {
+                                Icon(
+                                    imageVector = MaterialSymbols.Rounded.Download,
+                                    contentDescription = stringResource(MR.strings.ext_update),
+                                )
+                            }
                         }
                     }
                     is Extension.Available -> {

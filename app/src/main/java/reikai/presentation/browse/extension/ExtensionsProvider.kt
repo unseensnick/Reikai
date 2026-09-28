@@ -83,7 +83,7 @@ class ApkExtensionsProvider(private val model: ExtensionsViewModel) : Extensions
     override fun refresh() = model.findAvailableExtensions()
 
     override fun updateAll(rows: List<BrowseExtensionRow>) {
-        rows.mapNotNull { (it.payload as? ExtensionUiModel.Item)?.extension as? Extension.Loaded }
+        rows.mapNotNull { (it.payload as? ExtensionUiModel.Item)?.extension as? Extension.Installed }
             .forEach(model::updateExtension)
     }
 }

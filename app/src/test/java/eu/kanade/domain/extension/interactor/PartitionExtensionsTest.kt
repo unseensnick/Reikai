@@ -22,6 +22,46 @@ class PartitionExtensionsTest {
         extensions.updateVersions shouldBe mapOf("app" to "1.6.8")
     }
 
+    @Test
+    fun `a not-loaded extension with an update pending is listed with the updates`() {
+        val extensions = partitionExtensions(
+            enabledLanguages = null,
+            enabledContentWarnings = ContentWarning.entries.toSet(),
+            installed = emptyList(),
+            failed = listOf(failed("app", hasUpdate = true), failed("other")),
+            offered = listOf(offered("app", "1.6.8")),
+        )
+
+        extensions.updates.map { it.pkgName } to extensions.notLoaded.map { it.pkgName } shouldBe
+            (listOf("app") to listOf("other"))
+    }
+
+    @Test
+    fun `a not-loaded extension's pending update names the version its store lists`() {
+        val extensions = partitionExtensions(
+            enabledLanguages = null,
+            enabledContentWarnings = ContentWarning.entries.toSet(),
+            installed = emptyList(),
+            failed = listOf(failed("app", hasUpdate = true)),
+            offered = listOf(offered("app", "1.6.8")),
+        )
+
+        extensions.updateVersions shouldBe mapOf("app" to "1.6.8")
+    }
+
+    private fun failed(pkg: String, hasUpdate: Boolean = false) = Extension.NotLoaded(
+        name = pkg,
+        pkgName = pkg,
+        versionName = "1.0.0",
+        versionCode = 1,
+        isShared = true,
+        contentWarning = ContentWarning.SAFE,
+        signatures = emptyList(),
+        kind = Extension.Kind.MANGA,
+        hasUpdate = hasUpdate,
+        reason = Extension.NotLoaded.Reason.Unsigned,
+    )
+
     private fun installed(pkg: String, version: String, hasUpdate: Boolean = false) = Extension.Loaded(
         name = pkg,
         pkgName = pkg,

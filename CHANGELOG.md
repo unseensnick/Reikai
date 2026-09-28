@@ -542,6 +542,7 @@ every stable release now also ships a foss build with neither in it.
 - **Tapping an installed novel plugin in Browse -> Extensions now opens its page, with its version, repo, settings, website and an Uninstall that asks first.** The row's delete button, which removed a plugin without asking, is gone.
 - **Novel plugin repos in Browse -> Extensions now refresh when you pull down, rather than each time you come back or install a plugin.**
 - **An extension now installs and updates only from a repo whose signing key it carries, and a download signed with any other key is refused (synced from Mihon).** A repo with no key, such as a third-party IReader repo, still updates the extensions no keyed repo signs.
+- **An installed extension or extension app that fails to load now gets its updates too, under Updates with an update button, which is often what gets it working again (synced from Mihon).**
 
 #### Fixed
 

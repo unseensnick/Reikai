@@ -91,7 +91,7 @@ class ExtensionsViewModel(
         }
     }
 
-    fun updateExtension(extension: Extension.Loaded) {
+    fun updateExtension(extension: Extension.Installed) {
         viewModelScope.launchIO {
             extensionManager.updateExtension(extension).collectToInstallUpdate(extension)
         }

@@ -103,9 +103,13 @@ class ExtensionManager(
     private val notLoadedNovelExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.NotLoaded>())
     val notLoadedNovelExtensionsFlow = notLoadedNovelExtensionMapFlow.mapExtensionsWhenInitialized()
 
-    /** Installed novel apks with an update pending, derived where manga's is a stored count. */
-    val novelUpdatesCount: StateFlow<Int> = loadedNovelExtensionMapFlow
-        .map { extensions -> extensions.values.count { it.hasUpdate } }
+    /** Installed novel apks with an update pending, loaded or not, derived where manga's is a stored count. */
+    val novelUpdatesCount: StateFlow<Int> = combine(loadedNovelExtensionMapFlow, notLoadedNovelExtensionMapFlow) {
+            loaded,
+            notLoaded,
+        ->
+        (loaded.values + notLoaded.values).count { it.hasUpdate }
+    }
         .stateIn(scope, SharingStarted.Eagerly, 0)
 
     /** Each store's outcome from the last [findAvailableExtensions], keyed by index URL; null before one. */
@@ -171,6 +175,11 @@ class ExtensionManager(
     suspend fun getLoadedNovelExtensions(): List<Extension.Loaded> {
         initialized.await()
         return loadedNovelExtensionMapFlow.value.values.toList()
+    }
+
+    suspend fun getNotLoadedNovelExtensions(): List<Extension.NotLoaded> {
+        initialized.await()
+        return notLoadedNovelExtensionMapFlow.value.values.toList()
     }
 
     /**
@@ -262,7 +271,9 @@ class ExtensionManager(
             updatedInstalledExtensionsStatuses(availableExtensionListFlow.value)
             // RK --> novel apks too, only against a novel list: an empty one would zero manga's count
             availableNovelExtensionListFlow.value.takeIf { it.isNotEmpty() }
-                ?.let { updatedInstalledExtensionsStatuses(it, loadedNovelExtensionMapFlow) }
+                ?.let {
+                    updatedInstalledExtensionsStatuses(it, loadedNovelExtensionMapFlow, notLoadedNovelExtensionMapFlow)
+                }
             // RK <--
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e) { "Failed to load extensions" }
@@ -322,10 +333,13 @@ class ExtensionManager(
             updatedInstalledExtensionsStatuses(
                 novelExtensions,
                 loadedNovelExtensionMapFlow,
+                notLoadedNovelExtensionMapFlow,
             )
         } else {
             loadedNovelExtensionMapFlow.value =
                 loadedNovelExtensionMapFlow.value.mapValues { it.value.copy(hasUpdate = false) }
+            notLoadedNovelExtensionMapFlow.value =
+                notLoadedNovelExtensionMapFlow.value.mapValues { it.value.copy(hasUpdate = false) }
         }
         setupAvailableExtensionsSourcesDataMap(extensions)
     }
@@ -361,24 +375,24 @@ class ExtensionManager(
     }
 
     /**
-     * Sets the update field of the installed extensions with the given [availableExtensions].
+     * Sets the update fields of the installed extensions, loaded or not, with the given [availableExtensions].
      *
      * @param availableExtensions The list of extensions given by the [api].
      */
     private fun updatedInstalledExtensionsStatuses(
         availableExtensions: List<Extension.Available>,
-        // RK: the novel apks' map, for the same statuses
+        // RK: the novel apks' maps, for the same statuses
         loaded: MutableStateFlow<Map<String, Extension.Loaded>> = loadedExtensionMapFlow,
+        notLoaded: MutableStateFlow<Map<String, Extension.NotLoaded>> = notLoadedExtensionMapFlow,
     ) {
         if (availableExtensions.isEmpty()) {
             preferences.extensionUpdatesCount.set(0)
             return
         }
 
-        loaded.value = loaded.value.mapValues { (_, extension) ->
-            // RK
-            extension.withStatus(availableExtensions)
-        }
+        // RK: the maps passed in, so novel apks take the same statuses
+        loaded.value = loaded.value.mapValues { (_, extension) -> extension.withStatus(availableExtensions) }
+        notLoaded.value = notLoaded.value.mapValues { (_, extension) -> extension.withStatus(availableExtensions) }
         updatePendingUpdatesCount()
     }
 
@@ -400,7 +414,7 @@ class ExtensionManager(
      *
      * @param extension The extension to be updated.
      */
-    fun updateExtension(extension: Extension.Loaded): Flow<InstallStep> {
+    fun updateExtension(extension: Extension.Installed): Flow<InstallStep> {
         val update = extension.findUpdate(
             availableExtensionListFlow.value + availableNovelExtensionListFlow.value, // RK: either kind's listings
             storeKeys, // RK
@@ -498,13 +512,13 @@ class ExtensionManager(
             // RK -->
             if (extension.kind != Extension.Kind.MANGA) {
                 loadedNovelExtensionMapFlow.value -= extension.pkgName
-                notLoadedNovelExtensionMapFlow.value += extension
+                notLoadedNovelExtensionMapFlow.value += extension.withStatus(availableNovelExtensionListFlow.value)
                 updatePendingUpdatesCount()
                 return
             }
             // RK <--
             loadedExtensionMapFlow.value -= extension.pkgName
-            notLoadedExtensionMapFlow.value += extension
+            notLoadedExtensionMapFlow.value += extension.withStatus(availableExtensionListFlow.value)
             updatePendingUpdatesCount()
         }
 
@@ -525,19 +539,36 @@ class ExtensionManager(
         return copy(
             hasUpdate = findUpdate(availableExtensions, storeKeys) != null, // RK
             isObsolete = listing == null,
-            store = listing?.store ?: store,
+            store = store ?: listing?.keylessStore(), // RK
         )
     }
+
+    /**
+     * An extension that isn't loaded can still be updated, which is often what gets it loaded again.
+     */
+    private fun Extension.NotLoaded.withStatus(availableExtensions: List<Extension.Available>): Extension.NotLoaded {
+        if (availableExtensions.isEmpty()) return this
+        return copy(
+            hasUpdate = findUpdate(availableExtensions, storeKeys) != null, // RK
+            store = store ?: findListing(availableExtensions, storeKeys)?.keylessStore(), // RK
+        )
+    }
+
+    // RK: the loader names the store whose key signs an apk; a keyless store signs nothing, so an apk it
+    // lists takes that store from its listing instead
+    private fun Extension.Available.keylessStore() = store.takeUnless { it.hasSigningKey }
 
     // RK: a keyless store's key is no key at all, so it never counts as one an apk could be signed with
     private suspend fun readStoreKeys(): Set<String> =
         extensionStoreRepository.getAll().filter { it.hasSigningKey }.mapTo(HashSet()) { it.signingKey }
 
     private fun updatePendingUpdatesCount() {
-        val pendingUpdateCount = loadedExtensionMapFlow.value.values.count { it.hasUpdate }
+        val pendingUpdateCount = loadedExtensionMapFlow.value.values.count { it.hasUpdate } +
+            notLoadedExtensionMapFlow.value.values.count { it.hasUpdate }
         preferences.extensionUpdatesCount.set(pendingUpdateCount)
         // RK: the notice lists novel apks too, so it stays while either has one pending
-        val novelPending = loadedNovelExtensionMapFlow.value.values.count { it.hasUpdate }
+        val novelPending = loadedNovelExtensionMapFlow.value.values.count { it.hasUpdate } +
+            notLoadedNovelExtensionMapFlow.value.values.count { it.hasUpdate }
         if (pendingUpdateCount == 0 && novelPending == 0) {
             extensionUpdateNotifier.dismiss()
         }

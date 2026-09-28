@@ -45,6 +45,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
 import mihon.core.migration.Migration
 import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
+import mihon.domain.extension.repository.ExtensionStoreRepository
 import nl.adaptivity.xmlutil.serialization.XML
 import reikai.di.ReikaiGraph
 import reikai.domain.library.GetLibraryExportRows
@@ -102,6 +103,7 @@ interface AppGraph : ViewModelGraph, ReikaiGraph { // RK: Reikai's members live 
     val updateChecker: AppUpdateChecker
 
     val trustExtension: TrustExtension
+    val extensionStoreRepository: ExtensionStoreRepository
 
     val sourceManager: SourceManager
     val trackerManager: TrackerManager

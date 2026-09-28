@@ -28,17 +28,18 @@ class ExtensionApi(
     // RK <--
 
     /**
-     * @param loadedExtensions Extensions already loaded by [eu.kanade.tachiyomi.extension.ExtensionManager].
-     * Only their versions are read, so there's nothing to gain from loading them a second time.
+     * @param installedExtensions Extensions already read by [eu.kanade.tachiyomi.extension.ExtensionManager],
+     * loaded or not. Only their versions and signatures are read, so there's nothing to gain from reading them
+     * a second time.
      */
-    suspend fun checkForUpdates(loadedExtensions: List<Extension.Loaded>) {
+    suspend fun checkForUpdates(installedExtensions: List<Extension.Installed>) {
         updateExtensionStores()
 
         val extensions = findExtensions()
 
         // RK: the stored keys decide a keyless store's listings (Extension.findListing)
         val storeKeys = repository.getAll().filter { it.hasSigningKey }.mapTo(HashSet()) { it.signingKey }
-        val extensionsWithUpdate = loadedExtensions.filter { it.findUpdate(extensions, storeKeys) != null }
+        val extensionsWithUpdate = installedExtensions.filter { it.findUpdate(extensions, storeKeys) != null }
 
         if (extensionsWithUpdate.isNotEmpty()) {
             extensionUpdateNotifier.promptUpdates(extensionsWithUpdate.map { it.name })

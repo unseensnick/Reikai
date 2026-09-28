@@ -349,7 +349,8 @@ class MainActivity : BaseActivity() {
             try {
                 // RK: novel apks share the manga notice, since one store index lists both
                 extensionApi.checkForUpdates(
-                    extensionManager.getLoadedExtensions() + extensionManager.getLoadedNovelExtensions(),
+                    extensionManager.getLoadedExtensions() + extensionManager.getNotLoadedExtensions() +
+                        extensionManager.getLoadedNovelExtensions() + extensionManager.getNotLoadedNovelExtensions(),
                 )
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e)

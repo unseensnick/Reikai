@@ -47,14 +47,18 @@ internal fun partitionExtensions(
     failed: List<Extension.NotLoaded>,
     offered: List<Extension.Available>,
 ): Extensions {
-    val (updates, loaded) = installed
+    val (loadedUpdates, loaded) = installed
         .sortedWith(
             compareBy<Extension.Loaded> { !it.isObsolete }
                 .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name },
         )
         .partition { it.hasUpdate }
 
-    val notLoaded = failed
+    val (notLoadedUpdates, notLoaded) = failed
+        .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+        .partition { it.hasUpdate }
+
+    val updates = (loadedUpdates + notLoadedUpdates)
         .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
 
     val available = offered

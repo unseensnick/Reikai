@@ -454,7 +454,8 @@ private fun ApkExtensionRow(
                 } else {
                     navigator.push(ExtensionDetailsScreen(it.pkgName))
                 }
-                is Extension.NotLoaded -> onNotLoaded(it)
+                // An update is often what gets a not-loaded extension loading again
+                is Extension.NotLoaded -> if (it.hasUpdate) model.updateExtension(it) else onNotLoaded(it)
             }
         },
         onClickItemSecondaryAction = {
@@ -465,7 +466,7 @@ private fun ApkExtensionRow(
                     navigator.push(WebViewScreen(url = source.baseUrl, initialTitle = source.name, sourceId = sourceId))
                 }
                 is Extension.Loaded -> navigator.push(ExtensionDetailsScreen(it.pkgName))
-                else -> {}
+                is Extension.NotLoaded -> onNotLoaded(it)
             }
         },
     )
