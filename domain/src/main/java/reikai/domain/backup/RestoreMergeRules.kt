@@ -29,3 +29,15 @@ fun RestoredTrackLink.foldBackup(backup: RestoredTrackLink) = RestoredTrackLink(
     libraryId = backup.libraryId,
     lastChapterRead = max(lastChapterRead, backup.lastChapterRead),
 )
+
+/** One backup history entry as a restore reads it; [readAt] is 0 for an entry the user removed. */
+data class RestoredChapterHistory(val chapterUrl: String, val readAt: Long, val readDuration: Long)
+
+/**
+ * A backup can hold one entry per copy of a duplicated chapter; they are one chapter's history, so they
+ * fold to the latest read and the total time before meeting the device's row (mihon 553762fae).
+ */
+fun List<RestoredChapterHistory>.foldHistoryCopies(): List<RestoredChapterHistory> =
+    groupBy { it.chapterUrl }.map { (chapterUrl, copies) ->
+        RestoredChapterHistory(chapterUrl, copies.maxOf { it.readAt }, copies.sumOf { it.readDuration })
+    }

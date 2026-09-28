@@ -37,7 +37,7 @@ This describes current behavior.
 Domain layer (net-new, under `reikai.*`), in `app/src/main/java/reikai/domain/novel/`:
 
 - `model/NovelTrack.kt`: the immutable track model.
-- `NovelTrackRepository.kt`: repository interface; impl at `app/src/main/java/reikai/data/novel/NovelTrackRepositoryImpl.kt`.
+- `NovelTrackRepository.kt`: repository interface; impl at `data/src/main/java/reikai/data/novel/NovelTrackRepositoryImpl.kt`.
 - `interactor/AddNovelTrack.kt`: bind logic (port of `AddTracks.bind`).
 - `interactor/GetNovelTracks.kt`: reads, including the group-aware `awaitGroup` / `subscribeGroup`.
 - `interactor/InsertNovelTrack.kt`, `interactor/DeleteNovelTrack.kt`, `interactor/RefreshNovelTracks.kt`: write / delete / refresh.
@@ -75,7 +75,7 @@ Shipped in commit `7c56e07eb`, on-device verified (Z Fold). Roadmap Active item 
 
 - **Private listing supported (added later).** Mihon's manga tracking can mark an entry "private" on the tracker. The `novel_tracks` table first shipped without that column, so early novel tracks were always public; the `private` column was later added (25.sqm), so the private toggle now appears in the novel sheet and syncs to the service like manga. The vestigial `allowPrivate` gate that once hid it has since been removed.
 
-- **Binding a read novel fills in its start date, as manga's bind does** (2026-09-17, reversing the earlier "no on-bind backfill" cut). When the tracker has no start date, `AddNovelTrack` sends the novel's earliest read (`NovelHistoryRepository.getEarliestReadAt`), converted to UTC the way `AddTracks` converts it. Only that novel's own history is read, matching manga, which reads one manga's history rather than its merge group's.
+- **Binding a read novel fills in its start date, as manga's bind does** (2026-09-17, reversing the earlier "no on-bind backfill" cut). When the tracker has no start date, `AddNovelTrack` sends the novel's earliest read, skipping removed history, through the `bindBackfill` kernel `AddTracks` calls too. Only that novel's own history is read, matching manga, which reads one manga's history rather than its merge group's.
 
 - **One track row while merged, not copy-to-each-member.** Group-aware tracking keeps a single row for a merged group and resolves the group at read/display time. Manga has since moved to the same shape, copying only just before a split (`PropagateTrackerLinks`); the novel twin is `PropagateNovelTrackerLinks`, so each source keeps the tracker after a split.
 

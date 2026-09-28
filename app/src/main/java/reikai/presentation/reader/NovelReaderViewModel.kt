@@ -70,6 +70,7 @@ import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterIncognito
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.ReadSessionClock
 import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.downloadedOrCurrent
 import reikai.domain.reader.isChapterComplete
@@ -195,10 +196,9 @@ class NovelReaderViewModel(
     @Volatile
     private var currentNovelId: Long = novelId
 
-    /** When the current chapter began being read, for the novel-history session duration (the analog of
-     *  ReaderViewModel.chapterReadStartTime). Reset whenever a different chapter loads. */
-    @Volatile
-    private var chapterReadStartTime: Long? = null
+    /** When the current chapter began being read, for the novel-history session duration, on the clock
+     *  the manga reader shares. Restarted whenever a different chapter loads. */
+    private val chapterReadSession = ReadSessionClock()
 
     /**
      * The chapter this session opens on: the one being read when the process was killed, or the one
@@ -859,7 +859,7 @@ class NovelReaderViewModel(
         updateHistory()
         currentChapterId = target
         currentNovelId = owner
-        chapterReadStartTime = System.currentTimeMillis()
+        chapterReadSession.start(System.currentTimeMillis())
         bookmarkedState.value = bookmarked
         loadedChapter.value = arriving
         // Its own first report usually beat this here, and was not the current chapter's when it came.
@@ -936,7 +936,7 @@ class NovelReaderViewModel(
                 if (target != pendingChapterId) return@launchIO
                 logcat(LogPriority.ERROR, e) { "Failed to load novel chapter $target" }
                 // A failed step stamped the chapter it left into history, and the reader goes on in it.
-                if (loadedChapter.value != null && chapterReadStartTime == null) restartReadTimer()
+                if (loadedChapter.value != null && !chapterReadSession.isRunning) restartReadTimer()
                 loadState.value = ReaderLoadState.Failed(
                     e.message,
                     canKeepReading = loadedChapter.value != null,
@@ -963,7 +963,7 @@ class NovelReaderViewModel(
         // A reload of the chapter already open, after a chapter-text setting changed, keeps its timer
         // and its place: restarting either lost what the reader had done since it opened.
         val reloading = row.id == currentChapterId && loadedChapter.value != null
-        if (!reloading || chapterReadStartTime == null) chapterReadStartTime = System.currentTimeMillis()
+        if (!reloading || !chapterReadSession.isRunning) chapterReadSession.start(System.currentTimeMillis())
         currentChapterId = row.id
         currentNovelId = row.novelId
         bookmarkedState.value = bookmarked
@@ -1059,15 +1059,14 @@ class NovelReaderViewModel(
         if (incognito.of(chapter.novelId)) return
         val id = chapter.chapterId
         val now = System.currentTimeMillis()
-        val duration = chapterReadStartTime?.let { now - it } ?: 0L
+        val duration = chapterReadSession.take(now)
         upsertNovelHistory.await(NovelHistoryUpdate(id, now, duration))
-        chapterReadStartTime = null
     }
 
     /** Called through [ReaderProvider.restartReadTimer] on resume, since leaving the reader stamped
      *  [updateHistory] and stopped the clock. */
     fun restartReadTimer() {
-        chapterReadStartTime = System.currentTimeMillis()
+        chapterReadSession.start(System.currentTimeMillis())
     }
 
     /** Called through [ReaderProvider.onActivityFinish] on leaving the reader, which is when the

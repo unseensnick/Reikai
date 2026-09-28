@@ -235,7 +235,7 @@ Reikai side, the files this touches:
 - The tab host: `eu/kanade/tachiyomi/ui/browse/BrowseTab.kt` (Mihon's, already `// RK` fenced).
 - Backup: `data/backup/models/Backup.kt`, `create/BackupCreator.kt`, `restore/BackupRestorer.kt` and
   `create/BackupOptions.kt`, all Mihon's and all already fenced.
-- The test template: `app/src/test/java/reikai/data/merge/MergeGroupRepositoryTest.kt`.
+- The test template: `data/src/test/java/reikai/data/merge/MergeGroupRepositoryTest.kt`.
 
 ## Status
 

@@ -260,6 +260,7 @@ every stable release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **Reading time is no longer counted twice when two saves of one reading session overlap, in the manga and novel readers (synced from Mihon).**
 - **A merged series now opens in webtoon mode when any of its sources calls it a manhwa, manhua or webtoon.** Before, only the source the chapter came from was consulted, and that is usually not the one carrying the tag.
 - **Chapters you have read no longer disappear from the manga reader's chapter list, and tapping one opens it.**
 - **Rotating the screen while a chapter is opening no longer leaves the reader stuck loading (synced from Mihon, mihonapp/mihon#3686).**
@@ -495,6 +496,7 @@ every stable release now also ships a foss build with neither in it.
 - **Kitsu scores now use whichever rating scale your Kitsu account is set to, smileys, stars or the 10 point decimal (synced from Mihon, mihonapp/mihon#3818).** Existing scores are converted on upgrade, for manga and novels alike.
 
 #### Fixed
+- **Adding a manga tracker no longer takes history you removed as the day you started reading (synced from Mihon).**
 - **Binding or changing the status of a series from your own manga server when you have not started it no longer marks its Chapter 0 read, in Reikai or on the server.** Reading progress of 0 was taken as "read up to chapter 0".
 - **Backing out of the category choice when adding a manga from its page no longer binds its server tracker.**
 
@@ -586,6 +588,7 @@ every stable release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **Restoring a backup that lists one chapter's history twice now adds up its reading time and keeps its latest read, on manga and novels (synced from Mihon).**
 - **Restoring a backup now keeps a default category set to Always ask.**
 - **Restoring a backup with App settings ticked now brings your light-novel plugins back by itself, and names any it could not.** A backup carries a plugin's address but not its script, so its novels could not open until you reinstalled each plugin by hand.
 - **Restored light-novel plugins are now always checked against your added repos before they load.** A backup made after an earlier check could switch the check off.

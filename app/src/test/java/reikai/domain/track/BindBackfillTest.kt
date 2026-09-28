@@ -17,8 +17,8 @@ class BindBackfillTest {
         chapters: List<BindChapter>,
         lastChapterRead: Double = 0.0,
         startDate: Long = 0L,
-        earliestReadAt: Long? = firstReadAt,
-    ) = bindBackfill(chapters, lastChapterRead, startDate, zone) { earliestReadAt }
+        readAts: List<Long?> = listOf(firstReadAt),
+    ) = bindBackfill(chapters, lastChapterRead, startDate, zone) { readAts }
 
     @Test
     fun `a first read at 23 30 local sends that wall-clock time as UTC`() = runTest {
@@ -38,8 +38,16 @@ class BindBackfillTest {
     }
 
     @Test
+    fun `removed history and history with no date are not taken as the day reading began`() = runTest {
+        val expected = LocalDateTime(2024, 3, 1, 23, 30).toInstant(TimeZone.UTC).toEpochMilliseconds()
+
+        backfill(listOf(BindChapter(1.0, read = true)), readAts = listOf(0L, null, firstReadAt)).startDate shouldBe
+            expected
+    }
+
+    @Test
     fun `an entry never opened sends no start date`() = runTest {
-        backfill(listOf(BindChapter(1.0, read = true)), earliestReadAt = null).startDate shouldBe null
+        backfill(listOf(BindChapter(1.0, read = true)), readAts = emptyList()).startDate shouldBe null
     }
 
     @Test

@@ -95,7 +95,7 @@ Browse
 - `app/src/main/java/reikai/presentation/browse/MangaLibraryAdder.kt`
 
 Cross-cutting
-- `app/src/main/java/reikai/domain/novel/model/NovelUpdate.kt` (the partial-update model)
+- `domain/src/main/java/reikai/domain/novel/model/NovelUpdate.kt` (the partial-update model)
 - `app/src/main/java/reikai/presentation/novel/notes/NovelNotesScreen.kt`
 - `app/src/main/java/reikai/domain/novel/interactor/UpdateNovel.kt`, `SetNovelChapterFlags.kt`, `SetNovelViewerFlags.kt` (the surgical-write interactors)
 

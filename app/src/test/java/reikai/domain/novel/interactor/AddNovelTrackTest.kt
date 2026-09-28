@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelHistory
 import reikai.domain.novel.track.NovelTrackUpdater
 
 /** What binding a tracker to a novel sends the site from the novel's own reading. */
@@ -32,7 +33,7 @@ class AddNovelTrackTest {
 
     private suspend fun bindAfterReading(vararg read: Boolean) {
         coEvery { chapters.getByNovelId(NOVEL_ID) } returns read.mapIndexed { i, r -> chapter(i + 1.0, r) }
-        coEvery { history.getEarliestReadAt(NOVEL_ID) } returns FIRST_READ_AT
+        coEvery { history.getHistoryByNovelId(NOVEL_ID) } returns listOf(NovelHistory(1L, FIRST_READ_AT, 0L))
         addNovelTrack.bind(tracker, Track.create(1L).apply { title = "A novel" }, NOVEL_ID)
     }
 

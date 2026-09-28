@@ -27,9 +27,6 @@ interface NovelHistoryRepository {
     suspend fun upsertNovelHistory(update: NovelHistoryUpdate)
     suspend fun getHistoryByNovelId(novelId: Long): List<NovelHistory>
 
-    /** When [novelId] was first read, in epoch millis, or null when none of its chapters has been. */
-    suspend fun getEarliestReadAt(novelId: Long): Long?
-
     /** Backup restore of one chapter's history: the later read time and the longer duration win. */
     suspend fun restoreHistory(chapterId: Long, readAt: Long, readDuration: Long)
 

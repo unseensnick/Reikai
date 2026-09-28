@@ -12,19 +12,20 @@ data class BindBackfill(val lastChapterRead: Double?, val startDate: Long?)
 /**
  * Upstream's `AddTracks.bind` rule, which the manga and novel bind both call. Only an entry with a read
  * chapter pushes anything: the end of its unbroken read run when the tracker is behind it, and the first
- * read as the start date when the tracker has none. [earliestReadAt] runs only when that date is wanted.
+ * read as the start date when the tracker has none, ignoring removed history (read at 0). [readAts]
+ * runs only when that date is wanted.
  */
 suspend fun bindBackfill(
     chapters: List<BindChapter>,
     trackLastChapterRead: Double,
     trackStartDate: Long,
     localZone: TimeZone,
-    earliestReadAt: suspend () -> Long?,
+    readAts: suspend () -> List<Long?>,
 ): BindBackfill {
     if (chapters.none { it.read }) return BindBackfill(lastChapterRead = null, startDate = null)
     val latestRead = chapters.sortedBy { it.number }.takeWhile { it.read }.lastOrNull()?.number ?: -1.0
     val startDate = if (trackStartDate <= 0) {
-        earliestReadAt()?.convertEpochMillisZone(localZone, TimeZone.UTC)
+        readAts().filterNotNull().filter { it > 0 }.minOrNull()?.convertEpochMillisZone(localZone, TimeZone.UTC)
     } else {
         null
     }

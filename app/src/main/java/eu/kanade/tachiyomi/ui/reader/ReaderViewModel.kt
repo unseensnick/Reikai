@@ -83,6 +83,7 @@ import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.withOpenedChapter
 import reikai.domain.reader.ChapterIncognito // RK
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.ReadSessionClock
 import reikai.domain.reader.ReaderPosition
 import reikai.domain.reader.chapterToDeleteBehind
 import reikai.domain.reader.chaptersToDownloadAhead
@@ -318,10 +319,8 @@ class ReaderViewModel(
         )
     }
 
-    /**
-     * The time the chapter was started reading
-     */
-    private var chapterReadStartTime: Long? = null
+    // RK: when the chapter was started reading, on the clock novels share (reikai.domain.reader)
+    private val chapterReadSession = ReadSessionClock()
 
     private var chapterToDownload: Download? = null
 
@@ -937,7 +936,7 @@ class ReaderViewModel(
     // RK <--
 
     fun restartReadTimer() {
-        chapterReadStartTime = Clock.System.now().toEpochMilliseconds()
+        chapterReadSession.start(Clock.System.now().toEpochMilliseconds()) // RK
     }
 
     /**
@@ -949,10 +948,10 @@ class ReaderViewModel(
 
             val chapterId = readerChapter.chapter.id!!
             val endTime = Date()
-            val sessionReadDuration = chapterReadStartTime?.let { endTime.time - it } ?: 0
+            // RK: read and cleared in one step before the save awaits (mihon 553762fae)
+            val sessionReadDuration = chapterReadSession.take(endTime.time)
 
             upsertHistory.await(HistoryUpdate(chapterId, endTime, sessionReadDuration))
-            chapterReadStartTime = null
         }
     }
 

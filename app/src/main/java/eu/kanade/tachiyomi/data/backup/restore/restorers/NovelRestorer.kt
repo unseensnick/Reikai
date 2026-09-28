@@ -15,9 +15,11 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.customInfo
 import reikai.data.novel.updateNovelFetchInterval
+import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.backup.RestoredChapterState
 import reikai.domain.backup.RestoredTrackLink
 import reikai.domain.backup.foldBackup
+import reikai.domain.backup.foldHistoryCopies
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
 import reikai.domain.library.ContentType
@@ -193,10 +195,13 @@ class NovelRestorer(
         novelId: Long,
         backupHistory: List<BackupNovelHistory>,
     ) {
-        backupHistory.forEach { history ->
-            val chapter = novelChapterRepository.getByUrlAndNovelId(history.url, novelId) ?: return@forEach
-            novelHistoryRepository.restoreHistory(chapter.id, history.lastRead, history.readDuration)
-        }
+        backupHistory
+            .map { RestoredChapterHistory(it.url, it.lastRead, it.readDuration) }
+            .foldHistoryCopies()
+            .forEach { history ->
+                val chapter = novelChapterRepository.getByUrlAndNovelId(history.chapterUrl, novelId) ?: return@forEach
+                novelHistoryRepository.restoreHistory(chapter.id, history.readAt, history.readDuration)
+            }
     }
 
     /**

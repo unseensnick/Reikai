@@ -511,7 +511,7 @@ the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG e
 
 ## Key files
 
-- `app/src/main/java/reikai/domain/recommendation/taste/TrackedEntry.kt`, `ComputeTasteProfile.kt`,
+- `domain/src/main/java/reikai/domain/recommendation/taste/TrackedEntry.kt`, `ComputeTasteProfile.kt`,
   `GetTasteProfile.kt`, `TasteCandidateFetcher.kt`: the model and the two filtered readers.
 - `app/src/main/java/reikai/domain/recommendation/BuildRecommendationHideFilter.kt`: the third reader,
   deliberately unfiltered.

@@ -39,9 +39,9 @@ Net-new Reikai code (`reikai.*`, own files, no fence needed):
 - `app/src/main/java/reikai/presentation/library/ReikaiFastScrollGrid.kt`, `ReikaiCategoryPickerSheet.kt`, `ReikaiLibraryBadges.kt`, `ReikaiLibrarySettings.kt`, `ReikaiLibraryState.kt`: supporting renderer pieces, the picker sheet, badges, settings glue, and the single-list state.
 - `app/src/main/java/reikai/presentation/library/LibraryDynamicGrouping.kt`, `LibraryGroup.kt`, `LibraryBucket.kt`, `ReikaiCategorySort.kt`: dynamic grouping (synthetic buckets over the sealed `LibraryBucket`) and category sort order.
 - `app/src/main/java/reikai/presentation/library/ReikaiComfortableGridPanoramaItem.kt`, `ReikaiLibraryComfortableGridPanorama.kt`: the panorama display mode.
-- `app/src/main/java/reikai/domain/category/ReikaiCategoryHidden.kt`, `CategoryFilter.kt`: the hidden-category flag bit and the category include/exclude filter.
+- `domain/src/main/java/reikai/domain/category/ReikaiCategoryHidden.kt`, `CategoryFilter.kt`: the hidden-category flag bit and the category include/exclude filter.
 - `app/src/main/java/reikai/domain/library/updateerror/`: `LibraryUpdateError.kt` (model), `LibraryUpdateErrorRepository.kt`, `LibraryUpdateErrorInteractors.kt`.
-- `app/src/main/java/reikai/data/library/updateerror/LibraryUpdateErrorRepositoryImpl.kt`: the repository impl over the injected `Database`.
+- `data/src/main/java/reikai/data/library/updateerror/LibraryUpdateErrorRepositoryImpl.kt`: the repository impl over the injected `Database`.
 - `app/src/main/java/reikai/presentation/library/updateerror/UpdateErrorsScreen.kt`, `UpdateErrorsViewModel.kt`: the Voyager update-errors screen.
 - `app/src/main/java/reikai/data/updateerror/UpdateErrorLog.kt`: the dump both update jobs write, as a pure renderer plus a per-content-type section writer.
 - `app/src/main/java/reikai/data/updateerror/UpdateErrorDestination.kt`: where a failed-update notification's tap goes, screen or dump, decided once for both types.

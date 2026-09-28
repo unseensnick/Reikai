@@ -43,7 +43,7 @@ class AddNovelTrack(
                 track.lastChapterRead,
                 track.startDate,
                 TimeZone.currentSystemDefault(),
-            ) { novelHistoryRepository.getEarliestReadAt(novelId) }
+            ) { novelHistoryRepository.getHistoryByNovelId(novelId).map { it.readAt } }
             backfill.lastChapterRead?.let {
                 track = track.copy(lastChapterRead = it)
                 novelTrackUpdater.setRemoteLastChapterRead(tracker, track.toDbTrack(), it.toInt())

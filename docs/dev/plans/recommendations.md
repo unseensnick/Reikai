@@ -70,7 +70,7 @@ Net-new taste layer (`reikai.domain.recommendation.taste`):
 
 - [taste/ComputeTasteProfile.kt](../../../app/src/main/java/reikai/domain/recommendation/taste/ComputeTasteProfile.kt), [taste/TasteProfile.kt](../../../app/src/main/java/reikai/domain/recommendation/taste/TasteProfile.kt), [taste/GetTasteProfile.kt](../../../app/src/main/java/reikai/domain/recommendation/taste/GetTasteProfile.kt).
 - [taste/TasteCandidateFetcher.kt](../../../app/src/main/java/reikai/domain/recommendation/taste/TasteCandidateFetcher.kt): cross-rec + tag-search injection (`selectCrossRecSeeds`, `selectContextualTags`).
-- The five `*LibraryFetcher.kt` pull fetchers + [taste/RefreshTrackerLibrary.kt](../../../app/src/main/java/reikai/domain/recommendation/taste/RefreshTrackerLibrary.kt), [taste/TasteLibraryRepository.kt](../../../app/src/main/java/reikai/domain/recommendation/taste/TasteLibraryRepository.kt), [taste/TasteNormalize.kt](../../../app/src/main/java/reikai/domain/recommendation/taste/TasteNormalize.kt).
+- The five `*LibraryFetcher.kt` pull fetchers + [taste/RefreshTrackerLibrary.kt](../../../app/src/main/java/reikai/domain/recommendation/taste/RefreshTrackerLibrary.kt), [taste/TasteLibraryRepository.kt](../../../domain/src/main/java/reikai/domain/recommendation/taste/TasteLibraryRepository.kt), [taste/TasteNormalize.kt](../../../app/src/main/java/reikai/domain/recommendation/taste/TasteNormalize.kt).
 
 Net-new UI (`reikai.presentation.recommendation`):
 

@@ -47,7 +47,7 @@ class AddTracks(
                 track.lastChapterRead,
                 track.startDate,
                 TimeZone.currentSystemDefault(),
-            ) { getHistory.await(mangaId).sortedBy { it.readAt }.firstOrNull()?.readAt?.time }
+            ) { getHistory.await(mangaId).map { it.readAt?.time } }
             backfill.lastChapterRead?.let {
                 track = track.copy(lastChapterRead = it)
                 tracker.setRemoteLastChapterRead(track.toDbTrack(), it.toInt())

@@ -20,9 +20,11 @@ import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.backup.RestoredChapterState
 import reikai.domain.backup.RestoredTrackLink
 import reikai.domain.backup.foldBackup
+import reikai.domain.backup.foldHistoryCopies
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
 import reikai.domain.library.ContentType
@@ -414,48 +416,46 @@ class MangaRestorer(
     }
     // RK <--
 
+    // RK --> mihon 553762fae (upstream's RestoreRepositoryImpl.restoreHistory) ported ahead of the move
+    // to :data; the copies fold through the kernel NovelRestorer calls too (reikai.domain.backup).
     private suspend fun restoreHistory(manga: Manga, backupHistory: List<BackupHistory>) {
-        val toUpdate = backupHistory.mapNotNull { history ->
-            val dbHistory = database.historyQueries
-                .getHistoryByChapterUrlAndMangaId(history.url, manga.id)
-                .awaitAsOneOrNull()
-            val item = history.getHistoryImpl()
-
-            if (dbHistory == null) {
-                val chapter = database.chaptersQueries
-                    .getChapterByUrlAndMangaId(history.url, manga.id)
-                    .awaitAsOneOrNull()
-                return@mapNotNull if (chapter == null) {
-                    // Chapter doesn't exist; skip
-                    null
-                } else {
-                    // New history entry
-                    item.copy(chapterId = chapter._id)
-                }
+        val toUpdate = backupHistory
+            .map {
+                val history = it.getHistoryImpl()
+                RestoredChapterHistory(it.url, history.readAt?.time ?: 0L, history.readDuration)
             }
+            .foldHistoryCopies()
+            .mapNotNull { history ->
+                val dbHistory = database.historyQueries
+                    .getHistoryByChapterUrlAndMangaId(history.chapterUrl, manga.id)
+                    .awaitAsOneOrNull()
 
-            // Update history entry
-            item.copy(
-                id = dbHistory._id,
-                chapterId = dbHistory.chapter_id,
-                readAt = max(item.readAt?.time ?: 0L, dbHistory.last_read?.time ?: 0L)
-                    .takeIf { it > 0L }
-                    ?.let { Date(it) },
-                readDuration = max(item.readDuration, dbHistory.time_read) - dbHistory.time_read,
-            )
-        }
+                if (dbHistory == null) {
+                    val chapter = database.chaptersQueries
+                        .getChapterByUrlAndMangaId(history.chapterUrl, manga.id)
+                        .awaitAsOneOrNull()
+                        // Chapter doesn't exist; skip
+                        ?: return@mapNotNull null
+                    // New history entry
+                    return@mapNotNull Triple(chapter._id, Date(history.readAt), history.readDuration)
+                }
+
+                // Update history entry
+                Triple(
+                    dbHistory.chapter_id,
+                    Date(max(history.readAt, dbHistory.last_read?.time ?: 0L)),
+                    max(history.readDuration, dbHistory.time_read) - dbHistory.time_read,
+                )
+            }
 
         if (toUpdate.isEmpty()) return
         database.transaction {
-            toUpdate.forEach {
-                database.historyQueries.upsert(
-                    it.chapterId,
-                    it.readAt,
-                    it.readDuration,
-                )
+            toUpdate.forEach { (chapterId, readAt, readDuration) ->
+                database.historyQueries.upsert(chapterId, readAt, readDuration)
             }
         }
     }
+    // RK <--
 
     private suspend fun restoreTracking(manga: Manga, backupTracks: List<BackupTracking>) {
         val dbTrackByTrackerId = getTracks.await(manga.id).associateBy { it.trackerId }
