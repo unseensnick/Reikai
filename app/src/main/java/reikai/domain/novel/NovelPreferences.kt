@@ -5,6 +5,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.ReaderHideThreshold
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -383,6 +384,10 @@ class NovelPreferences(
     /** How far one volume press scrolls, as a fraction of the screen height (LNReader's default is
      *  0.75, leaving a quarter-screen overlap for reading continuity). */
     fun readerVolumeButtonsFraction() = preferenceStore.getFloat("ln_reader_volume_buttons_fraction", 0.75f)
+
+    /** How far a finger scroll must move before the menu hides, the novel twin of the manga reader's
+     *  `readerHideThreshold`. */
+    fun readerHideThreshold() = preferenceStore.getEnum("ln_reader_hide_threshold", ReaderHideThreshold.LOW)
 
     /** Reopen a read chapter where it was left rather than at its start, as the manga reader's
      *  [ReaderPreferences.preserveReadingPosition]. */

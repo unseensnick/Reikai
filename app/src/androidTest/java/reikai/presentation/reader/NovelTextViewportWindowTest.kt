@@ -99,6 +99,7 @@ class NovelTextViewportWindowTest {
                 cutoutTopDp = { 0 },
                 onChapterFits = { id, fit -> fits[id] = fit },
                 onChapterEndSeen = {},
+                onReaderScrolled = {},
             )
             activity.setContentView(viewport.view)
         }

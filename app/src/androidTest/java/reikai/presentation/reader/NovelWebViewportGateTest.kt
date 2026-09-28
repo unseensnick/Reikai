@@ -86,6 +86,7 @@ class NovelWebViewportGateTest {
                 cutoutTopDp = { 0 },
                 onChapterFits = { id, _ -> fitsReports += id },
                 onChapterEndSeen = { endsSeen += it },
+                onReaderScrolled = {},
             )
             (activity.webView.parent as ViewGroup).addView(
                 viewport.view,

@@ -133,6 +133,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                 cutoutTopDp = { 0 },
                 onChapterFits = { _, _ -> rendered.countDown() },
                 onChapterEndSeen = {},
+                onReaderScrolled = {},
             )
             activity.setContentView(viewport.view)
         }

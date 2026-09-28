@@ -17,6 +17,7 @@ import eu.kanade.presentation.more.settings.screen.novel.NovelFontsScreen
 import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.ReaderHideThreshold
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
 import reikai.domain.novel.NovelPreferences
@@ -587,6 +588,16 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     valueString = "$volumeButtonsPercent%",
                     enabled = useVolumeButtons,
                     onValueChanged = { volumeButtonsFractionPref.set(it / 100f) },
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerHideThreshold(),
+                    entries = mapOf(
+                        ReaderHideThreshold.HIGHEST to stringResource(MR.strings.pref_highest),
+                        ReaderHideThreshold.HIGH to stringResource(MR.strings.pref_high),
+                        ReaderHideThreshold.LOW to stringResource(MR.strings.pref_low),
+                        ReaderHideThreshold.LOWEST to stringResource(MR.strings.pref_lowest),
+                    ),
+                    title = stringResource(MR.strings.pref_hide_threshold),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerShowNavigator(),

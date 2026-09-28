@@ -238,6 +238,7 @@ every stable release now also ships a foss build with neither in it.
 - **Both readers' bottom bar can now be edited without leaving the reader, from Edit bottom bar in the top bar's menu.**
 - **Settings -> Novel reader and the novel reader's Appearance tab now have Fullscreen and Show content in cutout area switches, both on by default.** The novel reader used to hide the system bars whatever you chose.
 - **Novel chapters in the WebView rendering mode now show the styling their light-novel plugin ships, such as the boxes some chapters draw stats in.** A plugin already installed picks it up on its next update or reinstall.
+- **The novel reader's menu now hides when you scroll the page, as long-strip manga's does, with its sensitivity under Settings -> Novel reader -> Navigation.**
 
 #### Changed
 

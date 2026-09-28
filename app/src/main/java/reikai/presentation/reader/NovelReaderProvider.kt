@@ -35,6 +35,7 @@ import reikai.novel.network.NovelImageRequests
 import reikai.presentation.reader.text.NovelWindowDiff
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.system.logcat
+import kotlin.math.abs
 
 /**
  * The light-novel half of the reader's provider seam, over the live [NovelReaderViewModel] the host
@@ -275,6 +276,10 @@ class NovelReaderProvider(
         // One rule for both renderers: the keys are the reader's only while the menu is down, as they
         // are for manga. Read from the host each press, since the menu opens and closes mid-session.
         val volumeKeysActive = { viewModel.settings.value.useVolumeButtons && !host.isMenuVisible }
+        // One rule for both renderers, as the long-strip manga viewer hides the menu: read once per
+        // viewport, so a changed threshold takes effect on the next open, as manga's does.
+        val hideThreshold = novelPreferences.readerHideThreshold().get().threshold
+        val onReaderScrolled = { dy: Int -> if (abs(dy) > hideThreshold) host.hideMenu() }
         if (novelPreferences.readerRenderingMode().get() == NovelRenderingMode.NATIVE) {
             return NovelTextViewport(
                 context = host,
@@ -293,6 +298,7 @@ class NovelReaderProvider(
                 cutoutTopDp = host::displayCutoutTopDp,
                 onChapterFits = viewModel::reportFitsOnScreen,
                 onChapterEndSeen = viewModel::reportChapterEndSeen,
+                onReaderScrolled = onReaderScrolled,
             )
         }
         return NovelWebViewport(
@@ -320,6 +326,7 @@ class NovelReaderProvider(
             cutoutTopDp = host::displayCutoutTopDp,
             onChapterFits = viewModel::reportFitsOnScreen,
             onChapterEndSeen = viewModel::reportChapterEndSeen,
+            onReaderScrolled = onReaderScrolled,
         )
     }
 

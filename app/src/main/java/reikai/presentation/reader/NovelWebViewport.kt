@@ -97,6 +97,8 @@ class NovelWebViewport(
     private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
     /** A chapter's last line reached the screen, once its images had landed. */
     private val onChapterEndSeen: (chapterId: Long) -> Unit,
+    /** A scroll the reader's finger made, in pixels, as the native viewport reports it. */
+    private val onReaderScrolled: (dyPx: Int) -> Unit,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     /** The chapter the reader is actually in, which the rail seeks inside of. */
@@ -172,6 +174,8 @@ class NovelWebViewport(
     private var faceFamily: String? = null
     private var faceJob: Job? = null
 
+    private var fingerDown = false
+
     private val webView = WebView(context).apply {
         setDefaultSettings()
         WebView.setWebContentsDebuggingEnabled(webContentsDebugging(devTools, context.isDebugInspectorBuild()))
@@ -227,6 +231,16 @@ class NovelWebViewport(
             ),
             NovelWebBridge.NAME,
         )
+        // Only a scroll made while a finger is down is the reader's: the page's own seek, keys, read aloud
+        // and auto-scroll move the window too. Not consumed, so selection and the page's touches still run.
+        setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> fingerDown = true
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> fingerDown = false
+            }
+            false
+        }
+        setOnScrollChangeListener { _, _, y, _, oldY -> if (fingerDown) onReaderScrolled(y - oldY) }
         // Every layout, because the inset is only known once the window has one and it moves with the
         // system bars; comparing first keeps an unchanged one from rewriting the page.
         addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->

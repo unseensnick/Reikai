@@ -98,6 +98,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
     private val endsSeen = CopyOnWriteArrayList<Long>()
     private val steps = CopyOnWriteArrayList<Boolean>()
 
+    /** Every scroll the viewport reported as the reader's finger, in pixels. */
+    private val scrolls = CopyOnWriteArrayList<Int>()
+
     /** Every chapter the viewport told the host the reader is in. */
     private val visibleChapters = CopyOnWriteArrayList<Long>()
 
@@ -147,6 +150,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 cutoutTopDp = { cutout },
                 onChapterFits = { id, fit -> fits[id] = fit },
                 onChapterEndSeen = { endsSeen += it },
+                onReaderScrolled = { scrolls += it },
             )
             Renderer.WEB -> NovelWebViewport(
                 context = activity,
@@ -166,6 +170,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 cutoutTopDp = { cutout },
                 onChapterFits = { id, fit -> fits[id] = fit },
                 onChapterEndSeen = { endsSeen += it },
+                onReaderScrolled = { scrolls += it },
             )
         }
 
@@ -532,6 +537,36 @@ class TextViewportContractTest(private val renderer: Renderer) {
         awaitScrollStill()
         val moved = (scrollOffset() - before) / viewportHeight()
         assertTrue("a volume-down moved $moved of the screen", moved in 0.08f..0.12f)
+    }
+
+    /** A drag is the reader scrolling, which the host hides its menu on past a threshold. */
+    @Test
+    fun aVerticalDragReportsTheReaderScrolling() {
+        open(chapter(FIRST, long("first")))
+        drag(
+            fromX = view.width / 2f,
+            toX = view.width / 2f,
+            fromY = view.height * 0.8f,
+            toY = view.height * 0.3f,
+            holdMs = FLING_FREE_HOLD_MS,
+        )
+        awaitScrollStill()
+        assertTrue("reported $scrolls", scrolls.sumOf { abs(it) } > dp(100))
+    }
+
+    /** The viewport's own scrolls move the page while the menu is up, so they never count as the reader's. */
+    @Test
+    fun aVolumeKeyScrollReportsNoReaderScrolling() {
+        volumeKeysOn = true
+        open(chapter(FIRST, long("first")))
+        instrumentation.runOnMainSync { (viewport as ReaderViewport).seekTo(ChapterProgress.Percent(5_000)) }
+        awaitScrollStill()
+        scrolls.clear()
+        instrumentation.runOnMainSync {
+            (viewport as ReaderViewport).handleKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN))
+        }
+        awaitScrollStill()
+        assertEquals(emptyList<Int>(), scrolls.toList())
     }
 
     /** A chapter that fits on screen has no room to seek within, so the rail lands on its start rather

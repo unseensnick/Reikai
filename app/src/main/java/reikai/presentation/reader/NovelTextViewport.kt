@@ -100,6 +100,9 @@ class NovelTextViewport(
     /** A chapter's last line reached the screen, once its images had landed. The model reads the
      *  novel's last chapter on it, since nothing follows that one to be left into. */
     private val onChapterEndSeen: (chapterId: Long) -> Unit,
+    /** A scroll the reader's finger made, in pixels; the provider hides the menu past its threshold. The
+     *  viewport's own scrolls (seek, keys, read aloud, auto-scroll) never report. */
+    private val onReaderScrolled: (dyPx: Int) -> Unit,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -296,6 +299,7 @@ class NovelTextViewport(
         addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(view: RecyclerView, dx: Int, dy: Int) {
                 scrolled += dy
+                if (view.scrollState == RecyclerView.SCROLL_STATE_DRAGGING) onReaderScrolled(dy)
                 showTallPictures()
                 reportVisibleChapter()
                 report(onProgressChanged)
