@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.setting
 
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.KeepScreenOn
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.Rotation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.Scope
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.Settings
@@ -68,6 +69,16 @@ class ReaderBottomButtonTest {
         val manga = setOf(ViewChapters, TextSize).map { it.value }.toSet()
 
         ReaderBottomButton.ordered(manga, order = emptyList(), Scope.Manga) shouldBe listOf(ViewChapters, Settings)
+    }
+
+    /** Each type keeps its own keep-screen-on preference, so either reader's bar can carry the toggle. */
+    @ParameterizedTest
+    @EnumSource(value = Scope::class, names = ["Manga", "Novel"])
+    fun `either reader's bar draws Keep screen on when it is selected`(scope: Scope) {
+        val chosen = setOf(ViewChapters, KeepScreenOn).map { it.value }.toSet()
+
+        ReaderBottomButton.ordered(chosen, order = emptyList(), scope) shouldBe
+            listOf(ViewChapters, KeepScreenOn, Settings)
     }
 
     @Test

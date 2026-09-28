@@ -1309,7 +1309,7 @@ class ReaderActivity : BaseActivity() {
                 .onEach(binding.readerContainer::setBackgroundColor)
                 .launchIn(lifecycleScope)
 
-            // RK: off the engine, since each content type keeps its own flag and novels can flip it
+            // RK: off the engine, since each content type keeps its own flag and either can flip it
             // from the bar.
             engine.keepScreenOn
                 .onEach(::setKeepScreenOn)

@@ -163,7 +163,7 @@ interface ReaderProvider {
 
     fun setOrientation(flagValue: Int)
 
-    /** Each type has its own keep-screen-on preference, and only novels offer it as a bar button. */
+    /** Each type has its own keep-screen-on preference, which either reader's bar can toggle. */
     val keepScreenOn: Flow<Boolean>
 
     fun setKeepScreenOn(enabled: Boolean)
