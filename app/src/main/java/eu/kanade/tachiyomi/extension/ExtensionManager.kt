@@ -30,11 +30,13 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import mihon.domain.extension.interactor.UpdateExtensionStores
+import mihon.domain.extension.model.ExtensionStore
 import mihon.domain.extension.repository.ExtensionStoreRepository
 import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.hasSigningKey
@@ -151,6 +153,13 @@ class ExtensionManager(
             trustExtension.changes()
                 // RK <--
                 .collectLatest { loadExtensions() }
+        }
+
+        // Extensions are only reloaded when the set of signing keys changes, which misses a store being
+        // removed while another with the same key stays, or a store being renamed
+        scope.launch(Dispatchers.IO) {
+            initialized.await()
+            extensionStoreRepository.getAllAsFlow().collect(::assignStores)
         }
     }
 
@@ -575,6 +584,29 @@ class ExtensionManager(
     // RK: a keyless store's key is no key at all, so it never counts as one an apk could be signed with
     private suspend fun readStoreKeys(): Set<String> =
         extensionStoreRepository.getAll().filter { it.hasSigningKey }.mapTo(HashSet()) { it.signingKey }
+
+    private fun assignStores(stores: List<ExtensionStore>) {
+        fun Extension.Installed.signingStore() = stores.firstOrNull { it.signingKey in signatures }
+            // RK: a keyless store names no key, so an apk it listed keeps it while it is still added
+            ?: store?.takeUnless {
+                it.hasSigningKey
+            }?.let { current -> stores.find { it.indexUrl == current.indexUrl } }
+
+        loadedExtensionMapFlow.update { extensions ->
+            extensions.mapValues { (_, extension) -> extension.copy(store = extension.signingStore()) }
+        }
+        notLoadedExtensionMapFlow.update { extensions ->
+            extensions.mapValues { (_, extension) -> extension.copy(store = extension.signingStore()) }
+        }
+        // RK -->
+        loadedNovelExtensionMapFlow.update { extensions ->
+            extensions.mapValues { (_, extension) -> extension.copy(store = extension.signingStore()) }
+        }
+        notLoadedNovelExtensionMapFlow.update { extensions ->
+            extensions.mapValues { (_, extension) -> extension.copy(store = extension.signingStore()) }
+        }
+        // RK <--
+    }
 
     private fun updatePendingUpdatesCount() {
         val pendingUpdateCount = (loadedExtensionMapFlow.value.values + notLoadedExtensionMapFlow.value.values)
