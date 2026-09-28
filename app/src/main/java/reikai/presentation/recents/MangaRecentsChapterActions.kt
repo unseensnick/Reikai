@@ -39,7 +39,7 @@ class MangaRecentsChapterActions(
         withIOContext {
             chaptersOf(chapters.groupIds())
                 .filterNot { it.bookmark == bookmarked }
-                .map { ChapterUpdate(id = it.id, bookmark = bookmarked) }
+                .map { ChapterUpdate(it.id) { bookmark = bookmarked } }
                 .let { updateChapter.awaitAll(it) }
         }
     }

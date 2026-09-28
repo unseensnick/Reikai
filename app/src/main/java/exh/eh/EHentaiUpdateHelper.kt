@@ -109,18 +109,16 @@ class EHentaiUpdateHelper(
             // shared tracker first; the hand-out skips non-favorites.
             mangaMergeManager.handOutTrackersBeforeRemoval(toDiscard.map { it.manga.id })
             toDiscard.forEach {
-                mangaUpdates += MangaUpdate(
-                    id = it.manga.id,
-                    favorite = false,
-                    dateAdded = 0,
-                )
+                mangaUpdates += MangaUpdate(it.manga.id) {
+                    favorite = false
+                    dateAdded = 0
+                }
             }
             if (!accepted.manga.favorite) {
-                mangaUpdates += MangaUpdate(
-                    id = accepted.manga.id,
-                    favorite = true,
-                    dateAdded = System.currentTimeMillis(),
-                )
+                mangaUpdates += MangaUpdate(accepted.manga.id) {
+                    favorite = true
+                    dateAdded = System.currentTimeMillis()
+                }
             }
 
             val newAccepted = ChapterChain(accepted.manga, newChapters, emptyList())
@@ -277,12 +275,11 @@ internal fun getChapterList(
                     else -> {
                         val row = stored.getValue(chapter.id)
                         updates.add(
-                            ChapterUpdate(
-                                id = chapter.id,
-                                read = chapter.read.takeUnless { row.read == it },
-                                bookmark = chapter.bookmark.takeUnless { row.bookmark == it },
-                                lastPageRead = chapter.lastPageRead.takeUnless { row.lastPageRead == it },
-                            ),
+                            ChapterUpdate(chapter.id) {
+                                read = chapter.read.takeUnless { row.read == it }
+                                bookmark = chapter.bookmark.takeUnless { row.bookmark == it }
+                                lastPageRead = chapter.lastPageRead.takeUnless { row.lastPageRead == it }
+                            },
                         )
                         if (row.name != name || row.chapterNumber != chapterNumber || row.sourceOrder != sourceOrder) {
                             renames.add(

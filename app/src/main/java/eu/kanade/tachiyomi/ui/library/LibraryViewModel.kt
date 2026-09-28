@@ -759,10 +759,9 @@ class LibraryViewModel(
                 mergeManager.handOutTrackersBeforeRemoval(targets.map { it.id })
                 val toDelete = targets.map {
                     it.removeCovers(coverCache)
-                    MangaUpdate(
-                        favorite = false,
-                        id = it.id,
-                    )
+                    MangaUpdate(it.id) {
+                        favorite = false
+                    }
                 }
                 // RK --> a removal written in bulk, so the source's own tracker is told here, once it landed
                 if (updateManga.awaitAll(toDelete)) {

@@ -17,7 +17,7 @@ class FetchInterval(
     private val getChaptersByMangaId: GetChaptersByMangaId,
 ) {
 
-    suspend fun toMangaUpdate(
+    suspend fun withFetchInterval(
         manga: Manga,
         dateTime: LocalDateTime,
         timeZone: TimeZone,
@@ -34,7 +34,10 @@ class FetchInterval(
         }
         val nextUpdate = calculateNextUpdate(manga, interval, dateTime, timeZone, currentWindow)
 
-        return MangaUpdate(id = manga.id, nextUpdate = nextUpdate, fetchInterval = interval)
+        return MangaUpdate(manga.id) {
+            this.nextUpdate = nextUpdate
+            fetchInterval = interval
+        }
     }
 
     // RK --> the date math lives in reikai.domain.library.ReleaseInterval, which novels call too

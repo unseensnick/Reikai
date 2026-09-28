@@ -59,6 +59,7 @@ every stable release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **A manga you add to the library from Browse, global search or the feed now keeps your default chapter filters and sort (synced from Mihon).** The add wrote the manga's old chapter settings back over the defaults it had just applied.
 - **A new-chapters notification naming several chapters now counts the unnumbered ones in its "and N more".** One whose chapter number arrived twice from a merged series no longer counts it as an extra chapter.
 - **Typing quickly into the Library, Recents or a source's catalogue search no longer scrambles your text.** It reordered and duplicated characters, and after a Compose update dropped them.
 - **Library badges no longer crowd out the unread count or the title.** A cover with 408 unread on a grouped series could read as "4", and a list row gave its title away to the source icons; the badges now share a measured width and the icons give way first.

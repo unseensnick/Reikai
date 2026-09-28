@@ -864,15 +864,14 @@ class ReaderViewModel(
             }
 
             updateChapter.await(
-                ChapterUpdate(
-                    id = readerChapter.chapter.id!!,
-                    read = readerChapter.chapter.read,
-                    lastPageRead = readerChapter.chapter.last_page_read.toLong(),
+                ChapterUpdate(readerChapter.chapter.id!!) {
+                    read = readerChapter.chapter.read
+                    lastPageRead = readerChapter.chapter.last_page_read.toLong()
                     // RK: the reader is the only thing that ever knows this, so it is written on every
                     // save rather than once, which is also what re-heals a total left stale by a source
                     // re-paginating the chapter.
-                    pageCount = readerChapter.pages?.size?.toLong(),
-                ),
+                    pageCount = readerChapter.pages?.size?.toLong()
+                },
             )
         }
     }
@@ -905,7 +904,7 @@ class ReaderViewModel(
             )
             .filterNot { it.read }
         // RK --> kept as chapters until written, so the source's own tracker hears which entry each is in
-        updateChapter.awaitAll(duplicateUnreadChapters.map { ChapterUpdate(id = it.id, read = true) })
+        updateChapter.awaitAll(duplicateUnreadChapters.map { ChapterUpdate(it.id) { read = true } })
         sourceTracker.readStateWritten(
             true,
             listOfNotNull(newlyRead) +
@@ -924,10 +923,7 @@ class ReaderViewModel(
             if (incognito.of(readerChapter.chapter.manga_id!!)) return@launchNonCancellable
             updateChapterProgressOnComplete(readerChapter)
             updateChapter.await(
-                ChapterUpdate(
-                    id = readerChapter.chapter.id!!,
-                    read = true,
-                ),
+                ChapterUpdate(readerChapter.chapter.id!!) { read = true },
             )
         }
     }
@@ -1270,7 +1266,7 @@ class ReaderViewModel(
         // Kept in step so the sheet and the app bar cannot disagree about the chapter being read.
         if (getCurrentChapter()?.chapter?.id in ids) mutableState.update { it.copy(bookmarked = bookmarked) }
         viewModelScope.launchNonCancellable {
-            updateChapter.awaitAll(ids.map { ChapterUpdate(id = it, bookmark = bookmarked) })
+            updateChapter.awaitAll(ids.map { ChapterUpdate(it) { bookmark = bookmarked } })
         }
     }
 

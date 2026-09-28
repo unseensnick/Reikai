@@ -9,7 +9,7 @@ import reikai.domain.track.sendsProgressTo
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.UpdateChapter
-import tachiyomi.domain.chapter.model.toChapterUpdate
+import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.track.interactor.UpsertTrack
 import tachiyomi.domain.track.model.Track
 import kotlin.math.max
@@ -40,7 +40,7 @@ class SyncChapterProgressWithTrack(
             .filter { chapter ->
                 remoteTrack.lastChapterRead > 0 && chapter.chapterNumber <= remoteTrack.lastChapterRead && !chapter.read
             }
-            .map { it.copy(read = true).toChapterUpdate() }
+            .map { ChapterUpdate(it.id) { read = true } }
         // RK <--
 
         // only take into account continuous reading

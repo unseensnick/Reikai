@@ -24,8 +24,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.model.MangaWithChapterCount
-import tachiyomi.domain.manga.model.toMangaUpdate
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import kotlin.time.Clock
@@ -141,24 +141,32 @@ class MangaLibraryAdder(
      * abandons the add when this answers false, so nothing is filed against a row outside the library.
      */
     suspend fun changeFavorite(manga: Manga): Boolean {
-        var new = manga.copy(
-            favorite = !manga.favorite,
-            dateAdded = if (manga.favorite) 0 else Clock.System.now().toEpochMilliseconds(),
-        )
-        if (!new.favorite) {
+        // Only the library state is written, never the manga as read here: adding sets the default
+        // chapter flags first, and a write carrying the old ones would put them back (mihon f8fff318b).
+        val update = if (manga.favorite) {
             // Hand this entry its own copy of the group's shared tracker before it leaves; the hand-out
             // skips non-favorites, so after the write it would miss exactly this entry.
             mergeManager.handOutTrackersBeforeRemoval(listOf(manga.id))
-            new = new.removeCovers(coverCache)
+            val coverLastModified = manga.removeCovers(coverCache).coverLastModified
+            MangaUpdate(manga.id) {
+                favorite = false
+                dateAdded = 0
+                if (coverLastModified != manga.coverLastModified) this.coverLastModified = coverLastModified
+            }
         } else {
             setMangaDefaultChapterFlags.await(manga)
+            MangaUpdate(manga.id) {
+                favorite = true
+                dateAdded = Clock.System.now().toEpochMilliseconds()
+            }
         }
-        // Written in full rather than through awaitUpdateFavorite, so the source's own tracker is told here.
+        val favorite = !manga.favorite
+        // Written here rather than through awaitUpdateFavorite, so the source's own tracker is told here.
         // Trackers bind once the write lands, never for an add that failed.
-        return updateManga.await(new.toMangaUpdate()).also { updated ->
+        return updateManga.await(update).also { updated ->
             if (!updated) return@also
-            sourceTracker.favoriteChanged(EntryId.Manga(manga.id), new.favorite)
-            if (new.favorite) autoBindOnAdd.manga(manga, sourceManager.getOrStub(manga.source))
+            sourceTracker.favoriteChanged(EntryId.Manga(manga.id), favorite)
+            if (favorite) autoBindOnAdd.manga(manga, sourceManager.getOrStub(manga.source))
         }
     }
 

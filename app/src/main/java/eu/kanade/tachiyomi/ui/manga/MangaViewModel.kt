@@ -1420,7 +1420,7 @@ class MangaViewModel(
             // RK: bookmark the matching chapter in every grouped source too
             expandToGroup(chapters)
                 .filterNot { it.bookmark == bookmarked }
-                .map { ChapterUpdate(id = it.id, bookmark = bookmarked) }
+                .map { ChapterUpdate(it.id) { bookmark = bookmarked } }
                 .let { updateChapter.awaitAll(it) }
         }
         toggleAllSelection(false)
