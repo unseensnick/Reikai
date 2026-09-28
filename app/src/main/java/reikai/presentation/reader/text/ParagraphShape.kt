@@ -20,15 +20,15 @@ data class ParagraphShape(
     /**
      * Whether moving to [next] owes a redraw rather than a restyle.
      *
-     * A size change alone counts only while something is measured against it. That exemption is the
-     * point of the rule: with both at zero, dragging the text-size slider restyles the views it
-     * already has instead of re-parsing the chapter per step. Spacing defaults above zero, so by
-     * default each step is a redraw, which is why the viewport lets a newer one supersede it.
+     * A size change alone counts only while something is measured against it: indent, spacing, or a
+     * picture the window holds, whose margins and failure box are sized from the text. With none of
+     * them a text-size drag restyles the views already built instead of re-parsing per step; spacing
+     * defaults above zero, so by default each step is a redraw, which a newer one supersedes.
      */
-    fun needsRedrawFor(next: ParagraphShape): Boolean {
+    fun needsRedrawFor(next: ParagraphShape, holdsPictures: Boolean): Boolean {
         if (indent != next.indent || spacing != next.spacing || bionic != next.bionic) return true
         if (sideMargins != next.sideMargins) return true
-        val measuredAgainstSize = next.indent > 0f || next.spacing > 0f
+        val measuredAgainstSize = next.indent > 0f || next.spacing > 0f || holdsPictures
         return measuredAgainstSize && fontSize != next.fontSize
     }
 }

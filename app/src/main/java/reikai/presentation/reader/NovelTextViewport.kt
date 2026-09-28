@@ -615,7 +615,9 @@ class NovelTextViewport(
         }
         if (previous?.markShape() != settings.markShape()) drawSpokenParagraph()
         if (previous != null && previous.renderShape() == settings.renderShape()) return
-        if (previous != null && previous.paragraphShape().needsRedrawFor(settings.paragraphShape())) {
+        // A chapter still rendering built its pictures at the old size and joins with a restyle.
+        val holdsPictures = slots.any { !it.rendered || it.block.holdsPictures() }
+        if (previous != null && previous.paragraphShape().needsRedrawFor(settings.paragraphShape(), holdsPictures)) {
             startRedraw()
             return
         }

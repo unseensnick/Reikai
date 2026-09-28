@@ -103,6 +103,11 @@ class ChapterTextBlock(
             ?.any { it.drawable === drawable } == true
     }
 
+    /** Whether any chunk holds a picture, loading, drawn or failed. */
+    fun holdsPictures(): Boolean = chunkViews.any { view ->
+        (view.text as? Spanned)?.let { it.getSpans(0, it.length, ImageSpan::class.java).isNotEmpty() } == true
+    }
+
     fun clearSelections() = chunkViews.forEach { view ->
         val text = view.text
         if (text is Spannable && text.isNotEmpty() && Selection.getSelectionStart(text) >= 0) {

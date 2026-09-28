@@ -11,7 +11,7 @@ class ParagraphShapeTest {
     fun unchangedNeedsNoRedraw() {
         val shape = ParagraphShape(indent = 1f, spacing = 0.5f, fontSize = 16, bionic = false, sideMargins = 32)
 
-        shape.needsRedrawFor(shape) shouldBe false
+        shape.needsRedrawFor(shape, holdsPictures = false) shouldBe false
     }
 
     @Test
@@ -19,7 +19,7 @@ class ParagraphShapeTest {
     fun changedIndentNeedsRedraw() {
         val before = ParagraphShape(indent = 0f, spacing = 0f, fontSize = 16, bionic = false, sideMargins = 32)
 
-        before.needsRedrawFor(before.copy(indent = 2f)) shouldBe true
+        before.needsRedrawFor(before.copy(indent = 2f), holdsPictures = false) shouldBe true
     }
 
     @Test
@@ -27,7 +27,7 @@ class ParagraphShapeTest {
     fun changedSpacingNeedsRedraw() {
         val before = ParagraphShape(indent = 0f, spacing = 0f, fontSize = 16, bionic = false, sideMargins = 32)
 
-        before.needsRedrawFor(before.copy(spacing = 1f)) shouldBe true
+        before.needsRedrawFor(before.copy(spacing = 1f), holdsPictures = false) shouldBe true
     }
 
     @Test
@@ -35,7 +35,7 @@ class ParagraphShapeTest {
     fun fontSizeChangeWithIndentNeedsRedraw() {
         val before = ParagraphShape(indent = 2f, spacing = 0f, fontSize = 16, bionic = false, sideMargins = 32)
 
-        before.needsRedrawFor(before.copy(fontSize = 24)) shouldBe true
+        before.needsRedrawFor(before.copy(fontSize = 24), holdsPictures = false) shouldBe true
     }
 
     @Test
@@ -43,7 +43,7 @@ class ParagraphShapeTest {
     fun fontSizeChangeWithSpacingNeedsRedraw() {
         val before = ParagraphShape(indent = 0f, spacing = 1f, fontSize = 16, bionic = false, sideMargins = 32)
 
-        before.needsRedrawFor(before.copy(fontSize = 24)) shouldBe true
+        before.needsRedrawFor(before.copy(fontSize = 24), holdsPictures = false) shouldBe true
     }
 
     @Test
@@ -51,7 +51,7 @@ class ParagraphShapeTest {
     fun fontSizeChangeWithoutSpansRestyles() {
         val before = ParagraphShape(indent = 0f, spacing = 0f, fontSize = 16, bionic = false, sideMargins = 32)
 
-        before.needsRedrawFor(before.copy(fontSize = 24)) shouldBe false
+        before.needsRedrawFor(before.copy(fontSize = 24), holdsPictures = false) shouldBe false
     }
 
     @Test
@@ -59,7 +59,7 @@ class ParagraphShapeTest {
     fun bionicToggleNeedsRedraw() {
         val before = ParagraphShape(indent = 0f, spacing = 0f, fontSize = 16, bionic = false, sideMargins = 32)
 
-        before.needsRedrawFor(before.copy(bionic = true)) shouldBe true
+        before.needsRedrawFor(before.copy(bionic = true), holdsPictures = false) shouldBe true
     }
 
     @Test
@@ -67,7 +67,7 @@ class ParagraphShapeTest {
     fun bionicOffNeedsRedraw() {
         val before = ParagraphShape(indent = 0f, spacing = 0f, fontSize = 16, bionic = true, sideMargins = 32)
 
-        before.needsRedrawFor(before.copy(bionic = false)) shouldBe true
+        before.needsRedrawFor(before.copy(bionic = false), holdsPictures = false) shouldBe true
     }
 
     @Test
@@ -75,6 +75,14 @@ class ParagraphShapeTest {
     fun sideMarginChangeNeedsRedraw() {
         val before = ParagraphShape(indent = 0f, spacing = 0f, fontSize = 16, bionic = false, sideMargins = 32)
 
-        before.needsRedrawFor(before.copy(sideMargins = 96)) shouldBe true
+        before.needsRedrawFor(before.copy(sideMargins = 96), holdsPictures = false) shouldBe true
+    }
+
+    @Test
+    @DisplayName("a font size change needs a redraw while the window holds a picture, whose margins are sized from it")
+    fun fontSizeChangeWithPicturesNeedsRedraw() {
+        val before = ParagraphShape(indent = 0f, spacing = 0f, fontSize = 16, bionic = false, sideMargins = 32)
+
+        before.needsRedrawFor(before.copy(fontSize = 24), holdsPictures = true) shouldBe true
     }
 }

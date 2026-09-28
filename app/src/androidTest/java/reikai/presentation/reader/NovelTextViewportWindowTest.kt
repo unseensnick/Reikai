@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import android.graphics.Color
 import android.graphics.Rect
 import android.text.PrecomputedText
+import android.text.Spanned
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
@@ -26,6 +27,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.reader.text.ChapterImageSpan
 import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.PngServer
 import reikai.presentation.reader.text.pngOf
@@ -338,6 +340,18 @@ class NovelTextViewportWindowTest {
         assertEquals(0, shownAt("current 60.")?.top)
     }
 
+    /** A picture's margins are built from the text size, so a size step rebuilds them with no indent or spacing. */
+    @Test
+    fun aTextSizeStepRebuildsAPicturesMargins() {
+        val flat = readerTestSettings.copy(paragraphIndent = 0f, paragraphSpacing = 0f)
+        PngServer(pngOf(SLOW_PICTURE_PX, SLOW_PICTURE_PX)).use { server ->
+            open(LONG, "<p><img src=\"${server.url("picture")}\"></p>" + long("current"), flat)
+            instrumentation.runOnMainSync { viewport.applySettings(flat.copy(fontSize = flat.fontSize + 4)) }
+            settle(REDRAW_WAIT_S)
+            assertEquals(setOf(sp(flat.fontSize + 4).toInt()), pictureTops())
+        }
+    }
+
     /** The chapter before this one failing after the reader has scrolled in draws its row above the
      *  text inside the same item, which is growth the layout manager does not take back. */
     @Test
@@ -556,6 +570,12 @@ class NovelTextViewportWindowTest {
 
     private fun descendants(view: View): List<View> =
         listOf(view) + ((view as? ViewGroup)?.children?.flatMap { descendants(it) }?.toList() ?: emptyList())
+
+    private fun pictureTops() = textViews(viewport.view).flatMap { v ->
+        (v.text as? Spanned)?.let { text ->
+            text.getSpans(0, text.length, ChapterImageSpan::class.java).map { it.topPx }
+        }.orEmpty()
+    }.toSet()
 
     private fun textViews(view: View): List<TextView> = when (view) {
         is TextView -> listOf(view)
