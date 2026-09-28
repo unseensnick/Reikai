@@ -32,7 +32,7 @@ class MangaMergeBackupRoundTripTest {
         getChaptersByMangaId = mockk(relaxed = true),
         updateManga = mockk(relaxed = true),
         getTracks = mockk(relaxed = true),
-        insertTrack = mockk(relaxed = true),
+        upsertTrack = mockk(relaxed = true),
         fetchInterval = mockk(relaxed = true),
         restoreMergeGroups = RestoreMergeGroups(repository, PassThroughTransactions),
         mangaMetadataRepository = mockk(relaxed = true),

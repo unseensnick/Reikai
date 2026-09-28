@@ -230,7 +230,7 @@ this section first said six). Six are the novel reader's (`UpsertNovelHistory`,
 `GetIncognitoState`). The other three are the qualified `MetadataSource` contracts that `source-api`
 resolves, which is the half the first count missed. Three more survive transitively:
 `SetNovelReadStatus` takes `DeleteNovelChaptersAfterRead`, which takes `GetNovelCategories`, and
-`TrackNovelChapter` takes `GetNovelTracks` and `InsertNovelTrack`. Every other hop leaves into the
+`TrackNovelChapter` takes `GetNovelTracks` and `UpsertNovelTrack`. Every other hop leaves into the
 interop module, so 113 of the 125 registrations are deletable.
 
 **The shrink cannot be verified by grepping.** 64 `Injekt.get()` / `injectLazy()` sites take their

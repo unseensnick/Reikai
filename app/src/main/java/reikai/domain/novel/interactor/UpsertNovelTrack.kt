@@ -7,13 +7,13 @@ import reikai.domain.novel.model.NovelTrack
 import tachiyomi.core.common.util.system.logcat
 
 @Inject
-class InsertNovelTrack(
+class UpsertNovelTrack(
     private val repository: NovelTrackRepository,
 ) {
 
     suspend fun await(track: NovelTrack) {
         try {
-            repository.insert(track)
+            repository.upsert(track)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
         }
@@ -21,7 +21,7 @@ class InsertNovelTrack(
 
     suspend fun awaitAll(tracks: List<NovelTrack>) {
         try {
-            repository.insertAll(tracks)
+            repository.upsertAll(tracks)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
         }

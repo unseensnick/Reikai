@@ -21050,7 +21050,7 @@ HSPLeu/kanade/domain/DomainModule;->registerInjectables$lambda$35(Luy/kohesive/i
 HSPLeu/kanade/domain/DomainModule;->registerInjectables$lambda$38(Luy/kohesive/injekt/api/InjektRegistrar;)Ltachiyomi/domain/track/interactor/GetTracksPerManga;
 HSPLeu/kanade/domain/DomainModule;->registerInjectables$lambda$39(Luy/kohesive/injekt/api/InjektRegistrar;)Ltachiyomi/domain/track/interactor/GetTracks;
 HSPLeu/kanade/domain/DomainModule;->registerInjectables$lambda$4(Luy/kohesive/injekt/api/InjektRegistrar;)Ltachiyomi/domain/category/interactor/SetSortModeForCategory;
-HSPLeu/kanade/domain/DomainModule;->registerInjectables$lambda$40(Luy/kohesive/injekt/api/InjektRegistrar;)Ltachiyomi/domain/track/interactor/InsertTrack;
+HSPLeu/kanade/domain/DomainModule;->registerInjectables$lambda$40(Luy/kohesive/injekt/api/InjektRegistrar;)Ltachiyomi/domain/track/interactor/UpsertTrack;
 HSPLeu/kanade/domain/DomainModule;->registerInjectables$lambda$41(Luy/kohesive/injekt/api/InjektRegistrar;)Leu/kanade/domain/track/interactor/SyncChapterProgressWithTrack;
 HSPLeu/kanade/domain/DomainModule;->registerInjectables$lambda$42(Luy/kohesive/injekt/api/InjektRegistrar;)Ltachiyomi/domain/chapter/repository/ChapterRepository;
 HSPLeu/kanade/domain/DomainModule;->registerInjectables$lambda$43(Luy/kohesive/injekt/api/InjektRegistrar;)Ltachiyomi/domain/chapter/interactor/GetChapter;
@@ -21751,11 +21751,11 @@ Leu/kanade/domain/source/service/SourcePreferences$special$$inlined$getEnum$4;
 HSPLeu/kanade/domain/source/service/SourcePreferences$special$$inlined$getEnum$4;-><init>(Ljava/lang/Enum;)V
 Leu/kanade/domain/track/interactor/AddTracks;
 HSPLeu/kanade/domain/track/interactor/AddTracks;-><clinit>()V
-HSPLeu/kanade/domain/track/interactor/AddTracks;-><init>(Ltachiyomi/domain/track/interactor/InsertTrack;Leu/kanade/domain/track/interactor/SyncChapterProgressWithTrack;Ltachiyomi/domain/chapter/interactor/GetChaptersByMangaId;Leu/kanade/tachiyomi/data/track/TrackerManager;)V
+HSPLeu/kanade/domain/track/interactor/AddTracks;-><init>(Ltachiyomi/domain/track/interactor/UpsertTrack;Leu/kanade/domain/track/interactor/SyncChapterProgressWithTrack;Ltachiyomi/domain/chapter/interactor/GetChaptersByMangaId;Leu/kanade/tachiyomi/data/track/TrackerManager;)V
 Leu/kanade/domain/track/interactor/RefreshTracks;
 Leu/kanade/domain/track/interactor/SyncChapterProgressWithTrack;
 HSPLeu/kanade/domain/track/interactor/SyncChapterProgressWithTrack;-><clinit>()V
-HSPLeu/kanade/domain/track/interactor/SyncChapterProgressWithTrack;-><init>(Ltachiyomi/domain/chapter/interactor/UpdateChapter;Ltachiyomi/domain/track/interactor/InsertTrack;Ltachiyomi/domain/chapter/interactor/GetChaptersByMangaId;)V
+HSPLeu/kanade/domain/track/interactor/SyncChapterProgressWithTrack;-><init>(Ltachiyomi/domain/chapter/interactor/UpdateChapter;Ltachiyomi/domain/track/interactor/UpsertTrack;Ltachiyomi/domain/chapter/interactor/GetChaptersByMangaId;)V
 Leu/kanade/domain/track/interactor/TrackChapter;
 Leu/kanade/domain/track/model/AutoTrackState;
 HSPLeu/kanade/domain/track/model/AutoTrackState;->$values()[Leu/kanade/domain/track/model/AutoTrackState;
@@ -32955,8 +32955,8 @@ HSPLtachiyomi/domain/track/interactor/GetTracksPerManga$subscribe$$inlined$map$1
 Ltachiyomi/domain/track/interactor/GetTracksPerManga$subscribe$$inlined$map$1$2$1;
 HSPLtachiyomi/domain/track/interactor/GetTracksPerManga$subscribe$$inlined$map$1$2$1;-><init>(Ltachiyomi/domain/track/interactor/GetTracksPerManga$subscribe$$inlined$map$1$2;Lkotlin/coroutines/Continuation;)V
 HSPLtachiyomi/domain/track/interactor/GetTracksPerManga$subscribe$$inlined$map$1$2$1;->invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
-Ltachiyomi/domain/track/interactor/InsertTrack;
-HSPLtachiyomi/domain/track/interactor/InsertTrack;-><init>(Ltachiyomi/domain/track/repository/TrackRepository;)V
+Ltachiyomi/domain/track/interactor/UpsertTrack;
+HSPLtachiyomi/domain/track/interactor/UpsertTrack;-><init>(Ltachiyomi/domain/track/repository/TrackRepository;)V
 Ltachiyomi/domain/track/repository/TrackRepository;
 Ltachiyomi/domain/updates/interactor/GetUpdates;
 HSPLtachiyomi/domain/updates/interactor/GetUpdates;-><init>(Ltachiyomi/domain/updates/repository/UpdatesRepository;)V

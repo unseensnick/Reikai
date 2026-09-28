@@ -245,7 +245,7 @@ class MangaMergeRestorer : MergeRestorer {
         getChaptersByMangaId = mockk { coEvery { await(dbManga.id) } returns chapters },
         updateManga = mockk(relaxed = true),
         getTracks = mockk { coEvery { await(dbManga.id) } returns tracks },
-        insertTrack = mockk(relaxed = true),
+        upsertTrack = mockk(relaxed = true),
         fetchInterval = mockk(relaxed = true),
         restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
         mangaMetadataRepository = mockk(relaxed = true),
@@ -330,7 +330,7 @@ class NovelMergeRestorer : MergeRestorer {
         )
         val tracks = mockk<NovelTrackRepository>(relaxed = true) {
             coEvery { getTracksByNovelId(RestoreMergeConformanceTest.DEVICE_ID) } returns listOf(dbTrack)
-            coEvery { insert(any()) } coAnswers {
+            coEvery { upsert(any()) } coAnswers {
                 val track = firstArg<NovelTrack>()
                 result = TrackState(track.remoteId, track.libraryId, track.status, track.score, track.lastChapterRead)
                 true

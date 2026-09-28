@@ -20,7 +20,7 @@ import reikai.domain.novel.track.toNovelTrack
 class RefreshNovelTracks(
     private val getNovelTracks: GetNovelTracks,
     private val trackerManager: TrackerManager,
-    private val insertNovelTrack: InsertNovelTrack,
+    private val upsertNovelTrack: UpsertNovelTrack,
 ) {
 
     suspend fun await(novelId: Long): List<Pair<Tracker?, Throwable>> {
@@ -32,7 +32,7 @@ class RefreshNovelTracks(
                     async {
                         return@async try {
                             val updatedTrack = service!!.refresh(track.toDbTrack()).toNovelTrack()!!
-                            insertNovelTrack.await(updatedTrack)
+                            upsertNovelTrack.await(updatedTrack)
                             null
                         } catch (e: Throwable) {
                             service to e

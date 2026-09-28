@@ -40,7 +40,7 @@ Domain layer (net-new, under `reikai.*`), in `app/src/main/java/reikai/domain/no
 - `NovelTrackRepository.kt`: repository interface; impl at `data/src/main/java/reikai/data/novel/NovelTrackRepositoryImpl.kt`.
 - `interactor/AddNovelTrack.kt`: bind logic (port of `AddTracks.bind`).
 - `interactor/GetNovelTracks.kt`: reads, including the group-aware `awaitGroup` / `subscribeGroup`.
-- `interactor/InsertNovelTrack.kt`, `interactor/DeleteNovelTrack.kt`, `interactor/RefreshNovelTracks.kt`: write / delete / refresh.
+- `interactor/UpsertNovelTrack.kt`, `interactor/DeleteNovelTrack.kt`, `interactor/RefreshNovelTracks.kt`: write / delete / refresh.
 - `track/NovelTrackUpdater.kt`: per-field updates (port of `BaseTracker`).
 - `track/NovelTrackConversions.kt`: the `NovelTrack` <-> domain `Track` carrier adapter.
 - `track/TrackNovelChapter.kt`: read-progress push entry point.

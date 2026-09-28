@@ -5,7 +5,7 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.util.system.toast
 import logcat.LogPriority
-import reikai.domain.novel.interactor.InsertNovelTrack
+import reikai.domain.novel.interactor.UpsertNovelTrack
 import reikai.domain.track.TrackFieldMutations
 import reikai.domain.track.TrackWriter
 import reikai.presentation.track.trackerErrorMessage
@@ -23,7 +23,7 @@ import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
  */
 @Inject
 class NovelTrackUpdater(
-    private val insertNovelTrack: InsertNovelTrack,
+    private val upsertNovelTrack: UpsertNovelTrack,
     private val context: Context,
 ) : TrackWriter {
 
@@ -61,7 +61,7 @@ class NovelTrackUpdater(
         try {
             tracker.update(track)
             track.toNovelTrack(idRequired = false)?.let {
-                insertNovelTrack.await(it)
+                upsertNovelTrack.await(it)
             }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to update remote novel track id=${tracker.id}" }

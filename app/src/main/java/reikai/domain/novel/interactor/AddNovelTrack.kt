@@ -22,7 +22,7 @@ import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
  */
 @Inject
 class AddNovelTrack(
-    private val insertNovelTrack: InsertNovelTrack,
+    private val upsertNovelTrack: UpsertNovelTrack,
     private val novelTrackUpdater: NovelTrackUpdater,
     private val novelChapterRepository: NovelChapterRepository,
     private val novelHistoryRepository: NovelHistoryRepository,
@@ -36,7 +36,7 @@ class AddNovelTrack(
 
             item.manga_id = novelId
             var track = item.toNovelTrack(idRequired = false) ?: return@withIOContext
-            insertNovelTrack.await(track)
+            upsertNovelTrack.await(track)
 
             val backfill = bindBackfill(
                 allChapters.map { BindChapter(it.chapterNumber, it.read) },

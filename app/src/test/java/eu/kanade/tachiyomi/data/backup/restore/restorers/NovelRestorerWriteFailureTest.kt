@@ -36,7 +36,7 @@ class NovelRestorerWriteFailureTest {
         }
         val tracks = mockk<NovelTrackRepository>(relaxed = true) {
             coEvery { getTracksByNovelId(any()) } returns emptyList()
-            coEvery { insert(any()) } returns true
+            coEvery { upsert(any()) } returns true
         }
     }
 
@@ -68,7 +68,7 @@ class NovelRestorerWriteFailureTest {
                 )
             coEvery { chapters.update(any()) } returns false
         }),
-        TRACK_INSERT({ coEvery { tracks.insert(any()) } returns false }),
+        TRACK_UPSERT({ coEvery { tracks.upsert(any()) } returns false }),
     }
 
     @Test

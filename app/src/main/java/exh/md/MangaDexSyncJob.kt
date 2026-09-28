@@ -51,7 +51,7 @@ import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.track.interactor.GetTracks
-import tachiyomi.domain.track.interactor.InsertTrack
+import tachiyomi.domain.track.interactor.UpsertTrack
 import tachiyomi.i18n.MR
 
 /**
@@ -80,7 +80,7 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
 
     @Inject private lateinit var getTracks: GetTracks
 
-    @Inject private lateinit var insertTrack: InsertTrack
+    @Inject private lateinit var upsertTrack: UpsertTrack
 
     @Inject private lateinit var trackerManager: TrackerManager
 
@@ -295,7 +295,7 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
                 if (tracker?.status == FollowStatus.UNFOLLOWED.long) {
                     tracker = tracker.copy(status = FollowStatus.READING.long)
                     val updated = trackerManager.mdList.update(tracker.toDbTrack())
-                    insertTrack.await(updated.toDomainTrack(idRequired = false)!!)
+                    upsertTrack.await(updated.toDomainTrack(idRequired = false)!!)
                     pushed++
                 }
             } catch (e: CancellationException) {

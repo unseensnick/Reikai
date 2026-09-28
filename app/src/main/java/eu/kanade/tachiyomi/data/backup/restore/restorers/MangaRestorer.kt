@@ -40,7 +40,7 @@ import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.MangaMetadataRepository
 import tachiyomi.domain.track.interactor.GetTracks
-import tachiyomi.domain.track.interactor.InsertTrack
+import tachiyomi.domain.track.interactor.UpsertTrack
 import tachiyomi.domain.track.model.Track
 import java.util.Date
 import kotlin.math.max
@@ -54,7 +54,7 @@ class MangaRestorer(
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val updateManga: UpdateManga,
     private val getTracks: GetTracks,
-    private val insertTrack: InsertTrack,
+    private val upsertTrack: UpsertTrack,
     fetchInterval: FetchInterval,
     // RK: target of the restored manga merge groups (see restoreMerges).
     private val restoreMergeGroups: RestoreMergeGroups,
@@ -489,7 +489,7 @@ class MangaRestorer(
             .partition { it.id > 0 }
 
         if (newTracks.isNotEmpty()) {
-            insertTrack.awaitAll(newTracks)
+            upsertTrack.awaitAll(newTracks)
         }
 
         if (existingTracks.isEmpty()) return

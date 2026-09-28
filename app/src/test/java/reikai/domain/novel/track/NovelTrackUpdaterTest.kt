@@ -9,7 +9,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelTrackRepository
-import reikai.domain.novel.interactor.InsertNovelTrack
+import reikai.domain.novel.interactor.UpsertNovelTrack
 import reikai.domain.novel.model.NovelTrack
 import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 
@@ -29,11 +29,11 @@ class NovelTrackUpdaterTest {
 
     private val inserted = mutableListOf<NovelTrack>()
     private val repository = mockk<NovelTrackRepository> {
-        coEvery { insert(any()) } answers { inserted.add(firstArg<NovelTrack>()) }
+        coEvery { upsert(any()) } answers { inserted.add(firstArg<NovelTrack>()) }
     }
 
     // Only reached to toast a remote failure, which none of these cases takes.
-    private val updater = NovelTrackUpdater(InsertNovelTrack(repository), mockk(relaxed = true))
+    private val updater = NovelTrackUpdater(UpsertNovelTrack(repository), mockk(relaxed = true))
 
     private fun dbTrack(lastRead: Double = 0.0, total: Long = 0, status: Long = 0): DbTrack =
         TrackImpl().also {

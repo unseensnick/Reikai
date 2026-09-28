@@ -27347,7 +27347,7 @@ HSPLtachiyomi/domain/track/interactor/GetTracksPerManga$subscribe$$inlined$map$1
 Ltachiyomi/domain/track/interactor/GetTracksPerManga$subscribe$$inlined$map$1$2$1;
 HSPLtachiyomi/domain/track/interactor/GetTracksPerManga$subscribe$$inlined$map$1$2$1;-><init>(Ltachiyomi/domain/track/interactor/GetTracksPerManga$subscribe$$inlined$map$1$2;Lkotlin/coroutines/Continuation;)V
 HSPLtachiyomi/domain/track/interactor/GetTracksPerManga$subscribe$$inlined$map$1$2$1;->invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
-Ltachiyomi/domain/track/interactor/InsertTrack;
+Ltachiyomi/domain/track/interactor/UpsertTrack;
 Ltachiyomi/domain/track/repository/TrackRepository;
 Ltachiyomi/domain/updates/interactor/GetUpdates;
 HSPLtachiyomi/domain/updates/interactor/GetUpdates;-><init>(Ltachiyomi/domain/updates/repository/UpdatesRepository;)V

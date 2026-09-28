@@ -498,6 +498,7 @@ every stable release now also ships a foss build with neither in it.
 
 #### Fixed
 - **Adding a manga tracker no longer takes history you removed as the day you started reading (synced from Mihon).**
+- **Reading progress queued for a tracker while offline is no longer dropped when the track is refreshed or restored before it is sent, on manga and novels (synced from Mihon).**
 - **Binding or changing the status of a series from your own manga server when you have not started it no longer marks its Chapter 0 read, in Reikai or on the server.** Reading progress of 0 was taken as "read up to chapter 0".
 - **Backing out of the category choice when adding a manga from its page no longer binds its server tracker.**
 

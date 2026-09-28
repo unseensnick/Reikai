@@ -21,7 +21,7 @@ class SyncChapterProgressWithTrackTest {
 
     private fun sync(readLocally: Set<Double> = emptySet()) = SyncChapterProgressWithTrack(
         updateChapter = mockk<UpdateChapter> { coEvery { awaitAll(any()) } answers { marked = firstArg() } },
-        insertTrack = mockk(relaxed = true),
+        upsertTrack = mockk(relaxed = true),
         getChaptersByMangaId = mockk<GetChaptersByMangaId> {
             coEvery { await(any()) } returns listOf(0.0, 1.0, 2.0, 3.0).map { number ->
                 Chapter.create().copy(

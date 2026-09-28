@@ -28,7 +28,7 @@ class PushNovelUnreadTest {
         val push = PushNovelUnread(
             getNovelTracks = mockk<GetNovelTracks> { coEvery { awaitGroup(any()) } returns listOf(track) },
             trackerManager = mockk(),
-            insertNovelTrack = mockk(),
+            upsertNovelTrack = mockk(),
         )
 
         push.tracksFor(listOf(chapter(8, novelId = 1L), chapter(10, novelId = 2L))) shouldBe listOf(track)

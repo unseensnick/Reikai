@@ -46,7 +46,7 @@ class MigrateNovelUseCase(
     private val updateNovel: UpdateNovel,
     private val coverCache: CoverCache,
     private val getNovelTracks: GetNovelTracks,
-    private val insertNovelTrack: InsertNovelTrack,
+    private val upsertNovelTrack: UpsertNovelTrack,
     private val sourceManager: NovelSourceManager,
     private val novelRepository: NovelRepository,
     private val libraryPreferences: LibraryPreferences,
@@ -123,7 +123,7 @@ class MigrateNovelUseCase(
 
             // Carry tracker links onto the target, re-pointed to its id (matching manga migration). The
             // source's own track rows are left intact, which is correct for a Copy.
-            insertNovelTrack.awaitAll(
+            upsertNovelTrack.awaitAll(
                 getNovelTracks.await(current.id).map { it.copy(novelId = target.id) },
             )
 

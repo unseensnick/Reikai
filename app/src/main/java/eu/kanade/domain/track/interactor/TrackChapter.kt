@@ -14,7 +14,7 @@ import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.track.pushChapterProgress
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.track.interactor.InsertTrack
+import tachiyomi.domain.track.interactor.UpsertTrack
 
 @Inject
 class TrackChapter(
@@ -24,7 +24,7 @@ class TrackChapter(
     private val getTracks: GetTracksInGroup,
     // RK <--
     private val trackerManager: TrackerManager,
-    private val insertTrack: InsertTrack,
+    private val upsertTrack: UpsertTrack,
     private val delayedTrackingStore: DelayedTrackingStore,
 ) {
 
@@ -48,7 +48,7 @@ class TrackChapter(
                                 .toDomainTrack(idRequired = true)!!
                                 .copy(lastChapterRead = chapterNumber)
                             val pushed = service.pushChapterProgress(refreshed.toDbTrack())
-                            insertTrack.await(pushed.toDomainTrack(idRequired = true)!!)
+                            upsertTrack.await(pushed.toDomainTrack(idRequired = true)!!)
                             // RK <--
                             delayedTrackingStore.remove(track.id)
                         } catch (e: Exception) {

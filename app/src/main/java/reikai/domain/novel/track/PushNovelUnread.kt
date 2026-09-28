@@ -11,7 +11,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.novel.interactor.GetNovelTracks
-import reikai.domain.novel.interactor.InsertNovelTrack
+import reikai.domain.novel.interactor.UpsertNovelTrack
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import tachiyomi.core.common.util.system.logcat
@@ -26,7 +26,7 @@ import tachiyomi.core.common.util.system.logcat
 class PushNovelUnread(
     private val getNovelTracks: GetNovelTracks,
     private val trackerManager: TrackerManager,
-    private val insertNovelTrack: InsertNovelTrack,
+    private val upsertNovelTrack: UpsertNovelTrack,
 ) {
 
     private val scope = CoroutineScope(
@@ -42,7 +42,7 @@ class PushNovelUnread(
                 if (tracker !is UnreadPushTracker || !tracker.isLoggedIn) return@forEach
                 try {
                     tracker.pushUnread(track.toDbTrack(), unread)
-                        ?.let { insertNovelTrack.await(it.toNovelTrack(idRequired = true)!!) }
+                        ?.let { upsertNovelTrack.await(it.toNovelTrack(idRequired = true)!!) }
                 } catch (e: Exception) {
                     logcat(LogPriority.WARN, e) { "Could not move ${tracker.name} back for unread chapters" }
                 }

@@ -10,14 +10,14 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.toChapterUpdate
-import tachiyomi.domain.track.interactor.InsertTrack
+import tachiyomi.domain.track.interactor.UpsertTrack
 import tachiyomi.domain.track.model.Track
 import kotlin.math.max
 
 @Inject
 class SyncChapterProgressWithTrack(
     private val updateChapter: UpdateChapter,
-    private val insertTrack: InsertTrack,
+    private val upsertTrack: UpsertTrack,
     private val getChaptersByMangaId: GetChaptersByMangaId,
 ) {
 
@@ -52,7 +52,7 @@ class SyncChapterProgressWithTrack(
             // RK: nothing read on either side pushes nothing; a server takes a push of 0 as "read up to 0"
             if (sendsProgressTo(tracker, lastRead)) tracker.update(updatedTrack.toDbTrack())
             updateChapter.awaitAll(chapterUpdates)
-            insertTrack.await(updatedTrack)
+            upsertTrack.await(updatedTrack)
         } catch (e: Throwable) {
             logcat(LogPriority.WARN, e)
         }

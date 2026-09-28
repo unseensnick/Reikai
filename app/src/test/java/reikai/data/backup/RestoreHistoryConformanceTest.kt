@@ -136,7 +136,7 @@ class RestoreHistoryConformanceTest {
                     getChaptersByMangaId = mockk { coEvery { await(1L) } returns listOf(dbChapter) },
                     updateManga = mockk(relaxed = true),
                     getTracks = mockk { coEvery { await(1L) } returns emptyList() },
-                    insertTrack = mockk(relaxed = true),
+                    upsertTrack = mockk(relaxed = true),
                     fetchInterval = mockk(relaxed = true),
                     restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
                     mangaMetadataRepository = mockk(relaxed = true),

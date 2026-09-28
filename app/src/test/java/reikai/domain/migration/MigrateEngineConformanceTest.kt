@@ -23,9 +23,9 @@ import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
-import reikai.domain.novel.interactor.InsertNovelTrack
 import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.interactor.UpdateNovel
+import reikai.domain.novel.interactor.UpsertNovelTrack
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistory
@@ -51,7 +51,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
-import tachiyomi.domain.track.interactor.InsertTrack
+import tachiyomi.domain.track.interactor.UpsertTrack
 import tachiyomi.domain.track.model.Track
 import java.io.File
 import java.io.InputStream
@@ -565,7 +565,7 @@ class MangaEngine : MigrateEngine {
         }
         val track = setup.sourceTrackId?.let { mangaTrack(it) }
         val getTracks = mockk<GetTracks> { coEvery { await(any<Long>()) } answers { listOfNotNull(track) } }
-        val insertTrack = mockk<InsertTrack> {
+        val upsertTrack = mockk<UpsertTrack> {
             coEvery { awaitAll(any()) } answers
                 { firstArg<List<Track>>().forEach { rec.tracksWritten += it.id to it.mangaId } }
         }
@@ -602,7 +602,7 @@ class MangaEngine : MigrateEngine {
             getCategories = mockk { coEvery { await(any<Long>()) } returns emptyList() },
             setMangaCategories = mockk(relaxed = true),
             getTracks = getTracks,
-            insertTrack = insertTrack,
+            upsertTrack = upsertTrack,
             coverCache = coverCache,
             updateMangaFromRemote = updateFromRemote,
             mangaMergeManager = merge,
@@ -724,7 +724,7 @@ class NovelEngine : MigrateEngine {
         }
         val track = setup.sourceTrackId?.let { novelTrack(it) }
         val getTracks = mockk<GetNovelTracks> { coEvery { await(any()) } answers { listOfNotNull(track) } }
-        val insertTrack = mockk<InsertNovelTrack> {
+        val upsertTrack = mockk<UpsertNovelTrack> {
             coEvery { awaitAll(any()) } answers {
                 firstArg<List<NovelTrack>>().forEach { rec.tracksWritten += it.id to it.novelId }
             }
@@ -754,7 +754,7 @@ class NovelEngine : MigrateEngine {
             updateNovel = updateNovel,
             coverCache = coverCache,
             getNovelTracks = getTracks,
-            insertNovelTrack = insertTrack,
+            upsertNovelTrack = upsertTrack,
             sourceManager = sourceManager,
             novelRepository = novelRepository,
             libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),

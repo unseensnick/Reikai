@@ -41,16 +41,16 @@ class NovelTrackRepositoryImpl(
         }
     }
 
-    override suspend fun insert(track: NovelTrack) = insertAll(listOf(track))
+    override suspend fun upsert(track: NovelTrack) = upsertAll(listOf(track))
 
-    override suspend fun insertAll(tracks: List<NovelTrack>): Boolean {
+    override suspend fun upsertAll(tracks: List<NovelTrack>): Boolean {
         if (tracks.isEmpty()) return true
         return try {
             // One transaction, matching the manga side: carrying a multi-tracker entry must not be
             // able to land some links and drop others.
             database.transaction {
                 tracks.forEach { track ->
-                    database.novel_tracksQueries.insert(
+                    database.novel_tracksQueries.upsert(
                         novelId = track.novelId,
                         syncId = track.trackerId,
                         remoteId = track.remoteId,
@@ -69,7 +69,7 @@ class NovelTrackRepositoryImpl(
             }
             true
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to insert ${tracks.size} novel track(s)" }
+            logcat(LogPriority.ERROR, e) { "Failed to upsert ${tracks.size} novel track(s)" }
             false
         }
     }

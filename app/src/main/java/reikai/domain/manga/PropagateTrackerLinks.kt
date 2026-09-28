@@ -7,7 +7,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.track.handOutGroupTrackers
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.track.interactor.GetTracks
-import tachiyomi.domain.track.interactor.InsertTrack
+import tachiyomi.domain.track.interactor.UpsertTrack
 import tachiyomi.domain.track.model.Track
 
 /**
@@ -21,7 +21,7 @@ class PropagateTrackerLinks(
     private val mergeManager: MangaMergeManager,
     private val getManga: GetManga,
     private val getTracks: GetTracks,
-    private val insertTrack: InsertTrack,
+    private val upsertTrack: UpsertTrack,
 ) {
 
     /** Resolve [seedMangaId]'s group and copy each shared tracker onto every favorited member. */
@@ -37,6 +37,6 @@ class PropagateTrackerLinks(
         remoteId = Track::remoteId,
         lastChapterRead = Track::lastChapterRead,
         copyTo = { track, mangaId -> track.copy(mangaId = mangaId) },
-        writeAll = { insertTrack.awaitAll(it) },
+        writeAll = { upsertTrack.awaitAll(it) },
     )
 }

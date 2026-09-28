@@ -40,7 +40,7 @@ class MigrateNovelUseCaseTest {
         updateNovel = mockk(relaxed = true),
         coverCache = mockk(relaxed = true),
         getNovelTracks = mockk(relaxed = true),
-        insertNovelTrack = mockk(relaxed = true),
+        upsertNovelTrack = mockk(relaxed = true),
         sourceManager = mockk(relaxed = true),
         novelRepository = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(any()) } returns true },
         libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),

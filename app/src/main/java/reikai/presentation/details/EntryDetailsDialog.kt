@@ -163,7 +163,7 @@ fun Screen.EntryDetailsDialogHost(
         )
         is EntryDetailsDialog.TrackSheet -> {
             // Remember the screen so the merge collectors' frequent recompositions don't rebuild it and reset
-            // its navigator mid-write (the manga side hit an InsertTrack JobCancellationException here).
+            // its navigator mid-write (the manga side hit an UpsertTrack JobCancellationException here).
             val trackScreen = remember(dialog.entryId, dialog.sourceId) {
                 EntryTrackInfoDialogHomeScreen(
                     entryId = dialog.entryId,

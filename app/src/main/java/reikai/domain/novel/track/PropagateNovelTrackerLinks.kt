@@ -5,7 +5,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
-import reikai.domain.novel.interactor.InsertNovelTrack
+import reikai.domain.novel.interactor.UpsertNovelTrack
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.track.handOutGroupTrackers
 
@@ -16,7 +16,7 @@ class PropagateNovelTrackerLinks(
     private val mergeManager: NovelMergeManager,
     private val novelRepository: NovelRepository,
     private val getNovelTracks: GetNovelTracks,
-    private val insertNovelTrack: InsertNovelTrack,
+    private val upsertNovelTrack: UpsertNovelTrack,
 ) {
 
     /** Resolve [seedNovelId]'s group and copy each shared tracker onto every favorited member. */
@@ -32,6 +32,6 @@ class PropagateNovelTrackerLinks(
         remoteId = NovelTrack::remoteId,
         lastChapterRead = NovelTrack::lastChapterRead,
         copyTo = { track, novelId -> track.copy(novelId = novelId) },
-        writeAll = { insertNovelTrack.awaitAll(it) },
+        writeAll = { upsertNovelTrack.awaitAll(it) },
     )
 }

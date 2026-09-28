@@ -170,7 +170,7 @@ class NovelRestorer(
         backupTracks: List<BackupNovelTracking>,
     ) {
         if (backupTracks.isEmpty()) return
-        // novel_tracks is UNIQUE(novel_id, sync_id) ON CONFLICT REPLACE, so insert doubles as update.
+        // The upsert updates the stored row in place, keeping its id, so it serves both cases.
         val dbTracksByTracker = novelTrackRepository.getTracksByNovelId(novelId).associateBy { it.trackerId }
         backupTracks.forEach { backupTrack ->
             val incoming = backupTrack.toTrackImpl(novelId)
@@ -187,7 +187,7 @@ class NovelRestorer(
                 )
             }
             if (toInsert == dbTrack) return@forEach
-            check(novelTrackRepository.insert(toInsert)) { "Failed to insert track ${toInsert.trackerId}" }
+            check(novelTrackRepository.upsert(toInsert)) { "Failed to upsert track ${toInsert.trackerId}" }
         }
     }
 

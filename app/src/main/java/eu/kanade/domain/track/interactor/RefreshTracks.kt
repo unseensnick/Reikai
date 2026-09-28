@@ -9,14 +9,14 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.supervisorScope
 import reikai.domain.manga.GetTracksInGroup
-import tachiyomi.domain.track.interactor.InsertTrack
+import tachiyomi.domain.track.interactor.UpsertTrack
 
 @Inject
 class RefreshTracks(
     // RK: refresh every tracker bound anywhere in the merged group, not just this source's own rows
     private val getTracks: GetTracksInGroup,
     private val trackerManager: TrackerManager,
-    private val insertTrack: InsertTrack,
+    private val upsertTrack: UpsertTrack,
     private val syncChapterProgressWithTrack: SyncChapterProgressWithTrack,
 ) {
 
@@ -34,7 +34,7 @@ class RefreshTracks(
                     async {
                         return@async try {
                             val updatedTrack = service!!.refresh(track.toDbTrack()).toDomainTrack()!!
-                            insertTrack.await(updatedTrack)
+                            upsertTrack.await(updatedTrack)
                             syncChapterProgressWithTrack.await(mangaId, updatedTrack, service)
                             null
                         } catch (e: Throwable) {
