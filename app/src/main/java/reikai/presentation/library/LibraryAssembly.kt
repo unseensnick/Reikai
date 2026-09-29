@@ -50,7 +50,6 @@ fun assembleLibrary(
     return categories
         .distinctBy { it.id }
         .filter { inputs.showHiddenCategories || !it.isHidden }
-        .sortedBy { it.order }
         .let { reikaiSortCategories(it, inputs.categorySortOrder) }
         .mapNotNull { category ->
             val bucket = buckets[category.id] ?: return@mapNotNull null

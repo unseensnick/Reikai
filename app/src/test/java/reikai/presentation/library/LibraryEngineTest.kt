@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
+import reikai.domain.category.CategoryContentType
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -138,6 +139,22 @@ class LibraryEngineTest {
         engine.assembled.filterNotNull().first()
 
         engine.selection.value shouldContainExactly listOf(m2)
+    }
+
+    @Test
+    fun `a novel-only category is no section under the Manga chip`() = runTest {
+        val novelOnly =
+            Category(id = 12, name = "Novels", order = 0, flags = 0, contentType = CategoryContentType.NOVEL)
+        val shown = Category(id = 11, name = "Reading", order = 1, flags = 0)
+        val provider = provider(
+            ContentType.MANGA,
+            rows = listOf(row(1, categories = listOf(12)), row(2, categories = listOf(11))),
+        )
+        val engine = engineOver(listOf(provider), categories = listOf(novelOnly, shown))
+
+        val assembled = engine.assembled.filterNotNull().first()
+
+        assembled.buckets.map { it.key } shouldContainExactly listOf("11")
     }
 
     /**

@@ -73,7 +73,7 @@ import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.novelSourceBadge
-import reikai.presentation.library.reikaiSortCategories
+import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import reikai.util.runCatchingCancellable
@@ -612,15 +612,12 @@ class NovelLibraryViewModel(
 
     // --- settings sheet: LibraryEngine builds the library-wide part, this model only lists categories ---
 
-    /** Full novel category list (the Default row 0 + user categories, sorted) for the filter picker.
-     *  Not [State.displayedCategories]: that drops empty categories and is replaced by dynamic groups
-     *  when grouping is on, neither of which suits a category filter. */
-    val filterPickerCategories: StateFlow<List<Category>> = combine(
-        getNovelCategories.subscribe(),
-        reikaiLibraryPreferences.categorySortOrder.changes(),
-    ) { categories, sortOrder ->
-        reikaiSortCategories(categories.sortedBy { it.order }, sortOrder)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
+    /** Every category the novel library can file into (the system Default, universal and novel-only rows) in
+     *  the category sort order, for the settings sheet's category filter and per-category sort. Empty
+     *  categories stay in, since a filter or a sort can be set on one before anything is filed there. */
+    val filterPickerCategories: StateFlow<List<Category>> = getNovelCategories.subscribe()
+        .sortedByCategoryPref(reikaiLibraryPreferences)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
 
     /** A novel's human-readable source name for search, by the one rule [NovelSourceManager.nameOf] keeps. */
     private suspend fun novelSourceName(source: String): String = sourceManager.nameOf(source)

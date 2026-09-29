@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -67,12 +66,9 @@ class MangaLibraryAdapter(
                     SharingStarted.Eagerly,
                     filterAxes(libraryPreferences.autoUpdateMangaRestrictions.get()),
                 ),
-            categories = combine(
-                getCategories.subscribe(),
-                reikaiLibraryPreferences.categorySortOrder.changes(),
-            ) { categories, sortOrder ->
-                reikaiSortCategories(categories.sortedBy { it.order }, sortOrder)
-            }.stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
+            categories = getCategories.subscribe()
+                .sortedByCategoryPref(reikaiLibraryPreferences)
+                .stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
             showLocalBadge = true,
         )
     }

@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import reikai.domain.category.CategoryContentType
+import reikai.domain.category.categoriesForContentType
 import reikai.domain.category.categoryDiff
 import reikai.domain.entry.EntryId
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
@@ -205,13 +205,7 @@ class LibraryEngine(
             means[item.entryId.contentType]?.value?.get(item.id) ?: -1.0
         }
         val assembledList = if (prefs.groupBy == LibraryGroup.BY_DEFAULT) {
-            val categories = allCategories.filter { category ->
-                when (chip) {
-                    ContentType.MANGA -> category.contentType != CategoryContentType.NOVEL
-                    ContentType.NOVELS -> category.contentType != CategoryContentType.MANGA
-                    ContentType.ALL -> true
-                }
-            }
+            val categories = categoriesForContentType(allCategories, chip)
             val inputs = LibraryAssemblyInputs(
                 globalSort = prefs.sort,
                 randomSeed = prefs.seed,
@@ -428,16 +422,10 @@ class LibraryEngine(
         val manga = providersFor(ContentType.MANGA).single().settings
         val novel = providersFor(ContentType.NOVELS).single().settings
         return manga.copy(
-            // Re-apply the category-sort-order pref after the union: both inputs arrive pref-sorted,
-            // but the order-column re-sort (needed to interleave the two lists) discards it, which
-            // left the All sheet in manual order while the other chips honoured A-Z / Z-A.
-            categories = combine(
-                manga.categories,
-                novel.categories,
-                reikaiLibraryPreferences.categorySortOrder.changes(),
-            ) { m, n, sortOrder ->
-                reikaiSortCategories((m + n).distinctBy { it.id }.sortedBy { it.order }, sortOrder)
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
+            // The union is sorted again as one list: concatenating two sorted halves is not sorted.
+            categories = combine(manga.categories, novel.categories) { m, n -> (m + n).distinctBy { it.id } }
+                .sortedByCategoryPref(reikaiLibraryPreferences)
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
         )
     }
 
