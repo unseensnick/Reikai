@@ -31,7 +31,7 @@ class KitsuLibraryFetcher(
         title = title,
         score = normalizeTrackerScore(ratingTwenty, 20),
         status = mapStatus(status),
-        tags = tags.map { it.toTagKey() }.filter { it.isNotEmpty() }.distinct(),
+        tags = tags.toTagKeys(),
         malId = malId,
         anilistId = anilistId,
     )

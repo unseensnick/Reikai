@@ -1,7 +1,7 @@
 package reikai.domain.recommendation
 
 import reikai.domain.recommendation.taste.TasteProfile
-import reikai.domain.recommendation.taste.toTagKey
+import reikai.domain.recommendation.taste.toTagKeys
 import kotlin.math.ceil
 import kotlin.math.ln
 import kotlin.math.min
@@ -42,10 +42,7 @@ class RecommendationRanker(
 
         val totalEntries = taste.totalEntries.toDouble()
         val scored = source.mapIndexed { index, candidate ->
-            val tags = candidate.manga.getGenres()
-                .orEmpty()
-                .map { it.toTagKey() }
-                .filter { it.isNotEmpty() }
+            val tags = candidate.manga.getGenres().orEmpty().toTagKeys()
             val tasteScore = if (tags.isEmpty()) {
                 0.0
             } else {

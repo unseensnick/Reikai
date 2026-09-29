@@ -32,11 +32,7 @@ class BangumiLibraryFetcher(
         title = subject?.nameCn?.ifBlank { subject.name } ?: subject?.name.orEmpty(),
         score = normalizeTrackerScore(rate, 10),
         status = mapStatus(type),
-        tags = subject?.tags
-            ?.map { it.name.toTagKey() }
-            ?.filter { it.isNotEmpty() }
-            ?.distinct()
-            .orEmpty(),
+        tags = subject?.tags.orEmpty().map { it.name }.toTagKeys(),
     )
 
     private fun mapStatus(type: Int): TrackStatus = when (type) {

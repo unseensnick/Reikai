@@ -89,7 +89,7 @@ Persistence:
 
 ## Status
 
-Shipped. P6 is done (Roadmap P6 row), on-device verified (phone + tablet). The carousel, taste-profile rerank, the four tracker recs providers + five library-pull fetchers, the tracker-gated cross-rec + tag-search, the See-all grid with bulk add and origin grouping, and the settings screen are all live. The taste fetchers + ranker were touched again in the Tier 0 duplication cleanup (shared `normalizeTrackerScore` + `String.toTagKey()`), confirmed sync-neutral.
+Shipped. P6 is done (Roadmap P6 row), on-device verified (phone + tablet). The carousel, taste-profile rerank, the four tracker recs providers + five library-pull fetchers, the tracker-gated cross-rec + tag-search, the See-all grid with bulk add and origin grouping, and the settings screen are all live. The taste fetchers + ranker were touched again in the Tier 0 duplication cleanup (shared `normalizeTrackerScore` + `toTagKeys()`), confirmed sync-neutral. Every tag path, the five fetchers, the ranker and the contextual-tag pick, reads a title's genres through `toTagKeys()`, so a genre a title lists twice counts once on both the profile and the candidate side.
 
 **Novel recommendations are parked,** not built. LN sources do not expose related-title metadata, and getting the mainstream trackers to track light novels at all is unreliable, so a novel carousel would have almost no input signal. Revisit only if novel tracking proves out.
 

@@ -33,7 +33,7 @@ class MyAnimeListLibraryFetcher(
         title = node.title,
         score = normalizeTrackerScore(listStatus?.score, 10),
         status = mapStatus(listStatus),
-        tags = node.genres.map { it.name.toTagKey() }.filter { it.isNotEmpty() }.distinct(),
+        tags = node.genres.map { it.name }.toTagKeys(),
         // MAL's remote id IS the MAL id, so cross-tracker dedup can collapse AniList entries that
         // point here via Media.idMal.
         malId = node.id,

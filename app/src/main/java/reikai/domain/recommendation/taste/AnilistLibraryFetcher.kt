@@ -40,10 +40,7 @@ class AnilistLibraryFetcher(
     )
 
     private fun ALLibraryEntry.collectTags(): List<String> =
-        (media.genres + media.tags.map { it.name })
-            .map { it.toTagKey() }
-            .filter { it.isNotEmpty() }
-            .distinct()
+        (media.genres + media.tags.map { it.name }).toTagKeys()
 
     private fun mapStatus(raw: String?): TrackStatus = when (raw) {
         "CURRENT", "REPEATING" -> TrackStatus.READING

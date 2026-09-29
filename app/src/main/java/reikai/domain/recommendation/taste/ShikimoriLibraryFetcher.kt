@@ -35,7 +35,7 @@ class ShikimoriLibraryFetcher(
             title = manga.name,
             score = normalizeTrackerScore(score, 10),
             status = mapStatus(status),
-            tags = manga.genres.map { it.name.toTagKey() }.filter { it.isNotEmpty() }.distinct(),
+            tags = manga.genres.map { it.name }.toTagKeys(),
         )
     }
 
