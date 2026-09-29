@@ -78,6 +78,7 @@ import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
+import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.withOpenedChapter
@@ -255,6 +256,10 @@ class ReaderViewModel(
     // it; for an unmerged manga it holds just that manga and its own chapters.
     private var mergedGroup: MergedChapterProvider.Group? = null
 
+    // RK: which copy of a merged chapter an open reads, one on disk over the one online. Resolved in
+    // init with the group and null in source scope, which reads only the opened source's chapters.
+    private var copiesToOpen: CopyToOpen<Chapter>? = null
+
     // RK: source scope narrows chapterList to the opened source's own chapters (Updates / a specific
     // source chip); group scope (default) shows the whole merge group. Read from the launching intent
     // like the ids above, so it survives a configuration change. mergedGroup stays full either way, so
@@ -360,8 +365,12 @@ class ReaderViewModel(
         val merged = if (sourceScoped) {
             runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
         } else {
-            mergedGroup?.chapters
+            // RK --> each merged chapter as the copy an open reads, so paging lands on the one on disk
+            mergedGroup?.chapters?.let { shown ->
+                copiesToOpen?.inPlaceOf(shown) { copy, row -> copy.copy(sourceOrder = row.sourceOrder) } ?: shown
+            }
                 ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
+            // RK <--
         }
         val chapters = withOpenedChapter(
             unified = merged,
@@ -519,6 +528,13 @@ class ReaderViewModel(
                 // the viewer, and auto-webtoon has to see every merged member to classify.
                 val group = mergedChapterProvider.load(manga)
                 mergedGroup = group
+                if (group.isMerged && !sourceScoped) {
+                    val pooled = group.pooledChapters
+                    val onDisk = downloadManager.downloadedChapterIds(pooled) { group.mangaById.getValue(it.mangaId) }
+                    val copies = CopyToOpen(pooled, group.stitch, { it.id }, onDisk)
+                    copiesToOpen = copies
+                    chapterId = copies.idOf(chapterId)
+                }
                 loader = MergedChapterLoader(
                     context,
                     downloadManager,

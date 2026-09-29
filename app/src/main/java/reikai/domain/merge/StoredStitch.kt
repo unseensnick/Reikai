@@ -44,6 +44,35 @@ fun <T> flaggedOnAnotherSource(
         .mapTo(HashSet(), id)
 }
 
+/**
+ * The copy of a merged chapter a reader opens: the one asked for when it is on disk or no copy is,
+ * else the highest-ranked copy on disk. A row reads as downloaded when any copy is on disk
+ * ([flaggedOnAnotherSource]), so opening the shown copy went online for a chapter already on disk.
+ * [chapters] is every member's chapters the caller may show; a copy outside it is never picked.
+ */
+class CopyToOpen<T>(
+    chapters: List<T>,
+    stitch: List<ChapterUnit>,
+    private val id: (T) -> Long,
+    private val onDisk: Set<Long>,
+) {
+    private val byId = chapters.associateBy(id)
+    private val unitOf = stitch.associate { it.chapterId to it.unit }
+    private val bestOnDisk = stitch.asSequence()
+        .filter { it.chapterId in onDisk && it.chapterId in byId }
+        .groupBy { it.unit }
+        .mapValues { (_, copies) -> copies.minBy { it.copyOrder }.chapterId }
+
+    fun idOf(chapterId: Long): Long =
+        if (chapterId in onDisk) chapterId else unitOf[chapterId]?.let(bestOnDisk::get) ?: chapterId
+
+    /** [shown] with each row swapped for the copy it opens, put in the row's place by [keepPlace]. */
+    fun inPlaceOf(shown: List<T>, keepPlace: (copy: T, row: T) -> T): List<T> = shown.map { row ->
+        val copyId = idOf(id(row))
+        if (copyId == id(row)) row else keepPlace(byId.getValue(copyId), row)
+    }
+}
+
 /** Which merged chapter a copy belongs to, for a caller deduplicating a list of its own. */
 data class MergedChapterKey(val groupId: Long, val unit: Int)
 

@@ -45,6 +45,7 @@ import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.download.downloadStateOf
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.withOpenedChapter
@@ -648,6 +649,11 @@ class NovelReaderViewModel(
     @Volatile
     private var groupStitch: List<ChapterUnit> = emptyList()
 
+    /** Which copy of a merged chapter an open reads: one on disk over the one online. Resolved with
+     *  [orderedIds], which lists those copies; null when ungrouped or source-scoped. */
+    @Volatile
+    private var copiesToOpen: CopyToOpen<NovelChapter>? = null
+
     private val neighbours = MutableStateFlow(Neighbours())
 
     /** What the navigator's chapter buttons enable on. */
@@ -902,7 +908,8 @@ class NovelReaderViewModel(
      * marked by the skip setting only if this load commits.
      */
     private fun load(markReadOnLanding: Long? = null) {
-        val target = pendingChapterId
+        val requested = pendingChapterId
+        var target = requested
         // An explicit open is the reader asking for chapters afresh, so nothing a previous warm
         // recorded may go on suppressing one. Without this the window strands on a chapter that has
         // since recovered, which is the bug tsundoku's own latch shipped with.
@@ -911,6 +918,7 @@ class NovelReaderViewModel(
         viewModelScope.launchIO {
             try {
                 if (orderedIds.isEmpty()) resolveReadingOrder()
+                target = copiesToOpen?.idOf(requested) ?: requested
                 val row = chapterRepo.getById(target) ?: error("Chapter not found: $target")
                 // A warm already fetching it is waited on, rather than fetched again beside it, which is
                 // how read aloud reaching a chapter's end mid-warm opens the next chapter.
@@ -924,7 +932,7 @@ class NovelReaderViewModel(
                 lane.withLock {
                     // A later open overtook this one while it loaded, and committing it now would put
                     // the reader back on the chapter they had moved on from.
-                    if (target != pendingChapterId) return@launchIO
+                    if (requested != pendingChapterId) return@launchIO
                     commitOpen(row, html, baseUrl, bookmarked)
                     markReadOnLanding?.let { markReadOnSkip(it) }
                 }
@@ -933,7 +941,7 @@ class NovelReaderViewModel(
                 // Leaving the reader cancels this scope, and swallowing that would report a load
                 // failure for a chapter nobody is waiting for any more.
                 if (e is CancellationException) throw e
-                if (target != pendingChapterId) return@launchIO
+                if (requested != pendingChapterId) return@launchIO
                 logcat(LogPriority.ERROR, e) { "Failed to load novel chapter $target" }
                 // A failed step stamped the chapter it left into history, and the reader goes on in it.
                 if (loadedChapter.value != null && !chapterReadSession.isRunning) restartReadTimer()
@@ -1293,7 +1301,12 @@ class NovelReaderViewModel(
             val listed = if (pooled.isEmpty()) {
                 chapterRepo.getByNovelId(novelId)
             } else {
-                mergedChapterProvider.merged(pooled, stitch)
+                val copies = CopyToOpen(pooled, stitch, { it.id }, downloadedChapterIds(pooled, novelsOf(pooled)))
+                copiesToOpen = copies
+                currentChapterId = copies.idOf(currentChapterId)
+                copies.inPlaceOf(mergedChapterProvider.merged(pooled, stitch)) { copy, row ->
+                    copy.copy(sourceOrder = row.sourceOrder)
+                }
             }
             withOpenedChapter(
                 unified = listed,
