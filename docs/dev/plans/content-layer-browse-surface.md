@@ -582,3 +582,11 @@ them off the neutral row style, so no composable reads the preference.
   its stored manga only while a cell collects it, rather than a `stateIn` per result held for the
   life of the screen. The composable `getManga` lookups on `SearchViewModel` (upstream's) and
   `FeedViewModel` are gone. `SearchResultRowsConformanceTest` pins both row kernels.
+- **One sources-filter list, over two storage rules kept on purpose** (cleanup plan P66, owner
+  ruling 20 (a), 2026-09-29). `EntrySourcesFilterScreen` draws both halves through one
+  `SourceFilterList` over `SourceFilterSection`, each half mapping its own state in a pure
+  `toSections`; only the row, the empty text and manga's error exit stay per type. The storage stays
+  as it is: a manga language is off unless listed, because that is Mihon's allowlist
+  (`SourcePreferences.enabledLanguages`) and upstream owns it, while a novel language is on unless
+  listed, because a plugin is installed deliberately and hiding it on install would read as a bug.
+  `SourceFilterSectionsTest` pins both mappings on the same three cases.
