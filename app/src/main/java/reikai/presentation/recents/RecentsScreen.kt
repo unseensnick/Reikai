@@ -236,7 +236,10 @@ fun Screen.RecentsScreen(
                 // The dialog carries the resolved chapters, decided when it is raised rather than when
                 // it is confirmed, so the confirm cannot act on a row the list has since dropped.
                 onDeleteDownloads = {
-                    actOnSelection(selectedItems) { engine.openDialog(RecentsDialog.DeleteDownloads(it)) }
+                    scope.launchIO {
+                        val chapters = engine.actingChaptersByScope(selectedItems, mode, membership)
+                        withUIContext { engine.openDialog(RecentsDialog.DeleteDownloads(chapters)) }
+                    }
                 },
             )
         },
@@ -516,7 +519,7 @@ private fun RecentsMixedLaneRow(
         chapterSwipeEndAction = swipe.end,
         onChapterSwipe = { action ->
             if (state != null && actingRef != null) {
-                engine.runChapterSwipe(actingRef, state, { downloadState }, action)
+                engine.runChapterSwipe(actingRef, item.lane, state, { downloadState }, action)
             }
         },
         downloadState = downloadState,
@@ -531,7 +534,7 @@ private fun RecentsMixedLaneRow(
                     modifier = Modifier.padding(start = 4.dp),
                     downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
                     downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
-                    onClick = { action -> actingRef?.let { engine.download(setOf(it), action) } },
+                    onClick = { action -> actingRef?.let { engine.download(setOf(it), action, item.lane) } },
                 )
                 // Both go quiet during a sweep, like every other control on this row: the read lane
                 // is not favorite-gated, so a row here may be an entry the library does not hold.
@@ -555,7 +558,7 @@ private fun RecentsMixedLaneRow(
                         modifier = Modifier.padding(start = 4.dp),
                         downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
                         downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
-                        onClick = { action -> actingRef?.let { engine.download(setOf(it), action) } },
+                        onClick = { action -> actingRef?.let { engine.download(setOf(it), action, item.lane) } },
                     )
                     IconButton(
                         onClick = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
@@ -753,7 +756,9 @@ private fun LazyListScope.recentsRows(
                         onClick = { press(row.item) },
                         onLongClick = { longPress(row.item) },
                         onDownloadClick = ref
-                            ?.let { { action: ChapterDownloadAction -> engine.download(setOf(it), action) } }
+                            ?.let {
+                                { action: ChapterDownloadAction -> engine.download(setOf(it), action, row.item.lane) }
+                            }
                             ?.takeIf { selection.isEmpty() },
                         chapterSwipeStartAction = swipeActions.start,
                         chapterSwipeEndAction = swipeActions.end,
@@ -761,6 +766,7 @@ private fun LazyListScope.recentsRows(
                             if (ref != null) {
                                 engine.runChapterSwipe(
                                     ref = ref,
+                                    lane = row.item.lane,
                                     state = state,
                                     downloadState = download?.state ?: NOT_DOWNLOADED,
                                     action = action,
@@ -831,7 +837,7 @@ private fun RecentsEntryRow(
                 // tap mid-selection navigates away and takes the selection with it.
                 onClickCover = { onOpenDetails(item.entryId) }.takeIf { !selectionActive },
                 onDownloadChapter = ref
-                    ?.let { { action: ChapterDownloadAction -> engine.download(setOf(it), action) } }
+                    ?.let { { action: ChapterDownloadAction -> engine.download(setOf(it), action, item.lane) } }
                     ?.takeIf { !selectionActive },
                 downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
                 downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
@@ -842,6 +848,7 @@ private fun RecentsEntryRow(
                     if (ref != null && state != null) {
                         engine.runChapterSwipe(
                             ref = ref,
+                            lane = item.lane,
                             state = state,
                             downloadState = download?.state ?: NOT_DOWNLOADED,
                             action = action,
@@ -898,7 +905,7 @@ private fun RecentsEntryRow(
                         modifier = Modifier.padding(start = 4.dp),
                         downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
                         downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
-                        onClick = { action -> ref?.let { engine.download(setOf(it), action) } },
+                        onClick = { action -> ref?.let { engine.download(setOf(it), action, item.lane) } },
                     )
                     IconButton(
                         onClick = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },

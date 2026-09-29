@@ -124,6 +124,7 @@ class MergedChapterFilterConformanceTest {
         override fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long> {
             val shown = chapter(CHAPTER_ID, false, false)
             val flags = GroupChapterFlags(
+                scope = MergeScope.Group,
                 pooled = listOf(shown, chapter(SIBLING_ID, readElsewhere, bookmarkedElsewhere)),
                 shown = listOf(shown),
                 stitch = listOf(ChapterUnit(CHAPTER_ID, 0, 0), ChapterUnit(SIBLING_ID, 0, 1)),

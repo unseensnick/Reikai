@@ -1,8 +1,8 @@
 package eu.kanade.domain.chapter.model
 
 import eu.kanade.domain.manga.model.downloadedFilter
-import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.manga.ChapterList
+import reikai.domain.merge.GroupChapterFlags
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.manga.model.Manga
@@ -13,34 +13,22 @@ import tachiyomi.source.local.isLocal
  * Applies the view filters to the list of chapters obtained from the database.
  * @return an observable of the list of chapters filtered and sorted.
  */
-// RK: [mangaFor] resolves each chapter's OWN manga. A merged series' list spans several sources and a
-// chapter is stored under the source it came from, so probing them all against the opened manga's
-// folder reported every sibling's chapter as not downloaded.
+// RK: [flags] answers read, bookmarked and on disk as the merge group does, so this filters a merged
+// series the way the details list does (the Item overload below): a chapter whose only copy on disk is
+// another source's is downloaded, since that is the copy the reader opens.
 fun List<Chapter>.applyFilters(
     manga: Manga,
-    downloadManager: DownloadManager,
-    mangaFor: (Chapter) -> Manga = { manga },
+    flags: GroupChapterFlags<Chapter>, // RK
 ): List<Chapter> {
     val unreadFilter = manga.unreadFilter
     val downloadedFilter = manga.downloadedFilter
     val bookmarkedFilter = manga.bookmarkedFilter
 
-    return filter { chapter -> applyFilter(unreadFilter) { !chapter.read } }
-        .filter { chapter -> applyFilter(bookmarkedFilter) { chapter.bookmark } }
-        .filter { chapter ->
-            applyFilter(downloadedFilter) {
-                // RK --> probe each chapter against its own manga, see the note on applyFilters
-                val owner = mangaFor(chapter)
-                owner.isLocal() || downloadManager.isChapterDownloaded(
-                    chapter.name,
-                    chapter.scanlator,
-                    chapter.url,
-                    owner.title,
-                    owner.source,
-                )
-                // RK <--
-            }
-        }
+    // RK -->
+    return filter { chapter -> applyFilter(unreadFilter) { !flags.isRead(chapter) } }
+        .filter { chapter -> applyFilter(bookmarkedFilter) { flags.isBookmarked(chapter) } }
+        .filter { chapter -> applyFilter(downloadedFilter) { flags.isDownloaded(chapter) } }
+        // RK <--
         .sortedWith(getChapterSort(manga))
 }
 

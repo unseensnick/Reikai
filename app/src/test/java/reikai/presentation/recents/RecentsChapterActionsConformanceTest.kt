@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.entry.EntryId
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.MergeScope
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.interactor.SetNovelReadStatus
@@ -53,9 +54,37 @@ class RecentsChapterActionsConformanceTest {
     @MethodSource("harnesses")
     fun `starting a download queues only the named chapter`(harness: ActionsHarness) = runTest {
         // The other type's ref is in the selection too, as a mixed one would carry it.
-        harness.actions.download(setOf(harness.ref(SELECTED), harness.foreignRef(OTHER)), ChapterDownloadAction.START)
+        harness.actions.download(
+            setOf(harness.ref(SELECTED), harness.foreignRef(OTHER)),
+            ChapterDownloadAction.START,
+            MergeScope.Source,
+        )
 
         harness.queued shouldBe listOf(SELECTED)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("harnesses")
+    fun `deleting an Updates row's download removes only its own copy`(harness: ActionsHarness) = runTest {
+        harness.actions.deleteDownloads(setOf(harness.ref(SELECTED)), MergeScope.Source)
+
+        harness.deleted shouldBe setOf(SELECTED)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("harnesses")
+    fun `deleting a History row's download removes every stitched copy`(harness: ActionsHarness) = runTest {
+        harness.actions.deleteDownloads(setOf(harness.ref(SELECTED)), MergeScope.Group)
+
+        harness.deleted shouldBe setOf(SELECTED, COPY)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("harnesses")
+    fun `a row's own delete control follows the row's scope`(harness: ActionsHarness) = runTest {
+        harness.actions.download(setOf(harness.ref(SELECTED)), ChapterDownloadAction.DELETE, MergeScope.Group)
+
+        harness.deleted shouldBe setOf(SELECTED, COPY)
     }
 
     companion object {
@@ -85,6 +114,7 @@ interface ActionsHarness {
     val markedRead: Set<Long>
     val bookmarked: Set<Long>
     val queued: List<Long>
+    val deleted: Set<Long>
 
     fun ref(chapterId: Long): ChapterRef
 
@@ -98,6 +128,7 @@ class MangaActionsHarness : ActionsHarness {
     override val markedRead = mutableSetOf<Long>()
     override val bookmarked = mutableSetOf<Long>()
     override val queued = mutableListOf<Long>()
+    override val deleted = mutableSetOf<Long>()
 
     private fun chapter(id: Long) = Chapter.create().copy(id = id, mangaId = RecentsChapterActionsConformanceTest.ENTRY)
 
@@ -119,6 +150,9 @@ class MangaActionsHarness : ActionsHarness {
         every { getQueuedDownloadOrNull(any()) } returns null
         coEvery { downloadChapters(any(), any(), any()) } answers {
             queued += secondArg<List<Chapter>>().map { it.id }
+        }
+        every { deleteChapters(any(), any(), any()) } answers {
+            deleted += firstArg<List<Chapter>>().map { it.id }
         }
     }
     private val getChapter = mockk<GetChapter> {
@@ -157,6 +191,7 @@ class NovelActionsHarness : ActionsHarness {
     override val markedRead = mutableSetOf<Long>()
     override val bookmarked = mutableSetOf<Long>()
     override val queued = mutableListOf<Long>()
+    override val deleted = mutableSetOf<Long>()
 
     private fun chapter(id: Long) = NovelChapter(
         id = id, novelId = RecentsChapterActionsConformanceTest.ENTRY, url = "", name = "", read = false,
@@ -179,6 +214,7 @@ class NovelActionsHarness : ActionsHarness {
     }
     private val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
         coEvery { downloadChapters(any()) } answers { queued += firstArg<List<NovelChapter>>().map { it.id } }
+        every { deleteChapters(any()) } answers { deleted += firstArg<List<NovelChapter>>().map { it.id } }
     }
     private val mergedChapterProvider = mockk<NovelMergedChapterProvider> {
         coEvery { stitchOf(RecentsChapterActionsConformanceTest.ENTRY) } returns

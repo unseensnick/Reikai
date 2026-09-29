@@ -3,7 +3,7 @@ package reikai.presentation.recents
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.ChapterUnit
-import reikai.domain.merge.expandToUnits
+import reikai.domain.merge.MergeScope
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 
@@ -27,15 +27,15 @@ interface RecentsChapterActions {
     /**
      * Queues, expedites, cancels or deletes, per the action the row's own indicator raised. One verb
      * with the action rather than one per action: the indicator already speaks in these four cases,
-     * and a bulk download is the same call with [ChapterDownloadAction.START].
-     *
-     * Acts on the named chapters alone, never the group's copies: the grouped sources carry the same
-     * chapter, so downloading each copy would fetch it once per source.
+     * and a bulk download is the same call with [ChapterDownloadAction.START]. Acts on the named
+     * chapters alone, since downloading each grouped copy would fetch it once per source; a delete
+     * goes to [deleteDownloads] with [deleteScope], the scope the row was shown in.
      */
-    suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction)
+    suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, deleteScope: MergeScope)
 
-    /** Deletes the group's copies, since a row reads as downloaded when any of them holds the file. */
-    suspend fun deleteDownloads(chapters: Set<ChapterRef>)
+    /** Deletes the copies [scope] reaches: every source's for a History row, the named copy alone for
+     *  an Updates row, which is what each row shows as downloaded. */
+    suspend fun deleteDownloads(chapters: Set<ChapterRef>, scope: MergeScope)
 }
 
 /** The chapter ids of the refs of content type [T], so a mixed selection never reaches the other type. */
@@ -48,11 +48,12 @@ internal inline fun <reified T : EntryId> Set<ChapterRef>.ownChapterIds(): List<
  * kernel for both types' actions, pinned by `RecentsChapterActionsConformanceTest`.
  */
 internal suspend inline fun <reified T : EntryId> Set<ChapterRef>.groupChapterIds(
+    scope: MergeScope,
     stitchOf: suspend (entryId: Long) -> List<ChapterUnit>,
 ): List<Long> =
     filter { it.entryId is T }
         .groupBy { it.entryId.rawId }
-        .flatMap { (entryId, refs) -> expandToUnits(refs.mapTo(HashSet()) { it.chapterId }, stitchOf(entryId)) }
+        .flatMap { (entryId, refs) -> scope.copiesOf(refs.mapTo(HashSet()) { it.chapterId }, stitchOf(entryId)) }
         .distinct()
 
 /**

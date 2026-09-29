@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.entry.EntryId
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.merge.MergeScope
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
@@ -31,20 +32,20 @@ class MangaRecentsChapterActions(
 ) : RecentsChapterActions {
 
     override suspend fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
-        withIOContext { setReadStatus.await(read, *chaptersOf(chapters.groupIds()).toTypedArray()) }
+        withIOContext { setReadStatus.await(read, *chaptersOf(chapters.groupIds(MergeScope.Group)).toTypedArray()) }
     }
 
     // The already-at-this-value skip reads the stored chapter, the only copy a read-lane row has.
     override suspend fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) {
         withIOContext {
-            chaptersOf(chapters.groupIds())
+            chaptersOf(chapters.groupIds(MergeScope.Group))
                 .filterNot { it.bookmark == bookmarked }
                 .map { ChapterUpdate(it.id) { bookmark = bookmarked } }
                 .let { updateChapter.awaitAll(it) }
         }
     }
 
-    override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
+    override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, deleteScope: MergeScope) {
         val chapterIds = chapters.ownChapterIds<EntryId.Manga>()
         if (chapterIds.isEmpty()) return
         withIOContext {
@@ -63,16 +64,17 @@ class MangaRecentsChapterActions(
                 ChapterDownloadAction.CANCEL -> chapterIds.singleOrNull()
                     ?.let(downloadManager::getQueuedDownloadOrNull)
                     ?.let { downloadManager.cancelQueuedDownloads(listOf(it)) }
-                ChapterDownloadAction.DELETE -> delete(chapterIds)
+                ChapterDownloadAction.DELETE -> deleteDownloads(chapters, deleteScope)
             }
         }
     }
 
-    override suspend fun deleteDownloads(chapters: Set<ChapterRef>) {
-        withIOContext { delete(chapters.groupIds()) }
+    override suspend fun deleteDownloads(chapters: Set<ChapterRef>, scope: MergeScope) {
+        withIOContext { delete(chapters.groupIds(scope)) }
     }
 
-    private suspend fun Set<ChapterRef>.groupIds() = groupChapterIds<EntryId.Manga>(mergedChapterProvider::stitchOf)
+    private suspend fun Set<ChapterRef>.groupIds(scope: MergeScope) =
+        groupChapterIds<EntryId.Manga>(scope, mergedChapterProvider::stitchOf)
 
     private suspend fun chaptersOf(chapterIds: List<Long>): List<Chapter> = chapterIds.mapNotNull {
         getChapter.await(it)

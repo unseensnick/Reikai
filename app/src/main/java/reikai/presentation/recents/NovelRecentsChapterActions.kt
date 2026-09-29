@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import dev.zacsweers.metro.Inject
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import reikai.domain.entry.EntryId
+import reikai.domain.merge.MergeScope
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.interactor.SetNovelReadStatus
@@ -23,38 +24,38 @@ class NovelRecentsChapterActions(
 
     // Through the read interactor, so delete-after-read fires here as on every other novel path.
     override suspend fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
-        withIOContext { setNovelReadStatus.await(read, chaptersOf(chapters.groupIds())) }
+        withIOContext { setNovelReadStatus.await(read, chaptersOf(chapters.groupIds(MergeScope.Group))) }
     }
 
     override suspend fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) {
-        withIOContext { chapterRepository.setBookmarkBulk(chapters.groupIds(), bookmarked) }
+        withIOContext { chapterRepository.setBookmarkBulk(chapters.groupIds(MergeScope.Group), bookmarked) }
     }
 
-    // Per chapter, mirroring the novel details download-action mapping.
-    override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
+    // Mirroring the novel details download-action mapping.
+    override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, deleteScope: MergeScope) {
         withIOContext {
-            chaptersOf(chapters.ownChapterIds<EntryId.Novel>()).forEach { chapter ->
-                when (action) {
-                    ChapterDownloadAction.START -> downloadManager().downloadChapters(listOf(chapter))
-                    ChapterDownloadAction.START_NOW -> {
-                        downloadManager().downloadChapters(listOf(chapter))
-                        downloadManager().startDownloadNow(chapter.id)
-                    }
-                    ChapterDownloadAction.CANCEL -> downloadManager().cancelDownloads(listOf(chapter.id))
-                    ChapterDownloadAction.DELETE -> downloadManager().deleteChapters(listOf(chapter))
+            val named = chaptersOf(chapters.ownChapterIds<EntryId.Novel>())
+            when (action) {
+                ChapterDownloadAction.START -> downloadManager().downloadChapters(named)
+                ChapterDownloadAction.START_NOW -> named.forEach { chapter ->
+                    downloadManager().downloadChapters(listOf(chapter))
+                    downloadManager().startDownloadNow(chapter.id)
                 }
+                ChapterDownloadAction.CANCEL -> downloadManager().cancelDownloads(named.map { it.id })
+                ChapterDownloadAction.DELETE -> deleteDownloads(chapters, deleteScope)
             }
         }
     }
 
-    override suspend fun deleteDownloads(chapters: Set<ChapterRef>) {
+    override suspend fun deleteDownloads(chapters: Set<ChapterRef>, scope: MergeScope) {
         withIOContext {
-            val targets = chaptersOf(chapters.groupIds())
+            val targets = chaptersOf(chapters.groupIds(scope))
             if (targets.isNotEmpty()) downloadManager().deleteChapters(targets)
         }
     }
 
-    private suspend fun Set<ChapterRef>.groupIds() = groupChapterIds<EntryId.Novel>(mergedChapterProvider::stitchOf)
+    private suspend fun Set<ChapterRef>.groupIds(scope: MergeScope) =
+        groupChapterIds<EntryId.Novel>(scope, mergedChapterProvider::stitchOf)
 
     private suspend fun chaptersOf(chapterIds: List<Long>): List<NovelChapter> =
         chapterIds.mapNotNull { chapterRepository.getById(it) }

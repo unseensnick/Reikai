@@ -32,6 +32,7 @@ fun swipeDownloadAction(state: Download.State): ChapterDownloadAction = when (st
  */
 internal fun RecentsEngine.runChapterSwipe(
     ref: ChapterRef,
+    lane: RecentsLane,
     state: RecentsChapterState,
     downloadState: () -> Download.State,
     action: ChapterSwipeAction,
@@ -40,7 +41,7 @@ internal fun RecentsEngine.runChapterSwipe(
     when (action) {
         ChapterSwipeAction.ToggleRead -> markRead(refs, !state.read)
         ChapterSwipeAction.ToggleBookmark -> setBookmark(refs, !state.bookmark)
-        ChapterSwipeAction.Download -> download(refs, swipeDownloadAction(downloadState()))
+        ChapterSwipeAction.Download -> download(refs, swipeDownloadAction(downloadState()), lane)
         // Unreachable rather than unhandled: getSwipeAction draws no gesture for it, so nothing can
         // raise it here. Upstream throws instead, which would put a crash behind an absent gesture.
         ChapterSwipeAction.Disabled -> Unit

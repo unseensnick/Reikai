@@ -9,7 +9,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.EntryMergeManager
+import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.MergeScope
 import tachiyomi.core.common.util.lang.launchIO
 
 /**
@@ -35,7 +38,21 @@ class EntryMergeGroupHost(
      * ([LongArray] has no structural equals), which the re-aggregate paths rely on: writing a
      * `copyOf()` re-emits without changing membership.
      */
-    data class GroupState(val ids: LongArray, val selected: Long?)
+    data class GroupState(val ids: LongArray, val selected: Long?) {
+        /** A source chip shows one source's rows, so its downloads are that source's copies alone. */
+        val mergeScope: MergeScope get() = MergeScope.of(selected != null)
+
+        /** The flags every row of this view answers by, in [mergeScope]. */
+        fun <T> rowFlags(
+            pooled: List<T>,
+            shown: List<T>,
+            stitch: List<ChapterUnit>,
+            id: (T) -> Long,
+            read: (T) -> Boolean,
+            bookmark: (T) -> Boolean,
+            onDisk: () -> Set<Long>,
+        ) = GroupChapterFlags(mergeScope, pooled, shown, stitch, id, read, bookmark, onDisk)
+    }
 
     private val _state = MutableStateFlow(GroupState(initialIds, selected = null))
 
@@ -93,6 +110,38 @@ class EntryMergeGroupHost(
      * OTHER entries.
      */
     suspend fun refresh(anchorId: Long) = setRelated(mergeManager.computeRelatedIds(anchorId))
+
+    /** [chapters] plus every grouped source's copy of them, which read, bookmark and tracking reach in
+     *  every view: whether a chapter was read is the story's, not one source's. [stitch] and [load] are
+     *  only called for a merged entry; [load] returns the given ids' chapters. */
+    suspend fun <T> expandToGroup(
+        chapters: List<T>,
+        id: (T) -> Long,
+        stitch: suspend () -> List<ChapterUnit>,
+        load: suspend (Set<Long>) -> List<T>,
+    ): List<T> = expand(MergeScope.Group, chapters, id, stitch, load)
+
+    /** The copies a delete removes: every source's under All, only the chip's own under a source chip,
+     *  matching what the rows show as downloaded. */
+    suspend fun <T> expandForDelete(
+        chapters: List<T>,
+        id: (T) -> Long,
+        stitch: suspend () -> List<ChapterUnit>,
+        load: suspend (Set<Long>) -> List<T>,
+    ): List<T> = expand(_state.value.mergeScope, chapters, id, stitch, load)
+
+    private suspend fun <T> expand(
+        scope: MergeScope,
+        chapters: List<T>,
+        id: (T) -> Long,
+        stitch: suspend () -> List<ChapterUnit>,
+        load: suspend (Set<Long>) -> List<T>,
+    ): List<T> {
+        if (relatedIds.size <= 1) return chapters
+        val held = chapters.mapTo(HashSet(), id)
+        val wanted = scope.copiesOf(held, stitch()) - held
+        return if (wanted.isEmpty()) chapters else chapters + load(wanted)
+    }
 
     /**
      * Resolve the group + chips once for the first-render seed (manga's eager load), setting [relatedIds]

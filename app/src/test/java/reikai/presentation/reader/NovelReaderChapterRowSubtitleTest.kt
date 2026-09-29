@@ -4,6 +4,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.MergeScope
 import reikai.domain.novel.model.NovelChapter
 
 /**
@@ -30,6 +31,7 @@ class NovelReaderChapterRowSubtitleTest {
     )
 
     private fun flags(vararg chapters: NovelChapter) = GroupChapterFlags(
+        scope = MergeScope.Group,
         pooled = chapters.toList(),
         shown = chapters.toList(),
         stitch = chapters.mapIndexed { index, c -> ChapterUnit(c.id, index, 0) },

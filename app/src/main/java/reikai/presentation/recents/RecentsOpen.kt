@@ -2,6 +2,7 @@ package reikai.presentation.recents
 
 import android.content.Context
 import android.content.Intent
+import reikai.domain.merge.MergeScope
 
 /**
  * Opens the reader a provider resolved. One definition because a row's tap and a tab's reselect both
@@ -23,3 +24,7 @@ internal suspend fun Intent?.launch(
  */
 val RecentsLane.sourceScoped: Boolean
     get() = this is RecentsLane.Updated
+
+/** Which copies of a merged chapter this lane's row acts on, the scope its tap opens in. */
+val RecentsLane.mergeScope: MergeScope
+    get() = MergeScope.of(sourceScoped)

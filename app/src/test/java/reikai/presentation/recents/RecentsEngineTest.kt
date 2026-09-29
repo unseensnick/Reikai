@@ -37,6 +37,7 @@ import reikai.domain.category.RecentsSurface
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeManager
+import reikai.domain.merge.MergeScope
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -614,7 +615,7 @@ class RecentsEngineTest {
         val row = ref(manga1, 1)
         engine.toggleSelection(selected)
 
-        engine.download(setOf(row), ChapterDownloadAction.START_NOW)
+        engine.download(setOf(row), ChapterDownloadAction.START_NOW, RecentsLane.Updated(row))
 
         provider.downloaded shouldBe (setOf(row) to ChapterDownloadAction.START_NOW)
         engine.selection.value shouldContainExactly listOf(selected)
@@ -1426,6 +1427,18 @@ class RecentsEngineTest {
     }
 
     @Test
+    fun `a delete splits a selection by the scope each row was shown in`() = runTest {
+        val updated = updatedRow(manga1, chapterId = 7)
+        val read = readRow(manga2, chapterId = 5)
+        val engine = feedEngine(
+            provider(ContentType.MANGA, read = rows(read), states = mapOf(manga2 to readState(read = true))),
+        )
+
+        engine.actingChaptersByScope(listOf(updated, read), RecentsMode.FEED, membership = emptyMap()) shouldBe
+            mapOf(MergeScope.Source to setOf(ref(manga1, 7)), MergeScope.Group to setOf(ref(manga2, 5)))
+    }
+
+    @Test
     fun `a row with nothing left to open still acts on its own record`() = runTest {
         val row = readRow(manga1, chapterId = 5)
         val engine = feedEngine(
@@ -1648,11 +1661,15 @@ private class FakeRecentsProvider(
 
         override suspend fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) = Unit
 
-        override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
+        override suspend fun download(
+            chapters: Set<ChapterRef>,
+            action: ChapterDownloadAction,
+            deleteScope: MergeScope,
+        ) {
             downloaded = chapters to action
         }
 
-        override suspend fun deleteDownloads(chapters: Set<ChapterRef>) = Unit
+        override suspend fun deleteDownloads(chapters: Set<ChapterRef>, scope: MergeScope) = Unit
     }
 
     var removedEntries: Set<EntryId>? = null

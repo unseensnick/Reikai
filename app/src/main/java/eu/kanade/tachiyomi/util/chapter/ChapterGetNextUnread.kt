@@ -5,7 +5,11 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
+import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.MergeScope
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 
@@ -16,21 +20,32 @@ import tachiyomi.domain.manga.model.Manga
 fun List<Chapter>.getNextUnread(
     manga: Manga,
     downloadManager: DownloadManager,
-    // RK: chapters whose own row is unread but which another grouped source has read. Skipped, so
-    // resuming a merged series does not reopen something the library already counts as read.
-    readInOtherSources: Set<Long> = emptySet(),
-    // RK: each chapter's own manga, so the downloaded filter probes the source that copy came from.
-    mangaById: Map<Long, Manga> = emptyMap(),
+    // RK --> the merge group this list is the stitch of, whose other sources answer read, bookmarked and
+    // on disk, as the details list does. The library resumes in group scope, so any copy counts.
+    group: MergedChapterProvider.Group? = null,
     // RK: the hidden-chapter keys, passed over unless only hidden chapters are left unread.
     hiddenKeys: Set<String> = emptySet(),
 ): Chapter? {
-    val shown = applyFilters(manga, downloadManager) { mangaById[it.mangaId] ?: manga }
+    val mangaById = group?.mangaById.orEmpty()
+    val ownerOf = { chapter: Chapter -> mangaById[chapter.mangaId] ?: manga }
+    val pooled = group?.pooledChapters ?: this
+    val flags = GroupChapterFlags(
+        MergeScope.Group,
+        pooled,
+        this,
+        group?.stitch.orEmpty(),
+        { it.id },
+        { it.read },
+        { it.bookmark },
+    ) { downloadManager.downloadedChapterIds(pooled, ownerOf) }
+    val shown = applyFilters(manga, flags)
+    // RK <--
     // RK: the order the reader pages in, asked the question novels resume by, hidden chapters last.
     val isHidden = { chapter: Chapter ->
-        hiddenChapterKey((mangaById[chapter.mangaId] ?: manga).source.toString(), chapter.url) in hiddenKeys
+        hiddenChapterKey(ownerOf(chapter).source.toString(), chapter.url) in hiddenKeys
     }
     return ReadingOrder.nextToRead(ReadingOrder.hiddenLast(shown.inReadingOrder(manga), isHidden)) {
-        it.read || it.id in readInOtherSources
+        flags.isRead(it) // RK
     }
 }
 

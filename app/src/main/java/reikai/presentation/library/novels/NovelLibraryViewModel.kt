@@ -34,12 +34,13 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.effectiveIntervalFilter
 import reikai.domain.merge.DownloadUnitRow
+import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.MergeScope
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
-import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.merge.stitchInputChanges
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
@@ -542,31 +543,32 @@ class NovelLibraryViewModel(
                 // Probed over every member's chapters: a chapter downloaded on any of them is on disk,
                 // whichever copy the stitch shows.
                 val novelsById = group.pooledChapters.map { it.novelId }.distinct()
-                    .mapNotNull { novelId -> novelRepository.getById(novelId)?.let { novelId to it } }
-                    .toMap()
-                val downloadedIds = group.pooledChapters.mapNotNullTo(HashSet()) { chapter ->
-                    val novel = novelsById[chapter.novelId] ?: return@mapNotNullTo null
-                    chapter.id.takeIf { downloadManager.isChapterDownloaded(novel, chapter) }
-                }
-                val onDisk = downloadedIds + group.flaggedElsewhere { it.id in downloadedIds }
+                    .mapNotNull { novelId -> novelRepository.getById(novelId) }
+                    .associateBy { it.id }
+                val flags = GroupChapterFlags(
+                    MergeScope.Group,
+                    group.pooledChapters,
+                    group.chapters,
+                    group.stitch,
+                    { it.id },
+                    { it.read },
+                    { it.bookmark },
+                ) { novelDownloadCache.downloadedChapterIds(group.pooledChapters, novelsById) }
                 val queuedIds = downloadManager.queueState.value.mapTo(HashSet()) { it.chapterId }
                 val targets = selectChaptersForDownloadAction(
                     group.chapters,
                     // The interactor already hands them over in reading order.
                     sortDescending = false,
                     action,
-                    onDisk + queuedIds,
-                    group.readInOtherSources,
-                    group.flaggedElsewhere { it.bookmark },
+                    flags.downloadedIds + queuedIds,
+                    flags.readElsewhere,
+                    flags.bookmarkedElsewhere,
                     getNextNovelChapter.hiddenAmong(group.pooledChapters),
                 )
                 if (targets.isNotEmpty()) downloadManager.downloadChapters(targets)
             }
         }
     }
-
-    private fun NovelGroupChapters.flaggedElsewhere(flag: (NovelChapter) -> Boolean): Set<Long> =
-        flaggedOnAnotherSource(pooledChapters, chapters, stitch, { it.id }, flag)
 
     /** Writes exactly the ids it is handed; the caller expands the merge group. */
     fun setNovelCategories(novelIds: List<Long>, addCategories: List<Long>, removeCategories: List<Long>) {

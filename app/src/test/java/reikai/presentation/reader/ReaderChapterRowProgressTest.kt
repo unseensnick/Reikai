@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.MergeScope
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.domain.chapter.model.Chapter
 
@@ -45,6 +46,7 @@ interface ChapterRowProgressProbe {
 }
 
 private fun <T> flagsOf(chapter: T, id: (T) -> Long) = GroupChapterFlags(
+    scope = MergeScope.Group,
     pooled = listOf(chapter),
     shown = listOf(chapter),
     stitch = emptyList(),

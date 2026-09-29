@@ -65,7 +65,7 @@ class GetNextNovelChapterTest {
 
     /** The library's continue button on novel 1, with [downloaded] standing in for the download cache. */
     private suspend fun resume(downloadedOnly: Boolean = false, downloaded: Set<Long> = emptySet()) =
-        interactor.awaitFirstUnreadInGroup(1L, downloadedOnly) { _, chapters ->
+        interactor.awaitFirstUnreadInGroup(1L, downloadedOnly) { chapters, _ ->
             chapters.mapNotNullTo(HashSet()) { chapter -> chapter.id.takeIf { it in downloaded } }
         }?.id
 

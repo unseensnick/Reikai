@@ -52,6 +52,7 @@ import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.novel.details.NovelDetailsViewModel
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.data.Database
@@ -120,9 +121,13 @@ class NovelReaderViewModelHarness private constructor(
     val pageSaves = MutableSharedFlow<Long>(extraBufferCapacity = 1)
 
     private val downloadCache = mockk<NovelDownloadCache> {
+        every { changes } returns MutableStateFlow(Unit)
         every { isChapterDownloaded(any<Novel>(), any()) } answers { secondArg<NovelChapter>().id in downloaded }
-        every { downloadedChapterIds(any(), any()) } answers {
+        every { downloadedChapterIds(any<Novel>(), any()) } answers {
             secondArg<List<NovelChapter>>().mapTo(HashSet()) { it.id }.filterTo(HashSet()) { it in downloaded }
+        }
+        every { downloadedChapterIds(any<List<NovelChapter>>(), any()) } answers {
+            firstArg<List<NovelChapter>>().mapTo(HashSet()) { it.id }.filterTo(HashSet()) { it in downloaded }
         }
     }
 
@@ -254,6 +259,60 @@ class NovelReaderViewModelHarness private constructor(
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
             io = dispatcher,
         ).also { viewModels.put("novel-$novelId-$chapterId-${viewModels.keys().size}", it) }
+    }
+
+    /**
+     * The novel details screen of [novelId], over the same database and merge machinery. It launches on
+     * the real IO dispatcher rather than [dispatcher], so a test waits on its state in real time.
+     */
+    suspend fun openDetails(novelId: Long): NovelDetailsViewModel {
+        val novel = novelRepo.getById(novelId)!!
+        val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
+        val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences) {}
+        val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
+        return NovelDetailsViewModel(
+            sourceId = novel.source,
+            novelUrl = novel.url,
+            listingCover = null,
+            isFromSource = false,
+            novelRepo = novelRepo,
+            updateNovel = mockk(relaxed = true),
+            sourceTracker = mockk(relaxed = true),
+            coverCache = mockk(relaxed = true),
+            setNovelChapterFlags = mockk(relaxed = true),
+            chapterRepo = chapterRepo,
+            downloadManagerProvider = { downloadManager },
+            novelDownloadCache = downloadCache,
+            sourceManager = sourceManager,
+            installer = installer,
+            filterChaptersForDownload = mockk(relaxed = true),
+            novelLibraryAdder = mockk(relaxed = true),
+            setNovelReadStatus = mockk(relaxed = true),
+            novelPreferences = novelPreferences,
+            uiPreferences = mockk(relaxed = true) {
+                every { themeCoverBased } returns store.getBoolean("theme_cover_based", false)
+            },
+            mergeManager = mergeManager,
+            mergedChapterProvider = NovelMergedChapterProvider(
+                mergeManager,
+                units,
+                ReconcileMergedChapters(units, setOf(stitcher)),
+            ),
+            reikaiLibraryPreferences = reikaiLibraryPreferences,
+            libraryPreferences = LibraryPreferences(store),
+            context = mockk(relaxed = true),
+            getCustomNovelInfo = mockk(relaxed = true) { every { subscribe(any()) } returns flowOf(null) },
+            setCustomNovelInfo = mockk(relaxed = true),
+            getNovelTracks = mockk(relaxed = true),
+            refreshNovelTracks = mockk(relaxed = true),
+            trackNovelChapter = mockk(relaxed = true),
+            trackerManager = mockk(relaxed = true),
+            trackPreferences = TrackPreferences(store),
+            basePreferences = mockk<BasePreferences>(relaxed = true) {
+                every { downloadedOnly } returns this@NovelReaderViewModelHarness.downloadedOnly
+            },
+            removeNovelsFromLibrary = mockk(relaxed = true),
+        ).also { viewModels.put("details-$novelId-${viewModels.keys().size}", it) }
     }
 
     /** Clears every model it opened, as leaving the reader does, then releases the database and clock. */

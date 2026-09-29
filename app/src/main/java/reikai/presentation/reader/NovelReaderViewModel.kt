@@ -47,6 +47,7 @@ import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.MergeScope
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.withOpenedChapter
 import reikai.domain.novel.NovelChapterRepository
@@ -653,6 +654,8 @@ class NovelReaderViewModel(
      *  [orderedIds], which lists those copies; null when ungrouped or source-scoped. */
     @Volatile
     private var copiesToOpen: CopyToOpen<NovelChapter>? = null
+
+    private val mergeScope = MergeScope.of(sourceScoped)
 
     private val neighbours = MutableStateFlow(Neighbours())
 
@@ -1271,8 +1274,10 @@ class NovelReaderViewModel(
                     downloadManager.startDownloadNow(chapter.id)
                 }
                 ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
-                // The row reads as downloaded when any source's copy is on disk, so every copy goes.
-                ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(groupCopies(chapterId))
+                // The copies the row counts as downloaded, which follow this session's scope.
+                ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(
+                    mergeScope.copiesOf(setOf(chapterId), groupStitch).mapNotNull { chapterRepo.getById(it) },
+                )
             }
         }
     }
@@ -1301,7 +1306,10 @@ class NovelReaderViewModel(
             val listed = if (pooled.isEmpty()) {
                 chapterRepo.getByNovelId(novelId)
             } else {
-                val copies = CopyToOpen(pooled, stitch, { it.id }, downloadedChapterIds(pooled, novelsOf(pooled)))
+                val copies =
+                    CopyToOpen(mergeScope, pooled, stitch, {
+                        it.id
+                    }, novelDownloadCache.downloadedChapterIds(pooled, novelsOf(pooled)))
                 copiesToOpen = copies
                 currentChapterId = copies.idOf(currentChapterId)
                 copies.inPlaceOf(mergedChapterProvider.merged(pooled, stitch)) { copy, row ->
@@ -1324,7 +1332,9 @@ class NovelReaderViewModel(
         aheadIds = inOrder.map { it.id }
         val current = inOrder.find { it.id == currentChapterId }
         val visible = if (basePreferences.downloadedOnly.get() && current != null) {
-            inOrder.downloadedOrCurrent(current, { it.id }, downloadedChapterIds(inOrder, novelsOf(inOrder)))
+            inOrder.downloadedOrCurrent(current, {
+                it.id
+            }, novelDownloadCache.downloadedChapterIds(inOrder, novelsOf(inOrder)))
         } else {
             inOrder
         }
@@ -1389,21 +1399,12 @@ class NovelReaderViewModel(
         pooled: List<NovelChapter>,
         shown: List<NovelChapter>,
         novels: Map<Long, Novel>,
-    ) = GroupChapterFlags(pooled, shown, groupStitch, { it.id }, { it.read }, { it.bookmark }) {
-        downloadedChapterIds(pooled, novels)
+    ) = GroupChapterFlags(mergeScope, pooled, shown, groupStitch, { it.id }, { it.read }, { it.bookmark }) {
+        novelDownloadCache.downloadedChapterIds(pooled, novels)
     }
 
     private suspend fun novelsOf(chapters: List<NovelChapter>): Map<Long, Novel> =
         chapters.map { it.novelId }.distinct().mapNotNull { novelRepo.getById(it) }.associateBy { it.id }
-
-    /** Grouped by novel so the cache resolves each novel's download folder once rather than per chapter,
-     *  which is what a merged group's long list would otherwise pay for on every queue change. */
-    private fun downloadedChapterIds(chapters: List<NovelChapter>, novels: Map<Long, Novel>): Set<Long> =
-        chapters
-            .groupBy { it.novelId }
-            .flatMapTo(HashSet()) { (novelId, owned) ->
-                novels[novelId]?.let { novelDownloadCache.downloadedChapterIds(it, owned) }.orEmpty()
-            }
 
     /** Both chapters a step from [chapterId] lands on; a forward one honours the skip settings. */
     private fun neighboursOf(chapterId: Long): Neighbours {

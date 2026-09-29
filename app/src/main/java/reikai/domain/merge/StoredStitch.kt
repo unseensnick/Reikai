@@ -45,26 +45,52 @@ fun <T> flaggedOnAnotherSource(
 }
 
 /**
+ * Which of a merged chapter's copies a surface may act on. Group scope (the All list, the library,
+ * History) reaches every source's copy; source scope (a source chip, Updates) only the row's own, since
+ * a source-scoped reader never swaps to a sibling's copy. The one owner of that rule, so showing,
+ * opening and deleting a download cannot disagree about which copies count.
+ */
+enum class MergeScope {
+    Group,
+    Source,
+    ;
+
+    /** The stitch as this scope sees it: none of it in source scope, where each row stands alone. */
+    fun copiesIn(stitch: List<ChapterUnit>): List<ChapterUnit> = if (this == Group) stitch else emptyList()
+
+    /** [chapterIds] plus every copy of them this scope reaches: what a delete removes and a row probes. */
+    fun copiesOf(chapterIds: Set<Long>, stitch: List<ChapterUnit>): Set<Long> =
+        expandToUnits(chapterIds, copiesIn(stitch))
+
+    companion object {
+        fun of(sourceScoped: Boolean): MergeScope = if (sourceScoped) Source else Group
+    }
+}
+
+/**
  * The copy of a merged chapter a reader opens: the one asked for when it is on disk or no copy is,
- * else the highest-ranked copy on disk. A row reads as downloaded when any copy is on disk
- * ([flaggedOnAnotherSource]), so opening the shown copy went online for a chapter already on disk.
- * [chapters] is every member's chapters the caller may show; a copy outside it is never picked.
+ * else the highest-ranked copy on disk that [scope] reaches. A row is downloaded ([isOnDisk]) exactly
+ * when the copy it opens is. [chapters] is every member's chapters the caller may show; a copy outside
+ * it is never picked.
  */
 class CopyToOpen<T>(
+    scope: MergeScope,
     chapters: List<T>,
     stitch: List<ChapterUnit>,
     private val id: (T) -> Long,
     private val onDisk: Set<Long>,
 ) {
     private val byId = chapters.associateBy(id)
-    private val unitOf = stitch.associate { it.chapterId to it.unit }
-    private val bestOnDisk = stitch.asSequence()
+    private val unitOf = scope.copiesIn(stitch).associate { it.chapterId to it.unit }
+    private val bestOnDisk = scope.copiesIn(stitch).asSequence()
         .filter { it.chapterId in onDisk && it.chapterId in byId }
         .groupBy { it.unit }
         .mapValues { (_, copies) -> copies.minBy { it.copyOrder }.chapterId }
 
     fun idOf(chapterId: Long): Long =
         if (chapterId in onDisk) chapterId else unitOf[chapterId]?.let(bestOnDisk::get) ?: chapterId
+
+    fun isOnDisk(chapterId: Long): Boolean = idOf(chapterId) in onDisk
 
     /** [shown] with each row swapped for the copy it opens, put in the row's place by [keepPlace]. */
     fun inPlaceOf(shown: List<T>, keepPlace: (copy: T, row: T) -> T): List<T> = shown.map { row ->

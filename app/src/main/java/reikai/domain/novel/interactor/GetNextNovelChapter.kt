@@ -3,6 +3,8 @@ package reikai.domain.novel.interactor
 import dev.zacsweers.metro.Inject
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.MergeScope
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
@@ -72,12 +74,12 @@ class GetNextNovelChapter(
      * The group's first unread chapter among those the novel's own chapter filters list, skipping what
      * another of its sources has already read, and what the user hid unless only hidden chapters are
      * left. The filters are the details list's ([sortedAndFiltered]), as the manga library's resume
-     * applies its manga's. [downloadedIds] answers disk membership for one member's chapters.
+     * applies its manga's. [downloadedIds] answers disk membership for chapters of the given novels.
      */
     suspend fun awaitFirstUnreadInGroup(
         novelId: Long,
         downloadedOnly: Boolean,
-        downloadedIds: (Novel, List<NovelChapter>) -> Set<Long>,
+        downloadedIds: (List<NovelChapter>, Map<Long, Novel>) -> Set<Long>,
     ): NovelChapter? {
         val group = groupChapters(novelId)
         val listed = listedByFilters(novelId, group, downloadedOnly, downloadedIds)
@@ -85,23 +87,36 @@ class GetNextNovelChapter(
         return ReadingOrder.nextToRead(shown) { it.read || it.id in group.readInOtherSources }
     }
 
-    /** [group]'s chapters the filters keep, still in reading order: the filter's own sort is display order. */
+    /**
+     * [group]'s chapters the filters keep, still in reading order: the filter's own sort is display order.
+     * Read, bookmarked and on disk are the group's answers, so a chapter whose only copy on disk is another
+     * source's passes a Downloaded filter: that is the copy the reader opens.
+     */
     private suspend fun listedByFilters(
         novelId: Long,
         group: NovelGroupChapters,
         downloadedOnly: Boolean,
-        downloadedIds: (Novel, List<NovelChapter>) -> Set<Long>,
+        downloadedIds: (List<NovelChapter>, Map<Long, Novel>) -> Set<Long>,
     ): List<NovelChapter> {
         val novel = novelRepository.getById(novelId) ?: return group.chapters
-        val downloaded = group.chapters.groupBy { it.novelId }.flatMapTo(HashSet()) { (memberId, chapters) ->
-            novelRepository.getById(memberId)?.let { downloadedIds(it, chapters) }.orEmpty()
-        }
+        val pooled = group.pooledChapters
+        val novels = pooled.mapTo(HashSet()) { it.novelId }.mapNotNull { novelRepository.getById(it) }
+            .associateBy { it.id }
+        val flags = GroupChapterFlags(
+            MergeScope.Group,
+            pooled,
+            group.chapters,
+            group.stitch,
+            { it.id },
+            { it.read },
+            { it.bookmark },
+        ) { downloadedIds(pooled, novels) }
         val kept = group.chapters.sortedAndFiltered(
             novel,
             novelPreferences,
-            downloaded,
-            group.readInOtherSources,
-            flaggedOnAnotherSource(group.pooledChapters, group.chapters, group.stitch, { it.id }, { it.bookmark }),
+            flags.downloadedIds,
+            flags.readElsewhere,
+            flags.bookmarkedElsewhere,
             downloadedOnly,
         ).mapTo(HashSet()) { it.id }
         return group.chapters.filter { it.id in kept }

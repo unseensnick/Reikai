@@ -133,6 +133,13 @@ class NovelDownloadCache(
             .mapTo(HashSet()) { it.id }
     }
 
+    /** [downloadedChapterIds] over chapters of several novels, as a merged list holds, each probed against
+     *  its own entry in [novels] once per novel rather than per chapter. A novel missing there counts none. */
+    fun downloadedChapterIds(chapters: List<NovelChapter>, novels: Map<Long, Novel>): Set<Long> =
+        chapters.groupBy { it.novelId }.flatMapTo(HashSet()) { (novelId, owned) ->
+            novels[novelId]?.let { downloadedChapterIds(it, owned) }.orEmpty()
+        }
+
     fun getDownloadCount(novel: Novel): Int = getDownloadCount(novel.source, novel.title)
 
     /** Optimistically record a just-written chapter so the UI reflects it without waiting for a scan. */

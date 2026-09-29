@@ -4,6 +4,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.MergeScope
 import tachiyomi.core.common.preference.TriState
 
 /**
@@ -18,6 +19,7 @@ class ReaderChapterFiltersTest {
     private val noFilters = ChapterListFilters(TriState.DISABLED, TriState.DISABLED, TriState.DISABLED)
 
     private fun flags(siblingRead: Boolean = false, onDisk: Set<Long> = emptySet()) = GroupChapterFlags(
+        scope = MergeScope.Group,
         pooled = listOf(Row(1L), Row(2L, read = siblingRead)),
         shown = listOf(Row(1L)),
         stitch = listOf(ChapterUnit(1L, 0, 0), ChapterUnit(2L, 0, 1)),

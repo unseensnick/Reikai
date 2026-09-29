@@ -138,16 +138,16 @@ every stable release now also ships a foss build with neither in it.
 - **Share and Open in WebView now follow the source chip you have selected, on novels as well as manga.**
 - **Selecting a source chip on a merged manga now shows that source's synopsis and tags, as novels already did.** They stayed on the leading source while the title and cover changed.
 - **Migrate on a merged series now asks which of its sources to move, whichever source chip is selected, and a custom title stays visible under a chip.**
-- **A merged series now downloads each chapter once, however many of its sources carry it, and deleting one removes every source's copy.** Download next follows the group's combined list in your chapter sort, and the download badge counts each chapter once.
-- **A chapter you bookmarked before merging its series now still shows as bookmarked in the combined list.** The Bookmarked filter on the series page and in the reader follows the same answer.
+- **A merged series now downloads each chapter once, however many of its sources carry it, and deleting one from the All list removes every source's copy.** Under a source chip a chapter shows and deletes only that source's copy.
+- **A chapter you bookmarked before merging its series now still shows as bookmarked in the combined list.** The Bookmarked filter on the series page, in the reader and on the library's Continue button follows the same answer.
 - **The reader's "Skip chapters marked read" now skips a chapter read on another source of a merged series.** So do the Unread filters on the series page and in the reader.
-- **A merged row in Updates and History now shows, and changes, the read and bookmarked state for every source, as the library does.** Marking read, bookmarking or deleting a download on it applies to the whole group, in the Recents tab too.
+- **A merged row in Updates and History now shows, and changes, the read and bookmarked state for every source, as the library does.** Deleting a download from a History row removes every source's copy, from an Updates row only its own, in the Recents tab too.
 - **Continue reading a merged series from History now opens the same chapter the library would, and carries on through the whole group.** History ignored the series' chapter sort, so a series sorted by name or upload date resumed somewhere else, and a merged light novel continued through one source only.
 - **A merged series' library update now announces a new chapter once, not once per source that carries it.**
 - **The Updates widget now draws one cover per merged series.** It drew one per source, so a grouped series filled the grid.
 - **A chapter you continue from History on another source of a merged series no longer appears twice in the reader.** The copy you opened takes that chapter's place, so the chapters before and after it are the right ones.
-- **On a merged novel, the reader's chapter list now shows a chapter as read, bookmarked or downloaded when any source's copy is, and names each chapter's source.** Deleting a download from it removes every source's copy, so the row stops reading as downloaded.
-- **Opening a chapter of a merged series now reads a downloaded copy from any of its sources instead of going online, on manga and novels.** Stepping to the next or previous chapter and the Downloaded only filter follow the same copy.
+- **On a merged novel, the reader's chapter list now shows a chapter as downloaded when the copy it would open is, and names each chapter's source.** Opened from a source chip or Updates, only that source's copy counts, and a delete removes only that copy.
+- **Opening a chapter of a merged series now reads a downloaded copy from any of its sources instead of going online, on manga and novels.** Stepping between chapters, the Downloaded only filter, download-ahead and the library's Continue button follow the same copy.
 - **Incognito on one source of a merged series now covers that source's chapters alone, in both readers, whichever source you opened the series from.** Before, the source you opened it from decided for every chapter, so a private source's chapters could reach History and your trackers.
 
 ### Updates & History

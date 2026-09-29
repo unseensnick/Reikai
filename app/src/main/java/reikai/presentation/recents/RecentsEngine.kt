@@ -42,6 +42,7 @@ import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.includes
+import reikai.domain.merge.MergeScope
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -434,14 +435,15 @@ class RecentsEngine(
         dispatchAndClear { it.setBookmark(chapters, bookmarked) }
 
     fun downloadSelection(chapters: Set<ChapterRef>) =
-        dispatchAndClear { it.download(chapters, ChapterDownloadAction.START) }
+        dispatchAndClear { it.download(chapters, ChapterDownloadAction.START, MergeScope.Source) }
 
     /**
      * One row's own download control, which does not touch the selection: it is not a bulk action and
-     * the indicator is only reachable while nothing is selected.
+     * the indicator is only reachable while nothing is selected. [lane] is the row's, whose scope a
+     * delete follows.
      */
-    fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) =
-        dispatch { it.download(chapters, action) }
+    fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, lane: RecentsLane) =
+        dispatch { it.download(chapters, action, lane.mergeScope) }
 
     /**
      * One row's own read and bookmark toggles, for a swipe. Separate from the selection verbs above
@@ -452,7 +454,10 @@ class RecentsEngine(
     fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) =
         dispatch { it.setBookmark(chapters, bookmarked) }
 
-    fun deleteDownloads(chapters: Set<ChapterRef>) = dispatchAndClear { it.deleteDownloads(chapters) }
+    /** Each scope's chapters reach the copies that scope shows as downloaded, see [actingChaptersByScope]. */
+    fun deleteDownloads(chaptersByScope: Map<MergeScope, Set<ChapterRef>>) = dispatchAndClear { actions ->
+        chaptersByScope.forEach { (scope, chapters) -> actions.deleteDownloads(chapters, scope) }
+    }
 
     /**
      * Drops every read record of these entries, which is the row action's "all" answer. A merged row
@@ -671,10 +676,27 @@ class RecentsEngine(
         items: List<RecentsItem>,
         mode: RecentsMode,
         membership: Map<EntryId, Long>,
-    ): Set<ChapterRef> = items.mapNotNullTo(mutableSetOf()) { item ->
-        val recorded = item.lane.chapterRef ?: return@mapNotNullTo null
-        if (!resolvesTarget(item, mode, membership)) return@mapNotNullTo recorded
-        targetRow(item)?.ref ?: recorded
+    ): Set<ChapterRef> = items.mapNotNullTo(mutableSetOf()) { actingChapter(it, mode, membership) }
+
+    /** [actingChapters] split by the merge scope of each row's lane, which a delete has to follow: an
+     *  Updates row deletes only its own copy, a History row every copy it shows as downloaded. */
+    suspend fun actingChaptersByScope(
+        items: List<RecentsItem>,
+        mode: RecentsMode,
+        membership: Map<EntryId, Long>,
+    ): Map<MergeScope, Set<ChapterRef>> = items
+        .mapNotNull { item -> actingChapter(item, mode, membership)?.let { item.lane.mergeScope to it } }
+        .groupBy({ it.first }, { it.second })
+        .mapValues { (_, refs) -> refs.toSet() }
+
+    private suspend fun actingChapter(
+        item: RecentsItem,
+        mode: RecentsMode,
+        membership: Map<EntryId, Long>,
+    ): ChapterRef? {
+        val recorded = item.lane.chapterRef ?: return null
+        if (!resolvesTarget(item, mode, membership)) return recorded
+        return targetRow(item)?.ref ?: recorded
     }
 
     /**

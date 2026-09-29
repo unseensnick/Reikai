@@ -59,12 +59,13 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.DownloadUnitRow
+import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.MergeScope
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
-import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.merge.stitchInputChanges
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.presentation.library.LibraryFilterPrefs
@@ -628,13 +629,7 @@ class LibraryViewModel(
         //     details screen shows, and each chapter keeps its own mangaId so the reader opens the right
         //     source. Falls through to the plain per-manga list when the entry is not merged.
         val group = mergedChapterProvider.load(manga)
-        return group.chapters.getNextUnread(
-            manga,
-            downloadManager,
-            group.readInOtherSources,
-            group.mangaById,
-            mangaPreferences.hiddenChapters().get(),
-        )
+        return group.chapters.getNextUnread(manga, downloadManager, group, mangaPreferences.hiddenChapters().get())
     }
 
     /**
@@ -688,17 +683,23 @@ class LibraryViewModel(
         hidden: Set<String>,
     ) {
         val ownerOf = { chapter: Chapter -> group?.mangaById?.get(chapter.mangaId) ?: anchor }
-        val downloadedIds = downloadManager.downloadedChapterIds(group?.pooledChapters ?: chapters, ownerOf)
-        val onDisk = downloadedIds + group?.flaggedElsewhere { it.id in downloadedIds }.orEmpty()
-        val readElsewhere = group?.readInOtherSources.orEmpty()
-        val bookmarkedElsewhere = group?.flaggedElsewhere { it.bookmark }.orEmpty()
+        val pooled = group?.pooledChapters ?: chapters
+        val flags = GroupChapterFlags(
+            MergeScope.Group,
+            pooled,
+            chapters,
+            group?.stitch.orEmpty(),
+            { it.id },
+            { it.read },
+            { it.bookmark },
+        ) { downloadManager.downloadedChapterIds(pooled, ownerOf) }
         DownloadCandidates.forAction(
             chapters,
             action,
-            isRead = { it.read || it.id in readElsewhere },
-            isBookmarked = { it.bookmark || it.id in bookmarkedElsewhere },
+            isRead = flags::isRead,
+            isBookmarked = flags::isBookmarked,
             isHidden = { hiddenChapterKey(ownerOf(it).source.toString(), it.url) in hidden },
-            isExcluded = { downloadManager.getQueuedDownloadOrNull(it.id) != null || it.id in onDisk },
+            isExcluded = { downloadManager.getQueuedDownloadOrNull(it.id) != null || flags.isDownloaded(it) },
         )
             .groupBy { it.mangaId }
             .forEach { (mangaId, owned) ->
@@ -706,9 +707,6 @@ class LibraryViewModel(
             }
     }
     // RK <--
-
-    private fun MergedChapterProvider.Group.flaggedElsewhere(flag: (Chapter) -> Boolean): Set<Long> =
-        flaggedOnAnotherSource(pooledChapters, chapters, stitch, { it.id }, flag)
 
     /**
      * Marks mangas' chapters read status.

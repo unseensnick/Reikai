@@ -57,8 +57,6 @@ import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.merge.expandToUnits
-import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.NovelChapterRepository
@@ -399,8 +397,7 @@ class NovelDetailsViewModel(
 
     private data class ChapterInputs(
         val anchor: Novel?,
-        val related: LongArray,
-        val selected: Long?,
+        val group: EntryMergeGroupHost.GroupState,
         val pageIndex: Int,
     )
 
@@ -417,20 +414,20 @@ class NovelDetailsViewModel(
                     pageIndex,
                     // In the combine only to re-emit (re-running rebuildLoaded with the chips) once they resolve.
                     mergeGroup.chips,
-                ) { anchor, group, idx, _ -> ChapterInputs(anchor, group.ids, group.selected, idx) },
+                ) { anchor, group, idx, _ -> ChapterInputs(anchor, group, idx) },
                 // Re-emit so a hide/unhide or the show-hidden toggle rebuilds the chapter list.
                 hiddenChaptersPref.changes(),
                 showHiddenFlow,
             ) { inputs, _, _ -> inputs }
-                .collectLatest { (anchor, related, selected, idx) ->
+                .collectLatest { (anchor, group, idx) ->
                     if (anchor == null) {
                         maybeFirstFetch(null)
                         return@collectLatest
                     }
-                    if (related.size > 1 && selected == null) {
-                        observeUnifiedChapters(anchor, related)
+                    if (group.ids.size > 1 && group.selected == null) {
+                        observeUnifiedChapters(anchor, group)
                     } else {
-                        observeSingleChapters(anchor, selected, idx)
+                        observeSingleChapters(anchor, group, idx)
                     }
                 }
         }
@@ -466,7 +463,8 @@ class NovelDetailsViewModel(
 
     /** Unified ("All") view: pool every grouped source's chapters into one aggregated, reading-ordered
      *  list (no pagination, pages don't align across sources). Each chapter keeps its own novelId. */
-    private suspend fun observeUnifiedChapters(anchor: Novel, related: LongArray) {
+    private suspend fun observeUnifiedChapters(anchor: Novel, group: EntryMergeGroupHost.GroupState) {
+        val related = group.ids
         val flows = related.map { id -> chapterRepo.getByNovelIdAsFlow(id).map { id to it } }
         // Fold the download cache's change signal in so a download/delete rebuilds the list (the
         // downloaded state is disk-derived now, not a chapter-row flow).
@@ -479,12 +477,10 @@ class NovelDetailsViewModel(
             val pooled = byNovel.values.flatten()
             val stitch = mergedChapterProvider.stitchOf(anchor.id)
             val ordered = mergedChapterProvider.merged(pooled, stitch)
-            val readElsewhere = flaggedOnAnotherSource(pooled, ordered, stitch, { it.id }, { it.read })
-            val bookmarkedElsewhere = flaggedOnAnotherSource(pooled, ordered, stitch, { it.id }, { it.bookmark })
             // Probed over every member's chapters, so a merged chapter reads as downloaded when any of
             // the group's copies holds the file, not only the copy the stitch shows.
             val downloaded = downloadedIdsFor(pooled)
-            val downloadedElsewhere = flaggedOnAnotherSource(pooled, ordered, stitch, { it.id }) { it.id in downloaded }
+            val flags = group.rowFlags(pooled, ordered, stitch, { it.id }, { it.read }, { it.bookmark }) { downloaded }
             val members = related.toList().mapNotNull { id -> if (id == anchor.id) anchor else novelRepo.getById(id) }
             rebuildLoaded(
                 anchor,
@@ -492,10 +488,10 @@ class NovelDetailsViewModel(
                 ordered,
                 emptyList(),
                 0,
-                downloaded + downloadedElsewhere,
+                flags.downloadedIds,
                 downloadFolderOwnerOf(null, members, anchor),
-                readElsewhere,
-                bookmarkedElsewhere,
+                flags.readElsewhere,
+                flags.bookmarkedElsewhere,
             )
         }
     }
@@ -507,18 +503,14 @@ class NovelDetailsViewModel(
         val novelsById = chapters.map { it.novelId }.distinct()
             .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
             .toMap()
-        // Group by novel so the cache resolves each novel's download folder once, not per chapter.
-        return chapters
-            .groupBy { it.novelId }
-            .flatMapTo(HashSet()) { (novelId, chs) ->
-                novelsById[novelId]?.let { novelDownloadCache.downloadedChapterIds(it, chs) }.orEmpty()
-            }
+        return novelDownloadCache.downloadedChapterIds(chapters, novelsById)
     }
 
     /** Single-source view: the anchor (non-merged or its own chip) or a selected sibling, with that
      *  novel's own per-page lazy list. Auto-fetch only runs for the anchor (its [source] is resolved);
      *  a selected sibling shows what's stored until a refresh-all fills it. */
-    private suspend fun observeSingleChapters(anchor: Novel, selected: Long?, idx: Int) {
+    private suspend fun observeSingleChapters(anchor: Novel, group: EntryMergeGroupHost.GroupState, idx: Int) {
+        val selected = group.selected
         val isAnchorView = selected == null || selected == anchor.id
         val viewNovel = if (isAnchorView) anchor else (novelRepo.getById(selected!!) ?: anchor)
         val pages = computePages(viewNovel)
@@ -535,7 +527,7 @@ class NovelDetailsViewModel(
         // The siblings' rows are not shown here, but a chapter read on one of them still reads as read
         // on this chip, so they are watched too rather than read once: reading elsewhere has to reach
         // this list the same way it reaches the unified one.
-        val siblingFlows = mergeGroup.relatedIds
+        val siblingFlows = group.ids
             .filter { it != viewNovel.id }
             .map { chapterRepo.getByNovelIdAsFlow(it) }
         val siblingChapters = if (siblingFlows.isEmpty()) {
@@ -549,21 +541,18 @@ class NovelDetailsViewModel(
         }.collectLatest { (chapters, siblings) ->
             val stitch = mergedChapterProvider.stitchOf(viewNovel.id)
             val pooled = chapters + siblings
-            val readElsewhere = flaggedOnAnotherSource(pooled, chapters, stitch, { it.id }, { it.read })
-            val bookmarkedElsewhere = flaggedOnAnotherSource(pooled, chapters, stitch, { it.id }, { it.bookmark })
             val downloaded = downloadedIdsFor(pooled)
-            val downloadedElsewhere =
-                flaggedOnAnotherSource(pooled, chapters, stitch, { it.id }) { it.id in downloaded }
+            val flags = group.rowFlags(pooled, chapters, stitch, { it.id }, { it.read }, { it.bookmark }) { downloaded }
             rebuildLoaded(
                 anchor,
                 viewNovel,
                 chapters,
                 pages,
                 idx,
-                downloaded + downloadedElsewhere,
+                flags.downloadedIds,
                 downloadFolderOwnerOf(viewNovel, listOf(viewNovel), anchor),
-                readElsewhere,
-                bookmarkedElsewhere,
+                flags.readElsewhere,
+                flags.bookmarkedElsewhere,
             )
             if (chapters.isEmpty() && isAnchorView) {
                 if (pageKey == null) maybeFirstFetch(viewNovel) else maybeFetchPage(viewNovel, pageKey)
@@ -1257,14 +1246,16 @@ class NovelDetailsViewModel(
     /** Expand [chapters] to every grouped source's copy of the same merged chapters, so read /
      *  bookmark applies across the whole group. No-op when not merged. Mirrors
      *  MangaViewModel.expandToGroup, off the same stored stitch. */
-    private suspend fun expandToGroup(chapters: List<NovelChapter>): List<NovelChapter> {
-        val ids = mergeGroup.relatedIds
-        if (ids.size <= 1) return chapters
-        val held = chapters.mapTo(HashSet()) { it.id }
-        val wanted = expandToUnits(held, mergedChapterProvider.stitchOf(ids.first())) - held
-        if (wanted.isEmpty()) return chapters
-        return chapters + ids.flatMap { chapterRepo.getByNovelId(it) }.filter { it.id in wanted }
-    }
+    private suspend fun expandToGroup(chapters: List<NovelChapter>): List<NovelChapter> =
+        mergeGroup.expandToGroup(chapters, { it.id }, ::groupStitch, ::groupChaptersIn)
+
+    private suspend fun expandForDelete(chapters: List<NovelChapter>): List<NovelChapter> =
+        mergeGroup.expandForDelete(chapters, { it.id }, ::groupStitch, ::groupChaptersIn)
+
+    private suspend fun groupStitch() = mergedChapterProvider.stitchOf(mergeGroup.relatedIds.first())
+
+    private suspend fun groupChaptersIn(ids: Set<Long>): List<NovelChapter> =
+        mergeGroup.relatedIds.flatMap { chapterRepo.getByNovelId(it) }.filter { it.id in ids }
 
     /** True if a logged-in tracker catalogues novels; gates the Tracking button (sheet vs Settings > Tracking). */
     fun hasLoggedInTrackers(): Boolean =
@@ -1342,7 +1333,7 @@ class NovelDetailsViewModel(
             ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
             // Every copy: the row shows downloaded when any of them holds the file.
             ChapterDownloadAction.DELETE -> viewModelScope.launchIO {
-                downloadManager.deleteChapters(expandToGroup(listOf(chapter)))
+                downloadManager.deleteChapters(expandForDelete(listOf(chapter)))
             }
         }
     }
@@ -1422,7 +1413,7 @@ class NovelDetailsViewModel(
     fun deleteChapters(chapters: List<NovelChapter>) {
         // Expanded first: the row is downloaded when ANY copy holds the file, so deleting only the
         // shown copy would leave the row still reading as downloaded.
-        viewModelScope.launchIO { downloadManager.deleteChapters(expandToGroup(chapters)) }
+        viewModelScope.launchIO { downloadManager.deleteChapters(expandForDelete(chapters)) }
         clearSelection()
         dismissDialog()
     }

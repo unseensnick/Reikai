@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.EntryMergeManager
 
 /**
@@ -99,6 +100,49 @@ class EntryMergeGroupHostTest {
         host.selectSource(9L)
 
         host.selectedSource shouldBe null
+    }
+
+    // Chapter 1 is on source 1, its copy 2 on source 2; only copy 2 is on disk.
+    private val stitch = listOf(ChapterUnit(1L, 0, 0), ChapterUnit(2L, 0, 1))
+
+    private suspend fun mergedHost(selected: Long?): EntryMergeGroupHost {
+        val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L) }
+        return host(manager).also {
+            it.seed(1L)
+            it.selectSource(selected)
+        }
+    }
+
+    private suspend fun rowDownloaded(selected: Long?): Boolean =
+        mergedHost(selected).state.value.rowFlags(listOf(1L, 2L), listOf(1L), stitch, { it }, { false }, { false }) {
+            setOf(2L)
+        }.isDownloaded(1L)
+
+    @Test
+    fun `under All a row whose other copy is on disk reads as downloaded`() = runTest {
+        rowDownloaded(selected = null) shouldBe true
+    }
+
+    @Test
+    fun `under a source chip a row whose only copy on disk is another source's is not downloaded`() = runTest {
+        rowDownloaded(selected = 1L) shouldBe false
+    }
+
+    @Test
+    fun `a delete under All reaches every copy`() = runTest {
+        mergedHost(selected = null).expandForDelete(listOf(1L), { it }, { stitch }, { it.toList() }).toSet() shouldBe
+            setOf(1L, 2L)
+    }
+
+    @Test
+    fun `a delete under a source chip reaches only the chip's own copy`() = runTest {
+        mergedHost(selected = 1L).expandForDelete(listOf(1L), { it }, { stitch }, { it.toList() }) shouldBe listOf(1L)
+    }
+
+    @Test
+    fun `marking read under a source chip still reaches every copy`() = runTest {
+        mergedHost(selected = 1L).expandToGroup(listOf(1L), { it }, { stitch }, { it.toList() }).toSet() shouldBe
+            setOf(1L, 2L)
     }
 
     @Test

@@ -2,6 +2,7 @@ package reikai.presentation.recents
 
 import androidx.compose.runtime.Immutable
 import reikai.domain.entry.EntryId
+import reikai.domain.merge.MergeScope
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 
@@ -22,8 +23,9 @@ sealed interface RecentsDialog {
      */
     data class RemoveHistory(val item: RecentsItem) : RecentsDialog
 
-    /** Delete the downloaded files of a selection that can span both content types. */
-    data class DeleteDownloads(val chapters: Set<ChapterRef>) : RecentsDialog
+    /** Delete the downloaded files of a selection that can span both content types, each row's chapters
+     *  under the merge scope of the lane it was shown in. */
+    data class DeleteDownloads(val chapters: Map<MergeScope, Set<ChapterRef>>) : RecentsDialog
 
     /** Ask before adding [entry], which looks like something the library already holds. */
     data class Duplicate(val entry: EntryId, val duplicates: RecentsDuplicates) : RecentsDialog

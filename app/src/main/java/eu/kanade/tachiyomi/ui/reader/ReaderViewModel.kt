@@ -80,6 +80,7 @@ import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.MergeScope
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.withOpenedChapter
 import reikai.domain.reader.ChapterIncognito // RK
@@ -265,6 +266,7 @@ class ReaderViewModel(
     // like the ids above, so it survives a configuration change. mergedGroup stays full either way, so
     // the mark-duplicates-read pass over unfilteredChapterList still reaches sibling sources.
     private val sourceScoped = savedState.get<Boolean>("source_scoped") ?: false
+    private val mergeScope = MergeScope.of(sourceScoped)
 
     // RK: resolve a chapter's own manga within the merge group, falling back to the opened manga when
     // unmerged or when the id isn't in the group. Per-chapter side effects (downloads, tracker,
@@ -299,6 +301,7 @@ class ReaderViewModel(
         shown: List<Chapter>,
         pooled: List<Chapter> = mergedGroup?.pooledChapters ?: shown,
     ): GroupChapterFlags<Chapter> = GroupChapterFlags(
+        scope = mergeScope,
         pooled = pooled,
         shown = shown,
         stitch = mergedGroup?.stitch.orEmpty(),
@@ -354,6 +357,11 @@ class ReaderViewModel(
     // the merged details list all agree on what exists.
     private val fullChapterList by lazy { buildChapterList(applyReadFilter = false) }
 
+    // RK: the group's merged list with each chapter as the copy an open reads, the list paging walks.
+    private fun groupAsOpened(group: MergedChapterProvider.Group): List<Chapter> =
+        copiesToOpen?.inPlaceOf(group.chapters) { copy, row -> copy.copy(sourceOrder = row.sourceOrder) }
+            ?: group.chapters
+
     private fun buildChapterList(applyReadFilter: Boolean): List<ReaderChapter> {
         val manga = manga!!
         // RK: source scope shows only the opened source's own chapters; group scope (default) shows
@@ -366,9 +374,7 @@ class ReaderViewModel(
             runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
         } else {
             // RK --> each merged chapter as the copy an open reads, so paging lands on the one on disk
-            mergedGroup?.chapters?.let { shown ->
-                copiesToOpen?.inPlaceOf(shown) { copy, row -> copy.copy(sourceOrder = row.sourceOrder) } ?: shown
-            }
+            mergedGroup?.let(::groupAsOpened)
                 ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
             // RK <--
         }
@@ -528,10 +534,10 @@ class ReaderViewModel(
                 // the viewer, and auto-webtoon has to see every merged member to classify.
                 val group = mergedChapterProvider.load(manga)
                 mergedGroup = group
-                if (group.isMerged && !sourceScoped) {
+                if (mergeScope.copiesIn(group.stitch).isNotEmpty()) {
                     val pooled = group.pooledChapters
                     val onDisk = downloadManager.downloadedChapterIds(pooled) { group.mangaById.getValue(it.mangaId) }
-                    val copies = CopyToOpen(pooled, group.stitch, { it.id }, onDisk)
+                    val copies = CopyToOpen(mergeScope, pooled, group.stitch, { it.id }, onDisk)
                     copiesToOpen = copies
                     chapterId = copies.idOf(chapterId)
                 }
@@ -796,19 +802,19 @@ class ReaderViewModel(
             // Only a group-scoped session reads that list. A source-scoped one pages over its own
             // source's rows, so walking the group's would queue a sibling's chapters it never stops on
             // and leave its own next ones out. And the list can only answer for a chapter it kept.
-            val group = mergedGroup?.takeIf {
-                !sourceScoped && it.isMerged && it.chapters.any { c -> c.id == nextChapter.id }
-            }
-            val chaptersToDownload = if (group != null) {
+            // Walked as opened, so a chapter whose sibling copy is on disk is that copy, not one to fetch.
+            val opened = mergedGroup?.takeIf { !sourceScoped && it.isMerged }?.let(::groupAsOpened)
+                ?.takeIf { chapters -> chapters.any { c -> c.id == nextChapter.id } }
+            val chaptersToDownload = if (opened != null) {
                 // Sorted the way the reader itself pages, not by stitch position: a group sorted by
                 // upload date or by name otherwise queues chapters the reader never steps into next.
                 // RK: through the reader's own rule, or it queued chapters the reader never stops on.
-                val ahead = navigable(group.chapters.inReadingOrder(manga), nextChapter.toDomainChapter()!!)
+                val ahead = navigable(opened.inReadingOrder(manga), nextChapter.toDomainChapter()!!)
                 chaptersToDownloadAhead(
                     ahead,
                     from = ahead.indexOfFirst { it.id == nextChapter.id },
                     count = downloadAheadAmount,
-                    isRead = groupFlags(group.chapters)::isRead,
+                    isRead = groupFlags(opened)::isRead,
                 )
             } else {
                 navigable(getNextChapters.await(nextChapterManga.id, nextChapter.id!!), nextChapter.toDomainChapter()!!)
@@ -1342,9 +1348,9 @@ class ReaderViewModel(
                     downloadManager.cancelQueuedDownloads(listOf(download))
                 }
                 ChapterDownloadAction.DELETE -> {
-                    // The row reads as downloaded when any source's copy is on disk, so every copy
-                    // goes, each from its own source's folder, or the row would keep saying so.
-                    val copies = groupCopyIds(chapter.id).toSet()
+                    // The copies this session's rows count as downloaded: every source's in group scope,
+                    // the chapter's own in source scope. Each goes from its own source's folder.
+                    val copies = mergeScope.copiesOf(setOf(chapter.id), mergedGroup?.stitch.orEmpty())
                     unfilteredChapterList.filter { it.id in copies }
                         .ifEmpty { listOf(chapter) }
                         .groupBy { it.mangaId }

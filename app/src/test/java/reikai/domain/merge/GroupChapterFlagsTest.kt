@@ -13,8 +13,14 @@ class GroupChapterFlagsTest {
 
     private val stitch = listOf(ChapterUnit(1L, 0, 0), ChapterUnit(2L, 0, 1))
 
-    private fun flags(sibling: Row, onDisk: Set<Long> = emptySet(), stitch: List<ChapterUnit> = this.stitch) =
+    private fun flags(
+        sibling: Row,
+        onDisk: Set<Long> = emptySet(),
+        stitch: List<ChapterUnit> = this.stitch,
+        scope: MergeScope = MergeScope.Group,
+    ) =
         GroupChapterFlags(
+            scope = scope,
             pooled = listOf(Row(1L), sibling),
             shown = listOf(Row(1L)),
             stitch = stitch,
@@ -39,6 +45,35 @@ class GroupChapterFlagsTest {
     }
 
     @Test
+    fun `in source scope a chapter whose only copy on disk is another source's is not downloaded`() {
+        flags(Row(2L), onDisk = setOf(2L), scope = MergeScope.Source).isDownloaded(Row(1L)) shouldBe false
+    }
+
+    @Test
+    fun `in source scope a chapter another source has read still reads as read`() {
+        flags(Row(2L, read = true), scope = MergeScope.Source).isRead(Row(1L)) shouldBe true
+    }
+
+    @Test
+    fun `asking for downloads probes the disk once`() {
+        var probes = 0
+        val flags = GroupChapterFlags(
+            scope = MergeScope.Group,
+            pooled = listOf(Row(1L), Row(2L)),
+            shown = listOf(Row(1L)),
+            stitch = stitch,
+            id = { it.id },
+            read = { it.read },
+            bookmark = { it.bookmark },
+        ) { setOf(2L).also { probes++ } }
+
+        flags.isDownloaded(Row(1L))
+        flags.downloadedIds
+
+        probes shouldBe 1
+    }
+
+    @Test
     fun `an ungrouped chapter answers for itself`() {
         flags(Row(2L, read = true), stitch = emptyList()).isRead(Row(1L)) shouldBe false
     }
@@ -47,6 +82,7 @@ class GroupChapterFlagsTest {
     fun `asking for read never probes the disk`() {
         var probed = false
         val flags = GroupChapterFlags(
+            scope = MergeScope.Group,
             pooled = listOf(Row(1L)),
             shown = listOf(Row(1L)),
             stitch = emptyList(),
