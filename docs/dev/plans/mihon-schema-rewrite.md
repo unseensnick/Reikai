@@ -85,19 +85,40 @@ device: an upgrade from a 196 or 197 build with real data is the owner's check.
 - **The `novels_categories` pair index lands in `51.sqm`**, after the novel merge that can bring a pair
   together, rather than in `50.sqm`, which only rebuilds the table against the renamed `category`.
 - **State outside the database follows the merge through a record.** `50.sqm` and `51.sqm` write each
-  merged-away id and its survivor to `dedupe_merged_ids` before deleting the copy, since a migration
-  cannot touch files or preferences. Two readers use it, both before it is emptied:
-  - `MergedDuplicateCoversMigration` (198) moves a copy's custom cover to the survivor when the survivor
+  merged-away id, its survivor and its title to `dedupe_merged_ids`, and each merged-away chapter row
+  and the kept row with the same url to `dedupe_merged_chapter_ids`, before deleting them, since a
+  migration cannot touch files or preferences. Two readers use it, both before it is emptied:
+  - `MergedDuplicateCarryMigration` (198) moves a copy's custom cover to the survivor when the survivor
     has none; when both have one the survivor's stays. The copy's file is deleted either way, because
     neither entry table uses AUTOINCREMENT and a new entry could be given the freed id and inherit it. A
     novel's cover may still sit under its pre-186 name, since the 186 re-key sees only surviving rows.
-    It then empties the record, so a second run does nothing. Upstream loses these covers.
+    It then carries the downloads (below) and empties both records, so a second run does nothing.
+    Upstream loses these covers.
   - `MigrateMergePrefsToGroupsMigration` (189) maps merged-away ids in the old merge and unmerge prefs
     to their survivors. Every 0.3.2 install runs it after the dedupe, and without the map it drops a
     manual merge naming a copy and lets a same-title group form against an unmerge naming one.
+- **Downloads follow the merge by one rule for both types** (`MergedDuplicateDownloads`, called by the
+  198 carry). A download folder is named by source and title, so a copy whose title differs from the
+  survivor's has its folder renamed in place to the survivor's title when the survivor has no folder of
+  its own, through a temporary name for a change of letter case only, as both engines' title renames
+  do; both download indexes are then rebuilt. Titles are compared as folder names before the manga
+  source is looked up, since that lookup waits for extensions to load. When the survivor has a folder
+  too, the survivor's is kept and the copy's is left untouched under its old name, unlisted: storage
+  (`UniFile`) can rename a folder in place but cannot move a file between folders, so merging the two
+  would take a copy and a delete of the user's files, which is left for an owner ruling. Where several
+  copies merged into one survivor, the lowest id goes first and takes the name. Nothing is deleted or
+  overwritten on any path. The chapter files inside keep their names, which come from each chapter's
+  name and url, so they match the survivor's rows wherever the merged rows agree on the name.
+- **Queued downloads follow the merge by one rule for both types.** Both saved queues are rows of
+  entry id, chapter id and order in their own preferences file (`active_downloads`,
+  `active_novel_downloads`). The carry re-points a row of a merged-away entry to the survivor and a row
+  of a merged-away chapter to the kept row with the same url, keeps the row further up the queue where
+  two land on one chapter, and drops a row whose chapter no longer exists, so no row names a deleted
+  id. It edits only the rows it read. Both engines restore their queue as they are built, which can be
+  before the migrations finish (`App` warms the manga one right after start), so both stores' restore
+  waits for `Migrator` first; before this the manga queue dropped such a row and the novel queue kept
+  it under the deleted entry id, which then failed.
 - **Other state keyed by an entry, checked for the same loss.** Not affected: hidden chapters
   (keyed by source and chapter url), page-list and page-preview caches (rebuilt on the next read), the
   cover colour cache (recomputed from the cover), per-entry reader settings (columns the SQL merges).
-  Downloads are keyed by source and title, not id; the survivor keeps its own title, so a copy whose
-  title had drifted leaves its folder on disk but unlisted. A queued download of a merged-away copy is
-  dropped (manga) or fails (novels) on the next start, and can be queued again. Neither is handled.
+  Downloads and queued downloads are handled above.

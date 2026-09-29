@@ -9,6 +9,8 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import mihon.core.migration.Migrator
+import reikai.domain.download.QueuedChapter
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
@@ -92,6 +94,7 @@ class DownloadStore(
      * Returns the list of downloads to restore. It should be called in a background thread.
      */
     suspend fun restore(): List<Download> {
+        Migrator.await() // RK: MergedDuplicateDownloads re-points this queue in a migration, which runs beside this
         val objs = preferences.all
             .mapNotNull { it.value as? String }
             .mapNotNull { deserialize(it) }
@@ -114,6 +117,24 @@ class DownloadStore(
         clear()
         return downloads
     }
+
+    // RK --> the saved rows as they are, for MergedDuplicateDownloads to re-point after the upgrade's dedupe
+    fun persisted(): List<QueuedChapter> = preferences.all.values
+        .mapNotNull { (it as? String)?.let(::deserialize) }
+        .map { QueuedChapter(it.mangaId, it.chapterId, it.order) }
+
+    fun replacePersisted(removed: List<QueuedChapter>, rows: List<QueuedChapter>) {
+        preferences.edit {
+            removed.forEach { remove(it.chapterId.toString()) }
+            rows.forEach {
+                putString(
+                    it.chapterId.toString(),
+                    json.encodeToString(DownloadObject(it.entryId, it.chapterId, it.order)),
+                )
+            }
+        }
+    }
+    // RK <--
 
     /**
      * Converts a download to a string.

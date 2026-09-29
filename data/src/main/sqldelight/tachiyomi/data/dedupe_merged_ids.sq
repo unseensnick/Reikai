@@ -1,8 +1,19 @@
 -- Each copy the upgrade's dedupe merged away (50.sqm for manga, 51.sqm for novels), with the entry it
--- merged into, so state kept outside the database under the discarded id can follow it there. Written only
--- by those migrations and emptied by MergedDuplicateCoversMigration once it has run.
+-- merged into and the title it had, so state kept outside the database under the discarded id or title
+-- (a custom cover, a download folder) can follow it there. Written only by those migrations and emptied
+-- by MergedDuplicateCarryMigration once it has run.
 -- content_type: 0 = manga, 1 = novel, as in merge_group.
 CREATE TABLE dedupe_merged_ids(
+    content_type INTEGER NOT NULL,
+    discarded_id INTEGER NOT NULL,
+    survivor_id INTEGER NOT NULL,
+    discarded_title TEXT NOT NULL,
+    PRIMARY KEY(content_type, discarded_id)
+);
+
+-- Each chapter row the same migrations merged into another of its entry with the same url, for the
+-- download queues, which are keyed by chapter id outside the database. Emptied with the table above.
+CREATE TABLE dedupe_merged_chapter_ids(
     content_type INTEGER NOT NULL,
     discarded_id INTEGER NOT NULL,
     survivor_id INTEGER NOT NULL,
@@ -10,8 +21,15 @@ CREATE TABLE dedupe_merged_ids(
 );
 
 getAll:
-SELECT content_type, discarded_id, survivor_id
+SELECT content_type, discarded_id, survivor_id, discarded_title
 FROM dedupe_merged_ids;
+
+getAllChapters:
+SELECT content_type, discarded_id, survivor_id
+FROM dedupe_merged_chapter_ids;
 
 deleteAll:
 DELETE FROM dedupe_merged_ids;
+
+deleteAllChapters:
+DELETE FROM dedupe_merged_chapter_ids;

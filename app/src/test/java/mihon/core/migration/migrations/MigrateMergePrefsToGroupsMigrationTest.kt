@@ -33,7 +33,8 @@ class MigrateMergePrefsToGroupsMigrationTest {
             InMemoryPreferenceStore(sequenceOf(InMemoryPreference(type.mergesKey, setOf("1,5"), emptySet()))),
         )
         val record = mockk<MergedDuplicateRepository> {
-            coEvery { getAll() } returns listOf(MergedDuplicate(type.contentType, discardedId = 5, survivorId = 3))
+            coEvery { getAll() } returns
+                listOf(MergedDuplicate(type.contentType, discardedId = 5, survivorId = 3, discardedTitle = "t"))
         }
 
         MigrateMergePrefsToGroupsMigration(prefs, groups, mangaFavorites, novelRepository, record)

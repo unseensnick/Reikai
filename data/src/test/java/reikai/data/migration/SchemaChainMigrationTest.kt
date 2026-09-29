@@ -15,6 +15,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.dedupe.MergedDuplicateRepositoryImpl
 import reikai.domain.dedupe.MergedDuplicate
+import reikai.domain.dedupe.MergedDuplicateChapter
 import reikai.domain.library.ContentType
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -67,7 +68,39 @@ class SchemaChainMigrationTest {
         migrate()
 
         MergedDuplicateRepositoryImpl(DatabaseBindings.providesDatabase(driver)).getAll() shouldContainExactlyInAnyOrder
-            listOf(MergedDuplicate(type.domainType, 1, 2), MergedDuplicate(type.domainType, 3, 2))
+            listOf(
+                MergedDuplicate(type.domainType, 1, 2, type.title(1)),
+                MergedDuplicate(type.domainType, 3, 2, type.title(3)),
+            )
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `each merged-away chapter is recorded against the kept one with the same url`(type: Type) = runTest {
+        exec(type.entry(id = 1, url = "/g/1", favorite = false))
+        exec(type.entry(id = 2, url = "/g/1", favorite = true))
+        exec(type.chapter(id = 10, entryId = 1, url = "/c/1", read = true))
+        exec(type.chapter(id = 20, entryId = 2, url = "/c/1", read = false))
+        exec(type.chapter(id = 30, entryId = 1, url = "/c/3", read = false))
+
+        migrate()
+
+        MergedDuplicateRepositoryImpl(DatabaseBindings.providesDatabase(driver)).getChapters() shouldBe
+            listOf(MergedDuplicateChapter(type.domainType, 20, 10))
+    }
+
+    @Test
+    fun `emptying the record empties its chapters too`() = runTest {
+        exec(Type.NOVEL.entry(id = 1, url = "/g/1", favorite = false))
+        exec(Type.NOVEL.entry(id = 2, url = "/g/1", favorite = true))
+        exec(Type.NOVEL.chapter(id = 10, entryId = 1, url = "/c/1", read = true))
+        exec(Type.NOVEL.chapter(id = 20, entryId = 2, url = "/c/1", read = false))
+        migrate()
+        val record = MergedDuplicateRepositoryImpl(DatabaseBindings.providesDatabase(driver))
+
+        record.clear()
+
+        record.getChapters().shouldBeEmpty()
     }
 
     @ParameterizedTest
@@ -185,8 +218,12 @@ class SchemaChainMigrationTest {
         ) {
             override fun entry(id: Long, url: String, favorite: Boolean) =
                 "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, chapter_flags, " +
-                    "cover_last_modified, date_added) VALUES ($id, 1, '$url', 'm$id', 0, ${favorite.sql}, 0, 0, 0, " +
+                    "cover_last_modified, date_added) VALUES ($id, 1, '$url', '${title(
+                        id,
+                    )}', 0, ${favorite.sql}, 0, 0, 0, " +
                     "0, ${if (favorite) 1000 else 0})"
+
+            override fun title(id: Long) = "m$id"
 
             override fun chapter(id: Long, entryId: Long, url: String, read: Boolean) =
                 "INSERT INTO chapters(_id, manga_id, url, name, read, bookmark, last_page_read, chapter_number, " +
@@ -211,8 +248,10 @@ class SchemaChainMigrationTest {
         ) {
             override fun entry(id: Long, url: String, favorite: Boolean) =
                 "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags, " +
-                    "date_added) VALUES ($id, 's', '$url', 'n$id', 0, ${favorite.sql}, 0, 0, " +
+                    "date_added) VALUES ($id, 's', '$url', '${title(id)}', 0, ${favorite.sql}, 0, 0, " +
                     "${if (favorite) 1000 else 0})"
+
+            override fun title(id: Long) = "n$id"
 
             override fun chapter(id: Long, entryId: Long, url: String, read: Boolean) =
                 "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, chapter_number, " +
@@ -222,6 +261,9 @@ class SchemaChainMigrationTest {
         ;
 
         abstract fun entry(id: Long, url: String, favorite: Boolean): String
+
+        /** The title [entry] writes. */
+        abstract fun title(id: Long): String
 
         abstract fun chapter(id: Long, entryId: Long, url: String, read: Boolean): String
 

@@ -75,7 +75,7 @@ class MigrateMergePrefsToGroupsMigration(
     }
 
     // The upgrade's dedupe (50.sqm, 51.sqm) runs before this, so the prefs can name a copy it merged away.
-    // MergedDuplicateCoversMigration empties the record, and runs after this by its higher version.
+    // MergedDuplicateCarryMigration empties the record, and runs after this by its higher version.
     private suspend fun survivorsOf(contentType: ContentType): Map<Long, Long> =
         mergedDuplicates.getAll()
             .filter { it.contentType == contentType }

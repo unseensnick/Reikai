@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
+import reikai.data.dedupe.MergedDuplicateDownloads
 import reikai.domain.dedupe.MergedDuplicate
 import reikai.domain.dedupe.MergedDuplicateRepository
 import reikai.domain.entry.EntryId
@@ -18,28 +19,31 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 
 /**
- * Moves the custom cover of each duplicate the upgrade merged away (50.sqm, 51.sqm) to the entry it merged
- * into, since a cover file is named by entry id and the merge moved only database rows. The survivor's own
- * cover wins, and the copy's file goes either way: neither entry table uses AUTOINCREMENT, so the freed id
- * can be handed to a new entry, which would inherit it. Best-effort per file, as the novel cover re-key is.
- * Rule and inventory: docs/dev/plans/mihon-schema-rewrite.md.
+ * Carries what each duplicate the upgrade merged away (50.sqm, 51.sqm) kept outside the database to the entry it
+ * merged into: its custom cover, named by entry id, and its downloads, named by title and queued by id. The
+ * survivor's own cover wins, and the copy's file goes either way: neither entry table uses AUTOINCREMENT, so the
+ * freed id can be handed to a new entry, which would inherit it. Best-effort per file, as the novel cover re-key
+ * is. The one reader that empties the record. Rules and inventory: docs/dev/plans/mihon-schema-rewrite.md.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)
-class MergedDuplicateCoversMigration(
+class MergedDuplicateCarryMigration(
     private val mergedDuplicates: MergedDuplicateRepository,
     private val coverCache: CoverCache,
+    private val downloads: MergedDuplicateDownloads,
 ) : Migration {
     // Fires once when the shipped versionCode crosses 198 (the version this carry ships in).
     override val version: Float = 198f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         val duplicates = runCatching { mergedDuplicates.getAll() }
-            .onFailure { logcat(LogPriority.ERROR, it) { "Merged-duplicate covers could not read the record" } }
+            .onFailure { logcat(LogPriority.ERROR, it) { "Merged-duplicate carry could not read the record" } }
             .getOrNull()
             ?: return@withIOContext false
 
         duplicates.forEach(::carryCustomCover)
+        runCatching { downloads.carry(duplicates, mergedDuplicates.getChapters()) }
+            .onFailure { logcat(LogPriority.ERROR, it) { "Merged-duplicate download carry failed" } }
         mergedDuplicates.clear()
         true
     }

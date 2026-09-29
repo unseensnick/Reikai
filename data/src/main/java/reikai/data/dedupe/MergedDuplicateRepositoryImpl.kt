@@ -6,6 +6,7 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import reikai.domain.dedupe.MergedDuplicate
+import reikai.domain.dedupe.MergedDuplicateChapter
 import reikai.domain.dedupe.MergedDuplicateRepository
 import reikai.domain.library.ContentType
 import tachiyomi.data.Database
@@ -20,12 +21,20 @@ class MergedDuplicateRepositoryImpl(
     private val queries = database.dedupe_merged_idsQueries
 
     override suspend fun getAll(): List<MergedDuplicate> =
-        queries.getAll { contentType, discardedId, survivorId ->
-            MergedDuplicate(contentType.toContentType(), discardedId, survivorId)
+        queries.getAll { contentType, discardedId, survivorId, discardedTitle ->
+            MergedDuplicate(contentType.toContentType(), discardedId, survivorId, discardedTitle)
+        }.awaitAsList()
+
+    override suspend fun getChapters(): List<MergedDuplicateChapter> =
+        queries.getAllChapters { contentType, discardedId, survivorId ->
+            MergedDuplicateChapter(contentType.toContentType(), discardedId, survivorId)
         }.awaitAsList()
 
     override suspend fun clear() {
-        queries.deleteAll()
+        database.transaction {
+            queries.deleteAll()
+            queries.deleteAllChapters()
+        }
     }
 
     private companion object {

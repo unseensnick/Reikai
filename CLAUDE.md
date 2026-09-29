@@ -70,7 +70,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 - New work lands its CHANGELOG entries under `[Unreleased]` and normally bumps nothing: `versionCode` / `versionName` move only at release-cut (see the `feedback_version_bumps` memory). **Standing exception:** a version-gated data migration is a no-op until the shipped `versionCode` reaches its gate, so adding one bumps `versionCode` mid-cycle to make it fire in dev / preview builds and be testable. That is why this cycle already climbed from 0.3.2's `185` to `198`. `versionName` stays `0.3.2` until the cut.
 - **The bump rule covers `mihon.core.migration` only, never a SQLDelight `.sqm`.** A schema migration runs off the database's own `user_version` against the derived `Database.Schema.version` (`DatabaseBindings.providesSqlDriver` in `:data` hands the driver `schema = Database.Schema`), so adding the next-numbered `.sqm` is the whole change and `versionCode` stays put. Verified on an upgraded database, 2026-08-14.
-- **Each preference migration gates on its own `versionCode`, never a reused one.** The current top is `MergedDuplicateCoversMigration` (`version = 198f`) on `versionCode 198`; grep `override val version` under `mihon/core/migration/migrations/` for the ones below it. A new migration gates on 199+ and bumps `versionCode` to match.
+- **Each preference migration gates on its own `versionCode`, never a reused one.** The current top is `MergedDuplicateCarryMigration` (`version = 198f`) on `versionCode 198`; grep `override val version` under `mihon/core/migration/migrations/` for the ones below it. A new migration gates on 199+ and bumps `versionCode` to match.
 
 ## Design context
 

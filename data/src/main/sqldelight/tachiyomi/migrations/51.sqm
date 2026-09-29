@@ -19,11 +19,13 @@ WHERE (source, url) IN (
     HAVING count(*) > 1
 );
 
--- Recorded for what lives outside the database under a novel's id, as 50.sqm records manga
-INSERT INTO dedupe_merged_ids(content_type, discarded_id, survivor_id)
-SELECT 1, _id, keep_id
-FROM duplicate_novels
-WHERE _id != keep_id;
+-- Recorded for what lives outside the database under a novel's id or title, as 50.sqm records manga
+INSERT INTO dedupe_merged_ids(content_type, discarded_id, survivor_id, discarded_title)
+SELECT 1, D._id, D.keep_id, N.title
+FROM duplicate_novels D
+JOIN novels N
+ON N._id = D._id
+WHERE D._id != D.keep_id;
 
 UPDATE novels
 SET favorite_at = merged.favorite_at,
@@ -268,6 +270,11 @@ WHERE chapter_id IN (SELECT _id FROM duplicate_novel_chapters WHERE _id != keep_
 -- rows than its ranking recorded, which reads as stale
 DELETE FROM merged_novel_chapter_unit
 WHERE chapter_id IN (SELECT _id FROM duplicate_novel_chapters WHERE _id != keep_id);
+
+INSERT INTO dedupe_merged_chapter_ids(content_type, discarded_id, survivor_id)
+SELECT 1, _id, keep_id
+FROM duplicate_novel_chapters
+WHERE _id != keep_id;
 
 DELETE FROM novel_chapters
 WHERE _id IN (SELECT _id FROM duplicate_novel_chapters WHERE _id != keep_id);
