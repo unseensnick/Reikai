@@ -506,6 +506,7 @@ every stable release now also ships a foss build with neither in it.
 - **Reading progress queued for a tracker while offline is no longer dropped when the track is refreshed or restored before it is sent, on manga and novels (synced from Mihon).**
 - **Binding or changing the status of a series from your own manga server when you have not started it no longer marks its Chapter 0 read, in Reikai or on the server.** Reading progress of 0 was taken as "read up to chapter 0".
 - **Backing out of the category choice when adding a manga from its page no longer binds its server tracker.**
+- **Kitsu tracking restored from an old Yokai backup now refreshes and updates again, on manga and novels.** The restored link pointed at your Kitsu list entry instead of the series, so every refresh reported Kitsu as failed; it now repairs itself the first time it is used.
 
 - **Fill from tracker now says "No entry found" when the tracker has no such entry.** A failure with no reason says "Unknown error" instead of ending in a blank.
 - **Start and finish dates pulled from MangaBaka no longer land a day early in timezones behind UTC (synced from Mihon, mihonapp/mihon#3711).**

@@ -1,0 +1,19 @@
+# A Yokai-era track stored its library entry id where the manga id belongs. This reads the entry back
+# with the viewer's own profile id, so only an entry the signed-in user owns is trusted to heal a row.
+query ReikaiKitsuFindLibraryEntry(
+  $id: ID!,
+) {
+  currentProfile {
+    id
+  }
+  findLibraryEntryById(id: $id) {
+    user {
+      id
+    }
+    media {
+      ... on Manga {
+        id
+      }
+    }
+  }
+}

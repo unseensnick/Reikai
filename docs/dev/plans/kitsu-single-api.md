@@ -172,9 +172,9 @@ one.
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/kitsu/Kitsu.kt`: the `getUserLibrary` passthrough,
   which no longer takes a user id (step 2 removed `getUserId()`).
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/kitsu/dto/KitsuLibraryEntry.kt` (the flat row
-  `KitsuApi.getUserLibrary` builds from the GraphQL library connection) and `dto/KitsuMetadata.kt`
-  (the GraphQL wire types for the Fill-from-tracker read): the Reikai-owned DTOs that replaced the
-  JSON:API ones.
+  `KitsuApi.getUserLibrary` builds from the GraphQL library connection), the Reikai-owned DTO that
+  replaced the JSON:API ones. The Fill-from-tracker read is the Apollo operation
+  `app/src/main/graphql/reikai/graphql/kitsu/ReikaiKitsuGetMangaMetadata.graphql`.
 - `app/src/main/java/reikai/domain/recommendation/taste/KitsuLibraryFetcher.kt` and its siblings, plus
   `TrackedEntry.kt`, `TasteLibraryRepository.kt` and `reikai/data/recommendation/taste/`: the consumer
   chain and the table step 4 changes. `ComputeTasteProfile.kt` and `TasteCandidateFetcher.kt` are
@@ -186,8 +186,11 @@ one.
 - `app/src/main/java/reikai/presentation/library/LibraryItemFields.kt`,
   `reikai/util/MangaLewd.kt`, `reikai/domain/manga/AdultContentChecker.kt`: the app's existing adult
   content notion that step 6 would plug into.
-- `app/src/test/java/reikai/domain/recommendation/taste/LibraryFetcherDtoTest.kt`: the only Kitsu
+- `app/src/test/java/reikai/domain/recommendation/taste/LibraryFetcherDtoTest.kt`: the Kitsu DTO
   test, rewritten in step 2.
+- `app/src/main/java/reikai/domain/track/KitsuLibraryEntryResolver.kt` and `KitsuEntryIdCopies.kt`,
+  with their tests under `app/src/test/java/reikai/domain/track/`: the Yokai-restore heal in
+  Decisions, over `ReikaiKitsuFindLibraryEntry.graphql`.
 
 ## Status
 
@@ -234,6 +237,34 @@ so a later reader does not treat their absence as an oversight.
 **Category titles are read by locale key.** A localized field is a loose map, not a string, so the
 category mapper reads `["en"]` and must tolerate a missing key rather than assuming one, the same way
 upstream's description mapper does.
+
+**A Kitsu row restored from a Yokai backup heals itself on first use.** Yokai stored the user's
+library entry id in `media_id` and kept no entry id, while Mihon and Reikai store the manga id in
+`remote_id` and the entry id in `library_id`; `BackupTracking` maps `mediaId` to `remoteId` as
+upstream does, so the restore lands `remote_id = entry id`, `library_id = 0`, and merge-group
+propagation copies that row onto every member. Refresh then looked the entry id up as a manga and
+threw "Could not find manga", and update and delete targeted entry 0. The rule lives in
+`KitsuLibraryEntryResolver` (`reikai/domain/track/`), which `Kitsu.refresh`, `update` and `delete`
+go through; `bind` does not, because a fresh search result also has no library id and must never be
+read as an entry id. The order is deliberate. The normal manga lookup runs first, so any row that
+works today is never touched. Only a row with no library id is then read as an entry id, through the
+Reikai operation `ReikaiKitsuFindLibraryEntry` (`findLibraryEntryById` plus `currentProfile.id`), and
+only an entry whose owner is the signed-in profile heals it: entry ids are global, so without that
+check a correct row's manga id could match a stranger's entry and move the row onto the wrong
+series. An anime entry does not heal either. The heal writes every copy at once
+(`KitsuEntryIdCopies`: rows of that tracker whose `remote_id` is the entry id and which carry no
+library id, in `manga_track` and `novel_tracks`, through `UpsertTrack` and `UpsertNovelTrack`), so a
+merged series cannot keep a stale copy for a later split to hand back. A row with a library id is a
+proper binding and is never rewritten. The restore itself is left as upstream: nothing offline
+separates an entry id from a manga id, and the missing library id already marks the row. One risk
+stays open. A row whose `remote_id` is a real manga id, which carries no library id and is not in
+the user's Kitsu library, would heal onto the user's entry of the same number if one exists. Entry
+ids run in the hundred millions (the Solo Leveling entry is 107289511 against manga 54114), so only
+an entry from Kitsu's earliest days can share a number with a manga, and `bind` and `add` both write
+the library id, so this was accepted. [unified-content-ui.md](unified-content-ui.md) records
+`findLibraryEntryById` as 403-gated when Fill from tracker was built; whether that holds for an
+authenticated client is unverified, and the device check for this fix settles it. A 403 there makes
+the lookup return nothing, which leaves the row behaving as it did before.
 
 **Found while inventorying, not fixed here:** `Novel.isLewd()` in
 `app/src/main/java/reikai/domain/novel/NovelLewd.kt` has no callers anywhere in main or test. The

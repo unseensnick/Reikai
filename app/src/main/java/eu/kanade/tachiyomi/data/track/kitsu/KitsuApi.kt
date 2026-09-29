@@ -31,6 +31,7 @@ import mihon.graphql.kitsu.KitsuGetMangaDetailsByIdQuery
 import mihon.graphql.kitsu.KitsuGetMangaDetailsBySlugQuery
 import mihon.graphql.kitsu.KitsuSearchMangaByTitleQuery
 import mihon.graphql.kitsu.KitsuUpdateLibMangaMutation
+import mihon.graphql.kitsu.ReikaiKitsuFindLibraryEntryQuery
 import mihon.graphql.kitsu.ReikaiKitsuGetMangaMetadataQuery
 import mihon.graphql.kitsu.fragment.MangaFragment
 import mihon.graphql.kitsu.type.MangaSubtypeEnum
@@ -38,6 +39,7 @@ import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import reikai.domain.track.KitsuEntryLookup
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.injectLazy
@@ -194,6 +196,28 @@ class KitsuApi(
                 it.findMangaById?.toTrackSearch(trackerId)
             }
     }
+
+    // RK --> a Yokai-era track's remote id read as a library entry id, with the viewer's own profile id
+    suspend fun findLibraryEntry(entryId: Long): KitsuEntryLookup? {
+        return graphQlClient
+            .query(ReikaiKitsuFindLibraryEntryQuery(id = entryId.toString()))
+            .execute()
+            .dataOrElse(
+                errorLog = "Kitsu: Failed to find library entry",
+                default = { null },
+                // A failed heal attempt leaves the row failing as it did before, not with a new error
+                onException = {},
+            ) { data ->
+                data.findLibraryEntryById?.let { entry ->
+                    KitsuEntryLookup(
+                        ownerId = entry.user.id,
+                        viewerId = data.currentProfile?.id,
+                        mangaId = entry.media.onManga?.id?.toLongOrNull(),
+                    )
+                }
+            }
+    }
+    // RK <--
 
     suspend fun login(username: String, password: String): KitsuOAuth {
         return withIOContext {

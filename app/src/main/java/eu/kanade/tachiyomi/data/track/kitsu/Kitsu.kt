@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.track.kitsu
 
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
@@ -11,6 +12,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
+import reikai.domain.track.KitsuLibraryEntryResolver
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
@@ -72,6 +74,16 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
 
     // RK: full library pull for the recommendation taste profile.
     suspend fun getUserLibrary(): List<KitsuLibraryEntry> = api.getUserLibrary()
+
+    // RK --> refresh, update and delete find the entry through this, which heals a Yokai-restored row
+    private val entryResolver by lazy {
+        KitsuLibraryEntryResolver(
+            findInLibrary = api::findLibManga,
+            findEntry = api::findLibraryEntry,
+            rewriteCopies = { entryId, mangaId -> appGraph.kitsuEntryIdCopies.heal(id, entryId, mangaId) },
+        )
+    }
+    // RK <--
 
     private val scorePreference by lazy { trackPreferences.kitsuScoreType }
 
@@ -140,11 +152,13 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
             }
         }
 
+        track.library_id = entryResolver.libraryId(track) // RK: never write to entry 0
         return api.updateLibManga(track)
     }
 
     override suspend fun delete(track: DomainTrack) {
-        api.removeLibManga(track)
+        // RK: never delete entry 0, which Kitsu answers with an error the api treats as already gone
+        api.removeLibManga(track.copy(libraryId = entryResolver.libraryId(track.toDbTrack())))
     }
 
     override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
@@ -188,7 +202,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     // RK <--
 
     override suspend fun refresh(track: Track): Track {
-        val remoteTrack = api.findLibManga(track) ?: throw Exception("Could not find manga")
+        val remoteTrack = entryResolver.find(track) ?: throw Exception("Could not find manga") // RK
         track.copyPersonalFrom(remoteTrack)
         track.total_chapters = remoteTrack.total_chapters
         return track

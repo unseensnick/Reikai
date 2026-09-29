@@ -28,6 +28,7 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.track.KitsuEntryIdCopies
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.font.NovelFontManager
@@ -92,6 +93,7 @@ interface ReikaiGraph {
     val lnPluginUpdateChecker: LnPluginUpdateChecker
     val lnPluginUpdateNotifier: LnPluginUpdateNotifier // the plugin update job posts and clears its notice
     val refreshTrackerLibrary: RefreshTrackerLibrary
+    val kitsuEntryIdCopies: KitsuEntryIdCopies // Kitsu heals every copy of a Yokai-restored row
     val reikaiLibraryPreferences: ReikaiLibraryPreferences
     val reikaiSourcePreferences: ReikaiSourcePreferences
 
