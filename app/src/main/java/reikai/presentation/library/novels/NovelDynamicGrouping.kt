@@ -3,25 +3,17 @@ package reikai.presentation.library.novels
 import android.content.Context
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import reikai.data.novel.NovelStatusCode
 import reikai.domain.entry.EntryId
-import reikai.domain.library.LibrarySortFields
-import reikai.domain.library.librarySortComparator
-import reikai.domain.library.toSortMode
 import reikai.domain.novel.model.LibraryNovel
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.components.entryStatusRes
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.DynamicGroupingFeed
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
-import reikai.presentation.library.LibraryTrackingStatusOrder
-import reikai.presentation.library.displayLanguage
 import reikai.presentation.library.groupTrackStatus
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.track.model.Track
-import tachiyomi.i18n.MR
 
 /**
  * Resolve the novel library's per-item metadata (source, language, status, tracking status) into a
@@ -72,7 +64,7 @@ suspend fun novelDynamicGroupingFeed(
     val statusNames = if (groupType == LibraryGroup.BY_STATUS) {
         items.mapNotNull { item ->
             val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-            EntryId.Novel(item.id) as EntryId to context.stringResource(NovelStatusCode.toStringRes(novel.status))
+            EntryId.Novel(item.id) as EntryId to context.stringResource(entryStatusRes(novel.status))
         }.toMap()
     } else {
         emptyMap()

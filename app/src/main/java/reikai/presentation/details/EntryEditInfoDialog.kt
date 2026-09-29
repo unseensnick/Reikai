@@ -39,10 +39,12 @@ import eu.kanade.presentation.track.components.TrackLogoIcon
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.databinding.EditEntryInfoBinding
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import reikai.presentation.components.entryStatusRes
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.model.Track
@@ -248,16 +250,10 @@ private fun EditEntryInfoBinding.setInfoFields(ui: EntryEditInfoUi) {
     mangaDescription.setText(ui.description)
 }
 
-// SManga and NovelStatusCode share the same 0-6 codes, so one option list and a 1:1 index serve both.
-private fun statusLabels(context: android.content.Context) = listOf(
-    MR.strings.label_default,
-    MR.strings.ongoing,
-    MR.strings.completed,
-    MR.strings.licensed,
-    MR.strings.publishing_finished,
-    MR.strings.cancelled,
-    MR.strings.on_hiatus,
-).map { context.stringResource(it) }
+// The option's index is the stored status code, with Default in the unknown code's slot.
+private fun statusLabels(context: android.content.Context) =
+    (listOf(MR.strings.label_default) + (SManga.ONGOING..SManga.ON_HIATUS).map { entryStatusRes(it.toLong()) })
+        .map { context.stringResource(it) }
 
 private fun EditEntryInfoBinding.setup(
     initial: EntryEditInfoUi,

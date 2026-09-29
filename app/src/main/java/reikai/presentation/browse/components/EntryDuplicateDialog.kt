@@ -59,19 +59,13 @@ import eu.kanade.presentation.more.settings.LocalPreferenceMinHeight
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
-import mihon.icons.materialsymbols.rounded.AttachMoney
-import mihon.icons.materialsymbols.rounded.Block
 import mihon.icons.materialsymbols.rounded.Brush
-import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.CollectionsBookmark
-import mihon.icons.materialsymbols.rounded.Done
-import mihon.icons.materialsymbols.rounded.DoneAll
-import mihon.icons.materialsymbols.rounded.Pause
 import mihon.icons.materialsymbols.rounded.Person
-import mihon.icons.materialsymbols.rounded.Schedule
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.icons.materialsymbols.rounded.Warning
-import reikai.data.novel.NovelStatusCode
+import reikai.presentation.components.entryStatusIcon
+import reikai.presentation.components.entryStatusRes
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import tachiyomi.i18n.MR
@@ -393,8 +387,8 @@ private fun EntryDuplicateCard(
         }
 
         EntryDetailRow(
-            text = stringResource(NovelStatusCode.toStringRes(ui.status)),
-            iconImageVector = statusIcon(ui.status),
+            text = stringResource(entryStatusRes(ui.status)),
+            iconImageVector = entryStatusIcon(ui.status),
         )
 
         Spacer(modifier = Modifier.weight(1f))
@@ -446,17 +440,6 @@ private fun EntryDetailRow(
             maxLines = maxLines,
         )
     }
-}
-
-/** SManga and NovelStatusCode share the same 0-6 codes, so one switch serves both content types. */
-private fun statusIcon(status: Long): ImageVector = when (status.toInt()) {
-    NovelStatusCode.ONGOING -> MaterialSymbols.Rounded.Schedule
-    NovelStatusCode.COMPLETED -> MaterialSymbols.Rounded.DoneAll
-    NovelStatusCode.LICENSED -> MaterialSymbols.Rounded.AttachMoney
-    NovelStatusCode.PUBLISHING_FINISHED -> MaterialSymbols.Rounded.Done
-    NovelStatusCode.CANCELLED -> MaterialSymbols.Rounded.Close
-    NovelStatusCode.ON_HIATUS -> MaterialSymbols.Rounded.Pause
-    else -> MaterialSymbols.Rounded.Block
 }
 
 /** Blank author and an artist that only repeats the author are not worth a row of their own. */

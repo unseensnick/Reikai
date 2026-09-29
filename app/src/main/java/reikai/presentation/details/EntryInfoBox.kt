@@ -43,22 +43,16 @@ import coil3.request.crossfade
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.manga.components.DotSeparatorText
 import eu.kanade.presentation.manga.components.MangaCover
-import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.AttachMoney
-import mihon.icons.materialsymbols.rounded.Block
 import mihon.icons.materialsymbols.rounded.Brush
-import mihon.icons.materialsymbols.rounded.Close
-import mihon.icons.materialsymbols.rounded.Done
-import mihon.icons.materialsymbols.rounded.DoneAll
-import mihon.icons.materialsymbols.rounded.Pause
 import mihon.icons.materialsymbols.rounded.Person
-import mihon.icons.materialsymbols.rounded.Schedule
 import mihon.icons.materialsymbols.rounded.Warning
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.asNovelCover
+import reikai.presentation.components.entryStatusIcon
+import reikai.presentation.components.entryStatusRes
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
@@ -380,15 +374,7 @@ private fun ColumnScope.EntryContentInfo(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = when (header.status) {
-                SManga.ONGOING.toLong() -> MaterialSymbols.Rounded.Schedule
-                SManga.COMPLETED.toLong() -> MaterialSymbols.Rounded.DoneAll
-                SManga.LICENSED.toLong() -> MaterialSymbols.Rounded.AttachMoney
-                SManga.PUBLISHING_FINISHED.toLong() -> MaterialSymbols.Rounded.Done
-                SManga.CANCELLED.toLong() -> MaterialSymbols.Rounded.Close
-                SManga.ON_HIATUS.toLong() -> MaterialSymbols.Rounded.Pause
-                else -> MaterialSymbols.Rounded.Block
-            },
+            imageVector = entryStatusIcon(header.status),
             contentDescription = null,
             modifier = Modifier
                 .padding(end = 4.dp)
@@ -396,15 +382,7 @@ private fun ColumnScope.EntryContentInfo(
         )
         ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
             Text(
-                text = when (header.status) {
-                    SManga.ONGOING.toLong() -> stringResource(MR.strings.ongoing)
-                    SManga.COMPLETED.toLong() -> stringResource(MR.strings.completed)
-                    SManga.LICENSED.toLong() -> stringResource(MR.strings.licensed)
-                    SManga.PUBLISHING_FINISHED.toLong() -> stringResource(MR.strings.publishing_finished)
-                    SManga.CANCELLED.toLong() -> stringResource(MR.strings.cancelled)
-                    SManga.ON_HIATUS.toLong() -> stringResource(MR.strings.on_hiatus)
-                    else -> stringResource(MR.strings.unknown)
-                },
+                text = stringResource(entryStatusRes(header.status)),
                 overflow = TextOverflow.Ellipsis,
                 maxLines = 1,
             )

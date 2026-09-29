@@ -1,6 +1,5 @@
 package reikai.data.novel
 
-import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -8,7 +7,6 @@ import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
-import tachiyomi.i18n.MR
 
 /**
  * Status codes used by the `novels.status` column. Mirrors the lnreader NovelStatus enum the
@@ -40,17 +38,6 @@ object NovelStatusCode {
 
     /** [code] in a source's words, for a source that states it as a number; null when unknown. */
     fun toSourceString(code: Int): String? = names[code]
-
-    /** Display label resource for a `novels.status` code; unknown/unrecognized falls back to `unknown`. */
-    fun toStringRes(status: Long): StringResource = when (status.toInt()) {
-        ONGOING -> MR.strings.ongoing
-        COMPLETED -> MR.strings.completed
-        LICENSED -> MR.strings.licensed
-        PUBLISHING_FINISHED -> MR.strings.publishing_finished
-        CANCELLED -> MR.strings.cancelled
-        ON_HIATUS -> MR.strings.on_hiatus
-        else -> MR.strings.unknown
-    }
 }
 
 /**

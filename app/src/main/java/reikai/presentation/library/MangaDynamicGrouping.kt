@@ -1,24 +1,20 @@
 package reikai.presentation.library
 
 import android.content.Context
-import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.track.TrackerManager
-import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId
+import reikai.presentation.components.entryStatusRes
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.model.Track
-import tachiyomi.i18n.MR
 import java.util.Locale
 
 /**
  * Resolve the manga library's per-item metadata (source, language, status, tracking status) into a
  * [DynamicGroupingFeed] for the shared [LibraryDynamicGrouping] kernel, keyed by [EntryId]. The novel
- * library has its own twin, since the two resolve metadata off different source managers and track
- * tables; the manga model's own builder below and the engine's mixed assembly both consume this, so the
- * resolution rules cannot fork.
+ * library has its own builder, since the two resolve metadata off different source managers and track
+ * tables; both label a status through [entryStatusRes].
  */
 @Suppress("LongParameterList")
 suspend fun mangaDynamicGroupingFeed(
@@ -53,7 +49,7 @@ suspend fun mangaDynamicGroupingFeed(
 
     val statusNames = if (groupType == LibraryGroup.BY_STATUS) {
         library.associate { lm ->
-            EntryId.Manga(lm.manga.id) as EntryId to context.stringResource(mapMangaStatus(lm.manga.status))
+            EntryId.Manga(lm.manga.id) as EntryId to context.stringResource(entryStatusRes(lm.manga.status))
         }
     } else {
         emptyMap()
@@ -81,20 +77,10 @@ suspend fun mangaDynamicGroupingFeed(
     )
 }
 
-private fun mapMangaStatus(status: Long): StringResource = when (status.toInt()) {
-    SManga.ONGOING -> MR.strings.ongoing
-    SManga.COMPLETED -> MR.strings.completed
-    SManga.LICENSED -> MR.strings.licensed
-    SManga.PUBLISHING_FINISHED -> MR.strings.publishing_finished
-    SManga.CANCELLED -> MR.strings.cancelled
-    SManga.ON_HIATUS -> MR.strings.on_hiatus
-    else -> MR.strings.unknown
-}
-
 /**
  * Render a group-by-language header as the full name ("English") rather than the bare code; the cover
- * badge still shows the short code separately. Shared with the novel builder and the engine's mixed
- * assembly so one language can never split into two differently-labelled buckets.
+ * badge still shows the short code separately. The engine applies it to both content types' codes
+ * (LibraryEngine), so one language can never split into two differently-labelled buckets.
  */
 internal fun displayLanguage(code: String): String =
     Locale.forLanguageTag(code).displayName.ifBlank { code }
