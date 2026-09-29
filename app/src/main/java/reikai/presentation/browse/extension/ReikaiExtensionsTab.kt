@@ -58,6 +58,7 @@ import mihon.icons.materialsymbols.rounded.Info
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Settings
 import reikai.domain.library.ContentType
+import reikai.domain.library.labelRes
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
@@ -281,7 +282,7 @@ private fun ExtensionsList(
                             showContentType -> TypeBadge(
                                 stringResource(
                                     MR.strings.content_type_with_format,
-                                    stringResource(MR.strings.content_type_novels),
+                                    stringResource(item.row.key.contentType.labelRes),
                                     format,
                                 ),
                             )

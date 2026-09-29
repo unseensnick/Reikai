@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import reikai.domain.library.ContentType
-import tachiyomi.i18n.MR
+import reikai.domain.library.labelRes
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
@@ -22,12 +22,8 @@ fun ContentTypeBadge(
     contentType: ContentType,
     modifier: Modifier = Modifier,
 ) {
-    val label = when (contentType) {
-        ContentType.MANGA -> MR.strings.content_type_manga
-        ContentType.NOVELS -> MR.strings.content_type_novels
-        ContentType.ALL -> return
-    }
-    TypeBadge(stringResource(label), modifier)
+    if (contentType == ContentType.ALL) return
+    TypeBadge(stringResource(contentType.labelRes), modifier)
 }
 
 /** The badge's pill around any label, for a row that names more than its content type. */

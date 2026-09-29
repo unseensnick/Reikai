@@ -3,6 +3,8 @@ package reikai.data.updateerror
 import android.content.Context
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
+import reikai.domain.library.ContentType
+import reikai.domain.library.labelRes
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -17,9 +19,9 @@ data class UpdateErrorEntry(
 
 /** A job's part of the dump, in the order the dump lists them. */
 enum class UpdateErrorSection(val label: StringResource) {
-    MANGA(MR.strings.content_type_manga),
+    MANGA(ContentType.MANGA.labelRes),
     GALLERIES(MR.strings.gallery_update_checker),
-    NOVELS(MR.strings.content_type_novels),
+    NOVELS(ContentType.NOVELS.labelRes),
 }
 
 /**

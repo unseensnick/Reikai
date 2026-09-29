@@ -13,12 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import reikai.domain.library.ContentType
-import tachiyomi.i18n.MR
+import reikai.domain.library.labelRes
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Sticky `All / Manga / Novels` switch shared by every content-type chip row. The single label
- * mapping lives here so callers only pass the selected type. Net-new Reikai UI; mirrors the
+ * Sticky `All / Manga / Novels` switch shared by every content-type chip row, labelled through
+ * [labelRes] so callers only pass the selected type. Net-new Reikai UI, built on the
  * [reikai.presentation.components.MergeSourceChips] chip-row pattern.
  */
 @Composable
@@ -52,10 +52,3 @@ fun ContentTypeFilterChips(
         }
     }
 }
-
-internal val ContentType.labelRes
-    get() = when (this) {
-        ContentType.ALL -> MR.strings.content_type_all
-        ContentType.MANGA -> MR.strings.content_type_manga
-        ContentType.NOVELS -> MR.strings.content_type_novels
-    }
