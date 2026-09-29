@@ -12,14 +12,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.presentation.components.AdaptiveSheet
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -36,9 +37,9 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * Renders a light-novel source's `plugin.pluginSettings` schema (login fields, base-URL pickers,
- * content toggles) through the same Mihon settings-item primitives as [NovelSourceFilterSheet], and
- * persists values through [NovelSettings.LnSchema.set] so the plugin reads them at runtime. Current values
- * load from storage on open, falling back to each setting's declared default. Setting types track
+ * content toggles) through the same Mihon settings-item primitives as [NovelSourceFilterSheet]. Its
+ * [NovelSourceSettingsModel] loads the stored values on every open and saves them to the plugin's
+ * storage, where the plugin reads them at runtime. Setting types track
  * lnreader's: Switch / Select / CheckboxGroup / Text (default). Required for sources like Komga and
  * Linovelib that are non-functional without user-provided settings.
  */
@@ -48,17 +49,12 @@ internal fun NovelSourceSettingsSheet(
     onDismiss: () -> Unit,
 ) {
     val schema = settings.schema
-    var draft by remember { mutableStateOf<Map<String, JsonElement>>(emptyMap()) }
-    var loaded by remember { mutableStateOf(false) }
+    val model = viewModel<NovelSourceSettingsModel>(factory = modelFactory)
+    val draft by model.draft.collectAsStateWithLifecycle()
 
-    LaunchedEffect(settings) {
-        val map = mutableMapOf<String, JsonElement>()
-        schema.forEach { (key, schemaEl) ->
-            val s = schemaEl as? JsonObject ?: return@forEach
-            (settings.get(key) ?: s["value"])?.let { map[key] = it }
-        }
-        draft = map
-        loaded = true
+    DisposableEffect(settings) {
+        model.load(settings)
+        onDispose(model::clear)
     }
 
     AdaptiveSheet(onDismissRequest = onDismiss) {
@@ -76,16 +72,14 @@ internal fun NovelSourceSettingsSheet(
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f).padding(start = 8.dp),
                     )
-                    Button(
-                        onClick = {
-                            draft.forEach { (k, v) -> settings.set(k, v) }
-                            onDismiss()
-                        },
-                    ) { Text(text = stringResource(MR.strings.action_save)) }
+                    Button(onClick = { model.save(settings, onSaved = onDismiss) }) {
+                        Text(text = stringResource(MR.strings.action_save))
+                    }
                 }
             }
 
-            if (!loaded) {
+            val values = draft
+            if (values == null) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -99,13 +93,16 @@ internal fun NovelSourceSettingsSheet(
                 val s = schemaEl as? JsonObject ?: return@items
                 NovelSettingItem(
                     schema = s,
-                    current = draft[key] ?: s["value"],
-                    onChange = { value -> draft = draft + (key to value) },
+                    current = values[key] ?: s["value"],
+                    onChange = { value -> model.change(key, value) },
                 )
             }
         }
     }
 }
+
+// Built directly rather than by reflection; it needs nothing from the graph, so it is not bound there.
+private val modelFactory = viewModelFactory { initializer { NovelSourceSettingsModel() } }
 
 @Composable
 private fun NovelSettingItem(

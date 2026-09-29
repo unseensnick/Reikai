@@ -714,6 +714,7 @@ every stable release now also ships a foss build with neither in it.
 - The one-time import of a Yokai-era database on first launch is removed. It could not run since the 0.3.2 package change, which installs the app beside a Yokai-era build rather than over it.
 - Shikimori recommendations now send the same Reikai user agent as the signed-in Shikimori calls.
 - Cancelled novel plugin checks, font downloads and update runs stop instead of being logged as failures.
+- Plugin settings load and save off the main thread.
 
 ## [0.3.2]
 
