@@ -17,6 +17,7 @@ import kotlinx.datetime.toLocalDateTime
 import reikai.domain.chapter.ArrivingChapter
 import reikai.domain.chapter.StoredChapter
 import reikai.domain.chapter.chapterArrivals
+import reikai.domain.chapter.remoteUploadDate
 import tachiyomi.data.chapter.ChapterSanitizer
 import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
 import tachiyomi.domain.chapter.model.Chapter
@@ -27,7 +28,6 @@ import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.source.local.isLocal
-import java.lang.Long.max
 import kotlin.time.Clock
 
 @Inject
@@ -80,10 +80,6 @@ class SyncChaptersWithSource(
         val updatedChapters = mutableListOf<ChapterRemoteUpdate>()
         val sourceUrls = mutableSetOf<String>()
 
-        // Used to not set upload date of older chapters
-        // to a higher value than newer chapters
-        var maxSeenUploadDate = 0L
-
         for (sourceChapter in sourceChapters) {
             var chapter = sourceChapter
 
@@ -104,14 +100,7 @@ class SyncChaptersWithSource(
             val dbChapter = dbChaptersByUrl[chapter.url]
 
             if (dbChapter == null) {
-                val toAddChapter = if (chapter.dateUpload == 0L) {
-                    val altDateUpload = if (maxSeenUploadDate == 0L) nowMillis else maxSeenUploadDate
-                    chapter.copy(dateUpload = altDateUpload)
-                } else {
-                    maxSeenUploadDate = max(maxSeenUploadDate, sourceChapter.dateUpload)
-                    chapter
-                }
-                newChapters.add(toAddChapter)
+                newChapters.add(chapter) // RK: chapterArrivals fills a missing upload date
             } else {
                 if (shouldUpdateDbChapter.await(dbChapter, chapter)) {
                     val shouldRenameChapter = downloadProvider.isChapterDirNameChanged(dbChapter, chapter) &&
@@ -134,7 +123,7 @@ class SyncChaptersWithSource(
                             chapterNumber = chapter.chapterNumber,
                             scanlator = chapter.scanlator,
                             sourceOrder = chapter.sourceOrder,
-                            dateUpload = chapter.dateUpload.takeIf { it != 0L },
+                            dateUpload = remoteUploadDate(chapter.dateUpload), // RK
                             memo = chapter.memo,
                         ),
                     )
@@ -162,7 +151,7 @@ class SyncChaptersWithSource(
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
         // Sources MUST return the chapters from most to less recent, which the fetch dates rely on.
         val arrivals = chapterArrivals(
-            added = newChapters.map { ArrivingChapter(it.chapterNumber, it.read, it.bookmark) },
+            added = newChapters.map { ArrivingChapter(it.chapterNumber, it.read, it.bookmark, it.dateUpload) },
             stored = dbChapters.map { StoredChapter(it.chapterNumber, it.read) },
             removed = removedChapters.map { StoredChapter(it.chapterNumber, it.read, it.bookmark, it.dateFetch) },
             markDuplicateAsRead = markDuplicateAsRead,
@@ -172,7 +161,12 @@ class SyncChaptersWithSource(
             .filter { (_, arrival) -> arrival.isChangedOrDuplicate }
             .mapTo(mutableSetOf()) { (chapter, _) -> chapter.url }
         val toAdd = newChapters.zip(arrivals) { chapter, arrival ->
-            chapter.copy(dateFetch = arrival.dateFetch, read = arrival.read, bookmark = arrival.bookmark)
+            chapter.copy(
+                dateFetch = arrival.dateFetch,
+                dateUpload = arrival.dateUpload,
+                read = arrival.read,
+                bookmark = arrival.bookmark,
+            )
         }
         // RK <--
 

@@ -376,6 +376,9 @@ every stable release now also ships a foss build with neither in it.
 - **Downloading a selection of novel chapters no longer fetches the ones already downloaded again.**
 - **Smart update under Settings -> Library -> Global update · Novels now lists its options in the same order as the manga one.**
 - **Novel updates set to Wi-Fi only no longer run on mobile data on Android 8.**
+- **Refreshing a novel no longer erases a chapter's date when the source stops giving one.**
+- **Novel chapter names no longer repeat the novel's title in front.**
+- **New novel chapters the source leaves undated now get a date, as manga chapters do.**
 
 ### Browse & sources
 

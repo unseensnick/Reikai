@@ -1,5 +1,6 @@
 package reikai.data.novel
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -17,12 +18,20 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
+import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /** The sync's rules over a stubbed repository; the one-transaction write is [NovelChapterUpdateFromRemoteTest]'s. */
 class NovelChapterSyncTest {
 
-    private data class InsertedRow(val url: String, val read: Boolean, val bookmark: Boolean, val dateFetch: Long)
+    private data class InsertedRow(
+        val url: String,
+        val read: Boolean,
+        val bookmark: Boolean,
+        val dateFetch: Long,
+        val name: String,
+        val dateUpload: Long,
+    )
 
     @AfterEach
     fun tearDown() = unmockkAll()
@@ -34,18 +43,20 @@ class NovelChapterSyncTest {
         bookmark: Boolean = false,
         dateFetch: Long = 0L,
         id: Long = 1L,
+        dateUpload: Long = 0L,
     ) = NovelChapter(
         id = id, novelId = 1L, url = url, name = "name", read = read, bookmark = bookmark,
         lastTextProgress = 0L, chapterNumber = number, sourceOrder = 0L, dateFetch = dateFetch,
-        dateUpload = 0L, page = "",
+        dateUpload = dateUpload, page = "",
     )
 
-    private fun srcItem(url: String, number: Double, name: String = "name") =
-        ChapterItem(name = name, path = url, chapterNumber = number)
+    private fun srcItem(url: String, number: Double, name: String = "name", releaseTime: String? = null) =
+        ChapterItem(name = name, path = url, chapterNumber = number, releaseTime = releaseTime)
 
     private class Synced(
         val result: NovelChapterSyncResult,
         val inserted: List<InsertedRow>,
+        val changed: List<NovelChapter>,
     )
 
     private suspend fun sync(
@@ -55,11 +66,15 @@ class NovelChapterSyncTest {
         markDuplicates: Set<String> = setOf(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW),
     ): Synced {
         val inserted = mutableListOf<InsertedRow>()
+        val changed = mutableListOf<NovelChapter>()
         val novelChapterRepository = mockk<NovelChapterRepository>(relaxed = true) {
             coEvery { getByNovelId(1L) } returns db
             coEvery { updateFromRemote(any(), any(), any()) } coAnswers {
                 val added = secondArg<List<NovelChapter>>()
-                added.forEach { inserted.add(InsertedRow(it.url, it.read, it.bookmark, it.dateFetch)) }
+                changed += thirdArg<List<NovelChapter>>()
+                added.forEach {
+                    inserted.add(InsertedRow(it.url, it.read, it.bookmark, it.dateFetch, it.name, it.dateUpload))
+                }
                 added.mapIndexed { i, chapter -> chapter.copy(id = 100L + i) }
             }
         }
@@ -78,7 +93,43 @@ class NovelChapterSyncTest {
             ),
             novelDownloadManager = downloadManager,
         )
-        return Synced(result, inserted)
+        return Synced(result, inserted, changed)
+    }
+
+    @Test
+    fun `a source that stops dating a chapter leaves the stored row alone`() = runTest {
+        val db = listOf(dbChapter("/c/5", number = 5.0, dateUpload = 5_000L))
+
+        sync(db, listOf(srcItem("/c/5", number = 5.0))).result.changed shouldBe false
+    }
+
+    @Test
+    fun `a re-titled chapter the source stopped dating keeps its stored date`() = runTest {
+        val db = listOf(dbChapter("/c/5", number = 5.0, dateUpload = 5_000L))
+
+        sync(db, listOf(srcItem("/c/5", number = 5.0, name = "Renamed"))).changed.single().dateUpload shouldBe 5_000L
+    }
+
+    @Test
+    fun `a chapter name drops the novel's title in front`() = runTest {
+        val source = listOf(srcItem("/c/1", number = 1.0, name = "Test - Chapter 1"))
+
+        sync(emptyList(), source).inserted.single().name shouldBe "Chapter 1"
+    }
+
+    @Test
+    fun `an undated new chapter takes the date of the dated one listed above it`() = runTest {
+        val source = listOf(
+            srcItem("/c/2", number = 2.0, releaseTime = "2024-01-02T00:00:00Z"),
+            srcItem("/c/1", number = 1.0),
+        )
+
+        sync(emptyList(), source).inserted.map { it.dateUpload }.distinct() shouldBe listOf(1_704_153_600_000L)
+    }
+
+    @Test
+    fun `a source that lists no chapter fails with NoChaptersException`() = runTest {
+        shouldThrow<NoChaptersException> { sync(emptyList(), emptyList()) }
     }
 
     @Test

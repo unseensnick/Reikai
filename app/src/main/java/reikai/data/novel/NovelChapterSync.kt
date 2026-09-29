@@ -3,6 +3,7 @@ package reikai.data.novel
 import reikai.domain.chapter.ArrivingChapter
 import reikai.domain.chapter.StoredChapter
 import reikai.domain.chapter.chapterArrivals
+import reikai.domain.chapter.remoteUploadDate
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -10,6 +11,8 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
+import tachiyomi.data.chapter.ChapterSanitizer
+import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -30,7 +33,7 @@ suspend fun syncChaptersWithNovelSource(
     page: String? = null,
     novelDownloadManager: NovelDownloadManager? = null,
 ): NovelChapterSyncResult {
-    if (rawSourceChapters.isEmpty()) throw Exception("No chapters found")
+    if (rawSourceChapters.isEmpty()) throw NoChaptersException()
 
     val novelId = novel.id
     require(novelId > 0L) { "syncChaptersWithNovelSource requires a persisted novel (id > 0)" }
@@ -41,15 +44,16 @@ suspend fun syncChaptersWithNovelSource(
         .distinctBy { it.path }
         .mapIndexed { i, item ->
             val draft = item.toNovelChapter(novelId, sourceOrder = i.toLong())
+            val name = with(ChapterSanitizer) { draft.name.sanitize(novel.title) }
             // Recognize a number from the name only when the plugin gave none (lands as 0.0); a
-            // plugin-supplied positive number is trusted as-is. ChapterRecognition strips the title.
+            // plugin-supplied positive number is trusted as-is.
             val number = ChapterRecognition.parseChapterNumber(
                 novel.title,
-                draft.name,
+                name,
                 draft.chapterNumber.takeIf { it > 0.0 },
             )
             // A paged sync stamps the transport index; otherwise keep the plugin's own page label.
-            draft.copy(chapterNumber = number, page = page ?: draft.page)
+            draft.copy(name = name, chapterNumber = number, page = page ?: draft.page)
         }
 
     val toAdd = mutableListOf<NovelChapter>()
@@ -70,14 +74,16 @@ suspend fun syncChaptersWithNovelSource(
         val dbChapter = dbByUrl[sourceChapter.url]
         if (dbChapter == null) {
             toAdd.add(sourceChapter)
-        } else if (shouldUpdateDbNovelChapter(dbChapter, sourceChapter)) {
-            val updated = dbChapter.copy(
-                name = sourceChapter.name,
-                dateUpload = sourceChapter.dateUpload,
-                chapterNumber = sourceChapter.chapterNumber,
-                sourceOrder = sourceChapter.sourceOrder,
-                page = sourceChapter.page,
-            )
+            continue
+        }
+        val updated = dbChapter.copy(
+            name = sourceChapter.name,
+            dateUpload = remoteUploadDate(sourceChapter.dateUpload) ?: dbChapter.dateUpload,
+            chapterNumber = sourceChapter.chapterNumber,
+            sourceOrder = sourceChapter.sourceOrder,
+            page = sourceChapter.page,
+        )
+        if (updated != dbChapter) {
             toChange.add(updated)
             // A re-titled chapter changes its stable-name download path; queue its file rename below.
             if (dbChapter.name != sourceChapter.name) downloadRenames += dbChapter to updated
@@ -90,7 +96,7 @@ suspend fun syncChaptersWithNovelSource(
         .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
     // Sources list newest first, so the kernel counts fetch dates down from now in that order.
     val arrivals = chapterArrivals(
-        added = toAdd.map { ArrivingChapter(it.chapterNumber, it.read, it.bookmark) },
+        added = toAdd.map { ArrivingChapter(it.chapterNumber, it.read, it.bookmark, it.dateUpload) },
         stored = dbChapters.map { it.toStoredChapter() },
         removed = toDelete.map { it.toStoredChapter() },
         markDuplicateAsRead = markDuplicateAsRead,
@@ -100,7 +106,12 @@ suspend fun syncChaptersWithNovelSource(
         .filter { (_, arrival) -> arrival.isChangedOrDuplicate }
         .mapTo(mutableSetOf()) { (chapter, _) -> chapter.url }
     val updatedToAdd = toAdd.zip(arrivals) { chapter, arrival ->
-        chapter.copy(dateFetch = arrival.dateFetch, read = arrival.read, bookmark = arrival.bookmark)
+        chapter.copy(
+            dateFetch = arrival.dateFetch,
+            dateUpload = arrival.dateUpload,
+            read = arrival.read,
+            bookmark = arrival.bookmark,
+        )
     }
 
     val insertedChapters = novelChapterRepository.updateFromRemote(toDelete.map { it.id }, updatedToAdd, toChange)
@@ -116,10 +127,3 @@ suspend fun syncChaptersWithNovelSource(
 }
 
 private fun NovelChapter.toStoredChapter() = StoredChapter(chapterNumber, read, bookmark, dateFetch)
-
-private fun shouldUpdateDbNovelChapter(dbChapter: NovelChapter, sourceChapter: NovelChapter): Boolean =
-    dbChapter.name != sourceChapter.name ||
-        dbChapter.dateUpload != sourceChapter.dateUpload ||
-        dbChapter.chapterNumber != sourceChapter.chapterNumber ||
-        dbChapter.sourceOrder != sourceChapter.sourceOrder ||
-        dbChapter.page != sourceChapter.page
