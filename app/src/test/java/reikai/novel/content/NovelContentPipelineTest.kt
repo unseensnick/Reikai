@@ -11,6 +11,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.source.EmptyChapterException
@@ -27,34 +28,33 @@ import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreferen
  */
 class NovelContentPipelineTest {
 
-    private val preferences = NovelPreferences(InMemoryPreferenceStore())
-    private val pipeline = NovelContentPipeline(preferences)
+    /** The WebView mode: its target keeps a chapter's own styling, which the native one never does. */
+    private val webView =
+        InMemoryPreference("ln_reader_rendering_mode", NovelRenderingMode.WEBVIEW, NovelRenderingMode.NATIVE)
+
+    /**
+     * Seeded through the constructor: `InMemoryPreferenceStore.set` is invisible to the next `get`, so
+     * a stage switched on with `set` would look off and the test would pass against a deleted stage.
+     */
+    private fun preferencesWith(vararg seeded: InMemoryPreference<*>) =
+        NovelPreferences(InMemoryPreferenceStore(sequenceOf(webView, *seeded)))
+
+    private val preferences = preferencesWith()
 
     /**
      * Built through `from`, the only constructor a production path uses, so a case named "by default"
      * reads the preference defaults a fresh install gets rather than the data-class ones, which nothing
      * in the app reads.
      */
-    private fun config(chapterUrl: String?) = NovelContentConfig.from(
-        preferences = preferences,
-        target = RenderTarget.WEB_VIEW,
-        chapterUrl = chapterUrl,
-        chapterName = "Chapter 1",
-    )
-
-    /**
-     * Seeded through the constructor: `InMemoryPreferenceStore.set` is invisible to the next `get`, so
-     * a stage switched on with `set` would look off and the test would pass against a deleted stage.
-     */
-    private fun pipelineWith(vararg seeded: InMemoryPreference<*>) =
-        NovelContentPipeline(NovelPreferences(InMemoryPreferenceStore(seeded.asSequence())))
+    private fun config(chapterUrl: String?, preferences: NovelPreferences = this.preferences) =
+        NovelContentConfig.from(preferences, chapterUrl = chapterUrl, chapterName = "Chapter 1")
 
     @Test
     fun `a find-and-replace rule reaches the chapter`() = runTest {
         val rule = """[{"title":"t","pattern":"badger","replacement":"otter","isRegex":false}]"""
-        val seeded = pipelineWith(InMemoryPreference("ln_reader_regex_replacements", rule, "[]"))
+        val seeded = preferencesWith(InMemoryPreference("ln_reader_regex_replacements", rule, "[]"))
 
-        val processed = seeded.process("<p>a badger appears</p>", config("/book/ch1.html"))
+        val processed = NovelContentPipeline.process("<p>a badger appears</p>", config("/book/ch1.html", seeded))
 
         processed.text shouldContain "otter"
         processed.text shouldNotContain "badger"
@@ -62,13 +62,13 @@ class NovelContentPipelineTest {
 
     @Test
     fun `auto-split breaks a wall of text into paragraphs`() = runTest {
-        val seeded = pipelineWith(
+        val seeded = preferencesWith(
             InMemoryPreference("ln_reader_auto_split_text", true, false),
             InMemoryPreference("ln_reader_auto_split_word_count", 20, 50),
         )
         val wall = (1..6).joinToString(" ") { List(20) { "word" }.joinToString(" ") + "." }
 
-        val processed = seeded.process("<p>$wall</p>", config("/book/ch1.html"))
+        val processed = NovelContentPipeline.process("<p>$wall</p>", config("/book/ch1.html", seeded))
 
         // Breaks rather than paragraph tags, so a split stays valid inside a div-based chapter.
         processed.text shouldContain "<br><br>"
@@ -76,7 +76,7 @@ class NovelContentPipelineTest {
 
     @Test
     fun `a plain-text chapter is reported as plain text so a sink knows to escape it`() = runTest {
-        val processed = pipeline.process("<script>evil()</script>", config("/book/ch1.txt"))
+        val processed = NovelContentPipeline.process("<script>evil()</script>", config("/book/ch1.txt"))
 
         processed.isPlainText shouldBe true
     }
@@ -136,28 +136,28 @@ class NovelContentPipelineTest {
     /** In the pipeline rather than one renderer, so both reading modes show the same paragraphs. */
     @Test
     fun `a blank line in an HTML chapter with no paragraphs starts a new paragraph`() = runTest {
-        val processed = pipeline.process("Para <b>one</b>.\n\nPara two.", config("/book/ch1"))
+        val processed = NovelContentPipeline.process("Para <b>one</b>.\n\nPara two.", config("/book/ch1"))
 
         processed.text shouldBe "<p>Para <b>one</b>.</p><p>Para two.</p>"
     }
 
     @Test
     fun `a chapter that has its own paragraphs keeps them as they are`() = runTest {
-        val processed = pipeline.process("<p>One</p>\n\n<p class=\"x\">Two</p>", config("/book/ch1"))
+        val processed = NovelContentPipeline.process("<p>One</p>\n\n<p class=\"x\">Two</p>", config("/book/ch1"))
 
         processed.text shouldBe "<p>One</p>\n\n<p class=\"x\">Two</p>"
     }
 
     @Test
     fun `a script block is stripped from an HTML chapter by default`() = runTest {
-        val processed = pipeline.process("<p>a</p><script>evil()</script>", config("/book/ch1.html"))
+        val processed = NovelContentPipeline.process("<p>a</p><script>evil()</script>", config("/book/ch1.html"))
 
         processed.text shouldNotContain "evil()"
     }
 
     @Test
     fun `a chapter's own styling survives by default`() = runTest {
-        val processed = pipeline.process("<style>p{color:red}</style><p>a</p>", config("/book/ch1.html"))
+        val processed = NovelContentPipeline.process("<style>p{color:red}</style><p>a</p>", config("/book/ch1.html"))
 
         processed.text shouldContain "color:red"
     }
@@ -229,7 +229,7 @@ class NovelContentPipelineTest {
 
     @Test
     fun `force lowercase reaches the chapter`() {
-        pipeline.process("<p>Hello</p>", config("/book/ch1.html").copy(forceLowercase = true)).text shouldBe
+        NovelContentPipeline.process("<p>Hello</p>", config("/book/ch1.html").copy(forceLowercase = true)).text shouldBe
             "<p>hello</p>"
     }
 

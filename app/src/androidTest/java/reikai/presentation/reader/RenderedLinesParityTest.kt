@@ -19,12 +19,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelRenderingMode
 import reikai.novel.content.NovelContentConfig
 import reikai.novel.content.NovelContentPipeline
-import reikai.novel.content.RenderTarget
 import reikai.presentation.reader.text.ChapterTextBlock
 import reikai.presentation.reader.text.NovelTextRenderer
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -44,8 +45,6 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>
     private val scope = MainScope()
-    private val preferences = NovelPreferences(InMemoryPreferenceStore())
-    private val pipeline = NovelContentPipeline(preferences)
 
     @Before
     fun setUp() {
@@ -63,18 +62,16 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
         assertEquals(webLines(), nativeLines())
     }
 
-    private fun processed(target: RenderTarget): String = runBlocking {
-        val config = NovelContentConfig.from(
-            preferences = preferences,
-            target = target,
-            chapterUrl = CHAPTER_URL,
-            chapterName = "Chapter 1",
+    private fun processed(mode: NovelRenderingMode): String {
+        val store = InMemoryPreferenceStore(
+            sequenceOf(InMemoryPreference("ln_reader_rendering_mode", mode, NovelRenderingMode.NATIVE)),
         )
-        pipeline.process(fixture.html, config).text
+        val config = NovelContentConfig.from(NovelPreferences(store), CHAPTER_URL, chapterName = "Chapter 1")
+        return NovelContentPipeline.process(fixture.html, config).text
     }
 
     private fun nativeLines(): List<String> {
-        val html = processed(RenderTarget.TEXT_VIEW)
+        val html = processed(NovelRenderingMode.NATIVE)
         lateinit var block: ChapterTextBlock
         lateinit var renderer: NovelTextRenderer
         scenario.onActivity { activity ->
@@ -111,7 +108,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
     }
 
     private fun webLines(): List<String> {
-        val html = processed(RenderTarget.WEB_VIEW)
+        val html = processed(NovelRenderingMode.WEBVIEW)
         val rendered = CountDownLatch(1)
         lateinit var viewport: NovelWebViewport
         scenario.onActivity { activity ->

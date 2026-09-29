@@ -1,7 +1,6 @@
 package reikai.novel.content
 
 import logcat.LogPriority
-import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.util.system.logcat
 import java.util.Collections
 import java.util.LinkedHashMap
@@ -47,8 +46,7 @@ object NovelRegexReplacements {
         return Compiled(Regex(bounded, options), rule.replacement, literal = true)
     }
 
-    fun apply(content: String, preferences: NovelPreferences): String {
-        val rulesJson = preferences.readerRegexReplacements().get()
+    fun apply(content: String, rulesJson: String): String {
         if (rulesJson.isBlank() || rulesJson == "[]") return content
 
         val compiled = synchronized(cache) {

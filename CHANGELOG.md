@@ -716,6 +716,7 @@ every stable release now also ships a foss build with neither in it.
 - Shikimori recommendations now send the same Reikai user agent as the signed-in Shikimori calls.
 - Cancelled novel plugin checks, font downloads and update runs stop instead of being logged as failures.
 - Plugin settings load and save off the main thread.
+- Reader text settings are read from one place, so a new one cannot miss the live refresh.
 
 ## [0.3.2]
 

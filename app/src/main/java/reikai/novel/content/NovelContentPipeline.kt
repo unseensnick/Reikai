@@ -1,7 +1,6 @@
 package reikai.novel.content
 
 import androidx.annotation.WorkerThread
-import reikai.domain.novel.NovelPreferences
 
 /**
  * Stage order is user-visible and fixed: strip title, normalize, remove extra spacing, regex
@@ -9,7 +8,7 @@ import reikai.domain.novel.NovelPreferences
  * regex rule matches post-normalization markup, auto-split counts words after those rules ran), so
  * reordering changes the rendered output for some chapters.
  */
-class NovelContentPipeline(private val preferences: NovelPreferences) {
+object NovelContentPipeline {
 
     @WorkerThread
     fun process(raw: String, config: NovelContentConfig): NovelChapterContent {
@@ -32,16 +31,16 @@ class NovelContentPipeline(private val preferences: NovelPreferences) {
             content = NovelHtmlUtils.removeExtraParagraphSpacing(content)
         }
 
-        content = NovelRegexReplacements.apply(content, preferences)
+        content = NovelRegexReplacements.apply(content, config.regexRulesJson)
 
         if (config.forceLowercase) {
             content = if (plainTextMode) content.lowercase() else NovelHtmlUtils.lowercaseText(content)
         }
 
-        if (preferences.readerAutoSplitText().get()) {
+        if (config.autoSplit) {
             content = NovelTextSplitter.splitText(
                 text = content,
-                wordCount = preferences.readerAutoSplitWordCount().get(),
+                wordCount = config.autoSplitWordCount,
                 isHtml = !plainTextMode,
             )
         }

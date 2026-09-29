@@ -2,19 +2,13 @@ package reikai.novel.source
 
 import android.content.Context
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import reikai.domain.novel.NovelPreferences
-import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.content.NovelContentConfig
 import reikai.novel.content.NovelContentPipeline
 import reikai.novel.content.NovelHtmlUtils
-import reikai.novel.content.RenderTarget
 import reikai.novel.install.LnPluginInstaller
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
@@ -37,48 +31,11 @@ class NovelChapterTextLoader(
     private val readDownloaded: (Novel, NovelChapter) -> String?,
 ) {
 
-    private val pipeline = NovelContentPipeline(preferences)
-
     /**
      * Emits when a setting that changes what [load] produces changes. A session caches pipeline output
      * per chapter, so without re-running it a flipped switch reaches the page only on the next open.
-     *
-     * A snapshot rather than a count of emissions: `changes()` fires once on subscribe, and dropping a
-     * fixed number of those breaks silently the day a setting is added here.
      */
-    val settingsChanged: Flow<Unit> = listOf<Flow<Any?>>(
-        preferences.readerHideChapterTitle().changes(),
-        preferences.readerForceLowercase().changes(),
-        preferences.readerBlockMedia().changes(),
-        preferences.readerRemoveExtraSpacing().changes(),
-        preferences.readerKeepEmbeddedCss().changes(),
-        preferences.readerKeepEmbeddedJs().changes(),
-        preferences.readerAutoSplitText().changes(),
-        preferences.readerAutoSplitWordCount().changes(),
-        preferences.readerRegexReplacements().changes(),
-        preferences.readerShowRawHtml().changes(),
-        preferences.readerRenderingMode().changes(),
-    )
-        .merge()
-        .map { pipelineSnapshot() }
-        .distinctUntilChanged()
-        .drop(1)
-        .map { }
-
-    private fun pipelineSnapshot(): List<Any?> = listOf(
-        preferences.readerHideChapterTitle().get(),
-        preferences.readerForceLowercase().get(),
-        preferences.readerBlockMedia().get(),
-        preferences.readerRemoveExtraSpacing().get(),
-        preferences.readerKeepEmbeddedCss().get(),
-        preferences.readerKeepEmbeddedJs().get(),
-        preferences.readerAutoSplitText().get(),
-        preferences.readerAutoSplitWordCount().get(),
-        preferences.readerRegexReplacements().get(),
-        preferences.readerShowRawHtml().get(),
-        // The target: embedded CSS and JS survive only for a WebView page.
-        preferences.readerRenderingMode().get(),
-    )
+    val settingsChanged: Flow<Unit> = NovelContentConfig.changes(preferences)
 
     private val sourcesByNovel: MutableMap<Long, NovelSource> =
         Collections.synchronizedMap(HashMap())
@@ -101,23 +58,15 @@ class NovelChapterTextLoader(
      */
     suspend fun load(chapter: NovelChapter, fromSource: Boolean = false): Pair<String, String?> {
         val (raw, baseUrl) = fetch(chapter, fromSource)
-        val config = NovelContentConfig.from(
-            preferences = preferences,
-            target = when (preferences.readerRenderingMode().get()) {
-                NovelRenderingMode.NATIVE -> RenderTarget.TEXT_VIEW
-                else -> RenderTarget.WEB_VIEW
-            },
-            chapterUrl = chapter.url,
-            chapterName = chapter.name,
-        )
-        val processed = pipeline.process(raw, config)
+        val config = NovelContentConfig.from(preferences, chapterUrl = chapter.url, chapterName = chapter.name)
+        val processed = NovelContentPipeline.process(raw, config)
         // A plain-text chapter leaves the pipeline unescaped and unsanitised, because a text renderer
         // takes it verbatim. Both readers are HTML sinks, so it is escaped here or a `.txt` chapter's
         // markup becomes live document.
         val html = when {
             processed.isPlainText -> NovelHtmlUtils.plainTextToHtml(processed.text)
             // Here rather than in a renderer, so both draw the same escaped text from one switch.
-            preferences.readerShowRawHtml().get() -> NovelHtmlUtils.htmlAsText(processed.text)
+            config.showRawHtml -> NovelHtmlUtils.htmlAsText(processed.text)
             else -> processed.text
         }
         return html to baseUrl
