@@ -1,5 +1,6 @@
 package reikai.presentation.migrate.flow
 
+import eu.kanade.domain.source.service.SourcePreferences
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -10,6 +11,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.presentation.recents.EmittingPreferenceStore
 
 /**
  * The single-entry route. It runs the same search seam the batch list does, and the two are the two
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test
 class EntryMigrationSearchViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
+    private val sourcePreferences = SourcePreferences(EmittingPreferenceStore())
 
     @BeforeEach
     fun setUp() = Dispatchers.setMain(dispatcher)
@@ -25,10 +28,14 @@ class EntryMigrationSearchViewModelTest {
     @AfterEach
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun model(adapter: FakeMigrationFlowAdapter, extraQuery: String?) = EntryMigrationSearchViewModel(
+    private fun model(
+        adapter: FakeMigrationFlowAdapter = FakeMigrationFlowAdapter(listOf(migrationEntry(1))),
+        extraQuery: String? = null,
+    ) = EntryMigrationSearchViewModel(
         entryId = 1L,
         adapter = adapter,
         pickHandoff = MigrationPickHandoff(),
+        sourcePreferences = sourcePreferences,
         extraQuery = extraQuery,
         io = dispatcher,
     )
@@ -63,5 +70,25 @@ class EntryMigrationSearchViewModelTest {
         advanceUntilIdle()
 
         adapter.candidateQueries shouldBe listOf("Entry 1")
+    }
+
+    @Test
+    fun `the has-results filter opens as the user last left it`() = runTest(dispatcher.scheduler) {
+        sourcePreferences.globalSearchFilterState.set(true)
+
+        val model = model()
+        advanceUntilIdle()
+
+        model.state.value.onlyShowHasResults shouldBe true
+    }
+
+    @Test
+    fun `toggling the has-results filter writes the shared preference`() = runTest(dispatcher.scheduler) {
+        val model = model()
+        advanceUntilIdle()
+
+        model.toggleOnlyResults()
+
+        sourcePreferences.globalSearchFilterState.get() shouldBe true
     }
 }

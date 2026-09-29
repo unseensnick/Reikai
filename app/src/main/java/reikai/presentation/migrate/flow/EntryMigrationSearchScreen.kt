@@ -32,6 +32,7 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
@@ -40,6 +41,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -47,6 +49,7 @@ import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.EntrySearchSourceFilterChips
+import tachiyomi.core.common.preference.toggle
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -142,9 +145,8 @@ class EntryMigrationSearchScreen(
                 }
             },
         ) { contentPadding ->
-            // A source that failed is kept even under the filter, matching the batch list: the user
-            // needs to tell "could not answer" from "answered nothing", and hiding it takes the
-            // retry with it.
+            // Unlike global search, a source still loading or failed stays under the filter (see
+            // hasSomethingToSay): the user needs to tell "could not answer" from "answered nothing".
             val sections = if (state.onlyShowHasResults) {
                 state.sections.filter { it.result.hasSomethingToSay }
             } else {
@@ -225,6 +227,7 @@ class EntryMigrationSearchViewModel(
     @Assisted private val extraQuery: String? = null,
     @Assisted private val io: CoroutineDispatcher = Dispatchers.IO,
     private val pickHandoff: MigrationPickHandoff,
+    private val sourcePreferences: SourcePreferences,
 ) : ViewModel() {
 
     val state: StateFlow<EntryMigrationSearchViewModel.State>
@@ -253,6 +256,11 @@ class EntryMigrationSearchViewModel(
             val entry = adapter.loadEntries(listOf(entryId)).firstOrNull()
             state.update { it.copy(isLoading = false, entry = entry) }
             if (entry != null) search(entry.title)
+        }
+        viewModelScope.launch(io) {
+            sourcePreferences.globalSearchFilterState.changes().collectLatest { onlyHasResults ->
+                state.update { it.copy(onlyShowHasResults = onlyHasResults) }
+            }
         }
     }
 
@@ -302,7 +310,10 @@ class EntryMigrationSearchViewModel(
 
     fun dismissDialog() = state.update { it.copy(dialogTarget = null) }
 
-    fun toggleOnlyResults() = state.update { it.copy(onlyShowHasResults = !it.onlyShowHasResults) }
+    /** Global search's preference, shared as upstream shares it, so the chip keeps one setting. */
+    fun toggleOnlyResults() {
+        sourcePreferences.globalSearchFilterState.toggle()
+    }
 
     /**
      * Open the migrate dialog for a target picked on a pushed browse screen, if one came back for

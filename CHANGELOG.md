@@ -486,6 +486,7 @@ every stable release now also ships a foss build with neither in it.
 - **Migrating a novel with "Delete downloaded" now stops its queued downloads and no longer downloads those chapters again on the new source.** The queued ones used to keep downloading into the source you had just moved away from, and the files they wrote stayed behind.
 - **Migrating a manga now keeps the page you reached in each chapter, as novels already did.**
 - **Migrating a novel now offers the same search options as manga: Additional keywords, Advanced search mode, Match based on chapter number, Hide entries without a match and Hide entries without newer chapters.**
+- **Migration search's Has results filter now keeps its setting, shared with global search.**
 
 ### Tracking
 
