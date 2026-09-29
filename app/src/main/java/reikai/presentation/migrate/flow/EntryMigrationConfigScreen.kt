@@ -440,7 +440,7 @@ class EntryMigrationConfigViewModel(
         }
         state.copy(
             selected = selected,
-            available = available.sortedBy { it.name.lowercase() },
+            available = available.sortedWith(migrationSourceOrder),
         )
     }
 
@@ -457,7 +457,7 @@ class EntryMigrationConfigViewModel(
     }
 
     fun selectNone() = editSelection { state ->
-        val all = (state.selected + state.available).sortedBy { it.name.lowercase() }
+        val all = (state.selected + state.available).sortedWith(migrationSourceOrder)
         state.copy(selected = emptyList(), available = all)
     }
 
@@ -466,7 +466,7 @@ class EntryMigrationConfigViewModel(
         val all = state.selected + state.available
         state.copy(
             selected = all.filter { it.key in pinned },
-            available = all.filterNot { it.key in pinned }.sortedBy { it.name.lowercase() },
+            available = all.filterNot { it.key in pinned }.sortedWith(migrationSourceOrder),
         )
     }
 

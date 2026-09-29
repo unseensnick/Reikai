@@ -61,7 +61,6 @@ class MangaMigrationFlowAdapter(
         return sourceManager.getAll()
             .filterIsInstance<HttpSource>()
             .filter { it.lang in languages && "${it.id}" !in disabled }
-            .sortedBy { "${it.name.lowercase()} (${it.lang})" }
             .map { source ->
                 MigrationSourceUi(
                     key = "${source.id}",
@@ -78,6 +77,7 @@ class MangaMigrationFlowAdapter(
                     ),
                 )
             }
+            .sortedWith(migrationSourceOrder)
     }
 
     override fun savedSelection(): List<String> = sourcePreferences.migrationSources.get().map { "$it" }

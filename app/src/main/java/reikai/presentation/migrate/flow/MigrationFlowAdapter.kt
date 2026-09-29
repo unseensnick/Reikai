@@ -36,6 +36,9 @@ data class MigrationSourceUi(
     val format: NovelExtensionFormat? = null,
 )
 
+/** Upstream's name-then-language source order, so an edit never reshuffles two same-named sources. */
+val migrationSourceOrder: Comparator<MigrationSourceUi> = compareBy({ it.name.lowercase() }, { it.lang })
+
 /** The per-type icon payload: a typed slot, so shared UI renders by case instead of downcasting. */
 sealed interface MigrationSourceIcon {
     data class MangaSource(val source: Source) : MigrationSourceIcon
@@ -154,7 +157,8 @@ interface MigrationFlowAdapter {
      *  Must not swallow cancellation: use [runCatchingCancellable], never bare `runCatching`. */
     suspend fun prepare() {}
 
-    /** Enabled sources only: a disabled source or denied language is never offered as a target. */
+    /** Enabled sources only, in [migrationSourceOrder]: a disabled source or denied language is never
+     *  offered as a target. */
     suspend fun enabledSources(): List<MigrationSourceUi>
 
     fun savedSelection(): List<String>

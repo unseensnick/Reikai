@@ -32,7 +32,7 @@ class EntryMigrationConfigViewModelTest {
 
     /** Only the source-selection half of the seam; the rest of the flow has its own fake. */
     private class SourceAdapter(
-        private val sources: List<String>,
+        private val sources: List<MigrationSourceUi>,
         private var saved: List<String> = emptyList(),
         private val pinned: Set<String> = emptySet(),
     ) : MigrationFlowAdapter {
@@ -40,9 +40,7 @@ class EntryMigrationConfigViewModelTest {
 
         override val contentType = ContentType.MANGA
 
-        override suspend fun enabledSources() = sources.map {
-            MigrationSourceUi(it, it.uppercase(), "en", MigrationSourceIcon.NovelUrl(null))
-        }
+        override suspend fun enabledSources() = sources
 
         override fun savedSelection() = saved
 
@@ -89,11 +87,14 @@ class EntryMigrationConfigViewModelTest {
 
     private fun model(adapter: SourceAdapter) = EntryMigrationConfigViewModel(adapter, dispatcher)
 
+    private fun source(key: String, name: String = key.uppercase(), lang: String = "en") =
+        MigrationSourceUi(key, name, lang, MigrationSourceIcon.NovelUrl(null))
+
     @Test
     fun `two edits leave the screen's own order saved`() = runTest(dispatcher.scheduler) {
         // What the writes produce, not the order they land in: one test scheduler runs them in
         // sequence, so the race the serialization fixes cannot be reproduced here.
-        val adapter = SourceAdapter(sources = listOf("a", "b", "c"), saved = listOf("a", "b", "c"))
+        val adapter = SourceAdapter(sources = listOf("a", "b", "c").map { source(it) }, saved = listOf("a", "b", "c"))
         val model = model(adapter)
         advanceUntilIdle()
 
@@ -103,5 +104,19 @@ class EntryMigrationConfigViewModelTest {
 
         model.state.value.selected.map { it.key } shouldBe listOf("c")
         adapter.writes.last() shouldBe listOf("c")
+    }
+
+    @Test
+    fun `a source handed back keeps the order it opened in`() = runTest(dispatcher.scheduler) {
+        val adapter = SourceAdapter(
+            sources = listOf(source("en-x", name = "X", lang = "en"), source("ja-x", name = "X", lang = "ja")),
+            saved = listOf("ja-x"),
+        )
+        val model = model(adapter)
+        advanceUntilIdle()
+
+        model.selectNone()
+
+        model.state.value.available.map { it.key } shouldBe listOf("en-x", "ja-x")
     }
 }

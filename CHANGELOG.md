@@ -492,6 +492,7 @@ every stable release now also ships a foss build with neither in it.
 - **Migration search's Has results filter now keeps its setting, shared with global search.**
 - **The migration list now names the source an entry moves from, even when that source is uninstalled.**
 - **Migration chapter counts no longer count a chapter twice when a source lists it twice.**
+- **Migration's source list keeps same-named sources in a steady order while you edit the selection.**
 
 ### Tracking
 

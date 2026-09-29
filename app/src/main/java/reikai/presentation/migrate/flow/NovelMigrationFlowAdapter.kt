@@ -75,7 +75,6 @@ class NovelMigrationFlowAdapter(
 
     override suspend fun enabledSources(): List<MigrationSourceUi> {
         return getEnabledNovelSources.get()
-            .sortedBy { it.name.lowercase() }
             .map { source ->
                 MigrationSourceUi(
                     key = source.id,
@@ -85,6 +84,7 @@ class NovelMigrationFlowAdapter(
                     format = source.format,
                 )
             }
+            .sortedWith(migrationSourceOrder)
     }
 
     override fun savedSelection(): List<String> = sourcePreferences.novelMigrationSources.get()
