@@ -44,7 +44,7 @@ import reikai.data.novel.refreshNovelFromSource
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.updateFailureMessage
-import reikai.domain.category.GetNovelCategories
+import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.ReleaseInterval
@@ -60,7 +60,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
-import reikai.domain.novel.interactor.categoryGate
+import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.updateerror.DeleteNovelUpdateErrors
@@ -108,8 +108,6 @@ class NovelUpdateJob(
     @Inject private lateinit var sourceManager: NovelSourceManager
 
     @Inject private lateinit var installer: LnPluginInstaller
-
-    @Inject private lateinit var getNovelCategories: GetNovelCategories
 
     @Inject private lateinit var filterChaptersForDownload: FilterNovelChaptersForDownload
 
@@ -195,28 +193,21 @@ class NovelUpdateJob(
         runCatchingCancellable { installer.ensureLoaded() }
             .onFailure { logcat(LogPriority.ERROR, it) { "Could not load the novel plugins" } }
 
-        // Category scope + smart-update restrictions both need suspend per-novel lookups, so filter in
-        // a loop rather than a plain .filter. An explicit [categoryId] (a manual "update this category")
-        // overrides the include/exclude prefs; smart-update restrictions still apply, matching manga.
+        // An explicit [categoryId] (a manual "update this category") overrides the include/exclude prefs;
+        // smart-update restrictions still apply, matching manga.
         val trackErrors = reikaiLibraryPreferences.trackNovelUpdateErrors.get()
         val timeZone = TimeZone.currentSystemDefault()
         val fetchWindow = ReleaseInterval.window(Clock.System.now().toLocalDateTime(timeZone).date, timeZone)
         val restrictions = preferences.novelUpdateRestrictions().get()
-        val favorites = buildList {
-            // The library rows carry the chapter counts the rules read, so no chapter is loaded to decide.
-            // In title order, as the manga job runs.
-            for (entry in novelRepo.getLibraryNovelAsFlow().first().sortedBy { it.novel.title }) {
-                val novel = entry.novel
-                val categoryOk = if (categoryId != -1L) {
-                    categoryId in getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
-                } else {
-                    shouldUpdate(novel)
-                }
-                if (categoryOk && smartUpdateSkip(entry.smartUpdateFacts(), restrictions, fetchWindow.second) == null) {
-                    add(novel)
-                }
+        // The library rows carry the categories and chapter counts the rules read, so nothing else is
+        // loaded to decide. In title order, as the manga job runs.
+        val favorites = novelRepo.getLibraryNovelAsFlow().first()
+            .filter { entry ->
+                val categoryOk = if (categoryId != -1L) categoryId in entry.categories else shouldUpdate(entry)
+                categoryOk && smartUpdateSkip(entry.smartUpdateFacts(), restrictions, fetchWindow.second) == null
             }
-        }
+            .sortedBy { it.novel.title }
+            .map { it.novel }
         if (favorites.isEmpty()) return false
 
         val failed = mutableListOf<UpdateErrorEntry>()
@@ -316,14 +307,13 @@ class NovelUpdateJob(
         fetchWindow = fetchWindow,
     ).newChapters
 
-    /** Category scope for the update itself (mirrors the manga global-update Categories filter). */
-    private suspend fun shouldUpdate(novel: Novel): Boolean {
-        val included = preferences.novelUpdateCategories().get().map { it.toLong() }
-        val excluded = preferences.novelUpdateCategoriesExclude().get().map { it.toLong() }
-        if (included.isEmpty() && excluded.isEmpty()) return true
-        val categories = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
-        return categoryGate(categories, included, excluded)
-    }
+    /** Category scope for the update itself. The library row already carries the categories, with an
+     *  uncategorized novel as Default (0), as the manga job reads them. */
+    private fun shouldUpdate(entry: LibraryNovel): Boolean = matchesCategoryFilter(
+        entry.categories,
+        preferences.novelUpdateCategories().get().mapTo(mutableSetOf()) { it.toLong() },
+        preferences.novelUpdateCategoriesExclude().get().mapTo(mutableSetOf()) { it.toLong() },
+    )
 
     companion object {
         private const val TAG = "NovelLibraryUpdate"

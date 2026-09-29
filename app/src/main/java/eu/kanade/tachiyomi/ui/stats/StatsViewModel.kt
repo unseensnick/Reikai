@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.NovelStatusCode
+import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
 import reikai.domain.library.smartUpdateFacts
 import reikai.domain.library.smartUpdateProgressSkip
@@ -213,17 +214,15 @@ class StatsViewModel(
             .fastCountNot { smartUpdateProgressSkip(it.smartUpdateFacts(), updateRestrictions) != null } // RK
     }
 
-    // RK --> novel twin of getGlobalUpdateItemCount, over the novel update categories + restrictions
+    // RK --> the novel global-update count, over the novel update categories + restrictions; the
+    // category rule is matchesCategoryFilter, the one the novel update job applies
     private fun getNovelGlobalUpdateItemCount(libraryNovels: List<LibraryNovel>): Int {
-        val includedCategories = novelPreferences.novelUpdateCategories().get().map { it.toLong() }
-        val excludedCategories = novelPreferences.novelUpdateCategoriesExclude().get().map { it.toLong() }
+        val includedCategories = novelPreferences.novelUpdateCategories().get().mapTo(mutableSetOf()) { it.toLong() }
+        val excludedCategories =
+            novelPreferences.novelUpdateCategoriesExclude().get().mapTo(mutableSetOf()) { it.toLong() }
         val updateRestrictions = novelPreferences.novelUpdateRestrictions().get()
 
-        return libraryNovels.filter {
-            val included = includedCategories.isEmpty() || it.categories.intersect(includedCategories).isNotEmpty()
-            val excluded = it.categories.intersect(excludedCategories).isNotEmpty()
-            included && !excluded
-        }
+        return libraryNovels.filter { matchesCategoryFilter(it.categories, includedCategories, excludedCategories) }
             .fastCountNot { smartUpdateProgressSkip(it.smartUpdateFacts(), updateRestrictions) != null }
     }
     // RK <--

@@ -57,6 +57,22 @@ class DownloadNewChaptersConformanceTest {
 
     @ParameterizedTest
     @EnumSource(Side::class)
+    fun `an entry in an included category downloads`(side: Side) = runTest {
+        val filter = side.filter(enabled = true, included = setOf(CATEGORY))
+
+        filter.newNumbers(favorite = true, new = listOf(1.0)) shouldContainExactly listOf(1.0)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Side::class)
+    fun `an entry outside every included category downloads nothing`(side: Side) = runTest {
+        val filter = side.filter(enabled = true, included = setOf(CATEGORY + 1))
+
+        filter.newNumbers(favorite = true, new = listOf(1.0)).shouldContainExactly()
+    }
+
+    @ParameterizedTest
+    @EnumSource(Side::class)
     fun `with unread only on a chapter numbered like a read one is skipped`(side: Side) = runTest {
         val filter = side.filter(enabled = true, unreadOnly = true, read = listOf(1.0))
 
@@ -71,12 +87,14 @@ class DownloadNewChaptersConformanceTest {
         MANGA {
             override fun filter(
                 enabled: Boolean,
+                included: Set<Long>,
                 excluded: Set<Long>,
                 unreadOnly: Boolean,
                 read: List<Double>,
             ): Filter {
                 val prefs = DownloadPreferences(EmittingPreferenceStore())
                 prefs.downloadNewChapters.set(enabled)
+                prefs.downloadNewChapterCategories.set(included.map { it.toString() }.toSet())
                 prefs.downloadNewChapterCategoriesExclude.set(excluded.map { it.toString() }.toSet())
                 prefs.downloadNewUnreadChaptersOnly.set(unreadOnly)
                 val chapters = mockk<GetChaptersByMangaId> {
@@ -96,12 +114,14 @@ class DownloadNewChaptersConformanceTest {
         NOVELS {
             override fun filter(
                 enabled: Boolean,
+                included: Set<Long>,
                 excluded: Set<Long>,
                 unreadOnly: Boolean,
                 read: List<Double>,
             ): Filter {
                 val prefs = NovelPreferences(EmittingPreferenceStore())
                 prefs.downloadNewChapters().set(enabled)
+                prefs.downloadNewChapterCategories().set(included.map { it.toString() }.toSet())
                 prefs.downloadNewChapterCategoriesExclude().set(excluded.map { it.toString() }.toSet())
                 prefs.downloadNewUnreadChaptersOnly().set(unreadOnly)
                 val chapters = mockk<NovelChapterRepository> {
@@ -121,6 +141,7 @@ class DownloadNewChaptersConformanceTest {
 
         abstract fun filter(
             enabled: Boolean,
+            included: Set<Long> = emptySet(),
             excluded: Set<Long> = emptySet(),
             unreadOnly: Boolean = false,
             read: List<Double> = emptyList(),

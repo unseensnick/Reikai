@@ -2,6 +2,7 @@ package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
@@ -34,18 +35,10 @@ class FilterNovelChaptersForDownload(
 
     private suspend fun shouldDownloadFor(novel: Novel): Boolean {
         if (!novel.favorite) return false
-        val included = preferences.downloadNewChapterCategories().get().map { it.toLong() }
-        val excluded = preferences.downloadNewChapterCategoriesExclude().get().map { it.toLong() }
+        val included = preferences.downloadNewChapterCategories().get().mapTo(mutableSetOf()) { it.toLong() }
+        val excluded = preferences.downloadNewChapterCategoriesExclude().get().mapTo(mutableSetOf()) { it.toLong() }
         if (included.isEmpty() && excluded.isEmpty()) return true
         val categories = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
-        return categoryGate(categories, included, excluded)
+        return matchesCategoryFilter(categories, included, excluded)
     }
-}
-
-/** Include/exclude category predicate shared by the download and update gates: exclude wins; an empty
- *  include set means "all not excluded". Callers short-circuit the no-filter case before the DB read. */
-internal fun categoryGate(categories: List<Long>, included: List<Long>, excluded: List<Long>): Boolean = when {
-    categories.any { it in excluded } -> false
-    included.isEmpty() -> true
-    else -> categories.any { it in included }
 }
