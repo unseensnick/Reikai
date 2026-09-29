@@ -258,7 +258,7 @@ every stable release now also ships a foss build with neither in it.
 - **Finishing a novel chapter in the reader no longer deletes it under "After manually marked as read", which now applies only to marking by hand, as for manga.**
 - **The manga reader's chapter list now shows the page you stopped on in a chapter you have started, as the details screen does.** The novel reader's list already showed how far in you were.
 - **Novel auto-scroll now starts by itself only when Settings -> Novel reader -> Start auto-scroll when opening a chapter is on, which it is if you had left auto-scroll on.** The bottom bar button and the Controls tab start or stop it without changing that setting.
-- **Auto-scroll in either reader now pauses while your finger is on the screen, and scrubbing the chapter pauses it a moment instead of turning it off.**
+- **Auto-scroll in either reader now pauses while your finger is on the screen or a sheet is open over the page, and scrubbing the chapter pauses it a moment instead of turning it off.**
 
 #### Fixed
 

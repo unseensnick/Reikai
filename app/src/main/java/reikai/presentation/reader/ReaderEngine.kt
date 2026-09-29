@@ -339,18 +339,19 @@ class ReaderEngine(
 
     // Auto-scroll's one driver, below the viewport slot it reads, since an init block runs in declaration
     // order. A new viewport, a pause or a stop cancels the running drive, which is what restarts a
-    // stepped countdown from full and sends a continuous one its 0.
+    // stepped countdown from full and sends a continuous one its 0. Any dialog in the slot pauses it
+    // too: the page sheet opens with the menu hidden and the settings sheet can hide it.
     init {
         viewModelScope.launch {
             combine(
                 autoScrollRunning,
                 mutableViewport,
-                autoScrollPause,
+                combine(autoScrollPause, mutableDialog) { pause, dialog -> pause to (dialog != null) },
                 readAloudState,
                 seekHeld,
-            ) { running, viewport, pause, readAloud, held ->
+            ) { running, viewport, (pause, dialogOpen), readAloud, held ->
                 val shape = if (running) viewport?.autoScroll else null
-                val paused = pause.menuVisible || !pause.onScreen || pause.touching ||
+                val paused = pause.menuVisible || !pause.onScreen || pause.touching || dialogOpen ||
                     readAloud.playback == TtsPlayback.Playing ||
                     (held && shape is ViewportAutoScroll.Continuous)
                 AutoScrollDrive(shape, paused)

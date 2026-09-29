@@ -539,6 +539,43 @@ class ReaderEngineTest {
     }
 
     @Test
+    fun `the long-press page sheet pauses and dismissing it resumes`() {
+        val stepped = FakeStepped()
+        val engine = running(engine(), stepped.shape)
+        engine.openDialog(ReaderDialog.PageActions(NoPageActions))
+        advance(10.seconds)
+        val during = stepped.advances
+
+        engine.dismissDialog()
+        advance(5.seconds)
+
+        "$during ${stepped.advances}" shouldBe "0 1"
+    }
+
+    /** The menu hides under some of them, so the dialog itself has to hold the scroll. */
+    @Test
+    fun `a dialog over the page pauses a continuous scroll and dismissing it resumes`() {
+        val continuous = FakeContinuous()
+        val engine = running(engine(), continuous.shape)
+        engine.openDialog(ReaderDialog.ChapterList)
+        advance()
+        val during = continuous.runs.lastOrNull()
+
+        engine.dismissDialog()
+        advance()
+
+        "$during ${continuous.runs.lastOrNull()}" shouldBe "0.0 2.0"
+    }
+
+    private object NoPageActions : ReaderPageActions {
+        override fun save() = Unit
+
+        override fun share(copyToClipboard: Boolean) = Unit
+
+        override fun setAsCover() = Unit
+    }
+
+    @Test
     fun `read-aloud pauses and resumes when it ends`() {
         val provider = FakeReaderProvider()
         val readAloud = FakeReadAloud()
