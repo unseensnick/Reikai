@@ -69,6 +69,22 @@ check "spares M3, Material 3"          0 codename '// M3 surface colour\n'
 check "spares a colon-led step"        0 codename '// Step 1: read the file\n'
 check "passes an ordinary comment"     0 codename '// nothing to flag here\n'
 
+echo "twin-pins"
+twin() { printf '%b' "+++ b/app/src/main/java/reikai/X.kt\n@@ -1,0 +1,4 @@\n$1" | bash "$lint" twin-pins --stdin; }
+check "catches an unpinned twin marker"   1 twin '+// twin of MangaFoo.bar\n+fun bar() = 1\n'
+check "catches a mirrors marker"          1 twin '+    /** Mirrors the manga rule for novels. */\n'
+check "catches a marker split over lines" 1 twin '+// Mirrors the\n+// novel side.\n'
+check "catches as manga does"             1 twin '+val x = 1 // sorts as manga does\n'
+check "a pin past a code line is too far" 1 twin '+// twin of MangaFoo.bar\n+fun bar() = 1\n+// pinned by FooTest\n'
+check "passes a pinned twin"              0 twin '+// twin of MangaFoo.bar, pinned by FooConformanceTest\n'
+check "passes a pin on the next line"     0 twin '+ * Twin of MangaFoo.bar,\n+ * pinned by [resolveFoo].\n'
+check "passes a type-only twin"           0 twin '+// twin of MangaRow, type only\n'
+check "passes an explicit no pin"         0 twin '+// twin of MangaFoo, no pin: the engines differ in X\n'
+check "ignores a removed marker"          0 twin '-// twin of MangaFoo.bar\n+fun bar() = 1\n'
+check "ignores a context-line marker"     0 twin ' // twin of MangaFoo.bar\n+fun bar() = 1\n'
+check "passes an ordinary comment"        0 twin '+// the twin rows render side by side\n'
+check "tree mode reports without failing" 0 bash "$lint" twin-pins --tree
+
 echo "manifest-rows"
 check "catches a resurrected file"     1 bash "$lint" manifest-rows "$(fixture man.md '| app/src/main/java/eu/kanade/tachiyomi/App.kt | mihon | nowhere/Absent.kt |\n')"
 check "catches a manifest with no rows" 1 bash "$lint" manifest-rows "$(fixture man2.md 'no rows at all\n')"

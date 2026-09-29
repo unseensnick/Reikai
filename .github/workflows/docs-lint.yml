@@ -10,10 +10,10 @@ name: Docs lint
 
 on:
   pull_request:
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
   push:
     branches: [main]
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
 
 permissions:
   contents: read
@@ -51,6 +51,16 @@ jobs:
 
       - name: Lint code comments for plan codenames
         run: bash scripts/lint-docs.sh codenames --tree
+
+      # Report only: the markers written before content-layer.md fixed the pin spelling are paid off as
+      # their files are next touched. The hook fails a new one on the lines a commit adds.
+      - name: Report twin markers that name no pin
+        run: bash scripts/lint-docs.sh twin-pins --tree
+
+      # A cross-file copy under reikai/ or exh/ that scripts/dup-baseline.txt does not list (DRY in
+      # code-quality.md). Keyed by file pair and token hash, so line moves do not re-fire it.
+      - name: Check for new duplicated code
+        run: pwsh -NoProfile -File scripts/dup-check.ps1
 
       # CI has no refs/ clone, so it cannot diff against upstream; it checks that every manifested
       # file stays deleted and every replacement exists, which is what catches a resurrected file or

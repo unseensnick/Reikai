@@ -12,6 +12,7 @@
 #   lint-docs.sh em-dash <file> <label>          no em dash
 #   lint-docs.sh issue-refs <file> <label> <hint>   no bare #N
 #   lint-docs.sh codenames                       plan/roadmap codenames, candidate lines on stdin
+#   lint-docs.sh twin-pins [--stdin|--tree]      a twin/mirrors comment names its pin
 #   lint-docs.sh manifest-rows <file>            every off-path row still describes reality
 #   lint-docs.sh key-files <file>...             every path a plan record's Key files names exists
 #
@@ -118,6 +119,58 @@ case "$cmd" in
     if [ -n "$hits" ]; then
       report "a code comment carries a plan/roadmap codename marker (Phase N, Stage N, P5 S5, Y3, R12, R-feature, Active #N, Roadmap N, plan Step N); state the durable fact instead. See code-quality.md." "$hits"
       exit 1
+    fi
+    ;;
+
+  twin-pins)
+    # content-layer.md: a "twin of" / "mirrors" comment claims two halves must behave alike, so it names
+    # what pins them in one fixed spelling: "pinned by <kernel|capability|...Test>", "type only" for a
+    # data shape with no rule, or an explicit "no pin: <reason>". A comment block is a run of
+    # consecutive comment lines, so a pin on the line below the marker counts.
+    #
+    # --stdin reads a unified diff (git diff -U0) and checks the blocks its added lines form, which is
+    # the hook's feed and fails. --tree scans every tracked .kt/.kts and only reports, because the
+    # markers written before the spelling was fixed are paid off as their files are next touched.
+    mode="${1:---stdin}"
+    twin_awk='
+      function flush() {
+        t = tolower(text)
+        if (n > 0 && t ~ /twin of|mirrors (the )?(manga|novel|mihon)|as manga does/ && t !~ /pinned by|type only|no pin:/)
+          print loc ": " first
+        n = 0; text = ""
+      }
+      tree && FNR == 1 { flush() }
+      {
+        line = $0
+        if (!tree) {
+          if (line ~ /^\+\+\+ /) { flush(); file = line; sub(/^\+\+\+ (b\/)?/, "", file); next }
+          if (line ~ /^@@/) { flush(); ln = line; sub(/^@@ -[0-9,]+ \+/, "", ln); sub(/[ ,].*/, "", ln); ln += 0; next }
+          if (line !~ /^\+/) { flush(); next }
+          line = substr(line, 2); where = file ":" ln; ln++
+        } else {
+          where = FILENAME ":" FNR
+        }
+        s = line; sub(/^[ \t]+/, "", s)
+        if (s ~ /^(\/\/|\/\*|\*)/) { sub(/^(\/+|\/\*+|\*+)[ \t]*/, "", s) }
+        else if (index(s, "//") > 0) { s = substr(s, index(s, "//") + 2) }
+        else { flush(); next }
+        sub(/\*\/[ \t]*$/, "", s)
+        if (n == 0) { loc = where; first = line }
+        n++; text = text " " s
+      }
+      END { flush() }'
+    if [ "$mode" = "--tree" ]; then
+      hits=$(git ls-files -z -- '*.kt' '*.kts' | xargs -0 awk -v tree=1 "$twin_awk" || true)
+      if [ -n "$hits" ]; then
+        echo "twin-pins: $(printf '%s\n' "$hits" | wc -l | tr -d ' ') twin/mirrors comment(s) name no pin (report only; pay each off when its file is next touched):"
+        printf '%s\n' "$hits"
+      fi
+    else
+      hits=$(awk -v tree=0 "$twin_awk")
+      if [ -n "$hits" ]; then
+        report "a twin/mirrors comment names no pin; write 'twin of X, pinned by Y' (a kernel, a capability or a ...Test), 'twin of X, type only', or 'no pin: <reason>'. See content-layer.md." "$hits"
+        exit 1
+      fi
     fi
     ;;
 
