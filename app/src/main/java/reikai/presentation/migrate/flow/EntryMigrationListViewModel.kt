@@ -34,9 +34,6 @@ import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
-/** Sources probed at once while ranking one row's matches by chapter count. */
-private const val SOURCE_CONCURRENCY = 5
-
 /**
  * Drives a migration batch for one content type over [MigrationFlowAdapter].
  * Rows are searched one at a time in list order, so a source never sees more than one request from
@@ -96,7 +93,7 @@ class EntryMigrationListViewModel(
 
     /** Override searches are bounded separately from the batch, so opening a row responds at once
      *  rather than waiting for the batch's turn to come round. */
-    private val interactiveSearches = Semaphore(SOURCE_CONCURRENCY)
+    private val interactiveSearches = Semaphore(SOURCE_SEARCH_CONCURRENCY)
 
     /** Versions the confirm dialog's flag scan so a dismissed scan cannot land on a later dialog. */
     @Volatile
@@ -260,7 +257,7 @@ class EntryMigrationListViewModel(
     ): SearchPhase {
         var errors = 0
         val hit: Pair<MigrationSourceUi, MigrationCandidate>? = if (tuning.prioritizeByChapters) {
-            val permits = Semaphore(SOURCE_CONCURRENCY)
+            val permits = Semaphore(SOURCE_SEARCH_CONCURRENCY)
             val probes = sources.map { source ->
                 row.scope.async {
                     source to permits.withPermit {
@@ -360,17 +357,7 @@ class EntryMigrationListViewModel(
         row.overrideJob?.cancel()
         // Seeded before the launch, not inside it: publishing the strips from the search coroutine
         // is what once left the picker spinning for good.
-        row.overrides.value = MigratingEntryRow.OverrideState.Strips(
-            sources.map {
-                MigratingEntryRow.OverrideStrip(
-                    sourceKey = it.key,
-                    sourceName = it.name,
-                    sourceLang = it.lang,
-                    result = StripResult.Loading,
-                    sourceFormat = it.format,
-                )
-            },
-        )
+        row.overrides.value = MigratingEntryRow.OverrideState.Strips(sources.map { it.loadingStrip() })
         row.overrideJob = row.scope.launch {
             adapter.fanOutCandidates(
                 entry = row.entry,
@@ -381,9 +368,7 @@ class EntryMigrationListViewModel(
             ) { sourceKey, landed ->
                 row.overrides.update { current ->
                     val open = current as? MigratingEntryRow.OverrideState.Strips ?: return@update current
-                    MigratingEntryRow.OverrideState.Strips(
-                        open.strips.map { if (it.sourceKey == sourceKey) it.copy(result = landed) else it },
-                    )
+                    MigratingEntryRow.OverrideState.Strips(open.strips.withResult(sourceKey, landed))
                 }
             }
         }

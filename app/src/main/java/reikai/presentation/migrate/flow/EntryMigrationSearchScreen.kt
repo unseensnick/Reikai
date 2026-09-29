@@ -47,7 +47,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
-import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.i18n.MR
@@ -55,9 +54,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-
-/** Sources searched at once. */
-private const val SEARCH_CONCURRENCY = 5
 
 /**
  * Migrating a single entry: search the chosen sources and pick the target directly.
@@ -165,15 +161,14 @@ class EntryMigrationSearchScreen(
                 )
                 return@Scaffold
             }
+            // Over every searched source, not the filtered few, so a label does not come and go.
+            val showsFormat = state.sections.showsFormat
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
                 items(items = sections, key = { it.sourceKey }) { section ->
                     MigrationCandidateStrip(
-                        sourceName = section.sourceName,
-                        sourceLang = section.sourceLang,
-                        sourceFormat = section.sourceFormat,
-                        showsFormat = state.showsFormat,
+                        strip = section,
+                        showsFormat = showsFormat,
                         isCurrentSource = section.sourceKey == entry.sourceKey,
-                        result = section.result,
                         onPick = viewModel::showDialog,
                         onPreview = { it.openDetails(navigator) },
                         onBrowseSource = {
@@ -245,7 +240,7 @@ class EntryMigrationSearchViewModel(
         ): EntryMigrationSearchViewModel
     }
 
-    private val permits = Semaphore(SEARCH_CONCURRENCY)
+    private val permits = Semaphore(SOURCE_SEARCH_CONCURRENCY)
 
     @Volatile
     private var searchJob: Job? = null
@@ -277,9 +272,7 @@ class EntryMigrationSearchViewModel(
         searchJob = viewModelScope.launch(io) {
             val myJob = coroutineContext[Job]
             val sources = adapter.sourcesFor()
-            state.update { state ->
-                state.copy(sections = sources.map { Section(it.key, it.name, it.lang, sourceFormat = it.format) })
-            }
+            state.update { it.copy(sections = sources.map { source -> source.loadingStrip() }) }
             adapter.fanOutCandidates(
                 entry = entry,
                 query = fullQuery,
@@ -287,13 +280,7 @@ class EntryMigrationSearchViewModel(
                 permits = permits,
                 isCurrent = { searchJob === myJob },
             ) { sourceKey, landed ->
-                state.update { state ->
-                    state.copy(
-                        sections = state.sections.map {
-                            if (it.sourceKey == sourceKey) it.copy(result = landed) else it
-                        },
-                    )
-                }
+                state.update { it.copy(sections = it.sections.withResult(sourceKey, landed)) }
             }
         }
     }
@@ -334,27 +321,15 @@ class EntryMigrationSearchViewModel(
     /** Called once the screen has shown the outcome; see [PickOutcome]. */
     fun consumePickOutcome() = state.update { it.copy(pickOutcome = null) }
 
-    data class Section(
-        val sourceKey: String,
-        val sourceName: String,
-        /** Raw language tag, localized at render (shared header shows it like global search). */
-        val sourceLang: String = "",
-        val result: StripResult = StripResult.Loading,
-        val sourceFormat: NovelExtensionFormat? = null,
-    )
-
     data class State(
         val isLoading: Boolean = true,
         val entry: MigrationEntry? = null,
-        val sections: List<Section> = emptyList(),
+        val sections: List<SourceStrip> = emptyList(),
         val dialogTarget: MigrationCandidate? = null,
         /** Consume-once: see [PickOutcome]. */
         val pickOutcome: PickOutcome? = null,
         val onlyShowHasResults: Boolean = false,
     ) {
         val searchedCount: Int get() = sections.count { it.result !is StripResult.Loading }
-
-        /** Novel sources of more than one packaging are searched, so each heading names its own. */
-        val showsFormat: Boolean = NovelExtensionFormat.tellsApart(sections.map { it.sourceFormat })
     }
 }

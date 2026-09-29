@@ -6,7 +6,6 @@ import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.tachiyomi.util.system.LocaleHelper
-import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.EntryBrowseItemUi
 import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
@@ -23,11 +22,8 @@ import reikai.presentation.browse.components.sourceDetail
  */
 @Composable
 internal fun MigrationCandidateStrip(
-    sourceName: String,
-    sourceLang: String,
-    result: StripResult,
-    /** The source's packaging, named when [showsFormat] says the searched sources hold more than one. */
-    sourceFormat: NovelExtensionFormat?,
+    strip: SourceStrip,
+    /** Whether the searched sources hold more than one packaging, so this heading names its own. */
     showsFormat: Boolean,
     onPick: (MigrationCandidate) -> Unit,
     onPreview: (MigrationCandidate) -> Unit,
@@ -37,12 +33,12 @@ internal fun MigrationCandidateStrip(
      *  the entry itself far more often than it is a target worth having. */
     isCurrentSource: Boolean = false,
 ) {
-    val candidates = result.candidates
+    val result = strip.result
     EntrySearchSection(
-        title = if (isCurrentSource) "▶ $sourceName" else sourceName,
+        title = if (isCurrentSource) "▶ ${strip.sourceName}" else strip.sourceName,
         subtitle = sourceDetail(
-            language = LocaleHelper.getSourceDisplayName(sourceLang, LocalContext.current),
-            format = formatLabel(sourceFormat, showsFormat),
+            language = LocaleHelper.getSourceDisplayName(strip.sourceLang, LocalContext.current),
+            format = formatLabel(strip.sourceFormat, showsFormat),
         ).orEmpty(),
         onClick = onBrowseSource,
         modifier = modifier,
@@ -55,7 +51,7 @@ internal fun MigrationCandidateStrip(
             // there: in-library entries dimmed and badged, and still pickable, since migrating onto
             // a library entry is the replace case rather than a mistake.
             is StripResult.Loaded -> EntrySearchCardRow(
-                entries = candidates,
+                entries = result.candidates,
                 key = { it.key },
                 toUi = { EntryBrowseItemUi(title = it.title, cover = it.cover ?: "", favorite = it.inLibrary) },
                 onClick = onPick,

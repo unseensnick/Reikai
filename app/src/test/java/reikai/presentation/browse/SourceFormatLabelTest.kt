@@ -23,10 +23,10 @@ import reikai.presentation.browse.source.NovelSourcesFilterViewModel
 import reikai.presentation.browse.source.SourcesEngine
 import reikai.presentation.browse.source.SourcesListItem
 import reikai.presentation.migrate.flow.EntryMigrationConfigViewModel
-import reikai.presentation.migrate.flow.EntryMigrationSearchViewModel
-import reikai.presentation.migrate.flow.MigratingEntryRow
 import reikai.presentation.migrate.flow.MigrationSourceIcon
 import reikai.presentation.migrate.flow.MigrationSourceUi
+import reikai.presentation.migrate.flow.loadingStrip
+import reikai.presentation.migrate.flow.showsFormat
 
 /**
  * Every list that shows novel sources names each one's packaging once it holds two kinds, so two
@@ -88,13 +88,13 @@ class SourceFormatLabelTest {
     }
 
     @Test
-    fun `a migration override search names packaging once two kinds are searched`() {
-        MigratingEntryRow.OverrideState.Strips(listOf(strip(APK), strip(IREADER))).showsFormat shouldBe true
+    fun `a migration search names packaging once two kinds are searched`() {
+        listOf(pickerSource(APK).loadingStrip(), pickerSource(IREADER).loadingStrip()).showsFormat shouldBe true
     }
 
     @Test
-    fun `a migration search names packaging once two kinds are searched`() {
-        EntryMigrationSearchViewModel.State(sections = listOf(section(APK), section(IREADER))).showsFormat shouldBe true
+    fun `a migration search names none while every source is packaged alike`() {
+        listOf(pickerSource(APK).loadingStrip(), pickerSource(APK).loadingStrip()).showsFormat shouldBe false
     }
 
     private fun searchRow(format: NovelExtensionFormat) = BrowseSearchRow(
@@ -150,18 +150,5 @@ class SourceFormatLabelTest {
         lang = "en",
         icon = MigrationSourceIcon.NovelUrl(null),
         format = format,
-    )
-
-    private fun strip(format: NovelExtensionFormat) = MigratingEntryRow.OverrideStrip(
-        sourceKey = "s-$format",
-        sourceName = "Site",
-        result = reikai.presentation.migrate.flow.StripResult.Loading,
-        sourceFormat = format,
-    )
-
-    private fun section(format: NovelExtensionFormat) = EntryMigrationSearchViewModel.Section(
-        sourceKey = "s-$format",
-        sourceName = "Site",
-        sourceFormat = format,
     )
 }

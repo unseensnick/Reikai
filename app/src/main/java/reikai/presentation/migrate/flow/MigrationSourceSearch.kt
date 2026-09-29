@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import reikai.domain.entry.EntryId
+import reikai.novel.source.NovelExtensionFormat
 import reikai.util.runCatchingCancellable
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -30,6 +31,31 @@ sealed interface StripResult {
 
     data class Failed(val error: String) : StripResult
 }
+
+/** Sources searched at once, by either search route and by the batch's chapter ranking. */
+internal const val SOURCE_SEARCH_CONCURRENCY = 5
+
+/**
+ * One source's strip of candidates. Strips are published loading, before their searches run, so a
+ * single unreachable source cannot hold every other source's results behind one spinner.
+ */
+data class SourceStrip(
+    val sourceKey: String,
+    val sourceName: String,
+    /** Raw language tag, localized at render (the shared header shows it like global search). */
+    val sourceLang: String,
+    val sourceFormat: NovelExtensionFormat?,
+    val result: StripResult = StripResult.Loading,
+)
+
+fun MigrationSourceUi.loadingStrip(): SourceStrip = SourceStrip(key, name, lang, format)
+
+fun List<SourceStrip>.withResult(sourceKey: String, result: StripResult): List<SourceStrip> =
+    map { if (it.sourceKey == sourceKey) it.copy(result = result) else it }
+
+/** Novel sources of more than one packaging are searched, so each heading names its own. */
+val List<SourceStrip>.showsFormat: Boolean
+    get() = NovelExtensionFormat.tellsApart(map { it.sourceFormat })
 
 /** The candidates this source returned, empty while loading or on failure. */
 val StripResult.candidates: List<MigrationCandidate>

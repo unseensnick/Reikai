@@ -348,22 +348,22 @@ private fun OverridePicker(
 
         when (val state = overrides) {
             MigratingEntryRow.OverrideState.Idle -> {}
-            is MigratingEntryRow.OverrideState.Strips -> state.strips.forEach { strip ->
-                MigrationCandidateStrip(
-                    sourceName = strip.sourceName,
-                    sourceLang = strip.sourceLang,
-                    sourceFormat = strip.sourceFormat,
-                    showsFormat = state.showsFormat,
-                    isCurrentSource = strip.sourceKey == row.entry.sourceKey,
-                    result = strip.result,
-                    onPick = { viewModel.pick(row.entry.id, it) },
-                    onPreview = { it.openDetails(navigator) },
-                    onBrowseSource = {
-                        if (!openDeepPicker(navigator, row.entry, strip.sourceKey, query)) {
-                            context.toast(MR.strings.internal_error)
-                        }
-                    },
-                )
+            is MigratingEntryRow.OverrideState.Strips -> {
+                val showsFormat = state.strips.showsFormat
+                state.strips.forEach { strip ->
+                    MigrationCandidateStrip(
+                        strip = strip,
+                        showsFormat = showsFormat,
+                        isCurrentSource = strip.sourceKey == row.entry.sourceKey,
+                        onPick = { viewModel.pick(row.entry.id, it) },
+                        onPreview = { it.openDetails(navigator) },
+                        onBrowseSource = {
+                            if (!openDeepPicker(navigator, row.entry, strip.sourceKey, query)) {
+                                context.toast(MR.strings.internal_error)
+                            }
+                        },
+                    )
+                }
             }
         }
     }
