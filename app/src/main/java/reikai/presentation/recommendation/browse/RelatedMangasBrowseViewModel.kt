@@ -14,7 +14,6 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
-import eu.kanade.domain.manga.interactor.UpdateManga
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +31,7 @@ import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.localIdOf
-import reikai.presentation.browse.finishAdd
+import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.i18n.stringResource
@@ -41,7 +40,6 @@ import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.interactor.GetCategories
-import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
@@ -66,8 +64,7 @@ class RelatedMangasBrowseViewModel(
     private val relatedMangaCache: RelatedMangaCache,
     private val getFavorites: GetFavorites,
     private val getCategories: GetCategories,
-    private val setMangaCategories: SetMangaCategories,
-    private val updateManga: UpdateManga,
+    private val libraryAdder: MangaLibraryAdder,
     private val networkToLocalManga: NetworkToLocalManga,
     private val libraryPreferences: LibraryPreferences,
     private val prepareRecommendationAssembly: PrepareRecommendationAssembly,
@@ -223,15 +220,8 @@ class RelatedMangasBrowseViewModel(
     }
 
     private suspend fun applyAdd(mangas: List<Manga>, categoryIds: List<Long>) {
-        mangas.forEach { manga ->
-            // The shared order per entry: one failing favorite write skips that entry's categories
-            // rather than filing them against a row outside the library, and the rest still add.
-            finishAdd(
-                categoryIds = categoryIds,
-                favorite = { manga.id.takeIf { updateManga.awaitUpdateFavorite(manga.id, true) } },
-                fileCategories = { id, ids -> setMangaCategories.await(id, ids) },
-            )
-        }
+        // Per entry, so one failing favorite write skips only that entry's categories.
+        mangas.forEach { libraryAdder.confirmAddCategories(it.id, categoryIds) }
     }
 
     private suspend fun finishAdd(added: Int, skipped: Int) {

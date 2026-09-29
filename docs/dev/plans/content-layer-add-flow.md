@@ -255,3 +255,18 @@ two orders would have baked the divergence into the engine.
 - **The manga picker-confirm ordering is fixed inside step 3, not ahead of it.** The two confirms file
   categories and favorite from separate coroutines, so the writes are unordered as well as inverted.
   The end state is the same unless the favorite write fails, and the sequence fixes both at once.
+- **Every add re-reads the stored row, and every manga add outside the details page goes through one
+  favorite step** (cleanup plan P18, 2026-09-29). `MangaLibraryAdder.favoriteFromBrowse` is
+  `favoriteForAdd` plus the default chapter flags; the browse long-press, both picker confirms, the
+  bulk facade and the recommendations "See all" add all call it, so a list drawn before the entry was
+  added no longer re-favorites it (which reset its date added and chapter settings). The old toggle's
+  add arm is gone and its remove arm is `removeFromLibrary`. The bulk engine asks each facade
+  `isInLibrary` when the add runs rather than trusting the selection's copy, so an entry added since
+  it was selected keeps its categories, and one removed since is added; novels lost the host-passed
+  favorited-key set this replaced. A direct browse add of a row that is already in still files it into
+  the resolved category on both types, as the shared sequence has always done.
+- **Adds with no screen to ask on file into the default category** (owner ruling 16 (a),
+  2026-09-29). The adult-source batch add, a shared gallery link and the MangaDex follows sync go
+  through `MangaLibraryAdder.addWithoutAsking`: the default chapter flags and the default category
+  when one is set, uncategorized under "always ask", and nothing rewritten on a row already in the
+  library. Novels have no such path, so the rule is manga-only by construction.

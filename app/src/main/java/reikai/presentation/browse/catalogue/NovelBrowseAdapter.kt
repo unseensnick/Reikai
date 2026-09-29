@@ -229,7 +229,7 @@ class NovelBrowseAdapter(
     override fun invertSelection(rows: List<EntryBrowseRow>) =
         bulk.reverseSelection(rows.map { SelectedNovel(sourceId, it.item) })
 
-    override fun addSelectionToLibrary() = bulk.addFavorite(model.state.value.favoritedKeys)
+    override fun addSelectionToLibrary() = bulk.addFavorite()
 
     override fun setSelectionCategories(categoryIds: List<Long>) {
         val dialog = raisedBulkDialog as? EntryBulkFavoriteViewModel.Dialog.ChangeCategory ?: return

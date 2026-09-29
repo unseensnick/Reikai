@@ -3,7 +3,6 @@ package exh
 import android.content.Context
 import androidx.core.net.toUri
 import dev.zacsweers.metro.Inject
-import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.UrlImportableSource
@@ -12,6 +11,7 @@ import exh.source.getMainSource
 import logcat.LogPriority
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.merge.ReconcileMergedChapters
+import reikai.presentation.browse.MangaLibraryAdder
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChapter
@@ -32,7 +32,7 @@ import kotlin.time.Clock
  */
 @Inject
 class GalleryAdder(
-    private val updateManga: UpdateManga,
+    private val libraryAdder: MangaLibraryAdder,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
     private val networkToLocalManga: NetworkToLocalManga,
     private val getChapter: GetChapter,
@@ -103,8 +103,7 @@ class GalleryAdder(
                 }.manga
             }
 
-            if (fav) {
-                updateManga.awaitUpdateFavorite(manga.id, true)
+            if (fav && libraryAdder.addWithoutAsking(manga.id) != null) {
                 manga = manga.copy(favoriteAt = manga.favoriteAt ?: Clock.System.now().toEpochMilliseconds())
             }
 

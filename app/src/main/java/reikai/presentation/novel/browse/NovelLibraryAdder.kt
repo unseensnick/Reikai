@@ -262,6 +262,10 @@ class NovelLibraryAdder(
         return stored.id
     }
 
+    /** Whether the browsed [item] is in the library now, rather than when a list drew it. */
+    suspend fun isInLibrary(item: NovelItem, sourceId: String): Boolean =
+        novelRepository.getByUrlAndSource(item.path, sourceId)?.favorite == true
+
     /** Insert-or-get the browsed [item] as a library row and return it, without favoriting, for the
      *  migrate-from-duplicate flow (the migrate use case favorites + chapter-syncs the target itself). */
     suspend fun materialize(item: NovelItem, sourceId: String): Novel? {

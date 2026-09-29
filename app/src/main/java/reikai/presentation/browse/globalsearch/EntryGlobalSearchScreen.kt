@@ -170,7 +170,7 @@ class EntryGlobalSearchScreen(
                         namePrompts = mangaBulkState.selection.isNotEmpty() &&
                             novelBulkState.selection.isNotEmpty()
                         mangaBulk.addFavorite()
-                        novelBulk.addFavorite(novelState.favoritedKeys)
+                        novelBulk.addFavorite()
                     },
                     tabs = {
                         ContentTypeTabs(

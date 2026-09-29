@@ -22,9 +22,9 @@ import tachiyomi.domain.category.model.Category
  * The shared bulk "add to library" engine for every browse surface: selection state, the
  * default-category-or-prompt decision and the one-shot category dialog live here once, so the two
  * content types cannot drift. The per-type facades supply only what genuinely differs: the selection
- * key, the category source, the default-category preference and the add-to-library verb. One category
- * choice applies to the whole selection, already-favorited entries are skipped, and there is no
- * per-duplicate prompt.
+ * key, the category source, the default-category preference, the in-library check and the add-to-library
+ * verb. One category choice applies to the whole selection, already-favorited entries are skipped, and
+ * there is no per-duplicate prompt.
  */
 abstract class EntryBulkFavoriteViewModel<T : Any> :
     ViewModel() {
@@ -43,6 +43,9 @@ abstract class EntryBulkFavoriteViewModel<T : Any> :
 
     /** Favorite [items] and file them into [categoryIds]; the per-type verb. */
     protected abstract suspend fun addToLibrary(items: List<T>, categoryIds: List<Long>)
+
+    /** Whether [item] is in the library now; the selection's own copy is as old as the list that drew it. */
+    protected abstract suspend fun isInLibrary(item: T): Boolean
 
     fun backHandler() = toggleSelectionMode(false)
 
@@ -86,14 +89,13 @@ abstract class EntryBulkFavoriteViewModel<T : Any> :
     }
 
     /**
-     * Add the selected, not-yet-favorited entries. Adds directly when a default category is set (or
-     * none exist), otherwise opens a one-shot category picker for the batch. [isFavorited] comes from
-     * the facade: manga items carry a favorite flag, while a novel browse item has no id, so its host
-     * screen passes the live favorited-key set.
+     * Add the selected entries not in the library. Adds directly when a default category is set (or
+     * none exist), otherwise opens a one-shot category picker for the batch. An entry already in is
+     * skipped, so it keeps its categories rather than moving into the batch's.
      */
-    protected fun addFavoriteFiltered(isFavorited: (T) -> Boolean) {
+    fun addFavorite() {
         viewModelScope.launchIO {
-            val items = state.value.selection.filterNot(isFavorited)
+            val items = state.value.selection.filterNot { isInLibrary(it) }
             if (items.isEmpty()) {
                 toggleSelectionMode(false)
                 return@launchIO

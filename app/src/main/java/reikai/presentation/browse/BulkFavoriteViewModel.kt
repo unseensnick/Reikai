@@ -35,11 +35,11 @@ class BulkFavoriteViewModel(
         items.forEach { manga ->
             finishAdd(
                 categoryIds = categoryIds,
-                favorite = { manga.id.takeIf { libraryAdder.changeFavorite(manga) } },
+                favorite = { libraryAdder.favoriteFromBrowse(manga.id) },
                 fileCategories = { _, ids -> libraryAdder.moveToCategories(manga, ids) },
             )
         }
     }
 
-    fun addFavorite() = addFavoriteFiltered { it.favorite }
+    override suspend fun isInLibrary(item: Manga): Boolean = libraryAdder.isInLibrary(item.id)
 }

@@ -304,7 +304,7 @@ class FeedViewModel(
         val novel = raisedNovel as? NovelBrowseDialog.RemoveNovel
         viewModelScope.launchIO {
             when {
-                manga != null -> mangaAdder.changeFavorite(manga)
+                manga != null -> mangaAdder.removeFromLibrary(manga)
                 novel != null -> novelAdder.confirmRemove(novel.item, novel.sourceId)
             }
             dismissAddDialog()
@@ -316,9 +316,7 @@ class FeedViewModel(
         val novel = raisedNovel as? NovelBrowseDialog.ChangeCategory
         viewModelScope.launchIO {
             when {
-                manga != null && raisedMangaGroup.isNotEmpty() ->
-                    mangaAdder.confirmGroupCategories(manga, raisedMangaGroup, categoryIds)
-                manga != null -> mangaAdder.confirmAddCategories(manga.id, categoryIds)
+                manga != null -> mangaAdder.confirmPicker(manga, categoryIds, raisedMangaGroup)
                 novel != null -> novelAdder.confirmCategories(novel.target, categoryIds)
             }
             dismissAddDialog()

@@ -6,10 +6,8 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -29,8 +27,7 @@ import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.TitleNormalizer
 import reikai.domain.recommendation.taste.TasteProfile
-import tachiyomi.core.common.preference.InMemoryPreferenceStore
-import tachiyomi.domain.library.service.LibraryPreferences
+import reikai.presentation.browse.FakeMangaLibrary
 import tachiyomi.domain.manga.model.Manga
 import kotlin.time.Duration.Companion.seconds
 
@@ -57,7 +54,7 @@ class RelatedMangasBrowseViewModelTest {
     )
 
     /** The library, as a live table: a favourite write lands here and every read sees it. */
-    private val favorites = MutableStateFlow<List<Manga>>(emptyList())
+    private val library = FakeMangaLibrary()
 
     private fun viewModel(
         cache: RelatedMangaCache = RelatedMangaCache().apply {
@@ -69,25 +66,16 @@ class RelatedMangasBrowseViewModelTest {
         context = mockk(relaxed = true),
         relatedMangaCache = cache,
         getFavorites = mockk {
-            coEvery { await() } answers { favorites.value }
+            coEvery { await() } answers { library.rows.values.filter { it.favorite } }
             every { subscribe(any()) } answers
-                { favorites.map { list -> list.filter { it.source == firstArg<Long>() } } }
+                { library.favorites.map { list -> list.filter { it.source == firstArg<Long>() } } }
         },
-        getCategories = mockk { coEvery { await() } returns emptyList() },
-        setMangaCategories = mockk(relaxed = true),
-        updateManga = mockk {
-            coEvery { awaitUpdateFavorite(any(), true) } answers {
-                favorites.update {
-                    it +
-                        Manga.create().copy(id = firstArg(), url = "a", source = SOURCE_ID, favoriteAt = 0L)
-                }
-                true
-            }
-        },
+        getCategories = library.getCategories,
+        libraryAdder = library.adder,
         networkToLocalManga = mockk {
-            coEvery { this@mockk.invoke(any<Manga>()) } answers { firstArg<Manga>().copy(id = 10L) }
+            coEvery { this@mockk.invoke(any<Manga>()) } answers { library.insert(firstArg<Manga>().copy(id = 10L)) }
         },
-        libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
+        libraryPreferences = library.libraryPreferences,
         prepareRecommendationAssembly = mockk {
             coEvery { await() } returns RecommendationAssembly(
                 RecommendationHideFilter(
@@ -142,6 +130,20 @@ class RelatedMangasBrowseViewModelTest {
 
         settle { viewModel.state.first { it.items.size == 2 } }
             .items.first { it.candidate.manga.url == "a" }.inLibrary shouldBe true
+    }
+
+    @Test
+    fun `a related add stamps the default chapter settings`() = runTest {
+        val cache = RelatedMangaCache().apply {
+            put(MANGA_ID, RelatedPool(listOf(candidate("a", SOURCE_ID)), emptyMap()))
+        }
+        val viewModel = viewModel(cache = cache)
+        settle { viewModel.state.first { it.items.isNotEmpty() } }
+        viewModel.toggleSelection("a")
+        viewModel.addSelectedToLibrary()
+        settle { viewModel.state.first { it.selectedUrls.isEmpty() } }
+
+        library.chapterDefaultsStamped shouldBe setOf(10L)
     }
 
     @Test

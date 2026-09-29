@@ -13,7 +13,6 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import dev.zacsweers.metro.Inject
-import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.track.model.toDomainTrack
 import eu.kanade.tachiyomi.R
@@ -42,6 +41,7 @@ import reikai.data.notification.hiddenEntryIds
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.browse.MangaLibraryAdder
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -74,7 +74,7 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
 
     @Inject private lateinit var updateMangaFromRemote: UpdateMangaFromRemote
 
-    @Inject private lateinit var updateManga: UpdateManga
+    @Inject private lateinit var libraryAdder: MangaLibraryAdder
 
     @Inject private lateinit var getLibraryManga: GetLibraryManga
 
@@ -254,9 +254,7 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
                     // only carries followStatus and would blank the rating until a manual refresh.
                     local = updateMangaFromRemote(local, fetchDetails = true, fetchChapters = true)
                         .getOrThrow().manga
-                    if (!local.favorite) {
-                        updateManga.awaitUpdateFavorite(local.id, true)
-                    }
+                    libraryAdder.addWithoutAsking(local.id)
                     imported++
                 } catch (e: CancellationException) {
                     throw e

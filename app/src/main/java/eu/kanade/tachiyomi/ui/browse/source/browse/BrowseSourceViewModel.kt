@@ -262,7 +262,7 @@ open class BrowseSourceViewModel(
      */
     // RK --> favorite / category / duplicate flow delegated to the shared MangaLibraryAdder
     fun changeMangaFavorite(manga: Manga) {
-        viewModelScope.launch { mangaLibraryAdder.changeFavorite(manga) }
+        viewModelScope.launch { mangaLibraryAdder.removeFromLibrary(manga) }
     }
 
     /**

@@ -43,12 +43,9 @@ class NovelBulkFavoriteViewModel(
         }
     }
 
-    fun toggleSelection(sourceId: String, item: NovelItem) = toggleSelection(SelectedNovel(sourceId, item))
+    override suspend fun isInLibrary(item: SelectedNovel): Boolean = libraryAdder.isInLibrary(item.item, item.sourceId)
 
-    /** [favoritedKeys] comes from the host screen (a NovelItem has no favorite flag), so
-     *  already-in-library entries are skipped. */
-    fun addFavorite(favoritedKeys: Set<Pair<String, String>>) =
-        addFavoriteFiltered { it.key in favoritedKeys }
+    fun toggleSelection(sourceId: String, item: NovelItem) = toggleSelection(SelectedNovel(sourceId, item))
 }
 
 /** A picked browse result: the item plus the source it came from (per-source browse has one source,

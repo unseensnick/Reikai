@@ -28,7 +28,6 @@ import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
-import kotlin.time.Clock
 
 /**
  * Shared long-press "add to library" orchestration for any manga browse surface (the per-source
@@ -105,11 +104,7 @@ class MangaLibraryAdder(
         if (joinGroup.isNotEmpty()) {
             confirmGroupCategories(manga, joinGroup, categoryIds)
         } else {
-            finishAdd(
-                categoryIds = categoryIds,
-                favorite = { manga.id.takeIf { changeFavorite(manga) } },
-                fileCategories = { _, ids -> moveToCategories(manga, ids) },
-            )
+            confirmAddCategories(manga.id, categoryIds)
         }
 
     private suspend fun joinGroupForAdd(manga: Manga, selectedIds: List<Long>): Long? =
@@ -136,33 +131,23 @@ class MangaLibraryAdder(
     }
 
     /**
-     * Toggle a manga's favorite state, answering whether the write landed. On favorite: apply default
-     * chapter flags + bind enhanced trackers; on unfavorite: drop cached covers. The add sequence
-     * abandons the add when this answers false, so nothing is filed against a row outside the library.
+     * Take [manga] out of the library, dropping its cached covers, answering whether the write landed.
+     * Only the library state and the cover stamp are written, never the manga as read here, so nothing
+     * read before the write is put back over a newer value (mihon f8fff318b).
      */
-    suspend fun changeFavorite(manga: Manga): Boolean {
-        // Only the library state is written, never the manga as read here: adding sets the default
-        // chapter flags first, and a write carrying the old ones would put them back (mihon f8fff318b).
-        val update = if (manga.favorite) {
-            // Hand this entry its own copy of the group's shared tracker before it leaves; the hand-out
-            // skips non-favorites, so after the write it would miss exactly this entry.
-            mergeManager.handOutTrackersBeforeRemoval(listOf(manga.id))
-            val coverLastModified = manga.removeCovers(coverCache).coverLastModified
-            MangaUpdate(manga.id) {
-                favoriteAt = null
-                if (coverLastModified != manga.coverLastModified) this.coverLastModified = coverLastModified
-            }
-        } else {
-            setMangaDefaultChapterFlags.await(manga)
-            MangaUpdate(manga.id) { favoriteAt = Clock.System.now().toEpochMilliseconds() }
+    suspend fun removeFromLibrary(manga: Manga): Boolean {
+        // Hand this entry its own copy of the group's shared tracker before it leaves; the hand-out
+        // skips non-favorites, so after the write it would miss exactly this entry.
+        mergeManager.handOutTrackersBeforeRemoval(listOf(manga.id))
+        val coverLastModified = manga.removeCovers(coverCache).coverLastModified
+        val update = MangaUpdate(manga.id) {
+            favoriteAt = null
+            if (coverLastModified != manga.coverLastModified) this.coverLastModified = coverLastModified
         }
-        val favorite = !manga.favorite
-        // Written here rather than through awaitUpdateFavorite, so the source's own tracker is told here.
-        // Trackers bind once the write lands, never for an add that failed.
+        // Written here rather than through awaitUpdateFavorite, which cannot carry the cover stamp, so the
+        // source's own tracker is told here.
         return updateManga.await(update).also { updated ->
-            if (!updated) return@also
-            sourceTracker.favoriteChanged(EntryId.Manga(manga.id), favorite)
-            if (favorite) autoBindOnAdd.manga(manga, sourceManager.getOrStub(manga.source))
+            if (updated) sourceTracker.favoriteChanged(EntryId.Manga(manga.id), favorite = false)
         }
     }
 
@@ -193,23 +178,41 @@ class MangaLibraryAdder(
      */
     suspend fun resolveAddFavorite(manga: Manga): AddFavoriteResult = addEntryOrPrompt(
         resolveCategories = { resolveDefaultCategories() },
-        favorite = { manga.id.takeIf { changeFavorite(manga) } },
+        favorite = { favoriteFromBrowse(manga.id) },
         fileCategories = { _, categoryIds -> moveToCategories(manga, categoryIds) },
         categoryPicker = { categoryPickerSelection(manga.id) },
     )
 
     /**
      * The writes a picker's confirm owes for a stored row, in the shared order, so backing out of
-     * the picker adds nothing and the row is favorited only when the user confirms. A newly added row
-     * takes the default chapter settings, as a browse add does; the details page skips that, having
-     * stamped them when it opened. Twin of `NovelLibraryAdder.confirmAddCategories`, pinned by
-     * `AddToGroupConformanceTest`'s confirm cases.
+     * the picker adds nothing and the row is favorited only when the user confirms. Twin of
+     * `NovelLibraryAdder.confirmAddCategories`, pinned by `AddToGroupConformanceTest`'s confirm cases.
      */
     suspend fun confirmAddCategories(mangaId: Long, categoryIds: List<Long>): AddOutcome = finishAdd(
         categoryIds = categoryIds,
-        favorite = { favoriteForAdd(mangaId) { setMangaDefaultChapterFlags.await(it) } },
+        favorite = { favoriteFromBrowse(mangaId) },
         fileCategories = { id, ids -> setMangaCategories.await(id, ids.filter { it != Category.UNCATEGORIZED_ID }) },
     )
+
+    /**
+     * The favorite step of every add outside the details page: a newly added row takes the default
+     * chapter settings, which the details page stamped already when it opened.
+     */
+    suspend fun favoriteFromBrowse(mangaId: Long): Long? =
+        favoriteForAdd(mangaId) { setMangaDefaultChapterFlags.await(it) }
+
+    /**
+     * Add [mangaId] where there is no screen to ask on (a batch add, a shared link, a follows sync): the
+     * default category when one is set, uncategorized under "always ask". A row already in the library
+     * keeps its categories and date added.
+     */
+    suspend fun addWithoutAsking(mangaId: Long): Long? = favoriteForAdd(mangaId) { added ->
+        setMangaDefaultChapterFlags.await(added)
+        resolveDefaultCategories()?.let { moveToCategories(added, it) }
+    }
+
+    /** Whether [mangaId] is in the library now, rather than when a list drew it. */
+    suspend fun isInLibrary(mangaId: Long): Boolean = getManga.await(mangaId)?.favorite == true
 
     /**
      * Favorite [mangaId] for an add, answering its id, or null when the row is gone or the write

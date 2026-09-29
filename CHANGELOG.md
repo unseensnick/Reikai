@@ -456,6 +456,9 @@ every stable release now also ships a foss build with neither in it.
 - **A light-novel source that is no longer installed now says so in your language and by its name, in its catalogue, on the novel page and in the reader, as a manga source does.**
 - **The Browse sources filter now covers manga and light novels from one screen, whichever chip you opened it from.** A Manga / Novels chip switches halves; the All and Manga chips used to reach only the manga sources.
 - **A light-novel source now browses in your chosen grid column count, like manga does.** Both kinds of source draw their results through one grid, so the display mode means the same thing on either.
+- **Adding manga from global search, the feed or a browse list no longer resets the date added or chapter settings of manga already in your library.**
+- **Entries added by batch add, a shared link or a follows sync now take your default chapter settings and default category, and re-adding one keeps its date added.**
+- **Entries added from a recommendations list now take your default chapter settings.**
 
 ### Migration
 

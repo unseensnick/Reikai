@@ -79,6 +79,23 @@ class AddToGroupConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a browse add of a row added since it was listed does not re-favorite it`(probe: GroupAddProbe) =
+        runTest {
+            probe.addFromBrowse(favoriteWriteSucceeds = true, alreadyFavorite = true).favoriteWritten shouldBe false
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a browse add of a row added since it was listed keeps its chapter settings`(probe: GroupAddProbe) =
+        runTest {
+            probe.addFromBrowse(favoriteWriteSucceeds = true, alreadyFavorite = true)
+
+            assumeTrue(probe.chapterDefaultsStamped != null, "$probe resolves chapter defaults at read time")
+            probe.chapterDefaultsStamped shouldBe false
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `an already-favorited row is merged without rewriting its favorite`(probe: GroupAddProbe) = runTest {
         probe.joinGroup(alreadyFavorite = true) shouldBe
             GroupAddEffects(joined = true, merged = true, favoriteWritten = false, filedCategories = null)
@@ -263,8 +280,11 @@ interface GroupAddProbe {
     /** A browse add's favorite write, the one that skips the category sequence's confirm. */
     suspend fun favoriteFromBrowse(favoriteWriteSucceeds: Boolean)
 
-    /** A whole browse add into a configured default category, which asks nothing. */
-    suspend fun addFromBrowse(favoriteWriteSucceeds: Boolean): GroupAddEffects
+    /**
+     * A whole browse add into a configured default category, which asks nothing. [alreadyFavorite] is a
+     * row the list still draws as outside the library.
+     */
+    suspend fun addFromBrowse(favoriteWriteSucceeds: Boolean, alreadyFavorite: Boolean = false): GroupAddEffects
 
     /** What a stored row's picker confirm wrote. Both types favorite here, then file. */
     suspend fun confirmAddCategories(
@@ -369,13 +389,12 @@ class MangaGroupAddProbe : GroupAddProbe {
 
     override suspend fun favoriteFromBrowse(favoriteWriteSucceeds: Boolean) {
         reset()
-        adder(favoriteWriteSucceeds, false, true, emptyList(), emptyList(), -1)
-            .changeFavorite(Manga.create().copy(id = 1L, source = 99L))
+        adder(favoriteWriteSucceeds, false, true, emptyList(), emptyList(), -1).favoriteFromBrowse(1L)
     }
 
-    override suspend fun addFromBrowse(favoriteWriteSucceeds: Boolean): GroupAddEffects {
+    override suspend fun addFromBrowse(favoriteWriteSucceeds: Boolean, alreadyFavorite: Boolean): GroupAddEffects {
         reset()
-        adder(favoriteWriteSucceeds, false, true, emptyList(), listOf(category(3L)), 3)
+        adder(favoriteWriteSucceeds, alreadyFavorite, true, emptyList(), listOf(category(3L)), 3)
             .resolveAddFavorite(Manga.create().copy(id = 1L, source = 99L))
         return GroupAddEffects(null, merged, favoriteWritten, filed)
     }
@@ -508,9 +527,9 @@ class NovelGroupAddProbe : GroupAddProbe {
         adder(favoriteWriteSucceeds, false, true, emptyList(), emptyList(), -1).favoriteReturningId(item, "src")
     }
 
-    override suspend fun addFromBrowse(favoriteWriteSucceeds: Boolean): GroupAddEffects {
+    override suspend fun addFromBrowse(favoriteWriteSucceeds: Boolean, alreadyFavorite: Boolean): GroupAddEffects {
         reset()
-        adder(favoriteWriteSucceeds, false, true, emptyList(), listOf(category(3L)), 3)
+        adder(favoriteWriteSucceeds, alreadyFavorite, true, emptyList(), listOf(category(3L)), 3)
             .addToLibrary(item, "src")
         return GroupAddEffects(null, merged, favoriteWritten, filed)
     }

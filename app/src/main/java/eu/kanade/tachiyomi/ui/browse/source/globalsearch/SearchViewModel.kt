@@ -121,7 +121,7 @@ abstract class SearchViewModel(
         mangaLibraryAdder.getDuplicates(manga)
 
     fun changeMangaFavorite(manga: Manga) {
-        viewModelScope.launchIO { mangaLibraryAdder.changeFavorite(manga) }
+        viewModelScope.launchIO { mangaLibraryAdder.removeFromLibrary(manga) }
     }
 
     /** RK: the shared long-press rule ([decideAdd]); twin of `BrowseSourceViewModel.onLongClick`. */

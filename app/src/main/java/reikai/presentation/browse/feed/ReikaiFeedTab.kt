@@ -94,7 +94,7 @@ fun Screen.reikaiFeedTab(): TabContent {
                         namePrompts = mangaBulkState.selection.isNotEmpty() &&
                             novelBulkState.selection.isNotEmpty()
                         mangaBulk.addFavorite()
-                        novelBulk.addFavorite(state.favoritedKeys)
+                        novelBulk.addFavorite()
                     },
                     onSelectAll = {
                         val (manga, novels) = state.entries.map { it.row }.listedEntries()
