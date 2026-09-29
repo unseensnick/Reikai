@@ -287,16 +287,15 @@ class LnPluginHost(
         pluginSlots[pluginId]?.rebuild = true
     }
 
-    fun destroy() {
+    /** Stops the idle sweeper and closes every engine, returning once they are closed. */
+    suspend fun close() {
         synchronized(sweeperLock) {
             sweeperJob?.cancel()
             sweeperJob = null
         }
         val slots = listOf(loaderSlot) + pluginSlots.values
         pluginSlots.clear()
-        CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
-            slots.forEach { slot -> slot.mutex.withLock { closeLocked(slot) } }
-        }
+        slots.forEach { slot -> slot.mutex.withLock { closeLocked(slot) } }
     }
 
     /** Close a slot's engine and retire its thread. Caller must hold the slot's mutex. */

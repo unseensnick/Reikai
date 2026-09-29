@@ -159,7 +159,7 @@ A `popularNovels` call (the others are analogous):
 | `LnPluginHost.kt` | The engine owner: per-plugin engine slots plus the shared loader slot, lazy QuickJS creation, the idle sweeper, host-function binding, per-slot mutex serialization, typed suspend methods, per-plugin settings accessors, `LnPluginException`. |
 | `LnHostBridge.kt` | OkHttp fetch (`runFetch`), namespaced `PreferenceStore` storage, logging; the `FetchOpts` / `FetchResponseDto` wire types. |
 | `LnPluginLoader.kt` | Downloads a plugin `.js` and keeps the installed one under `filesDir/lnplugins/<sha256(url)>.js` (`download` / `installed` / `store` / `delete`). A script changes only on install or update; one left in the old `cacheDir` location is adopted once, and one missing its default export is treated as not installed. |
-| `LnPluginModels.kt` | Wire DTOs: `LnPluginInfo`, `LnCallResult`, `NovelItem`, `ChapterItem`, `SourceNovel`, `SourcePage`, `ChapterContent`. |
+| `LnPluginModels.kt` | Wire DTOs: `LnPluginInfo`, `LnCallResult`, `NovelItem`, `ChapterItem`, `SourceNovel`, `SourcePage`. |
 
 ### Source, install, registry, network, download, update (`app/src/main/java/reikai/novel/`)
 

@@ -129,7 +129,7 @@ class HeadlessJsIntegrationTest {
                 if (text.isNotBlank()) fullChain++
             }
         } finally {
-            host.destroy()
+            host.close()
         }
 
         report.appendLine("--- summary ---")
@@ -239,7 +239,7 @@ class HeadlessJsIntegrationTest {
                 }
             }
         } finally {
-            host.destroy()
+            host.close()
         }
         Log.i(
             TAG,

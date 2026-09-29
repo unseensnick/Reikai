@@ -3,13 +3,11 @@ package reikai.novel.download
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
-import androidx.lifecycle.asFlow
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
-import androidx.work.WorkInfo
 import androidx.work.WorkerParameters
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
@@ -18,9 +16,9 @@ import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
+import reikai.util.workRunningFlow
 
 /**
  * Foreground worker that drains the novel download queue. Keeps the process alive (and shows a
@@ -93,13 +91,8 @@ class NovelDownloadJob(context: Context, workerParams: WorkerParameters) :
             context.workManager.cancelUniqueWork(TAG)
         }
 
-        /** Emits true while the drain worker is RUNNING (mirrors the manga DownloadJob), so the queue
-         *  FAB can toggle Pause / Resume. False when paused, idle, or drained. */
-        fun isRunningFlow(context: Context): Flow<Boolean> {
-            return context.workManager
-                .getWorkInfosForUniqueWorkLiveData(TAG)
-                .asFlow()
-                .map { list -> list.count { it.state == WorkInfo.State.RUNNING } == 1 }
-        }
+        /** True while the drain worker runs, so the queue FAB can toggle Pause / Resume. [TAG] is also
+         *  the unique work name, so the tag query sees the one request [start] keeps. */
+        fun isRunningFlow(context: Context): Flow<Boolean> = context.workRunningFlow(TAG)
     }
 }

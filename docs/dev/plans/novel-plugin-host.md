@@ -42,7 +42,7 @@ A plugin method call (`callMethod` in `LnPluginHost.kt`) takes the lock, then ev
 
 ### Load-once, app-scoped wiring
 
-The host is an app-scoped singleton on the Metro graph (`@Inject` + `@SingleIn(AppScope::class)` on the class). `LnPluginInstaller`, scoped the same way, owns it and exposes `ensureLoaded()` (`LnPluginInstaller.kt`), which loads every installed plugin into the shared `NovelSourceManager` exactly once per process behind its own load-mutex, retrying only the ones that failed. Screens and workers call `ensureLoaded()` and read sources from the manager; they no longer build their own host. The background path is wired the same way: `NovelUpdateJob` injects the installer and calls `ensureLoaded()` before iterating (`NovelUpdateJob.kt`), so a cold process finds populated sources.
+The host is an app-scoped singleton on the Metro graph (`@Inject` + `@SingleIn(AppScope::class)` on the class). `LnPluginInstaller`, scoped the same way, owns it and exposes `ensureLoaded()` (`LnPluginInstaller.kt`), which loads every installed plugin into the shared `NovelSourceManager` exactly once per process behind its own load-mutex, retrying only the ones that failed. Screens and workers call `ensureLoaded()` and read sources from the manager; they no longer build their own host. `NovelSourceManager.ensureLoaded()` is the same retry plus a wait for the app sources, and either one serves, because every manager lookup awaits the apps itself. The background path is wired the same way: `NovelUpdateJob` injects the installer and calls `ensureLoaded()` before iterating (`NovelUpdateJob.kt`), so a cold process finds populated sources.
 
 There is no separate on-screen versus background code path anymore. Both go through the one app-scoped host. The only remaining WebView in novel territory is the unrelated "open in WebView" escape hatch for clearing Cloudflare/Turnstile challenges, which is not the plugin host.
 
@@ -50,7 +50,7 @@ There is no separate on-screen versus background code path anymore. Both go thro
 
 Confirmed present in the current tree (`reikai.*` package, post-rebase):
 
-- [`app/src/main/java/reikai/novel/host/LnPluginHost.kt`](../../../app/src/main/java/reikai/novel/host/LnPluginHost.kt): the headless host: QuickJS creation, vendor + runtime load, the mutex-serialized `callMethod`, the public suspend methods (`loadPlugin`, `popularNovels`, `parseNovel`, `parseChapter`, `parsePage`, `resolveUrl`, `searchNovels`, settings/storage helpers, `destroy`).
+- [`app/src/main/java/reikai/novel/host/LnPluginHost.kt`](../../../app/src/main/java/reikai/novel/host/LnPluginHost.kt): the headless host: QuickJS creation, vendor + runtime load, the mutex-serialized `callMethod`, the public suspend methods (`loadPlugin`, `popularNovels`, `parseNovel`, `parseChapter`, `parsePage`, `resolveUrl`, `searchNovels`, settings/storage helpers, and a suspending `close` that only instrumented tests call, since the app-scoped host lives as long as the process).
 - [`app/src/main/java/reikai/novel/host/LnHostBridge.kt`](../../../app/src/main/java/reikai/novel/host/LnHostBridge.kt): engine-agnostic host bindings: `runFetch` (OkHttp), storage, logging.
 - [`app/src/main/java/reikai/novel/host/LnPluginLoader.kt`](../../../app/src/main/java/reikai/novel/host/LnPluginLoader.kt): download + cache the plugin `.js`.
 - [`app/src/main/assets/lnhost/headless.js`](../../../app/src/main/assets/lnhost/headless.js): the runtime: `require` shim, two-pass loader, dispatcher, browser-global polyfills.

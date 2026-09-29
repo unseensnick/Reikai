@@ -74,9 +74,9 @@ class NovelSourceManager(
         }
     }
 
-    /** Load every installed plugin that is not registered yet, retrying any that failed, then return.
-     *  Called where a novel screen opens or an update or download run starts, which are the only retry
-     *  points: a lookup never retries. */
+    /** Load every installed plugin that is not registered yet, retrying any that failed, and wait for
+     *  the app sources. Retries happen only where a screen opens or a run starts, through this or the
+     *  installer's own `ensureLoaded` (a lookup awaits the apps either way); a lookup never retries. */
     suspend fun ensureLoaded() {
         installer().ensureLoaded()
         appsRegistered.await()

@@ -1,6 +1,5 @@
 package reikai.novel.host
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -88,9 +87,4 @@ data class SourceNovel(
 @Serializable
 data class SourcePage(
     val chapters: List<ChapterItem>? = null,
-)
-
-@Serializable
-data class ChapterContent(
-    @SerialName("chapterText") val chapterText: String,
 )
