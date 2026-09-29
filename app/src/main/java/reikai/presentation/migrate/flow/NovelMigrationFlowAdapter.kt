@@ -251,13 +251,7 @@ class NovelMigrationFlowAdapter(
         // The search hit already carries everything a row needs to exist (title, path, cover), so it
         // is stored straight from that; the refresh below is the one call that parses the source, and
         // it fills in the details and chapters. Parsing here as well would double every accept.
-        val base = Novel.create().copy(
-            source = source.id,
-            url = handle.item.path,
-            title = handle.item.name,
-            thumbnailUrl = handle.item.cover,
-        )
-        val stored = novelRepository.insertOrGet(base) ?: return null
+        val stored = novelRepository.insertOrGet(handle.item.toNovel(source.id)) ?: return null
         // Skipped for a row that already has chapters, and best-effort, as manga's fetch is: a
         // failure still resolves, unsynced, and the engine's own refresh is the second attempt,
         // which fails the row if the source is still failing.

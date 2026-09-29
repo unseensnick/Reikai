@@ -1,6 +1,7 @@
 package reikai.presentation.novel.browse
 
 import dev.zacsweers.metro.Inject
+import reikai.data.novel.toNovel
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.groupOrDefaultCategoryIds
 import reikai.domain.category.resolveDefaultCategoryIds
@@ -245,13 +246,7 @@ class NovelLibraryAdder(
      *  one category set to all. insertOrGet may return a non-favorite shadow row from a prior details
      *  open, so favorite is applied as a follow-up. */
     suspend fun favoriteReturningId(item: NovelItem, sourceId: String): Long? {
-        val base = Novel.create().copy(
-            source = sourceId,
-            url = item.path,
-            title = item.name,
-            thumbnailUrl = item.cover,
-        )
-        val stored = novelRepository.insertOrGet(base) ?: return null
+        val stored = materialize(item, sourceId) ?: return null
         if (stored.favorite) return stored.id
         if (!updateNovel.awaitUpdateFavorite(stored.id, favorite = true)) return null
         autoBindOnAdd.novel(stored)
@@ -262,17 +257,10 @@ class NovelLibraryAdder(
     suspend fun isInLibrary(item: NovelItem, sourceId: String): Boolean =
         novelRepository.getByUrlAndSource(item.path, sourceId)?.favorite == true
 
-    /** Insert-or-get the browsed [item] as a library row and return it, without favoriting, for the
-     *  migrate-from-duplicate flow (the migrate use case favorites + chapter-syncs the target itself). */
-    suspend fun materialize(item: NovelItem, sourceId: String): Novel? {
-        val base = Novel.create().copy(
-            source = sourceId,
-            url = item.path,
-            title = item.name,
-            thumbnailUrl = item.cover,
-        )
-        return novelRepository.insertOrGet(base)
-    }
+    /** Insert-or-get the browsed [item] as a row and return it, without favoriting: the add above, and
+     *  the migrate-from-duplicate flow, whose migrate use case favorites and chapter-syncs the target. */
+    suspend fun materialize(item: NovelItem, sourceId: String): Novel? =
+        novelRepository.insertOrGet(item.toNovel(sourceId))
 
     /**
      * Where a new favorite should land, or null when the user has to be asked. Reads only, so a caller

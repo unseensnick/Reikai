@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.host.ChapterItem
+import reikai.novel.host.NovelItem
 import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
 import tachiyomi.i18n.MR
@@ -83,6 +84,13 @@ fun SourceNovel.toNovel(
     notes = "",
     viewerFlags = 0L,
 )
+
+/**
+ * A browsed or searched [NovelItem] as an unsaved, unfavorited [Novel] on [sourceId], carrying only
+ * what a list row has; the details and chapters arrive with the first refresh.
+ */
+fun NovelItem.toNovel(sourceId: String): Novel =
+    Novel.create().copy(source = sourceId, url = path, title = name, thumbnailUrl = cover)
 
 /**
  * Translate a [ChapterItem] (lnreader plugin's chapter list entry) into an unsaved domain
