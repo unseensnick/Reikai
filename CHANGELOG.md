@@ -512,6 +512,7 @@ every stable release now also ships a foss build with neither in it.
 
 - **Fill from tracker no longer adds a genre the manga or novel already has as a tag in different capitals.** The existing tag keeps its spelling, and new genres are still added after your tags.
 - **Fill from tracker now says "No entry found" when the tracker has no such entry.** A failure with no reason says "Unknown error" instead of ending in a blank.
+- **Refreshing, searching or filling from Bangumi, MangaBaka or Hikka while signed out no longer crashes the app.** It says to log in again, as signed-out Kitsu, AniList, Shikimori and MyAnimeList now do instead of showing raw error text.
 - **Start and finish dates pulled from MangaBaka no longer land a day early in timezones behind UTC (synced from Mihon, mihonapp/mihon#3711).**
 - **AniList tracking now stays under the service's request limit (synced from Mihon, mihonapp/mihon#3942).** The old ceiling sat above what AniList allows, so a burst of updates could come back rejected.
 - **A tracker set on one source of a merged series now shows, updates and is removed on all of its sources, unless you turn off Share trackers across merged sources.** The chip, reading progress, mark-as-read, refresh and the Tracked filter follow the whole group.

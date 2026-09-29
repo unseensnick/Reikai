@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.Response
 import reikai.data.track.REIKAI_TRACKER_USER_AGENT
+import reikai.data.track.TrackerSignedOutException
 import uy.kohesive.injekt.injectLazy
 
 class ShikimoriInterceptor(private val shikimori: Shikimori) : Interceptor {
@@ -20,11 +21,14 @@ class ShikimoriInterceptor(private val shikimori: Shikimori) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
 
-        var currAuth = oauth ?: throw Exception("Not authenticated with Shikimori")
+        // RK --> a signed-out call fails as an IOException, see TrackerSignedOutException
+        var currAuth = oauth ?: throw TrackerSignedOutException("Shikimori")
 
         // Refresh access token if expired.
         if (currAuth.isExpired()) {
-            val response = chain.proceed(ShikimoriApi.refreshTokenRequest(currAuth.refreshToken!!))
+            val refreshToken = currAuth.refreshToken ?: throw TrackerSignedOutException("Shikimori")
+            val response = chain.proceed(ShikimoriApi.refreshTokenRequest(refreshToken))
+            // RK <--
             if (response.isSuccessful) {
                 currAuth = with(json) {
                     response.parseAs<SMOAuth>()

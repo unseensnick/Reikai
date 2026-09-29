@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALOAuth
 import okhttp3.Interceptor
 import okhttp3.Response
+import reikai.data.track.TrackerSignedOutException
 import java.io.IOException
 
 class AnilistInterceptor(val anilist: Anilist, private var token: String?) : Interceptor {
@@ -17,7 +18,7 @@ class AnilistInterceptor(val anilist: Anilist, private var token: String?) : Int
         val originalRequest = chain.request()
 
         if (token.isNullOrEmpty()) {
-            throw Exception("Not authenticated with Anilist")
+            throw TrackerSignedOutException("Anilist") // RK: an IOException
         }
         if (oauth == null) {
             oauth = anilist.loadOAuth() ?: throw IOException("No authentication token")

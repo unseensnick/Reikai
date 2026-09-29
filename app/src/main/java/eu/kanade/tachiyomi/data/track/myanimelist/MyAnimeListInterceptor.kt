@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.Response
+import reikai.data.track.TrackerSignedOutException
 import uy.kohesive.injekt.injectLazy
 import java.io.IOException
 
@@ -26,7 +27,7 @@ class MyAnimeListInterceptor(private val myanimelist: MyAnimeList) : Interceptor
         }
 
         if (oauth == null) {
-            throw IOException("MAL: User is not authenticated")
+            throw TrackerSignedOutException("MyAnimeList") // RK: read as signed out, like the other trackers
         }
 
         // Add the authorization header to the original request

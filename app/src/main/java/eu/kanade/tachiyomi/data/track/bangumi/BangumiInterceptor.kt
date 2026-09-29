@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.Response
+import reikai.data.track.TrackerSignedOutException
 import uy.kohesive.injekt.injectLazy
 
 class BangumiInterceptor(private val bangumi: Bangumi) : Interceptor {
@@ -20,10 +21,13 @@ class BangumiInterceptor(private val bangumi: Bangumi) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
 
-        var currAuth: BGMOAuth = oauth ?: throw Exception("Not authenticated with Bangumi")
+        // RK --> a signed-out call fails as an IOException, see TrackerSignedOutException
+        var currAuth: BGMOAuth = oauth ?: throw TrackerSignedOutException("Bangumi")
 
         if (currAuth.isExpired()) {
-            val response = chain.proceed(BangumiApi.refreshTokenRequest(currAuth.refreshToken!!))
+            val refreshToken = currAuth.refreshToken ?: throw TrackerSignedOutException("Bangumi")
+            val response = chain.proceed(BangumiApi.refreshTokenRequest(refreshToken))
+            // RK <--
             if (response.isSuccessful) {
                 currAuth = with(json) {
                     response.parseAs<BGMOAuth>()

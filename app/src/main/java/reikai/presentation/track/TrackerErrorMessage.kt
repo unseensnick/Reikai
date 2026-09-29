@@ -4,6 +4,7 @@ import android.content.Context
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.util.system.isOnline
+import reikai.data.track.TrackerSignedOutException
 import reikai.util.firstCause
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -26,6 +27,7 @@ sealed interface TrackerError {
             error.firstCause { kindOf(it, isOnline) } ?: Other(error.message)
 
         private fun kindOf(error: Throwable, isOnline: Boolean): TrackerError? = when (error) {
+            is TrackerSignedOutException -> SignedOut
             is UnknownHostException, is ConnectException, is SocketTimeoutException ->
                 if (isOnline) Unreachable else Offline
             is HttpException -> if (error.code == 401 || error.code == 403) SignedOut else Http(error.code)

@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.Response
+import reikai.data.track.TrackerSignedOutException
 import uy.kohesive.injekt.injectLazy
 
 class MangaBakaInterceptor(private val mangaBaka: MangaBaka) : Interceptor {
@@ -16,7 +17,7 @@ class MangaBakaInterceptor(private val mangaBaka: MangaBaka) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
 
-        var currentAuth = oauth ?: throw Exception("Not authenticated with MangaBaka")
+        var currentAuth = oauth ?: throw TrackerSignedOutException("MangaBaka") // RK: an IOException
 
         if (currentAuth.isExpired()) {
             val response = chain.proceed(MangaBakaApi.refreshTokenRequest(currentAuth.refreshToken))

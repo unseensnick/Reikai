@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.Response
+import reikai.data.track.TrackerSignedOutException
 import uy.kohesive.injekt.injectLazy
 
 class KitsuInterceptor(private val kitsu: Kitsu) : Interceptor {
@@ -20,12 +21,13 @@ class KitsuInterceptor(private val kitsu: Kitsu) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
 
-        var currAuth = oauth ?: throw Exception("Not authenticated with Kitsu")
-
-        val refreshToken = currAuth.refreshToken!!
+        // RK --> a signed-out call fails as an IOException, see TrackerSignedOutException
+        var currAuth = oauth ?: throw TrackerSignedOutException("Kitsu")
 
         // Refresh access token if expired.
         if (currAuth.isExpired()) {
+            val refreshToken = currAuth.refreshToken ?: throw TrackerSignedOutException("Kitsu")
+            // RK <--
             val response = chain.proceed(KitsuApi.refreshTokenRequest(refreshToken))
             if (response.isSuccessful) {
                 currAuth = with(json) {
