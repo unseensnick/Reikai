@@ -3,18 +3,9 @@ package reikai.domain.library
 import tachiyomi.domain.library.model.LibrarySort
 
 /**
- * One-time translation of a novel category's `flags` from the legacy novel bit layout to Mihon's manga
- * layout, used when novel categories fold into the shared `categories` table.
- *
- * The two layouts differ in exactly one place: the novel side stored the Downloaded and TrackerMean sort
- * types on swapped values (novel Downloaded `0b100000`, TrackerMean `0b100100`), the mirror of Mihon's
- * ([LibrarySort.Type.Downloaded] `0b100100`, [LibrarySort.Type.TrackerMean] `0b100000`). Every other bit
- * is identical across the two: the [CATEGORY_SORT_CUSTOMIZED] override bit, the direction bit, and the
- * hidden bit. So only those two type values are remapped and all other bits pass through unchanged.
- *
- * The novel source values are hard-coded literals rather than a reference to the old novel sort type,
- * which has since been removed now that the novel library reads through the shared manga layout. This
- * translation must keep working for every device upgrading afterwards, so it can't depend on that class.
+ * Maps a novel category's legacy `flags` onto Mihon's layout. Only the Downloaded and TrackerMean sort
+ * values differ (swapped); every other bit passes through. The novel values are literals because the old
+ * novel sort type is gone and this runs on every upgrade. See category-schema-unification.md.
  */
 fun novelCategoryFlagsToMangaLayout(flags: Long): Long {
     val novelType = flags and SORT_TYPE_MASK

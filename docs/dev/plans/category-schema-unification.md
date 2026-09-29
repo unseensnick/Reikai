@@ -51,7 +51,10 @@ both sides, unchanged.
   reads its flags through the shared `LibrarySort` / `CategorySortOverride` helpers, and
   `NovelLibrarySort`'s reader dissolves. Chosen over keeping two layouts because the whole initiative is
   anti-divergence and a universal category cannot carry two conflicting bit meanings for one sort.
-  Guarded by a pinning test (`novelCategoryFlagsToMangaLayout`) written before any row moves.
+  Guarded by a pinning test (`novelCategoryFlagsToMangaLayout`) written before any row moves. The
+  novel-side values are hard-coded literals in `NovelCategoryFlagsMigration.kt` rather than a
+  reference to the old novel sort type: that type was deleted once the novel library read the shared
+  layout, and the translation still has to run for every device upgrading afterwards.
 - **The flag translation is the single silent-failure risk.** Move a novel row without translating and a
   Downloaded-sorted category flips to TrackerMean (or the reverse) with no error and nothing to notice
   until a user sees a wrong order. This is why the pinning test comes first.
@@ -90,8 +93,8 @@ both sides, unchanged.
 
 ## Key files
 
-- Schema: `data/src/main/sqldelight/tachiyomi/data/categories.sq`, `novel_categories.sq` (retired and deleted),
-  `mangas_categories.sq`, `novels_categories.sq`; new migration under `.../migrations/`.
+- Schema: `data/src/main/sqldelight/tachiyomi/data/category.sq`, `novel_categories.sq` (retired and deleted),
+  `manga_category.sq`, `novels_categories.sq`; new migration under `.../migrations/`.
 - Flags: `tachiyomi.domain.library.model.LibrarySort` (manga layout), `reikai.domain.novel.model.NovelLibrarySort`
   (novel layout, its reader dissolves), `reikai.domain.library.CategorySortOverride` (the shared
   override read), `reikai.domain.category.CATEGORY_HIDDEN_MASK` (shared hidden bit), and the new
