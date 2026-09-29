@@ -558,25 +558,18 @@ data object LibraryTab : Tab {
                 }
                 // RK --> "empty" is counted after filters run, so the filter guard is what stops a filter
                 // that matches nothing from reading as an empty library. Both content types need it.
-                // The getting-started guide stays manga-only on purpose: it documents manga extensions,
-                // which the novel plugin system does not use.
                 activeSearchQuery.isNullOrEmpty() && !activeHasActiveFilters && activeIsLibraryEmpty -> {
                     val handler = LocalUriHandler.current
                     EmptyScreen(
                         stringRes = MR.strings.information_empty_library,
                         modifier = Modifier.padding(contentPadding),
-                        actions = when (libraryContentType) {
-                            ContentType.NOVELS -> null
-                            // Manga and All: the guide documents manga extensions, which still helps an
-                            // empty mixed library; the novel plugin system does not use it.
-                            else -> listOf(
-                                EmptyScreenAction(
-                                    stringRes = MR.strings.getting_started_guide,
-                                    icon = MaterialSymbols.AutoMirroredRounded.Help,
-                                    onClick = { handler.openUri(GETTING_STARTED_URL) },
-                                ),
-                            )
-                        },
+                        actions = listOf(
+                            EmptyScreenAction(
+                                stringRes = MR.strings.getting_started_guide,
+                                icon = MaterialSymbols.AutoMirroredRounded.Help,
+                                onClick = { handler.openUri(GETTING_STARTED_URL) },
+                            ),
+                        ),
                     )
                 }
                 // RK: a search or filter that matches nothing empties every category, and the
