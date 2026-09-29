@@ -67,6 +67,7 @@ import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
+import reikai.presentation.recommendation.relatedDestination
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
@@ -192,20 +193,10 @@ class MangaScreen(
                         }.takeIf { successState.manga.favorite },
                         onEditInterval = viewModel::showSetFetchIntervalDialog
                             .takeIf { successState.manga.favorite },
-                        // Open a related card; a tracker-origin card (no installed source) goes to search.
                         onRelatedClick = { candidate ->
                             scope.launch {
                                 val id = viewModel.resolveRelatedToLocalId(candidate)
-                                if (id != null) {
-                                    navigator.push(MangaScreen(id))
-                                } else {
-                                    navigator.push(
-                                        EntryGlobalSearchScreen(
-                                            candidate.manga.title,
-                                            scopedContentType = ContentType.MANGA,
-                                        ),
-                                    )
-                                }
+                                navigator.push(relatedDestination(candidate, id))
                             }
                         },
                         onRelatedSeeAll = {

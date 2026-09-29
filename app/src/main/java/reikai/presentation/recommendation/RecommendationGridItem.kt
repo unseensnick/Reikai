@@ -15,7 +15,8 @@ import eu.kanade.presentation.library.components.GridItemSelectable
 import eu.kanade.presentation.library.components.GridItemTitle
 import eu.kanade.presentation.library.components.MangaGridCover
 import eu.kanade.presentation.manga.components.MangaCover
-import reikai.domain.recommendation.RecommendationOrigin
+import reikai.domain.recommendation.RelatedMangaCandidate
+import tachiyomi.domain.manga.model.MangaCover as MangaCoverData
 
 /**
  * A recommendation cover cell for the details carousel and the "See all" grid, composed from the library
@@ -27,9 +28,7 @@ import reikai.domain.recommendation.RecommendationOrigin
  */
 @Composable
 fun RecommendationGridItem(
-    coverData: Any,
-    title: String,
-    origin: RecommendationOrigin,
+    candidate: RelatedMangaCandidate,
     inLibrary: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -52,14 +51,20 @@ fun RecommendationGridItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .alpha(if (isSelected) GRID_SELECTED_COVER_ALPHA else coverAlpha),
-                        data = coverData,
+                        data = MangaCoverData(
+                            mangaId = 0L,
+                            sourceId = candidate.sourceId,
+                            isMangaFavorite = inLibrary,
+                            url = candidate.manga.thumbnail_url,
+                            lastModified = 0L,
+                        ),
                     )
                 },
                 badgesStart = { InLibraryBadge(enabled = inLibrary) },
             )
             if (showOrigin) {
                 RecommendationOriginCaption(
-                    origin = origin,
+                    origin = candidate.origin,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp, vertical = 2.dp),
@@ -67,7 +72,7 @@ fun RecommendationGridItem(
             }
             GridItemTitle(
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                title = title,
+                title = candidate.manga.title,
                 style = MaterialTheme.typography.titleSmall,
                 minLines = 2,
                 maxLines = titleMaxLines,

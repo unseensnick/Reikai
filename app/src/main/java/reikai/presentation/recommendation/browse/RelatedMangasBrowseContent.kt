@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import reikai.presentation.recommendation.RecommendationGridItem
 import reikai.presentation.recommendation.originLabel
-import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.presentation.core.components.FastScrollLazyVerticalGrid
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.util.plus
@@ -82,15 +81,7 @@ private fun BrowseGridItem(
     onItemLongClick: (RelatedMangasBrowseViewModel.BrowseItem) -> Unit,
 ) {
     RecommendationGridItem(
-        coverData = MangaCover(
-            mangaId = 0L,
-            sourceId = item.candidate.sourceId,
-            isMangaFavorite = item.inLibrary,
-            url = item.candidate.manga.thumbnail_url,
-            lastModified = 0L,
-        ),
-        title = item.candidate.manga.title,
-        origin = item.candidate.origin,
+        candidate = item.candidate,
         inLibrary = item.inLibrary,
         isSelected = isSelected,
         showOrigin = showOrigin,

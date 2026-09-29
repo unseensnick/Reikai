@@ -27,7 +27,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.manga.MangaViewModel
 import reikai.domain.recommendation.RelatedMangaCandidate
-import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -101,15 +100,7 @@ fun RelatedMangaCarousel(
                     // ranked carousel explainable at a glance.
                     RecommendationGridItem(
                         modifier = Modifier.width(CardWidth),
-                        coverData = MangaCover(
-                            mangaId = 0L,
-                            sourceId = item.candidate.sourceId,
-                            isMangaFavorite = item.inLibrary,
-                            url = item.candidate.manga.thumbnail_url,
-                            lastModified = 0L,
-                        ),
-                        title = item.candidate.manga.title,
-                        origin = item.candidate.origin,
+                        candidate = item.candidate,
                         inLibrary = item.inLibrary,
                         onClick = { onClick(item.candidate) },
                         onLongClick = { onClick(item.candidate) },

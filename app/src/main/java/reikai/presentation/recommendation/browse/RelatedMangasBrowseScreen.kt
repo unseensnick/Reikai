@@ -20,15 +20,13 @@ import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ViewList
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.icons.materialsymbols.rounded.Visibility
-import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.BulkSelectionToolbar
-import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.recommendation.relatedDestination
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -148,16 +146,7 @@ class RelatedMangasBrowseScreen(
                         } else {
                             scope.launch {
                                 val id = viewModel.resolveToLocalId(item.candidate)
-                                if (id != null) {
-                                    navigator.push(MangaScreen(id))
-                                } else {
-                                    navigator.push(
-                                        EntryGlobalSearchScreen(
-                                            item.candidate.manga.title,
-                                            scopedContentType = ContentType.MANGA,
-                                        ),
-                                    )
-                                }
+                                navigator.push(relatedDestination(item.candidate, id))
                             }
                         }
                     },
