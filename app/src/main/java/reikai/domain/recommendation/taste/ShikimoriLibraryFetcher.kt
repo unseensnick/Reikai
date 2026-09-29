@@ -1,8 +1,10 @@
 package reikai.domain.recommendation.taste
 
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.shikimori.Shikimori
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserRate
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
+import tachiyomi.core.common.preference.Preference
 
 /**
  * Pulls the user's full Shikimori manga library via the GraphQL `userRates` query (genres inline,
@@ -14,14 +16,12 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
  */
 class ShikimoriLibraryFetcher(
     private val shikimori: Shikimori,
-    private val preferences: ReikaiRecommendationPreferences,
+    preferences: ReikaiRecommendationPreferences,
 ) : TrackerLibraryFetcher {
 
-    override val trackerId: Long = shikimori.id
+    override val tracker: Tracker get() = shikimori
 
-    override fun isPullRequested(): Boolean = preferences.pullLibraryFromShikimori.get()
-
-    override fun isEnabled(): Boolean = isPullRequested() && shikimori.isLoggedIn
+    override val pullPreference: Preference<Boolean> = preferences.pullLibraryFromShikimori
 
     override suspend fun fetchLibrary(): List<TrackedEntry> =
         shikimori.getUserLibrary().mapNotNull { it.toTrackedEntry() }

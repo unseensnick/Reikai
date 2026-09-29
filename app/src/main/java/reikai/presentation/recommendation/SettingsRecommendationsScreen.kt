@@ -9,19 +9,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.SearchableSettings
-import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
 import mihon.app.di.appGraph
 import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedPlacement
+import reikai.domain.recommendation.TrackerToggle
 import reikai.domain.recommendation.taste.TasteLibraryRepository
+import reikai.domain.recommendation.taste.TrackerLibraryFetcher
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-import tachiyomi.core.common.preference.Preference as PreferenceData
 
 /**
  * Settings -> Library -> Recommendations. Net-new settings screen following Mihon's Preference
@@ -48,16 +48,11 @@ object SettingsRecommendationsScreen : SearchableSettings {
 
         // Candidate injection needs the manga tracked on a recs-capable tracker, so it's only useful
         // (and only shown) when the user is logged into one.
-        val recsTrackerLoggedIn = listOf(
-            trackerManager.aniList,
-            trackerManager.myAnimeList,
-            trackerManager.mangaUpdates,
-            trackerManager.shikimori,
-        ).any { it.isLoggedIn }
+        val recsTrackerLoggedIn = prefs.recommendationToggles(trackerManager).any { it.tracker.isLoggedIn }
 
         return listOfNotNull(
             sourcesGroup(prefs, trackerManager),
-            tasteProfileGroup(prefs, trackerManager).takeIf { relatedEnabled },
+            tasteProfileGroup(prefs).takeIf { relatedEnabled },
             injectionGroup(prefs).takeIf { recsTrackerLoggedIn && includeTrackers && relatedEnabled },
             rerankingGroup(prefs).takeIf { relatedEnabled },
             filtersGroup(prefs).takeIf { relatedEnabled },
@@ -89,10 +84,10 @@ object SettingsRecommendationsScreen : SearchableSettings {
     ): Preference.PreferenceGroup {
         val includeTrackers by prefs.includeTrackerRecommendations.collectAsState()
         val relatedEnabled by prefs.enableRelatedMangas.collectAsState()
-        fun trackerToggle(tracker: Tracker, pref: PreferenceData<Boolean>) =
+        fun trackerToggle(toggle: TrackerToggle) =
             Preference.PreferenceItem.SwitchPreference(
-                preference = pref,
-                title = tracker.name,
+                preference = toggle.preference,
+                title = toggle.tracker.name,
                 enabled = relatedEnabled && includeTrackers,
             )
         return Preference.PreferenceGroup(
@@ -113,46 +108,35 @@ object SettingsRecommendationsScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_include_tracker_recommendations),
                     subtitle = stringResource(MR.strings.pref_include_tracker_recommendations_summary),
                 ).takeIf { relatedEnabled },
-                trackerToggle(trackerManager.aniList, prefs.anilistRecommendations).takeIf { relatedEnabled },
-                trackerToggle(trackerManager.myAnimeList, prefs.myAnimeListRecommendations).takeIf { relatedEnabled },
-                trackerToggle(trackerManager.mangaUpdates, prefs.mangaUpdatesRecommendations).takeIf { relatedEnabled },
-                trackerToggle(trackerManager.shikimori, prefs.shikimoriRecommendations).takeIf { relatedEnabled },
-            ),
+            ) + prefs.recommendationToggles(trackerManager).map(::trackerToggle).takeIf { relatedEnabled }.orEmpty(),
         )
     }
 
     @Composable
-    private fun tasteProfileGroup(
-        prefs: ReikaiRecommendationPreferences,
-        trackerManager: TrackerManager,
-    ): Preference.PreferenceGroup {
+    private fun tasteProfileGroup(prefs: ReikaiRecommendationPreferences): Preference.PreferenceGroup {
         val context = LocalContext.current
         val repository = remember { context.appGraph.tasteLibraryRepository }
+        val fetchers = remember { context.appGraph.trackerLibraryFetchers }
         val neverLabel = stringResource(MR.strings.pref_last_refresh_never)
         // Re-read whenever the manual pull starts or ends, so the summary updates as it lands. withIOContext
         // because a produceState body runs on Main, and this is one DB read per tracker.
         val lastRefreshSummary by produceState("", neverLabel) {
             TrackerLibraryRefreshJob.isRunningFlow(context).collect {
-                value = withIOContext { buildLastRefreshSummary(repository, trackerManager, neverLabel) }
+                value = withIOContext { buildLastRefreshSummary(repository, fetchers, neverLabel) }
             }
         }
 
         // enabled = visible in Mihon's preference DSL, so a tracker's pull toggle only appears once
         // the user is logged into it (the pull needs their private library, which login gates).
-        fun pullToggle(tracker: Tracker, pref: PreferenceData<Boolean>) =
+        fun pullToggle(fetcher: TrackerLibraryFetcher) =
             Preference.PreferenceItem.SwitchPreference(
-                preference = pref,
-                title = tracker.name,
-                enabled = tracker.isLoggedIn,
+                preference = fetcher.pullPreference,
+                title = fetcher.tracker.name,
+                enabled = fetcher.tracker.isLoggedIn,
             )
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_taste_profile),
-            preferenceItems = listOf(
-                pullToggle(trackerManager.aniList, prefs.pullLibraryFromAnilist),
-                pullToggle(trackerManager.myAnimeList, prefs.pullLibraryFromMyAnimeList),
-                pullToggle(trackerManager.kitsu, prefs.pullLibraryFromKitsu),
-                pullToggle(trackerManager.shikimori, prefs.pullLibraryFromShikimori),
-                pullToggle(trackerManager.bangumi, prefs.pullLibraryFromBangumi),
+            preferenceItems = fetchers.map(::pullToggle) + listOf(
                 Preference.PreferenceItem.ListPreference(
                     preference = prefs.trackerLibraryAutoRefreshHours,
                     entries = mapOf(
@@ -187,18 +171,12 @@ object SettingsRecommendationsScreen : SearchableSettings {
     /** One line per logged-in library tracker: "AniList: 3 days ago". Empty when none are logged in. */
     private suspend fun buildLastRefreshSummary(
         repository: TasteLibraryRepository,
-        trackerManager: TrackerManager,
+        fetchers: List<TrackerLibraryFetcher>,
         neverLabel: String,
     ): String {
         val now = System.currentTimeMillis()
         // lastFetch is a suspend DB read, so resolve every timestamp before the non-suspend join.
-        val rows = listOf(
-            trackerManager.aniList,
-            trackerManager.myAnimeList,
-            trackerManager.kitsu,
-            trackerManager.shikimori,
-            trackerManager.bangumi,
-        )
+        val rows = fetchers.map { it.tracker }
             .filter { it.isLoggedIn }
             .map { it.name to repository.lastFetch(it.id) }
         if (rows.isEmpty()) return ""

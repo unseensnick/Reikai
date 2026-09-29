@@ -1,9 +1,11 @@
 package reikai.domain.recommendation.taste
 
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeList
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryItem
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryListStatus
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
+import tachiyomi.core.common.preference.Preference
 
 /**
  * Pulls the user's full MyAnimeList manga list via the official API (`/users/@me/mangalist`, paged
@@ -15,14 +17,12 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
  */
 class MyAnimeListLibraryFetcher(
     private val myAnimeList: MyAnimeList,
-    private val preferences: ReikaiRecommendationPreferences,
+    preferences: ReikaiRecommendationPreferences,
 ) : TrackerLibraryFetcher {
 
-    override val trackerId: Long = myAnimeList.id
+    override val tracker: Tracker get() = myAnimeList
 
-    override fun isPullRequested(): Boolean = preferences.pullLibraryFromMyAnimeList.get()
-
-    override fun isEnabled(): Boolean = isPullRequested() && myAnimeList.isLoggedIn
+    override val pullPreference: Preference<Boolean> = preferences.pullLibraryFromMyAnimeList
 
     override suspend fun fetchLibrary(): List<TrackedEntry> =
         myAnimeList.getUserLibrary().map { it.toTrackedEntry() }

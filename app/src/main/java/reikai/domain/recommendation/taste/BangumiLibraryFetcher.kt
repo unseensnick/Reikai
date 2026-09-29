@@ -1,8 +1,10 @@
 package reikai.domain.recommendation.taste
 
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.bangumi.Bangumi
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionItem
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
+import tachiyomi.core.common.preference.Preference
 
 /**
  * Pulls the user's full Bangumi manga collection (`subject_type=1`, paged 50/entry) and normalizes
@@ -14,14 +16,12 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
  */
 class BangumiLibraryFetcher(
     private val bangumi: Bangumi,
-    private val preferences: ReikaiRecommendationPreferences,
+    preferences: ReikaiRecommendationPreferences,
 ) : TrackerLibraryFetcher {
 
-    override val trackerId: Long = bangumi.id
+    override val tracker: Tracker get() = bangumi
 
-    override fun isPullRequested(): Boolean = preferences.pullLibraryFromBangumi.get()
-
-    override fun isEnabled(): Boolean = isPullRequested() && bangumi.isLoggedIn
+    override val pullPreference: Preference<Boolean> = preferences.pullLibraryFromBangumi
 
     override suspend fun fetchLibrary(): List<TrackedEntry> =
         bangumi.getUserLibrary().map { it.toTrackedEntry() }

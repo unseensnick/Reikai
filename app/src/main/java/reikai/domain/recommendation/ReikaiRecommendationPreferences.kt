@@ -4,6 +4,7 @@ import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -139,6 +140,17 @@ class ReikaiRecommendationPreferences(
     )
 
     /**
+     * One switch per tracker with a recommendations endpoint, the same set [RecommendationProviders.forTracker]
+     * answers for. The settings screen draws these and [enabledRecommendationTrackerIds] reads them.
+     */
+    fun recommendationToggles(trackerManager: TrackerManager): List<TrackerToggle> = listOf(
+        TrackerToggle(trackerManager.aniList, anilistRecommendations),
+        TrackerToggle(trackerManager.myAnimeList, myAnimeListRecommendations),
+        TrackerToggle(trackerManager.mangaUpdates, mangaUpdatesRecommendations),
+        TrackerToggle(trackerManager.shikimori, shikimoriRecommendations),
+    )
+
+    /**
      * Tracker ids whose recommendation stream is enabled: the master toggle on AND that tracker's own
      * sub-toggle on. Shared by both carousel paths (the title-search [RecommendationsFetcher] and the
      * media-context [RelatedMangasLoader]) so they can't disagree on what the toggles gate; a
@@ -146,11 +158,9 @@ class ReikaiRecommendationPreferences(
      */
     fun enabledRecommendationTrackerIds(trackerManager: TrackerManager): Set<Long> {
         if (!includeTrackerRecommendations.get()) return emptySet()
-        return buildSet {
-            if (anilistRecommendations.get()) add(trackerManager.aniList.id)
-            if (myAnimeListRecommendations.get()) add(trackerManager.myAnimeList.id)
-            if (mangaUpdatesRecommendations.get()) add(trackerManager.mangaUpdates.id)
-            if (shikimoriRecommendations.get()) add(trackerManager.shikimori.id)
-        }
+        return recommendationToggles(trackerManager).filter { it.preference.get() }.map { it.tracker.id }.toSet()
     }
 }
+
+/** A tracker and the switch that gates its recommendations. */
+data class TrackerToggle(val tracker: Tracker, val preference: Preference<Boolean>)

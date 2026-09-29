@@ -1,13 +1,17 @@
 package reikai.domain.recommendation.taste
 
+import eu.kanade.tachiyomi.data.track.Tracker
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.presentation.recents.EmittingPreferenceStore
 
 /**
  * The cache may only hold rows for trackers the user still pulls from. Nothing else enforces it:
@@ -17,20 +21,25 @@ import org.junit.jupiter.api.Test
 class RefreshTrackerLibraryTest {
 
     private class FakeFetcher(
-        override val trackerId: Long,
-        private val pullRequested: Boolean,
-        private val loggedIn: Boolean = true,
+        trackerId: Long,
+        pullRequested: Boolean,
+        loggedIn: Boolean = true,
     ) : TrackerLibraryFetcher {
-        override fun isPullRequested() = pullRequested
-        override fun isEnabled() = pullRequested && loggedIn
+        override val tracker = mockk<Tracker> {
+            every { id } returns trackerId
+            every { isLoggedIn } returns loggedIn
+        }
+        override val pullPreference = EmittingPreferenceStore().getBoolean("pull", pullRequested)
         override suspend fun fetchLibrary(): List<TrackedEntry> = emptyList()
     }
 
     /** A pull that holds until [release] completes, as a large library does. */
     private class BlockingFetcher(val release: CompletableDeferred<Unit>) : TrackerLibraryFetcher {
-        override val trackerId = 1L
-        override fun isPullRequested() = true
-        override fun isEnabled() = true
+        override val tracker = mockk<Tracker> {
+            every { id } returns 1L
+            every { isLoggedIn } returns true
+        }
+        override val pullPreference = EmittingPreferenceStore().getBoolean("pull", true)
         override suspend fun fetchLibrary(): List<TrackedEntry> {
             release.await()
             return emptyList()

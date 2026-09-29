@@ -1,8 +1,10 @@
 package reikai.domain.recommendation.taste
 
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.anilist.Anilist
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALLibraryEntry
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
+import tachiyomi.core.common.preference.Preference
 
 /**
  * Pulls the user's full AniList manga library in one GraphQL call and normalizes each entry into a
@@ -14,14 +16,12 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
  */
 class AnilistLibraryFetcher(
     private val anilist: Anilist,
-    private val preferences: ReikaiRecommendationPreferences,
+    preferences: ReikaiRecommendationPreferences,
 ) : TrackerLibraryFetcher {
 
-    override val trackerId: Long = anilist.id
+    override val tracker: Tracker get() = anilist
 
-    override fun isPullRequested(): Boolean = preferences.pullLibraryFromAnilist.get()
-
-    override fun isEnabled(): Boolean = isPullRequested() && anilist.isLoggedIn
+    override val pullPreference: Preference<Boolean> = preferences.pullLibraryFromAnilist
 
     override suspend fun fetchLibrary(): List<TrackedEntry> =
         anilist.getUserLibrary().map { it.toTrackedEntry() }

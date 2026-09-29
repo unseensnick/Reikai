@@ -1,8 +1,10 @@
 package reikai.domain.recommendation.taste
 
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.kitsu.Kitsu
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
+import tachiyomi.core.common.preference.Preference
 
 /**
  * Pulls the user's full Kitsu manga library through GraphQL (`currentProfile.library.all`, paged 500
@@ -13,14 +15,12 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
  */
 class KitsuLibraryFetcher(
     private val kitsu: Kitsu,
-    private val preferences: ReikaiRecommendationPreferences,
+    preferences: ReikaiRecommendationPreferences,
 ) : TrackerLibraryFetcher {
 
-    override val trackerId: Long = kitsu.id
+    override val tracker: Tracker get() = kitsu
 
-    override fun isPullRequested(): Boolean = preferences.pullLibraryFromKitsu.get()
-
-    override fun isEnabled(): Boolean = isPullRequested() && kitsu.isLoggedIn
+    override val pullPreference: Preference<Boolean> = preferences.pullLibraryFromKitsu
 
     override suspend fun fetchLibrary(): List<TrackedEntry> =
         kitsu.getUserLibrary().map { it.toTrackedEntry() }

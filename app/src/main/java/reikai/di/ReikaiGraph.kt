@@ -27,6 +27,7 @@ import reikai.domain.novel.track.NovelDelayedTrackingUpdateJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteLibraryRepository
+import reikai.domain.recommendation.taste.TrackerLibraryFetcher
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.track.KitsuEntryIdCopies
 import reikai.novel.download.NovelDownloadCache
@@ -118,6 +119,7 @@ interface ReikaiGraph {
     val mangaRecentsAdapterFactory: MangaRecentsAdapter.Factory
     val novelRecentsAdapterFactory: NovelRecentsAdapter.Factory
     val tasteLibraryRepository: TasteLibraryRepository
+    val trackerLibraryFetchers: List<TrackerLibraryFetcher> // Settings draws each pull switch from its fetcher
 
     // Interactors are unscoped, so every read builds a fresh instance. That matches the pre-port
     // shape: Injekt registered every one of these with addFactory, never addSingletonFactory.
