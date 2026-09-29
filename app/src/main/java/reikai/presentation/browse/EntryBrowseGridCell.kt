@@ -12,6 +12,7 @@ import reikai.presentation.library.ReikaiComfortableGridPanoramaItem
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
+import tachiyomi.domain.manga.model.asMangaCover
 
 /**
  * Content-neutral data for one browse-catalogue result. The cover is typed [Any] so a [MangaCover] or
@@ -26,13 +27,7 @@ data class EntryBrowseItemUi(
 
 fun Manga.toEntryBrowseUi() = EntryBrowseItemUi(
     title = title,
-    cover = MangaCover(
-        mangaId = id,
-        sourceId = source,
-        isMangaFavorite = favorite,
-        url = thumbnailUrl,
-        lastModified = coverLastModified,
-    ),
+    cover = asMangaCover(),
     favorite = favorite,
 )
 

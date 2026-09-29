@@ -41,7 +41,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 data class NovelCandidateHandle(
     val item: NovelItem,
     val stored: Novel? = null,
-)
+) : MigrationHandle
 
 /** The novel half of the migration seam: the plugin sources, novel repositories and migrate engine. */
 @Inject
@@ -106,7 +106,7 @@ class NovelMigrationFlowAdapter(
                     id = novel.id,
                     title = novel.title,
                     coverData = novel.asNovelCover(),
-                    payload = novel,
+                    payload = MigrationPayload.OfNovel(novel),
                     sourceName = sourceDisplayName(novel.source),
                     chapterCount = chapterRepository.getByNovelId(novel.id).size,
                 )
@@ -143,7 +143,7 @@ class NovelMigrationFlowAdapter(
                         id = EntryId.Novel(novel.id),
                         title = novel.title,
                         cover = novel.asNovelCover(),
-                        payload = novel,
+                        payload = MigrationPayload.OfNovel(novel),
                     )
                 }
                 .toList()
@@ -163,7 +163,7 @@ class NovelMigrationFlowAdapter(
                 chapterCount = chapters.size,
                 latestChapter = chapters.latestChapterNumber { it.chapterNumber },
                 cover = novel.asNovelCover(),
-                payload = novel,
+                payload = MigrationPayload.OfNovel(novel),
             )
         }
     }
@@ -183,8 +183,7 @@ class NovelMigrationFlowAdapter(
         val match = SmartNovelSearchEngine(tuning.extraQuery).bestMatch(entry.title, tuning.deepSearch) { query ->
             source.search(query, 1, filters = null).items
         } ?: return null
-        val currentPath = (entry.payload as? Novel)?.url.takeIf { sourceKey == entry.sourceKey }
-        if (match.path == currentPath) return null
+        if (entry.isOwnListing(sourceKey, match.path)) return null
         val candidate = match.toCandidate(sourceKey)
         // Ranking needs every candidate's count, as manga fetches each one's chapter list here. Only
         // then: otherwise the count peek after the search fills the one suggestion that is kept.
@@ -215,8 +214,7 @@ class NovelMigrationFlowAdapter(
      * by path: a plugin can repeat a listing within one page, and the path is the key.
      */
     private fun List<NovelItem>.usableHits(entry: MigrationEntry, sourceKey: String): List<NovelItem> {
-        val currentPath = (entry.payload as? Novel)?.url.takeIf { sourceKey == entry.sourceKey }
-        return distinctBy { it.path }.filterNot { it.path == currentPath }
+        return distinctBy { it.path }.filterNot { entry.isOwnListing(sourceKey, it.path) }
     }
 
     /**
@@ -357,7 +355,7 @@ class NovelMigrationFlowAdapter(
     }
 
     override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> {
-        val novels = entries.mapNotNull { it.payload as? Novel }
+        val novels = entries.mapNotNull { (it.payload as? MigrationPayload.OfNovel)?.novel }
         return MigrationDataFlag.entries.filterTo(LinkedHashSet()) { flag ->
             when (flag) {
                 MigrationDataFlag.CHAPTER -> true
@@ -376,7 +374,7 @@ class NovelMigrationFlowAdapter(
         flags: Set<MigrationDataFlag>,
         targetJustSynced: Boolean,
     ) {
-        val current = entry.payload as? Novel ?: error("novel entry payload missing")
+        val current = (entry.payload as? MigrationPayload.OfNovel)?.novel ?: error("novel entry payload missing")
         val handle = target.handle as? NovelCandidateHandle
         val targetNovel = handle?.stored ?: error("novel target not resolved")
         migrateNovel(

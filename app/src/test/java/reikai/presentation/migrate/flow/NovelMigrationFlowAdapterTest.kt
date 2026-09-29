@@ -79,7 +79,7 @@ class NovelMigrationFlowAdapterTest {
         sourceName = null,
         chapterCount = 1,
         cover = null,
-        payload = Any(),
+        payload = MigrationPayload.OfNovel(Novel.create().copy(id = 1L, source = "elsewhere", url = "/own")),
     )
 
     @Test

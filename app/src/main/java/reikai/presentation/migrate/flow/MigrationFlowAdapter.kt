@@ -6,8 +6,10 @@ import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.novel.model.Novel
 import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.migrate.PickMember
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.Source
 
 /**
@@ -40,8 +42,16 @@ sealed interface MigrationSourceIcon {
     data class NovelUrl(val iconUrl: String?) : MigrationSourceIcon
 }
 
-/** An entry being migrated, loaded once per flow run. [payload] is the per-type domain model
- *  (`Manga` / `Novel`), consumed only by the owning adapter and the per-type cover mappers. */
+/** The per-type domain model behind a row: read by the owning adapter and the details push. */
+sealed interface MigrationPayload {
+    data class OfManga(val manga: Manga) : MigrationPayload
+    data class OfNovel(val novel: Novel) : MigrationPayload
+}
+
+/** Adapter-owned candidate state, one case per adapter, round-tripping through [MigrationFlowAdapter.resolve]. */
+sealed interface MigrationHandle
+
+/** An entry being migrated, loaded once per flow run. */
 data class MigrationEntry(
     val id: EntryId,
     val title: String,
@@ -53,15 +63,14 @@ data class MigrationEntry(
     val latestChapter: Double? = null,
     /** Adapter-built Coil cover model (`MangaCover` / `NovelCover`) for the row thumbnail. */
     val cover: Any?,
-    val payload: Any,
+    val payload: MigrationPayload,
 )
 
 /**
  * A candidate target found on one source.
  *
- * [handle] is adapter-owned and round-trips through [MigrationFlowAdapter.resolve] into a
- * commit-ready target; the shared flow never inspects it, which is why [cover] and [key] are built
- * by the adapter instead of downcast in UI code.
+ * [handle] round-trips through [MigrationFlowAdapter.resolve] into a commit-ready target; the shared
+ * flow reads it only to open a details page, which is why [cover] and [key] are built by the adapter.
  */
 data class MigrationCandidate(
     val sourceKey: String,
@@ -86,7 +95,7 @@ data class MigrationCandidate(
      * surface's standing rules forbid. The novel handle answers it with its stored row; manga
      * candidates are stored from search time, so its resolve re-checks chapters regardless.
      */
-    val handle: Any,
+    val handle: MigrationHandle,
 )
 
 /**
@@ -104,12 +113,12 @@ data class ResolvedTarget(
 
 /** One row of the per-source favorites picker, deliberately lighter than [MigrationEntry] (no
  *  chapter count, so listing a large source's favorites costs no per-row query). [cover] is the
- *  adapter-built Coil model; [payload] is the per-type domain model for the details push. */
+ *  adapter-built Coil model. */
 data class MigrationFavorite(
     val id: EntryId,
     val title: String,
     val cover: Any?,
-    val payload: Any,
+    val payload: MigrationPayload,
 )
 
 /**

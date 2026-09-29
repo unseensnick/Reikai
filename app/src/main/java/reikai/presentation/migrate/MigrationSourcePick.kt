@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import eu.kanade.presentation.components.AppBar
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
+import reikai.presentation.migrate.flow.MigrationPayload
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -18,8 +19,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * One merge-group member shown in the migrate-merge source picker. [coverData] is a Coil model (a
- * `NovelCover` for novels, the `Manga` itself for manga). [payload] is the domain entry behind the
- * row, which is what opening its details page needs.
+ * `NovelCover` for novels, a `MangaCover` for manga). [payload] is the domain entry behind the row,
+ * which is what opening its details page needs.
  */
 data class PickMember(
     val id: Long,
@@ -27,7 +28,7 @@ data class PickMember(
     val coverData: Any?,
     val sourceName: String,
     val chapterCount: Int,
-    val payload: Any,
+    val payload: MigrationPayload,
 )
 
 /** The merge source picker: a selectable member list plus a Continue action. */

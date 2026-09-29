@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import reikai.presentation.migrate.flow.MigratingEntryRow.Acceptance
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
+import tachiyomi.domain.manga.model.Manga
 
 /**
  * Covers each transition the rules forbid, so a relaxed guard fails here rather than surfacing as a
@@ -17,7 +18,7 @@ class MigrationRowRulesTest {
         title = "T",
         chapterCount = 3,
         key = "s:/t",
-        handle = Any(),
+        handle = MangaCandidateHandle(Manga.create()),
     )
     private val found = SearchPhase.Found(candidate, "Source")
     private val failedCommit = CommitPhase.Failed(

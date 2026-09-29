@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.flowOf
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.PickMember
+import tachiyomi.domain.manga.model.Manga
 
 /**
  * An adapter whose search always finds a target and whose migrate is recorded. [failFor] makes that
@@ -97,7 +98,7 @@ class FakeMigrationFlowAdapter(
         chapterCount = suggestionLatestChapter?.let { 2 },
         latestChapter = suggestionLatestChapter,
         key = "target:${entry.id}",
-        handle = Any(),
+        handle = MangaCandidateHandle(Manga.create()),
     )
 }
 
@@ -110,5 +111,5 @@ fun migrationEntry(id: Long) = MigrationEntry(
     chapterCount = 1,
     latestChapter = 1.0,
     cover = null,
-    payload = Any(),
+    payload = MigrationPayload.OfManga(Manga.create().copy(id = id)),
 )

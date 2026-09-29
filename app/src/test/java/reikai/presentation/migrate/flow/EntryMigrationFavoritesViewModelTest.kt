@@ -12,6 +12,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
+import tachiyomi.domain.manga.model.Manga
 
 /**
  * The picker's selection. Back and the up arrow clear it, as Mihon's picker does, where they used to
@@ -29,7 +30,9 @@ class EntryMigrationFavoritesViewModelTest {
 
     @Test
     fun `clearing the selection leaves nothing selected`() = runTest(dispatcher) {
-        val favorites = listOf(1L, 2L).map { MigrationFavorite(EntryId.Manga(it), "t$it", null, Unit) }
+        val favorites = listOf(1L, 2L).map {
+            MigrationFavorite(EntryId.Manga(it), "t$it", null, MigrationPayload.OfManga(Manga.create()))
+        }
         val viewModel =
             EntryMigrationFavoritesViewModel(FakeMigrationFlowAdapter(emptyList(), favorites = favorites), "src")
         backgroundScope.launch { viewModel.state.collect {} }

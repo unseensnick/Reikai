@@ -21,7 +21,6 @@ import mihon.feature.migration.list.search.SmartSourceSearchEngine
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.manga.MangaMergeManager
-import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.migrate.PickMember
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -30,8 +29,12 @@ import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.service.SourceManager
+
+/** The manga candidate: a stored row from search time on, since networkToLocalManga inserts every hit. */
+data class MangaCandidateHandle(val manga: Manga) : MigrationHandle
 
 /** The manga half of the migration seam: Mihon's smart-search engines, sources and migrate use case. */
 @Inject
@@ -100,8 +103,8 @@ class MangaMigrationFlowAdapter(
                 PickMember(
                     id = manga.id,
                     title = manga.title,
-                    coverData = manga,
-                    payload = manga,
+                    coverData = manga.asMangaCover(),
+                    payload = MigrationPayload.OfManga(manga),
                     sourceName = sourceDisplayName(manga.source.toString()),
                     chapterCount = getChaptersByMangaId.await(manga.id).size,
                 )
@@ -135,8 +138,8 @@ class MangaMigrationFlowAdapter(
                     MigrationFavorite(
                         id = EntryId.Manga(manga.id),
                         title = manga.title,
-                        cover = manga,
-                        payload = manga,
+                        cover = manga.asMangaCover(),
+                        payload = MigrationPayload.OfManga(manga),
                     )
                 }
         }
@@ -153,8 +156,8 @@ class MangaMigrationFlowAdapter(
                 sourceName = sourceManager.get(manga.source)?.name,
                 chapterCount = chapters.size,
                 latestChapter = chapters.latestChapterNumber { it.chapterNumber },
-                cover = manga.toEntryBrowseUi().cover,
-                payload = manga,
+                cover = manga.asMangaCover(),
+                payload = MigrationPayload.OfManga(manga),
             )
         }
     }
@@ -172,8 +175,7 @@ class MangaMigrationFlowAdapter(
             engine.regularSearch(source, entry.title)
         } ?: return null
         // The entry's own source stays searchable, but its identical listing is never a target.
-        val current = entry.payload as? Manga
-        if (current != null && match.url == current.url && sourceKey == entry.sourceKey) return null
+        if (entry.isOwnListing(sourceKey, match.url)) return null
         val local = networkToLocalManga(listOf(match)).firstOrNull() ?: return null
         // Chapters, and only chapters: this source's match still has to be ranked against the other
         // sources' matches by chapter count, but a details fetch here would run for every probed
@@ -194,16 +196,15 @@ class MangaMigrationFlowAdapter(
         sourceKey: String,
     ): List<MigrationCandidate> {
         val source = catalogueSource(sourceKey) ?: return emptyList()
-        val currentUrl = (entry.payload as? Manga)?.url.takeIf { sourceKey == entry.sourceKey }
         val found = source.getSearchManga(1, query, source.getFilterList()).mangas
             .map { it.toDomainManga(source.id) }
             .distinctBy { it.url }
-            .filterNot { it.url == currentUrl }
+            .filterNot { entry.isOwnListing(sourceKey, it.url) }
         return networkToLocalManga(found).map { it.toCandidate(sourceKey) }
     }
 
     override suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget? {
-        val manga = candidate.handle as? Manga ?: return null
+        val manga = (candidate.handle as? MangaCandidateHandle)?.manga ?: return null
         // A candidate straight from candidates() has no chapters locally, so counts would read as
         // unknown and the commit would migrate onto an unfetched row; a suggestion already has them
         // and skips the fetch. Best-effort: a failure still resolves, and the use case fetches again.
@@ -229,7 +230,7 @@ class MangaMigrationFlowAdapter(
     }
 
     override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? {
-        val manga = candidate.handle as? Manga ?: return null
+        val manga = (candidate.handle as? MangaCandidateHandle)?.manga ?: return null
         // Display only, and bounded to one read, which is what the seam asks of a peek and what the
         // novel side already does. This used to call resolve(), so merely tapping a candidate could
         // cost two network round trips AND permanently write chapter rows for an entry the user had
@@ -274,7 +275,7 @@ class MangaMigrationFlowAdapter(
     }
 
     override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> {
-        val mangas = entries.mapNotNull { it.payload as? Manga }
+        val mangas = entries.mapNotNull { (it.payload as? MigrationPayload.OfManga)?.manga }
         return MigrationDataFlag.entries.filterTo(LinkedHashSet()) { flag ->
             when (flag) {
                 MigrationDataFlag.CHAPTER -> true
@@ -293,8 +294,8 @@ class MangaMigrationFlowAdapter(
         flags: Set<MigrationDataFlag>,
         targetJustSynced: Boolean,
     ) {
-        val current = entry.payload as? Manga ?: error("manga entry payload missing")
-        val targetManga = target.handle as? Manga ?: error("manga target handle missing")
+        val current = (entry.payload as? MigrationPayload.OfManga)?.manga ?: error("manga entry payload missing")
+        val targetManga = (target.handle as? MangaCandidateHandle)?.manga ?: error("manga target handle missing")
         migrateManga(
             current,
             targetManga,
@@ -313,8 +314,8 @@ class MangaMigrationFlowAdapter(
         title = title,
         chapterCount = null,
         key = "$sourceKey:$url",
-        cover = toEntryBrowseUi().cover,
+        cover = asMangaCover(),
         inLibrary = favorite,
-        handle = this,
+        handle = MangaCandidateHandle(this),
     )
 }
