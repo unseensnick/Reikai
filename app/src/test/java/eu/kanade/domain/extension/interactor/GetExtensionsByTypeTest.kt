@@ -12,9 +12,11 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
 import mihon.domain.extension.model.ExtensionStore
+import mihon.domain.extension.repository.ExtensionStoreRepository
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.extension.NO_SIGNING_KEY
 
 /** Manga and novel apks are sorted into the Extensions sections by one rule. */
 class GetExtensionsByTypeTest {
@@ -42,6 +44,23 @@ class GetExtensionsByTypeTest {
         extensions.available.map { it.name } shouldBe listOf("pkg.b")
     }
 
+    /** A keyless store's listing can claim only an apk no added store signs, so it never names this update. */
+    @ParameterizedTest
+    @EnumSource(Extension.Kind::class)
+    fun `a pending update takes its version from the store that signs the apk`(kind: Extension.Kind) = runTest {
+        val extensions = subscribe(
+            kind,
+            loaded = listOf(loaded("pkg.a", kind).copy(hasUpdate = true)),
+            available = listOf(
+                available("pkg.a", "en", kind, versionName = "3", versionCode = 3, store = keyless),
+                available("pkg.a", "en", kind, versionName = "2", versionCode = 2),
+            ),
+            stores = listOf(keyed, keyless),
+        )
+
+        extensions.updateVersions shouldBe mapOf("pkg.a" to "2")
+    }
+
     /** The language filter is the manga list's own; the Novels chip hides it, so novels keep every language. */
     @ParameterizedTest
     @CsvSource("MANGA, 1", "TACHIYOMI_NOVEL, 2", "IREADER, 2")
@@ -58,6 +77,7 @@ class GetExtensionsByTypeTest {
         kind: Extension.Kind,
         loaded: List<Extension.Loaded> = emptyList(),
         available: List<Extension.Available> = emptyList(),
+        stores: List<ExtensionStore> = emptyList(),
     ) = GetExtensionsByType(
         preferences = mockk<SourcePreferences> {
             every { enabledContentWarnings.get() } returns setOf(ContentWarning.SAFE)
@@ -71,6 +91,9 @@ class GetExtensionsByTypeTest {
             every { notLoadedNovelExtensionsFlow } returns flowOf(emptyList())
             every { availableExtensionsFlow } returns MutableStateFlow(if (isManga) available else emptyList())
             every { availableNovelExtensionsFlow } returns MutableStateFlow(if (isManga) emptyList() else available)
+        },
+        extensionStoreRepository = mockk<ExtensionStoreRepository> {
+            every { getAllAsFlow() } returns flowOf(stores)
         },
     ).subscribe(kind).first()
 
@@ -96,11 +119,14 @@ class GetExtensionsByTypeTest {
         lang: String,
         kind: Extension.Kind,
         contentWarning: ContentWarning = ContentWarning.SAFE,
+        versionName: String = "1",
+        versionCode: Long = 1,
+        store: ExtensionStore = keyed,
     ) = Extension.Available(
         name = pkgName,
         pkgName = pkgName,
-        versionName = "1",
-        versionCode = 1,
+        versionName = versionName,
+        versionCode = versionCode,
         libVersion = 1.4,
         lang = lang,
         contentWarning = contentWarning,
@@ -111,7 +137,13 @@ class GetExtensionsByTypeTest {
         ),
         apkUrl = "",
         iconUrl = "",
-        store = ExtensionStore(
+        store = store,
+    )
+
+    private companion object {
+        const val KEY = "key"
+
+        val keyed = ExtensionStore(
             "",
             "",
             "",
@@ -119,10 +151,7 @@ class GetExtensionsByTypeTest {
             ExtensionStore.Contact("", null),
             isLegacy = false,
             extensionListUrl = null,
-        ),
-    )
-
-    private companion object {
-        const val KEY = "key"
+        )
+        val keyless = keyed.copy(indexUrl = "https://keyless.example/index.min.json", signingKey = NO_SIGNING_KEY)
     }
 }

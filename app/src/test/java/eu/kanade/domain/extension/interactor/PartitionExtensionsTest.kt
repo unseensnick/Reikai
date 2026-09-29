@@ -18,6 +18,21 @@ class PartitionExtensionsTest {
             installed = listOf(installed("app", "1.6.7", hasUpdate = true), installed("other", "1.0.0")),
             failed = emptyList(),
             offered = listOf(offered("app", "1.6.8"), offered("other", "1.0.0")),
+            storeKeys = setOf(KEY),
+        )
+
+        extensions.updateVersions shouldBe mapOf("app" to "1.6.8")
+    }
+
+    @Test
+    fun `a pending update names the version the store signing the apk lists, not another store's`() {
+        val extensions = partitionExtensions(
+            enabledLanguages = null,
+            enabledContentWarnings = ContentWarning.entries.toSet(),
+            installed = listOf(installed("app", "1.6.7", hasUpdate = true)),
+            failed = emptyList(),
+            offered = listOf(offered("app", "9.9.9", store = otherKey), offered("app", "1.6.8")),
+            storeKeys = setOf(KEY, "other"),
         )
 
         extensions.updateVersions shouldBe mapOf("app" to "1.6.8")
@@ -31,6 +46,7 @@ class PartitionExtensionsTest {
             installed = emptyList(),
             failed = listOf(failed("app", hasUpdate = true), failed("other")),
             offered = listOf(offered("app", "1.6.8")),
+            storeKeys = setOf(KEY),
         )
 
         extensions.updates.map { it.pkgName } to extensions.notLoaded.map { it.pkgName } shouldBe
@@ -45,6 +61,7 @@ class PartitionExtensionsTest {
             installed = emptyList(),
             failed = listOf(failed("app", hasUpdate = true)),
             offered = listOf(offered("app", "1.6.8")),
+            storeKeys = setOf(KEY),
         )
 
         extensions.updateVersions shouldBe mapOf("app" to "1.6.8")
@@ -58,6 +75,7 @@ class PartitionExtensionsTest {
             installed = listOf(installed("app", "1.0.0")),
             failed = emptyList(),
             offered = listOf(offered("app", "1.0.0"), offered("app", "1.0.0", store = otherKey)),
+            storeKeys = setOf(KEY),
         )
 
         extensions.available.map { it.store.signingKey } shouldBe listOf("other")
@@ -71,6 +89,7 @@ class PartitionExtensionsTest {
             installed = listOf(installed("app", "1.0.0")),
             failed = emptyList(),
             offered = listOf(offered("app", "1.0.0", store = keyless)),
+            storeKeys = setOf(KEY),
         )
 
         extensions.available shouldBe emptyList()
