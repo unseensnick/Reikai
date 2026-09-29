@@ -1472,7 +1472,8 @@ class NovelTextViewport(
          */
         private fun bindSeam(holder: Holder, position: Int) {
             val finished = shown.getOrNull(position - 1)?.chapter
-            val seam = finished?.let { NovelSeam.between(it, shown[position].chapter) }?.drawn()
+            val seam = finished?.let { NovelSeam.between(it, shown[position].chapter) }
+                ?.drawn(settings?.alwaysShowChapterTransition)
             if (seam == holder.seam.seam) return
             holder.seam = holder.root.replace(holder.seam, NovelChapterSeamView(holder.root.context, seam))
         }
@@ -1480,7 +1481,7 @@ class NovelTextViewport(
         /** The marker below the novel's last chapter, which depends on that chapter alone, so a full
          *  bind is the only point it can change. */
         private fun bindEnd(holder: Holder, position: Int) {
-            val end = NovelSeam.end(shown[position].chapter)?.drawn()
+            val end = NovelSeam.end(shown[position].chapter)?.drawn(settings?.alwaysShowChapterTransition)
             if (end == holder.end.seam) return
             holder.end = holder.root.replace(holder.end, NovelChapterSeamView(holder.root.context, end))
         }
@@ -1537,10 +1538,6 @@ class NovelTextViewport(
 
         override fun getItemCount(): Int = shown.size
     }
-
-    /** This marker as the reader's setting draws it, or null where the setting hides it. */
-    private fun NovelSeam.drawn(): NovelSeam? =
-        takeIf { it.isShown(alwaysShowTransition = settings?.alwaysShowChapterTransition != false) }
 
     private companion object {
         /** Chapters the window holds at most: the previous one, the one being read, and as many past

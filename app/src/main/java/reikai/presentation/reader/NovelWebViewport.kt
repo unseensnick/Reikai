@@ -414,7 +414,7 @@ class NovelWebViewport(
      *  page cannot tell which of its seams the setting hides. The end marker shows either way. */
     private fun redrawSeams() {
         held.zipWithNext { finished, next ->
-            val seam = NovelSeam.between(finished, next).drawn()
+            val seam = NovelSeam.between(finished, next).drawn(documentSettings?.alwaysShowChapterTransition)
             runOrQueue(
                 "rkReader.setSeam(${JSONObject.quote(next.chapterId.toString())}, " +
                     "${seam?.let(::seamJson) ?: "null"});",
@@ -495,7 +495,7 @@ class NovelWebViewport(
             held.firstOrNull()?.let { NovelSeam.between(chapter, it) }
         } else {
             held.lastOrNull()?.let { NovelSeam.between(it, chapter) }
-        }?.drawn()
+        }?.drawn(documentSettings?.alwaysShowChapterTransition)
         held.add(if (atStart) 0 else held.size, chapter)
         val verb = if (atStart) "prependChapter" else "appendChapter"
         // Its own base, since the document's is the opened chapter's and a neighbour can come from a
@@ -520,14 +520,10 @@ class NovelWebViewport(
         syncEnd()
     }
 
-    /** This marker as the reader's setting draws it, or null where the setting hides it. */
-    private fun NovelSeam.drawn(): NovelSeam? =
-        takeIf { it.isShown(alwaysShowTransition = documentSettings?.alwaysShowChapterTransition != false) }
-
     /** Draws the end marker below the last chapter held when nothing follows it, and takes it away
      *  once that chapter is no longer the last one held. Outside the chapters, as a failure is. */
     private fun syncEnd() {
-        val end = held.lastOrNull()?.let(NovelSeam::end)?.drawn()
+        val end = held.lastOrNull()?.let(NovelSeam::end)?.drawn(documentSettings?.alwaysShowChapterTransition)
         if (end == shownEnd) return
         shownEnd = end
         runOrQueue("rkReader.setEnd(${end?.let(::seamJson) ?: "null"});")

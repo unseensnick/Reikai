@@ -64,25 +64,40 @@ class NovelSeamTest {
     @Test
     @DisplayName("a seam between consecutive chapters is hidden with always-show-transition off")
     fun consecutiveSeamHiddenWithTheSettingOff() {
-        NovelSeam.between(chapter(10.0), chapter(11.0)).isShown(alwaysShowTransition = false) shouldBe false
+        NovelSeam.between(chapter(10.0), chapter(11.0)).drawn(alwaysShowTransition = false) shouldBe null
     }
 
     @Test
     @DisplayName("a seam between consecutive chapters shows with always-show-transition on")
     fun consecutiveSeamShownWithTheSettingOn() {
-        NovelSeam.between(chapter(10.0), chapter(11.0)).isShown(alwaysShowTransition = true) shouldBe true
+        val seam = NovelSeam.between(chapter(10.0), chapter(11.0))
+
+        seam.drawn(alwaysShowTransition = true) shouldBe seam
+    }
+
+    /** The setting's own default is on, so a renderer that has not been handed settings yet draws it too. */
+    @Test
+    @DisplayName("before any settings arrive a marker between consecutive chapters is drawn")
+    fun consecutiveSeamShownBeforeSettings() {
+        val seam = NovelSeam.between(chapter(10.0), chapter(11.0))
+
+        seam.drawn(alwaysShowTransition = null) shouldBe seam
     }
 
     @Test
     @DisplayName("a seam over missing chapters shows with always-show-transition off")
     fun gapSeamShownWithTheSettingOff() {
-        NovelSeam.between(chapter(10.0), chapter(14.0)).isShown(alwaysShowTransition = false) shouldBe true
+        val seam = NovelSeam.between(chapter(10.0), chapter(14.0))
+
+        seam.drawn(alwaysShowTransition = false) shouldBe seam
     }
 
     @Test
     @DisplayName("the end marker shows with always-show-transition off")
     fun endMarkerShownWithTheSettingOff() {
-        NovelSeam.end(chapter(10.0, isLast = true))?.isShown(alwaysShowTransition = false) shouldBe true
+        val end = NovelSeam.end(chapter(10.0, isLast = true))
+
+        end?.drawn(alwaysShowTransition = false) shouldBe end
     }
 
     @Test

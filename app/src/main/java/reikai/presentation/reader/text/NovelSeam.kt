@@ -17,12 +17,13 @@ data class NovelSeam(
     val missingChapters: Int,
 ) {
     /**
-     * Whether a renderer draws this marker: manga's rule for its Next transition, which always shows
-     * at the end and across missing chapters, and between two consecutive ones only with "Always show
-     * chapter transition" on (`WebtoonAdapter.setChapters`).
+     * This marker if a renderer draws it, else null: manga's rule for its Next transition, which always
+     * shows at the end and across missing chapters, and between two consecutive ones only with "Always
+     * show chapter transition" on (`WebtoonAdapter.setChapters`). A renderer not yet handed settings
+     * passes null, which draws it, as the setting's default does.
      */
-    fun isShown(alwaysShowTransition: Boolean): Boolean =
-        nextTitle == null || missingChapters > 0 || alwaysShowTransition
+    fun drawn(alwaysShowTransition: Boolean?): NovelSeam? =
+        takeIf { nextTitle == null || missingChapters > 0 || alwaysShowTransition != false }
 
     companion object {
         fun between(finished: LoadedChapter, next: LoadedChapter) = NovelSeam(
