@@ -43,10 +43,11 @@ import kotlinx.coroutines.flow.update
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.novel.NovelStatusCode
-import reikai.data.novel.predictNovelFetchInterval
+import reikai.data.novel.insertOpenedNovel
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.storeRefreshedNovel
 import reikai.data.novel.syncChaptersWithNovelSource
+import reikai.data.novel.syncOpenedChapters
 import reikai.data.novel.toNovel
 import reikai.data.novel.updateNovelFetchInterval
 import reikai.data.updateerror.refreshFailureMessage
@@ -710,29 +711,12 @@ class NovelDetailsViewModel(
      *  `totalPages`). */
     private suspend fun fetchAndSync(src: NovelSource, existing: Novel?): Novel? {
         val sourceNovel = src.parseNovel(existing?.url ?: novelUrl)
-        val target = if (existing != null) {
-            val parsed = sourceNovel.toNovel(sourceId = src.id, favorite = existing.favorite)
-            storeRefreshedNovel(existing, parsed, novelRepo, libraryPreferences, downloadManager, coverCache)
-        } else {
-            // Non-favorite shadow row so a browse-opened novel is viewable without being silently
-            // added; insertOrGet reuses a concurrently-created row instead of duplicating.
-            novelRepo.insertOrGet(sourceNovel.toNovel(sourceId = src.id, favorite = false)) ?: return null
+        if (existing == null) {
+            return insertOpenedNovel(sourceNovel, src.id, novelRepo, chapterRepo, libraryPreferences, downloadManager)
         }
-        val chapters = sourceNovel.chapters.orEmpty()
-        if (chapters.isNotEmpty()) {
-            // A paged source's first page is page "1"; tag it so the page-"1" query finds these rows.
-            val pageTag = if (sourceNovel.totalPages > 1) "1" else null
-            val synced = syncChaptersWithNovelSource(
-                chapters,
-                target,
-                chapterRepo,
-                novelRepo,
-                libraryPreferences,
-                page = pageTag,
-                novelDownloadManager = downloadManager,
-            )
-            predictNovelFetchInterval(target, synced.changed, manualFetch = false, chapterRepo, novelRepo)
-        }
+        val parsed = sourceNovel.toNovel(sourceId = src.id, favorite = existing.favorite)
+        val target = storeRefreshedNovel(existing, parsed, novelRepo, libraryPreferences, downloadManager, coverCache)
+        syncOpenedChapters(sourceNovel, target, novelRepo, chapterRepo, libraryPreferences, downloadManager)
         return target
     }
 

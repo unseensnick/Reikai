@@ -11,6 +11,7 @@ import reikai.domain.source.keptCover
 import reikai.domain.source.refreshedCover
 import reikai.domain.source.refreshedTitle
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.host.SourceNovel
 import reikai.novel.source.NovelSource
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -156,4 +157,58 @@ suspend fun refreshNovelFromSource(
         )
     }
     return NovelRefreshResult(merged, synced?.newChapters.orEmpty())
+}
+
+/**
+ * Stores a novel the user opened but has not added: a non-favourite row with its first page of chapters,
+ * so it can be viewed without being silently added. [NovelRepository.insertOrGet] reuses a row created
+ * meanwhile instead of duplicating it. Null when the row could not be written.
+ */
+suspend fun insertOpenedNovel(
+    sourceNovel: SourceNovel,
+    sourceId: String,
+    novelRepository: NovelRepository,
+    novelChapterRepository: NovelChapterRepository,
+    libraryPreferences: LibraryPreferences,
+    novelDownloadManager: NovelDownloadManager? = null,
+): Novel? {
+    val target = novelRepository.insertOrGet(sourceNovel.toNovel(sourceId = sourceId, favorite = false))
+        ?: return null
+    syncOpenedChapters(
+        sourceNovel,
+        target,
+        novelRepository,
+        novelChapterRepository,
+        libraryPreferences,
+        novelDownloadManager,
+    )
+    return target
+}
+
+/**
+ * Syncs the first page of an opened novel's chapters and predicts its next update. Only the first page:
+ * the details screen fetches the others as they are shown, where [refreshNovelFromSource] walks them all.
+ */
+suspend fun syncOpenedChapters(
+    sourceNovel: SourceNovel,
+    target: Novel,
+    novelRepository: NovelRepository,
+    novelChapterRepository: NovelChapterRepository,
+    libraryPreferences: LibraryPreferences,
+    novelDownloadManager: NovelDownloadManager? = null,
+) {
+    val chapters = sourceNovel.chapters.orEmpty()
+    if (chapters.isEmpty()) return
+    // A paged source's first page is page "1"; tag it so the page-"1" query finds these rows.
+    val pageTag = if (sourceNovel.totalPages > 1) "1" else null
+    val synced = syncChaptersWithNovelSource(
+        chapters,
+        target,
+        novelChapterRepository,
+        novelRepository,
+        libraryPreferences,
+        page = pageTag,
+        novelDownloadManager = novelDownloadManager,
+    )
+    predictNovelFetchInterval(target, synced.changed, manualFetch = false, novelChapterRepository, novelRepository)
 }

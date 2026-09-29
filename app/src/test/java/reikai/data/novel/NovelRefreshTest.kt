@@ -324,6 +324,35 @@ class NovelRefreshTest {
         rowsFor(novel, "/c/76").map { Triple(it.id, it.read, it.page) } shouldBe listOf(Triple(id, true, "2"))
     }
 
+    private suspend fun open(source: PagedSource, path: String = "/opened") =
+        insertOpenedNovel(source.parseNovel(path), source.id, novels, chapters, libraryPreferences)!!
+
+    @Test
+    fun `an opened novel is stored outside the library`() = runTest {
+        novels.getById(open(PagedSource(oneChapter)).id)!!.favorite shouldBe false
+    }
+
+    @Test
+    fun `an opened novel is stored with its chapters`() = runTest {
+        val novel = open(PagedSource(oneChapter))
+
+        chapters.getByNovelId(novel.id).map { it.url } shouldBe listOf("/c/1")
+    }
+
+    @Test
+    fun `an opened paged novel's first page is stored as page one`() = runTest {
+        val novel = open(PagedSource(oneChapter, mapOf("2" to listOf(chapter("/c/2", 2.0)))))
+
+        chapters.getByNovelId(novel.id).map { it.page } shouldBe listOf("1")
+    }
+
+    @Test
+    fun `opening a novel twice reuses its row`() = runTest {
+        val first = open(PagedSource(oneChapter))
+
+        open(PagedSource(oneChapter)).id shouldBe first.id
+    }
+
     private companion object {
         const val COVER = "https://src.example/cover.jpg"
     }
