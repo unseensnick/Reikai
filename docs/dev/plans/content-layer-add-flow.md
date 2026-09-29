@@ -270,3 +270,11 @@ two orders would have baked the divergence into the engine.
   through `MangaLibraryAdder.addWithoutAsking`: the default chapter flags and the default category
   when one is set, uncategorized under "always ask", and nothing rewritten on a row already in the
   library. Novels have no such path, so the rule is manga-only by construction.
+- **The group-join category rule and the system-category write filter exist once** (cleanup plan
+  P19, 2026-09-29). `groupOrDefaultCategoryIds` and `withoutSystemCategory` sit beside
+  `resolveDefaultCategoryIds` in `reikai/domain/category/DefaultCategoryResolution.kt`; both adders'
+  `groupOrDefaultCategories` hand it the group's categories, and their three write sites call the
+  filter. This retires the decline recorded in content-layer-browse-surface.md step 2: its premise
+  was that sharing needed a category-port interface, and a kernel handed the categories each adder
+  already read needs none. `AddToGroupConformanceTest` pins it for both types, including a group
+  filed only in the system category falling back to the default.

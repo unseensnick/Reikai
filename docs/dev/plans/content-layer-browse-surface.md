@@ -56,8 +56,9 @@ the work that preceded the takeover, not the forward plan; the takeover section 
   screens, and `resolveDefaultCategoryIds` (`reikai/domain/category/`) is the one
   default-category decision tree, used by both adders and the bulk-favorite engine. Declined while
   their premises hold: the sealed-dialog-type collapse (needs a generic carrier for payloads that
-  differ by construction) and extracting `groupOrDefaultCategories` (~8 identical lines against a
-  category-port interface). **The polymorphic adder decline has expired**: it rested on no shared
+  differ by construction). The `groupOrDefaultCategories` decline has expired: a kernel handed the
+  categories each adder already read needs no category-port interface, so the rule is now
+  `groupOrDefaultCategoryIds` (see content-layer-add-flow.md). **The polymorphic adder decline has expired**: it rested on no shared
   caller existing, and the recents engine is one, so the add sequence is being collapsed in
   [content-layer-add-flow.md](content-layer-add-flow.md).
 - **Step 3, hide-in-library for novel browse (shipped `cadf22edb`).** The novel pager filters each

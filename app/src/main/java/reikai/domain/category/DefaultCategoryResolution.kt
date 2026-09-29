@@ -18,3 +18,19 @@ fun resolveDefaultCategoryIds(categories: List<Category>, defaultCategoryId: Int
         else -> null
     }
 }
+
+/**
+ * The ids a category write may carry: the system category is where an entry filed nowhere shows, not
+ * one it can be filed into, so it never reaches a write or counts as a group's categories.
+ */
+fun List<Long>.withoutSystemCategory(): List<Long> = filter { it != Category.UNCATEGORIZED_ID }
+
+/**
+ * Where an entry joining a group lands: the categories the group's members already use, so a new
+ * source sits with the rest of the series, else [default], whose null means ask.
+ */
+suspend fun groupOrDefaultCategoryIds(
+    groupCategories: List<Category>,
+    default: suspend () -> List<Long>?,
+): List<Long>? =
+    groupCategories.map { it.id }.withoutSystemCategory().distinct().ifEmpty { null } ?: default()

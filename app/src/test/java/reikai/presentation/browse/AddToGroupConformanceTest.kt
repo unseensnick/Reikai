@@ -133,6 +133,17 @@ class AddToGroupConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a group filed only in the system category falls back to the default category`(probe: GroupAddProbe) =
+        runTest {
+            probe.addToExistingGroup(
+                userCategories = listOf(category(3L)),
+                defaultCategoryId = 3,
+                groupCategories = listOf(category(Category.UNCATEGORIZED_ID)),
+            ).effects.filedCategories shouldBe listOf(3L)
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `no usable default hands the picker back to the caller`(probe: GroupAddProbe) = runTest {
         probe.addToExistingGroup(userCategories = listOf(category(3L)), defaultCategoryId = -1)
             .prompt shouldBe listOf(category(3L))

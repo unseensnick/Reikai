@@ -26,7 +26,6 @@ app/src/main/java/reikai/domain/recommendation/taste/KitsuLibraryFetcher.kt	app/
 app/src/main/java/reikai/novel/source/TachiyomiNovelSource.kt	app/src/main/java/reikai/novel/source/ireader/IReaderNovelSource.kt	29c26324d163de81
 app/src/main/java/reikai/presentation/browse/catalogue/SavedSearchDialogs.kt	app/src/main/java/reikai/presentation/browse/feed/FeedDialogs.kt	09675367cbee9fc1
 app/src/main/java/reikai/presentation/browse/feed/FeedOrderList.kt	app/src/main/java/reikai/presentation/reader/ReaderBottomButtonsScreen.kt	8e5175af665ed956
-app/src/main/java/reikai/presentation/browse/MangaLibraryAdder.kt	app/src/main/java/reikai/presentation/novel/browse/NovelLibraryAdder.kt	1d9fce7d6dc844e7
 app/src/main/java/reikai/presentation/details/EntryDetailsScaffold.kt	app/src/main/java/reikai/presentation/details/EntryDetailsTwoPaneScaffold.kt	4b2c4c139da865ad
 app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	0abe3a0e2674ad8e
 app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	26129f13f039ccd4

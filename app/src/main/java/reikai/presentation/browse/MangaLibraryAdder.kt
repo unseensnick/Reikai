@@ -5,7 +5,9 @@ import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.flow.firstOrNull
+import reikai.domain.category.groupOrDefaultCategoryIds
 import reikai.domain.category.resolveDefaultCategoryIds
+import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -63,17 +65,9 @@ class MangaLibraryAdder(
     suspend fun getDuplicateGroupIds(duplicates: List<MangaWithChapterCount>): Map<Long, Long> =
         mergeManager.groupIdsFor(duplicates.map { it.manga.id })
 
-    /**
-     * Where an entry joining [selectedIds]'s group lands: the categories that group already uses, so a
-     * new source sits with the rest of the series, else the default, else null to ask. Reads only.
-     */
+    /** Where an entry joining [selectedIds]'s group lands, or null to ask. Reads only. */
     suspend fun groupOrDefaultCategories(selectedIds: List<Long>): List<Long>? =
-        selectedIds.flatMap { getCategories.await(it) }
-            .map { it.id }
-            .filter { it != Category.UNCATEGORIZED_ID }
-            .distinct()
-            .ifEmpty { null }
-            ?: resolveDefaultCategories()
+        groupOrDefaultCategoryIds(selectedIds.flatMap { getCategories.await(it) }) { resolveDefaultCategories() }
 
     /**
      * Add [manga] to the library in the group of the user's picked duplicates, through the shared
@@ -168,7 +162,7 @@ class MangaLibraryAdder(
         }
 
     suspend fun moveToCategories(manga: Manga, categoryIds: List<Long>) {
-        setMangaCategories.await(manga.id, categoryIds.filter { it != Category.UNCATEGORIZED_ID })
+        setMangaCategories.await(manga.id, categoryIds.withoutSystemCategory())
     }
 
     /**
@@ -191,7 +185,7 @@ class MangaLibraryAdder(
     suspend fun confirmAddCategories(mangaId: Long, categoryIds: List<Long>): AddOutcome = finishAdd(
         categoryIds = categoryIds,
         favorite = { favoriteFromBrowse(mangaId) },
-        fileCategories = { id, ids -> setMangaCategories.await(id, ids.filter { it != Category.UNCATEGORIZED_ID }) },
+        fileCategories = { id, ids -> setMangaCategories.await(id, ids.withoutSystemCategory()) },
     )
 
     /**

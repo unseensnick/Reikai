@@ -2,7 +2,9 @@ package reikai.presentation.novel.browse
 
 import dev.zacsweers.metro.Inject
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.category.groupOrDefaultCategoryIds
 import reikai.domain.category.resolveDefaultCategoryIds
+import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelMergeManager
@@ -163,17 +165,11 @@ class NovelLibraryAdder(
     suspend fun getDuplicateGroupIds(duplicates: List<NovelWithChapterCount>): Map<Long, Long> =
         mergeManager.groupIdsFor(duplicates.map { it.novel.id })
 
-    /**
-     * Where an entry joining [selectedIds]'s group lands: the categories that group already uses, so a
-     * new source sits with the rest of the series, else the default, else null to ask. Reads only.
-     */
+    /** Where an entry joining [selectedIds]'s group lands, or null to ask. Reads only. */
     suspend fun groupOrDefaultCategories(selectedIds: List<Long>): List<Long>? =
-        selectedIds.flatMap { getNovelCategories.awaitByNovelId(it) }
-            .map { it.id }
-            .filter { it != Category.UNCATEGORIZED_ID }
-            .distinct()
-            .ifEmpty { null }
-            ?: resolveDefaultCategories()
+        groupOrDefaultCategoryIds(selectedIds.flatMap { getNovelCategories.awaitByNovelId(it) }) {
+            resolveDefaultCategories()
+        }
 
     /**
      * Add the browsed item in the group of the user's picked duplicates, through the shared sequence, so
@@ -311,9 +307,8 @@ class NovelLibraryAdder(
         sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
     )
 
-    /** The system category is not one a user can file into, so it never reaches a write. */
     suspend fun applyCategories(novelId: Long, categoryIds: List<Long>) {
-        setNovelCategories.await(novelId, categoryIds.filter { it != Category.UNCATEGORIZED_ID })
+        setNovelCategories.await(novelId, categoryIds.withoutSystemCategory())
     }
 
     /** Remove a favorited result from the library (keeps the row + read state, like the manga side). */
