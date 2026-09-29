@@ -124,8 +124,6 @@
       "Bash(gh release *)",
       "Bash(gh api *)",
       "Bash(git rebase *)",
-      "Bash(git cherry-pick *)",
-      "Bash(git commit --amend *)",
       "Bash(git filter-branch *)",
       "Bash(adb * uninstall *)",
       "Bash(adb * shell pm clear *)"
