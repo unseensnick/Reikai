@@ -46,6 +46,8 @@ Built on `feat-autoscroll`; JVM-tested and mutation-checked, device verification
 
 Owner rulings, 2026-09-28: the strip's smooth scroll waits for a loading page; novels pause on a finger down as well as long-strip manga; the sheet and the bar mean running now and start-on-open lives in Settings only; start-on-open fires when the reader opens, not on every chapter; the strip is smooth only; a finger down restarts the stepped countdown.
 
+Owner ruling, 2026-09-29: auto-scroll stays paused while the reader settings sheet is open, speed controls included. A speed change is judged after closing the sheet and hiding the menu, and adjusted again if needed; a live preview under the sheet was offered and declined.
+
 **The sixth image-viewer island.** `autoScrollBy` in `WebtoonViewer` and `WebGpuViewerContinuous` is an owner-ruled island, listed in content-layer.md's Reader row. Driving the strips from `MangaViewport` instead would need the WebGPU viewer's protected page lookup, and the island stays one method per viewer, identical in shape, with the rule itself in `StripAutoScroll.kt`.
 
 **Differences from Komikku** (compared at refs/komikku `936e25bf99`):
