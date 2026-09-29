@@ -2,15 +2,11 @@ package eu.kanade.tachiyomi.ui.library
 
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,16 +21,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -82,9 +75,8 @@ import reikai.presentation.library.LibraryDialog
 import reikai.presentation.library.LibraryEngine
 import reikai.presentation.library.LibraryScreenState
 import reikai.presentation.library.LibrarySettingsSheet
-import reikai.presentation.library.ReikaiCategoryHopper
-import reikai.presentation.library.ReikaiCategoryPickerSheet
 import reikai.presentation.library.ReikaiLibraryContent
+import reikai.presentation.library.ReikaiLibraryHopperOverlay
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
@@ -267,9 +259,7 @@ data object LibraryTab : Tab {
             ContentType.NOVELS -> novelPagerState
             ContentType.ALL -> allPagerState
         }
-        var pickerOpen by remember { mutableStateOf(false) }
         var hopperTarget by remember { mutableStateOf<Int?>(null) }
-        var hopperDragAccum by remember { mutableFloatStateOf(0f) }
         fun reikaiHeaderIndices(): List<Int> = reikaiCategoryHeaderIndices(
             buckets = activeBuckets,
             hasSearchItem = !activeSearchQuery.isNullOrEmpty(),
@@ -700,97 +690,37 @@ data object LibraryTab : Tab {
                             )
                         }
 
-                        if (!display.reikai.hideHopper && activeBuckets.isNotEmpty()) {
-                            val hopperAlignment = when (display.reikai.hopperGravity) {
-                                0 -> Alignment.BottomStart
-                                2 -> Alignment.BottomEnd
-                                else -> Alignment.BottomCenter
-                            }
-                            // Autohide: fade the hopper out while the single-list is scrolling,
-                            // bring it back when it settles. No effect in the pager (its grid state
-                            // isn't this one), where the hopper stays put.
-                            val hopperVisible = !display.reikai.autohideHopper ||
-                                !singleListGridState.isScrollInProgress
-                            AnimatedVisibility(
-                                visible = hopperVisible,
-                                enter = fadeIn(),
-                                exit = fadeOut(),
-                                modifier = Modifier
-                                    .align(hopperAlignment)
-                                    .padding(horizontal = 12.dp)
-                                    .padding(bottom = contentPadding.calculateBottomPadding() + 12.dp),
-                            ) {
-                                ReikaiCategoryHopper(
-                                    modifier = Modifier
-                                        // Drag the hopper left/right to move it between start / center / end.
-                                        .pointerInput(display.reikai.hopperGravity) {
-                                            val gravity = display.reikai.hopperGravity
-                                            detectHorizontalDragGestures(
-                                                onDragStart = { hopperDragAccum = 0f },
-                                                onDragEnd = {
-                                                    val next = when {
-                                                        hopperDragAccum > 48f -> (gravity + 1).coerceAtMost(2)
-                                                        hopperDragAccum < -48f -> (gravity - 1).coerceAtLeast(0)
-                                                        else -> gravity
-                                                    }
-                                                    if (next != gravity) viewModel.setHopperGravity(next)
-                                                },
-                                            ) { change, dragAmount ->
-                                                change.consume()
-                                                hopperDragAccum += dragAmount
-                                            }
-                                        },
-                                    onUpClick = {
-                                        val last = activeBuckets.lastIndex.coerceAtLeast(0)
-                                        hopperTarget = ((hopperTarget ?: currentCategoryIndex()) - 1).coerceIn(0, last)
-                                    },
-                                    onCenterClick = { pickerOpen = true },
-                                    // RK: every hopper long-press action follows the content-type chip, which
-                                    // the seam decides, so none of them branches on the chip here.
-                                    onCenterLongClick = {
-                                        when (display.reikai.hopperLongPressAction) {
-                                            0 -> onSearch("")
-                                            1 -> engine.toggleAllCategoriesCollapsed(activeBuckets)
-                                            // The hopper is a category navigator, so its sheet is scoped to
-                                            // the category it sits on, the same as a category header's sort.
-                                            // The sheet's tabs are swipeable, so the Sort tab is reachable
-                                            // from either of these: on a dynamic group the scope has to be
-                                            // null (global), or setting a sort there writes the global
-                                            // preference while presenting itself as a per-category override.
-                                            2 -> engine.openSettingsDialog(
-                                                libraryContentType,
-                                                currentRealCategory()?.id,
-                                                initialTab = 2,
-                                            )
-                                            3 -> engine.openSettingsDialog(
-                                                libraryContentType,
-                                                currentRealCategory()?.id,
-                                                initialTab = 3,
-                                            )
-                                            4 -> onOpenRandom(currentBucket()?.key)
-                                            5 -> onOpenRandom(null)
-                                        }
-                                    },
-                                    onDownClick = {
-                                        val last = activeBuckets.lastIndex.coerceAtLeast(0)
-                                        hopperTarget = ((hopperTarget ?: currentCategoryIndex()) + 1).coerceIn(0, last)
-                                    },
-                                )
-                            }
-                        }
-                    }
-
-                    if (pickerOpen) {
-                        ReikaiCategoryPickerSheet(
+                        ReikaiLibraryHopperOverlay(
+                            settings = display.reikai,
                             buckets = activeBuckets,
                             getItemCount = activeGetItemCount,
                             showItemCounts = display.showItemCounts,
-                            activeIndex = currentCategoryIndex(),
-                            onSelect = { index ->
-                                hopperTarget = index
-                                pickerOpen = false
+                            isListScrolling = { singleListGridState.isScrollInProgress },
+                            bottomPadding = contentPadding.calculateBottomPadding(),
+                            currentIndex = ::currentCategoryIndex,
+                            onJumpBy = { step ->
+                                val last = activeBuckets.lastIndex.coerceAtLeast(0)
+                                hopperTarget = ((hopperTarget ?: currentCategoryIndex()) + step).coerceIn(0, last)
                             },
-                            onDismiss = { pickerOpen = false },
+                            onJumpTo = { hopperTarget = it },
+                            onGravityChange = viewModel::setHopperGravity,
+                            // Every long-press action follows the content-type chip, which the seam decides.
+                            onSearch = { onSearch("") },
+                            onToggleAllCollapsed = { engine.toggleAllCategoriesCollapsed(activeBuckets) },
+                            // Scoped to the category the hopper sits on, like a header's sort. The sheet's
+                            // tabs swipe, so Sort is reachable from here: on a dynamic group the scope must
+                            // be null (global), or a sort set there writes the global preference while
+                            // presenting itself as a per-category override.
+                            onOpenSettings = { tab ->
+                                engine.openSettingsDialog(
+                                    libraryContentType,
+                                    currentRealCategory()?.id,
+                                    initialTab = tab,
+                                )
+                            },
+                            onOpenRandom = { inCurrentCategory ->
+                                onOpenRandom(if (inCurrentCategory) currentBucket()?.key else null)
+                            },
                         )
                     }
                     // RK <--

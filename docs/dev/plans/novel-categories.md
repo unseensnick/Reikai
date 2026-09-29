@@ -24,9 +24,9 @@ Deletion is deferred and undoable: selecting Delete holds the rows out of the li
 
 The hopper is `ReikaiCategoryHopper`, a small rounded floating control with up / center / down buttons (`app/src/main/java/reikai/presentation/library/ReikaiCategoryHopper.kt`). Up and down jump to the previous / next category; the center button opens `ReikaiCategoryPickerSheet`, a bottom sheet listing every category (with item counts when enabled) so the user can jump straight to one (`app/src/main/java/reikai/presentation/library/ReikaiCategoryPickerSheet.kt`). The center button also has a long-press action.
 
-Both the manga and novel libraries render through the same shared host (`LibraryTab.kt`), which draws the hopper and picker once, unconditionally, in the single-list view (`LibraryTab.kt`). The Novels tab is no longer special-cased: every hopper callback is content-aware, branching on the active content type. The center long-press dispatches all six actions (search, collapse/expand all, open Display options, open group-by, random-in-category, global-random), each routed to either the novel or manga screen model (`LibraryTab.kt`). The hopper can be dragged left / center / right to change its gravity, one library-wide setting. The picker sheet covers both real DB categories and dynamic groups: it decoded the synthetic groups' encoded names when this shipped, and lists the sealed `LibraryBucket` since the sentinel was retyped (2026-08-10).
+Both the manga and novel libraries render through the same shared host (`LibraryTab.kt`), which draws one `ReikaiLibraryHopperOverlay` over whichever view is showing, the single list or the tabbed pager. The overlay owns the hopper's placement, autohide, drag, long-press table and the picker; the jump itself (`hopperTarget` and the effect that scrolls to it) stays in `LibraryTab`, which owns the pager and the list state. The center long-press dispatches all six actions (search, collapse/expand all, open Display options, open group-by, random-in-category, global-random) through `LibraryEngine` with the active content type, so none of them branches on the chip. The hopper can be dragged left / center / right to change its gravity, one library-wide setting. The picker sheet covers both real DB categories and dynamic groups: it decoded the synthetic groups' encoded names when this shipped, and lists the sealed `LibraryBucket` since the sentinel was retyped (2026-08-10).
 
-The hopper appears when its visibility preference (`hideHopper`) is off and at least one category exists (`LibraryTab.kt`); it is not gated on search state. With autohide on, it fades while the list scrolls and returns when it settles.
+The hopper appears when its visibility preference (`hideHopper`) is off and at least one category exists (`ReikaiLibraryHopperOverlay.kt`); it is not gated on search state. With autohide on, it fades while the single list scrolls and returns when it settles; the pager's own scrolling does not hide it.
 
 ### The tab-aware Display sheet
 
@@ -46,13 +46,14 @@ Novel categories (data + logic; the stack unified into the shared category table
 Category-manager UI (shared, `// RK` islands):
 - `app/src/main/java/eu/kanade/tachiyomi/ui/category/CategoryScreen.kt` (+ `CategoryViewModel.kt`): the shared category screen, `novels: Boolean` flag + Manga/Novels chip; both tabs resolve one `CategoryViewModel` via `CategoryActions`.
 
-Hopper + picker (single-list view):
+Hopper + picker (both views):
+- `app/src/main/java/reikai/presentation/library/ReikaiLibraryHopperOverlay.kt`: places the hopper, maps its long-press setting to an action, and opens the picker.
 - `app/src/main/java/reikai/presentation/library/ReikaiCategoryHopper.kt`: the floating up/center/down control.
 - `app/src/main/java/reikai/presentation/library/ReikaiCategoryPickerSheet.kt`: the jump-to-category bottom sheet.
 - `app/src/main/java/reikai/presentation/library/LibraryBucket.kt`: the sealed library section (real category or dynamic group) the picker lists. Replaced the name decoder this shipped against (`ReikaiDynamicCategory`, since deleted).
 
 Library host (shared, `// RK` islands):
-- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryTab.kt`: resolves both screen models, the content-type chip, the unconditional hopper + picker, content-aware callbacks, and the tab-aware Display sheet + edit-categories routing.
+- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryTab.kt`: resolves both screen models, the content-type chip, the hopper's jump target and callbacks, and the tab-aware Display sheet + edit-categories routing.
 - `app/src/main/java/reikai/presentation/library/novels/NovelLibraryViewModel.kt`: the Novels library screen model (state, dialogs, hopper actions, category filter).
 - `app/src/main/java/reikai/presentation/library/LibrarySettingsSheet.kt`: the one settings sheet every chip opens (the per-type `NovelLibrarySettingsDialog` is gone).
 
@@ -71,6 +72,8 @@ Shipped. Novel categories, the hopper and jump-to-category sheet on the Novels t
 - **Deferred, undoable deletes over immediate DB writes.** Deleting a category hides it from the live flow and commits to the DB only when the undo snackbar dismisses, so undo never needs a lossy re-insert (junction tables cascade their membership rows, and a re-inserted category would get a new id). Single-row delete shares the same deferred path. The cost is the extra `pendingDeleteIds` bookkeeping and the non-cancellable commit-on-leave, which is worth it to make undo correct rather than approximate.
 
 - **One shared hopper, content-aware callbacks.** Rather than disabling the hopper on the Novels tab or duplicating it, the shared host draws it once and routes each callback (jump, long-press actions, gravity drag) to whichever content type is active. Hopper preferences (gravity, autohide, long-press action) are one library-wide set; the chip changes what is listed, not how the hopper behaves.
+
+- **The hopper lives in its own file, not in Mihon's `LibraryTab`** (owner, ruling 14 of the 2026-09-29 cleanup plan: move now rather than at the next upstream sync). `ReikaiLibraryHopperOverlay` holds everything the hopper draws or remembers, so `LibraryTab` keeps one call inside its `// RK` island and a sync hand-merges less. The jump target stays in the tab, because only the tab holds the pager and the single list it scrolls. Autohide reads the list's scroll through a lambda, so a scroll starting or stopping recomposes only the overlay.
 
 - **Tab-aware actions, shared sheet shell.** The Display sheet shell is shared, but the settings dialog routes to the active content type. This avoids forking the sheet UI. The edit-categories buttons were tab-aware for the same reason until the category manager became one list for both content types.
 
