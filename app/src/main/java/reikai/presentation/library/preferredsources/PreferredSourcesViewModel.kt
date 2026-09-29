@@ -8,72 +8,48 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.tachiyomi.source.CatalogueSource
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import reikai.domain.library.ReikaiLibraryPreferences
-import tachiyomi.core.common.util.lang.launchIO
+import reikai.novel.source.NovelSourceManager
+import reikai.util.runCatchingCancellable
 import tachiyomi.domain.source.service.SourceManager
 
 /**
- * Manga "preferred sources" ranking, highest priority first, stored in
- * [ReikaiLibraryPreferences.preferredMangaSources] and read by
- * [reikai.domain.manga.ChapterAggregation] to pick the trunk of a merged chapter list (falling back to
- * most-chapters when empty). The novel counterpart is [NovelPreferredSourcesViewModel]; both render
- * the shared [PreferredSourcesContent] over a String key, so this model stringifies its Long ids at the
- * edge. State is rebuilt reactively from the installed sources and the stored ranking.
+ * The preferred-sources rankings, highest priority first, one [SourceRankingEditor] per content type.
+ * [reikai.domain.manga.MangaGroupStitcher] and [reikai.domain.novel.NovelGroupStitcher] read them to
+ * pick the trunk of a merged chapter list, falling back to most chapters when a ranking is empty.
  */
 @Inject
 @ViewModelKey
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class PreferredSourcesViewModel(
-    private val sourceManager: SourceManager,
-    private val preferences: ReikaiLibraryPreferences,
+    sourceManager: SourceManager,
+    novelSourceManager: NovelSourceManager,
+    preferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
 
-    val state: StateFlow<PreferredSourcesState>
-        field = MutableStateFlow<PreferredSourcesState>(PreferredSourcesState.Loading)
+    val manga = SourceRankingEditor(
+        scope = viewModelScope,
+        sources = sourceManager.sources.map { sources ->
+            sources.filterIsInstance<CatalogueSource>().map { PreferredSourceItem(it.id.toString(), it.name, it.lang) }
+        },
+        ranking = preferences.preferredMangaSources,
+        parseKey = String::toLongOrNull,
+    )
 
-    private val pref = preferences.preferredMangaSources
-
-    init {
-        viewModelScope.launchIO {
-            combine(sourceManager.sources, pref.changes()) { sources, ordered ->
-                preferredSourcesState(
-                    ranking = ordered.map(Long::toString),
-                    sources = sources.filterIsInstance<CatalogueSource>().map {
-                        PreferredSourceItem(it.id.toString(), it.name, it.lang)
-                    },
-                )
-            }.collectLatest { success -> state.update { success } }
-        }
-    }
-
-    // Public API speaks the shared String key; ids are Long internally, so parse at the edge.
-    fun addSource(key: String) {
-        val id = key.toLongOrNull() ?: return
-        persist { it + id }
-    }
-
-    fun removeSource(key: String) {
-        val id = key.toLongOrNull() ?: return
-        persist { it - id }
-    }
-
-    fun moveUp(key: String) = move(key, step = -1)
-
-    fun moveDown(key: String) = move(key, step = 1)
-
-    private fun move(key: String, step: Int) {
-        val id = key.toLongOrNull() ?: return
-        val visible = state.value.visibleKeys().mapNotNullTo(HashSet()) { it.toLongOrNull() }
-        persist { moveRanked(it, id, visible, step) }
-    }
-
-    /** Reads the stored ranking, applies [transform], writes it back; the pref flow rebuilds state. */
-    private fun persist(transform: (List<Long>) -> List<Long>) {
-        viewModelScope.launchIO { pref.set(transform(pref.get())) }
-    }
+    val novels = SourceRankingEditor(
+        scope = viewModelScope,
+        sources = flow {
+            runCatchingCancellable { novelSourceManager.ensureLoaded() }
+            emitAll(
+                novelSourceManager.sources.map { sources ->
+                    sources.map { PreferredSourceItem(it.id, it.name, it.lang) }
+                },
+            )
+        },
+        ranking = preferences.preferredNovelSources,
+        parseKey = { it },
+    )
 }
