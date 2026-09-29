@@ -24,9 +24,9 @@
   // Text in a chapter that is not the chapter's words: ruby readings, code, and a failed picture's box.
   // Read aloud and the top line both skip it, so a line is counted as the native renderer counts it.
   var UNCOUNTED_SELECTOR = 'rt, rp, script, style, .rk-failure';
-  // core.js's swipe distance, in CSS pixels. The document is initial-scale=1, so this is the same
-  // unit the native renderer's SWIPE_MIN_DP resolves to and the gesture matches in all three.
-  var SWIPE_MIN_PX = 180;
+  // A chapter swipe's shortest travel, CHAPTER_SWIPE_MIN_DP in ChapterSwipe.kt. The document is
+  // initial-scale=1, so a CSS pixel here is the dp the native renderer measures it in.
+  var SWIPE_MIN_PX = __SWIPE_MIN_PX__;
   // The live report's interval: fine enough for the rail, far coarser than a scroll frame.
   var REPORT_INTERVAL_MS = 50;
   // A late reflow (images, fonts) fires scrollend against a still-settling height, so a persist
@@ -670,10 +670,10 @@
       var dy = touch.clientY - startY;
       var elapsed = Date.now() - startAt;
 
-      // core.js's rule, which the native renderer also implements: mostly sideways, far enough not
-      // to be a stray, and started on the half it moves away from, so it crosses the middle rather
-      // than flicking in a corner. A swipe that clears the first two but starts on the wrong half
-      // falls through to the tap check below, where `moved` discards it.
+      // chapterSwipeStep's rule (ChapterSwipe.kt), strict comparisons included: mostly sideways, far
+      // enough not to be a stray, and started on the half it moves away from. A swipe that clears the
+      // first two but starts on the wrong half falls through to the tap check below, where `moved`
+      // discards it.
       if (settings.swipe && Math.abs(dx) > SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 2) {
         var middle = window.innerWidth / 2;
         if (dx < 0 && startX >= middle) {

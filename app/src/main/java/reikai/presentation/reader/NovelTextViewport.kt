@@ -36,6 +36,7 @@ import reikai.domain.reader.fraction
 import reikai.novel.font.NovelFontManager
 import reikai.presentation.reader.text.AnchorSpan
 import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
+import reikai.presentation.reader.text.CHAPTER_SWIPE_MIN_DP
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.ChapterTextBlock
 import reikai.presentation.reader.text.ChunkParagraph
@@ -51,6 +52,7 @@ import reikai.presentation.reader.text.NovelWindowReach
 import reikai.presentation.reader.text.ParagraphShape
 import reikai.presentation.reader.text.ReadAloudBoxDecoration
 import reikai.presentation.reader.text.ReadAloudMark
+import reikai.presentation.reader.text.chapterSwipeStep
 import reikai.presentation.reader.text.chunkRange
 import reikai.presentation.reader.text.readAloudParagraphs
 import reikai.presentation.reader.text.shownCharOffset
@@ -1027,20 +1029,16 @@ class NovelTextViewport(
         if (!onFailure) onTap(x, y)
     }
 
-    /**
-     * A swipe between chapters, at the WebView renderer's thresholds so the gesture behaves the same
-     * in either renderer: mostly sideways, far enough not to be a stray, and started on the half it
-     * moves away from, which is what makes it cross the middle rather than flick in a corner.
-     */
+    /** A swipe between chapters, by the rule both renderers take from `ChapterSwipe.kt`. */
     private fun onPointerUp(x: Float, y: Float) {
         if (settings?.swipeGestures != true) return
-        val dx = x - touchDownX
-        val dy = y - touchDownY
-        val minimum = SWIPE_MIN_DP * context.resources.displayMetrics.density
-        if (abs(dx) < minimum || abs(dx) < abs(dy) * 2) return
-        val middle = recycler.width / 2f
-        if (dx < 0 && touchDownX >= middle) onStepChapter(true)
-        if (dx > 0 && touchDownX <= middle) onStepChapter(false)
+        chapterSwipeStep(
+            dx = x - touchDownX,
+            dy = y - touchDownY,
+            startX = touchDownX,
+            width = recycler.width.toFloat(),
+            minimum = CHAPTER_SWIPE_MIN_DP * context.resources.displayMetrics.density,
+        )?.let(onStepChapter)
     }
 
     /**
@@ -1551,9 +1549,6 @@ class NovelTextViewport(
         /** The one partial change an item takes: what its seam draws, since the chapter above it moved
          *  or the setting that hides seams changed. */
         val SEAM_CHANGED = Any()
-
-        /** How far sideways a swipe must run to count, in dp, also `core.js`'s number. */
-        const val SWIPE_MIN_DP = 180f
     }
 }
 
