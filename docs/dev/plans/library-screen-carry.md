@@ -51,6 +51,7 @@ Update-errors database (the only data-module code in P2):
 - `data/src/main/sqldelight/tachiyomi/data/library_update_errors.sq`: table + queries.
 - `data/src/main/sqldelight/tachiyomi/view/library_update_error_view.sq`: the favorites-only view.
 - `data/src/main/sqldelight/tachiyomi/migrations/12.sqm`: the additive migration.
+- `data/src/main/sqldelight/tachiyomi/data/novel_update_errors.sq` and `view/novel_update_error_view.sq`: the novel tables, the same shape under novel names. `UpdateErrorConformanceTest` runs the upsert, the prune of entries outside the library and the delete-by-id over both repositories, since no kernel can span two generated query types.
 
 Mihon files patched with `// RK` islands:
 
