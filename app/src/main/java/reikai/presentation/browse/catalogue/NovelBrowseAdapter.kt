@@ -106,7 +106,7 @@ class NovelBrowseAdapter(
 
     private fun NovelBrowseState.rowContent(item: NovelItem) = EntryBrowseRowContent(
         ui = item.toEntryBrowseUi(
-            inLibrary = (sourceId to item.path) in favoritedKeys,
+            inLibrary = favoritedKeys.contains(sourceId, item.path),
             sourceId = sourceId,
         ),
         payload = item,

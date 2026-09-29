@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonElement
 import reikai.domain.entry.EntryId
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
@@ -111,7 +112,7 @@ class NovelBrowseViewModel(
                     // Drop already-favorited results when Hide-entries-already-in-library is on,
                     // against the live favorited-key set (the same check the in-library badge uses).
                     .map { data ->
-                        data.filter { !hideInLibraryItems || (sourceId to it.path) !in state.value.favoritedKeys }
+                        data.filter { !hideInLibraryItems || !state.value.favoritedKeys.contains(sourceId, it.path) }
                     }
                     .cachedIn(viewModelScope)
             }
@@ -359,7 +360,7 @@ data class NovelBrowseState(
     /** The source's last known name, set when no installed source has its id. */
     val missingSourceLabel: String? = null,
     /** (source, url) pairs in the library, for in-library marking of results. */
-    val favoritedKeys: Set<Pair<String, String>> = emptySet(),
+    val favoritedKeys: FavoritedNovels = FavoritedNovels.None,
     val filterSheetOpen: Boolean = false,
     val settingsSheetOpen: Boolean = false,
     /** Active long-press dialog (add-duplicate / category picker / remove), or null. */

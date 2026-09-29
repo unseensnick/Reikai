@@ -70,16 +70,8 @@ interface NovelRepository {
     ): Flow<List<NovelUpdateWithRelations>>
     fun getAllAsFlow(): Flow<List<Novel>>
 
-    /**
-     * Reactive set of favorited (source, url) keys, for dimming/badging already-saved entries in the
-     * browse and global-search grids. Derived from [getAllAsFlow]; read-only, nothing is written back.
-     */
-    fun getFavoritedKeysAsFlow(): Flow<Set<Pair<String, String>>> =
-        getAllAsFlow().map { novels ->
-            novels.asSequence()
-                .filter { it.favorite }
-                .mapTo(HashSet()) { it.source to it.url }
-        }
+    /** The library by source and url, for the browse, search and feed lists; derived from [getAllAsFlow]. */
+    fun getFavoritedKeysAsFlow(): Flow<FavoritedNovels> = getAllAsFlow().map(FavoritedNovels::of)
 
     fun getByUrlAndSourceAsFlow(url: String, source: String): Flow<Novel?>
 

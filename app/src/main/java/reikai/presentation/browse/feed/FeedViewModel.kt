@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.FeedSavedSearchRepository
 import reikai.domain.source.GetEnabledNovelSources
@@ -415,7 +416,7 @@ data class FeedEntry(
 @Immutable
 data class FeedState(
     val entries: List<FeedEntry> = emptyList(),
-    val favoritedKeys: Set<Pair<String, String>> = emptySet(),
+    val favoritedKeys: FavoritedNovels = FavoritedNovels.None,
     /** False until the first read of the table lands, so an empty feed is not claimed too early. */
     val loaded: Boolean = false,
     val dialog: FeedDialog? = null,

@@ -16,6 +16,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
@@ -49,7 +50,7 @@ class NovelBrowseMissingSourceTest {
             installer = mockk(relaxed = true),
             manager = manager,
             novelRepository = mockk(relaxed = true) {
-                every { getFavoritedKeysAsFlow() } returns flowOf(emptySet())
+                every { getFavoritedKeysAsFlow() } returns flowOf(FavoritedNovels.None)
             },
             libraryAdder = mockk(relaxed = true),
             pickHandoff = MigrationPickHandoff(),

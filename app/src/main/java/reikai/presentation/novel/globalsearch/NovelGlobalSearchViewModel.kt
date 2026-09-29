@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
@@ -124,7 +125,7 @@ class NovelGlobalSearchViewModel(
  */
 data class NovelGlobalSearchState(
     /** (source, url) pairs in the library, for in-library marking of results. */
-    val favoritedKeys: Set<Pair<String, String>> = emptySet(),
+    val favoritedKeys: FavoritedNovels = FavoritedNovels.None,
     /** Active long-press dialog (add-duplicate / category picker / remove), or null. */
     val dialog: NovelBrowseDialog? = null,
 )

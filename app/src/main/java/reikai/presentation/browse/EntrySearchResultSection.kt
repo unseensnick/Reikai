@@ -12,6 +12,7 @@ import androidx.compose.ui.util.fastAny
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
@@ -33,7 +34,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 @Composable
 fun SearchResultSection(
     row: BrowseSearchRow,
-    favoritedKeys: Set<Pair<String, String>>,
+    favoritedKeys: FavoritedNovels,
     mangaSelection: List<Manga>,
     novelSelection: List<SelectedNovel>,
     getManga: @Composable (Manga) -> State<Manga>,
@@ -92,7 +93,7 @@ fun SearchResultSection(
                         key = { it.path },
                         toUi = {
                             it.toEntryBrowseUi(
-                                inLibrary = (source.id to it.path) in favoritedKeys,
+                                inLibrary = favoritedKeys.contains(source.id, it.path),
                                 sourceId = source.id,
                             )
                         },

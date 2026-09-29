@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelFilters
 import reikai.novel.source.NovelListing
@@ -228,7 +229,7 @@ private class NovelFilterChipProbe(
             installer = mockk(relaxed = true),
             manager = manager,
             novelRepository = mockk(relaxed = true) {
-                every { getFavoritedKeysAsFlow() } returns flowOf(emptySet())
+                every { getFavoritedKeysAsFlow() } returns flowOf(FavoritedNovels.None)
             },
             libraryAdder = mockk(relaxed = true),
             pickHandoff = MigrationPickHandoff(),

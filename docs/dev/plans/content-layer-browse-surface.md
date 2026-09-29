@@ -565,3 +565,9 @@ them off the neutral row style, so no composable reads the preference.
   `filterChipActive`. Mutation-verified three ways: reintroducing the regression fails exactly the
   manga fresh-open case and the listing-query case, and blanking either type's rule fails only that
   type's rows. This is the pin the option-2 ruling above was left owing.
+- **A browsed novel's in-library check is one typed rule** (cleanup plan P21, 2026-09-29).
+  `NovelRepository.getFavoritedKeysAsFlow` emits `FavoritedNovels` (`reikai/domain/novel/`), whose
+  `contains(sourceId, url)` is the only way the catalogue grid, global search, the feed and the novel
+  long-press ask it, so no site can compare the url alone or build the pair the wrong way round.
+  `FavoritedNovelsTest` pins both halves of the key and the favorite filter. Manga needs no twin: a
+  browsed manga is a stored row that carries its own favorite flag.

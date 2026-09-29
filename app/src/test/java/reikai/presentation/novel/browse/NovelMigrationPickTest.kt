@@ -17,6 +17,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.host.NovelItem
 import reikai.presentation.migrate.flow.MigrationPickHandoff
@@ -77,7 +78,7 @@ class NovelMigrationPickTest {
             installer = mockk(relaxed = true),
             manager = mockk(relaxed = true),
             novelRepository = mockk(relaxed = true) {
-                every { getFavoritedKeysAsFlow() } returns flowOf(emptySet())
+                every { getFavoritedKeysAsFlow() } returns flowOf(FavoritedNovels.None)
             },
             libraryAdder = mockk(relaxed = true) { coEvery { materialize(any(), any()) } returns null },
             pickHandoff = handoff,

@@ -4,6 +4,7 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.CatalogueSource
 import mihon.domain.manga.model.toDomainManga
 import reikai.domain.library.ContentType
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.SourceKey
 import reikai.domain.source.filter.MangaSavedSearchFilters
@@ -49,7 +50,7 @@ interface FeedProvider {
      * it knows how its own type is identified: a manga carries the answer, a novel is a source plus a
      * path and needs both halves, so a shared branch on the payload type gets the novel case wrong.
      */
-    fun isInLibrary(row: BrowseSearchRow, entry: Any, favoritedKeys: Set<Pair<String, String>>): Boolean
+    fun isInLibrary(row: BrowseSearchRow, entry: Any, favoritedKeys: FavoritedNovels): Boolean
 }
 
 /** The manga half, over Mihon's source manager. */
@@ -102,7 +103,7 @@ class MangaFeedProvider(
     override fun isInLibrary(
         row: BrowseSearchRow,
         entry: Any,
-        favoritedKeys: Set<Pair<String, String>>,
+        favoritedKeys: FavoritedNovels,
     ): Boolean = (entry as? Manga)?.favorite == true
 
     private fun toRow(source: CatalogueSource) = BrowseSearchRow(
@@ -152,10 +153,10 @@ class NovelFeedProvider(
     override fun isInLibrary(
         row: BrowseSearchRow,
         entry: Any,
-        favoritedKeys: Set<Pair<String, String>>,
+        favoritedKeys: FavoritedNovels,
     ): Boolean {
         val item = entry as? NovelItem ?: return false
-        return ((row.source as NovelSource).id to item.path) in favoritedKeys
+        return favoritedKeys.contains((row.source as NovelSource).id, item.path)
     }
 
     private fun toRow(source: NovelSource) = BrowseSearchRow(

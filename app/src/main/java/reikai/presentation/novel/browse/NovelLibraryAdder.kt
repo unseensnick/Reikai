@@ -8,6 +8,7 @@ import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -57,10 +58,10 @@ class NovelLibraryAdder(
     suspend fun onLongClick(
         item: NovelItem,
         sourceId: String,
-        favoritedKeys: Set<Pair<String, String>>,
+        favoritedKeys: FavoritedNovels,
     ): NovelBrowseDialog? {
         val decision = decideAdd(
-            inLibrary = (sourceId to item.path) in favoritedKeys,
+            inLibrary = favoritedKeys.contains(sourceId, item.path),
             // -1: the item isn't favorited yet, so there's no library row to exclude (a non-favorite
             // shadow row is excluded by the query's favorite=1 filter anyway).
             findDuplicates = { findDuplicates(-1L, item.name) },

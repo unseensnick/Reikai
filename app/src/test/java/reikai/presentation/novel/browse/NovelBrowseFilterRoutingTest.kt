@@ -20,6 +20,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelFilters
@@ -201,7 +202,7 @@ class NovelBrowseFilterRoutingTest {
             installer = mockk(relaxed = true),
             manager = manager,
             novelRepository = mockk(relaxed = true) {
-                every { getFavoritedKeysAsFlow() } returns flowOf(emptySet())
+                every { getFavoritedKeysAsFlow() } returns flowOf(FavoritedNovels.None)
             },
             libraryAdder = mockk(relaxed = true),
             pickHandoff = MigrationPickHandoff(),
