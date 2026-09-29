@@ -80,7 +80,7 @@ class EHentaiUpdateNotifier(
      * Shows a notification for galleries that failed to update, tapping opens the full error log.
      *
      * @param failed number of galleries that failed to update.
-     * @param uri error-log file listing every gallery that failed.
+     * @param uri the update error dump every update job shares, whose gallery section lists them.
      */
     fun showUpdateErrorNotification(failed: Int, uri: Uri) {
         if (failed == 0) return
@@ -93,6 +93,7 @@ class EHentaiUpdateNotifier(
             setContentText(context.stringResource(MR.strings.action_show_errors))
             setSmallIcon(R.drawable.ic_reikai)
             setLargeIcon(notificationBitmap)
+            setAutoCancel(true)
             setContentIntent(NotificationReceiver.openErrorLogPendingActivity(context, uri))
         }
     }

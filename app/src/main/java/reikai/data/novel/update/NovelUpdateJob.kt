@@ -39,6 +39,7 @@ import reikai.data.library.shouldDeferLibraryUpdate
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
+import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
@@ -238,9 +239,9 @@ class NovelUpdateJob(
             // the same pair around each entry.
             notifier.showProgress(novel, index + 1, favorites.size)
         }
-        // The dump is one file shared with the manga updater, rewritten on every run so a novel that
+        // The dump is one file shared with the other updaters, rewritten on every run so a novel that
         // has since updated stops appearing in it.
-        val errorFile = updateErrorLog.write(ContentType.NOVELS, failed)
+        val errorFile = updateErrorLog.write(UpdateErrorSection.NOVELS, failed)
         if (failed.isNotEmpty()) {
             notifier.showUpdateErrors(failed.size, errorFile.getUriCompat(context), trackErrors)
         }

@@ -45,6 +45,7 @@ import reikai.data.library.libraryUpdatePeriodicRequest
 import reikai.data.library.shouldDeferLibraryUpdate
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
+import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -334,10 +335,10 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
 
         notifier.cancelProgressNotification()
 
-        // RK --> the dump is one file shared with the novel updater, rewritten on every run so an
+        // RK --> the dump is one file shared with the other updaters, rewritten on every run so an
         //        entry that has since updated stops appearing in it.
         val errorFile = updateErrorLog.write(
-            ContentType.MANGA,
+            UpdateErrorSection.MANGA,
             failedUpdates.map { (manga, message) ->
                 UpdateErrorEntry(
                     title = manga.title,
@@ -478,7 +479,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         )
     }
 
-    // RK: writeErrorFile moved to reikai.data.updateerror.UpdateErrorLog, which both content types write
+    // RK: writeErrorFile moved to reikai.data.updateerror.UpdateErrorLog, which every update job writes
 
     companion object {
         private const val TAG = "LibraryUpdate"

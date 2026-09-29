@@ -102,6 +102,7 @@ every stable release now also ships a foss build with neither in it.
 - **A category you set back to the global sort now stays that way if the app is closed partway through updating from an older version.** The upgrade step that keeps per-category sorts could run a second time and mark it as custom again.
 - **Clearing a novel's history now drops it in the library's Last read sort, as it does for manga.** The sort now reads a novel's reading history; novels read before history was kept carry their place over on upgrade and from older backups.
 - **Novel sources on the Preferred sources screen now show their language code, like manga sources.**
+- **Failed checks from the adult content update checker now land in the shared update error log, and their notification clears when tapped.**
 
 ### Merged series
 
