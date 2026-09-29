@@ -13,8 +13,8 @@ import kotlin.coroutines.CoroutineContext
  * holding a row reference can always be told apart from the row the UI renders.
  * [search], [commit] and [acceptance] are orthogonal axes, and folding any pair into one cell is
  * lossy. A decided row is REMOVED from the list rather than kept wearing a terminal state, as
- * upstream does, so no skipped flag or migrated phase exists for other rules to forget. [scope] is
- * detached (its own [SupervisorJob]), so cancelling one row can never cancel the batch driver.
+ * upstream does, so no skipped flag or migrated phase exists for other rules to forget. [scope] is a
+ * supervisor child of the model's: it ends with the model, and cancelling a row never reaches it.
  */
 class MigratingEntryRow(
     val entry: MigrationEntry,
@@ -24,7 +24,7 @@ class MigratingEntryRow(
     // scheduler.
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    val scope = CoroutineScope(parentContext + SupervisorJob() + dispatcher)
+    val scope = CoroutineScope(parentContext + SupervisorJob(parentContext[Job]) + dispatcher)
 
     val search = MutableStateFlow<SearchPhase>(SearchPhase.Queued)
 

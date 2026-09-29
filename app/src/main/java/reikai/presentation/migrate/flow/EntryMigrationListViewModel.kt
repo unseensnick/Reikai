@@ -39,7 +39,7 @@ import tachiyomi.core.common.util.system.logcat
  * Rows are searched one at a time in list order, so a source never sees more than one request from
  * the batch and rows settle top-down. The loop re-checks each row at its head instead of holding a
  * lock, since a row skipped, committed or abandoned mid-await shows up as a state that check reads.
- * Per-row work runs on the row's own detached scope, so cancelling one row never reaches the loop.
+ * Per-row work runs on the row's own supervisor scope, so cancelling one row never reaches the loop.
  */
 @AssistedInject
 class EntryMigrationListViewModel(
@@ -533,7 +533,7 @@ class EntryMigrationListViewModel(
      * Drop a decided row: the user skipped it, or its commit succeeded. The single place rows leave
      * the list, so removal, the counters and the finish check cannot disagree.
      * The row's whole scope goes, not just its children: a peek, an override search or an abandoned
-     * search would otherwise outlive the row, since onCleared only reaches rows still in the list.
+     * search would otherwise run on for the rest of the model's life.
      */
     private fun removeRow(row: MigratingEntryRow) {
         row.scope.cancel()
@@ -745,8 +745,6 @@ class EntryMigrationListViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        // Row scopes are detached, so they outlive the model unless cancelled here.
-        rows.forEach { it.scope.cancel() }
         // An uncollected pick belongs to this migration only.
         pickHandoff.clear()
     }
