@@ -2,18 +2,12 @@ package eu.kanade.tachiyomi.data.library
 
 import android.content.Context
 import android.content.pm.ServiceInfo
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.os.Build
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
-import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkQuery
@@ -24,7 +18,6 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.nHentaiDelegatedSourceIds
 import eu.kanade.tachiyomi.util.storage.getUriCompat
-import eu.kanade.tachiyomi.util.system.isConnectedToWifi
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
@@ -47,6 +40,9 @@ import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.data.library.libraryUpdateManualRequest
+import reikai.data.library.libraryUpdatePeriodicRequest
+import reikai.data.library.shouldDeferLibraryUpdate
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.updateFailureMessage
@@ -70,9 +66,6 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETWORK_NOT_METERED
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
 import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
@@ -136,20 +129,10 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
 
     override suspend fun doWork(): Result {
         // RK: graph.inject moved to init
-        if (tags.contains(WORK_NAME_AUTO)) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-                // RK: read off the graph, from the worker conversion; the same instance as the injected field
-                val preferences = context.appGraph.libraryPreferences
-                val restrictions = preferences.autoUpdateDeviceRestrictions.get()
-                if ((DEVICE_ONLY_ON_WIFI in restrictions) && !context.isConnectedToWifi()) {
-                    return Result.retry()
-                }
-            }
-
-            // Find a running manual worker. If exists, try again later
-            if (context.workManager.isRunning(WORK_NAME_MANUAL)) {
-                return Result.retry()
-            }
+        // RK: the deferral rule is shared with the novel updater, in LibraryUpdateSchedule.kt
+        val restrictions = libraryPreferences.autoUpdateDeviceRestrictions.get()
+        if (shouldDeferLibraryUpdate(restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)) {
+            return Result.retry()
         }
 
         setForegroundSafely()
@@ -522,39 +505,9 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             val interval = prefInterval ?: preferences.autoUpdateInterval.get()
             if (interval > 0) {
                 val restrictions = preferences.autoUpdateDeviceRestrictions.get()
-                val networkType = if (DEVICE_NETWORK_NOT_METERED in restrictions) {
-                    NetworkType.UNMETERED
-                } else {
-                    NetworkType.CONNECTED
-                }
-                val networkRequest = NetworkRequest.Builder().apply {
-                    removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-                    if (DEVICE_ONLY_ON_WIFI in restrictions) {
-                        addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                    }
-                    if (DEVICE_NETWORK_NOT_METERED in restrictions) {
-                        addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-                    }
-                }
-                    .build()
-                val constraints = Constraints.Builder()
-                    // 'networkRequest' only applies to Android 9+, otherwise 'networkType' is used
-                    .setRequiredNetworkRequest(networkRequest, networkType)
-                    .setRequiresCharging(DEVICE_CHARGING in restrictions)
-                    .setRequiresBatteryNotLow(true)
-                    .build()
-
-                val request = PeriodicWorkRequestBuilder<LibraryUpdateJob>(
-                    interval.toLong(),
-                    TimeUnit.HOURS,
-                    10,
-                    TimeUnit.MINUTES,
-                )
-                    .addTag(TAG)
-                    .addTag(WORK_NAME_AUTO)
-                    .setConstraints(constraints)
-                    .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.MINUTES)
-                    .build()
+                // RK: built in LibraryUpdateSchedule.kt, which the novel updater shares
+                val request =
+                    libraryUpdatePeriodicRequest<LibraryUpdateJob>(interval, restrictions, TAG, WORK_NAME_AUTO)
 
                 context.workManager.enqueueUniquePeriodicWork(
                     WORK_NAME_AUTO,
@@ -578,11 +531,8 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             val inputData = workDataOf(
                 KEY_CATEGORY to category?.id,
             )
-            val request = OneTimeWorkRequestBuilder<LibraryUpdateJob>()
-                .addTag(TAG)
-                .addTag(WORK_NAME_MANUAL)
-                .setInputData(inputData)
-                .build()
+            // RK: built in LibraryUpdateSchedule.kt, which the novel updater shares
+            val request = libraryUpdateManualRequest<LibraryUpdateJob>(TAG, WORK_NAME_MANUAL, inputData)
             workManager.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
 
             return true

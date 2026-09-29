@@ -2,18 +2,11 @@ package reikai.data.novel.update
 
 import android.content.Context
 import android.content.pm.ServiceInfo
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.os.Build
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkQuery
@@ -40,6 +33,9 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
+import reikai.data.library.libraryUpdateManualRequest
+import reikai.data.library.libraryUpdatePeriodicRequest
+import reikai.data.library.shouldDeferLibraryUpdate
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
@@ -78,7 +74,6 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
-import java.util.concurrent.TimeUnit
 import kotlin.time.Clock
 
 /**
@@ -147,6 +142,8 @@ class NovelUpdateJob(
     }
 
     override suspend fun doWork(): Result {
+        val restrictions = preferences.libraryUpdateDeviceRestrictions().get()
+        if (shouldDeferLibraryUpdate(restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)) return Result.retry()
         setForegroundSafely()
         // Stamp the run start for the Updates "Last updated" line (matches manga LibraryUpdateJob).
         preferences.novelLibraryUpdateLastTimestamp().set(System.currentTimeMillis())
@@ -158,7 +155,7 @@ class NovelUpdateJob(
             Result.success()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
-            Result.retry()
+            Result.failure()
         } finally {
             notifier.dismissProgress()
         }
@@ -330,40 +327,7 @@ class NovelUpdateJob(
             val interval = prefInterval ?: preferences.libraryUpdateInterval().get()
             if (interval > 0) {
                 val restrictions = preferences.libraryUpdateDeviceRestrictions().get()
-                val networkType = if (LibraryPreferences.DEVICE_NETWORK_NOT_METERED in restrictions) {
-                    NetworkType.UNMETERED
-                } else {
-                    NetworkType.CONNECTED
-                }
-                val networkRequest = NetworkRequest.Builder().apply {
-                    removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-                    if (LibraryPreferences.DEVICE_ONLY_ON_WIFI in restrictions) {
-                        addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                    }
-                    if (LibraryPreferences.DEVICE_NETWORK_NOT_METERED in restrictions) {
-                        addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-                    }
-                }
-                    .build()
-                val constraints = Constraints.Builder()
-                    // 'networkRequest' only applies to Android 9+, otherwise 'networkType' is used
-                    .setRequiredNetworkRequest(networkRequest, networkType)
-                    .setRequiresCharging(LibraryPreferences.DEVICE_CHARGING in restrictions)
-                    .setRequiresBatteryNotLow(true)
-                    .build()
-
-                val request = PeriodicWorkRequestBuilder<NovelUpdateJob>(
-                    interval.toLong(),
-                    TimeUnit.HOURS,
-                    1,
-                    TimeUnit.HOURS,
-                )
-                    .addTag(TAG)
-                    .addTag(WORK_NAME_AUTO)
-                    .setConstraints(constraints)
-                    .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.MINUTES)
-                    .build()
-
+                val request = libraryUpdatePeriodicRequest<NovelUpdateJob>(interval, restrictions, TAG, WORK_NAME_AUTO)
                 context.workManager.enqueueUniquePeriodicWork(
                     WORK_NAME_AUTO,
                     ExistingPeriodicWorkPolicy.UPDATE,
@@ -383,11 +347,8 @@ class NovelUpdateJob(
                 // Already running either as a scheduled or manual job.
                 return false
             }
-            val request = OneTimeWorkRequestBuilder<NovelUpdateJob>()
-                .addTag(TAG)
-                .setInputData(workDataOf(KEY_CATEGORY to (category?.id ?: -1L)))
-                .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.MINUTES)
-                .build()
+            val inputData = workDataOf(KEY_CATEGORY to (category?.id ?: -1L))
+            val request = libraryUpdateManualRequest<NovelUpdateJob>(TAG, WORK_NAME_MANUAL, inputData)
             wm.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
             return true
         }
