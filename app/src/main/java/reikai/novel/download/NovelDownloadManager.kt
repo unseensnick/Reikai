@@ -8,7 +8,6 @@ import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.activeNetworkState
 import eu.kanade.tachiyomi.util.system.notificationManager
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,6 +36,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelSourceManager
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -392,8 +392,9 @@ class NovelDownloadManager(
                 }
                 onProgress(NovelDownloadProgress.Downloading(done, total, novel?.title.orEmpty(), isAdult, novel))
                 // Try a few times before giving up so a transient network blip or a momentarily
-                // rate-limited source doesn't kill the chapter on the first stumble (mirrors the manga
-                // Downloader). Backoff is per-chapter, separate from the cross-chapter pacing below.
+                // rate-limited source doesn't kill the chapter on the first stumble. The manga Downloader
+                // retries each page image on this schedule; a chapter's text is one fetch, so the unit
+                // here is the chapter. Backoff is separate from the cross-chapter pacing below.
                 var ok = false
                 var attempt = 0
                 var lastError: Throwable? = null
@@ -401,14 +402,14 @@ class NovelDownloadManager(
                 // The least delay the source declares binds its retries as well as its pacing.
                 val minimumMs = novel?.let { sourceManager.get(it.source) }?.minimumRequestDelayMs ?: 0L
                 while (true) {
-                    ok = runCatching {
-                        val source = novel?.let { sourceManager.get(it.source) } ?: return@runCatching false
-                        if (chapter == null) return@runCatching false
+                    // A pause cancels the worker mid-attempt, and the last attempt has no delay to rethrow it.
+                    ok = runCatchingCancellable {
+                        val source = novel?.let { sourceManager.get(it.source) }
+                            ?: return@runCatchingCancellable false
+                        if (chapter == null) return@runCatchingCancellable false
                         val html = source.parseChapter(next.url).ifBlank { throw EmptyChapterException() }
                         saver.save(novel, chapter, source, html)
                     }.getOrElse {
-                        // A pause cancels the worker mid-attempt; the last attempt has no delay to rethrow it.
-                        if (it is CancellationException) throw it
                         lastError = it
                         logcat(LogPriority.ERROR, it) {
                             "Novel chapter download attempt ${attempt + 1} failed: chapter=${next.chapterId}"
@@ -481,7 +482,7 @@ class NovelDownloadManager(
 
     companion object {
         /** Retry a failed chapter download this many times (after the first try) before surfacing ERROR,
-         *  with exponential backoff (2s, 4s, 8s), mirroring the manga Downloader. */
+         *  with exponential backoff (2s, 4s, 8s), the manga Downloader's schedule for one page image. */
         private const val MAX_RETRIES = 3
 
         /** How often to re-check connectivity while a "download only over Wi-Fi" drain is paused off Wi-Fi. */

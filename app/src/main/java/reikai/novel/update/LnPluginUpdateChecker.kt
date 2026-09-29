@@ -3,15 +3,15 @@ package reikai.novel.update
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import logcat.LogPriority
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
-import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
+import reikai.novel.registry.LnRegistryFetcher
+import reikai.novel.registry.LnRepoResult
+import reikai.novel.registry.fetchEach
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.TimeUnit
 
@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
 @Inject
 @SingleIn(AppScope::class)
 class LnPluginUpdateChecker(
-    private val installer: LnPluginInstaller,
+    private val fetcher: LnRegistryFetcher,
     private val prefs: NovelPreferences,
     private val notifier: LnPluginUpdateNotifier,
 ) {
@@ -37,23 +37,12 @@ class LnPluginUpdateChecker(
         val metadata = prefs.installedPluginMetadata().get()
         if (repos.isEmpty() || installedUrls.isEmpty()) return emptyList()
 
-        val fetched: List<List<LnRegistryEntry>?> = coroutineScope {
-            repos.map { repoUrl ->
-                async {
-                    runCatching { installer.fetchRepo(repoUrl) }.getOrElse {
-                        logcat(LogPriority.WARN, it) { "update-check: repo fetch failed for $repoUrl" }
-                        null
-                    }
-                }
-            }.awaitAll()
-        }
-
+        val fetched = fetcher.fetchEach(repos).values
         return findPluginUpdates(
             installedUrls,
             metadata,
-            fetched.filterNotNull().flatten(),
-            everyRepoReached =
-            null !in fetched,
+            fetched.flatMap { (it as? LnRepoResult.Reached)?.entries.orEmpty() },
+            everyRepoReached = fetched.all { it is LnRepoResult.Reached },
         )
     }
 
@@ -65,7 +54,7 @@ class LnPluginUpdateChecker(
         val now = System.currentTimeMillis()
         val staleAfter = prefs.lastLnPluginCheck().get() + TimeUnit.HOURS.toMillis(CACHE_HOURS)
         if (now < staleAfter) return
-        runCatching {
+        runCatchingCancellable {
             val updates = check()
             notifier.setPendingCount(updates.size)
             prefs.lastLnPluginCheck().set(now)

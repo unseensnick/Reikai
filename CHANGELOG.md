@@ -713,6 +713,7 @@ every stable release now also ships a foss build with neither in it.
 - The manga reader now queues its internal events instead of discarding one when it arrives while the reader is busy. Two of them were sent in a way that could be dropped silently, which would have cost a page-turn signal or left a preloaded chapter unshown.
 - The one-time import of a Yokai-era database on first launch is removed. It could not run since the 0.3.2 package change, which installs the app beside a Yokai-era build rather than over it.
 - Shikimori recommendations now send the same Reikai user agent as the signed-in Shikimori calls.
+- Cancelled novel plugin checks, font downloads and update runs stop instead of being logged as failures.
 
 ## [0.3.2]
 

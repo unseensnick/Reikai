@@ -16,6 +16,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import okhttp3.Request
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
@@ -95,7 +96,7 @@ class NovelFontManager(
      * Android cannot load. Measured: our default agent returns ten woff2 files and no TTF.
      */
     suspend fun download(family: String): Result<NovelFont> = withContext(Dispatchers.IO) {
-        val css = runCatching {
+        val css = runCatchingCancellable {
             val request = Request.Builder()
                 .url(CSS_URL.format(family.replace(' ', '+')))
                 .header("User-Agent", "Reikai/${BuildConfig.VERSION_NAME}")
@@ -104,7 +105,7 @@ class NovelFontManager(
         }.getOrElse { return@withContext Result.failure(FontError.Offline) }
 
         val url = firstSupportedFontUrl(css) ?: return@withContext Result.failure(FontError.UnsupportedFormat)
-        val bytes = runCatching {
+        val bytes = runCatchingCancellable {
             networkHelper.client.newCall(Request.Builder().url(url).build())
                 .awaitSuccess()
                 .use { it.body.bytes() }
@@ -123,7 +124,7 @@ class NovelFontManager(
     suspend fun googleFontCatalogue(): List<GoogleFont> = withContext(Dispatchers.IO) {
         catalogue?.let { return@withContext it }
         val request = Request.Builder().url(CATALOGUE_URL).build()
-        val parsed = runCatching {
+        val parsed = runCatchingCancellable {
             networkHelper.client.newCall(request).awaitSuccess().use { response ->
                 lenientJson.decodeFromString<GoogleFontCatalogue>(response.body.string())
             }

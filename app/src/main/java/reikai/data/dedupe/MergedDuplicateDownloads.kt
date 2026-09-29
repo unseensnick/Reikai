@@ -17,6 +17,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadProvider
 import reikai.novel.download.NovelDownloadStore
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.manga.interactor.GetManga
@@ -71,7 +72,7 @@ class MergedDuplicateDownloads(
     /** Only the folders, which are named by title; the lowest id goes first, so it takes the survivor's name. */
     suspend fun carryFolders(duplicates: List<MergedDuplicate>): Boolean {
         val carried = duplicates.sortedBy { it.discardedId }.map { duplicate ->
-            duplicate to runCatching { carryFolder(duplicate) }
+            duplicate to runCatchingCancellable { carryFolder(duplicate) }
                 .onFailure {
                     logcat(LogPriority.WARN, it) {
                         "Merged-duplicate download folder carry failed: ${duplicate.discardedId}"

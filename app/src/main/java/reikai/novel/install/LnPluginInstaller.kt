@@ -26,6 +26,8 @@ import reikai.novel.host.LnPluginLoader
 import reikai.novel.registry.LnRegistry
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
+import reikai.novel.registry.LnRepoResult
+import reikai.novel.registry.fetchEach
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelChapterStylesheet
 import reikai.novel.source.NovelSourceManager
@@ -116,16 +118,13 @@ class LnPluginInstaller(
      * caller retries on the next open (fail-closed). Caller must hold [loadMutex].
      */
     private suspend fun revalidateInstalledAgainstReposLocked(): Revalidated {
-        val trusted = HashSet<String>()
-        for (repo in prefs.addedRepoUrls().get()) {
-            try {
-                fetchRepo(repo).forEach { trusted += canonicalizePluginUrl(it.url) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logcat(LogPriority.WARN, e) { "plugin revalidation: repo unreachable, retrying next open: $repo" }
-                return Revalidated.Unreachable(repo)
-            }
+        val registries = fetchEach(prefs.addedRepoUrls().get())
+        registries.entries.firstOrNull { it.value is LnRepoResult.Unreachable }?.let { (repo, _) ->
+            logcat(LogPriority.WARN) { "plugin revalidation: repo unreachable, retrying next open: $repo" }
+            return Revalidated.Unreachable(repo)
+        }
+        val trusted = registries.values.flatMapTo(HashSet()) { result ->
+            (result as LnRepoResult.Reached).entries.map { canonicalizePluginUrl(it.url) }
         }
         val dropped = registryMutex.withLock {
             val installed = prefs.installedPluginUrls().get()
@@ -355,16 +354,7 @@ class LnPluginInstaller(
         if (needs.isEmpty()) return current
         val repos = prefs.addedRepoUrls().get()
         if (repos.isEmpty()) return current
-        val entries: List<LnRegistryEntry> = coroutineScope {
-            repos.map { repoUrl ->
-                async {
-                    runCatching { fetchRepo(repoUrl) }.getOrElse {
-                        logcat(LogPriority.WARN, it) { "backfill: fetch failed for $repoUrl" }
-                        emptyList()
-                    }
-                }
-            }.awaitAll().flatten()
-        }
+        val entries = fetchEach(repos).values.flatMap { (it as? LnRepoResult.Reached)?.entries.orEmpty() }
         if (entries.isEmpty()) return current
         val updated = current.toMutableMap()
         needs.forEach { pluginUrl ->

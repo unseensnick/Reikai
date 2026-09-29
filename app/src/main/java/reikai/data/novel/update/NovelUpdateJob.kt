@@ -233,7 +233,7 @@ class NovelUpdateJob(
                     pendingDownloads += filterChaptersForDownload.await(novel, newChapters)
                 }
                 // A successful check clears any previously recorded error.
-                if (trackErrors) runCatching { deleteNovelUpdateErrors.byNovelIds(listOf(novel.id)) }
+                if (trackErrors) runCatchingCancellable { deleteNovelUpdateErrors.byNovelIds(listOf(novel.id)) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -243,7 +243,7 @@ class NovelUpdateJob(
                 failed += UpdateErrorEntry(novel.title, sourceManager.nameOf(novel.source), message)
                 // Record the failure for the Update errors screen.
                 if (trackErrors) {
-                    runCatching { upsertNovelUpdateError.await(novel.id, message) }
+                    runCatchingCancellable { upsertNovelUpdateError.await(novel.id, message) }
                 }
             }
             // Again once the entry is done, so the bar actually reaches its end; the manga job posts

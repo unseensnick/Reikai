@@ -61,6 +61,14 @@ class LnRepoRegistriesTest {
     }
 
     @Test
+    fun `fetching every repo reports an unreachable one beside the ones that answered`() = runTest {
+        fetcher.fetchEach(listOf(REPO, DOWN_REPO)) shouldBe mapOf(
+            REPO to LnRepoResult.Reached(listOf(ENTRY)),
+            DOWN_REPO to LnRepoResult.Unreachable("HTTP 404"),
+        )
+    }
+
+    @Test
     fun `a refresh downloads every repo again`() = runTest {
         prefs.addedRepoUrls().set(setOf(REPO, OTHER_REPO))
         registries.results.first()

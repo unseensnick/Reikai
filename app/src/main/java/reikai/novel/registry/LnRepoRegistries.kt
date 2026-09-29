@@ -16,7 +16,10 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import logcat.LogPriority
 import reikai.domain.novel.NovelPreferences
+import reikai.util.runCatchingCancellable
+import tachiyomi.core.common.util.system.logcat
 
 /** Downloads one LN plugin registry; throws when it cannot be read. */
 fun interface LnRegistryFetcher {
@@ -28,6 +31,25 @@ sealed interface LnRepoResult {
     data class Reached(val entries: List<LnRegistryEntry>) : LnRepoResult
 
     data class Unreachable(val message: String) : LnRepoResult
+}
+
+/**
+ * Fetches every repo in [repos] at once, each to its own outcome, so one down repo neither fails nor
+ * hides the rest. Keyed in [repos] order; a cancelled caller is cancelled, never reported as a failure.
+ */
+suspend fun LnRegistryFetcher.fetchEach(repos: Collection<String>): Map<String, LnRepoResult> = coroutineScope {
+    repos.map { repo ->
+        async {
+            val result = runCatchingCancellable { fetchRepo(repo) }.fold(
+                onSuccess = { LnRepoResult.Reached(it) },
+                onFailure = {
+                    logcat(LogPriority.WARN, it) { "LN repo fetch failed: $repo" }
+                    LnRepoResult.Unreachable(it.message ?: it::class.simpleName.orEmpty())
+                },
+            )
+            repo to result
+        }
+    }.awaitAll().toMap()
 }
 
 /**
@@ -84,22 +106,11 @@ class LnRepoRegistries(
         val missing = repos.filterNot { it in kept }
         isRefreshing.value = missing.isNotEmpty()
         try {
-            val fetched = coroutineScope {
-                missing.map { repo -> async { repo to fetch(repo) } }.awaitAll()
-            }.toMap()
+            val fetched = fetcher.fetchEach(missing)
+            fetched.values.forEach { if (it is LnRepoResult.Reached) rememberIcons(it.entries) }
             loaded.value = repos.associateWith { kept[it] ?: fetched.getValue(it) }
         } finally {
             isRefreshing.value = false
-        }
-    }
-
-    private suspend fun fetch(repo: String): LnRepoResult {
-        return try {
-            LnRepoResult.Reached(fetcher.fetchRepo(repo).also(::rememberIcons))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            LnRepoResult.Unreachable(e.message ?: e::class.simpleName.orEmpty())
         }
     }
 
