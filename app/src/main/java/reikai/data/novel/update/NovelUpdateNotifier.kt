@@ -19,11 +19,16 @@ import eu.kanade.tachiyomi.util.system.notify
 import reikai.data.notification.NOTIF_TITLE_MAX_LEN
 import reikai.data.notification.hiddenEntryIds
 import reikai.data.notification.newChaptersDescription
+import reikai.data.notification.newChaptersSummary
+import reikai.data.notification.notificationCover
+import reikai.data.notification.offersDownloadAction
+import reikai.data.notification.setNewChaptersSummary
 import reikai.data.updateerror.updateErrorPendingIntent
 import reikai.domain.library.ContentType
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.asNovelCover
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
@@ -104,8 +109,8 @@ class NovelUpdateNotifier(
         }
     }
 
-    /** One notification per updated novel (tap to open its details), grouped under a summary; skipped
-     *  when nothing changed. Mirrors the manga per-title update notifications. */
+    /** One notification per updated novel (tap to read its first new chapter), grouped under a summary;
+     *  skipped when nothing changed. The summary, cover and Download threshold are the manga updater's. */
     suspend fun showResults(updates: List<Pair<Novel, List<NovelChapter>>>) {
         if (updates.isEmpty()) return
         val hideAll = securityPreferences.hideNotificationContent.get()
@@ -128,6 +133,7 @@ class NovelUpdateNotifier(
                 } else {
                     context.newChaptersDescription(newChapters.map { it.chapterNumber }, newChapters.size)
                 }
+                val cover = if (isHidden) null else context.notificationCover(novel.asNovelCover())
                 val notification = context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
                     // Chopped for the same reason the manga twin is: a collapsed group draws the title and
                     // the chapters on one line, and a long title pushed the chapters off the end.
@@ -141,10 +147,13 @@ class NovelUpdateNotifier(
                     setContentText(description)
                     setStyle(NotificationCompat.BigTextStyle().bigText(description))
                     setSmallIcon(R.drawable.ic_reikai)
+                    cover?.let(::setLargeIcon)
                     setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
                     setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
                     setAutoCancel(true)
-                    setContentIntent(openNovelPendingIntent(novel))
+                    setContentIntent(
+                        NotificationReceiver.openNovelChapterPendingActivity(context, novel, newChapters.first()),
+                    )
                     addAction(
                         R.drawable.ic_done_24dp,
                         context.stringResource(MR.strings.action_mark_as_read),
@@ -156,21 +165,39 @@ class NovelUpdateNotifier(
                         ),
                     )
                     addAction(
-                        android.R.drawable.stat_sys_download_done,
-                        context.stringResource(MR.strings.action_download),
-                        NotificationReceiver.downloadNovelChaptersPendingBroadcast(
-                            context,
-                            novel.id,
-                            chapterIds,
-                            Notifications.ID_NOVEL_LIBRARY_RESULT,
-                        ),
+                        R.drawable.ic_book_24dp,
+                        context.stringResource(MR.strings.action_view_chapters),
+                        NotificationReceiver.openNovelPendingActivity(context, novel),
                     )
+                    if (offersDownloadAction(newChapters.size)) {
+                        addAction(
+                            android.R.drawable.stat_sys_download_done,
+                            context.stringResource(MR.strings.action_download),
+                            NotificationReceiver.downloadNovelChaptersPendingBroadcast(
+                                context,
+                                novel.id,
+                                chapterIds,
+                                Notifications.ID_NOVEL_LIBRARY_RESULT,
+                            ),
+                        )
+                    }
                 }.build()
                 NotificationWithIdAndTag(Notifications.TAG_NOVEL_NEW_CHAPTERS, novel.id.hashCode(), notification)
             }
         }
         val summary = context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
-            setContentTitle(context.stringResource(MR.strings.novel_new_chapters_available, updates.size))
+            setContentTitle(context.stringResource(MR.strings.notification_new_chapters))
+            // In the header line, as on the progress entry: the manga summary can sit beside this one.
+            setSubText(context.stringResource(MR.strings.novel_library_update))
+            setNewChaptersSummary(
+                context,
+                newChaptersSummary(
+                    updates.map { (novel, _) ->
+                        novel.title.takeUnless { novel.id in hidden }
+                    },
+                    hideAll,
+                ),
+            )
             setSmallIcon(R.drawable.ic_reikai)
             setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
             setGroupSummary(true)
@@ -183,10 +210,6 @@ class NovelUpdateNotifier(
         context.notify(Notifications.ID_NOVEL_LIBRARY_RESULT, summary)
         context.notify(perNovel)
     }
-
-    /** Deep-link a per-novel notification into its details via the [Constants.SHORTCUT_NOVEL] action. */
-    private fun openNovelPendingIntent(novel: Novel): PendingIntent =
-        NotificationReceiver.openNovelPendingActivity(context, novel)
 
     private fun openUpdatesPendingIntent(): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {

@@ -415,6 +415,7 @@ class MainActivity : BaseActivity() {
                 applicationContext,
                 notificationId,
                 intent.getIntExtra("groupId", 0),
+                intent.getStringExtra("notificationTag"), // RK: a novel's notices post under a tag
             )
         }
 

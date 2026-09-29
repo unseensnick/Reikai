@@ -4,16 +4,10 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import coil3.asDrawable
-import coil3.imageLoader
-import coil3.request.ImageRequest
-import coil3.request.transformations
-import coil3.transform.CircleCropTransformation
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
@@ -25,12 +19,15 @@ import eu.kanade.tachiyomi.source.UnmeteredSource
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.lang.chop
 import eu.kanade.tachiyomi.util.system.cancelNotification
-import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
 import reikai.data.notification.NOTIF_TITLE_MAX_LEN
 import reikai.data.notification.hiddenEntryIds
 import reikai.data.notification.newChaptersDescription
+import reikai.data.notification.newChaptersSummary
+import reikai.data.notification.notificationCover
+import reikai.data.notification.offersDownloadAction
+import reikai.data.notification.setNewChaptersSummary
 import reikai.data.updateerror.updateErrorPendingIntent
 import reikai.domain.library.ContentType
 import reikai.domain.manga.AdultContentChecker
@@ -204,32 +201,14 @@ class LibraryUpdateNotifier(
             Notifications.CHANNEL_NEW_CHAPTERS,
         ) {
             setContentTitle(context.stringResource(MR.strings.notification_new_chapters))
-            if (updates.size == 1 && updates.first().first.id !in hidden) { // RK: per-entry hiding
-                setContentText(updates.first().first.title.chop(NOTIF_TITLE_MAX_LEN))
-            } else {
-                setContentText(
-                    context.pluralStringResource(
-                        MR.plurals.notification_new_chapters_summary,
-                        updates.size,
-                        updates.size,
-                    ),
-                )
-
-                if (!securityPreferences.hideNotificationContent.get()) {
-                    setStyle(
-                        NotificationCompat.BigTextStyle().bigText(
-                            updates.joinToString("\n") {
-                                // RK: generic line for adult titles so they don't leak to the lock screen
-                                if (it.first.id in hidden) {
-                                    context.stringResource(MR.strings.notification_new_chapters)
-                                } else {
-                                    it.first.title.chop(NOTIF_TITLE_MAX_LEN)
-                                }
-                            },
-                        ),
-                    )
-                }
-            }
+            // RK: the text and title list are shared with the novel updater, a hidden entry read generically
+            setNewChaptersSummary(
+                context,
+                newChaptersSummary(
+                    updates.map { (manga, _) -> manga.title.takeUnless { manga.id in hidden } },
+                    securityPreferences.hideNotificationContent.get(),
+                ),
+            )
 
             setSmallIcon(R.drawable.ic_reikai) // RK: Reikai icon
             setLargeIcon(notificationBitmap)
@@ -268,7 +247,7 @@ class LibraryUpdateNotifier(
         // RK: when true, show a generic title + count and no cover (adult / hidden content)
         hideContent: Boolean = false,
     ): Notification {
-        val icon = if (hideContent) null else getMangaIcon(manga)
+        val icon = if (hideContent) null else context.notificationCover(manga) // RK: shared with novels
         return context.notificationBuilder(Notifications.CHANNEL_NEW_CHAPTERS) {
             setContentTitle(
                 // RK: chopped, because a collapsed group draws the title and the chapters on one line
@@ -325,7 +304,7 @@ class LibraryUpdateNotifier(
             )
             // Download chapters action
             // Only add the action when chapters is within threshold
-            if (chapters.size <= Downloader.CHAPTERS_PER_SOURCE_QUEUE_WARNING_THRESHOLD) {
+            if (offersDownloadAction(chapters.size)) { // RK: the threshold is shared with novels
                 addAction(
                     android.R.drawable.stat_sys_download_done,
                     context.stringResource(MR.strings.action_download),
@@ -347,15 +326,8 @@ class LibraryUpdateNotifier(
         context.cancelNotification(Notifications.ID_LIBRARY_PROGRESS)
     }
 
-    private suspend fun getMangaIcon(manga: Manga): Bitmap? {
-        val request = ImageRequest.Builder(context)
-            .data(manga)
-            .transformations(CircleCropTransformation())
-            .size(NOTIF_ICON_SIZE)
-            .build()
-        val drawable = context.imageLoader.execute(request).image?.asDrawable(context.resources)
-        return drawable?.getBitmapOrNull()
-    }
+    // RK: getMangaIcon and NOTIF_ICON_SIZE moved to reikai.data.notification.notificationCover, which
+    //     the novel updater draws its covers with too
 
     // RK: the rule itself moved to reikai.data.notification, so the novel updater answers the same
     //     way instead of only ever reporting a count.
@@ -384,5 +356,4 @@ class LibraryUpdateNotifier(
     }
 }
 
-private const val NOTIF_ICON_SIZE = 192
 private const val MANGA_PER_SOURCE_QUEUE_WARNING_THRESHOLD = 60

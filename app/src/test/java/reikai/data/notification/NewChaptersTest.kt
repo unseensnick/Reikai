@@ -59,4 +59,41 @@ class NewChaptersTest {
     fun `a single number reported twice is not counted as one more`() {
         newChapters(listOf(1.0, 1.0), total = 2) shouldBe NewChapters.Single("1", remaining = 0)
     }
+
+    @Test
+    fun `a summary over one shown entry names it`() {
+        newChaptersSummary(listOf("Berserk"), hideAll = false) shouldBe NewChaptersSummary.One("Berserk")
+    }
+
+    @Test
+    fun `a summary over one hidden entry counts it without naming it`() {
+        newChaptersSummary(listOf(null), hideAll = false) shouldBe NewChaptersSummary.Many(1, listOf(null))
+    }
+
+    @Test
+    fun `a summary lists every entry, a hidden one generically`() {
+        newChaptersSummary(listOf("Berserk", null), hideAll = false) shouldBe
+            NewChaptersSummary.Many(2, listOf("Berserk", null))
+    }
+
+    @Test
+    fun `a summary with all content hidden lists no titles`() {
+        newChaptersSummary(listOf(null, null), hideAll = true) shouldBe NewChaptersSummary.Many(2, emptyList())
+    }
+
+    @Test
+    fun `a summary chops a long title`() {
+        newChaptersSummary(listOf("x".repeat(60)), hideAll = false) shouldBe
+            NewChaptersSummary.One("x".repeat(NOTIF_TITLE_MAX_LEN - 1) + "…")
+    }
+
+    @Test
+    fun `fifteen new chapters still offer a download`() {
+        offersDownloadAction(newChapters = 15) shouldBe true
+    }
+
+    @Test
+    fun `past fifteen new chapters no download is offered`() {
+        offersDownloadAction(newChapters = 16) shouldBe false
+    }
 }

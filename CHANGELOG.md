@@ -334,6 +334,7 @@ every stable release now also ships a foss build with neither in it.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, like manga.**
 - **A novel chapter you have already read now opens at its start, like manga, unless Settings -> Novel reader -> Resume reading position is on.** It used to reopen on its last screen.
 - **A library novel now keeps its title when its source renames it, unless Settings -> Advanced -> Update library titles to match source is on, as for manga.** With it on, the novel's downloaded chapters move to the new title instead of reading as not downloaded.
+- **Novel new-chapter notifications now show the cover, list the updated novels, and open the new chapter when tapped.**
 
 #### Fixed
 

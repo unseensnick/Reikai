@@ -26,6 +26,7 @@ import reikai.domain.entry.EntryId // RK
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelChapter
 import reikai.domain.track.source.ChapterWrite // RK
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.novel.download.NovelDownloadManager
@@ -324,6 +325,7 @@ class NotificationReceiver : BroadcastReceiver() {
         private const val ACTION_MARK_NOVEL_AS_READ = "$ID.$NAME.MARK_NOVEL_AS_READ"
         private const val ACTION_DOWNLOAD_NOVEL_CHAPTER = "$ID.$NAME.ACTION_DOWNLOAD_NOVEL_CHAPTER"
         private const val EXTRA_NOVEL_CHAPTER_IDS = "$ID.$NAME.EXTRA_NOVEL_CHAPTER_IDS"
+        private const val ACTION_OPEN_NOVEL_CHAPTER = "$ID.$NAME.ACTION_OPEN_NOVEL_CHAPTER" // RK
 
         private const val ACTION_MARK_AS_READ = "$ID.$NAME.MARK_AS_READ"
         private const val ACTION_OPEN_CHAPTER = "$ID.$NAME.ACTION_OPEN_CHAPTER"
@@ -618,14 +620,39 @@ class NotificationReceiver : BroadcastReceiver() {
         internal fun cancelNovelDownloadPendingBroadcast(context: Context): PendingIntent =
             novelDownloaderPendingBroadcast(context, ACTION_CANCEL_NOVEL_DOWNLOAD)
 
-        /** A novel's details, which open by source and url rather than by row id as a manga's do. */
+        /**
+         * A novel's details, which open by source and url rather than by row id as a manga's do. Opening
+         * them clears the novel's new-chapters notice, as opening a manga does: every caller shares one
+         * PendingIntent per novel, since extras are not part of its identity.
+         */
         internal fun openNovelPendingActivity(context: Context, novel: Novel): PendingIntent {
             val intent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 action = Constants.SHORTCUT_NOVEL
                 putExtra(Constants.NOVEL_SOURCE_EXTRA, novel.source)
                 putExtra(Constants.NOVEL_URL_EXTRA, novel.url)
+                putExtra("notificationId", novel.id.hashCode())
+                putExtra("groupId", Notifications.ID_NOVEL_LIBRARY_RESULT)
+                putExtra("notificationTag", Notifications.TAG_NOVEL_NEW_CHAPTERS)
             }
+            return PendingIntent.getActivity(
+                context,
+                novel.id.hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
+        /** Opens [chapter] in the reader, scoped to its source, as a manga notification's tap does. */
+        internal fun openNovelChapterPendingActivity(
+            context: Context,
+            novel: Novel,
+            chapter: NovelChapter,
+        ): PendingIntent {
+            // The action only keeps this apart from a manga chapter's PendingIntent: the two id spaces
+            // overlap, and an equal request code would let one notification's tap open the other entry.
+            val intent = ReaderActivity.newNovelIntent(context, novel.id, chapter.id, sourceScoped = true)
+                .setAction(ACTION_OPEN_NOVEL_CHAPTER)
             return PendingIntent.getActivity(
                 context,
                 novel.id.hashCode(),
