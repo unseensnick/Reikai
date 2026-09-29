@@ -66,12 +66,16 @@ import reikai.domain.merge.stitchInputChanges
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.MangaMergeCollapse
+import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
+import reikai.presentation.library.memberIds
+import reikai.presentation.library.memberIdsOf
+import reikai.presentation.library.mergedGroupTracks
 import reikai.presentation.library.toQueryOverlay
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -317,13 +321,7 @@ class LibraryViewModel(
             .associateWith { sourceManager.getOrStub(it).name }
         val fields = libraryItemFilterFields(
             lewdSourceName = { sourceNames[it.libraryManga.manga.source] },
-            // Union tracks across the merged group (relatedMangaIds), so a tracker on any grouped source
-            // counts; empty relatedMangaIds falls back to the entry's own id.
-            trackerIds = { item ->
-                item.relatedMangaIds.ifEmpty { listOf(item.id) }
-                    .flatMap { trackMap[it].orEmpty() }
-                    .map { it.trackerId }
-            },
+            trackerIds = { item -> mergedGroupTracks(item.memberIds(), trackMap).map { it.trackerId } },
         )
         return fastFilter { libraryFilterMatches(it, prefs, fields) }
     }
@@ -695,10 +693,7 @@ class LibraryViewModel(
         // RK: apply to every source of a merge group, so members can't drift into different
         //     categories and make the entry vanish from a category the user moved it to. Works on
         //     ids, so the merged-away members need no DB round-trip.
-        val favoritesById = state.value.libraryData.favoritesById
-        val memberIds = mangaList.flatMap { manga ->
-            favoritesById[manga.id]?.relatedMangaIds?.ifEmpty { listOf(manga.id) } ?: listOf(manga.id)
-        }.distinct()
+        val memberIds = state.value.memberIdsFor(mangaList.map { it.id })
         viewModelScope.launchNonCancellable {
             memberIds.forEach { mangaId ->
                 val categoryIds = getCategories.await(mangaId)
@@ -805,18 +800,12 @@ class LibraryViewModel(
             ids.mapNotNull { libraryData.favoritesById[it]?.libraryManga?.manga }
 
         /** Any of [ids] is part of a merge group (drives the bulk Unmerge action). */
-        fun containsMerged(ids: Collection<Long>): Boolean =
-            ids.any { (libraryData.favoritesById[it]?.relatedMangaIds?.size ?: 0) > 1 }
+        fun containsMerged(ids: Collection<Long>): Boolean = libraryData.favoritesById.anyMerged(ids)
 
-        // RK: ids of every grouped source-manga behind [ids]. A merged cover is a single id standing
-        //     for its whole group (LibraryItem.relatedMangaIds); the merged-away members are collapsed
-        //     out of favoritesById, so we keep their ids here and resolve the manga from the DB at
-        //     delete time. Equals [ids] when nothing is merged.
-        fun memberIdsFor(ids: Collection<Long>): List<Long> =
-            ids.flatMap { id ->
-                val item = libraryData.favoritesById[id] ?: return@flatMap emptyList<Long>()
-                item.relatedMangaIds.ifEmpty { listOf(id) }
-            }.distinct()
+        // RK: ids of every grouped source-manga behind [ids]. The merged-away members are collapsed out
+        //     of favoritesById, so their ids ride on the row and the manga is resolved from the DB at
+        //     delete time.
+        fun memberIdsFor(ids: Collection<Long>): List<Long> = libraryData.favoritesById.memberIdsOf(ids)
 
         // RK: the one place the overlay is applied, reached through the provider seam
         //     (LibraryProvider.overlaid) at the shared assembly's display read. It stays out of the raw

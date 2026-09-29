@@ -288,7 +288,7 @@ fun LibraryCoverEndBadges(item: LibraryItem) {
     val budget = LocalCoverBadgeBudget.current
     val density = LocalDensity.current
     val isNovel = item.entryId is EntryId.Novel
-    val isMerged = item.relatedMangaIds.size > 1
+    val isMerged = item.isMerged
     val mergedSources = item.badges.mergedSources.distinctBy { it.id }
     val hasOwnIcon = if (isNovel) item.badges.novelSource != null else item.badges.source != null
     // An unmerged row still spends the same budget: one source icon competing with the language badge.

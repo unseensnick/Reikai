@@ -1,6 +1,8 @@
 package reikai.presentation.library
 
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.track.Tracker
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import tachiyomi.domain.track.model.Track
 
 /**
@@ -16,9 +18,25 @@ fun libraryTrackerMeans(
     trackers: Map<Long, Tracker>,
 ): Map<Long, Double> = buildMap {
     membersByRow.forEach { (rowId, memberIds) ->
-        val scores = memberIds.flatMap { tracksById[it].orEmpty() }
-            .distinctBy { it.trackerId }
+        val scores = mergedGroupTracks(memberIds, tracksById)
             .mapNotNull { trackers[it.trackerId]?.get10PointScore(it)?.takeIf { s -> s > 0.0 } }
         if (scores.isNotEmpty()) put(rowId, scores.average())
     }
+}
+
+/**
+ * A merged row's tracks, which every tracker-reading library rule reads (filter, sort, grouping), so a
+ * tracker bound on any grouped source counts. One per tracker, the first member's winning.
+ */
+fun mergedGroupTracks(memberIds: List<Long>, tracksById: Map<Long, List<Track>>): List<Track> =
+    memberIds.flatMap { tracksById[it].orEmpty() }.distinctBy { it.trackerId }
+
+/** The tracking status a row is grouped under: the first logged-in tracker's among [groupTracks]. */
+fun groupTrackStatus(
+    groupTracks: List<Track>,
+    loggedInTrackerIds: Set<Long>,
+    trackerManager: TrackerManager,
+): StringResource? {
+    val track = groupTracks.firstOrNull { it.trackerId in loggedInTrackerIds } ?: return null
+    return trackerManager.get(track.trackerId)?.getStatus(track.status)
 }

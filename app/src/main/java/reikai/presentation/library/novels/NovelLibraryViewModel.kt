@@ -60,6 +60,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.LibraryFilterSettings
 import reikai.presentation.library.LibraryQuerySource
+import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryFilterSettingsFlow
@@ -67,6 +68,8 @@ import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.libraryTrackerMeans
+import reikai.presentation.library.memberIdsOf
+import reikai.presentation.library.mergedGroupTracks
 import reikai.presentation.library.novelSourceBadge
 import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.library.toQueryOverlay
@@ -76,6 +79,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.track.model.Track
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -287,18 +291,16 @@ class NovelLibraryViewModel(
                 emptyMap()
             },
         )
-        // Union each merge group's member tracks (deduped per tracker), keyed by the rep's real novel id,
-        // so the shared filter's tracker axis and the sort's mean score both read a track bound on ANY
-        // grouped source. Synchronous: reads the in-memory group members, never the suspend awaitGroup.
+        // Each merge group's tracks keyed by the rep's real novel id, so the filter's tracker axis and the
+        // grouping read a track bound on ANY grouped source. Synchronous: reads the in-memory group members,
+        // never the suspend awaitGroup. Converted once to the shared Track, which the track kernels take.
         val loggedInTrackerIds = settings.filter.trackers.keys
-        val tracksByRep: Map<Long, List<NovelTrack>> = groups.associate { group ->
-            group.representative.novel.id to group.memberIds
-                .flatMap { tracks[it].orEmpty() }
-                .distinctBy { it.trackerId }
-        }
+        val uiTracks = tracks.mapValues { (_, novelTracks) -> novelTracks.map { it.toUiTrack() } }
+        val membersByRep = groups.associate { it.representative.novel.id to it.memberIds }
+        val tracksByRep = membersByRep.mapValues { (_, memberIds) -> mergedGroupTracks(memberIds, uiTracks) }
         val trackerMeanScores = libraryTrackerMeans(
-            membersByRow = groups.associate { it.representative.novel.id to it.memberIds },
-            tracksById = tracks.mapValues { (_, novelTracks) -> novelTracks.map { it.toUiTrack() } },
+            membersByRow = membersByRep,
+            tracksById = uiTracks,
             trackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id },
         )
         // The one shared library filter (tracker axis folded in), so a filter change reaches manga and
@@ -589,7 +591,7 @@ class NovelLibraryViewModel(
         /** Rep id -> its LibraryNovel and unioned merge-group tracks, carried for the dynamic-grouping
          *  feed seam (LibraryProvider.dynamicGroupingFeed), which resolves metadata the row cannot carry. */
         val novelById: Map<Long, LibraryNovel> = emptyMap(),
-        val tracksByRep: Map<Long, List<NovelTrack>> = emptyMap(),
+        val tracksByRep: Map<Long, List<Track>> = emptyMap(),
         private val favoritesById: Map<Long, LibraryItem> = emptyMap(),
         /** Display-only overrides, keyed by real novel id; applied at the display read only. */
         private val customInfo: Map<Long, CustomNovelInfo> = emptyMap(),
@@ -605,16 +607,10 @@ class NovelLibraryViewModel(
         // content types and hand each provider only its own ids. Mirrors the manga library.
 
         /** Any of [ids] is a merge group (drives the bulk Unmerge action). */
-        fun containsMerged(ids: Collection<Long>): Boolean =
-            ids.any { (favoritesById[it]?.relatedMangaIds?.size ?: 0) > 1 }
+        fun containsMerged(ids: Collection<Long>): Boolean = favoritesById.anyMerged(ids)
 
-        /** Every grouped source-novel behind [ids]. A merged cover is one id standing for its whole
-         *  group (relatedMangaIds); this expands each to all members. Equals [ids] when none is merged. */
-        fun memberIdsFor(ids: Collection<Long>): List<Long> =
-            ids.flatMap { id ->
-                val item = favoritesById[id] ?: return@flatMap emptyList<Long>()
-                item.relatedMangaIds.ifEmpty { listOf(id) }
-            }.distinct()
+        /** Every grouped source-novel behind [ids]. */
+        fun memberIdsFor(ids: Collection<Long>): List<Long> = favoritesById.memberIdsOf(ids)
 
         /**
          * The one place the overlay is applied, reached through the provider seam

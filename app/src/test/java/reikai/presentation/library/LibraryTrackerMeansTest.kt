@@ -1,6 +1,9 @@
 package reikai.presentation.library
 
+import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.Tracker
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -45,6 +48,32 @@ class LibraryTrackerMeansTest {
         )
 
         means shouldBe mapOf(1L to 7.0)
+    }
+
+    @Test
+    fun `a group keeps one track per tracker, the first member's`() {
+        val first = track(1L, 1L, 8.0)
+        val tracks = mergedGroupTracks(
+            memberIds = listOf(1L, 2L),
+            tracksById = mapOf(1L to listOf(first), 2L to listOf(track(2L, 1L, 4.0), track(2L, 3L, 5.0))),
+        )
+
+        tracks shouldBe listOf(first, track(2L, 3L, 5.0))
+    }
+
+    @Test
+    fun `a group is filed under the first logged-in tracker's status`() {
+        val reading = mockk<StringResource>()
+        val loggedIn = mockk<BaseTracker> { every { getStatus(any()) } returns reading }
+        val manager = mockk<TrackerManager> { every { get(3L) } returns loggedIn }
+
+        val status = groupTrackStatus(
+            groupTracks = listOf(track(1L, 1L, 0.0), track(2L, 3L, 0.0)),
+            loggedInTrackerIds = setOf(3L),
+            trackerManager = manager,
+        )
+
+        status shouldBe reading
     }
 
     @Test

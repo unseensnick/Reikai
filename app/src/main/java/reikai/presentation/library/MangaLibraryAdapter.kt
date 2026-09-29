@@ -97,7 +97,7 @@ class MangaLibraryAdapter(
     override fun trackerMeans(): Map<Long, Double> {
         val data = model.state.value.libraryData
         val trackers = trackerManager.getAll(data.loggedInTrackerIds).associateBy { it.id }
-        val membersByRow = data.favorites.associate { it.id to it.relatedMangaIds.ifEmpty { listOf(it.id) } }
+        val membersByRow = data.favorites.associate { it.id to it.memberIds() }
         return libraryTrackerMeans(membersByRow, data.tracksMap, trackers)
     }
 

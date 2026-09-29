@@ -61,16 +61,10 @@ suspend fun mangaDynamicGroupingFeed(
 
     val trackStatuses = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
         favorites.mapNotNull { item ->
-            val mangaId = item.libraryManga.manga.id
-            // Union tracks across the merged group (relatedMangaIds), so a status bound on any grouped
-            // source groups the row, matching the tracker filter/sort and the novel library.
-            val groupIds = item.relatedMangaIds.ifEmpty { listOf(mangaId) }
-            val track = groupIds.flatMap { tracksMap[it].orEmpty() }
-                .firstOrNull { it.trackerId in loggedInTrackerIds }
+            val groupTracks = mergedGroupTracks(item.memberIds(), tracksMap)
+            val statusRes = groupTrackStatus(groupTracks, loggedInTrackerIds, trackerManager)
                 ?: return@mapNotNull null
-            val statusRes = trackerManager.get(track.trackerId)?.getStatus(track.status)
-                ?: return@mapNotNull null
-            EntryId.Manga(mangaId) as EntryId to context.stringResource(statusRes)
+            EntryId.Manga(item.id) as EntryId to context.stringResource(statusRes)
         }.toMap()
     } else {
         emptyMap()

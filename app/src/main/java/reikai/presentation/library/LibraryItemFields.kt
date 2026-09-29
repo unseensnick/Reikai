@@ -69,7 +69,7 @@ fun libraryItemQueryFields(
     // two id spaces never meet here. A collapsed merge group also matches through its members'
     // ids, since their chapters render as the entry's own but their rows are not in the list.
     matchesChapter = { item, term ->
-        chapterMatches[term]?.let { ids -> item.id in ids || item.relatedMangaIds.any { it in ids } }
+        chapterMatches[term]?.let { ids -> item.memberIds().any { it in ids } }
     },
 )
 

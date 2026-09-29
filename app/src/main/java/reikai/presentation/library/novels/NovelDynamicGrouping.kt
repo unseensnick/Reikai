@@ -9,7 +9,6 @@ import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.domain.novel.model.LibraryNovel
-import reikai.domain.novel.model.NovelTrack
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.DynamicGroupingFeed
@@ -17,9 +16,11 @@ import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.LibraryTrackingStatusOrder
 import reikai.presentation.library.displayLanguage
+import reikai.presentation.library.groupTrackStatus
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
+import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 
 /**
@@ -34,7 +35,7 @@ import tachiyomi.i18n.MR
 suspend fun novelDynamicGroupingFeed(
     items: List<LibraryItem>,
     novelById: Map<Long, LibraryNovel>,
-    tracksByRep: Map<Long, List<NovelTrack>>,
+    tracksByRep: Map<Long, List<Track>>,
     loggedInTrackerIds: Set<Long>,
     groupType: Int,
     sourceManager: NovelSourceManager,
@@ -77,13 +78,11 @@ suspend fun novelDynamicGroupingFeed(
         emptyMap()
     }
 
-    // Group by the first logged-in tracker's status on any grouped source (mirrors the manga library).
     val trackStatuses = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
         items.mapNotNull { item ->
-            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-            val track = tracksByRep[novel.id].orEmpty()
-                .firstOrNull { it.trackerId in loggedInTrackerIds } ?: return@mapNotNull null
-            val statusRes = trackerManager.get(track.trackerId)?.getStatus(track.status) ?: return@mapNotNull null
+            if (item.id !in novelById) return@mapNotNull null
+            val statusRes = groupTrackStatus(tracksByRep[item.id].orEmpty(), loggedInTrackerIds, trackerManager)
+                ?: return@mapNotNull null
             EntryId.Novel(item.id) as EntryId to context.stringResource(statusRes)
         }.toMap()
     } else {
