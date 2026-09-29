@@ -6,6 +6,7 @@ import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
+import reikai.domain.dedupe.MergedDuplicateRepository
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergeGroupReconstruction
@@ -32,6 +33,7 @@ class MigrateMergePrefsToGroupsMigration(
     private val repo: MergeGroupRepository,
     private val getFavorites: GetFavorites,
     private val novelRepo: NovelRepository,
+    private val mergedDuplicates: MergedDuplicateRepository,
 ) : Migration {
     // Fires once when the shipped versionCode crosses 189. Must stay above every shipped release's
     // versionCode (0.3.1 is 184): a migration runs only for old < version <= new, so a gate at or below
@@ -50,6 +52,7 @@ class MigrateMergePrefsToGroupsMigration(
                 unmerges = prefs.mangaManualUnmerges.get(),
                 autoMergeByTitle = prefs.autoMergeSameTitle.get(),
                 requireAuthor = false,
+                survivors = survivorsOf(ContentType.MANGA),
             )
             materialize(repo, ContentType.MANGA, groups)
         }.onFailure { logcat(LogPriority.ERROR, it) { "Merge-group migration failed for manga" } }
@@ -63,12 +66,20 @@ class MigrateMergePrefsToGroupsMigration(
                 unmerges = prefs.novelManualUnmerges.get(),
                 autoMergeByTitle = prefs.novelAutoMergeSameTitle.get(),
                 requireAuthor = prefs.novelAutoMergeRequireAuthor.get(),
+                survivors = survivorsOf(ContentType.NOVELS),
             )
             materialize(repo, ContentType.NOVELS, groups)
         }.onFailure { logcat(LogPriority.ERROR, it) { "Merge-group migration failed for novels" } }
 
         true
     }
+
+    // The upgrade's dedupe (50.sqm, 51.sqm) runs before this, so the prefs can name a copy it merged away.
+    // MergedDuplicateCoversMigration empties the record, and runs after this by its higher version.
+    private suspend fun survivorsOf(contentType: ContentType): Map<Long, Long> =
+        mergedDuplicates.getAll()
+            .filter { it.contentType == contentType }
+            .associate { it.discardedId to it.survivorId }
 
     // Idempotent: skip a group whose members are already grouped, so a re-run (or a partial prior run)
     // does not hit the one-group-per-entry constraint.

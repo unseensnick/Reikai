@@ -5,6 +5,7 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
@@ -12,6 +13,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.dedupe.MergedDuplicateRepositoryImpl
+import reikai.domain.dedupe.MergedDuplicate
+import reikai.domain.library.ContentType
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import java.io.File
@@ -50,6 +54,20 @@ class SchemaChainMigrationTest {
         migrate()
 
         longs(type.entryIds) shouldBe listOf(2L)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `each merged-away copy is recorded against the entry it merged into`(type: Type) = runTest {
+        exec(type.entry(id = 1, url = "/g/1", favorite = false))
+        exec(type.entry(id = 2, url = "/g/1", favorite = true))
+        exec(type.entry(id = 3, url = "/g/1", favorite = false))
+        exec(type.entry(id = 4, url = "/g/4", favorite = true))
+
+        migrate()
+
+        MergedDuplicateRepositoryImpl(DatabaseBindings.providesDatabase(driver)).getAll() shouldContainExactlyInAnyOrder
+            listOf(MergedDuplicate(type.domainType, 1, 2), MergedDuplicate(type.domainType, 3, 2))
     }
 
     @ParameterizedTest
@@ -134,6 +152,7 @@ class SchemaChainMigrationTest {
 
     /** Each type's tables in the 43.db shape, and the reads that answer each case once migrated. */
     enum class Type(
+        val domainType: ContentType,
         val contentType: Int,
         val ownerColumn: String,
         val historyTable: String,
@@ -149,6 +168,7 @@ class SchemaChainMigrationTest {
         val historyOwners: String,
     ) {
         MANGA(
+            domainType = ContentType.MANGA,
             contentType = 0,
             ownerColumn = "manga_id",
             historyTable = "history",
@@ -174,6 +194,7 @@ class SchemaChainMigrationTest {
                     "1, 0, 0, 0)"
         },
         NOVEL(
+            domainType = ContentType.NOVELS,
             contentType = 1,
             ownerColumn = "novel_id",
             historyTable = "novel_history",

@@ -84,3 +84,20 @@ device: an upgrade from a 196 or 197 build with real data is the owner's check.
   which the ranking stamp (member ids) and the row count already detect.
 - **The `novels_categories` pair index lands in `51.sqm`**, after the novel merge that can bring a pair
   together, rather than in `50.sqm`, which only rebuilds the table against the renamed `category`.
+- **State outside the database follows the merge through a record.** `50.sqm` and `51.sqm` write each
+  merged-away id and its survivor to `dedupe_merged_ids` before deleting the copy, since a migration
+  cannot touch files or preferences. Two readers use it, both before it is emptied:
+  - `MergedDuplicateCoversMigration` (198) moves a copy's custom cover to the survivor when the survivor
+    has none; when both have one the survivor's stays. The copy's file is deleted either way, because
+    neither entry table uses AUTOINCREMENT and a new entry could be given the freed id and inherit it. A
+    novel's cover may still sit under its pre-186 name, since the 186 re-key sees only surviving rows.
+    It then empties the record, so a second run does nothing. Upstream loses these covers.
+  - `MigrateMergePrefsToGroupsMigration` (189) maps merged-away ids in the old merge and unmerge prefs
+    to their survivors. Every 0.3.2 install runs it after the dedupe, and without the map it drops a
+    manual merge naming a copy and lets a same-title group form against an unmerge naming one.
+- **Other state keyed by an entry, checked for the same loss.** Not affected: hidden chapters
+  (keyed by source and chapter url), page-list and page-preview caches (rebuilt on the next read), the
+  cover colour cache (recomputed from the cover), per-entry reader settings (columns the SQL merges).
+  Downloads are keyed by source and title, not id; the survivor keeps its own title, so a copy whose
+  title had drifted leaves its folder on disk but unlisted. A queued download of a merged-away copy is
+  dropped (manga) or fails (novels) on the next start, and can be queued again. Neither is handled.

@@ -87,6 +87,21 @@ FROM (
 ) AS merged
 WHERE mangas._id = merged.keep_id;
 
+-- Reikai: what lives outside the database under an entry's id (a custom cover file, the merge prefs an
+-- older install still holds) cannot follow the merge here, so each merged-away copy is recorded against
+-- its survivor for MergedDuplicateCoversMigration and the merge-pref migration. 0 is manga, 1 novel.
+CREATE TABLE dedupe_merged_ids(
+    content_type INTEGER NOT NULL,
+    discarded_id INTEGER NOT NULL,
+    survivor_id INTEGER NOT NULL,
+    PRIMARY KEY(content_type, discarded_id)
+);
+
+INSERT INTO dedupe_merged_ids(content_type, discarded_id, survivor_id)
+SELECT 0, _id, keep_id
+FROM duplicate_mangas
+WHERE _id != keep_id;
+
 -- Every child table is rebuilt further down and resolves the surviving entry there, so nothing
 -- else has to be rewritten here first.
 DELETE FROM mangas

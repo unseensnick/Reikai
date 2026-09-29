@@ -58,10 +58,11 @@ android {
         // customised novel reader bar; 193 deletes the keys only the retired novel reader wrote; 194 carries
         // the novel tap-to-scroll switch into a tap layout; 195 carries the extension NSFW switch into the
         // allowed content warnings; 196 moves bypass-server credentials out of the stored address; 197
-        // carries the novel auto-scroll switch into start-on-open. All sit above 0.3.2's 185, so a
-        // 0.3.2 install still runs them. Further migrations take 198+.
+        // carries the novel auto-scroll switch into start-on-open; 198 carries the custom covers of
+        // duplicates the upgrade merged away. All sit above 0.3.2's 185, so a 0.3.2 install still runs
+        // them. Further migrations take 199+.
         // versionName tracks the last shipped release until this cycle is cut.
-        versionCode = 197
+        versionCode = 198
         versionName = "0.3.2"
         // RK <--
 

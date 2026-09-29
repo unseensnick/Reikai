@@ -19,6 +19,12 @@ WHERE (source, url) IN (
     HAVING count(*) > 1
 );
 
+-- Recorded for what lives outside the database under a novel's id, as 50.sqm records manga
+INSERT INTO dedupe_merged_ids(content_type, discarded_id, survivor_id)
+SELECT 1, _id, keep_id
+FROM duplicate_novels
+WHERE _id != keep_id;
+
 UPDATE novels
 SET favorite_at = merged.favorite_at,
     initialized = merged.initialized,

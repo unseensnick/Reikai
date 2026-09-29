@@ -15,7 +15,38 @@ class MergeGroupReconstructionTest {
         unmerges: Set<String> = emptySet(),
         autoMergeByTitle: Boolean = false,
         requireAuthor: Boolean = false,
-    ) = MergeGroupReconstruction.reconstruct(candidates, manualMerges, unmerges, autoMergeByTitle, requireAuthor)
+        survivors: Map<Long, Long> = emptyMap(),
+    ) = MergeGroupReconstruction.reconstruct(
+        candidates,
+        manualMerges,
+        unmerges,
+        autoMergeByTitle,
+        requireAuthor,
+        survivors,
+    )
+
+    @Test
+    fun `a manual merge naming a merged-away duplicate groups the entry it merged into`() {
+        val groups = reconstruct(
+            candidates = listOf(candidate(1), candidate(3)),
+            manualMerges = setOf("1,5"),
+            survivors = mapOf(5L to 3L),
+        )
+
+        groups shouldBe listOf(listOf(1L, 3L))
+    }
+
+    @Test
+    fun `an unmerge naming a merged-away duplicate still holds against the entry it merged into`() {
+        val candidates = listOf(candidate(1, title = "Same"), candidate(3, title = "Same"))
+
+        reconstruct(
+            candidates,
+            unmerges = setOf("1,5"),
+            autoMergeByTitle = true,
+            survivors = mapOf(5L to 3L),
+        ) shouldBe emptyList()
+    }
 
     @Test
     fun `a manual merge entry becomes one group`() {

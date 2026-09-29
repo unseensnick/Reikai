@@ -12,15 +12,21 @@ object MergeGroupReconstruction {
 
     data class Candidate(val id: Long, val title: String, val author: String?)
 
-    /** Disjoint groups of 2+ ids, each sorted ascending; single entries are dropped. */
+    /**
+     * Disjoint groups of 2+ ids, each sorted ascending; single entries are dropped. [survivors] maps an id
+     * the upgrade's dedupe merged away to the entry it merged into, since the prefs still name the old id.
+     */
     fun reconstruct(
         candidates: List<Candidate>,
         manualMerges: Set<String>,
         unmerges: Set<String>,
         autoMergeByTitle: Boolean,
         requireAuthor: Boolean,
+        survivors: Map<Long, Long>,
     ): List<List<Long>> {
         if (candidates.isEmpty()) return emptyList()
+
+        fun parseId(raw: String): Long? = raw.trim().toLongOrNull()?.let { survivors[it] ?: it }
 
         val present = candidates.mapTo(HashSet()) { it.id }
         val parent = HashMap<Long, Long>(present.size).apply { present.forEach { put(it, it) } }
@@ -44,13 +50,13 @@ object MergeGroupReconstruction {
 
         // Manual merges always group; they override unmerges by construction.
         for (entry in manualMerges) {
-            val members = entry.split(",").mapNotNull { it.trim().toLongOrNull() }.filter { it in present }
+            val members = entry.split(",").mapNotNull(::parseId).filter { it in present }
             for (i in 1 until members.size) union(members[0], members[i])
         }
 
         // Same-title auto-grouping, honoring the author guard and the unmerge exclusions.
         if (autoMergeByTitle) {
-            val unmergedPairs = parseUnmergedPairs(unmerges)
+            val unmergedPairs = parseUnmergedPairs(unmerges, ::parseId)
             val buckets = HashMap<String, MutableList<Long>>()
             for (candidate in candidates) {
                 val key = autoKey(candidate, requireAuthor) ?: continue
@@ -78,13 +84,13 @@ object MergeGroupReconstruction {
     }
 
     // Normalized "min,max" unmerge pairs parsed from the pref set; malformed entries are dropped.
-    private fun parseUnmergedPairs(unmerges: Set<String>): Set<Pair<Long, Long>> {
+    private fun parseUnmergedPairs(unmerges: Set<String>, parseId: (String) -> Long?): Set<Pair<Long, Long>> {
         if (unmerges.isEmpty()) return emptySet()
         return unmerges.mapNotNullTo(HashSet()) { entry ->
             val parts = entry.split(",")
             if (parts.size != 2) return@mapNotNullTo null
-            val a = parts[0].trim().toLongOrNull() ?: return@mapNotNullTo null
-            val b = parts[1].trim().toLongOrNull() ?: return@mapNotNullTo null
+            val a = parseId(parts[0]) ?: return@mapNotNullTo null
+            val b = parseId(parts[1]) ?: return@mapNotNullTo null
             if (a < b) a to b else b to a
         }
     }
