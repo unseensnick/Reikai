@@ -103,6 +103,7 @@ every stable release now also ships a foss build with neither in it.
 - **Clearing a novel's history now drops it in the library's Last read sort, as it does for manga.** The sort now reads a novel's reading history; novels read before history was kept carry their place over on upgrade and from older backups.
 - **Novel sources on the Preferred sources screen now show their language code, like manga sources.**
 - **Failed checks from the adult content update checker now land in the shared update error log, and their notification clears when tapped.**
+- **The library filter icon no longer lights up for a custom-interval filter whose update restriction is off.**
 
 ### Merged series
 

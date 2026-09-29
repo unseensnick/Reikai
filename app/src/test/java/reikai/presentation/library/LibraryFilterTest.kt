@@ -2,6 +2,8 @@ package reikai.presentation.library
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import tachiyomi.core.common.preference.TriState
 
 class LibraryFilterTest {
@@ -116,5 +118,61 @@ class LibraryFilterTest {
         passes(Row(unread = true, completed = true), p) shouldBe true
         passes(Row(unread = true, completed = false), p) shouldBe false
         passes(Row(unread = false, completed = true), p) shouldBe false
+    }
+
+    private fun settings(
+        downloadedOnly: Boolean = false,
+        downloaded: TriState = TriState.DISABLED,
+        intervalCustom: TriState = TriState.DISABLED,
+        skipsOutsideReleasePeriod: Boolean = true,
+        trackers: Map<Long, TriState> = emptyMap(),
+    ) = LibraryFilterSettings(
+        downloadedOnly = downloadedOnly,
+        downloaded = downloaded,
+        unread = TriState.DISABLED,
+        started = TriState.DISABLED,
+        bookmarked = TriState.DISABLED,
+        completed = TriState.DISABLED,
+        intervalCustom = intervalCustom,
+        skipsOutsideReleasePeriod = skipsOutsideReleasePeriod,
+        lewd = TriState.DISABLED,
+        trackers = trackers,
+        categoriesEnabled = false,
+        categoriesInclude = emptySet(),
+        categoriesExclude = emptySet(),
+    )
+
+    // The gate is each library's own update restriction; the sheet hides the axis while it is off.
+    @ParameterizedTest
+    @CsvSource("true, true", "false, false")
+    fun `a custom-interval filter is active only while its release-period gate is on`(gate: Boolean, active: Boolean) {
+        settings(intervalCustom = TriState.ENABLED_IS, skipsOutsideReleasePeriod = gate).isActive shouldBe active
+    }
+
+    @Test
+    fun `a tracker filter alone is active`() {
+        settings(trackers = mapOf(2L to TriState.ENABLED_NOT, 3L to TriState.DISABLED)).isActive shouldBe true
+    }
+
+    @Test
+    fun `downloaded-only mode alone is not an active filter`() {
+        settings(downloadedOnly = true).isActive shouldBe false
+    }
+
+    @Test
+    fun `resolving folds downloaded-only mode into the downloaded axis`() {
+        settings(downloadedOnly = true).resolve().downloaded shouldBe TriState.ENABLED_IS
+    }
+
+    @Test
+    fun `resolving switches the interval axis off while its gate is off`() {
+        settings(intervalCustom = TriState.ENABLED_IS, skipsOutsideReleasePeriod = false)
+            .resolve().intervalCustom shouldBe TriState.DISABLED
+    }
+
+    @Test
+    fun `resolving splits the tracker filter into included and excluded ids`() {
+        settings(trackers = mapOf(1L to TriState.ENABLED_IS, 2L to TriState.ENABLED_NOT, 3L to TriState.DISABLED))
+            .resolve().let { it.includedTracks to it.excludedTracks } shouldBe (setOf(1L) to setOf(2L))
     }
 }

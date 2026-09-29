@@ -38,21 +38,17 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import mihon.core.common.utils.mutate
 import mihon.domain.library.model.search.QueryNode
-import reikai.domain.category.categoryFilterActive
 import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.library.effectiveIntervalFilter
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -72,11 +68,11 @@ import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryFilterMatches
+import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.toQueryOverlay
-import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.category.interactor.GetCategories
@@ -163,32 +159,19 @@ class LibraryViewModel(
         ::DisplayPreferences,
     )
 
-    private val hasActiveFilters = combine(
-        getLibraryItemPreferencesFlow(),
-        getTrackingFiltersFlow(),
-    ) { prefs, trackFilters ->
-        listOf(
-            prefs.filterDownloaded,
-            prefs.filterUnread,
-            prefs.filterStarted,
-            prefs.filterBookmarked,
-            prefs.filterCompleted,
-            prefs.filterIntervalCustom,
-            // RK --> lewd counts as an active filter dim
-            prefs.filterLewd,
-            // RK <--
-            *trackFilters.values.toTypedArray(),
-        )
-            .any { it != TriState.DISABLED } ||
-            // RK --> include/exclude category filter is a Boolean dim, not a TriState
-            categoryFilterActive(
-                prefs.filterCategories,
-                prefs.filterCategoriesInclude,
-                prefs.filterCategoriesExclude,
-            )
-        // RK <--
-    }
+    // RK --> the filter preferences and the active-filter rule live in LibraryFilterSettings, which the
+    //     novel library reads too; manga supplies only its own release-period restriction.
+    private val filterSettings = libraryFilterSettingsFlow(
+        libraryPreferences,
+        reikaiLibraryPreferences,
+        preferences,
+        trackerManager,
+        updateRestrictions = libraryPreferences.autoUpdateMangaRestrictions.changes(),
+    )
+
+    private val hasActiveFilters = filterSettings.map { it.isActive }
         .distinctUntilChanged()
+    // RK <--
 
     // RK: upstream's second pipeline (bucket favorites into categories, then sort each) is gone, so this
     // is the whole query. The model is a row provider now: LibraryEngine assembles and sorts the list,
@@ -196,8 +179,7 @@ class LibraryViewModel(
     private val libraryData: StateFlow<LibraryData?> =
         combine(
             // RK: the query slot carries its resolved `chapter:` id sets alongside it, so a chapter
-            //     lookup runs once per query change rather than on every favorites tick (this combine
-            //     is at its 5-source cap, so it rides here rather than taking a slot of its own).
+            //     lookup runs once per query change rather than on every favorites tick.
             searchQuery.debounce(0.25.seconds)
                 .map { query -> query to resolveChapterMatches(query) },
             getCategories.subscribe(),
@@ -205,18 +187,16 @@ class LibraryViewModel(
             //     NOT applied here: search/filter/sort below all read the raw favorites. It is
             //     carried into LibraryData and applied only at the display read (see State).
             combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
-            combine(getTracksPerManga.subscribe(), getTrackingFiltersFlow(), ::Pair),
-            getLibraryItemPreferencesFlow(),
+            combine(getTracksPerManga.subscribe(), filterSettings, ::Pair), // RK: filterSettings
         ) {
                 (searchQuery, chapterMatches),
                 categories,
                 (favorites, customInfo),
-                (tracksMap, trackingFilters),
-                itemPreferences,
+                (tracksMap, filters),
             ->
             val showSystemCategory = favorites.any { it.libraryManga.categories.contains(0) }
             val filteredFavorites = favorites
-                .applyFilters(tracksMap, trackingFilters, itemPreferences)
+                .applyFilters(tracksMap, filters.resolve()) // RK
                 // RK: parse once, then filter through the shared query kernel, the same one the novel
                 //     library runs, so one typed query means one thing on every row of the All list.
                 //     A gallery entry ALSO gets the EXH tag grammar, which is a manga-only capability
@@ -252,7 +232,7 @@ class LibraryViewModel(
                 categories = categories,
                 favorites = filteredFavorites,
                 tracksMap = tracksMap,
-                loggedInTrackerIds = trackingFilters.keys,
+                loggedInTrackerIds = filters.trackers.keys, // RK
                 // RK: display-only overrides, keyed by real manga id; applied at the display read.
                 customInfo = customInfo.associateBy { it.mangaId },
             )
@@ -330,30 +310,8 @@ class LibraryViewModel(
     // local-source concept, lewd's source-name check, the merge-group tracker union) live in the accessors.
     private suspend fun List<LibraryItem>.applyFilters(
         trackMap: Map<Long, List<Track>>,
-        trackingFilter: Map<Long, TriState>,
-        preferences: ItemPreferences,
+        prefs: LibraryFilterPrefs,
     ): List<LibraryItem> {
-        val includeCategories = preferences.filterCategoriesInclude
-        val excludeCategories = preferences.filterCategoriesExclude
-        val prefs = LibraryFilterPrefs(
-            // Fold the global Downloaded-only mode in, and disable the interval axis when the
-            // release-period gate is off, so the shared predicate stays a plain applyFilter.
-            downloaded = if (preferences.globalFilterDownloaded) TriState.ENABLED_IS else preferences.filterDownloaded,
-            unread = preferences.filterUnread,
-            started = preferences.filterStarted,
-            bookmarked = preferences.filterBookmarked,
-            completed = preferences.filterCompleted,
-            intervalCustom = effectiveIntervalFilter(
-                preferences.skipOutsideReleasePeriod,
-                preferences.filterIntervalCustom,
-            ),
-            lewd = preferences.filterLewd,
-            includedTracks = trackingFilter.filterValues { it == TriState.ENABLED_IS }.keys,
-            excludedTracks = trackingFilter.filterValues { it == TriState.ENABLED_NOT }.keys,
-            categoriesActive = categoryFilterActive(preferences.filterCategories, includeCategories, excludeCategories),
-            categoriesInclude = includeCategories,
-            categoriesExclude = excludeCategories,
-        )
         val sourceNames = map { it.libraryManga.manga.source }
             .distinct()
             .associateWith { sourceManager.getOrStub(it).name }
@@ -401,49 +359,11 @@ class LibraryViewModel(
             libraryPreferences.unreadBadge.changes(),
             libraryPreferences.localBadge.changes(),
             libraryPreferences.languageBadge.changes(),
-            libraryPreferences.autoUpdateMangaRestrictions.changes(),
-
-            preferences.downloadedOnly.changes(),
-            libraryPreferences.filterDownloaded.changes(),
-            libraryPreferences.filterUnread.changes(),
-            libraryPreferences.filterStarted.changes(),
-            libraryPreferences.filterBookmarked.changes(),
-            libraryPreferences.filterCompleted.changes(),
-            libraryPreferences.filterIntervalCustom.changes(),
-            // RK --> net-new Reikai filter dims + badge data
-            reikaiLibraryPreferences.filterLewd.changes(),
-            reikaiLibraryPreferences.filterCategories.changes(),
-            reikaiLibraryPreferences.filterCategoriesInclude.changes(),
-            reikaiLibraryPreferences.filterCategoriesExclude.changes(),
-            reikaiLibraryPreferences.sourceBadge.changes(),
-            // RK <--
-        ) {
-            ItemPreferences(
-                downloadBadge = it[0] as Boolean,
-                unreadBadge = it[1] as Boolean,
-                localBadge = it[2] as Boolean,
-                languageBadge = it[3] as Boolean,
-                skipOutsideReleasePeriod = LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in (it[4] as Set<*>),
-                globalFilterDownloaded = it[5] as Boolean,
-                filterDownloaded = it[6] as TriState,
-                filterUnread = it[7] as TriState,
-                filterStarted = it[8] as TriState,
-                filterBookmarked = it[9] as TriState,
-                filterCompleted = it[10] as TriState,
-                filterIntervalCustom = it[11] as TriState,
-                // RK -->
-                filterLewd = it[12] as TriState,
-                filterCategories = it[13] as Boolean,
-                filterCategoriesInclude = (it[14] as Set<*>).mapNotNull { id ->
-                    (id as? String)?.toLongOrNull()
-                }.toSet(),
-                filterCategoriesExclude = (it[15] as Set<*>).mapNotNull { id ->
-                    (id as? String)?.toLongOrNull()
-                }.toSet(),
-                sourceBadge = it[16] as Boolean,
-                // RK <--
-            )
-        }
+            // RK: the filter preferences left for libraryFilterSettingsFlow, which feeds filterSettings, so
+            //     only Booleans remain and the typed combine replaces upstream's cast-per-slot one.
+            reikaiLibraryPreferences.sourceBadge.changes(), // RK
+            ::ItemPreferences, // RK
+        )
     }
 
     private fun getFavoritesFlow(): Flow<List<LibraryItem>> {
@@ -603,23 +523,7 @@ class LibraryViewModel(
     }
     // RK <--
 
-    /**
-     * Flow of tracking filter preferences
-     *
-     * @return map of track id with the filter value
-     */
-    private fun getTrackingFiltersFlow(): Flow<Map<Long, TriState>> {
-        return trackerManager.loggedInTrackersFlow().flatMapLatest { loggedInTrackers ->
-            if (loggedInTrackers.isEmpty()) {
-                flowOf(emptyMap())
-            } else {
-                val filterFlows = loggedInTrackers.map { tracker ->
-                    libraryPreferences.filterTracking(tracker.id.toInt()).changes().map { tracker.id to it }
-                }
-                combine(filterFlows) { it.toMap() }
-            }
-        }
-    }
+    // RK: getTrackingFiltersFlow moved into libraryFilterSettingsFlow (LibraryFilterSettings.trackers).
 
     suspend fun getNextUnreadChapter(manga: Manga): Chapter? {
         // RK: resume over the whole merge group, not just the entry's own source. The badge counts a
@@ -853,22 +757,9 @@ class LibraryViewModel(
         val unreadBadge: Boolean,
         val localBadge: Boolean,
         val languageBadge: Boolean,
-        val skipOutsideReleasePeriod: Boolean,
-
-        val globalFilterDownloaded: Boolean,
-        val filterDownloaded: TriState,
-        val filterUnread: TriState,
-        val filterStarted: TriState,
-        val filterBookmarked: TriState,
-        val filterCompleted: TriState,
-        val filterIntervalCustom: TriState,
-        // RK --> net-new Reikai filter dims (lewd + include/exclude category) + badge data
-        val filterLewd: TriState = TriState.DISABLED,
-        val filterCategories: Boolean = false,
-        val filterCategoriesInclude: Set<Long> = emptySet(),
-        val filterCategoriesExclude: Set<Long> = emptySet(),
-        val sourceBadge: Boolean = true,
-        // RK <--
+        // RK: the filter axes and the release-period gate moved to LibraryFilterSettings, which both
+        //     libraries read through libraryFilterSettingsFlow.
+        val sourceBadge: Boolean, // RK: source/extension icon badge data
     )
 
     @Immutable

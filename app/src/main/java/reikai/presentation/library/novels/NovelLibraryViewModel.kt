@@ -12,7 +12,6 @@ import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,17 +21,13 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.GetNovelCategories
-import reikai.domain.category.categoryFilterActive
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.library.effectiveIntervalFilter
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeGroupRepository
@@ -63,11 +58,11 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
-import reikai.presentation.category.toLongIdSet
-import reikai.presentation.library.LibraryFilterPrefs
+import reikai.presentation.library.LibraryFilterSettings
 import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryFilterMatches
+import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
@@ -77,7 +72,6 @@ import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import reikai.util.runCatchingCancellable
-import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.category.model.Category
@@ -200,52 +194,14 @@ class NovelLibraryViewModel(
     /** Folds the badge and filter prefs into one flow so the main combine stays at its 5-arg max. Sorting
      *  is LibraryEngine's, so no sort input rides here: it would rebuild this list for nothing. */
     private fun settingsFlow(): Flow<LibrarySettings> {
-        // The library-wide filter preferences, shared with the manga library since the filter
-        // unification: a filter describes the list, not a content type.
-        val triStateFilterFlow = combine(
-            libraryPreferences.filterDownloaded.changes(),
-            libraryPreferences.filterUnread.changes(),
-            libraryPreferences.filterStarted.changes(),
-            libraryPreferences.filterCompleted.changes(),
-            libraryPreferences.filterBookmarked.changes(),
-        ) { d, u, s, c, b -> NovelFilters(d, u, s, c, b) }
-        // Category include/exclude rides in its own sub-flow so the tri-state combine stays at its 5-arg max.
-        val categoryFilterFlow = combine(
-            reikaiLibraryPreferences.filterCategories.changes(),
-            reikaiLibraryPreferences.filterCategoriesInclude.changes(),
-            reikaiLibraryPreferences.filterCategoriesExclude.changes(),
-        ) { enabled, include, exclude ->
-            val inc = include.toLongIdSet()
-            val exc = exclude.toLongIdSet()
-            Triple(categoryFilterActive(enabled, inc, exc), inc, exc)
-        }
-        // The custom-interval axis applies only while the release-period restriction is on, as manga's does.
-        val lewdAndIntervalFlow = combine(
-            reikaiLibraryPreferences.filterLewd.changes(),
-            libraryPreferences.filterIntervalCustom.changes(),
-            novelPreferences.novelUpdateRestrictions().changes(),
-        ) { lewd, interval, restrictions ->
-            lewd to effectiveIntervalFilter(LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in restrictions, interval)
-        }
-        val filterFlow = combine(
-            triStateFilterFlow,
-            categoryFilterFlow,
-            basePreferences.downloadedOnly.changes(),
-            trackingFilterFlow(),
-            lewdAndIntervalFlow,
-        ) { base, (active, inc, exc), downloadedOnly, trackingFilter, (lewd, intervalCustom) ->
-            FilterSettings(
-                base.copy(
-                    lewd = lewd,
-                    intervalCustom = intervalCustom,
-                    categoriesActive = active,
-                    categoriesInclude = inc,
-                    categoriesExclude = exc,
-                ),
-                downloadedOnly,
-                trackingFilter,
-            )
-        }
+        // The novel update restrictions gate the custom-interval axis, as the manga ones do for manga.
+        val filterFlow = libraryFilterSettingsFlow(
+            libraryPreferences,
+            reikaiLibraryPreferences,
+            basePreferences,
+            trackerManager,
+            updateRestrictions = novelPreferences.novelUpdateRestrictions().changes(),
+        )
         val mergeFlow = combine(
             combine(
                 mergeGroupRepository.getAllMembershipsAsFlow(ContentType.NOVELS),
@@ -268,37 +224,8 @@ class NovelLibraryViewModel(
             libraryPreferences.showContinueReadingButton.changes(),
             filterFlow,
             mergeFlow,
-        ) { badges, showContinue, filterSettings, merge ->
-            LibrarySettings(
-                badges,
-                showContinue,
-                filterSettings.filters,
-                filterSettings.downloadedOnly,
-                merge,
-                filterSettings.trackingFilter,
-            )
-        }
+        ) { badges, showContinue, filter, merge -> LibrarySettings(badges, showContinue, filter, merge) }
     }
-
-    /**
-     * Per-logged-in-tracker filter state (trackerId -> tri-state), mirroring the manga library's
-     * [eu.kanade.tachiyomi.ui.library.LibraryViewModel.getTrackingFiltersFlow]. The map's keys double
-     * as the logged-in tracker id set (used to score/status-resolve only logged-in trackers below).
-     */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun trackingFilterFlow(): Flow<Map<Long, TriState>> =
-        trackerManager.loggedInTrackersFlow().flatMapLatest { trackers ->
-            if (trackers.isEmpty()) {
-                flowOf(emptyMap())
-            } else {
-                combine(
-                    trackers.map { tracker ->
-                        libraryPreferences.filterTracking(tracker.id.toInt()).changes()
-                            .map { tracker.id to it }
-                    },
-                ) { it.toMap() }
-            }
-        }
 
     /** One chapter-table LIKE scan per distinct `chapter:` term, resolved once per query change. */
     private suspend fun resolveChapterMatches(query: String?): Map<String, Set<Long>> {
@@ -363,7 +290,7 @@ class NovelLibraryViewModel(
         // Union each merge group's member tracks (deduped per tracker), keyed by the rep's real novel id,
         // so the shared filter's tracker axis and the sort's mean score both read a track bound on ANY
         // grouped source. Synchronous: reads the in-memory group members, never the suspend awaitGroup.
-        val loggedInTrackerIds = settings.trackingFilter.keys
+        val loggedInTrackerIds = settings.filter.trackers.keys
         val tracksByRep: Map<Long, List<NovelTrack>> = groups.associate { group ->
             group.representative.novel.id to group.memberIds
                 .flatMap { tracks[it].orEmpty() }
@@ -377,21 +304,7 @@ class NovelLibraryViewModel(
         // The one shared library filter (tracker axis folded in), so a filter change reaches manga and
         // novels at once. The per-type seams live in the accessors: novels have no local-source concept,
         // and their lewd check is genre-only.
-        val f = settings.filters
-        val filterPrefs = LibraryFilterPrefs(
-            downloaded = if (settings.downloadedOnly) TriState.ENABLED_IS else f.downloaded,
-            unread = f.unread,
-            started = f.started,
-            bookmarked = f.bookmarked,
-            completed = f.completed,
-            intervalCustom = f.intervalCustom,
-            lewd = f.lewd,
-            includedTracks = settings.trackingFilter.filterValues { it == TriState.ENABLED_IS }.keys,
-            excludedTracks = settings.trackingFilter.filterValues { it == TriState.ENABLED_NOT }.keys,
-            categoriesActive = f.categoriesActive,
-            categoriesInclude = f.categoriesInclude,
-            categoriesExclude = f.categoriesExclude,
-        )
+        val filterPrefs = settings.filter.resolve()
         // novelId -> source id, to resolve each grouped source's icon for the merge badge.
         val sourceByNovelId = library.associate { it.novel.id to it.novel.source }
         // Keyed by the representative's novel id (== the LibraryItem id). The dynamic grouping resolves
@@ -483,8 +396,7 @@ class NovelLibraryViewModel(
             favoritesById = byId,
             customInfo = overlay,
             novelRoutes = routes,
-            hasActiveFilters = settings.filters.hasActive ||
-                settings.trackingFilter.values.any { it != TriState.DISABLED },
+            hasActiveFilters = settings.filter.isActive,
             showContinueButton = settings.showContinue,
         )
     }
@@ -638,19 +550,6 @@ class NovelLibraryViewModel(
         val source: Boolean,
     )
 
-    private data class NovelFilters(
-        val downloaded: TriState,
-        val unread: TriState,
-        val started: TriState,
-        val completed: TriState,
-        val bookmarked: TriState,
-        val lewd: TriState = TriState.DISABLED,
-        val intervalCustom: TriState = TriState.DISABLED,
-        val categoriesActive: Boolean = false,
-        val categoriesInclude: Set<Long> = emptySet(),
-        val categoriesExclude: Set<Long> = emptySet(),
-    )
-
     private data class MergeSettings(
         val membership: Map<Long, Long>,
         val mergingEnabled: Boolean,
@@ -667,29 +566,12 @@ class NovelLibraryViewModel(
         val downloadUnits: Map<Long, List<DownloadUnitRow>> = emptyMap(),
     )
 
-    /** Carries the per-session filters plus the global Downloaded-only mode out of the filter sub-flow. */
-    private data class FilterSettings(
-        val filters: NovelFilters,
-        val downloadedOnly: Boolean,
-        val trackingFilter: Map<Long, TriState>,
-    )
-
     private data class LibrarySettings(
         val badges: BadgePrefs,
         val showContinue: Boolean,
-        val filters: NovelFilters,
-        val downloadedOnly: Boolean,
+        val filter: LibraryFilterSettings,
         val merge: MergeSettings,
-        // Per-logged-in-tracker filter (trackerId -> tri-state); keys are the logged-in tracker ids.
-        val trackingFilter: Map<Long, TriState>,
     )
-
-    private val NovelFilters.hasActive: Boolean
-        get() = categoriesActive ||
-            listOf(downloaded, unread, started, completed, bookmarked, lewd, intervalCustom).any {
-                it !=
-                    TriState.DISABLED
-            }
 
     data class State(
         val isLoading: Boolean = true,
