@@ -74,7 +74,7 @@ class LibraryRowScheduleConformanceTest {
                 languageBadge = false,
                 sourceLanguage = "en",
                 sourceBadge = false,
-                sourceIcon = null,
+                sourceIcon = SourceBadge.Generic,
                 sourceName = "src",
             )
         },

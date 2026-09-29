@@ -11,6 +11,7 @@ import reikai.novel.host.LnPluginInfo
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.LibraryGroup
+import reikai.presentation.library.SourceBadge
 
 class NovelDynamicGroupingTest {
 
@@ -25,7 +26,7 @@ class NovelDynamicGroupingTest {
         coEvery { sourceManager.get(any()) } answers { sources[firstArg()] }
 
         val feed = novelDynamicGroupingFeed(
-            items = novels.map { it.toLibraryItem(false, false, false, "", false, null, "") },
+            items = novels.map { it.toLibraryItem(false, false, false, "", false, SourceBadge.Generic, "") },
             novelById = novels.associateBy { it.novel.id },
             tracksByRep = emptyMap(),
             loggedInTrackerIds = emptySet(),

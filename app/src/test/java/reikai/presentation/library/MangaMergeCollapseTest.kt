@@ -89,8 +89,20 @@ class MangaMergeCollapseTest {
         merged.id shouldBe 2L // more chapters wins the primary
         merged.unreadCount shouldBe 3L // primary's unread (not summed), closer to the deduped count
         merged.relatedMangaIds shouldContainExactlyInAnyOrder listOf(1L, 2L)
-        merged.badges.mergedSources.map { it.id } shouldContainExactlyInAnyOrder listOf(100L, 200L)
+        merged.badges.mergedSources shouldContainExactlyInAnyOrder listOf(badge(100L), badge(200L))
     }
+
+    @Test
+    fun `a group whose members share a source badges that source once`() = runTest {
+        val result = collapse(
+            listOf(item(1, source = 100L), item(2, source = 100L), item(3, source = 200L)),
+            membership = mapOf(1L to 7L, 2L to 7L, 3L to 7L),
+        )
+
+        result.single().badges.mergedSources shouldContainExactlyInAnyOrder listOf(badge(100L), badge(200L))
+    }
+
+    private fun badge(sourceId: Long) = SourceBadge.Manga(resolveSource(sourceId))
 
     @Test
     fun `distinct chapter identities decide the primary, not the row count`() = runTest {

@@ -66,6 +66,7 @@ import reikai.domain.merge.stitchInputChanges
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.MangaMergeCollapse
+import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryFilterMatches
@@ -416,9 +417,7 @@ class LibraryViewModel(
                         },
                         // RK: source/extension icon badge data (null when the source badge is off)
                         source = if (preferences.sourceBadge) {
-                            sourceManager.getOrStub(manga.manga.source).let { s ->
-                                DomainSource(s.id, s.lang, s.name, supportsLatest = false, isStub = s is StubSource)
-                            }
+                            SourceBadge.Manga(resolveBadgeSource(manga.manga.source))
                         } else {
                             null
                         },
@@ -433,7 +432,7 @@ class LibraryViewModel(
                 membership = mergePrefs.membership,
                 mergingEnabled = mergePrefs.mergingEnabled,
                 showMergeSourceIcons = mergePrefs.showMergeSourceIcons,
-                resolveSource = ::resolveMergeSource,
+                resolveSource = ::resolveBadgeSource,
                 mergedCountsByGroup = if (mergePrefs.mergingEnabled) mergePrefs.mergedCounts else emptyMap(),
                 // RK: the same treatment for downloads, which summing the members double-counted for
                 //     every chapter two of them hold.
@@ -515,7 +514,7 @@ class LibraryViewModel(
         }
     }
 
-    private suspend fun resolveMergeSource(sourceId: Long): DomainSource {
+    private suspend fun resolveBadgeSource(sourceId: Long): DomainSource {
         val s = sourceManager.getOrStub(sourceId)
         return DomainSource(s.id, s.lang, s.name, supportsLatest = false, isStub = s is StubSource)
     }

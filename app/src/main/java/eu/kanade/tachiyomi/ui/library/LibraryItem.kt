@@ -7,9 +7,8 @@ import exh.search.QueryComponent
 import exh.search.Text
 import reikai.domain.entry.EntryId
 import reikai.presentation.library.LibraryQuerySource
-import reikai.presentation.library.NovelSourceBadge
+import reikai.presentation.library.SourceBadge
 import tachiyomi.domain.library.model.LibraryManga
-import tachiyomi.domain.source.model.Source
 
 data class LibraryItem(
     val libraryManga: LibraryManga,
@@ -89,17 +88,12 @@ data class LibraryItem(
         val unreadCount: Long,
         val isLocal: Boolean,
         val sourceLanguage: String,
-        // RK: source-icon badge data (null when the source badge is off)
-        val source: Source? = null,
-        // RK: the grouped sources for a merge entry (empty when not merged), for the merge badge.
-        val mergedSources: List<Source> = emptyList(),
-        // RK --> the novel's own source id, which its cover is fetched with, and the source badge, since a
-        // disguised novel has no real Mihon Source. Null for manga rows.
+        // RK --> the source-icon badge, typed for both content types (null when the source badge is off),
+        // and one per distinct grouped source for a merge entry (empty when not merged or icons are off).
+        val source: SourceBadge? = null,
+        val mergedSources: List<SourceBadge> = emptyList(),
+        // The novel's own source id, which its cover is fetched with. Null for manga rows.
         val coverSourceId: String? = null,
-        val novelSource: NovelSourceBadge? = null,
-        // The grouped sources' badges for a merged NOVEL (novels have no Mihon Source bitmap). Empty when
-        // not merged or the merge-icon setting is off.
-        val mergedNovelSources: List<NovelSourceBadge> = emptyList(),
         // RK <--
     )
 }

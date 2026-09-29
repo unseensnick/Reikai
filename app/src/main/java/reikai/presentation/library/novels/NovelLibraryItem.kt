@@ -3,7 +3,7 @@ package reikai.presentation.library.novels
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.model.LibraryNovel
-import reikai.presentation.library.NovelSourceBadge
+import reikai.presentation.library.SourceBadge
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 
@@ -21,7 +21,7 @@ fun LibraryNovel.toLibraryItem(
     languageBadge: Boolean,
     sourceLanguage: String,
     sourceBadge: Boolean,
-    sourceIcon: NovelSourceBadge?,
+    sourceIcon: SourceBadge,
     sourceName: String,
 ): LibraryItem {
     val n = novel
@@ -77,7 +77,7 @@ fun LibraryNovel.toLibraryItem(
             // The cover's source is always carried (it isn't a visible badge); the source badge honors
             // the source-badge display toggle, mirroring how the manga side gates `source`.
             coverSourceId = n.source,
-            novelSource = if (sourceBadge) sourceIcon else null,
+            source = if (sourceBadge) sourceIcon else null,
         ),
     )
 }

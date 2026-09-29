@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
+import reikai.presentation.library.SourceBadge
 
 class NovelLibraryItemTest {
 
@@ -26,7 +27,7 @@ class NovelLibraryItemTest {
         languageBadge = false,
         sourceLanguage = "en",
         sourceBadge = false,
-        sourceIcon = null,
+        sourceIcon = SourceBadge.Generic,
         sourceName = "Novel Arrow",
     )
 

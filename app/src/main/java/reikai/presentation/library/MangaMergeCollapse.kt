@@ -104,8 +104,11 @@ object MangaMergeCollapse {
                 // Zero when the badge is off, which is how every member reports it then.
                 downloadCount = if (subGroup.any { it.badges.downloadCount > 0 }) downloads else 0,
                 unreadCount = if (showUnreadBadge) unread else 0,
+                // One badge per distinct source, as novels badge them: two members on one source are
+                // one source to the reader.
                 mergedSources = if (showMergeSourceIcons) {
-                    subGroup.map { resolveSource(it.libraryManga.manga.source) }
+                    subGroup.map { it.libraryManga.manga.source }.distinct()
+                        .map { SourceBadge.Manga(resolveSource(it)) }
                 } else {
                     emptyList()
                 },

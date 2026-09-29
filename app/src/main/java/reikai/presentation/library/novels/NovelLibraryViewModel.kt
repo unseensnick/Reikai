@@ -62,6 +62,7 @@ import reikai.presentation.library.LibraryFilterSettings
 import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
+import reikai.presentation.library.installedIconsBySite
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
@@ -309,6 +310,7 @@ class NovelLibraryViewModel(
         val filterPrefs = settings.filter.resolve()
         // novelId -> source id, to resolve each grouped source's icon for the merge badge.
         val sourceByNovelId = library.associate { it.novel.id to it.novel.source }
+        val iconsBySite = installedIconsBySite(sourceManager.getAll())
         // Keyed by the representative's novel id (== the LibraryItem id). The dynamic grouping resolves
         // per-novel metadata (genre / author / source / status) the row cannot carry, and the search
         // needs the source name and slug, since a novel row has no Mihon Source to read either off.
@@ -329,7 +331,7 @@ class NovelLibraryViewModel(
                 settings.badges.language,
                 repSource.language.orEmpty(),
                 sourceBadge = settings.badges.source,
-                sourceIcon = novelSourceBadge(source),
+                sourceIcon = novelSourceBadge(source, iconsBySite),
                 sourceName = repSource.name,
             )
             if (group.memberIds.size > 1) {
@@ -338,7 +340,7 @@ class NovelLibraryViewModel(
                 // uninstalled one included, as a manga group keeps its stub member.
                 val memberBadges = if (settings.merge.showSourceIcons) {
                     group.memberIds.mapNotNull { sourceByNovelId[it] }.distinct()
-                        .mapNotNull { novelSourceBadge(sourceManager.get(it)) }
+                        .map { novelSourceBadge(sourceManager.get(it), iconsBySite) }
                 } else {
                     emptyList()
                 }
@@ -349,7 +351,7 @@ class NovelLibraryViewModel(
                         .map { querySource(it) },
                     badges = item.badges.copy(
                         downloadCount = if (settings.badges.download) group.totalDownloadCount.toInt() else 0,
-                        mergedNovelSources = memberBadges,
+                        mergedSources = memberBadges,
                     ),
                 )
             } else {

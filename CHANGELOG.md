@@ -57,6 +57,7 @@ every stable release now also ships a foss build with neither in it.
 - **Empty categories are now always hidden, and the "Show number of items" setting is obeyed on novels too.** A category with nothing to show never renders a bare header, on any chip.
 - **Failed manga and novel updates are now recorded by default, and the notification opens the list of what failed; turn it off with Track update errors under Settings -> Library -> Global update · Manga or · Novels.** With it off, the notification opens one log file covering both libraries instead.
 - **Library search now finds an entry by id with `id=5` and by source id with `srcid:`, on manga and novels (partly synced from Mihon, mihonapp/mihon#3554).** `src:` now matches a source's name instead of its id.
+- **Novels whose source has no icon now show a same-site source's icon or the generic source badge, as manga do.**
 
 #### Fixed
 

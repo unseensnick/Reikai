@@ -60,9 +60,19 @@ import kotlin.math.roundToInt
 
 private const val MAX_MERGE_ICONS = 3
 
+/** One source badge, the same drawing rules for a manga and a novel row. */
 @Composable
-fun SourceIconBadge(source: Source?) {
-    if (source == null) return
+fun SourceIconBadge(badge: SourceBadge) {
+    when (badge) {
+        is SourceBadge.Manga -> MangaSourceIconBadge(badge.source)
+        is SourceBadge.Icon -> UrlSourceIconBadge(badge.url)
+        SourceBadge.Generic -> GenericSourceBadge()
+        SourceBadge.Missing -> MissingSourceBadge()
+    }
+}
+
+@Composable
+private fun MangaSourceIconBadge(source: Source) {
     val icon = produceState<ImageBitmap?>(initialValue = null, source.id) { value = source.icon() }.value
     when {
         source.isStub && icon == null -> MissingSourceBadge()
@@ -84,12 +94,18 @@ fun SourceIconBadge(source: Source?) {
         //     library badge matches the browse source icon instead of the generic library glyph.
         source.id == PURURIN_SOURCE_ID -> PururinSourceIconBadge()
         source.id == NHENTAI_NET_SOURCE_ID -> NHentaiNetSourceIconBadge()
-        else -> Badge(
-            imageVector = MaterialSymbols.Rounded.LocalLibrary,
-            color = MaterialTheme.colorScheme.tertiary,
-            iconColor = MaterialTheme.colorScheme.onTertiary,
-        )
+        else -> GenericSourceBadge()
     }
+}
+
+/** The badge for an installed source with no icon to draw. */
+@Composable
+private fun GenericSourceBadge() {
+    Badge(
+        imageVector = MaterialSymbols.Rounded.LocalLibrary,
+        color = MaterialTheme.colorScheme.tertiary,
+        iconColor = MaterialTheme.colorScheme.onTertiary,
+    )
 }
 
 /** Source-icon badge for the built-in E-Hentai / ExHentai sources. The brand mark (its own dark red)
@@ -157,20 +173,16 @@ private fun MissingSourceBadge() {
     )
 }
 
-/** Source-icon badge for a disguised novel: the source's icon is a CDN URL (novels carry no Mihon
- *  [Source] bitmap), so it's coil-loaded. Mirrors [SourceIconBadge]'s bitmap path exactly (same
- *  [Badge] geometry: a secondary-backed rectangle with the icon scaled to fill an 18dp square) so a
- *  novel cover's badge is visually identical to a manga's. Renders nothing when [badge] is absent. */
+/** A source icon given as an address, coil-loaded into the same [Badge] geometry the bitmap path draws
+ *  (a secondary-backed rectangle with the icon scaled to fill an 18dp square). One that fails to load
+ *  draws the generic badge, as a manga source whose icon cannot load does. */
 @Composable
-fun NovelSourceIconBadge(badge: NovelSourceBadge?) {
-    if (badge == NovelSourceBadge.Missing) {
-        MissingSourceBadge()
+private fun UrlSourceIconBadge(iconUrl: String) {
+    var failed by remember(iconUrl) { mutableStateOf(false) }
+    if (failed) {
+        GenericSourceBadge()
         return
     }
-    val iconUrl = (badge as? NovelSourceBadge.Icon)?.url
-    // One that fails to load is dropped like an absent one, rather than left an empty square.
-    var failed by remember(iconUrl) { mutableStateOf(false) }
-    if (iconUrl == null || failed) return
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -287,18 +299,9 @@ private val TextBadgeWidth = 26.dp
 fun LibraryCoverEndBadges(item: LibraryItem) {
     val budget = LocalCoverBadgeBudget.current
     val density = LocalDensity.current
-    val isNovel = item.entryId is EntryId.Novel
     val isMerged = item.isMerged
-    val mergedSources = item.badges.mergedSources.distinctBy { it.id }
-    val hasOwnIcon = if (isNovel) item.badges.novelSource != null else item.badges.source != null
     // An unmerged row still spends the same budget: one source icon competing with the language badge.
-    val sourceCount = if (isMerged) {
-        if (isNovel) item.badges.mergedNovelSources.size else mergedSources.size
-    } else if (hasOwnIcon) {
-        1
-    } else {
-        0
-    }
+    val sourceCount = item.badges.endSourceCount(isMerged)
     val hasLanguage = item.badges.isLocal || item.badges.sourceLanguage.isNotEmpty()
 
     val plan = remember(budget, sourceCount, hasLanguage, isMerged) {
@@ -322,17 +325,9 @@ fun LibraryCoverEndBadges(item: LibraryItem) {
         // The group count stands in for icons that no longer fit; an unmerged row has none to stand in for.
         plan.showGroupCount -> if (isMerged) Badge(text = item.relatedMangaIds.size.toString())
         plan.icons == 0 -> Unit
-        !isMerged -> if (isNovel) {
-            NovelSourceIconBadge(item.badges.novelSource)
-        } else {
-            SourceIconBadge(item.badges.source)
-        }
-        isNovel -> {
-            item.badges.mergedNovelSources.take(plan.icons).forEach { NovelSourceIconBadge(it) }
-            if (plan.overflow > 0) Badge(text = "+${plan.overflow}")
-        }
+        !isMerged -> item.badges.source?.let { SourceIconBadge(it) }
         else -> {
-            mergedSources.take(plan.icons).forEach { SourceIconBadge(it) }
+            item.badges.mergedSources.take(plan.icons).forEach { SourceIconBadge(it) }
             if (plan.overflow > 0) Badge(text = "+${plan.overflow}")
         }
     }
