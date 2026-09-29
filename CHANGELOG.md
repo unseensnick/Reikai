@@ -737,6 +737,7 @@ every stable release now also ships a foss build with neither in it.
 - Cancelled novel plugin checks, font downloads and update runs stop instead of being logged as failures.
 - Plugin settings load and save off the main thread.
 - Reader text settings are read from one place, so a new one cannot miss the live refresh.
+- Novel covers load through the same code as manga covers.
 
 ## [0.3.2]
 

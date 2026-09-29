@@ -66,7 +66,7 @@ import mihon.core.migration.Migrator
 import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
 import reikai.data.coil.ExtensionIconFetcher
-import reikai.data.coil.NovelCoverFetcher
+import reikai.data.coil.NovelCoverFactory
 import reikai.data.coil.NovelCoverKeyer
 import reikai.data.coil.NovelImageFetcher
 import reikai.data.coil.NovelImageKeyer
@@ -302,7 +302,7 @@ class App :
                 add(MangaCoverFetcher.MangaFactory(callFactoryLazy, coverCache, sourceManager, mangaCoverMetadata))
                 // RK: light-novel covers and chapter pictures, each with its source's image headers
                 val novelImageRequests = lazy { graph.novelImageRequests }
-                add(NovelCoverFetcher.Factory(novelImageRequests, coverCache))
+                add(NovelCoverFactory(novelImageRequests, coverCache, mangaCoverMetadata))
                 add(NovelImageFetcher.Factory(novelImageRequests))
                 // RK: a novel extension app's icon, named as an address
                 add(ExtensionIconFetcher.Factory(lazy { graph.extensionManager }, lazy { graph.novelPreferences }))

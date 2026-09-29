@@ -15,10 +15,10 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.coil.MangaCoverFetcher.Companion.USE_CUSTOM_COVER_KEY
 import eu.kanade.tachiyomi.network.await
-import eu.kanade.tachiyomi.source.online.HttpSource
 import logcat.LogPriority
 import okhttp3.CacheControl
 import okhttp3.Call
+import okhttp3.Headers
 import okhttp3.Request
 import okhttp3.Response
 import okio.FileSystem
@@ -27,6 +27,8 @@ import okio.Source
 import okio.buffer
 import okio.sink
 import okio.source
+import reikai.data.coil.CoverRequestClient
+import reikai.data.coil.coverRequestClient
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
@@ -54,8 +56,8 @@ class MangaCoverFetcher(
     private val coverFileLazy: Lazy<File?>,
     private val customCoverFileLazy: Lazy<File>,
     private val diskCacheKeyLazy: Lazy<String>,
-    private val getSource: suspend () -> HttpSource?,
-    private val callFactoryLazy: Lazy<Call.Factory>,
+    // RK: in place of upstream's getSource and callFactoryLazy, so novel covers share this fetcher
+    private val getClient: suspend () -> CoverRequestClient,
     private val imageLoader: ImageLoader,
     private val mangaCoverMetadata: MangaCoverMetadata, // RK: cover-colour extraction
 ) : Fetcher {
@@ -198,9 +200,10 @@ class MangaCoverFetcher(
     }
 
     private suspend fun executeNetworkRequest(): Response {
-        val source = getSource()
-        val client = source?.client ?: callFactoryLazy.value
-        val response = client.newCall(newRequest(source)).await()
+        // RK -->
+        val client = getClient()
+        val response = client.callFactory.newCall(newRequest(client.headers)).await()
+        // RK <--
         if (!response.isSuccessful && response.code != HTTP_NOT_MODIFIED) {
             response.close()
             throw IOException(response.message)
@@ -208,11 +211,10 @@ class MangaCoverFetcher(
         return response
     }
 
-    private fun newRequest(source: HttpSource?): Request {
+    private fun newRequest(sourceHeaders: Headers?): Request { // RK: headers from getClient
         val request = Request.Builder().apply {
             url(url!!)
 
-            val sourceHeaders = source?.headers
             if (sourceHeaders != null) {
                 headers(sourceHeaders)
             }
@@ -342,8 +344,7 @@ class MangaCoverFetcher(
                 coverFileLazy = lazy { coverCache.getCoverFile(data.thumbnailUrl) },
                 customCoverFileLazy = lazy { coverCache.getCustomCoverFile(data.id) },
                 diskCacheKeyLazy = lazy { imageLoader.components.key(data, options)!! },
-                getSource = { sourceManager.get(data.source) as? HttpSource },
-                callFactoryLazy = callFactoryLazy,
+                getClient = { sourceManager.get(data.source).coverRequestClient(callFactoryLazy) }, // RK
                 imageLoader = imageLoader,
                 mangaCoverMetadata = mangaCoverMetadata, // RK
             )
@@ -366,8 +367,7 @@ class MangaCoverFetcher(
                 coverFileLazy = lazy { coverCache.getCoverFile(data.url) },
                 customCoverFileLazy = lazy { coverCache.getCustomCoverFile(data.mangaId) },
                 diskCacheKeyLazy = lazy { imageLoader.components.key(data, options)!! },
-                getSource = { sourceManager.get(data.sourceId) as? HttpSource },
-                callFactoryLazy = callFactoryLazy,
+                getClient = { sourceManager.get(data.sourceId).coverRequestClient(callFactoryLazy) }, // RK
                 imageLoader = imageLoader,
                 mangaCoverMetadata = mangaCoverMetadata, // RK
             )
