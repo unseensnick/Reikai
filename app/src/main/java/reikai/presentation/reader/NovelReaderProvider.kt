@@ -268,45 +268,13 @@ class NovelReaderProvider(
      */
     override fun createViewport(host: ReaderActivity): ReaderViewport {
         val textSelectable = novelPreferences.readerTextSelectable().get()
-        // One rule for both renderers: the keys are the reader's only while the menu is down, as they
-        // are for manga. Read from the host each press, since the menu opens and closes mid-session.
-        val volumeKeysActive = { viewModel.settings.value.useVolumeButtons && !host.isMenuVisible }
         // One rule for both renderers, as the long-strip manga viewer hides the menu: read once per
         // viewport, so a changed threshold takes effect on the next open, as manga's does.
         val hideThreshold = novelPreferences.readerHideThreshold().get().threshold
-        val onReaderScrolled = { dy: Int -> if (abs(dy) > hideThreshold) host.hideMenu() }
-        val autoScrollSpeed = novelPreferences.readerAutoScrollSpeed()
-        if (novelPreferences.readerRenderingMode().get() == NovelRenderingMode.NATIVE) {
-            return NovelTextViewport(
-                context = host,
-                fontManager = fontManager,
-                textSelectable = textSelectable,
-                volumeKeysActive = volumeKeysActive,
-                onProgressChanged = viewModel::reportProgress,
-                onProgressSettled = viewModel::saveProgress,
-                onTopLine = viewModel::reportTopLine,
-                onToggleMenu = host::toggleMenu,
-                onStepChapter = { forward ->
-                    if (forward) host.engine.nextChapter() else host.engine.previousChapter()
-                },
-                onVisibleChapter = viewModel::reportVisibleChapter,
-                onRetryBoundary = viewModel::retryBoundary,
-                cutoutTopDp = host::displayCutoutTopDp,
-                onChapterFits = viewModel::reportFitsOnScreen,
-                onChapterEndSeen = viewModel::reportChapterEndSeen,
-                onReaderScrolled = onReaderScrolled,
-                autoScrollSpeed = autoScrollSpeed,
-            )
-        }
-        return NovelWebViewport(
-            context = host,
-            fontManager = fontManager,
-            imageRequests = imageRequests,
-            textSelectable = textSelectable,
-            volumeKeysActive = volumeKeysActive,
-            useOriginalFonts = novelPreferences.readerUseOriginalFonts().get(),
-            sourceCssPriority = novelPreferences.readerSourceCssPriority().get(),
-            devTools = novelPreferences.readerWebViewDevTools().get(),
+        val callbacks = NovelViewportCallbacks(
+            // The keys are the reader's only while the menu is down, as they are for manga. Read from the
+            // host each press, since the menu opens and closes mid-session.
+            volumeKeysActive = { viewModel.settings.value.useVolumeButtons && !host.isMenuVisible },
             // Both persist: the live percent debounced, since an auto-scrolled or scrubbed read never
             // settles, and the settled one at once. Either one finishing a chapter marks it read.
             onProgressChanged = viewModel::reportProgress,
@@ -323,7 +291,27 @@ class NovelReaderProvider(
             cutoutTopDp = host::displayCutoutTopDp,
             onChapterFits = viewModel::reportFitsOnScreen,
             onChapterEndSeen = viewModel::reportChapterEndSeen,
-            onReaderScrolled = onReaderScrolled,
+            onReaderScrolled = { dy -> if (abs(dy) > hideThreshold) host.hideMenu() },
+        )
+        val autoScrollSpeed = novelPreferences.readerAutoScrollSpeed()
+        if (novelPreferences.readerRenderingMode().get() == NovelRenderingMode.NATIVE) {
+            return NovelTextViewport(
+                context = host,
+                fontManager = fontManager,
+                textSelectable = textSelectable,
+                callbacks = callbacks,
+                autoScrollSpeed = autoScrollSpeed,
+            )
+        }
+        return NovelWebViewport(
+            context = host,
+            fontManager = fontManager,
+            imageRequests = imageRequests,
+            textSelectable = textSelectable,
+            callbacks = callbacks,
+            useOriginalFonts = novelPreferences.readerUseOriginalFonts().get(),
+            sourceCssPriority = novelPreferences.readerSourceCssPriority().get(),
+            devTools = novelPreferences.readerWebViewDevTools().get(),
             autoScrollSpeed = autoScrollSpeed,
         )
     }

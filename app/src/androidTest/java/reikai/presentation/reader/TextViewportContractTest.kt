@@ -116,6 +116,22 @@ class TextViewportContractTest(private val renderer: Renderer) {
     private val topLines = CopyOnWriteArrayList<Pair<Long, Int?>>()
     private var server: PngServer? = null
 
+    /** What either renderer reports, recorded into the fields above. */
+    private val callbacks = NovelViewportCallbacks(
+        volumeKeysActive = { volumeKeysOn },
+        onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
+        onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
+        onTopLine = { id, line -> topLines += id to line },
+        onToggleMenu = {},
+        onStepChapter = { steps += it },
+        onVisibleChapter = { visibleChapters += it },
+        onRetryBoundary = {},
+        cutoutTopDp = { cutout },
+        onChapterFits = { id, fit -> fits[id] = fit },
+        onChapterEndSeen = { endsSeen += it },
+        onReaderScrolled = { scrolls += it },
+    )
+
     @Before
     fun setUp() {
         scenario = ActivityScenario.launch(WebViewHostActivity::class.java)
@@ -140,18 +156,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 context = activity,
                 fontManager = activity.appGraph.novelFontManager,
                 textSelectable = textSelectable,
-                volumeKeysActive = { volumeKeysOn },
-                onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
-                onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
-                onTopLine = { id, line -> topLines += id to line },
-                onToggleMenu = {},
-                onStepChapter = { steps += it },
-                onVisibleChapter = { visibleChapters += it },
-                onRetryBoundary = {},
-                cutoutTopDp = { cutout },
-                onChapterFits = { id, fit -> fits[id] = fit },
-                onChapterEndSeen = { endsSeen += it },
-                onReaderScrolled = { scrolls += it },
+                callbacks = callbacks,
                 autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
             )
             Renderer.WEB -> NovelWebViewport(
@@ -159,20 +164,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 fontManager = activity.appGraph.novelFontManager,
                 imageRequests = activity.appGraph.novelImageRequests,
                 textSelectable = textSelectable,
-                volumeKeysActive = { volumeKeysOn },
+                callbacks = callbacks,
                 useOriginalFonts = false,
                 sourceCssPriority = false,
-                onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
-                onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
-                onTopLine = { id, line -> topLines += id to line },
-                onToggleMenu = {},
-                onStepChapter = { steps += it },
-                onVisibleChapter = { visibleChapters += it },
-                onRetryBoundary = {},
-                cutoutTopDp = { cutout },
-                onChapterFits = { id, fit -> fits[id] = fit },
-                onChapterEndSeen = { endsSeen += it },
-                onReaderScrolled = { scrolls += it },
                 autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
             )
         }

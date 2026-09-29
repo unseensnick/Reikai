@@ -73,38 +73,7 @@ class NovelTextViewport(
     private val fontManager: NovelFontManager,
     /** Selection and clickable links are exclusive: the movement method that drags cannot click. */
     private val textSelectable: Boolean,
-    /** Whether a volume key scrolls right now: the setting, and the menu being down. The provider
-     *  builds it once for both viewports, so they cannot disagree on when the keys are theirs. Which
-     *  way and how far a press scrolls come from the settings pushed last. */
-    private val volumeKeysActive: () -> Boolean,
-    /** Both carry the chapter measured, not just the number: at a boundary the reader is already in
-     *  the next chapter while the model still has the previous one, and an unnamed percentage lands
-     *  on whichever the model happens to hold. */
-    private val onProgressChanged: (chapterId: Long, percent: Int) -> Unit,
-    private val onProgressSettled: (chapterId: Long, percent: Int) -> Unit,
-    /** The line at the top of the screen as characters into its chapter (`shownCharPrefix`), null while the
-     *  chapter's text starts on screen. Sent when it changes. */
-    private val onTopLine: (chapterId: Long, line: Int?) -> Unit,
-    private val onToggleMenu: () -> Unit,
-    /** Swipe-between-chapters, forward or back, the same contract [NovelWebViewport] takes. */
-    private val onStepChapter: (forward: Boolean) -> Unit,
-    /** Which chapter the reader is in, whenever that changes. The window is the only reason it can
-     *  differ from the one the model last opened. */
-    private val onVisibleChapter: (chapterId: Long) -> Unit,
-    /** The reader asking again for the chapter beyond an edge that would not load. */
-    private val onRetryBoundary: (forward: Boolean) -> Unit,
-    /** The cutout inset in dp, zero when the host already pads clear of it. Read per load and again
-     *  when insets arrive, since it is only known once the window has them. */
-    private val cutoutTopDp: () -> Int,
-    /** Whether a chapter fits on one screen, whenever that answer changes. Such a chapter has no
-     *  scroll room, so the model reads it when the reader steps forward from it. */
-    private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
-    /** A chapter's last line reached the screen, once its images had landed. The model reads the
-     *  novel's last chapter on it, since nothing follows that one to be left into. */
-    private val onChapterEndSeen: (chapterId: Long) -> Unit,
-    /** A scroll the reader's finger made, in pixels; the provider hides the menu past its threshold. The
-     *  viewport's own scrolls (seek, keys, read aloud, auto-scroll) never report. */
-    private val onReaderScrolled: (dyPx: Int) -> Unit,
+    private val callbacks: NovelViewportCallbacks,
     /** Auto-scroll's speed, which the engine runs this at while it is on. */
     autoScrollSpeed: Preference<Float>,
 ) : ReaderViewport, TextViewport, ChapterWindow {
@@ -302,17 +271,17 @@ class NovelTextViewport(
         addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(view: RecyclerView, dx: Int, dy: Int) {
                 scrolled += dy
-                if (view.scrollState == RecyclerView.SCROLL_STATE_DRAGGING) onReaderScrolled(dy)
+                if (view.scrollState == RecyclerView.SCROLL_STATE_DRAGGING) callbacks.onReaderScrolled(dy)
                 showTallPictures()
                 reportVisibleChapter()
-                report(onProgressChanged)
+                report(callbacks.onProgressChanged)
                 reportEnds()
             }
 
             override fun onScrollStateChanged(view: RecyclerView, state: Int) {
                 // Only a finger drags: the viewport's own scrolls settle without it.
                 if (state == RecyclerView.SCROLL_STATE_DRAGGING) readerMoved()
-                if (state == RecyclerView.SCROLL_STATE_IDLE) report(onProgressSettled)
+                if (state == RecyclerView.SCROLL_STATE_IDLE) report(callbacks.onProgressSettled)
             }
         })
         addOnItemTouchListener(tapWatcher)
@@ -340,7 +309,7 @@ class NovelTextViewport(
         warmFont()
         // Folded into the column's own top margin, since a seek measures from the viewport's edge and
         // would scroll a padding above the list straight off screen, even to 0%.
-        topInsetPx = (cutoutTopDp() * context.resources.displayMetrics.density).toInt()
+        topInsetPx = (callbacks.cutoutTopDp() * context.resources.displayMetrics.density).toInt()
         // An explicit open replaces the window rather than growing it: the chapters around the one
         // being left are not the ones around the one being opened, so a redraw of those stops too.
         redrawJob?.cancel()
@@ -841,7 +810,7 @@ class NovelTextViewport(
 
     /** Re-reads the cutout inset and moves every column's top margin by the change. */
     private fun refreshTopInset() {
-        val inset = (cutoutTopDp() * context.resources.displayMetrics.density).toInt()
+        val inset = (callbacks.cutoutTopDp() * context.resources.displayMetrics.density).toInt()
         if (inset == topInsetPx) return
         topInsetPx = inset
         val current = settings ?: return
@@ -969,7 +938,7 @@ class NovelTextViewport(
 
     /** The same contract [NovelWebViewport] answers, so a volume press behaves the same in either. */
     override fun handleKeyEvent(event: KeyEvent): Boolean {
-        if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !volumeKeysActive()) return false
+        if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !callbacks.volumeKeysActive()) return false
         val current = settings ?: return false
         if (event.action == KeyEvent.ACTION_DOWN) {
             readerMoved()
@@ -996,12 +965,12 @@ class NovelTextViewport(
         val height = recycler.height
         val zones = settings?.tapZones
         if (zones == null || width <= 0 || height <= 0) {
-            onToggleMenu()
+            callbacks.onToggleMenu()
             return
         }
         val step = (height * NovelTapZones.SCROLL_FRACTION).roundToInt()
         when (zones.actionAt(x / width, y / height)) {
-            NovelTapAction.MENU -> onToggleMenu()
+            NovelTapAction.MENU -> callbacks.onToggleMenu()
             NovelTapAction.BACK -> {
                 readerMoved()
                 recycler.smoothScrollBy(0, -step)
@@ -1038,7 +1007,7 @@ class NovelTextViewport(
             startX = touchDownX,
             width = recycler.width.toFloat(),
             minimum = CHAPTER_SWIPE_MIN_DP * context.resources.displayMetrics.density,
-        )?.let(onStepChapter)
+        )?.let(callbacks.onStepChapter)
     }
 
     /**
@@ -1070,7 +1039,7 @@ class NovelTextViewport(
             val prefix = slot.shownPrefixes[chunk]
             (0 until chunk).sumOf(slot::shownCount) + prefix[it.offset.coerceIn(0, prefix.lastIndex)]
         }
-        onTopLine(slot.chapter.chapterId, line)
+        callbacks.onTopLine(slot.chapter.chapterId, line)
     }
 
     /** The chunk view and offset of counted character [line] of [slot]'s chapter, or null past its text. */
@@ -1126,7 +1095,8 @@ class NovelTextViewport(
         if (!slot.rendered || slot.block.imagesLoading) return
         val (_, height) = boundsOf(slot) ?: return
         val fits = height <= recycler.height
-        if (reportedFits.put(slot.chapter.chapterId, fits) != fits) onChapterFits(slot.chapter.chapterId, fits)
+        val id = slot.chapter.chapterId
+        if (reportedFits.put(id, fits) != fits) callbacks.onChapterFits(id, fits)
     }
 
     /** Chapters whose last line has been on screen, each told once. */
@@ -1141,7 +1111,7 @@ class NovelTextViewport(
             val (top, height) = boundsOf(slot) ?: return@forEach
             if (top + height > recycler.height) return@forEach
             reportedEnds += id
-            onChapterEndSeen(id)
+            callbacks.onChapterEndSeen(id)
         }
     }
 
@@ -1162,7 +1132,7 @@ class NovelTextViewport(
         val id = visibleSlot()?.chapter?.chapterId ?: return
         if (id == reportedVisibleId) return
         reportedVisibleId = id
-        onVisibleChapter(id)
+        callbacks.onVisibleChapter(id)
     }
 
     /** The chapter being read: the first the viewport has any of on screen, which is how the webtoon
@@ -1252,7 +1222,7 @@ class NovelTextViewport(
                 scrollWithin(slot, landing.fraction)
                 // A chapter with no room to move sends no scroll, and a scroll is all that reports, so the
                 // held position is said here: without it the model kept the saved one, as the page did.
-                if (scrolled == before) report(onProgressChanged)
+                if (scrolled == before) report(callbacks.onProgressChanged)
             }
             is Landing.Text -> {
                 // Held for a layout but not for the images: once landed, one arriving above the line is
@@ -1270,7 +1240,7 @@ class NovelTextViewport(
                 val before = scrolled
                 recycler.scrollBy(0, top)
                 if (lineTopOf(view, offset) != 0) holdShort(slot, landing)
-                if (scrolled == before) report(onProgressChanged)
+                if (scrolled == before) report(callbacks.onProgressChanged)
             }
             is Landing.Line -> {
                 val view = slot.block.chunkViews.getOrNull(landing.chunk) ?: return
@@ -1503,7 +1473,7 @@ class NovelTextViewport(
 
         private fun failureView(failure: NovelReaderViewModel.BoundaryFailure?, forward: Boolean) =
             NovelBoundaryFailureView(context).apply {
-                failure?.let { bind(it.message) { onRetryBoundary(forward) } }
+                failure?.let { bind(it.message) { callbacks.onRetryBoundary(forward) } }
                 isVisible = failure != null
             }
 

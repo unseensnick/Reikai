@@ -67,10 +67,7 @@ class NovelWebViewport(
     /** Long press selects text, the same setting the native viewport reads. Links keep working here,
      *  which the native one cannot offer alongside selection. */
     private val textSelectable: Boolean,
-    /** Whether a volume key scrolls right now: the setting, and the menu being down. The provider
-     *  builds it once for both viewports, so they cannot disagree on when the keys are theirs. Which
-     *  way and how far a press scrolls come from the settings pushed last. */
-    private val volumeKeysActive: () -> Boolean,
+    private val callbacks: NovelViewportCallbacks,
     /** Two settings only a WebView renderer can honour, so the rows are gated to this mode. A change to
      *  either rebuilds the viewport (`NovelReaderProvider.viewportRebuilds`). */
     private val useOriginalFonts: Boolean,
@@ -78,29 +75,6 @@ class NovelWebViewport(
     /** Chrome's inspector and a toast per script error, for the user's own snippets and a source's scripts.
      *  The inspector is process-wide, so building a viewport with this off closes it for every WebView. */
     private val devTools: Boolean = false,
-    /** Named with its chapter, matching the native viewport, so the model never has to assume which
-     *  chapter a percentage belongs to. */
-    private val onProgressChanged: (chapterId: Long, percent: Int) -> Unit,
-    private val onProgressSettled: (chapterId: Long, percent: Int) -> Unit,
-    /** The line at the top of the screen, the report the native viewport makes. */
-    private val onTopLine: (chapterId: Long, line: Int?) -> Unit,
-    private val onToggleMenu: () -> Unit,
-    /** Swipe-between-chapters, forward or back. */
-    private val onStepChapter: (forward: Boolean) -> Unit,
-    /** Which chapter the reader is actually in, which stops being the loaded one once a window grows. */
-    private val onVisibleChapter: (chapterId: Long) -> Unit,
-    /** Asking again for the neighbour whose failure is drawn at an edge. */
-    private val onRetryBoundary: (forward: Boolean) -> Unit,
-    /** The cutout inset in dp, which the page's CSS pixels are. Read per load rather than once: it is
-     *  only known after the window has one. */
-    private val cutoutTopDp: () -> Int,
-    /** Whether a chapter fits on one screen, whenever that answer changes, as the native viewport
-     *  reports it. */
-    private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
-    /** A chapter's last line reached the screen, once its images had landed. */
-    private val onChapterEndSeen: (chapterId: Long) -> Unit,
-    /** A scroll the reader's finger made, in pixels, as the native viewport reports it. */
-    private val onReaderScrolled: (dyPx: Int) -> Unit,
     /** Auto-scroll's speed, which the engine runs this at while it is on. */
     autoScrollSpeed: Preference<Float>,
 ) : ReaderViewport, TextViewport, ChapterWindow {
@@ -219,16 +193,16 @@ class NovelWebViewport(
                 fromReader = { token, call -> mainHandler.post { if (gate.admitsReaderCall(token)) call() } },
                 onVisibleChapter = { id ->
                     visibleChapterId = id
-                    onVisibleChapter(id)
+                    callbacks.onVisibleChapter(id)
                 },
-                onProgress = { id, f -> onProgressChanged(id, f.toPercent()) },
-                onProgressSettled = { id, f -> onProgressSettled(id, f.toPercent()) },
-                onTopLine = onTopLine,
-                onRetryBoundary = onRetryBoundary,
+                onProgress = { id, f -> callbacks.onProgressChanged(id, f.toPercent()) },
+                onProgressSettled = { id, f -> callbacks.onProgressSettled(id, f.toPercent()) },
+                onTopLine = callbacks.onTopLine,
+                onRetryBoundary = callbacks.onRetryBoundary,
                 onTap = ::onPageTap,
-                onStepChapter = onStepChapter,
-                onChapterFits = onChapterFits,
-                onChapterEndSeen = onChapterEndSeen,
+                onStepChapter = callbacks.onStepChapter,
+                onChapterFits = callbacks.onChapterFits,
+                onChapterEndSeen = callbacks.onChapterEndSeen,
                 // Auto-scroll is a call into the document, so one that was not up yet dropped it.
                 onReady = { token -> mainHandler.post { onPageReady(token) } },
             ),
@@ -243,12 +217,12 @@ class NovelWebViewport(
             }
             false
         }
-        setOnScrollChangeListener { _, _, y, _, oldY -> if (fingerDown) onReaderScrolled(y - oldY) }
+        setOnScrollChangeListener { _, _, y, _, oldY -> if (fingerDown) callbacks.onReaderScrolled(y - oldY) }
         // Every layout, because the inset is only known once the window has one and it moves with the
         // system bars; comparing first keeps an unchanged one from rewriting the page.
         addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             val settings = documentSettings
-            if (settings != null && cutoutTopDp() != documentInset) applySettings(settings)
+            if (settings != null && callbacks.cutoutTopDp() != documentInset) applySettings(settings)
         }
     }
 
@@ -289,7 +263,7 @@ class NovelWebViewport(
     }
 
     override fun handleKeyEvent(event: KeyEvent): Boolean {
-        if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !volumeKeysActive()) return false
+        if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !callbacks.volumeKeysActive()) return false
         val current = documentSettings ?: return false
         if (event.action == KeyEvent.ACTION_DOWN) {
             scrollByFraction(
@@ -330,7 +304,7 @@ class NovelWebViewport(
         // The document is built with this family's face, and any swap still resolving is for the old page.
         faceJob?.cancel()
         faceFamily = settings.fontFamily
-        val inset = cutoutTopDp()
+        val inset = callbacks.cutoutTopDp()
         documentSettings = settings
         documentInset = inset
         // Resolving a user font copies it out of the user's storage folder on first use, which is
@@ -378,7 +352,7 @@ class NovelWebViewport(
         val previous = documentSettings
         val seamsMoved = documentSettings?.alwaysShowChapterTransition != settings.alwaysShowChapterTransition
         documentSettings = settings
-        documentInset = cutoutTopDp()
+        documentInset = callbacks.cutoutTopDp()
         val variables = NovelWebDocument.variables(settings, documentInset)
         val behaviour = NovelWebDocument.behaviourJson(settings).toString()
         // A block, since runOrQueue's guard would otherwise cover only the first of the two.
@@ -460,7 +434,7 @@ class NovelWebViewport(
     /** A tap the page passed up, read through the session's tap zones as the native renderer reads one. */
     private fun onPageTap(x: Float, y: Float) {
         when (documentSettings?.tapZones?.actionAt(x, y) ?: NovelTapAction.MENU) {
-            NovelTapAction.MENU -> onToggleMenu()
+            NovelTapAction.MENU -> callbacks.onToggleMenu()
             NovelTapAction.BACK -> scrollByFraction(-NovelTapZones.SCROLL_FRACTION)
             NovelTapAction.FORWARD -> scrollByFraction(NovelTapZones.SCROLL_FRACTION)
             NovelTapAction.NONE -> Unit
