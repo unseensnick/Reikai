@@ -20,7 +20,6 @@ import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchViewModel
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.TravelExplore
 import reikai.domain.library.ContentType
@@ -30,13 +29,15 @@ import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.SearchResultSection
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
+import reikai.presentation.browse.detailsScreen
 import reikai.presentation.browse.listedEntries
+import reikai.presentation.browse.selectedRowKeys
 import reikai.presentation.browse.selectionTitle
+import reikai.presentation.browse.startAdd
+import reikai.presentation.browse.toggleSelection
 import reikai.presentation.components.ContentTypeTabs
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
-import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
-import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -84,7 +85,6 @@ class EntryGlobalSearchScreen(
             create(providers, searchQuery, scopedContentType, filter)
         }
         val state by engine.state.collectAsStateWithLifecycle()
-        val novelState by novelModel.state.collectAsStateWithLifecycle()
 
         val mangaBulk = metroViewModel<BulkFavoriteViewModel>()
         val novelBulk = metroViewModel<NovelBulkFavoriteViewModel>()
@@ -92,6 +92,7 @@ class EntryGlobalSearchScreen(
         val novelBulkState by novelBulk.state.collectAsStateWithLifecycle()
         // One selection spanning both halves, held as each type's own so the add verbs stay per-type.
         val selectionMode = mangaBulkState.selectionMode || novelBulkState.selectionMode
+        val selectedKeys = selectedRowKeys(mangaBulkState.selection, novelBulkState.selection)
         val clearSelection = {
             mangaBulk.toggleSelectionMode(false)
             novelBulk.toggleSelectionMode(false)
@@ -114,12 +115,12 @@ class EntryGlobalSearchScreen(
             // "still loading" left this spinning with no way back but the system gesture.
             LaunchedEffect(state.rows, state.searched) {
                 if (!state.searched) return@LaunchedEffect
-                val only = state.rows.singleOrNull()?.state
-                when {
-                    only is EntrySearchState.Loading -> return@LaunchedEffect
-                    only is EntrySearchState.Success ->
-                        (only.entries.singleOrNull() as? Manga)
-                            ?.let { navigator.replace(MangaScreen(it.id, true)) }
+                val only = state.rows.singleOrNull()
+                when (val result = only?.state) {
+                    is EntrySearchState.Loading -> return@LaunchedEffect
+                    is EntrySearchState.Success ->
+                        result.entries.singleOrNull()
+                            ?.let { navigator.replace(it.detailsScreen(only.key)) }
                             ?: run { showSingleLoadingScreen = false }
                     else -> showSingleLoadingScreen = false
                 }
@@ -194,51 +195,29 @@ class EntryGlobalSearchScreen(
             }
             LazyColumn(contentPadding = contentPadding) {
                 items(state.visibleRows.size, key = { state.visibleRows[it].key.toString() }) { index ->
+                    val row = state.visibleRows[index]
                     SearchResultSection(
                         // Sections re-sort as each source lands, so they slide rather than jump.
                         modifier = Modifier.animateItem(),
-                        row = state.visibleRows[index],
+                        row = row,
                         // Only on All, where the rows are interleaved and nothing else says which
                         // kind a source is. The Browse lists badge their rows on the same rule.
                         showContentType = state.contentType == ContentType.ALL,
                         showsFormat = state.showsFormat,
-                        favoritedKeys = novelState.favoritedKeys,
-                        mangaSelection = mangaBulkState.selection,
-                        novelSelection = novelBulkState.selection,
-                        getManga = { mangaModel.getManga(it) },
-                        onClickSource = { row -> navigator.push(EntryCatalogueScreen(row.key, state.query)) },
-                        onClickManga = { manga ->
+                        selectedKeys = selectedKeys,
+                        onClickSource = { navigator.push(EntryCatalogueScreen(row.key, state.query)) },
+                        onClickEntry = { entry ->
                             if (selectionMode) {
-                                mangaBulk.toggleSelection(
-                                    manga,
-                                )
+                                entry.toggleSelection(row.key, mangaBulk, novelBulk)
                             } else {
-                                navigator.push(MangaScreen(manga.id, true))
+                                navigator.push(entry.detailsScreen(row.key))
                             }
                         },
-                        onLongClickManga = { manga ->
+                        onLongClickEntry = { entry ->
                             if (selectionMode) {
-                                navigator.push(MangaScreen(manga.id, true))
+                                navigator.push(entry.detailsScreen(row.key))
                             } else {
-                                mangaModel.addFlow.onLongClick(manga)
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            }
-                        },
-                        onClickNovel = { sourceId, item ->
-                            if (selectionMode) {
-                                novelBulk.toggleSelection(
-                                    sourceId,
-                                    item,
-                                )
-                            } else {
-                                navigator.push(NovelScreen(sourceId, item.path, item.cover, fromSource = true))
-                            }
-                        },
-                        onLongClickNovel = { sourceId, item ->
-                            if (selectionMode) {
-                                navigator.push(NovelScreen(sourceId, item.path, item.cover, fromSource = true))
-                            } else {
-                                novelModel.addFlow.onLongClick(item, sourceId)
+                                entry.startAdd(row.key, mangaModel.addFlow, novelModel.addFlow)
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
                         },

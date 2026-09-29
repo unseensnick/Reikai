@@ -21,7 +21,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -29,20 +28,22 @@ import mihon.icons.materialsymbols.automirroredrounded.Sort
 import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.SelectAll
-import reikai.novel.host.NovelItem
 import reikai.presentation.browse.BulkCategoryDialogs
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.SearchResultSection
+import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.detailsScreen
+import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.browse.listedEntries
+import reikai.presentation.browse.selectedRowKeys
 import reikai.presentation.browse.selectionTitle
+import reikai.presentation.browse.startAdd
+import reikai.presentation.browse.toggleSelection
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
-import reikai.presentation.novel.browse.SelectedNovel
-import reikai.presentation.novel.details.NovelScreen
-import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.i18n.stringResource
@@ -153,10 +154,8 @@ fun Screen.reikaiFeedTab(): TabContent {
                         model = model,
                         contentPadding = contentPadding,
                         selectionMode = selectionMode,
-                        mangaSelection = mangaBulkState.selection,
-                        novelSelection = novelBulkState.selection,
-                        onToggleManga = mangaBulk::toggleSelection,
-                        onToggleNovel = { sourceId, item -> novelBulk.toggleSelection(sourceId, item) },
+                        selectedKeys = selectedRowKeys(mangaBulkState.selection, novelBulkState.selection),
+                        onToggle = { row, result -> result.toggleSelection(row.key, mangaBulk, novelBulk) },
                     )
                 }
             }
@@ -177,10 +176,8 @@ private fun Screen.FeedContent(
     model: FeedViewModel,
     contentPadding: PaddingValues,
     selectionMode: Boolean,
-    mangaSelection: List<Manga>,
-    novelSelection: List<SelectedNovel>,
-    onToggleManga: (Manga) -> Unit,
-    onToggleNovel: (String, NovelItem) -> Unit,
+    selectedKeys: Set<String>,
+    onToggle: (BrowseSearchRow, EntryBrowseRow) -> Unit,
 ) {
     val navigator = LocalNavigator.currentOrThrow
 
@@ -221,10 +218,7 @@ private fun Screen.FeedContent(
                         subtitle = entry.sourceName.takeIf { entry.savedSearch != null },
                         showContentType = true,
                         showsFormat = state.showsFormat,
-                        favoritedKeys = state.favoritedKeys,
-                        mangaSelection = mangaSelection,
-                        novelSelection = novelSelection,
-                        getManga = { model.mangaState(it) },
+                        selectedKeys = selectedKeys,
                         onClickSource = {
                             navigator.push(
                                 EntryCatalogueScreen(
@@ -241,28 +235,18 @@ private fun Screen.FeedContent(
                         onLongClickSource = { model.confirmRemove(entry) }.takeIf { !selectionMode },
                         // Both gestures invert while selecting, the way every other browse grid
                         // here does it: a tap picks, a long press previews.
-                        onClickManga = { manga ->
-                            if (selectionMode) onToggleManga(manga) else navigator.push(MangaScreen(manga.id, true))
-                        },
-                        onLongClickManga = { manga ->
+                        onClickEntry = { result ->
                             if (selectionMode) {
-                                navigator.push(MangaScreen(manga.id, true))
+                                onToggle(entry.row, result)
                             } else {
-                                model.mangaAddFlow.onLongClick(manga)
+                                navigator.push(result.detailsScreen(entry.row.key))
                             }
                         },
-                        onClickNovel = { sourceId, item ->
+                        onLongClickEntry = { result ->
                             if (selectionMode) {
-                                onToggleNovel(sourceId, item)
+                                navigator.push(result.detailsScreen(entry.row.key))
                             } else {
-                                navigator.push(NovelScreen(sourceId, item.path, item.cover, fromSource = true))
-                            }
-                        },
-                        onLongClickNovel = { sourceId, item ->
-                            if (selectionMode) {
-                                navigator.push(NovelScreen(sourceId, item.path, item.cover, fromSource = true))
-                            } else {
-                                model.novelAddFlow.onLongClick(item, sourceId)
+                                result.startAdd(entry.row.key, model.mangaAddFlow, model.novelAddFlow)
                             }
                         },
                     )

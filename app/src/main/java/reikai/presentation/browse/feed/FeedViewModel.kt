@@ -1,9 +1,6 @@
 package reikai.presentation.browse.feed
 
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.State
-import androidx.compose.runtime.produceState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
@@ -17,7 +14,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
@@ -33,6 +29,7 @@ import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.MangaAddFlow
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.fillEntryRows
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
@@ -42,7 +39,6 @@ import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
-import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 
 /**
@@ -60,7 +56,7 @@ class FeedViewModel(
     private val savedSearchRepository: SavedSearchRepository,
     private val preferences: ReikaiSourcePreferences,
     private val novelRepository: NovelRepository,
-    private val getManga: GetManga,
+    getManga: GetManga,
     mangaAdder: MangaLibraryAdder,
     novelAdder: NovelLibraryAdder,
     sourceManager: SourceManager,
@@ -70,9 +66,12 @@ class FeedViewModel(
     getEnabledNovelSources: GetEnabledNovelSources,
 ) : ViewModel() {
 
+    /** The library's (source, url) keys, which every novel result row reads its in-library badge off. */
+    private val favoritedNovels = MutableStateFlow(FavoritedNovels.None)
+
     private val providers = listOf(
-        MangaFeedProvider(sourceManager, getEnabledSources, networkToLocalManga),
-        NovelFeedProvider(novelSourceManager, getEnabledNovelSources),
+        MangaFeedProvider(sourceManager, getEnabledSources, networkToLocalManga, getManga),
+        NovelFeedProvider(novelSourceManager, getEnabledNovelSources, favoritedNovels),
     )
 
     val state: StateFlow<FeedState>
@@ -98,9 +97,7 @@ class FeedViewModel(
                 .collectLatest(::onFeedChanged)
         }
         viewModelScope.launchIO {
-            novelRepository.getFavoritedKeysAsFlow().collectLatest { keys ->
-                state.update { it.copy(favoritedKeys = keys) }
-            }
+            novelRepository.getFavoritedKeysAsFlow().collectLatest { favoritedNovels.value = it }
         }
     }
 
@@ -156,17 +153,16 @@ class FeedViewModel(
                 load = { row ->
                     val entry = entries.first { it.row.id == row.id }
                     val provider = providers.first { it.contentType == row.key.contentType }
-                    provider.load(row, entry.savedSearch).filterInLibrary(row, provider)
+                    provider.load(row, entry.savedSearch).filterInLibrary()
                 },
             )
         }
     }
 
     /** Hides what is already in the library, when the reader asked for that. */
-    private fun List<Any>.filterInLibrary(row: BrowseSearchRow, provider: FeedProvider): List<Any> {
+    private fun List<EntryBrowseRow>.filterInLibrary(): List<EntryBrowseRow> {
         if (!preferences.hideInLibraryFeedItems.get()) return this
-        val favorited = state.value.favoritedKeys
-        return filterNot { provider.isInLibrary(row, it, favorited) }
+        return filterNot { it.content.value.ui.favorite }
     }
 
     fun openAddDialog() {
@@ -214,12 +210,6 @@ class FeedViewModel(
         }
     }
 
-    /** The live row behind a result, so its in-library badge tracks what the reader does to it. */
-    @Composable
-    fun mangaState(initial: Manga): State<Manga> = produceState(initialValue = initial) {
-        getManga.subscribe(initial.url, initial.source).filterNotNull().collectLatest { value = it }
-    }
-
     /**
      * Asks every row again. Nothing else does: a feed left open would otherwise go stale. An
      * unavailable row is left as it is, because there is no source behind it to ask.
@@ -259,7 +249,6 @@ data class FeedEntry(
 @Immutable
 data class FeedState(
     val entries: List<FeedEntry> = emptyList(),
-    val favoritedKeys: FavoritedNovels = FavoritedNovels.None,
     /** False until the first read of the table lands, so an empty feed is not claimed too early. */
     val loaded: Boolean = false,
     val dialog: FeedDialog? = null,

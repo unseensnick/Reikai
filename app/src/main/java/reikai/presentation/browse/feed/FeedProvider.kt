@@ -2,6 +2,7 @@ package reikai.presentation.browse.feed
 
 import eu.kanade.domain.source.interactor.GetEnabledSources
 import eu.kanade.tachiyomi.source.CatalogueSource
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import mihon.domain.manga.model.toDomainManga
 import reikai.domain.library.ContentType
@@ -15,11 +16,14 @@ import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
+import reikai.presentation.browse.liveMangaRow
+import reikai.presentation.browse.novelBrowseRow
 import reikai.presentation.novel.browse.NovelSavedSearchRun
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
-import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 
 /**
@@ -43,14 +47,7 @@ interface FeedProvider {
      * Page one of what the row shows: [savedSearch] when it carries one, else the source's Latest,
      * falling back to Popular where it has no latest listing.
      */
-    suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<Any>
-
-    /**
-     * Whether [entry], as [row] returned it, is already in the library. On the provider because only
-     * it knows how its own type is identified: a manga carries the answer, a novel is a source plus a
-     * path and needs both halves, so a shared branch on the payload type gets the novel case wrong.
-     */
-    fun isInLibrary(row: BrowseSearchRow, entry: Any, favoritedKeys: FavoritedNovels): Boolean
+    suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<EntryBrowseRow>
 }
 
 /** The manga half, over Mihon's source manager. */
@@ -58,6 +55,7 @@ class MangaFeedProvider(
     private val sourceManager: SourceManager,
     private val getEnabledSources: GetEnabledSources,
     private val networkToLocalManga: NetworkToLocalManga,
+    private val getManga: GetManga,
 ) : FeedProvider {
 
     private val filters = MangaSavedSearchFilters()
@@ -76,7 +74,7 @@ class MangaFeedProvider(
 
     override fun supportsLatest(row: BrowseSearchRow) = (row.source as CatalogueSource).supportsLatest
 
-    override suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<Any> {
+    override suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<EntryBrowseRow> {
         val source = row.source as CatalogueSource
         val page = when {
             savedSearch != null -> {
@@ -89,18 +87,13 @@ class MangaFeedProvider(
             source.supportsLatest -> source.getLatestUpdates(1)
             else -> source.getPopularManga(1)
         }
-        // Made local before they are shown, so the in-library badge has a row to resolve against.
+        // Made local before they are shown, so each row can follow its stored manga.
         return page.mangas
             .map { it.toDomainManga(source.id) }
             .distinctBy { it.url }
             .let { networkToLocalManga(it) }
+            .map { liveMangaRow(it, getManga.subscribe(it.url, it.source)) }
     }
-
-    override fun isInLibrary(
-        row: BrowseSearchRow,
-        entry: Any,
-        favoritedKeys: FavoritedNovels,
-    ): Boolean = (entry as? Manga)?.favorite == true
 
     private fun toRow(source: CatalogueSource) = BrowseSearchRow(
         key = SourceKey.Manga(source.id),
@@ -116,6 +109,8 @@ class MangaFeedProvider(
 class NovelFeedProvider(
     private val sourceManager: NovelSourceManager,
     private val getEnabledSources: GetEnabledNovelSources,
+    /** The library's keys, which each result row reads its in-library badge off. */
+    private val favorited: StateFlow<FavoritedNovels>,
 ) : FeedProvider {
 
     private val filters = NovelSavedSearchFilters()
@@ -129,8 +124,12 @@ class NovelFeedProvider(
 
     override fun supportsLatest(row: BrowseSearchRow) = (row.source as NovelSource).supportsLatest
 
-    override suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<Any> {
+    override suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<EntryBrowseRow> {
         val source = row.source as NovelSource
+        return page(source, savedSearch).map { novelBrowseRow(it, source.id, favorited) }
+    }
+
+    private suspend fun page(source: NovelSource, savedSearch: SavedSearch?): List<NovelItem> {
         val defaults = source.filters?.defaultState()
         val stored = savedSearch?.filtersJson
             ?.let { json -> defaults?.let { filters.decode(json, it) } }
@@ -144,15 +143,6 @@ class NovelFeedProvider(
             is NovelSavedSearchRun.PlainSearch -> source.search(run.query, page = 1, defaults).items
             NovelSavedSearchRun.FilteredPopular -> source.browse(NovelListing.Popular, page = 1, stored).items
         }
-    }
-
-    override fun isInLibrary(
-        row: BrowseSearchRow,
-        entry: Any,
-        favoritedKeys: FavoritedNovels,
-    ): Boolean {
-        val item = entry as? NovelItem ?: return false
-        return favoritedKeys.contains((row.source as NovelSource).id, item.path)
     }
 
     private fun toRow(source: NovelSource) = BrowseSearchRow(

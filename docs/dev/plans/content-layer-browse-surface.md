@@ -571,3 +571,14 @@ them off the neutral row style, so no composable reads the preference.
   long-press ask it, so no site can compare the url alone or build the pair the wrong way round.
   `FavoritedNovelsTest` pins both halves of the key and the favorite filter. Manga needs no twin: a
   browsed manga is a stored row that carries its own favorite flag.
+- **One result row for the catalogue, global search and the feed** (cleanup plan P25, 2026-09-29).
+  A search or feed result is the catalogue's own `EntryBrowseRow`, built by the kernels in
+  `reikai/presentation/browse/EntryBrowseRows.kt`: `mangaBrowseRow` (which the catalogue pager uses
+  too), `liveMangaRow` for a search or feed manga, and `novelBrowseRow` for a novel in all three. So
+  `SearchResultSection` draws both types without a branch, a selection key is one function
+  (`mangaRowKey`, `novelRowKey`), which details page a result opens is one rule (`detailsScreen`),
+  and the feed's hide-in-library filter reads the row's own badge in place of a per-provider
+  `isInLibrary`. A search row has no scope that ends when it scrolls away, so `liveMangaRow` follows
+  its stored manga only while a cell collects it, rather than a `stateIn` per result held for the
+  life of the screen. The composable `getManga` lookups on `SearchViewModel` (upstream's) and
+  `FeedViewModel` are gone. `SearchResultRowsConformanceTest` pins both row kernels.

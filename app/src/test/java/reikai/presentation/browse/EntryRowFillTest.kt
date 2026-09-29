@@ -46,7 +46,7 @@ class EntryRowFillTest {
 
     @Test
     fun `a row that already has results is not loaded again`() = runTest {
-        val done = row("a").copy(state = EntrySearchState.Success(listOf("kept")))
+        val done = row("a").copy(state = EntrySearchState.Success(listOf(resultRow("kept"))))
         val rows = MutableStateFlow(listOf(done, row("b")))
         val loaded = mutableListOf<String>()
 
@@ -104,14 +104,14 @@ class EntryRowFillTest {
         rows: MutableStateFlow<List<BrowseSearchRow>>,
         order: Comparator<BrowseSearchRow>? = null,
         concurrency: Int = ENTRY_ROW_CONCURRENCY,
-        load: suspend (BrowseSearchRow) -> List<Any>,
+        load: suspend (BrowseSearchRow) -> List<String>,
     ) = fillEntryRows(
         rows = rows.value,
         group = { it.key.contentType },
         order = order,
         concurrency = concurrency,
         updateRows = { transform -> rows.update(transform) },
-        load = load,
+        load = { row -> load(row).map(::resultRow) },
     )
 }
 
@@ -124,7 +124,7 @@ private fun row(name: String, novel: Boolean = false) = BrowseSearchRow(
     source = name,
 )
 
-private fun BrowseSearchRow.entries() = (state as EntrySearchState.Success).entries
+private fun BrowseSearchRow.entries() = (state as EntrySearchState.Success).entries.map { it.key }
 
 private fun AtomicInteger.updateMax(candidate: Int) {
     while (true) {

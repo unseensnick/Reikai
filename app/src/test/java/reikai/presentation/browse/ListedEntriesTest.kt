@@ -2,7 +2,10 @@ package reikai.presentation.browse
 
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
@@ -10,8 +13,8 @@ import reikai.presentation.browse.globalsearch.EntrySearchState
 import tachiyomi.domain.manga.model.Manga
 
 /**
- * What select-all and invert act on, in the feed and global search alike. The rows carry their entries
- * as `Any`, so the split back into the two halves is the one place a wrong unwrap would compile and
+ * What select-all and invert act on, in the feed and global search alike. A result row carries its
+ * entry as an `Any` payload, so the split back into the two halves is the one place a wrong unwrap would compile and
  * then hand a bulk model the other type's rows, which it would file into the wrong library.
  */
 class ListedEntriesTest {
@@ -20,7 +23,7 @@ class ListedEntriesTest {
     fun `each row's entries go to the half that owns them`() {
         val rows = listOf(
             row(SourceKey.Manga(1L), EntrySearchState.Success(listOf(manga(10L), manga(11L)))),
-            row(SourceKey.Novel("nb"), EntrySearchState.Success(listOf(novel("/a"), novel("/b")))),
+            row(SourceKey.Novel("nb"), EntrySearchState.Success(listOf(novel("nb", "/a"), novel("nb", "/b")))),
         )
 
         val (manga, novels) = rows.listedEntries()
@@ -34,8 +37,8 @@ class ListedEntriesTest {
         // Two plugins can return the same path, so a novel that lost its source id would be filed
         // against whichever row happened to be first.
         val rows = listOf(
-            row(SourceKey.Novel("first"), EntrySearchState.Success(listOf(novel("/same")))),
-            row(SourceKey.Novel("second"), EntrySearchState.Success(listOf(novel("/same")))),
+            row(SourceKey.Novel("first"), EntrySearchState.Success(listOf(novel("first", "/same")))),
+            row(SourceKey.Novel("second"), EntrySearchState.Success(listOf(novel("second", "/same")))),
         )
 
         val (_, novels) = rows.listedEntries()
@@ -66,7 +69,12 @@ class ListedEntriesTest {
         source = Unit,
     )
 
-    private fun manga(id: Long) = Manga.create().copy(id = id, url = "/$id", title = "m$id")
+    private fun manga(id: Long) = liveMangaRow(Manga.create().copy(id = id, url = "/$id", title = "m$id"), emptyFlow())
 
-    private fun novel(path: String) = NovelItem(name = "n$path", path = path, cover = null)
+    private fun novel(sourceId: String, path: String) =
+        novelBrowseRow(
+            NovelItem(name = "n$path", path = path, cover = null),
+            sourceId,
+            MutableStateFlow(FavoritedNovels.None),
+        )
 }

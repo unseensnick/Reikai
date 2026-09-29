@@ -6,7 +6,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import reikai.domain.source.SourceKey
-import reikai.novel.host.NovelItem
+import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
@@ -16,14 +16,14 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 
-// What a batch add owes on any surface that lists both content types: what select-all acts on, how
-// the selection is named, and how the categories are asked for. Shared so the two surfaces cannot
-// answer any of them differently.
+// What a batch add owes on any surface that lists both content types: what a pick and select-all act
+// on, how the selection is named, and how the categories are asked for. Shared so the two surfaces
+// cannot answer any of them differently.
 
 /**
  * Every result [this] lists, split back into the two halves each bulk model owns, for select-all and
- * invert. Unwrapped with filterIsInstance rather than a cast: the entries are typed Any, so a wrong
- * cast would compile and only fail once a source returned rows.
+ * invert. Each result is unwrapped under its own row's source key, the only thing that says which
+ * type a payload is.
  */
 fun List<BrowseSearchRow>.listedEntries(): Pair<List<Manga>, List<SelectedNovel>> {
     val manga = mutableListOf<Manga>()
@@ -31,11 +31,25 @@ fun List<BrowseSearchRow>.listedEntries(): Pair<List<Manga>, List<SelectedNovel>
     forEach { row ->
         val results = (row.state as? EntrySearchState.Success)?.entries.orEmpty()
         when (val key = row.key) {
-            is SourceKey.Manga -> manga += results.filterIsInstance<Manga>()
-            is SourceKey.Novel -> novels += results.filterIsInstance<NovelItem>().map { SelectedNovel(key.id, it) }
+            is SourceKey.Manga -> manga += results.map { it.manga }
+            is SourceKey.Novel -> novels += results.map { SelectedNovel(key.id, it.item) }
         }
     }
     return manga to novels
+}
+
+/** The selection as the result rows key it, which is what a card reads to draw itself picked. */
+fun selectedRowKeys(manga: List<Manga>, novels: List<SelectedNovel>): Set<String> =
+    manga.mapTo(mutableSetOf(), ::mangaRowKey) + novels.map { novelRowKey(it.sourceId, it.item.path) }
+
+/** Picks or unpicks this result of the source at [sourceKey], in its own type's selection. */
+fun EntryBrowseRow.toggleSelection(
+    sourceKey: SourceKey,
+    mangaBulk: BulkFavoriteViewModel,
+    novelBulk: NovelBulkFavoriteViewModel,
+) = when (sourceKey) {
+    is SourceKey.Manga -> mangaBulk.toggleSelection(manga)
+    is SourceKey.Novel -> novelBulk.toggleSelection(sourceKey.id, item)
 }
 
 /** "3 Manga, 1 Novel" while the selection holds both, otherwise the plain count the bar shows. */

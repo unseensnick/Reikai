@@ -1,23 +1,20 @@
 package eu.kanade.tachiyomi.ui.browse.source.globalsearch
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.produceState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.Source
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import mihon.domain.manga.model.toDomainManga
 import reikai.presentation.browse.MangaAddFlow
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.catalogue.EntryBrowseRow
+import reikai.presentation.browse.liveMangaRow
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
-import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import java.util.concurrent.Executors
 
@@ -42,21 +39,11 @@ abstract class SearchViewModel(
 
     protected var extensionFilter: String? = null
 
-    @Composable
-    fun getManga(initialManga: Manga): androidx.compose.runtime.State<Manga> {
-        return produceState(initialValue = initialManga) {
-            getManga.subscribe(initialManga.url, initialManga.source)
-                .filterNotNull()
-                .collectLatest { manga ->
-                    value = manga
-                }
-        }
-    }
-
     // RK -->
     // Stripped to a provider for the shared global search, which owns the query, the order, how many
     // sources run at once and when a search is worth re-running. What is left is the manga sources,
-    // the one-source call, and the long-press half below, which is per content type.
+    // the one-source call, and the long-press half below, which is per content type. Upstream's
+    // composable getManga went with it: each result row follows its stored manga itself (liveMangaRow).
     fun isPinned(source: Source): Boolean = "${source.id}" in pinnedSources
 
     /**
@@ -77,8 +64,8 @@ abstract class SearchViewModel(
         return enabled.filter { !pinnedOnly || isPinned(it) }
     }
 
-    /** One source's results, already local so the in-library badge can resolve against them. */
-    suspend fun searchSource(source: Source, query: String): List<Manga> {
+    /** One source's results, made local so each row can follow its stored manga. */
+    suspend fun searchSource(source: Source, query: String): List<EntryBrowseRow> {
         val page = withContext(coroutineDispatcher) {
             source.getSearchManga(1, query, source.getFilterList())
         }
@@ -86,6 +73,7 @@ abstract class SearchViewModel(
             .map { it.toDomainManga(source.id) }
             .distinctBy { it.url }
             .let { networkToLocalManga(it) }
+            .map { liveMangaRow(it, getManga.subscribe(it.url, it.source)) }
     }
     // RK <--
 

@@ -4,9 +4,11 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.SourceKey
 import reikai.domain.source.model.SavedSearch
 import reikai.novel.host.NovelItem
@@ -16,6 +18,7 @@ import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
+import reikai.presentation.browse.item
 
 /**
  * A feed row holding a saved search shows what that search's catalogue shows. An LNReader plugin's
@@ -46,8 +49,8 @@ class NovelFeedProviderTest {
     fun `a filters-only plugin saved search pages the Popular listing its catalogue pages`() = runTest {
         val saved = SavedSearch(1L, SourceKey.Novel("plugin"), "Saved", query = null, filtersJson = null)
 
-        val shown = NovelFeedProvider(mockk(), mockk()).load(row, saved)
+        val shown = NovelFeedProvider(mockk(), mockk(), MutableStateFlow(FavoritedNovels.None)).load(row, saved)
 
-        shown.map { (it as NovelItem).name } shouldBe listOf(NovelListing.Popular.name)
+        shown.map { it.item.name } shouldBe listOf(NovelListing.Popular.name)
     }
 }

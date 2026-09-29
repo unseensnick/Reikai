@@ -45,7 +45,10 @@ This is the decision that shapes everything else. Reikai already has the machine
 holds each row as `Loading`, `Success` or `Error`, writes each result under a single state update and
 re-sorts as results land. `BrowseSearchRow` is already the neutral per-source row, carrying a
 `SourceKey`, the source object opaquely, and that tri-state. `SearchResultSection` already renders such
-a row as a heading over `EntrySearchCardRow`, per content type, which is exactly a Komikku feed row.
+a row as a heading over `EntrySearchCardRow`, which is exactly a Komikku feed row. Its results are the
+catalogue's own neutral result rows (`EntryBrowseRows.kt`), so the section draws both content types
+without a branch, and each provider builds them: a manga row follows its stored manga
+(`liveMangaRow`), a novel row the library's key set (`novelBrowseRow`).
 
 A feed differs from a global search in two ways only: the rows come from a table instead of the source
 list, and the per-row verb fetches a listing instead of running a query. Komikku duplicates its search

@@ -3,6 +3,7 @@ package reikai.presentation.browse.globalsearch
 import androidx.compose.runtime.Immutable
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelExtensionFormat
+import reikai.presentation.browse.catalogue.EntryBrowseRow
 
 /** Which sources a global search covers. */
 enum class SearchSourceFilter { All, PinnedOnly }
@@ -12,7 +13,7 @@ sealed interface EntrySearchState {
     data object Loading : EntrySearchState
 
     /** Finished; an empty [entries] means the source matched nothing. */
-    data class Success(val entries: List<Any>) : EntrySearchState
+    data class Success(val entries: List<EntryBrowseRow>) : EntrySearchState
 
     data class Error(val message: String?) : EntrySearchState
 
@@ -28,8 +29,8 @@ sealed interface EntrySearchState {
  * One searched source as the shared results list sees it, whatever content type it came from.
  *
  * [source] is the provider's own object, carried opaquely so the shared layer never has to know what
- * a manga source or a plugin looks like; only the leaf that renders that type unwraps it, and so do
- * the entries inside [EntrySearchState.Success].
+ * a manga source or a plugin looks like; only that type's provider unwraps it. The entries inside
+ * [EntrySearchState.Success] are the neutral result rows a catalogue page holds.
  */
 @Immutable
 data class BrowseSearchRow(

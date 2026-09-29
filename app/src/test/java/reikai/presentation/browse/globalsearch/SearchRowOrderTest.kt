@@ -3,6 +3,7 @@ package reikai.presentation.browse.globalsearch
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.source.SourceKey
+import reikai.presentation.browse.resultRow
 
 /**
  * One global search orders and filters its rows once for both content types, so these pin what a
@@ -61,7 +62,7 @@ class SearchRowOrderTest {
         name = name,
         lang = "en",
         isPinned = isPinned,
-        state = EntrySearchState.Success(List(hits) { Any() }),
+        state = EntrySearchState.Success(List(hits) { resultRow("$it") }),
         source = Unit,
     )
 

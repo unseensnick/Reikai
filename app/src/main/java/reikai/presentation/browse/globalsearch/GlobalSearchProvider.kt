@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchViewModel
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelSource
+import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
 
 /**
@@ -20,7 +21,7 @@ interface GlobalSearchProvider {
     suspend fun sources(filter: SearchSourceFilter): List<BrowseSearchRow>
 
     /** Run [query] against the source behind [row]. Throwing is the engine's cue to mark it errored. */
-    suspend fun search(row: BrowseSearchRow, query: String): List<Any>
+    suspend fun search(row: BrowseSearchRow, query: String): List<EntryBrowseRow>
 }
 
 /** The manga half, over Mihon's live [GlobalSearchViewModel]. */
@@ -40,7 +41,7 @@ class MangaGlobalSearchProvider(private val model: GlobalSearchViewModel) : Glob
             )
         }
 
-    override suspend fun search(row: BrowseSearchRow, query: String): List<Any> =
+    override suspend fun search(row: BrowseSearchRow, query: String): List<EntryBrowseRow> =
         model.searchSource(row.source as eu.kanade.tachiyomi.source.Source, query)
 }
 
@@ -62,6 +63,6 @@ class NovelGlobalSearchProvider(private val model: NovelGlobalSearchViewModel) :
             )
         }
 
-    override suspend fun search(row: BrowseSearchRow, query: String): List<Any> =
+    override suspend fun search(row: BrowseSearchRow, query: String): List<EntryBrowseRow> =
         model.searchSource(row.source as NovelSource, query)
 }

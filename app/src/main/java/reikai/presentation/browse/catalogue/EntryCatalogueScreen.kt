@@ -46,7 +46,6 @@ import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.follows.MangaDexFollowsScreen
@@ -70,11 +69,11 @@ import reikai.novel.source.NovelSettings
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.detailsScreen
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelSourceFilterSheet
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
-import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.core.common.Constants
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -163,7 +162,6 @@ class EntryCatalogueScreen(
 
         Catalogue(
             behavior = adapter,
-            onOpenEntry = { row -> navigator.push(MangaScreen(row.manga.id, true)) },
             onOpenSettings = { navigator.push(SourcePreferencesScreen(sourceId)) },
             onHelpClick = {
                 uriHandler.openUri(if (isLocal) LocalSource.HELP_URL else Constants.URL_HELP)
@@ -209,9 +207,6 @@ class EntryCatalogueScreen(
 
         Catalogue(
             behavior = adapter,
-            onOpenEntry = { row ->
-                navigator.push(NovelScreen(sourceId, row.item.path, row.item.cover, fromSource = true))
-            },
             // A preference screen is a screen of its own; the LNReader schema is a sheet over this one.
             onOpenSettings = {
                 when (source?.settings) {
@@ -251,13 +246,12 @@ class EntryCatalogueScreen(
 
     /**
      * The chrome both catalogues share: the toolbar, the listing chips, the body and every dialog the
-     * neutral state can describe. What is left to the caller is the per-type filter sheet and where a
-     * tap goes, because those are the two things no neutral state can hold.
+     * neutral state can describe. What is left to the caller is the per-type filter sheet and settings,
+     * the two things no neutral state can hold.
      */
     @Composable
     private fun Catalogue(
         behavior: EntryBrowseBehavior,
-        onOpenEntry: (EntryBrowseRow) -> Unit,
         onOpenSettings: () -> Unit,
         onHelpClick: () -> Unit,
         localSourceHelp: (() -> Unit)? = null,
@@ -427,14 +421,14 @@ class EntryCatalogueScreen(
                     when {
                         pick != null -> pick.pick(row) {}
                         loaded.selectionMode -> behavior.toggleSelection(row)
-                        else -> onOpenEntry(row)
+                        else -> navigator.push(row.detailsScreen(sourceKey))
                     }
                 },
                 onLongClick = { row ->
                     // Selecting or picking a migration target, a long press previews the entry; the
                     // add flow would favourite something the reader is only inspecting.
                     if (loaded.capabilities.migrationPick != null || loaded.selectionMode) {
-                        onOpenEntry(row)
+                        navigator.push(row.detailsScreen(sourceKey))
                     } else {
                         behavior.onRowLongClick(row)
                     }

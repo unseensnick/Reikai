@@ -18,7 +18,9 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.source.filter.MangaSavedSearchFilters
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
-import reikai.presentation.browse.toEntryBrowseUi
+import reikai.presentation.browse.manga
+import reikai.presentation.browse.mangaBrowseRow
+import reikai.presentation.browse.mangaRowKey
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.StubSource
@@ -71,17 +73,9 @@ class MangaBrowseAdapter(
     override val rows: StateFlow<Flow<PagingData<EntryBrowseRow>>> = model.mangaPagerFlowFlow
         .map { pagerFlow ->
             pagerFlow.map { pagingData ->
-                pagingData.map { entryFlow ->
-                    EntryBrowseRow(
-                        key = mangaRowKey(entryFlow.value.first),
-                        // The model already keeps one flow per entry so a favourite toggle re-renders
-                        // that cell alone; this is a view of it rather than a second collector. The
-                        // payload stays the live pair, which the gallery rows read the metadata from.
-                        content = entryFlow.mapState { pair ->
-                            EntryBrowseRowContent(pair.first.toEntryBrowseUi(), pair)
-                        },
-                    )
-                }
+                // The model already keeps one flow per entry so a favourite toggle re-renders that
+                // cell alone; the row is a view of it rather than a second collector.
+                pagingData.map(::mangaBrowseRow)
             }
         }
         .stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), emptyFlow())
@@ -211,9 +205,3 @@ class MangaBrowseAdapter(
  * the same question off its own state; FilterChipConformanceTest runs both.
  */
 internal fun BrowseSourceViewModel.State.filterChipActive(): Boolean = listing is Listing.Search
-
-internal fun mangaRowKey(manga: Manga) = "manga:${manga.id}"
-
-/** The row's payload is this adapter's own entry pair, so unwrapping it is sound only here. */
-internal val EntryBrowseRow.manga: Manga
-    get() = (content.value.payload as Pair<*, *>).first as Manga

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
+import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.recents.EmittingPreferenceStore
 
 /**
@@ -34,7 +35,7 @@ class GlobalSearchEngineTest {
             asked += filter
             return if (filter == SearchSourceFilter.All) listOf(row()) else emptyList()
         }
-        override suspend fun search(row: BrowseSearchRow, query: String): List<Any> = emptyList()
+        override suspend fun search(row: BrowseSearchRow, query: String): List<EntryBrowseRow> = emptyList()
     }
 
     @BeforeEach

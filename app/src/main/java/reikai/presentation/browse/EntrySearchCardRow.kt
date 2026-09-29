@@ -22,25 +22,18 @@ private val SearchCardWidth = 112.dp
 
 /**
  * The horizontal row of result cards for one source in a global search, rendered through the shared
- * [EntryBrowseGridCell]. Generic over the item type [T] so each catalogue keeps its own domain object
- * for the key and click callbacks; [resolve] is where the manga side reads a card's live in-library
- * state. An empty list renders the shared "no results" text (matches Mihon).
+ * [EntryBrowseGridCell]. Generic over the item type [T], a browse result row or a migration candidate;
+ * [toUi] is composable so a live row can be read as it changes. An empty list renders the shared "no
+ * results" text (matches Mihon).
  */
 @Composable
 fun <T> EntrySearchCardRow(
     entries: List<T>,
     key: (T) -> Any,
-    toUi: (T) -> EntryBrowseItemUi,
+    toUi: @Composable (T) -> EntryBrowseItemUi,
     onClick: (T) -> Unit,
     onLongClick: (T) -> Unit,
     isSelected: (T) -> Boolean,
-    /**
-     * The live row behind a result, where the type has one. A source hands back what it had when the
-     * row was fetched, so an entry added since then still reads as not in the library: the card would
-     * show the badge (which resolves) while a long press offered to add it again (which did not).
-     * Defaults to the entry itself, for a type with nothing to resolve against.
-     */
-    resolve: @Composable (T) -> T = { it },
 ) {
     if (entries.isEmpty()) {
         Text(
@@ -59,16 +52,13 @@ fun <T> EntrySearchCardRow(
         // A source can list one entry twice in a page, and a repeated key crashes the row; browse
         // drops the repeat the same way (NovelPagingSource).
         items(items = entries.distinctBy(key), key = key) { entry ->
-            // Resolved once and used for the card and both gestures, so what a long press acts on is
-            // what the card is showing rather than what the source returned.
-            val current = resolve(entry)
             Box(modifier = Modifier.width(SearchCardWidth)) {
                 EntryBrowseGridCell(
-                    ui = toUi(current),
+                    ui = toUi(entry),
                     displayMode = LibraryDisplayMode.ComfortableGrid,
-                    onClick = { onClick(current) },
-                    onLongClick = { onLongClick(current) },
-                    isSelected = isSelected(current),
+                    onClick = { onClick(entry) },
+                    onLongClick = { onLongClick(entry) },
+                    isSelected = isSelected(entry),
                 )
             }
         }

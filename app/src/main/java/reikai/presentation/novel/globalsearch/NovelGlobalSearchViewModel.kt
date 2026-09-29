@@ -8,16 +8,15 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.update
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
-import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
+import reikai.presentation.browse.catalogue.EntryBrowseRow
+import reikai.presentation.browse.novelBrowseRow
 import reikai.presentation.novel.browse.NovelAddFlow
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.util.runCatchingCancellable
@@ -39,15 +38,12 @@ class NovelGlobalSearchViewModel(
     private val getEnabledNovelSources: GetEnabledNovelSources,
 ) : ViewModel() {
 
-    val state: StateFlow<NovelGlobalSearchState>
-        field = MutableStateFlow(NovelGlobalSearchState())
+    /** The library's (source, url) keys, which every result row reads its in-library badge off. */
+    private val favorited = MutableStateFlow(FavoritedNovels.None)
 
     init {
-        // In-library marking, same read-only (source, url) key set as browse.
         viewModelScope.launchIO {
-            novelRepository.getFavoritedKeysAsFlow().collectLatest { keys ->
-                state.update { it.copy(favoritedKeys = keys) }
-            }
+            novelRepository.getFavoritedKeysAsFlow().collectLatest { favorited.value = it }
         }
     }
 
@@ -62,18 +58,9 @@ class NovelGlobalSearchViewModel(
         return getEnabledNovelSources.get().filter { !pinnedOnly || it.id in pinned }
     }
 
-    suspend fun searchSource(source: NovelSource, query: String): List<NovelItem> =
-        source.search(query, 1, filters = null).items
+    suspend fun searchSource(source: NovelSource, query: String): List<EntryBrowseRow> =
+        source.search(query, 1, filters = null).items.map { novelBrowseRow(it, source.id, favorited) }
 
     // The source id comes from each result's row, since results span sources.
     val addFlow = NovelAddFlow(libraryAdder, viewModelScope)
 }
-
-/**
- * What only the novel side answers: which of its results are already in the library. The results
- * themselves live in the shared global-search engine.
- */
-data class NovelGlobalSearchState(
-    /** (source, url) pairs in the library, for in-library marking of results. */
-    val favoritedKeys: FavoritedNovels = FavoritedNovels.None,
-)

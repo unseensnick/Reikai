@@ -16,18 +16,18 @@ import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.presentation.core.util.collectAsLazyPagingItems
+import reikai.domain.source.SourceKey
 import reikai.presentation.browse.BulkCategoryDialog
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.catalogue.EntryBrowseCatalogue
 import reikai.presentation.browse.catalogue.EntryBrowseScreenState
 import reikai.presentation.browse.catalogue.MangaBrowseAdapter
-import reikai.presentation.browse.catalogue.manga
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.detailsScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -113,12 +113,12 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                     if (bulkFavoriteState.selectionMode) {
                         adapter.toggleSelection(row)
                     } else {
-                        navigator.push(MangaScreen(row.manga.id, true))
+                        navigator.push(row.detailsScreen(SourceKey.Manga(sourceId)))
                     }
                 },
                 onLongClick = { row ->
                     if (bulkFavoriteState.selectionMode) {
-                        navigator.push(MangaScreen(row.manga.id, true))
+                        navigator.push(row.detailsScreen(SourceKey.Manga(sourceId)))
                     } else {
                         adapter.onRowLongClick(row)
                     }

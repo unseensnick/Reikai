@@ -7,6 +7,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
 
@@ -30,7 +31,7 @@ suspend fun fillEntryRows(
     /** Applies a change to the current rows. The caller supplies this so the read and the write stay
      *  inside one state update; reading outside would let two results race onto one snapshot. */
     updateRows: ((List<BrowseSearchRow>) -> List<BrowseSearchRow>) -> Unit,
-    load: suspend (BrowseSearchRow) -> List<Any>,
+    load: suspend (BrowseSearchRow) -> List<EntryBrowseRow>,
 ): Unit = coroutineScope {
     val semaphores = rows.map(group).distinct().associateWith { Semaphore(concurrency) }
     rows.filter { it.state is EntrySearchState.Loading }

@@ -51,6 +51,7 @@ class MangaFeedProviderTest {
             },
             getEnabledSources = getEnabledSources,
             networkToLocalManga = mockk(),
+            getManga = mockk(),
         )
     }
 

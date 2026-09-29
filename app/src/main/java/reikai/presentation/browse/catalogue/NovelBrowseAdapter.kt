@@ -12,10 +12,11 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.source.filter.NovelSavedSearchFilters
-import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelListing
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
-import reikai.presentation.browse.toEntryBrowseUi
+import reikai.presentation.browse.item
+import reikai.presentation.browse.novelBrowseRow
+import reikai.presentation.browse.novelRowKey
 import reikai.presentation.novel.browse.NovelBrowseState
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
@@ -81,28 +82,15 @@ class NovelBrowseAdapter(
                 toNeutral(model.state.value, bulk.state.value, toolbarText.value),
             )
 
+    // A browse result carries no library state of its own, so the cell reads it off the model's
+    // favorited set, which is what re-renders the badge when the entry is added.
+    private val favorited = model.state.mapState { it.favoritedKeys }
+
     override val rows: StateFlow<Flow<PagingData<EntryBrowseRow>>> = model.novelPagerFlowFlow
         .map { pagerFlow ->
-            pagerFlow.map { pagingData ->
-                pagingData.map { item ->
-                    EntryBrowseRow(
-                        key = rowKey(sourceId, item),
-                        // A browse result carries no library state of its own, so the cell reads it
-                        // off the model, which is what re-renders the badge when the entry is added.
-                        content = model.state.mapState { it.rowContent(item) },
-                    )
-                }
-            }
+            pagerFlow.map { pagingData -> pagingData.map { novelBrowseRow(it, sourceId, favorited) } }
         }
         .stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), emptyFlow())
-
-    private fun NovelBrowseState.rowContent(item: NovelItem) = EntryBrowseRowContent(
-        ui = item.toEntryBrowseUi(
-            inLibrary = favoritedKeys.contains(sourceId, item.path),
-            sourceId = sourceId,
-        ),
-        payload = item,
-    )
 
     private fun toNeutral(
         state: NovelBrowseState,
@@ -133,7 +121,7 @@ class NovelBrowseAdapter(
             webUrl = source.site.takeIf { it.isNotBlank() },
             rowStyle = EntryBrowseRowStyle.Standard(state.displayMode, state.columns),
             selectionMode = bulkState.selectionMode,
-            selectedKeys = bulkState.selection.mapTo(mutableSetOf()) { rowKey(it.sourceId, it.item) },
+            selectedKeys = bulkState.selection.mapTo(mutableSetOf()) { novelRowKey(it.sourceId, it.item.path) },
             capabilities = capabilities,
             // One dialog channel: the bulk category picker only ever opens while an entry dialog is
             // closed, so it rides the same slot rather than needing a second one in the state.
@@ -229,12 +217,6 @@ class NovelBrowseAdapter(
         bulk.setDialog(null)
     }
 }
-
-private fun rowKey(sourceId: String, item: NovelItem) = "novel:$sourceId:${item.path}"
-
-/** The row's payload is this adapter's own result, so unwrapping it is sound only here. */
-internal val EntryBrowseRow.item: NovelItem
-    get() = content.value.payload as NovelItem
 
 /**
  * The novel half of the Filter chip rule. No Search listing exists here, because a text search
