@@ -40,21 +40,7 @@ suspend fun syncChaptersWithNovelSource(
 
     val dbChapters = novelChapterRepository.getByNovelId(novelId)
 
-    val sourceChapters = rawSourceChapters
-        .distinctBy { it.path }
-        .mapIndexed { i, item ->
-            val draft = item.toNovelChapter(novelId, sourceOrder = i.toLong())
-            val name = with(ChapterSanitizer) { draft.name.sanitize(novel.title) }
-            // Recognize a number from the name only when the plugin gave none (lands as 0.0); a
-            // plugin-supplied positive number is trusted as-is.
-            val number = ChapterRecognition.parseChapterNumber(
-                novel.title,
-                name,
-                draft.chapterNumber.takeIf { it > 0.0 },
-            )
-            // A paged sync stamps the transport index; otherwise keep the plugin's own page label.
-            draft.copy(name = name, chapterNumber = number, page = page ?: draft.page)
-        }
+    val sourceChapters = rawSourceChapters.toSourceChapters(novelId, novel.title, page)
 
     val toAdd = mutableListOf<NovelChapter>()
     val toChange = mutableListOf<NovelChapter>()
@@ -125,5 +111,21 @@ suspend fun syncChaptersWithNovelSource(
 
     return NovelChapterSyncResult(insertedChapters.filterNot { it.url in changedOrDuplicateReadUrls }, changed = true)
 }
+
+/**
+ * A plugin's chapter list as a sync stores it: one row per path, names without the novel's title in
+ * front, numbers recognized. Anything counting a plugin's list outside a sync counts this, so its
+ * numbers match what a commit stores. [novelId] may be -1 for rows that are only counted.
+ */
+fun List<ChapterItem>.toSourceChapters(novelId: Long, novelTitle: String, page: String? = null): List<NovelChapter> =
+    distinctBy { it.path }.mapIndexed { i, item ->
+        val draft = item.toNovelChapter(novelId, sourceOrder = i.toLong())
+        val name = with(ChapterSanitizer) { draft.name.sanitize(novelTitle) }
+        // Recognize a number from the name only when the plugin gave none (lands as 0.0); a
+        // plugin-supplied positive number is trusted as-is.
+        val number = ChapterRecognition.parseChapterNumber(novelTitle, name, draft.chapterNumber.takeIf { it > 0.0 })
+        // A paged sync stamps the transport index; otherwise keep the plugin's own page label.
+        draft.copy(name = name, chapterNumber = number, page = page ?: draft.page)
+    }
 
 private fun NovelChapter.toStoredChapter() = StoredChapter(chapterNumber, read, bookmark, dateFetch)

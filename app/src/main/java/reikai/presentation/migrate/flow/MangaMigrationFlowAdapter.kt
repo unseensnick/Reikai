@@ -240,10 +240,12 @@ class MangaMigrationFlowAdapter(
         val fetched = runCatchingCancellable {
             source.getMangaUpdate(manga.toSManga(), emptyList(), fetchDetails = false, fetchChapters = true).chapters
         }.getOrNull()
-        if (fetched.isNullOrEmpty()) return null
+        // Counted as the sync stores them, which keeps one row per url.
+        val listed = fetched?.distinctBy { it.url }
+        if (listed.isNullOrEmpty()) return null
         return candidate.copy(
-            chapterCount = fetched.size,
-            latestChapter = fetched.latestChapterNumber {
+            chapterCount = listed.size,
+            latestChapter = listed.latestChapterNumber {
                 ChapterRecognition.parseChapterNumber(manga.title, it.name, it.chapter_number.toDouble())
             },
         )

@@ -491,6 +491,7 @@ every stable release now also ships a foss build with neither in it.
 - **Migrating a novel now offers the same search options as manga: Additional keywords, Advanced search mode, Match based on chapter number, Hide entries without a match and Hide entries without newer chapters.**
 - **Migration search's Has results filter now keeps its setting, shared with global search.**
 - **The migration list now names the source an entry moves from, even when that source is uninstalled.**
+- **Migration chapter counts no longer count a chapter twice when a source lists it twice.**
 
 ### Tracking
 

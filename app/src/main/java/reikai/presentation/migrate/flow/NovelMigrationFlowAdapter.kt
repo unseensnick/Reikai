@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.toNovel
+import reikai.data.novel.toSourceChapters
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
@@ -25,12 +26,12 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
+import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.SmartNovelSearchEngine
 import reikai.presentation.migrate.PickMember
 import reikai.util.runCatchingCancellable
-import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -301,12 +302,10 @@ class NovelMigrationFlowAdapter(
 
     /** Null counts for an empty list, matching every other candidate builder. */
     private fun MigrationCandidate.withCounts(item: NovelItem, chapters: List<ChapterItem>): MigrationCandidate {
-        if (chapters.isEmpty()) return copy(chapterCount = null, latestChapter = null)
-        // Mirrors NovelChapterSync's numbering so the counted latest matches what a commit stores.
-        val latest = chapters.latestChapterNumber {
-            ChapterRecognition.parseChapterNumber(item.name, it.name, it.chapterNumber?.takeIf { n -> n > 0.0 })
-        }
-        return copy(chapterCount = chapters.size, latestChapter = latest)
+        // The novel's title is stored decoded, so the hit's name is decoded to strip it the same way.
+        val stored = chapters.toSourceChapters(novelId = -1L, novelTitle = NovelTextSanitizer.decodeEntities(item.name))
+        if (stored.isEmpty()) return copy(chapterCount = null, latestChapter = null)
+        return copy(chapterCount = stored.size, latestChapter = stored.latestChapterNumber { it.chapterNumber })
     }
 
     override suspend fun storedCandidate(id: Long): MigrationCandidate? {

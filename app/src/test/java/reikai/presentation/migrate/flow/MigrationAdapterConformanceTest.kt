@@ -4,7 +4,9 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -20,7 +22,9 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
+import reikai.novel.host.SourceNovel
 import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -36,7 +40,8 @@ import tachiyomi.domain.source.service.SourceManager
  * The rules both migration adapters must answer alike, run over each real adapter with its engine
  * mocked at the repository and source boundary. The world is the same for both: one stored entry
  * (id [ENTRY_ID], url [OWN_URL]) on an uninstalled source last seen as [OLD_NAME], and an installed
- * target source listing the given urls, where every stored row has the given number of chapters.
+ * target source listing the given urls, where every stored row has the given number of chapters
+ * and every listing's own chapter list is the given chapter urls.
  */
 class MigrationAdapterConformanceTest {
 
@@ -67,6 +72,15 @@ class MigrationAdapterConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a peek counts a chapter the source lists twice once`(probe: Probe) = runTest {
+        val adapter = probe.adapter(listing = listOf("/t"), chapters = 0, sourceChapters = listOf("/c1", "/c1", "/c2"))
+        val hit = adapter.candidates(probe.entry(onSource = probe.oldSource), "q", probe.target).single()
+
+        adapter.peekCounts(hit)?.chapterCount shouldBe 2
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `an entry from an uninstalled source is still named`(probe: Probe) = runTest {
         probe.adapter().loadEntries(listOf(ENTRY_ID)).single().sourceName shouldBe OLD_NAME
     }
@@ -86,7 +100,11 @@ sealed interface Probe {
     val oldSource: String
     val target: String
 
-    fun adapter(listing: List<String> = emptyList(), chapters: Int = 1): MigrationFlowAdapter
+    fun adapter(
+        listing: List<String> = emptyList(),
+        chapters: Int = 1,
+        sourceChapters: List<String> = emptyList(),
+    ): MigrationFlowAdapter
 
     /** The stored entry as the flow loads it, placed on [onSource]. */
     fun entry(onSource: String): MigrationEntry
@@ -105,7 +123,7 @@ object MangaProbe : Probe {
         title = "Title",
     )
 
-    override fun adapter(listing: List<String>, chapters: Int): MigrationFlowAdapter {
+    override fun adapter(listing: List<String>, chapters: Int, sourceChapters: List<String>): MigrationFlowAdapter {
         val rows = mutableMapOf(stored.id to stored)
         val catalogue = mockk<CatalogueSource>(relaxed = true) {
             every { id } returns 2L
@@ -120,6 +138,17 @@ object MangaProbe : Probe {
                 },
                 hasNextPage = false,
             )
+            coEvery { getMangaUpdate(any(), any(), any(), any()) } answers {
+                SMangaUpdate(
+                    firstArg(),
+                    sourceChapters.map { url ->
+                        SChapter.create().apply {
+                            this.url = url
+                            name = "Chapter ${url.drop(2)}"
+                        }
+                    },
+                )
+            }
         }
         return MangaMigrationFlowAdapter(
             sourceManager = mockk<SourceManager> {
@@ -175,13 +204,16 @@ object NovelProbe : Probe {
         title = "Title",
     )
 
-    override fun adapter(listing: List<String>, chapters: Int): MigrationFlowAdapter {
+    override fun adapter(listing: List<String>, chapters: Int, sourceChapters: List<String>): MigrationFlowAdapter {
         val rows = mutableMapOf(stored.id to stored)
         val targetSource = mockk<NovelSource>(relaxed = true) {
             every { id } returns "target"
             every { name } returns "Target"
             coEvery { search(any(), any(), any()) } returns
                 NovelItemsPage(listing.map { NovelItem(it, it, null) }, hasNextPage = false)
+            coEvery { parseNovel(any()) } answers {
+                SourceNovel(firstArg(), chapters = sourceChapters.map { ChapterItem("Chapter ${it.drop(2)}", it) })
+            }
         }
         val sourceManager = NovelSourceManager(
             installer = { mockk(relaxed = true) },
