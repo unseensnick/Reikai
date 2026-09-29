@@ -51,7 +51,7 @@ Preferences go through `PreferenceStore` (`core/common/.../preference/Preference
 
 ## Coroutines
 
-Launch with the `launchIO` / `launchUI` extensions (`core/common/.../util/lang/CoroutinesExtensions.kt`), not raw `launch(Dispatchers.IO)`. In a ViewModel use `viewModelScope.launchIO { }` / `launchUI { }`; in a composable use `rememberCoroutineScope()` or `LaunchedEffect`. Never `GlobalScope`; for work that must outlive the screen, use `WorkManager` (as upstream does for library updates, backups, etc.). Reactive state via `StateFlow` / `SharedFlow`; no RxJava on the screen path.
+Launch with the `launchIO` / `launchUI` extensions (`core/common/.../util/lang/CoroutinesExtensions.kt`), not raw `launch(Dispatchers.IO)`. In a ViewModel use `viewModelScope.launchIO { }` / `launchUI { }`; in a composable use `rememberCoroutineScope()` or `LaunchedEffect`. Never `GlobalScope`; for work that must outlive the screen, use `WorkManager` (as upstream does for library updates, backups, etc.). Two owners may build their own scope, as upstream does. An app-graph singleton (`@SingleIn(AppScope::class)`) running short work that must outlive a screen but not the process keeps a private `CoroutineScope(SupervisorJob() + Dispatchers.IO)`, like upstream's `Downloader`, `ExtensionManager` and `ShizukuInstaller`; `NovelPageActionRunner` is Reikai's case, since its page HTML overflows WorkManager's 10 KB input. A View the reader installs keeps one it cancels on teardown, like upstream's `PagerViewer` and `WebtoonViewer`. Screens, ViewModels and composables never build one. Reactive state via `StateFlow` / `SharedFlow`; no RxJava on the screen path.
 
 ## Domain models
 
