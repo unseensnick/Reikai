@@ -50,7 +50,7 @@ every stable release now also ships a foss build with neither in it.
 
 #### Changed
 
-- **Upgrading to this version merges any manga or novel you have twice from the same source into one, keeping the library copy with your read chapters, history, categories, tracking and custom cover (partly synced from Mihon, mihonapp/mihon#3805).**
+- **Upgrading to this version merges any manga or novel you have twice from the same source into one, keeping the library copy with your read chapters, history, categories, tracking, custom cover and downloads (partly synced from Mihon, mihonapp/mihon#3805).**
 - **Manga and novels now share one library sort, filter set and grouping, and your novel library takes on the manga library's.** Set any of them under either chip and both follow; per-category sorts are untouched.
 - **The Default category now follows your global library sort instead of taking a sort of its own.** It is one shared bucket across both libraries, so it could not sensibly be sorted two ways at once.
 - **A category you collapse stays collapsed on both the Manga and Novels chips, and after a restart.** Collapsing is now remembered per category rather than per chip; in the novel library it used to spring back open every time you left.

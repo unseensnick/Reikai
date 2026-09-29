@@ -23,14 +23,16 @@ import java.nio.file.StandardCopyOption.ATOMIC_MOVE
  * merged into: its custom cover, named by entry id, and its downloads, named by title and queued by id. The
  * survivor's own cover wins, and the copy's file goes either way: neither entry table uses AUTOINCREMENT, so the
  * freed id can be handed to a new entry, which would inherit it. Best-effort per file, as the novel cover re-key
- * is. The one reader that empties the record. Rules and inventory: docs/dev/plans/mihon-schema-rewrite.md.
+ * is. The one reader that empties the record, which it does only once every download folder is merged, here or
+ * by [retryUnfinishedFolders] on a later launch. Rules and inventory: docs/dev/plans/mihon-schema-rewrite.md.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)
 class MergedDuplicateCarryMigration(
     private val mergedDuplicates: MergedDuplicateRepository,
     private val coverCache: CoverCache,
-    private val downloads: MergedDuplicateDownloads,
+    // Deferred: App reads this at every launch, and building the carry starts the novel download index's scan
+    private val downloads: () -> MergedDuplicateDownloads,
 ) : Migration {
     // Fires once when the shipped versionCode crosses 198 (the version this carry ships in).
     override val version: Float = 198f
@@ -42,10 +44,27 @@ class MergedDuplicateCarryMigration(
             ?: return@withIOContext false
 
         duplicates.forEach(::carryCustomCover)
-        runCatching { downloads.carry(duplicates, mergedDuplicates.getChapters()) }
+        val finished = runCatching { downloads().carry(duplicates, mergedDuplicates.getChapters()) }
             .onFailure { logcat(LogPriority.ERROR, it) { "Merged-duplicate download carry failed" } }
-        mergedDuplicates.clear()
+            .getOrDefault(false)
+        if (finished) mergedDuplicates.clear()
         true
+    }
+
+    /**
+     * Tries again, on each later launch, the download folders the upgrade could not finish merging (no room, a failed
+     * copy), and empties the record once none is left. Folders only: a cover and a queued download are keyed by the
+     * freed id, which a new entry may hold by now.
+     */
+    suspend fun retryUnfinishedFolders() = withIOContext {
+        val duplicates = runCatching { mergedDuplicates.getAll() }
+            .onFailure { logcat(LogPriority.ERROR, it) { "Merged-duplicate carry could not read the record" } }
+            .getOrNull()
+        if (duplicates.isNullOrEmpty()) return@withIOContext
+        val finished = runCatching { downloads().carryFolders(duplicates) }
+            .onFailure { logcat(LogPriority.ERROR, it) { "Merged-duplicate folder retry failed" } }
+            .getOrDefault(false)
+        if (finished) mergedDuplicates.clear()
     }
 
     private fun carryCustomCover(duplicate: MergedDuplicate) {

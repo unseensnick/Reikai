@@ -92,8 +92,13 @@ device: an upgrade from a 196 or 197 build with real data is the owner's check.
     has none; when both have one the survivor's stays. The copy's file is deleted either way, because
     neither entry table uses AUTOINCREMENT and a new entry could be given the freed id and inherit it. A
     novel's cover may still sit under its pre-186 name, since the 186 re-key sees only surviving rows.
-    It then carries the downloads (below) and empties both records, so a second run does nothing.
-    Upstream loses these covers.
+    It then carries the downloads (below) and empties both records, so a second run does nothing, but
+    only once every download folder is merged. A folder carry left unfinished (no room, a failed copy
+    or rename) keeps both records, and `App` retries it through `retryUnfinishedFolders` on every later launch,
+    after `Migrator`, emptying the records once none is left. The retry redoes only the folders, which
+    are keyed by title: a cover and a queued download are keyed by the freed id, which a new entry may
+    hold by then. A crash during 198 itself needs no retry path, since the version is stamped only after
+    the chain completes and the whole carry is safe to run again. Upstream loses these covers.
   - `MigrateMergePrefsToGroupsMigration` (189) maps merged-away ids in the old merge and unmerge prefs
     to their survivors. Every 0.3.2 install runs it after the dedupe, and without the map it drops a
     manual merge naming a copy and lets a same-title group form against an unmerge naming one.
@@ -102,13 +107,31 @@ device: an upgrade from a 196 or 197 build with real data is the owner's check.
   survivor's has its folder renamed in place to the survivor's title when the survivor has no folder of
   its own, through a temporary name for a change of letter case only, as both engines' title renames
   do; both download indexes are then rebuilt. Titles are compared as folder names before the manga
-  source is looked up, since that lookup waits for extensions to load. When the survivor has a folder
-  too, the survivor's is kept and the copy's is left untouched under its old name, unlisted: storage
-  (`UniFile`) can rename a folder in place but cannot move a file between folders, so merging the two
-  would take a copy and a delete of the user's files, which is left for an owner ruling. Where several
-  copies merged into one survivor, the lowest id goes first and takes the name. Nothing is deleted or
-  overwritten on any path. The chapter files inside keep their names, which come from each chapter's
-  name and url, so they match the survivor's rows wherever the merged rows agree on the name.
+  source is looked up, since that lookup waits for extensions to load. Where several copies merged into
+  one survivor, the lowest id goes first and takes the name. The chapter files inside keep their names,
+  which come from each chapter's name and url, so they match the survivor's rows wherever the merged
+  rows agree on the name.
+- **When both copies have a folder, the two are merged by copy and delete** (owner ruling, 2026-09-29;
+  `DownloadFolderMerge`, one kernel for both types). Storage (`UniFile`) can rename in place but cannot
+  move a file between folders. Each chapter entry of the copy's folder (a page folder or `.cbz`, a
+  novel's `.html`) that the survivor's folder has no entry of that name for, compared ignoring case, is
+  copied into the survivor's folder under a `_merge_tmp` name, checked, renamed into place, and only
+  then deleted from the copy's folder. The check is the same names at every level and every file the
+  same length; a content hash was left out because it would read every chapter a second time. A chapter
+  the survivor has already stays in both folders: nothing is overwritten, and a chapter not copied is
+  never deleted. A half-written download (`_tmp`) is left alone. The copy's folder is deleted only when
+  this run moved every entry it held out of it and it then lists empty, because a failed listing also
+  reads as empty; a folder with anything left stays, unlisted, and the merge is still counted finished.
+  A copy that fails or comes out short is deleted from the survivor's folder and its source kept, and
+  counts as unfinished. A `_merge_tmp` left by a crash is deleted at the start of the next run, before
+  the survivor's listing is read; it ends in the downloaders' `_tmp`, so neither index lists it, and no
+  download name can end in it. Free space is checked first when the volume reports it: the pair is
+  skipped, as unfinished, unless the whole of what it would copy leaves the volume above the download
+  floor (`hasRoomToCopy`). The survivor's name is looked up again just before the rename, and a rename
+  that lands on another name (the document provider picks a free `name (1)` rather than replace) drops
+  the copy. The one gap is plain-file storage on a later-launch retry: if the survivor's downloader
+  writes the same chapter in the instant between that lookup and the rename, the rename replaces it with
+  the checked copy of the same chapter (same name and url).
 - **Queued downloads follow the merge by one rule for both types.** Both saved queues are rows of
   entry id, chapter id and order in their own preferences file (`active_downloads`,
   `active_novel_downloads`). The carry re-points a row of a merged-away entry to the survivor and a row

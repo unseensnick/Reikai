@@ -6,6 +6,7 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.download.DownloadStore
+import eu.kanade.tachiyomi.util.storage.DiskUtil
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
@@ -13,13 +14,17 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.dedupe.DownloadFolderMerge.COPY_SUFFIX
 import reikai.domain.dedupe.MergedDuplicate
 import reikai.domain.dedupe.MergedDuplicateChapter
 import reikai.domain.download.QueuedChapter
@@ -39,6 +44,10 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StorageManager
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.io.OutputStream
 
 /**
  * What a merged-away copy left outside the database under its title (a download folder) or its ids (a queued
@@ -48,6 +57,8 @@ import tachiyomi.domain.storage.service.StorageManager
 class MergedDuplicateDownloadsTest {
 
     private val libraryPreferences = LibraryPreferences(InMemoryPreferenceStore())
+
+    private var writes = Writes.OK
 
     private val mangaRoot = FakeDir("downloads", parent = null)
     private val novelRoot = FakeDir("novel_downloads", parent = null)
@@ -137,13 +148,179 @@ class MergedDuplicateDownloadsTest {
 
     @ParameterizedTest
     @EnumSource(Type::class)
-    fun `a merged-away copy's folder is left under its own name when the survivor has one`(type: Type) = runTest {
-        sourceDir(type).dir(KEPT).dir("Chapter 1")
-        sourceDir(type).dir(OLD).dir("Chapter 2")
+    fun `a chapter only the merged-away copy has moves into the survivor's folder`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+
+        type.read(sourceDir(type).dir(KEPT), CH2) shouldBe "old"
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chapter both copies have keeps the survivor's download`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH1, "old")
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+
+        type.read(sourceDir(type).dir(KEPT), CH1) shouldBe "kept"
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chapter both copies have stays in the merged-away folder`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH1, "old")
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+
+        type.read(sourceDir(type).dir(OLD), CH1) shouldBe "old"
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a merged-away folder the merge emptied is removed`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+
+        sourceDir(type).names() shouldBe listOf(KEPT)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a merged-away folder with a chapter left in it is kept`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH1, "old")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
 
         downloads.carry(listOf(duplicate(type, OLD)), emptyList())
 
         sourceDir(type).names() shouldContainExactlyInAnyOrder listOf(KEPT, OLD)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a copy that fails part way leaves the merged-away chapter in place`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
+        writes = Writes.FAIL
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+
+        type.read(sourceDir(type).dir(OLD), CH2) shouldBe "old"
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a copy that came out short leaves the merged-away chapter in place`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
+        writes = Writes.SHORT
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+
+        type.read(sourceDir(type).dir(OLD), CH2) shouldBe "old"
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a copy that came out short is not left in the survivor's folder`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
+        writes = Writes.SHORT
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+
+        sourceDir(type).dir(KEPT).names() shouldBe listOf(type.entryName(CH1))
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a run after a failed copy finishes the merge`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
+        writes = Writes.FAIL
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        writes = Writes.OK
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+
+        type.read(sourceDir(type).dir(KEPT), CH2) shouldBe "old"
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a half-made copy an interrupted run left is replaced by a whole one`(type: Type) = runTest {
+        val kept = sourceDir(type).dir(KEPT)
+        type.chapter(kept, CH1, "kept")
+        type.leftover(kept, CH2, "o")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+
+        kept.names() shouldContainExactlyInAnyOrder listOf(type.entryName(CH1), type.entryName(CH2))
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a half-made copy is cleared away even when the survivor has the chapter by now`(type: Type) = runTest {
+        val kept = sourceDir(type).dir(KEPT)
+        type.chapter(kept, CH2, "kept")
+        type.leftover(kept, CH2, "o")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+
+        kept.names() shouldBe listOf(type.entryName(CH2))
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a merged-away folder is left whole when the volume has no room for it`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
+        freeSpace(0L)
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+
+        type.read(sourceDir(type).dir(OLD), CH2) shouldBe "old"
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `the carry reports a folder merge it could not finish`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
+        writes = Writes.FAIL
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList()) shouldBe false
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chapter left in place because the survivor has it counts as finished`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH1, "old")
+
+        downloads.carry(listOf(duplicate(type, OLD)), emptyList()) shouldBe true
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `the download index is rebuilt once a chapter was merged in`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+        type.chapter(sourceDir(type).dir(OLD), CH2, "old")
+
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
+
+        when (type) {
+            Type.MANGA -> verify { downloadCache.invalidateCache() }
+            Type.NOVEL -> verify { novelCache.invalidate() }
+        }
     }
 
     @ParameterizedTest
@@ -239,35 +416,107 @@ class MergedDuplicateDownloadsTest {
         Type.NOVEL -> novelStore.persisted()
     }.sortedBy { it.order }
 
+    private fun freeSpace(bytes: Long) {
+        mockkObject(DiskUtil)
+        every { DiskUtil.getAvailableStorageSpace(any<UniFile>()) } returns bytes
+    }
+
+    @AfterEach
+    fun tearDown() {
+        unmockkObject(DiskUtil)
+    }
+
+    /** How the fake storage writes: whole, throwing after the first byte, or silently a byte short. */
+    enum class Writes { OK, FAIL, SHORT }
+
+    /** A manga chapter is a folder of pages, a novel chapter one file; the name is the chapter's on disk. */
     enum class Type(val contentType: ContentType) {
         MANGA(ContentType.MANGA),
         NOVEL(ContentType.NOVELS),
         ;
 
         val other get() = if (this == MANGA) NOVEL else MANGA
+
+        fun entryName(chapter: String): String = if (this == MANGA) chapter else "$chapter.html"
+
+        fun chapter(dir: FakeDir, chapter: String, text: String) = when (this) {
+            MANGA -> dir.dir(chapter).file(PAGE, text)
+            NOVEL -> dir.file(entryName(chapter), text)
+        }
+
+        fun leftover(dir: FakeDir, chapter: String, text: String) = when (this) {
+            MANGA -> dir.dir(entryName(chapter) + COPY_SUFFIX).file(PAGE, text)
+            NOVEL -> dir.file(entryName(chapter) + COPY_SUFFIX, text)
+        }
+
+        fun read(dir: FakeDir, chapter: String): String? = when (this) {
+            MANGA -> dir.node(chapter)?.node(PAGE)?.text()
+            NOVEL -> dir.node(entryName(chapter))?.text()
+        }
     }
 
-    /** A directory of the fake tree; [file] is the UniFile the code under test sees. */
-    private class FakeDir(name: String, private val parent: FakeDir?) {
+    /**
+     * A folder or file of the fake tree; [file] is the UniFile the code under test sees. Creating a name that exists
+     * hands back what is there, as UniFile does, and a write goes through [writes].
+     */
+    inner class FakeDir(name: String, private val parent: FakeDir?, private val isDir: Boolean = true) {
         var name = name
             private set
         private val children = linkedMapOf<String, FakeDir>()
+        private var bytes = ByteArray(0)
 
         val file: UniFile = mockk {
             every { this@mockk.name } answers { this@FakeDir.name }
-            every { isDirectory } returns true
-            every { exists() } returns true
+            every { isDirectory } returns isDir
+            every { isFile } returns !isDir
+            every { exists() } answers { parent == null || parent.children[this@FakeDir.name] === this@FakeDir }
+            every { length() } answers { if (isDir) 0L else bytes.size.toLong() }
             every { findFile(any()) } answers { children[firstArg()]?.file }
-            every { listFiles() } answers { children.values.map { it.file }.toTypedArray() }
-            every { createDirectory(any()) } answers { dir(firstArg()).file }
+            every { listFiles() } answers { if (isDir) children.values.map { it.file }.toTypedArray() else null }
+            every { createDirectory(any()) } answers { create(firstArg(), directory = true)?.file }
+            every { createFile(any()) } answers { create(firstArg(), directory = false)?.file }
             every { renameTo(any()) } answers { rename(firstArg()) }
+            every { delete() } answers { parent?.children?.remove(this@FakeDir.name, this@FakeDir) == true }
+            every { openInputStream() } answers { ByteArrayInputStream(bytes) }
+            every { openOutputStream() } answers { output() }
         }
 
         fun dir(name: String): FakeDir = children.getOrPut(name) { FakeDir(name, this) }
 
+        fun file(name: String, text: String): FakeDir =
+            FakeDir(name, this, isDir = false).also {
+                it.bytes = text.toByteArray()
+                children[name] = it
+            }
+
+        fun node(name: String): FakeDir? = children[name]
+
         fun child(name: String): UniFile? = children[name]?.file
 
         fun names(): List<String> = children.keys.toList()
+
+        fun text(): String = String(bytes)
+
+        private fun create(name: String, directory: Boolean): FakeDir? {
+            children[name]?.let { return it.takeIf { it.isDir == directory } }
+            return FakeDir(name, this, directory).also { children[name] = it }
+        }
+
+        private fun output(): OutputStream = object : ByteArrayOutputStream() {
+            override fun write(b: ByteArray, off: Int, len: Int) {
+                if (writes == Writes.FAIL) {
+                    super.write(b, off, 1)
+                    bytes = toByteArray()
+                    throw IOException("storage failed")
+                }
+                super.write(b, off, len)
+                bytes = toByteArray()
+            }
+
+            override fun close() {
+                if (writes == Writes.SHORT) bytes = bytes.copyOf(bytes.size - 1)
+            }
+        }
 
         // FileSystemProvider.renameDocument never replaces a sibling: it takes the first free "name (n)"
         private fun rename(requested: String): Boolean {
@@ -289,5 +538,8 @@ class MergedDuplicateDownloadsTest {
         const val NOVEL_SOURCE = "src"
         const val OLD = "Old Title"
         const val KEPT = "Kept Title"
+        const val CH1 = "Chapter 1_aaaaaa"
+        const val CH2 = "Chapter 2_bbbbbb"
+        const val PAGE = "001.jpg"
     }
 }

@@ -25,8 +25,9 @@ import tachiyomi.domain.source.service.SourceManager
 /**
  * Carries the downloads of each copy the upgrade's dedupe merged away to the entry it merged into, by one rule
  * for both types: a download folder named by the copy's title takes the survivor's title when the survivor has
- * none, and a saved queue row naming the copy or a merged chapter row names the survivor's instead, or goes.
- * Nothing is deleted or overwritten. Rules: docs/dev/plans/mihon-schema-rewrite.md.
+ * none and is merged into the survivor's when it has one, and a saved queue row naming the copy or a merged
+ * chapter row names the survivor's instead, or goes. Nothing is overwritten, and a file is deleted only once a
+ * checked copy stands in its place. Rules: docs/dev/plans/mihon-schema-rewrite.md.
  */
 @Inject
 class MergedDuplicateDownloads(
@@ -45,20 +46,11 @@ class MergedDuplicateDownloads(
 
     private val novelStore = NovelDownloadStore(context, novelChapterRepository)
 
-    suspend fun carry(duplicates: List<MergedDuplicate>, chapters: List<MergedDuplicateChapter>) {
+    /** False while a folder is left to merge, for [carryFolders] to try again on a later launch. */
+    suspend fun carry(duplicates: List<MergedDuplicate>, chapters: List<MergedDuplicateChapter>): Boolean {
         // An upgrade that merged nothing leaves both queues untouched
-        if (duplicates.isEmpty() && chapters.isEmpty()) return
-        val moved = duplicates.sortedBy { it.discardedId }.filter { duplicate ->
-            runCatching { carryFolder(duplicate) }
-                .onFailure {
-                    logcat(LogPriority.WARN, it) {
-                        "Merged-duplicate download folder carry failed: ${duplicate.discardedId}"
-                    }
-                }
-                .getOrDefault(false)
-        }
-        if (moved.any { it.contentType == ContentType.MANGA }) downloadCache.invalidateCache()
-        if (moved.any { it.contentType == ContentType.NOVELS }) novelCache.invalidate()
+        if (duplicates.isEmpty() && chapters.isEmpty()) return true
+        val finished = carryFolders(duplicates)
 
         val queue = downloadStore.persisted()
         downloadStore.replacePersisted(
@@ -73,15 +65,33 @@ class MergedDuplicateDownloads(
                     null
             },
         )
+        return finished
     }
 
-    private suspend fun carryFolder(duplicate: MergedDuplicate): Boolean {
+    /** Only the folders, which are named by title; the lowest id goes first, so it takes the survivor's name. */
+    suspend fun carryFolders(duplicates: List<MergedDuplicate>): Boolean {
+        val carried = duplicates.sortedBy { it.discardedId }.map { duplicate ->
+            duplicate to runCatching { carryFolder(duplicate) }
+                .onFailure {
+                    logcat(LogPriority.WARN, it) {
+                        "Merged-duplicate download folder carry failed: ${duplicate.discardedId}"
+                    }
+                }
+                .getOrDefault(FolderCarry(finished = false, changed = false))
+        }
+        val changed = carried.filter { it.second.changed }.map { it.first.contentType }
+        if (ContentType.MANGA in changed) downloadCache.invalidateCache()
+        if (ContentType.NOVELS in changed) novelCache.invalidate()
+        return carried.all { it.second.finished }
+    }
+
+    private suspend fun carryFolder(duplicate: MergedDuplicate): FolderCarry {
         when (duplicate.contentType) {
             ContentType.MANGA -> {
-                val survivor = getManga.await(duplicate.survivorId) ?: return false
+                val survivor = getManga.await(duplicate.survivorId) ?: return NOTHING_TO_DO
                 val survivorName = downloadProvider.getMangaDirName(survivor.title)
                 // Checked before the source lookup, which waits for extensions to load
-                if (survivorName == downloadProvider.getMangaDirName(duplicate.discardedTitle)) return false
+                if (survivorName == downloadProvider.getMangaDirName(duplicate.discardedTitle)) return NOTHING_TO_DO
                 val source = sourceManager.getOrStub(survivor.source)
                 return moveFolder(
                     discarded = downloadProvider.findMangaDir(duplicate.discardedTitle, source),
@@ -90,30 +100,29 @@ class MergedDuplicateDownloads(
                 )
             }
             ContentType.NOVELS -> {
-                val survivor = novelRepository.getById(duplicate.survivorId) ?: return false
+                val survivor = novelRepository.getById(duplicate.survivorId) ?: return NOTHING_TO_DO
                 return moveFolder(
                     discarded = novelProvider.findNovelDir(survivor.copy(title = duplicate.discardedTitle)),
                     survivor = novelProvider.findNovelDir(survivor),
                     survivorName = novelProvider.novelDirName(survivor),
                 )
             }
-            ContentType.ALL -> return false
+            ContentType.ALL -> return NOTHING_TO_DO
         }
     }
 
     /**
      * Renames the copy's folder to the survivor's name, in place, through a temporary name when only the letter
-     * case differs, as both engines' title renames do. A survivor with a folder of its own keeps it and the copy's
-     * is left as it is: storage offers no move between folders, so merging the two would mean copy and delete.
+     * case differs, as both engines' title renames do. A survivor with a folder of its own has the copy's merged
+     * into it instead, by [DownloadFolderMerge].
      */
-    private fun moveFolder(discarded: UniFile?, survivor: UniFile?, survivorName: String): Boolean {
-        if (discarded == null || survivor != null || discarded.name == survivorName) return false
-        if (discarded.name.equals(survivorName, ignoreCase = true) &&
-            !discarded.renameTo(survivorName + Downloader.TMP_DIR_SUFFIX)
-        ) {
-            return false
-        }
-        return discarded.renameTo(survivorName)
+    private fun moveFolder(discarded: UniFile?, survivor: UniFile?, survivorName: String): FolderCarry {
+        if (discarded == null || discarded.name == survivorName) return NOTHING_TO_DO
+        if (survivor != null) return DownloadFolderMerge.merge(from = discarded, into = survivor)
+        val caseOnly = discarded.name.equals(survivorName, ignoreCase = true)
+        val renamed = (!caseOnly || discarded.renameTo(survivorName + Downloader.TMP_DIR_SUFFIX)) &&
+            discarded.renameTo(survivorName)
+        return FolderCarry(finished = renamed, changed = renamed)
     }
 
     /**
@@ -143,5 +152,9 @@ class MergedDuplicateDownloads(
             }
             .distinctBy { it.chapterId }
             .filter { chapterExists(it.chapterId) }
+    }
+
+    private companion object {
+        val NOTHING_TO_DO = FolderCarry(finished = true, changed = false)
     }
 }

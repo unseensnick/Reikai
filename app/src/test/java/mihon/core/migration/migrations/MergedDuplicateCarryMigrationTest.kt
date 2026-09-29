@@ -4,6 +4,7 @@ import android.content.Context
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -91,10 +92,66 @@ class MergedDuplicateCarryMigrationTest {
     @Test
     fun `the record is emptied once it has run`() = runTest {
         val record = FakeRecord(MergedDuplicate(ContentType.MANGA, DISCARDED, SURVIVOR, TITLE))
+        coEvery { downloads.carry(any(), any()) } returns true
 
         run(record)
 
         record.getAll().shouldBeEmpty()
+    }
+
+    @Test
+    fun `the record is kept while a download folder merge is unfinished`() = runTest {
+        val duplicate = MergedDuplicate(ContentType.MANGA, DISCARDED, SURVIVOR, TITLE)
+        val record = FakeRecord(duplicate)
+        coEvery { downloads.carry(any(), any()) } returns false
+
+        run(record)
+
+        record.getAll() shouldBe listOf(duplicate)
+    }
+
+    @Test
+    fun `a later launch empties the record once the folders are merged`() = runTest {
+        val record = FakeRecord(MergedDuplicate(ContentType.MANGA, DISCARDED, SURVIVOR, TITLE))
+        coEvery { downloads.carryFolders(any()) } returns true
+
+        migration(record).retryUnfinishedFolders()
+
+        record.getAll().shouldBeEmpty()
+    }
+
+    @Test
+    fun `a later launch keeps the record while a folder merge is still unfinished`() = runTest {
+        val duplicate = MergedDuplicate(ContentType.NOVELS, DISCARDED, SURVIVOR, TITLE)
+        val record = FakeRecord(duplicate)
+        coEvery { downloads.carryFolders(any()) } returns false
+
+        migration(record).retryUnfinishedFolders()
+
+        record.getAll() shouldBe listOf(duplicate)
+    }
+
+    /** Every launch reads the record, and building the carry starts a download index scan. */
+    @Test
+    fun `a later launch with nothing left to merge does not build the download carry`() = runTest {
+        var built = false
+
+        MergedDuplicateCarryMigration(FakeRecord(), coverCache) { downloads.also { built = true } }
+            .retryUnfinishedFolders()
+
+        built shouldBe false
+    }
+
+    /** By a later launch a new entry may hold the freed id, and the cover under it is that entry's. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a later launch leaves the covers alone`(type: Type) = runTest {
+        cover(type.entry(DISCARDED)).writeText("new entry")
+        coEvery { downloads.carryFolders(any()) } returns true
+
+        migration(FakeRecord(MergedDuplicate(type.contentType, DISCARDED, SURVIVOR, TITLE))).retryUnfinishedFolders()
+
+        cover(type.entry(DISCARDED)).readText() shouldBe "new entry"
     }
 
     @ParameterizedTest
@@ -121,9 +178,11 @@ class MergedDuplicateCarryMigrationTest {
     }
 
     private suspend fun run(record: MergedDuplicateRepository) {
-        MergedDuplicateCarryMigration(record, coverCache, downloads)
-            .invoke(MigrationContext(dryrun = false, previousVersion = 185))
+        migration(record).invoke(MigrationContext(dryrun = false, previousVersion = 185))
     }
+
+    private fun migration(record: MergedDuplicateRepository) =
+        MergedDuplicateCarryMigration(record, coverCache) { downloads }
 
     private fun cover(entryId: EntryId) = coverCache.getCustomCoverFile(entryId)
 

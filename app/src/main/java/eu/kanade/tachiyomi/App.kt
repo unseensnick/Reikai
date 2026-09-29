@@ -74,6 +74,7 @@ import reikai.data.work.WorkerStartFailures
 import reikai.presentation.widget.UnifiedUpdatesWidgetManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.widget.WidgetManager
@@ -247,6 +248,11 @@ class App :
         unifiedUpdatesWidgetManager.init(scope)
 
         initializeMigrator()
+        // RK: a download folder merge the upgrade's dedupe left unfinished is tried again once migrations are done
+        scope.launchIO {
+            Migrator.await()
+            graph.mergedDuplicateCarryMigration.retryUnfinishedFolders()
+        }
     }
 
     private fun currentProcessName(): String? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

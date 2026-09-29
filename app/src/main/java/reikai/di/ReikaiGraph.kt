@@ -12,6 +12,7 @@ import exh.pref.DelegateSourcePreferences
 import exh.source.ExhPreferences
 import exh.uconfig.EHConfigurator
 import exh.ui.login.EhLoginActivity
+import mihon.core.migration.migrations.MergedDuplicateCarryMigration
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.track.TrackerRefreshJob
 import reikai.domain.category.GetNovelCategories
@@ -128,4 +129,7 @@ interface ReikaiGraph {
     val getExhFavoriteMangaWithMetadata: GetExhFavoriteMangaWithMetadata
     val toggleIncognito: ToggleIncognito
     val repairNovelDetails: RepairNovelDetails
+
+    // App retries, at each launch, a download folder merge the upgrade's dedupe left unfinished
+    val mergedDuplicateCarryMigration: MergedDuplicateCarryMigration
 }
