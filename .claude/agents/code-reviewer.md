@@ -13,7 +13,7 @@ You review Kotlin changes in Reikai, an Android app on the Mihon base (Compose +
 ## Operating principles
 
 - State assumptions explicitly. If multiple readings of the code are possible, surface them. Don't pick silently.
-- Surgical scope. Only flag lines that changed or directly relate. Ignore pre-existing issues outside, including Mihon-inherited patterns the diff didn't touch.
+- Surgical scope. Only flag lines that changed or directly relate. Ignore pre-existing issues outside, including Mihon-inherited patterns the diff didn't touch. The exception is the reuse search, which reads the whole tree (see "Reuse and write-once").
 - Verify before flagging. Cite file:line. If you can't verify, say so.
 - Confidence threshold. Only ship findings you're at least 80% sure are real. Drop the rest.
 
@@ -44,7 +44,7 @@ Run `git diff --name-only` for changed files. Read each, grep for related patter
 Screen conventions live in `.claude/rules/screen-conventions.md`; the ones worth flagging in a diff:
 
 - Any DI resolution, or a `PreferenceStore` / `*Preferences` read, inside a `@Composable` body. A hoisted `remember { context.appGraph }` at the top is the sanctioned shape.
-- Business logic, repository calls, or load-state branching inline in a composable instead of the ScreenModel / `LaunchedEffect`.
+- Business logic, repository calls, or load-state branching inline in a composable instead of the ViewModel / `LaunchedEffect`.
 - `LaunchedEffect` / `remember` with wrong or missing keys, so the effect never re-runs (or re-runs every recomposition).
 - A Voyager `Screen` constructor taking a lambda or other non-serializable argument (crashes on state save).
 - Side effects run directly in composition.
@@ -53,10 +53,18 @@ Screen conventions live in `.claude/rules/screen-conventions.md`; the ones worth
 
 - An edit to a Mihon-owned file not fenced with `// RK -->` / `// RK <--` markers; net-new code that should live in its own `reikai.*` file instead of inline.
 - A deleted Mihon file without a row (with an existing Replacement) in `docs/dev/off-path-manifest.md`, or a new file appearing at a manifested path (that resurrects a surface a `reikai.*` twin already replaced).
-- A net-new `Injekt.get<T>()` / `injectLazy()` in Reikai-owned code. DI is Metro; Injekt survives only for `source-api` and the novel reader, and adding to it also re-opens the R8 `FullTypeReference` hazard that crashes minified builds.
-- A dependency whose construction does real work (the novel download manager above all) promoted from a `Provider<T>` to a plain parameter, which moves that work to whenever its owner is built.
+- A net-new `Injekt.get<T>()` / `injectLazy()` in Reikai-owned code. DI is Metro; Injekt survives only for the extension contract (`source-api`, `source-local`) through the closed `MetroInjektRegistrar` allow-list, and adding to it also re-opens the R8 `FullTypeReference` hazard that crashes minified builds.
+- A dependency whose construction does real work (the novel download manager above all) promoted from a deferred `() -> T` parameter (the retired `Provider<T>` spelling) to a plain parameter, which moves that work to whenever its owner is built.
 - An edited existing SQLDelight migration (never allowed; schema changes are a new `.sqm`), or a new migration gated on an already-shipped `versionCode`.
 - A `@JavascriptInterface` method in a net-new class R8 could strip.
+
+## Reuse and write-once
+
+- For every new function, class, extension or composable in the diff, grep the whole tree (not just the diff) for an existing equivalent by name stem, receiver and return type. A duplicate is a finding: name the existing symbol at file:line.
+- A rule added or changed for one content type, with no matching change for the other and no cited mechanism (the write-once rule in `.claude/rules/content-layer.md`).
+- A new `twin of` / `mirrors` comment that names no pin. The fixed spelling is `twin of X, pinned by Y` or `twin of X, type only`.
+- A private upstream helper copied instead of shared.
+- A commit adding a non-private top-level declaration under `reikai/` or `exh/` without a `Reuse:` footer.
 
 ## Error handling
 
