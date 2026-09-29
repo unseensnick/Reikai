@@ -68,14 +68,16 @@ Write commits a user could skim and a contributor could read on. Scale the struc
 4. Non-trivial commit: body leads with 1-2 plain-language sentences, then benefit-first bullets. A trivial commit is just the compliant subject (no body needed).
 5. A new non-private top-level declaration under `reikai/` or `exh/`: the `Reuse:` footer is there.
 
-A **`commit-msg` git hook enforces this** automatically: `.githooks/commit-msg` (tracked) is installed at `.git/hooks/commit-msg` and rejects a non-compliant message (bad subject, over-72 subject, bare `#<number>`, em dash, AI watermark). A companion **`pre-commit` hook** (`.githooks/pre-commit`) runs six checks, so a rejection can come from any of them. The first five look at staged content; the sixth reads the manifest whether or not you staged it:
+A **`commit-msg` git hook enforces this** automatically: `.githooks/commit-msg` (tracked) is installed at `.git/hooks/commit-msg` and rejects a non-compliant message (bad subject, over-72 subject, bare `#<number>`, em dash, AI watermark, a missing `Reuse:` footer). A companion **`pre-commit` hook** (`.githooks/pre-commit`) runs eight checks, so a rejection can come from any of them. All but the sixth look at staged content; the sixth reads the manifest whether or not you staged it:
 
 1. `CHANGELOG.md`: no content-source names in added lines; a self-contained bold headline plus a length cap on new `[Unreleased]` entries.
 2. `ROADMAP.md`: no content-source names, no em dash, no bare `#N`.
 3. `docs/dev/upstream-sync.md` and `docs/dev/feature-ports.md`: no em dash, no bare `#N` (source names are allowed, they are dev records).
-4. `.kt` / `.kts` / `.sq` / `.sqm` comments: no plan codename markers in added lines, and under `reikai/` or `exh/` a comment-block length cap.
+4. `.kt` / `.kts` / `.sq` / `.sqm` comments: no plan codename markers in added lines, an added `twin of` / `mirrors` comment names its pin (content-layer.md), and under `reikai/` or `exh/` a comment-block length cap.
 5. **DI ownership**: if any `.kt` is staged (added, modified or renamed), it runs `scripts/di-interop-check.ps1` for an Injekt read `MetroInjektRegistrar` does not bind, an Injekt registration, an unscoped or unread binding, and a ViewModel or migration left out of its multibinding, none of which fails at build time. Needs `pwsh`; it skips with a message if `pwsh` is absent.
 6. **Off-path manifest** (`docs/dev/off-path-manifest.md`), three checks in one: no manifested path may exist in the tree, every named Replacement must exist, and staging the deletion of a file `refs/mihon` still has needs a manifest row in the same commit. The last one warns rather than blocks when the clone is missing.
+7. **Duplicated code**: `scripts/dup-check.ps1 -Staged` rejects a new cross-file clone of 100+ tokens that touches a staged file under `reikai/` or `exh/` and is not in `scripts/dup-baseline.txt`. Needs `pwsh`, and skips with a message without it; CI runs the whole tree.
+8. **Same-name warning** (never blocks): a new top-level name under `reikai/` or `exh/` that already exists elsewhere, by name or by stem, is listed so the `Reuse:` footer can answer it.
 
 The doc checks also run in CI via `.github/workflows/docs-lint.yml`, from the same implementation: both call `scripts/lint-docs.sh`, so a rule exists once and the hook only decides what content to feed it. `scripts/lint-docs-test.sh` asserts each rule still rejects a real violation, and runs in that workflow. Reinstall both hooks on a fresh clone with `cp .githooks/commit-msg .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/commit-msg .git/hooks/pre-commit`.
 

@@ -1,0 +1,12 @@
+{
+  "name": "a new reikai file redeclaring an existing top-level fun is told where it lives",
+  "stdin": {
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "app/src/main/java/reikai/domain/probe/CategoryDefaults.kt",
+      "content": "package reikai.domain.probe\n\nfun resolveDefaultCategoryIds(ids: List<Long>): List<Long> = ids\n"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": ["additionalContext", "DefaultCategoryResolution.kt", "fun resolveDefaultCategoryIds"]
+}

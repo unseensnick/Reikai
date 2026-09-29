@@ -11,6 +11,9 @@
 #   .kt comment blocks under reikai/ or exh/ - a run of consecutive comment lines is capped at 8; a
 #     9th is rejected. See .claude/rules/code-quality.md "Comments".
 #   RK markers - an added RK marker in a file refs/mihon does not have (a Reikai-owned file).
+#   Reuse (code-quality.md DRY) - an added twin/mirrors comment names its pin; no new cross-file
+#     clone touches a staged file under reikai/ or exh/; a new top-level name that already exists
+#     elsewhere is listed (warn only).
 # Tracked here as the source of truth; activate on a clone with:
 #   cp .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/pre-commit
 set -u
@@ -81,6 +84,42 @@ fi
 # whole-tree pass enforces exactly the same rule.
 git diff --cached -U0 --diff-filter=ACMR -- '*.kt' '*.kts' '*.sq' '*.sqm' | grep -E '^\+' | grep -vE '^\+\+\+' > "$scratch_a" || true
 lint codenames --stdin < "$scratch_a"
+
+# ===== reuse: a twin comment names its pin (content-layer.md) =====
+# Checked on the comment blocks this commit adds, in the fixed spelling ("pinned by", "type only" or
+# "no pin:"). The markers already in the tree are paid off as their files are next touched; CI only
+# reports those.
+git diff --cached -U0 --diff-filter=ACMR -- '*.kt' '*.kts' > "$scratch_a"
+lint twin-pins --stdin < "$scratch_a"
+
+# ===== reuse: no new duplicated code (code-quality.md DRY) =====
+# A cross-file clone of 100+ tokens that touches a staged file under reikai/ or exh/ and is not in
+# scripts/dup-baseline.txt. CI runs the same script over the whole tree.
+if [ -n "$(git diff --cached --name-only --diff-filter=ACMR -- '*.kt')" ] && [ -f scripts/dup-check.ps1 ]; then
+  if command -v pwsh >/dev/null 2>&1; then
+    if ! pwsh -NoProfile -File scripts/dup-check.ps1 -Staged; then
+      fail=1
+    fi
+  else
+    echo "dup-check: pwsh not found, skipping (run scripts/dup-check.ps1 -Staged by hand)."
+  fi
+fi
+
+# ===== reuse: a new top-level name that already exists (warn only) =====
+# Same name or same stem (without manga/novel/entry) elsewhere is a hint, not proof: overloads on
+# different receivers are legitimate. It never blocks.
+if [ -f scripts/kotlin-decls.sh ]; then
+  for f in $(git diff --cached --name-only --diff-filter=ACMR -- '*.kt' \
+      | grep -E '(^|/)(reikai|exh)/' | grep -vE '/src/(test|androidTest)/' || true); do
+    names=$(git diff --cached -U0 -- "$f" | bash scripts/kotlin-decls.sh added | sed 's/^[a-z]* //')
+    [ -n "$names" ] || continue
+    similar=$(bash scripts/kotlin-decls.sh similar "$f" $names)
+    if [ -n "$similar" ]; then
+      echo "reuse (warning): $f declares a name that already exists; reuse it or say why not in the Reuse: footer:"
+      printf '%s\n' "$similar" | sed 's/^/  /'
+    fi
+  done
+fi
 
 # ===== code comments (.kt/.kts/.sq/.sqm): no calendar dates =====
 # A date stamps when someone looked, which is what git already records, and it reads as an expiry the

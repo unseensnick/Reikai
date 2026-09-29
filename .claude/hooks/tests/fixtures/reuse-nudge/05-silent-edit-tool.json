@@ -1,0 +1,13 @@
+{
+  "name": "an Edit is not a new file, so it stays silent",
+  "stdin": {
+    "tool_name": "Edit",
+    "tool_input": {
+      "file_path": "app/src/main/java/reikai/domain/probe/CategoryDefaults.kt",
+      "old_string": "a",
+      "new_string": "fun resolveDefaultCategoryIds(ids: List<Long>): List<Long> = ids"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["additionalContext"]
+}

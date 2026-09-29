@@ -1,0 +1,12 @@
+{
+  "name": "a private helper and a unique public name produce no advice",
+  "stdin": {
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "app/src/main/java/reikai/domain/probe/Probe.kt",
+      "content": "package reikai.domain.probe\n\nprivate fun resolveDefaultCategoryIds(ids: List<Long>): List<Long> = ids\n\nfun zzQuietlyUniqueProbeName() = Unit\n"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["additionalContext"]
+}

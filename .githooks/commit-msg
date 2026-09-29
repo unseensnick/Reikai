@@ -34,6 +34,24 @@ stripped=$(echo "$msg" | sed -E 's@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+@@g')
 echo "$stripped" | grep -qE '#[0-9]+([^0-9A-Za-z]|$)' \
   && errors+=("bare '#<number>' is ambiguous; use 'Roadmap N', or an explicit 'unseensnick/Reikai#N' / 'mihonapp/mihon#N'")
 
+# 6) A new non-private top-level fun, class or object under reikai/ or exh/ owes a Reuse: footer, the
+#    receipt for the DRY rule in code-quality.md. Tests are exempt, and a declaration the diff also
+#    removes (an edited signature, a moved file) is not new; scripts/kotlin-decls.sh decides both.
+if [ -f scripts/kotlin-decls.sh ]; then
+  reuse_files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.kt' \
+    | grep -E '(^|/)(reikai|exh)/' | grep -vE '/src/(test|androidTest)/' || true)
+  if [ -n "$reuse_files" ]; then
+    # Added lines from the Reikai-owned files, removed lines from any .kt, so a move out of a deleted
+    # or Mihon file still reads as a move. Rename detection is off, or a moved file shows no lines.
+    new_decls=$({ git diff --cached --no-renames -U0 -- $reuse_files | grep -E '^\+'
+                  git diff --cached --no-renames -U0 -- '*.kt' | grep -E '^-'; } \
+      | bash scripts/kotlin-decls.sh added | grep -E '^(fun|class|object) ' || true)
+    if [ -n "$new_decls" ] && ! echo "$msg" | grep -qE '^Reuse: *[^ ]'; then
+      errors+=("adds $(echo "$new_decls" | paste -sd, - | sed 's/,/, /g') under reikai/ or exh/ with no 'Reuse:' footer; name what was reused (file:line) or 'Reuse: none (searched: <terms>)'")
+    fi
+  fi
+fi
+
 # A Mihon sync commit must have run the off-path check against the upstream HEAD it is syncing, or a
 # change to a manifested file lands unseen. scripts/off-path-check.ps1 writes the stamp on a clean run.
 case "$subject" in

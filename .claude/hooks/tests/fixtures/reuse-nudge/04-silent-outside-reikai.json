@@ -1,0 +1,12 @@
+{
+  "name": "a new file outside reikai/ is not checked",
+  "stdin": {
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "app/src/main/java/eu/kanade/tachiyomi/probe/CategoryDefaults.kt",
+      "content": "package x\n\nfun resolveDefaultCategoryIds(ids: List<Long>): List<Long> = ids\n"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["additionalContext"]
+}

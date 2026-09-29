@@ -1,0 +1,12 @@
+{
+  "name": "a content-type twin by name stem is listed, with a Windows backslash path",
+  "stdin": {
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "app\\src\\main\\java\\reikai\\domain\\probe\\EntryChapterAggregation.kt",
+      "content": "package reikai.domain.probe\n\nobject EntryChapterAggregation {\n    fun merge() = Unit\n}\n"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": ["ChapterAggregation.kt", "NovelChapterAggregation.kt"]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "rewriting a tracked file is not a new helper, so it stays silent",
+  "stdin": {
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "app/src/main/java/reikai/domain/novel/NovelChapterAggregation.kt",
+      "content": "package reikai.domain.novel\n\nobject NovelChapterAggregation\n"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["additionalContext"]
+}

@@ -177,6 +177,17 @@
             "statusMessage": "Formatting..."
           }
         ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/reuse-nudge.sh",
+            "timeout": 15000,
+            "statusMessage": "Checking for existing equivalents..."
+          }
+        ]
       }
     ],
     "SessionStart": [

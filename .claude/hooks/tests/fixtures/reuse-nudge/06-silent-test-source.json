@@ -1,0 +1,12 @@
+{
+  "name": "a new test file is exempt",
+  "stdin": {
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "app/src/test/java/reikai/domain/probe/CategoryDefaultsTest.kt",
+      "content": "package reikai.domain.probe\n\nfun resolveDefaultCategoryIds(ids: List<Long>): List<Long> = ids\n"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["additionalContext"]
+}
