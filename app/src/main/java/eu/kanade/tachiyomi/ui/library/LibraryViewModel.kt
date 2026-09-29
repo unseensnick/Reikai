@@ -287,7 +287,11 @@ class LibraryViewModel(
         //     rather than riding the shared state: a restore can regroup entries while the library
         //     renders nothing. The preferred-source list rides along, since it picks each group's trunk.
         viewModelScope.launchIO {
-            stitchInputChanges(ContentType.MANGA, mergeGroupRepository, reikaiLibraryPreferences)
+            stitchInputChanges(
+                ContentType.MANGA,
+                mergeGroupRepository,
+                reikaiLibraryPreferences.preferredMangaSources.changes(),
+            )
                 .collectLatest { reconcileMergedChapters.await() }
         }
     }

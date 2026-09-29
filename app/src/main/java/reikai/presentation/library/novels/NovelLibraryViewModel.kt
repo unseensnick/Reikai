@@ -184,7 +184,11 @@ class NovelLibraryViewModel(
         // when the answer changed. Stays always-on: a restore can regroup entries while the library
         // renders nothing. The preferred-source list rides along, since it picks each group's trunk.
         viewModelScope.launchIO {
-            stitchInputChanges(ContentType.NOVELS, mergeGroupRepository, reikaiLibraryPreferences)
+            stitchInputChanges(
+                ContentType.NOVELS,
+                mergeGroupRepository,
+                reikaiLibraryPreferences.preferredNovelSources.changes(),
+            )
                 .collectLatest { reconcileMergedChapters.await() }
         }
     }

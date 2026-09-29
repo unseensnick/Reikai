@@ -6,11 +6,18 @@ import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.MergeGroupRepository
 
 /**
- * Novel source-grouping manager: [EntryMergeManager] fixed to [ContentType.NOVELS]. A distinct type only so
- * injectors resolve the novel manager by type; all the logic lives in the shared base.
+ * Novel source-grouping manager: [EntryMergeManager] fixed to [ContentType.NOVELS] and the novel
+ * same-title switch. A distinct type only so injectors resolve the novel manager by type; all the logic
+ * lives in the shared base.
  */
 class NovelMergeManager(
     repository: MergeGroupRepository,
     preferences: ReikaiLibraryPreferences,
     onBeforeDissolve: suspend (memberIds: List<Long>) -> Unit,
-) : EntryMergeManager(ContentType.NOVELS, repository, preferences, onBeforeDissolve)
+) : EntryMergeManager(
+    ContentType.NOVELS,
+    repository,
+    preferences,
+    sameTitlePreference = preferences.novelAutoMergeSameTitle,
+    onBeforeDissolve = onBeforeDissolve,
+)

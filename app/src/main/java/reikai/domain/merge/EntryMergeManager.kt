@@ -3,6 +3,7 @@ package reikai.domain.merge
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import tachiyomi.core.common.preference.Preference
 
 /**
  * Source-grouping operations for one content type, backed by [MergeGroupRepository]. One class serves
@@ -16,10 +17,10 @@ open class EntryMergeManager(
     private val contentType: ContentType,
     private val repository: MergeGroupRepository,
     private val preferences: ReikaiLibraryPreferences,
+    // The type's own "suggest grouping same-title series" switch, which each subclass hands in.
+    private val sameTitlePreference: Preference<Boolean>,
     private val onBeforeDissolve: suspend (memberIds: List<Long>) -> Unit,
 ) : MergeManager {
-
-    private val isNovel: Boolean get() = contentType == ContentType.NOVELS
 
     /**
      * The group [targetId] belongs to, or just itself when ungrouped, merging is off, or it has left
@@ -105,9 +106,6 @@ open class EntryMergeManager(
      */
     val suggestGroupingOnAdd: Boolean
         get() = preferences.seriesMergingEnabled.get() && sameTitlePreference.get()
-
-    private val sameTitlePreference
-        get() = if (isNovel) preferences.novelAutoMergeSameTitle else preferences.autoMergeSameTitle
 
     /**
      * Group id per id in [ids] for callers rendering group-collapsed cards (the add-time duplicate

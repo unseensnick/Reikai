@@ -22,6 +22,9 @@ class StandaloneResolutionConformanceTest {
     private fun manager(type: ContentType, repository: MergeGroupRepository): EntryMergeManager {
         val preferences = mockk<ReikaiLibraryPreferences> {
             every { seriesMergingEnabled } returns mockk(relaxed = true) { every { get() } returns true }
+            // Each subclass hands its own same-title switch to the base, which no case here reads.
+            every { autoMergeSameTitle } returns mockk()
+            every { novelAutoMergeSameTitle } returns mockk()
         }
         return when (type) {
             ContentType.MANGA -> MangaMergeManager(repository, preferences) {}
