@@ -13,7 +13,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
-import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.browse.globalsearch.outsideSearchScreen
 import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -45,8 +45,8 @@ class DeepLinkScreen(
                     LoadingScreen(Modifier.padding(contentPadding))
                 }
                 is DeepLinkViewModel.State.NoResults -> {
-                    // RK --> both types' search; opens on the Browse chip, as the app's own search intent does
-                    navigator.replace(EntryGlobalSearchScreen(query))
+                    // RK --> both types' search over every source, as the app's own search intent opens
+                    navigator.replace(outsideSearchScreen(query))
                     // RK <--
                 }
                 is DeepLinkViewModel.State.Result -> {

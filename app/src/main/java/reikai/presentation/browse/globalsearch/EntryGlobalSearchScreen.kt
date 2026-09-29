@@ -67,7 +67,9 @@ class EntryGlobalSearchScreen(
      * The content type to search, when the caller already knows it: searching from a manga or a
      * novel searches that kind. Null opens on the Browse chip, which is what Browse itself wants.
      */
-    private val scopedContentType: ContentType? = null,
+    val scopedContentType: ContentType? = null,
+    /** The sources to cover for this search only, never remembered; null opens on the ones last chosen. */
+    val sourceFilter: SearchSourceFilter? = null,
 ) : Screen() {
 
     @Composable
@@ -85,8 +87,8 @@ class EntryGlobalSearchScreen(
         val engine = assistedMetroViewModel<GlobalSearchEngine, GlobalSearchEngine.Factory> {
             // A deep link names one extension, so every source of it is in scope whether or not it is
             // pinned. Handed in for this search only, so it never replaces the filter you last chose.
-            val deepLinkFilter = SearchSourceFilter.All.takeUnless { extensionFilter.isNullOrEmpty() }
-            create(providers, searchQuery, scopedContentType, deepLinkFilter)
+            val filter = sourceFilter ?: SearchSourceFilter.All.takeUnless { extensionFilter.isNullOrEmpty() }
+            create(providers, searchQuery, scopedContentType, filter)
         }
         val state by engine.state.collectAsStateWithLifecycle()
         val mangaState by mangaModel.state.collectAsStateWithLifecycle()

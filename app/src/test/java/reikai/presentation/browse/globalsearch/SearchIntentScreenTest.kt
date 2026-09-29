@@ -1,9 +1,11 @@
 package reikai.presentation.browse.globalsearch
 
 import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreen
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.library.ContentType
 
 /** Where an extension's search intent lands: a novel app's link handler resolves its link like a share. */
 class SearchIntentScreenTest {
@@ -24,6 +26,18 @@ class SearchIntentScreenTest {
     @Test
     fun `a search naming no extension stays a global search`() = runTest {
         searchIntentScreen("query", null, novelPackages).shouldBeInstanceOf<EntryGlobalSearchScreen>()
+    }
+
+    @Test
+    fun `a search naming no extension opens on every content type`() = runTest {
+        searchIntentScreen("query", null, novelPackages)
+            .shouldBeInstanceOf<EntryGlobalSearchScreen>().scopedContentType shouldBe ContentType.ALL
+    }
+
+    @Test
+    fun `a search naming no extension covers every source`() = runTest {
+        searchIntentScreen("query", null, novelPackages)
+            .shouldBeInstanceOf<EntryGlobalSearchScreen>().sourceFilter shouldBe SearchSourceFilter.All
     }
 
     private companion object {
