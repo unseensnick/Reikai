@@ -596,6 +596,7 @@ every stable release now also ships a foss build with neither in it.
 - **The novel download notification now has Pause and Show entry, as manga's does.** A paused queue leaves a notification with Resume and Cancel all, and a failed chapter's has Show entry.
 - **Deleting a novel's downloads by hand now follows Allow deleting bookmarked chapters and Excluded categories in Settings -> Downloads, as manga does.** Removing a novel from the library still clears all of its downloads.
 - **A novel plugin that fails to load now names the real cause, as a failed extension does.**
+- **Crash logs now list novel extensions that failed to load or are out of date.**
 
 ### Backup & restore
 

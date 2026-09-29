@@ -68,9 +68,17 @@ class CrashLogUtil(
     }
 
     private suspend fun getExtensionsInfo(): String? {
-        val availableExtensions = extensionManager.availableExtensionsFlow.value.associateBy { it.pkgName }
+        // RK --> novel apps are listed beside manga extensions, each named as a novel one
+        val availableExtensions = (
+            extensionManager.availableExtensionsFlow.value + extensionManager.availableNovelExtensionsFlow.value
+            ).associateBy { it.pkgName }
+        val novelLoaded = extensionManager.getLoadedNovelExtensions()
+            .map { it.copy(name = "${it.name} (novel extension)") }
+        val novelNotLoaded = extensionManager.getNotLoadedNovelExtensions()
+            .map { it.copy(name = "${it.name} (novel extension)") }
+        // RK <--
 
-        val outdatedInfoList = extensionManager.getLoadedExtensions()
+        val outdatedInfoList = (extensionManager.getLoadedExtensions() + novelLoaded) // RK
             .sortedBy { it.name }
             .mapNotNull {
                 val availableExtension = availableExtensions[it.pkgName]
@@ -85,7 +93,7 @@ class CrashLogUtil(
                 """.trimIndent()
             }
 
-        val notLoadedInfoList = extensionManager.getNotLoadedExtensions()
+        val notLoadedInfoList = (extensionManager.getNotLoadedExtensions() + novelNotLoaded) // RK
             .sortedBy { it.name }
             .map { extension ->
                 buildString {
