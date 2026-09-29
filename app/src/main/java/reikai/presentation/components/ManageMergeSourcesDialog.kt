@@ -44,7 +44,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.selectedBackground
 
 /** One source row in [ManageMergeSourcesDialog]; content-neutral so manga and novels share the dialog.
- *  [subtitle] carries the novel chapter-count coverage hint and is null for manga. */
+ *  [subtitle] is the member's chapter count for both types; null draws the name alone. */
 data class ManageMergeSourceRow(
     val id: Long,
     val sourceName: String,

@@ -87,6 +87,12 @@ class MergeGroupCountsConformanceTest {
         sortFields.totalChapters(row) shouldBe 11L
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("collapses")
+    fun `a merged row reports the most recent read across its group`(collapse: GroupCountCollapse) = runTest {
+        collapse.group7(stitched = null, stitchedDownloads = null).libraryManga.lastRead shouldBe 500L
+    }
+
     companion object {
         @JvmStatic
         fun collapses() = listOf(MangaGroupCountCollapse(), NovelGroupCountCollapse())
@@ -132,6 +138,9 @@ private val members = mapOf(
 )
 private val membership = mapOf(1L to 7L, 2L to 7L, 3L to 8L, 4L to 8L)
 
+/** The leading entry 1 was read before its sibling 2. */
+private val lastReads = mapOf(1L to 100L, 2L to 500L)
+
 private fun <T : Any> stitched(group7: T?, group8: T): Map<Long, T> = buildMap {
     put(8L, group8)
     group7?.let { put(7L, it) }
@@ -153,7 +162,7 @@ class MangaGroupCountCollapse : GroupCountCollapse {
                     bookmarkCount = 0,
                     latestUpload = 0,
                     chapterFetchedAt = 0,
-                    lastRead = 0,
+                    lastRead = lastReads[id] ?: 0,
                 ),
                 downloadCount = downloads,
                 unreadCount = unread,
@@ -194,7 +203,7 @@ class NovelGroupCountCollapse : GroupCountCollapse {
                 downloadCount = downloads.toLong(),
                 latestUpload = 0,
                 chapterFetchedAt = 0,
-                lastRead = 0,
+                lastRead = lastReads[id] ?: 0,
             )
         }
         val group = NovelMergeCollapse.collapse(

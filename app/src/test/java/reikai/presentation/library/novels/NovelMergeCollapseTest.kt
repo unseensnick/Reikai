@@ -16,7 +16,6 @@ class NovelMergeCollapseTest {
         chapters: Long = 1,
         downloads: Long = 0,
         dateAdded: Long = 0,
-        lastRead: Long = 0,
     ) = LibraryNovel(
         novel = Novel.create().copy(
             id = id,
@@ -32,16 +31,15 @@ class NovelMergeCollapseTest {
         downloadCount = downloads,
         latestUpload = 0,
         chapterFetchedAt = 0,
-        lastRead = lastRead,
+        lastRead = 0,
     )
 
     private fun collapse(
         library: List<LibraryNovel>,
         membership: Map<Long, Long> = emptyMap(),
-        mergingEnabled: Boolean = true,
         overrideRankings: Map<Long, List<Long>> = emptyMap(),
         preferredSourceIds: List<String> = emptyList(),
-    ) = NovelMergeCollapse.collapse(library, membership, mergingEnabled, overrideRankings, preferredSourceIds)
+    ) = NovelMergeCollapse.collapse(library, membership, mergingEnabled = true, overrideRankings, preferredSourceIds)
 
     @Test
     fun `a lone novel is its own single-member group`() {
@@ -112,38 +110,5 @@ class NovelMergeCollapseTest {
             membership = mapOf(1L to 7L, 2L to 7L),
         )
         result.first().totalDownloadCount shouldBe 5L
-    }
-
-    @Test
-    fun `ungrouped novels stay separate`() {
-        val result = collapse(listOf(libNovel(1, "A"), libNovel(2, "A")), membership = emptyMap())
-        result.size shouldBe 2
-    }
-
-    @Test
-    fun `merging disabled keeps every novel its own entry`() {
-        val result = collapse(
-            listOf(libNovel(1, "A"), libNovel(2, "A")),
-            membership = mapOf(1L to 7L, 2L to 7L),
-            mergingEnabled = false,
-        )
-        result.size shouldBe 2
-    }
-
-    @Test
-    fun `the representative reports the most recent read across the whole group`() {
-        // Novel 2 is the representative (more chapters), but novel 1's read is more recent: the
-        // merged entry must sort by the group max so reading any source bubbles it up.
-        val result = collapse(
-            listOf(
-                libNovel(1, "A", chapters = 3, lastRead = 500),
-                libNovel(2, "B", chapters = 5, lastRead = 100),
-            ),
-            membership = mapOf(1L to 7L, 2L to 7L),
-        )
-        result.size shouldBe 1
-        val group = result.first()
-        group.representative.novel.id shouldBe 2L
-        group.representative.lastRead shouldBe 500L
     }
 }

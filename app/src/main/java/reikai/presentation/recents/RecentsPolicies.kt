@@ -3,6 +3,8 @@ package reikai.presentation.recents
 import eu.kanade.tachiyomi.util.lang.toLocalDate
 import kotlinx.datetime.LocalDate
 import reikai.domain.entry.EntryId
+import reikai.domain.merge.MergeBucket
+import reikai.domain.merge.bucketByMergeGroup
 
 /*
  * The four modes, as pure functions over the one ordered stream the engine emits. Nothing here re-sorts
@@ -51,8 +53,8 @@ fun historyRows(items: List<RecentsItem>, membership: Map<EntryId, Long>): List<
 /**
  * Updates: the same day headers, and with [groupBySeries] on, a series' several chapters from one day
  * behind one row. Grouping is per day rather than per series, so a series updated on two days keeps a
- * row under each. [seriesKeys] carries the merge-group key where one is known, which is what makes a
- * series merged across sources collapse into one group instead of one per source.
+ * row under each. [membership] is what makes a series merged across sources collapse into one group
+ * instead of one per source, through the library's own bucketing rule.
  */
 fun updatesRows(
     items: List<RecentsItem>,
@@ -64,11 +66,13 @@ fun updatesRows(
     val result = ArrayList<RecentsRow>(items.size + 8)
     byDay(items).forEach { (date, dayItems) ->
         result += RecentsRow.DateHeader(date)
-        dayItems.groupByTo(LinkedHashMap()) { seriesKey(it, membership) }.forEach { (key, members) ->
+        // Merging stays on here: a series' own chapters from one day share a row whatever the setting.
+        dayItems.bucketByMergeGroup(membership, mergingEnabled = true) { it.entryId }.forEach { bucket ->
+            val members = bucket.members
             if (members.size < 2) {
                 result += RecentsRow.Entry(members.first())
             } else {
-                val groupKey = "$key@$date"
+                val groupKey = "${seriesKey(bucket)}@$date"
                 val expanded = groupKey in expandedKeys
                 result += RecentsRow.Group(groupKey, date, members, expanded)
                 if (expanded) members.forEach { result += RecentsRow.Child(it) }
@@ -142,8 +146,9 @@ private fun byDay(items: List<RecentsItem>): Map<LocalDate, List<RecentsItem>> =
     items.groupByTo(LinkedHashMap()) { it.timestamp.toLocalDate() }
 
 /**
- * A group id where the entry is in one, else the entry itself. Group ids are unique across both content
- * types, but raw entry ids are not, so the standalone half carries the content type.
+ * A group row's expansion key: the group id where the rows are a merge group, else the entry, so an
+ * open group stays open across a refresh. Group ids are unique across both content types, but raw entry
+ * ids are not, so the standalone half carries the content type.
  */
-private fun seriesKey(item: RecentsItem, membership: Map<EntryId, Long>): String =
-    membership[item.entryId]?.let { "g$it" } ?: "${item.entryId.contentType}-${item.entryId.rawId}"
+private fun seriesKey(bucket: MergeBucket<RecentsItem>): String =
+    bucket.groupId?.let { "g$it" } ?: bucket.members.first().entryId.let { "${it.contentType}-${it.rawId}" }

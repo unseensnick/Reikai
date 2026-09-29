@@ -2,6 +2,7 @@ package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.merge.MergedGroupCounts
+import reikai.domain.merge.bucketByMergeGroup
 import reikai.domain.merge.sourcePriority
 import reikai.domain.merge.trunkOrder
 import tachiyomi.domain.library.model.LibraryManga
@@ -42,40 +43,21 @@ object MangaMergeCollapse {
         // absent manga lists none, and ranks as zero there too.
         recognizedChapterCounts: Map<Long, Long> = emptyMap(),
     ): List<LibraryItem> {
-        if (items.size <= 1 || !mergingEnabled) return items
-
-        val buckets = LinkedHashMap<String, MutableList<LibraryItem>>()
-        val groupIdByKey = HashMap<String, Long>()
-        for (item in items) {
-            val id = item.libraryManga.manga.id
-            val groupId = membership[id]
-            val key = groupId?.let { "g$it" } ?: "s$id"
-            if (groupId != null) groupIdByKey[key] = groupId
-            buckets.getOrPut(key) { mutableListOf() }.add(item)
+        return items.bucketByMergeGroup(membership, mergingEnabled) { it.libraryManga.manga.id }.map { bucket ->
+            if (bucket.members.size == 1) return@map bucket.members.single()
+            val groupId = bucket.groupId
+            mergePrimary(
+                subGroup = bucket.members,
+                overrideOrder = groupId?.let { overrideRankings[it] }.orEmpty(),
+                preferredSourceIds = preferredSourceIds,
+                showMergeSourceIcons = showMergeSourceIcons,
+                resolveSource = resolveSource,
+                mergedCounts = groupId?.let { mergedCountsByGroup[it] },
+                mergedDownloads = groupId?.let { mergedDownloadsByGroup[it] },
+                showUnreadBadge = showUnreadBadge,
+                recognizedChapterCounts = recognizedChapterCounts,
+            )
         }
-
-        val result = mutableListOf<LibraryItem>()
-        for ((key, bucket) in buckets) {
-            if (bucket.size == 1) {
-                result.add(bucket.first())
-            } else {
-                val groupId = groupIdByKey[key]
-                result.add(
-                    mergePrimary(
-                        subGroup = bucket,
-                        overrideOrder = groupId?.let { overrideRankings[it] }.orEmpty(),
-                        preferredSourceIds = preferredSourceIds,
-                        showMergeSourceIcons = showMergeSourceIcons,
-                        resolveSource = resolveSource,
-                        mergedCounts = groupId?.let { mergedCountsByGroup[it] },
-                        mergedDownloads = groupId?.let { mergedDownloadsByGroup[it] },
-                        showUnreadBadge = showUnreadBadge,
-                        recognizedChapterCounts = recognizedChapterCounts,
-                    ),
-                )
-            }
-        }
-        return result
     }
 
     // The stitch's [trunkOrder] over the same distinct recognized-number count it ranks on.

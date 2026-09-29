@@ -1,6 +1,7 @@
 package reikai.presentation.library.novels
 
 import reikai.domain.merge.MergedGroupCounts
+import reikai.domain.merge.bucketByMergeGroup
 import reikai.domain.merge.sourcePriority
 import reikai.domain.merge.trunkOrder
 import reikai.domain.novel.model.LibraryNovel
@@ -39,43 +40,26 @@ object NovelMergeCollapse {
         // Group id -> merged chapters with a copy on disk. Absent keeps the members' own sum, as on manga.
         mergedDownloadsByGroup: Map<Long, Int> = emptyMap(),
     ): List<CollapsedNovel> {
-        if (library.size <= 1 || !mergingEnabled) {
-            return library.map { CollapsedNovel(it, listOf(it.novel.id), it.downloadCount) }
-        }
-
-        val buckets = LinkedHashMap<String, MutableList<LibraryNovel>>()
-        val groupIdByKey = HashMap<String, Long>()
-        for (item in library) {
-            val id = item.novel.id
-            val groupId = membership[id]
-            val key = groupId?.let { "g$it" } ?: "s$id"
-            if (groupId != null) groupIdByKey[key] = groupId
-            buckets.getOrPut(key) { mutableListOf() }.add(item)
-        }
-
-        val result = mutableListOf<CollapsedNovel>()
-        for ((key, bucket) in buckets) {
-            val groupId = groupIdByKey[key]?.takeIf { bucket.size > 1 }
+        return library.bucketByMergeGroup(membership, mergingEnabled) { it.novel.id }.map { bucket ->
+            val groupId = bucket.groupId
+            val members = bucket.members
             val overrideOrder = groupId?.let { overrideRankings[it] }.orEmpty()
-            val rep = bucket.minWith(rankComparator(overrideOrder, preferredSourceIds))
+            val rep = members.minWith(rankComparator(overrideOrder, preferredSourceIds))
             // The merged entry sorts (LastRead) by the most recent read across all members, not just the
             // representative's own, so reading any source bubbles the whole group up.
-            val representative = if (bucket.size > 1) {
-                rep.copy(lastRead = bucket.maxOf { it.lastRead })
+            val representative = if (members.size > 1) {
+                rep.copy(lastRead = members.maxOf { it.lastRead })
                     .withGroupCounts(groupId?.let { mergedCountsByGroup[it] })
             } else {
                 rep
             }
-            result.add(
-                CollapsedNovel(
-                    representative = representative,
-                    memberIds = bucket.map { it.novel.id },
-                    totalDownloadCount = groupId?.let { mergedDownloadsByGroup[it] }?.toLong()
-                        ?: bucket.sumOf { it.downloadCount },
-                ),
+            CollapsedNovel(
+                representative = representative,
+                memberIds = members.map { it.novel.id },
+                totalDownloadCount = groupId?.let { mergedDownloadsByGroup[it] }?.toLong()
+                    ?: members.sumOf { it.downloadCount },
             )
         }
-        return result
     }
 
     // The stitch's own total, read and bookmarked counts, never a sum: the grouped sources share

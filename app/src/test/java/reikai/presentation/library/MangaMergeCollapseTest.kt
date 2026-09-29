@@ -23,7 +23,6 @@ class MangaMergeCollapseTest {
         totalChapters: Long = 0,
         dateAdded: Long = 0,
         unread: Long = 0,
-        lastRead: Long = 0,
         isLocal: Boolean = false,
     ): LibraryItem {
         val manga = Manga.create().copy(id = id, source = source, title = title, favoriteAt = dateAdded)
@@ -36,7 +35,7 @@ class MangaMergeCollapseTest {
                 bookmarkCount = 0,
                 latestUpload = 0,
                 chapterFetchedAt = 0,
-                lastRead = lastRead,
+                lastRead = 0,
             ),
             downloadCount = 0,
             unreadCount = unread,
@@ -53,7 +52,6 @@ class MangaMergeCollapseTest {
     private suspend fun collapse(
         items: List<LibraryItem>,
         membership: Map<Long, Long> = emptyMap(),
-        mergingEnabled: Boolean = true,
         overrideRankings: Map<Long, List<Long>> = emptyMap(),
         preferredSourceIds: List<Long> = emptyList(),
         // Each member's rows all carry distinct recognized numbers unless a test says otherwise.
@@ -61,7 +59,7 @@ class MangaMergeCollapseTest {
     ) = MangaMergeCollapse.collapse(
         items,
         membership,
-        mergingEnabled,
+        mergingEnabled = true,
         showMergeSourceIcons = true,
         resolveSource,
         overrideRankings = overrideRankings,
@@ -154,35 +152,6 @@ class MangaMergeCollapseTest {
             preferredSourceIds = listOf(200L, 100L),
         )
         result.single().id shouldBe 2L // preferred source wins despite fewer chapters
-    }
-
-    @Test
-    fun `ungrouped items stay separate`() = runTest {
-        val result = collapse(listOf(item(1), item(2)), membership = emptyMap())
-        result.map { it.id } shouldContainExactlyInAnyOrder listOf(1L, 2L)
-    }
-
-    @Test
-    fun `merging disabled returns items unchanged`() = runTest {
-        val items = listOf(item(1), item(2))
-        collapse(items, membership = mapOf(1L to 7L, 2L to 7L), mergingEnabled = false) shouldBe items
-    }
-
-    @Test
-    fun `the merged entry reports the most recent read across the whole group`() = runTest {
-        // Manga 1 is the primary (more chapters), but manga 2's read is more recent: the merged entry
-        // must sort by the group max so reading any source bubbles it up.
-        val result = collapse(
-            listOf(
-                item(1, totalChapters = 10, lastRead = 100),
-                item(2, totalChapters = 5, lastRead = 500),
-            ),
-            membership = mapOf(1L to 7L, 2L to 7L),
-        )
-        result.size shouldBe 1
-        val merged = result.single()
-        merged.id shouldBe 1L
-        merged.libraryManga.lastRead shouldBe 500L
     }
 
     @Test
