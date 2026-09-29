@@ -8,7 +8,6 @@ import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -34,10 +33,9 @@ import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.domain.category.model.Category
 
 /**
- * Shared long-press "add to library" flow for any novel browse surface (per-source browse and
- * cross-source global search). Stateless: each method returns the next [NovelBrowseDialog] to show
- * (or null to dismiss) so each caller keeps ownership of its own dialog state. The source id is passed
- * per call because per-source browse has a fixed source while global search has one per result.
+ * The novel add-to-library orchestration every surface shares. Stateless: each browse step returns the
+ * next [NovelBrowseDialog] to show, or null to close, and [NovelAddFlow] holds it. The source id is
+ * passed per call, since a global search or a feed has one per result.
  */
 @Inject
 class NovelLibraryAdder(
@@ -54,14 +52,13 @@ class NovelLibraryAdder(
     private val removeNovelsFromLibrary: RemoveNovelsFromLibrary,
 ) {
 
-    /** Decide the long-press outcome: remove (already saved), confirm a possible duplicate, or add. */
-    suspend fun onLongClick(
-        item: NovelItem,
-        sourceId: String,
-        favoritedKeys: FavoritedNovels,
-    ): NovelBrowseDialog? {
+    /**
+     * Decide a long press: remove, confirm a possible duplicate, or add. Decided on the stored row, as
+     * `MangaLibraryAdder.onLongClick` is, pinned by `EntryAddFlowConformanceTest`.
+     */
+    suspend fun onLongClick(item: NovelItem, sourceId: String): NovelBrowseDialog? {
         val decision = decideAdd(
-            inLibrary = favoritedKeys.contains(sourceId, item.path),
+            inLibrary = isInLibrary(item, sourceId),
             // -1: the item isn't favorited yet, so there's no library row to exclude (a non-favorite
             // shadow row is excluded by the query's favorite=1 filter anyway).
             findDuplicates = { findDuplicates(-1L, item.name) },

@@ -70,7 +70,6 @@ import reikai.novel.source.NovelSettings
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
-import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelSourceFilterSheet
@@ -165,7 +164,6 @@ class EntryCatalogueScreen(
         Catalogue(
             behavior = adapter,
             onOpenEntry = { row -> navigator.push(MangaScreen(row.manga.id, true)) },
-            onOpenEntryById = { id -> navigator.push(MangaScreen(id)) },
             onOpenSettings = { navigator.push(SourcePreferencesScreen(sourceId)) },
             onHelpClick = {
                 uriHandler.openUri(if (isLocal) LocalSource.HELP_URL else Constants.URL_HELP)
@@ -214,13 +212,6 @@ class EntryCatalogueScreen(
             onOpenEntry = { row ->
                 navigator.push(NovelScreen(sourceId, row.item.path, row.item.cover, fromSource = true))
             },
-            // A novel is addressed by source and path, so an id is resolved against the duplicates
-            // the dialog was raised with, which are the only rows this can be called for.
-            onOpenEntryById = { id ->
-                (modelState.dialog as? NovelBrowseDialog.AddDuplicate)?.duplicates
-                    ?.firstOrNull { it.novel.id == id }
-                    ?.let { navigator.push(NovelScreen(it.novel.source, it.novel.url)) }
-            },
             // A preference screen is a screen of its own; the LNReader schema is a sheet over this one.
             onOpenSettings = {
                 when (source?.settings) {
@@ -267,7 +258,6 @@ class EntryCatalogueScreen(
     private fun Catalogue(
         behavior: EntryBrowseBehavior,
         onOpenEntry: (EntryBrowseRow) -> Unit,
-        onOpenEntryById: (Long) -> Unit,
         onOpenSettings: () -> Unit,
         onHelpClick: () -> Unit,
         localSourceHelp: (() -> Unit)? = null,
@@ -461,19 +451,9 @@ class EntryCatalogueScreen(
                 onEditCategories = { navigator.push(CategoryScreen()) },
                 onConfirm = { include, _ -> behavior.setSelectionCategories(include) },
             )
-            else -> Unit
+            null -> Unit
         }
-        EntryAddDialogs(
-            dialog = loaded.dialog,
-            contentType = sourceKey.contentType,
-            onDismissRequest = behavior::dismissDialog,
-            onConfirmRemove = behavior::confirmRemove,
-            onConfirmCategories = behavior::confirmCategories,
-            onConfirmAddDuplicate = behavior::confirmAddDuplicate,
-            onAddToGroup = behavior::addToGroup,
-            onStartMigrate = behavior::startMigrate,
-            onOpenEntryById = onOpenEntryById,
-        )
+        EntryAddDialogs(behavior.addFlow)
 
         when (val dialog = savedSearchDialog) {
             null -> Unit

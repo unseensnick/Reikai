@@ -1,66 +1,54 @@
 package reikai.presentation.browse
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import reikai.domain.library.ContentType
-import reikai.presentation.browse.catalogue.EntryBrowseDialog
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
 
 /**
- * What a long press on a browse result can ask: take it out of the library, choose its categories,
- * confirm it against duplicates, or migrate onto one. Shared so a surface listing entries renders the
- * same four questions rather than writing its own; which question to ask is the caller's, decided by
- * `decideAdd` and answered through its own adapters.
- *
- * Dialogs a surface owns alone (a filter sheet, a bulk category choice) stay with that surface.
+ * The questions a long press on a browse result asks, drawn the same way for both content types and
+ * answered through [flow]. Dialogs a surface owns alone (a filter sheet, a bulk category choice) stay
+ * with that surface.
  */
 @Composable
-fun Screen.EntryAddDialogs(
-    dialog: EntryBrowseDialog?,
-    contentType: ContentType,
-    onDismissRequest: () -> Unit,
-    onConfirmRemove: () -> Unit,
-    onConfirmCategories: (List<Long>) -> Unit,
-    onConfirmAddDuplicate: () -> Unit,
-    onAddToGroup: (List<Long>) -> Unit,
-    onStartMigrate: (Long) -> Unit,
-    onOpenEntryById: (Long) -> Unit,
-) {
+fun Screen.EntryAddDialogs(flow: EntryAddFlow<*>) {
     val navigator = LocalNavigator.currentOrThrow
-    when (dialog) {
-        null, EntryBrowseDialog.Filter, is EntryBrowseDialog.SelectionCategories -> Unit
-        is EntryBrowseDialog.Remove -> EntryRemoveDialog(
-            title = dialog.title,
-            onDismissRequest = onDismissRequest,
-            onConfirm = onConfirmRemove,
+    val dialog by flow.dialog.collectAsState()
+    when (val current = dialog) {
+        null -> Unit
+        is EntryAddDialog.Remove -> EntryRemoveDialog(
+            title = current.title,
+            onDismissRequest = flow::dismiss,
+            onConfirm = flow::confirmRemove,
         )
-        is EntryBrowseDialog.ChangeCategory -> ChangeCategoryDialog(
-            initialSelection = dialog.initialSelection,
-            onDismissRequest = onDismissRequest,
+        is EntryAddDialog.ChangeCategory -> ChangeCategoryDialog(
+            initialSelection = current.initialSelection,
+            onDismissRequest = flow::dismiss,
             onEditCategories = { navigator.push(CategoryScreen()) },
-            onConfirm = { include, _ -> onConfirmCategories(include) },
+            onConfirm = { include, _ -> flow.confirmCategories(include) },
         )
-        is EntryBrowseDialog.AddDuplicate -> EntryDuplicateDialog(
-            duplicates = dialog.duplicates,
+        is EntryAddDialog.AddDuplicate -> EntryDuplicateDialog(
+            duplicates = current.duplicates,
             toUi = { it },
-            onDismissRequest = onDismissRequest,
-            onConfirm = onConfirmAddDuplicate,
-            onOpen = { onOpenEntryById(it.id) },
-            onMigrate = { onStartMigrate(it.id) },
-            groupIdByEntryId = dialog.groupIdByEntryId,
-            onAddToGroup = onAddToGroup.takeIf { dialog.suggestGroup },
+            onDismissRequest = flow::dismiss,
+            onConfirm = flow::confirmAddDuplicate,
+            onOpen = { card -> flow.duplicateScreen(card.id)?.let(navigator::push) },
+            onMigrate = { flow.startMigrate(it.id) },
+            groupIdByEntryId = current.groupIdByEntryId,
+            onAddToGroup = flow::addToGroup.takeIf { current.suggestGroup },
         )
-        is EntryBrowseDialog.Migrate -> EntryMigrateFor(
-            contentType = contentType,
-            currentId = dialog.currentId,
-            targetId = dialog.targetId,
-            onDismissRequest = onDismissRequest,
+        is EntryAddDialog.Migrate -> EntryMigrateFor(
+            contentType = flow.contentType,
+            currentId = current.currentId,
+            targetId = current.targetId,
+            onDismissRequest = flow::dismiss,
         )
     }
 }

@@ -1,7 +1,6 @@
 package reikai.presentation.browse.catalogue
 
 import androidx.compose.runtime.Immutable
-import reikai.presentation.browse.components.EntryDuplicateCardUi
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -89,27 +88,13 @@ class MigrationPickCapability(
 )
 
 /**
- * The dialogs the catalogue screen raises. Payloads are neutral, so every action keys on an id the
- * adapter fans back out to its own model, or on the entry its own state already remembers.
+ * The dialogs only the catalogue raises. What a long press asks is the add flow's own
+ * (`EntryBrowseBehavior.addFlow`), shared with every other surface that lists entries.
  */
 sealed interface EntryBrowseDialog {
     /** The source's own filter sheet, dispatched per type because the filter shapes have nothing in
      *  common: a typed `FilterList` on one side, a plugin JSON schema on the other. */
     data object Filter : EntryBrowseDialog
-
-    data class Remove(val title: String) : EntryBrowseDialog
-
-    data class ChangeCategory(val initialSelection: List<CheckboxState.State<Category>>) : EntryBrowseDialog
-
-    data class AddDuplicate(
-        val duplicates: List<EntryDuplicateCardUi>,
-        /** Group id per duplicate entry id, for the "add to existing group" offer. */
-        val groupIdByEntryId: Map<Long, Long>,
-        /** The same-title grouping suggestion is on, so the dialog offers to join a group. */
-        val suggestGroup: Boolean,
-    ) : EntryBrowseDialog
-
-    data class Migrate(val currentId: Long, val targetId: Long) : EntryBrowseDialog
 
     /** The one category choice a bulk selection applies to every entry in it. Raised by the bulk
      *  model rather than by an entry, so it arrives through the same channel but confirms its own

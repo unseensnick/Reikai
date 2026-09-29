@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.ui.browse.source.globalsearch
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.produceState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,43 +8,30 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.Source
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import mihon.domain.manga.model.toDomainManga
-import reikai.presentation.browse.AddDecision
-import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.browse.MangaAddFlow
 import reikai.presentation.browse.MangaLibraryAdder
-import reikai.presentation.browse.components.EntrySourceLabel
-import reikai.presentation.browse.decideAdd
-import tachiyomi.core.common.preference.CheckboxState
-import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.service.SourceManager
 import java.util.concurrent.Executors
 
 abstract class SearchViewModel(
-    initialState: State = State(),
+    // RK: upstream's initialState dropped with the state it seeded (see addFlow).
     sourcePreferences: SourcePreferences,
     private val sourceManager: SourceManager,
     private val extensionManager: ExtensionManager,
     private val networkToLocalManga: NetworkToLocalManga,
     private val getManga: GetManga,
     // RK: upstream's `preferences` dropped, unread since the shared engine took over the search.
-    // RK: shared long-press add-to-library orchestration (also used by the Browse screen)
-    private val mangaLibraryAdder: MangaLibraryAdder,
+    // RK: the long-press add flow, shared with every browse surface
+    mangaLibraryAdder: MangaLibraryAdder,
 ) : ViewModel() {
-
-    val state: StateFlow<State>
-        field = MutableStateFlow<State>(initialState)
 
     // RK: a pool of its own, so blocking source calls never crowd out the shared IO dispatcher.
     private val coroutineDispatcher = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
@@ -103,126 +89,8 @@ abstract class SearchViewModel(
     }
     // RK <--
 
-    fun setMigrateDialog(currentId: Long, target: Manga) {
-        viewModelScope.launchIO {
-            val current = getManga.await(currentId) ?: return@launchIO
-            state.update { it.copy(dialog = Dialog.Migrate(target, current)) }
-        }
-    }
-
-    // RK --> long-press add-to-library, via the shared MangaLibraryAdder. Results are already local
-    // (networkToLocalManga), so no materialize is needed. The source is resolved per-manga inside the
-    // adder since global search spans sources.
-    fun setDialog(dialog: Dialog?) {
-        state.update { it.copy(dialog = dialog) }
-    }
-
-    suspend fun getDuplicateLibraryManga(manga: Manga): List<MangaWithChapterCount> =
-        mangaLibraryAdder.getDuplicates(manga)
-
-    fun changeMangaFavorite(manga: Manga) {
-        viewModelScope.launchIO { mangaLibraryAdder.removeFromLibrary(manga) }
-    }
-
-    /** RK: the shared long-press rule ([decideAdd]); twin of `BrowseSourceViewModel.onLongClick`. */
-    fun onLongClick(manga: Manga) {
-        viewModelScope.launchIO {
-            when (
-                val decision = decideAdd(
-                    inLibrary = manga.favorite,
-                    findDuplicates = { getDuplicateLibraryManga(manga).takeIf { it.isNotEmpty() } },
-                )
-            ) {
-                AddDecision.Remove -> state.update { it.copy(dialog = Dialog.RemoveManga(manga)) }
-                is AddDecision.ConfirmDuplicate -> state.update {
-                    it.copy(
-                        dialog = Dialog.AddDuplicateManga(
-                            manga,
-                            decision.duplicates,
-                            suggestGrouping,
-                            getDuplicateGroupIds(decision.duplicates),
-                            mangaLibraryAdder.duplicateSourceLabels(decision.duplicates),
-                        ),
-                    )
-                }
-                AddDecision.Add -> addFavorite(manga)
-            }
-        }
-    }
-
-    fun addFavorite(manga: Manga) {
-        viewModelScope.launchIO {
-            when (val result = mangaLibraryAdder.resolveAddFavorite(manga)) {
-                // Failed wrote nothing, so there is nothing to undo and nothing to show.
-                AddFavoriteResult.Added, AddFavoriteResult.Failed -> {}
-                is AddFavoriteResult.NeedsCategoryChoice ->
-                    state.update {
-                        it.copy(dialog = Dialog.ChangeMangaCategory(manga, result.initialSelection))
-                    }
-            }
-        }
-    }
-
-    // RK: add-time grouping (see MangaLibraryAdder).
-    val suggestGrouping: Boolean get() = mangaLibraryAdder.suggestGrouping
-
-    suspend fun getDuplicateGroupIds(duplicates: List<MangaWithChapterCount>): Map<Long, Long> =
-        mangaLibraryAdder.getDuplicateGroupIds(duplicates)
-
-    fun addToExistingGroup(manga: Manga, selectedIds: List<Long>) {
-        viewModelScope.launchIO {
-            when (val result = mangaLibraryAdder.addToExistingGroup(manga, selectedIds)) {
-                AddFavoriteResult.Added, AddFavoriteResult.Failed -> {}
-                is AddFavoriteResult.NeedsCategoryChoice ->
-                    state.update {
-                        it.copy(
-                            dialog = Dialog.ChangeMangaCategory(
-                                manga,
-                                result.initialSelection,
-                                joinGroup = selectedIds,
-                            ),
-                        )
-                    }
-            }
-        }
-    }
-
-    /** RK: apply the category picker's choice; the adder owes the favorite, and the merge on a group add. */
-    fun confirmCategories(manga: Manga, categoryIds: List<Long>, joinGroup: List<Long>) {
-        viewModelScope.launchIO { mangaLibraryAdder.confirmPicker(manga, categoryIds, joinGroup) }
-    }
-    // RK <--
-
-    fun clearDialog() {
-        state.update { it.copy(dialog = null) }
-    }
-
-    // RK: the results and everything describing them moved to the shared global-search engine; what
-    //     is left is this content type's own long-press dialog.
-    @Immutable
-    data class State(
-        val dialog: Dialog? = null,
-    )
-
-    sealed interface Dialog {
-        data class Migrate(val target: Manga, val current: Manga) : Dialog
-
-        // RK --> long-press add-to-library dialogs (rendered by the global search screen)
-        data class RemoveManga(val manga: Manga) : Dialog
-        data class AddDuplicateManga(
-            val manga: Manga,
-            val duplicates: List<MangaWithChapterCount>,
-            val suggestGroup: Boolean,
-            val groupIdByMangaId: Map<Long, Long>,
-            val sourceLabels: Map<Long, EntrySourceLabel>,
-        ) : Dialog
-        data class ChangeMangaCategory(
-            val manga: Manga,
-            val initialSelection: List<CheckboxState.State<Category>>,
-            // RK: the group of the duplicate dialog's picks, when the add joins one; its confirm then
-            // favorites and merges as one unit.
-            val joinGroup: List<Long> = emptyList(),
-        ) : Dialog
-        // RK <--
-    }
+    // RK: upstream's state, its dialog and setMigrateDialog / clearDialog are gone: the results moved to
+    //     the shared global-search engine and every long-press dialog, the migrate one included, to the
+    //     shared add flow below, which the screen renders for both content types.
+    val addFlow = MangaAddFlow(mangaLibraryAdder, viewModelScope)
 }

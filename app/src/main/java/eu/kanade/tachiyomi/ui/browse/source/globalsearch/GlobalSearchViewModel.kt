@@ -24,10 +24,9 @@ class GlobalSearchViewModel(
     extensionManager: ExtensionManager,
     networkToLocalManga: NetworkToLocalManga,
     getManga: GetManga,
-    // RK --> adding to the library goes through the shared adder; the empty state leaves the query to the engine
+    // RK --> adding to the library goes through the shared adder; no initial state, the engine owns the query
     mangaLibraryAdder: MangaLibraryAdder,
 ) : SearchViewModel(
-    initialState = State(),
     sourcePreferences = sourcePreferences,
     sourceManager = sourceManager,
     extensionManager = extensionManager,

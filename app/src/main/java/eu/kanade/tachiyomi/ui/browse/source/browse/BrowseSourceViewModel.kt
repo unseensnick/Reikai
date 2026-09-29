@@ -38,27 +38,20 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
 import reikai.domain.source.filter.selectGenre
-import reikai.presentation.browse.AddDecision
-import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.browse.MangaAddFlow
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.catalogue.BrowseColumns
 import reikai.presentation.browse.catalogue.trackBrowseColumns
 import reikai.presentation.browse.catalogue.trackDisplayMode
-import reikai.presentation.browse.components.EntrySourceLabel
-import reikai.presentation.browse.decideAdd
-import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.interactor.GetRemoteManga
 import tachiyomi.domain.source.repository.SourcePagingSource
 import tachiyomi.domain.source.service.SourceManager
@@ -255,78 +248,9 @@ open class BrowseSourceViewModel(
         }
     }
 
-    /**
-     * Adds or removes a manga from the library.
-     *
-     * @param manga the manga to update.
-     */
-    // RK --> favorite / category / duplicate flow delegated to the shared MangaLibraryAdder
-    fun changeMangaFavorite(manga: Manga) {
-        viewModelScope.launch { mangaLibraryAdder.removeFromLibrary(manga) }
-    }
-
-    /**
-     * RK: the shared long-press rule ([decideAdd]); the screen only routes the bulk-selection case.
-     * Inherited by `MangaDexFollowsViewModel`, so both screens reach the same decision.
-     */
-    fun onLongClick(manga: Manga) {
-        viewModelScope.launchIO {
-            when (
-                val decision = decideAdd(
-                    inLibrary = manga.favorite,
-                    findDuplicates = { getDuplicateLibraryManga(manga).takeIf { it.isNotEmpty() } },
-                )
-            ) {
-                AddDecision.Remove -> setDialog(Dialog.RemoveManga(manga))
-                is AddDecision.ConfirmDuplicate -> setDialog(
-                    Dialog.AddDuplicateManga(
-                        manga,
-                        decision.duplicates,
-                        suggestGrouping,
-                        getDuplicateGroupIds(decision.duplicates),
-                        mangaLibraryAdder.duplicateSourceLabels(decision.duplicates),
-                    ),
-                )
-                AddDecision.Add -> addFavorite(manga)
-            }
-        }
-    }
-
-    fun addFavorite(manga: Manga) {
-        viewModelScope.launch {
-            when (val result = mangaLibraryAdder.resolveAddFavorite(manga)) {
-                // Failed wrote nothing, so there is nothing to undo and nothing to show.
-                AddFavoriteResult.Added, AddFavoriteResult.Failed -> {}
-                is AddFavoriteResult.NeedsCategoryChoice ->
-                    setDialog(Dialog.ChangeMangaCategory(manga, result.initialSelection))
-            }
-        }
-    }
-
-    // RK: add-time grouping (see MangaLibraryAdder).
-    val suggestGrouping: Boolean get() = mangaLibraryAdder.suggestGrouping
-
-    suspend fun getDuplicateGroupIds(duplicates: List<MangaWithChapterCount>): Map<Long, Long> =
-        mangaLibraryAdder.getDuplicateGroupIds(duplicates)
-
-    fun addToExistingGroup(manga: Manga, selectedIds: List<Long>) {
-        viewModelScope.launch {
-            when (val result = mangaLibraryAdder.addToExistingGroup(manga, selectedIds)) {
-                AddFavoriteResult.Added, AddFavoriteResult.Failed -> {}
-                is AddFavoriteResult.NeedsCategoryChoice ->
-                    setDialog(Dialog.ChangeMangaCategory(manga, result.initialSelection, joinGroup = selectedIds))
-            }
-        }
-    }
-
-    suspend fun getDuplicateLibraryManga(manga: Manga): List<MangaWithChapterCount> {
-        return mangaLibraryAdder.getDuplicates(manga)
-    }
-
-    /** RK: apply the category picker's choice; the adder owes the favorite, and the merge on a group add. */
-    fun confirmCategories(manga: Manga, categoryIds: List<Long>, joinGroup: List<Long>) {
-        viewModelScope.launchIO { mangaLibraryAdder.confirmPicker(manga, categoryIds, joinGroup) }
-    }
+    // RK --> upstream's changeMangaFavorite, addFavorite and duplicate lookup moved to the long-press
+    //        add flow every browse surface shares, inherited by MangaDexFollowsViewModel.
+    val addFlow = MangaAddFlow(mangaLibraryAdder, viewModelScope)
     // RK <--
 
     fun openFilterSheet() {
@@ -383,24 +307,7 @@ open class BrowseSourceViewModel(
 
     sealed interface Dialog {
         data object Filter : Dialog
-        data class RemoveManga(val manga: Manga) : Dialog
-
-        // RK: also carries the grouping suggestion, group ids and source labels the dialog shows
-        data class AddDuplicateManga(
-            val manga: Manga,
-            val duplicates: List<MangaWithChapterCount>,
-            val suggestGroup: Boolean,
-            val groupIdByMangaId: Map<Long, Long>,
-            val sourceLabels: Map<Long, EntrySourceLabel>,
-        ) : Dialog
-        data class ChangeMangaCategory(
-            val manga: Manga,
-            val initialSelection: List<CheckboxState.State<Category>>,
-            // RK: the group of the duplicate dialog's picks, when the add joins one; its confirm then
-            // favorites and merges as one unit.
-            val joinGroup: List<Long> = emptyList(),
-        ) : Dialog
-        data class Migrate(val target: Manga, val current: Manga) : Dialog
+        // RK: the long-press dialogs moved to MangaAddDialog, which addFlow raises
     }
 
     @Immutable

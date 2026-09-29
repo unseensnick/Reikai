@@ -32,12 +32,10 @@ import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 
 /**
- * Shared long-press "add to library" orchestration for any manga browse surface (the per-source
- * Browse screen and cross-source global search). Extracted from `BrowseSourceViewModel` so both
- * reuse one implementation. Returns plain results ([AddFavoriteResult]) rather than a screen's Dialog
- * type, so each caller maps to its own dialog. The source is resolved per-manga
- * ([SourceManager.getOrStub] on `manga.source`) so it works in global search, where results span
- * sources (Browse's single source equals each result's source, so behaviour there is unchanged).
+ * The manga add-to-library orchestration every surface shares: the long-press decision [MangaAddFlow]
+ * runs, and the add, group, picker and removal writes details, recents and the bulk add call. The
+ * source is resolved per manga ([SourceManager.getOrStub] on `manga.source`), since a global search
+ * or a feed spans sources.
  */
 @Inject
 class MangaLibraryAdder(
@@ -57,6 +55,32 @@ class MangaLibraryAdder(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val sourceTracker: SourceTrackerDispatcher,
 ) {
+
+    /**
+     * Decide a long press: remove, confirm a possible duplicate, or add. Decided on the stored row, since
+     * the list that drew [manga] may predate an add or a removal made elsewhere. Twin of
+     * `NovelLibraryAdder.onLongClick`, pinned by `EntryAddFlowConformanceTest`.
+     */
+    suspend fun onLongClick(manga: Manga): MangaAddDialog? {
+        val decision = decideAdd(
+            inLibrary = isInLibrary(manga.id),
+            findDuplicates = { getDuplicates(manga).takeIf { it.isNotEmpty() } },
+        )
+        return when (decision) {
+            AddDecision.Remove -> MangaAddDialog.Remove(manga)
+            is AddDecision.ConfirmDuplicate -> MangaAddDialog.AddDuplicate(
+                manga = manga,
+                duplicates = decision.duplicates,
+                suggestGroup = suggestGrouping,
+                groupIdByMangaId = getDuplicateGroupIds(decision.duplicates),
+                sourceLabels = duplicateSourceLabels(decision.duplicates),
+            )
+            AddDecision.Add -> addToLibrary(manga)
+        }
+    }
+
+    /** A browse add, answering the picker to raise when there is no usable default category. */
+    suspend fun addToLibrary(manga: Manga): MangaAddDialog? = resolveAddFavorite(manga).pickerFor(manga)
 
     /** Whether to offer add-time grouping in the duplicate dialog (see [MangaMergeManager]). */
     val suggestGrouping: Boolean get() = mergeManager.suggestGroupingOnAdd

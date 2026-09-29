@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.source.filter.MangaSavedSearchFilters
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
-import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.toEntryBrowseUi
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.manga.model.Manga
@@ -40,14 +39,9 @@ class MangaBrowseAdapter(
 ) : EntryBrowseBehavior {
 
     /**
-     * The dialog each verb acts on, kept as it is mapped rather than read back off the model.
-     *
-     * The shared dialogs dismiss before they call back, and dismissing clears the model's own
-     * dialog, so a verb reading it there finds nothing and silently does nothing. Never stale: a
-     * dialog cannot reach the screen without being mapped here first.
+     * The bulk category choice, kept as it is mapped rather than read back off the model: the dialog
+     * dismisses before it confirms, and dismissing clears the model's own copy.
      */
-    @Volatile private var raisedDialog: BrowseSourceViewModel.Dialog? = null
-
     @Volatile private var raisedBulkDialog: EntryBulkFavoriteViewModel.Dialog<Manga>? = null
 
     private val savedSearchFilters = MangaSavedSearchFilters()
@@ -96,7 +90,6 @@ class MangaBrowseAdapter(
         state: BrowseSourceViewModel.State,
         bulkState: EntryBulkFavoriteViewModel.State<Manga>,
     ): EntryBrowseScreenState {
-        state.dialog?.let { raisedDialog = it }
         bulkState.dialog?.let { raisedBulkDialog = it }
         val source = model.source ?: return EntryBrowseScreenState.Loading
         if (source is StubSource) return EntryBrowseScreenState.SourceMissing(source.toString())
@@ -137,15 +130,6 @@ class MangaBrowseAdapter(
 
     private fun BrowseSourceViewModel.Dialog.toNeutral(): EntryBrowseDialog = when (this) {
         BrowseSourceViewModel.Dialog.Filter -> EntryBrowseDialog.Filter
-        is BrowseSourceViewModel.Dialog.RemoveManga -> EntryBrowseDialog.Remove(manga.title)
-        is BrowseSourceViewModel.Dialog.ChangeMangaCategory ->
-            EntryBrowseDialog.ChangeCategory(initialSelection)
-        is BrowseSourceViewModel.Dialog.AddDuplicateManga -> EntryBrowseDialog.AddDuplicate(
-            duplicates = duplicates.map { it.toDuplicateCard(sourceLabels) },
-            groupIdByEntryId = groupIdByMangaId,
-            suggestGroup = suggestGroup,
-        )
-        is BrowseSourceViewModel.Dialog.Migrate -> EntryBrowseDialog.Migrate(current.id, target.id)
     }
 
     override fun setListing(listing: EntryBrowseListing) {
@@ -195,7 +179,9 @@ class MangaBrowseAdapter(
         model.search(query = query.orEmpty(), filters = filters)
     }
 
-    override fun onRowLongClick(row: EntryBrowseRow) = model.onLongClick(row.manga)
+    override val addFlow = model.addFlow
+
+    override fun onRowLongClick(row: EntryBrowseRow) = addFlow.onLongClick(row.manga)
 
     override fun setSelectionMode(enabled: Boolean) = bulk.toggleSelectionMode(enabled)
 
@@ -216,32 +202,6 @@ class MangaBrowseAdapter(
     override fun dismissDialog() {
         model.setDialog(null)
         bulk.setDialog(null)
-    }
-
-    override fun confirmRemove() {
-        val dialog = raisedDialog as? BrowseSourceViewModel.Dialog.RemoveManga ?: return
-        model.changeMangaFavorite(dialog.manga)
-    }
-
-    override fun confirmCategories(categoryIds: List<Long>) {
-        val dialog = raisedDialog as? BrowseSourceViewModel.Dialog.ChangeMangaCategory ?: return
-        model.confirmCategories(dialog.manga, categoryIds, dialog.joinGroup)
-    }
-
-    override fun confirmAddDuplicate() {
-        val dialog = raisedDialog as? BrowseSourceViewModel.Dialog.AddDuplicateManga ?: return
-        model.addFavorite(dialog.manga)
-    }
-
-    override fun addToGroup(entryIds: List<Long>) {
-        val dialog = raisedDialog as? BrowseSourceViewModel.Dialog.AddDuplicateManga ?: return
-        model.addToExistingGroup(dialog.manga, entryIds)
-    }
-
-    override fun startMigrate(duplicateId: Long) {
-        val dialog = raisedDialog as? BrowseSourceViewModel.Dialog.AddDuplicateManga ?: return
-        val target = dialog.duplicates.firstOrNull { it.manga.id == duplicateId }?.manga ?: return
-        model.setDialog(BrowseSourceViewModel.Dialog.Migrate(dialog.manga, target))
     }
 }
 

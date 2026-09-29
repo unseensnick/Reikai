@@ -15,15 +15,12 @@ import reikai.domain.source.filter.NovelSavedSearchFilters
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelListing
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
-import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.toEntryBrowseUi
-import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseState
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelSavedSearchRun
 import reikai.presentation.novel.browse.SelectedNovel
-import reikai.presentation.novel.browse.toNeutral
 import tachiyomi.domain.library.model.LibraryDisplayMode
 
 /**
@@ -44,14 +41,9 @@ class NovelBrowseAdapter(
     private val savedSearchFilters = NovelSavedSearchFilters()
 
     /**
-     * The dialog each verb acts on, kept as it is mapped rather than read back off the model.
-     *
-     * The shared dialogs dismiss before they call back, and dismissing clears the model's own
-     * dialog, so a verb reading it there finds nothing and silently does nothing. Never stale: a
-     * dialog cannot reach the screen without being mapped here first.
+     * The bulk category choice, kept as it is mapped rather than read back off the model: the dialog
+     * dismisses before it confirms, and dismissing clears the model's own copy.
      */
-    @Volatile private var raisedDialog: NovelBrowseDialog? = null
-
     @Volatile private var raisedBulkDialog: EntryBulkFavoriteViewModel.Dialog<SelectedNovel>? = null
 
     private val capabilities = EntryBrowseCapabilities(
@@ -117,7 +109,6 @@ class NovelBrowseAdapter(
         bulkState: EntryBulkFavoriteViewModel.State<SelectedNovel>,
         toolbar: ToolbarText,
     ): EntryBrowseScreenState {
-        state.dialog?.let { raisedDialog = it }
         bulkState.dialog?.let { raisedBulkDialog = it }
         val source = state.source
             ?: return state.missingSourceLabel?.let(EntryBrowseScreenState::SourceMissing)
@@ -146,7 +137,7 @@ class NovelBrowseAdapter(
             capabilities = capabilities,
             // One dialog channel: the bulk category picker only ever opens while an entry dialog is
             // closed, so it rides the same slot rather than needing a second one in the state.
-            dialog = state.toNeutralDialog() ?: bulkState.dialog?.toNeutral(),
+            dialog = EntryBrowseDialog.Filter.takeIf { state.filterSheetOpen } ?: bulkState.dialog?.toNeutral(),
         )
     }
 
@@ -155,11 +146,6 @@ class NovelBrowseAdapter(
             is EntryBulkFavoriteViewModel.Dialog.ChangeCategory ->
                 EntryBrowseDialog.SelectionCategories(initialSelection)
         }
-
-    private fun NovelBrowseState.toNeutralDialog(): EntryBrowseDialog? = when {
-        filterSheetOpen -> EntryBrowseDialog.Filter
-        else -> dialog?.toNeutral()
-    }
 
     override fun setListing(listing: EntryBrowseListing) {
         toolbarText.value = ToolbarText.Typed(null)
@@ -216,7 +202,9 @@ class NovelBrowseAdapter(
         model.applySavedSearch(query)
     }
 
-    override fun onRowLongClick(row: EntryBrowseRow) = model.onLongClickItem(row.item)
+    override val addFlow = model.addFlow
+
+    override fun onRowLongClick(row: EntryBrowseRow) = addFlow.onLongClick(row.item, sourceId)
 
     override fun setSelectionMode(enabled: Boolean) = bulk.toggleSelectionMode(enabled)
 
@@ -238,33 +226,7 @@ class NovelBrowseAdapter(
 
     override fun dismissDialog() {
         model.closeFilterSheet()
-        model.dismissDialog()
         bulk.setDialog(null)
-    }
-
-    override fun confirmRemove() {
-        val dialog = raisedDialog as? NovelBrowseDialog.RemoveNovel ?: return
-        model.confirmRemove(dialog.item)
-    }
-
-    override fun confirmCategories(categoryIds: List<Long>) {
-        val dialog = raisedDialog as? NovelBrowseDialog.ChangeCategory ?: return
-        model.applyCategories(dialog.target, categoryIds)
-    }
-
-    override fun confirmAddDuplicate() {
-        val dialog = raisedDialog as? NovelBrowseDialog.AddDuplicate ?: return
-        model.addFromDuplicate(dialog.item)
-    }
-
-    override fun addToGroup(entryIds: List<Long>) {
-        val dialog = raisedDialog as? NovelBrowseDialog.AddDuplicate ?: return
-        model.addToExistingGroup(dialog.item, entryIds)
-    }
-
-    override fun startMigrate(duplicateId: Long) {
-        val dialog = raisedDialog as? NovelBrowseDialog.AddDuplicate ?: return
-        model.startMigrate(duplicateId, dialog.item)
     }
 }
 

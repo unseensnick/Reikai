@@ -16,12 +16,14 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
+import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.repository.MangaRepository
 
 fun libraryCategory(id: Long) = Category(id = id, name = "category $id", order = 0L, flags = 0L)
@@ -41,6 +43,9 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
     val filed = mutableMapOf<Long, List<Long>>()
     val chapterDefaultsStamped = mutableSetOf<Long>()
     val trackersBound = mutableSetOf<Long>()
+
+    /** The rows the duplicate lookup lists, while they are in the library. */
+    val duplicateIds = mutableSetOf<Long>()
 
     /** Stores [id] in or out of the library, filed under [categories], and answers the stored row. */
     fun put(id: Long, favorite: Boolean, categories: List<Long> = emptyList()): Manga {
@@ -91,7 +96,11 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
         coverCache = mockk(relaxed = true),
         libraryPreferences = libraryPreferences,
         getCategories = getCategories,
-        getDuplicateLibraryManga = mockk(relaxed = true),
+        getDuplicateLibraryManga = mockk {
+            coEvery { this@mockk.invoke(any()) } answers {
+                rows.values.filter { it.favorite && it.id in duplicateIds }.map { MangaWithChapterCount(it, 0L) }
+            }
+        },
         getManga = mockk { coEvery { await(any<Long>()) } answers { rows[firstArg()] } },
         setMangaCategories = mockk { coEvery { await(any(), any()) } answers { filed[firstArg()] = secondArg() } },
         setMangaDefaultChapterFlags = mockk {
@@ -99,7 +108,7 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
         },
         updateManga = updateManga,
         autoBindOnAdd = mockk { every { manga(any(), any()) } answers { trackersBound += firstArg<Manga>().id } },
-        mergeManager = mockk(relaxed = true),
+        mergeManager = mockk(relaxed = true) { coEvery { groupIdsFor(any()) } returns emptyMap() },
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = mockk { every { categorySortOrder } returns mockk { every { get() } returns 0 } },
         sourceTracker = mockk(relaxed = true),
@@ -116,6 +125,9 @@ class FakeNovelLibrary(userCategories: List<Category> = emptyList(), defaultCate
     val rows = mutableMapOf<Long, Novel>()
     val favoriteWrites = mutableListOf<Long>()
     val filed = mutableMapOf<Long, List<Long>>()
+
+    /** The rows the duplicate lookup lists, while they are in the library. */
+    val duplicateIds = mutableSetOf<Long>()
 
     fun put(id: Long, path: String, favorite: Boolean, categories: List<Long> = emptyList()): Novel {
         val row = Novel.create().copy(id = id, source = SOURCE_ID, url = path, favoriteAt = 100L.takeIf { favorite })
@@ -147,6 +159,9 @@ class FakeNovelLibrary(userCategories: List<Category> = emptyList(), defaultCate
             }
             true
         }
+        coEvery { getDuplicateLibraryNovel(any(), any()) } answers {
+            rows.values.filter { it.favorite && it.id in duplicateIds }.map { NovelWithChapterCount(it, 0L) }
+        }
     }
 
     val adder = NovelLibraryAdder(
@@ -159,11 +174,15 @@ class FakeNovelLibrary(userCategories: List<Category> = emptyList(), defaultCate
         setNovelCategories = mockk { coEvery { await(any(), any()) } answers { filed[firstArg()!!] = secondArg() } },
         updateNovel = UpdateNovel(novelRepository = repository, sourceTracker = mockk(relaxed = true)),
         novelPreferences = novelPreferences,
-        mergeManager = mockk(relaxed = true),
+        mergeManager = mockk(relaxed = true) { coEvery { groupIdsFor(any()) } returns emptyMap() },
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = mockk { every { categorySortOrder } returns mockk { every { get() } returns 0 } },
         autoBindOnAdd = mockk(relaxed = true),
-        removeNovelsFromLibrary = mockk(relaxed = true),
+        removeNovelsFromLibrary = mockk {
+            coEvery { await(any()) } answers {
+                firstArg<List<Long>>().onEach { id -> rows[id]?.let { rows[id] = it.copy(favoriteAt = null) } }
+            }
+        },
     )
 
     companion object {

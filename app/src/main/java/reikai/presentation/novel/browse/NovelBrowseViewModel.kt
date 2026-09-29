@@ -31,7 +31,6 @@ import kotlinx.serialization.json.JsonElement
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
@@ -45,13 +44,10 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.catalogue.BrowseColumns
 import reikai.presentation.browse.catalogue.trackBrowseColumns
 import reikai.presentation.browse.catalogue.trackDisplayMode
-import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.util.runCatchingCancellable
-import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
-import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -253,14 +249,7 @@ class NovelBrowseViewModel(
     fun openSettingsSheet() = state.update { it.copy(settingsSheetOpen = true) }
     fun closeSettingsSheet() = state.update { it.copy(settingsSheetOpen = false) }
 
-    // --- Favorite from browse (long-press), via the shared [NovelLibraryAdder] ---
-
-    fun onLongClickItem(item: NovelItem) {
-        viewModelScope.launchIO {
-            val dialog = libraryAdder.onLongClick(item, sourceId, state.value.favoritedKeys)
-            state.update { it.copy(dialog = dialog) }
-        }
-    }
+    val addFlow = NovelAddFlow(libraryAdder, viewModelScope)
 
     /**
      * Report [item] back as the migration target for the novel with id [entryRawId], then run
@@ -281,48 +270,6 @@ class NovelBrowseViewModel(
             withUIContext { onPicked() }
         }
     }
-
-    /** "Add anyway" from the duplicates dialog: add despite the similarly-named entries. */
-    fun addFromDuplicate(item: NovelItem) {
-        viewModelScope.launchIO {
-            state.update { it.copy(dialog = libraryAdder.addToLibrary(item, sourceId)) }
-        }
-    }
-
-    /** Materialize the browsed result as a target row, then raise the migrate dialog on it. The
-     *  materialize is a source round trip, so it runs here rather than in a composable's own scope. */
-    fun startMigrate(duplicateId: Long, item: NovelItem) {
-        viewModelScope.launchIO {
-            val target = libraryAdder.materialize(item, sourceId) ?: return@launchIO
-            state.update {
-                it.copy(dialog = NovelBrowseDialog.Migrate(currentId = duplicateId, targetId = target.id))
-            }
-        }
-    }
-
-    /** "Add to existing group": add, then merge it with the duplicates the user picked. */
-    fun addToExistingGroup(item: NovelItem, selectedIds: List<Long>) {
-        viewModelScope.launchIO {
-            val dialog = libraryAdder.addToExistingGroup(item, sourceId, selectedIds)
-            state.update { it.copy(dialog = dialog) }
-        }
-    }
-
-    fun applyCategories(target: NovelCategoryTarget, categoryIds: List<Long>) {
-        viewModelScope.launchIO {
-            libraryAdder.confirmCategories(target, categoryIds)
-            state.update { it.copy(dialog = null) }
-        }
-    }
-
-    fun confirmRemove(item: NovelItem) {
-        viewModelScope.launchIO {
-            libraryAdder.confirmRemove(item, sourceId)
-            state.update { it.copy(dialog = null) }
-        }
-    }
-
-    fun dismissDialog() = state.update { it.copy(dialog = null) }
 
     // A novel source id is the plugin's String id, not the Long the manga side uses.
     @AssistedFactory
@@ -363,8 +310,6 @@ data class NovelBrowseState(
     val favoritedKeys: FavoritedNovels = FavoritedNovels.None,
     val filterSheetOpen: Boolean = false,
     val settingsSheetOpen: Boolean = false,
-    /** Active long-press dialog (add-duplicate / category picker / remove), or null. */
-    val dialog: NovelBrowseDialog? = null,
     /** The grid layout. Held here for the same reason the manga state holds it: the catalogue
      *  screen renders from this flow, so a value it cannot observe never reaches the grid. */
     val displayMode: LibraryDisplayMode = LibraryDisplayMode.default,
@@ -394,39 +339,4 @@ internal data class NovelPagerInput(
 private fun NovelFilterState.freshlyApplied(): NovelFilterState = when (this) {
     is NovelFilterState.Filters -> NovelFilterState.Filters(list)
     is NovelFilterState.LnValues -> this
-}
-
-/** Long-press dialogs for the novel browse grid, the novel twin of `BrowseSourceViewModel.Dialog`. */
-sealed interface NovelBrowseDialog {
-    data class AddDuplicate(
-        val item: NovelItem,
-        /** The source the result came from, so the confirm acts on the right one (varies in global search). */
-        val sourceId: String,
-        val duplicates: List<NovelWithChapterCount>,
-        /** Source id -> its label for each duplicate (resolved in the model, so the dialog is DI-free). */
-        val sourceLabels: Map<String, EntrySourceLabel>,
-        /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */
-        val suggestGroup: Boolean,
-        /** Novel id -> group id, so same-group duplicates collapse into one card. */
-        val groupIdByNovelId: Map<Long, Long>,
-    ) : NovelBrowseDialog
-    data class ChangeCategory(
-        val target: NovelCategoryTarget,
-        val initialSelection: List<CheckboxState.State<Category>>,
-    ) : NovelBrowseDialog
-    data class RemoveNovel(val item: NovelItem, val sourceId: String) : NovelBrowseDialog
-
-    /** Migrating the library's copy onto the one just browsed to, both already stored by id. Replaces
-     *  [AddDuplicate] in the same slot, as the manga twin does. */
-    data class Migrate(val currentId: Long, val targetId: Long) : NovelBrowseDialog
-}
-
-/**
- * What a category picker's confirm has left to write. Both adds reach the picker before anything is
- * written, so backing out of it adds nothing and confirming owes the whole add; a group add's favorite
- * also merges its already inserted row into the group of [JoinGroup.selectedIds], as one unit.
- */
-sealed interface NovelCategoryTarget {
-    data class JoinGroup(val novelId: Long, val selectedIds: List<Long>) : NovelCategoryTarget
-    data class Pending(val item: NovelItem, val sourceId: String) : NovelCategoryTarget
 }

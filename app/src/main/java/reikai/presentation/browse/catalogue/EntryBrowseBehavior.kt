@@ -3,6 +3,7 @@ package reikai.presentation.browse.catalogue
 import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import reikai.presentation.browse.EntryAddFlow
 import tachiyomi.domain.library.model.LibraryDisplayMode
 
 /**
@@ -57,23 +58,11 @@ interface EntryBrowseBehavior {
     /** Apply the bulk category choice to the whole selection. */
     fun setSelectionCategories(categoryIds: List<Long>)
 
-    // Dialogs. The entry each one acts on is the one the adapter's own state already remembers.
+    /** Close the filter sheet or the bulk category choice. */
     fun dismissDialog()
 
-    /** Confirm [EntryBrowseDialog.Remove], taking the entry out of the library. */
-    fun confirmRemove()
-
-    /** Confirm the category picker for whichever entry raised it. */
-    fun confirmCategories(categoryIds: List<Long>)
-
-    /** Add the entry anyway, despite the duplicates the dialog listed. */
-    fun confirmAddDuplicate()
-
-    /** Add the entry to the groups the picked duplicates belong to. */
-    fun addToGroup(entryIds: List<Long>)
-
-    /** Migrate the duplicate at [duplicateId] onto the entry the dialog was raised for. */
-    fun startMigrate(duplicateId: Long)
+    /** What a long press on a row asks, and the verbs that answer it; [onRowLongClick] starts it. */
+    val addFlow: EntryAddFlow<*>
 }
 
 /**

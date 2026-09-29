@@ -141,9 +141,12 @@ The add paths, which is the inventory this plan has to keep whole:
   `reikai/presentation/novel/globalsearch/NovelGlobalSearchViewModel.kt`,
   `reikai/presentation/novel/browse/NovelBrowseViewModel.kt`,
   `reikai/presentation/novel/browse/NovelLibraryAdder.kt`.
-- The long-press duplicate decision, written once for both types: `reikai/presentation/browse/AddDecision.kt`
-  (`decideAdd`), rendered by `reikai/presentation/browse/EntryAddDialogs.kt` for the catalogue and
-  global search. `exh/md/follows/MangaDexFollowsScreen.kt` still hosts its own dialog.
+- The long-press add flow, one per content type over one base: `reikai/presentation/browse/EntryAddFlow.kt`
+  (`EntryAddFlow`, the neutral `EntryAddDialog`), `MangaAddFlow.kt` and
+  `reikai/presentation/novel/browse/NovelAddFlow.kt`, each deciding through its adder's `onLongClick`
+  over `decideAdd` (`AddDecision.kt`). Every surface that lists entries holds its flow on its own model
+  and renders it with `reikai/presentation/browse/EntryAddDialogs.kt`: the catalogue, global search,
+  the Browse feed and `exh/md/follows/MangaDexFollowsScreen.kt`. `EntryAddFlowConformanceTest` pins it.
 - Shared already: `reikai/domain/category/DefaultCategoryResolution.kt` (the kernel, six call sites
   across four files), `reikai/presentation/browse/EntryBulkFavoriteViewModel.kt` with its two
   subclasses `BulkFavoriteViewModel` and `NovelBulkFavoriteViewModel`, which share the decision and
@@ -278,3 +281,30 @@ two orders would have baked the divergence into the engine.
   was that sharing needed a category-port interface, and a kernel handed the categories each adder
   already read needs none. `AddToGroupConformanceTest` pins it for both types, including a group
   filed only in the system category falling back to the default.
+- **One long-press add flow per content type, held by every host** (cleanup plan P24, 2026-09-29).
+  The long-press questions and the verbs that answer them were written six times: the catalogue's two
+  adapters over `BrowseSourceViewModel` and `NovelBrowseViewModel`, `SearchViewModel` and
+  `NovelGlobalSearchViewModel` behind two composable dialog hosts in global search, the feed's
+  `raisedManga` / `raisedNovel` forks, and a third copy in `MangaDexFollowsScreen`. Now `EntryAddFlow`
+  owns the raised dialog and the dismiss-before-confirm rule once, `MangaAddFlow` and `NovelAddFlow`
+  own only their verbs, and each host builds its flow on its own `viewModelScope`, so an add left
+  pending while a duplicate is opened is still there on return. `EntryAddDialogs` takes the flow,
+  including where a duplicate card opens (`duplicateScreen`), so no host resolves a duplicate itself.
+  `BrowseSourceViewModel.Dialog` keeps only `Filter`, and `SearchViewModel` lost its state and dialog,
+  each under an `// RK:` note. `EntryAddFlowConformanceTest` runs both flows over the real adders.
+- **Both types decide a long press on the stored row.** `MangaLibraryAdder.onLongClick` and
+  `NovelLibraryAdder.onLongClick` read whether the entry is in the library when the press lands
+  (`isInLibrary`), not what the list drew, so an entry added elsewhere since offers removal rather
+  than a silent re-add into the default category. The plan had kept the novel half on the favorited
+  key set a host passes in; reading the row answers the same question with nothing for a host to pass,
+  and one rule for both types. The recents surface keeps its engine-raised prompt
+  (`RecentsEngine.addToLibrary`), a different question with its own dialog.
+- **Behaviour inventory of the six replaced copies**, present unless noted: the remove, add, picker,
+  add-anyway, group-add and migrate branches with the grouping suggestion, group ids and source labels;
+  the picker's group carried to its confirm; the migrate question naming the duplicate as current and
+  the pressed entry as target (a novel stored first, and a failed store closing the question as before);
+  a duplicate card opening its details and leaving the question up; the haptic on a global-search
+  press, which stays with that screen. Changed: the manga catalogue and follows screens now run the
+  add on the IO dispatcher rather than the main one, like every other host. Dropped: the catalogue's
+  check that a migrate target was among the listed duplicates, which the dialog's own list already
+  guarantees.

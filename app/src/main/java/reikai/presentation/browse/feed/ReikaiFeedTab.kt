@@ -248,7 +248,7 @@ private fun Screen.FeedContent(
                             if (selectionMode) {
                                 navigator.push(MangaScreen(manga.id, true))
                             } else {
-                                model.onLongPressManga(manga)
+                                model.mangaAddFlow.onLongClick(manga)
                             }
                         },
                         onClickNovel = { sourceId, item ->
@@ -262,7 +262,7 @@ private fun Screen.FeedContent(
                             if (selectionMode) {
                                 navigator.push(NovelScreen(sourceId, item.path, item.cover, fromSource = true))
                             } else {
-                                model.onLongPressNovel(item, sourceId)
+                                model.novelAddFlow.onLongClick(item, sourceId)
                             }
                         },
                     )
@@ -272,26 +272,8 @@ private fun Screen.FeedContent(
     }
 
     FeedDialogs(state.dialog, model)
-    EntryAddDialogs(
-        dialog = state.addDialog,
-        // Whatever the raised entry was; only the migrate dialog reads it, and it is raised from a
-        // duplicate of the same type as the row it came from.
-        contentType = state.addDialogContentType,
-        onDismissRequest = model::dismissAddDialog,
-        onConfirmRemove = model::confirmRemove,
-        onConfirmCategories = model::confirmCategories,
-        onConfirmAddDuplicate = model::confirmAddDuplicate,
-        onAddToGroup = model::addToGroup,
-        onStartMigrate = model::startMigrate,
-        onOpenEntryById = { id ->
-            val novel = model.duplicateNovelRoute(id)
-            if (novel == null) {
-                navigator.push(MangaScreen(id))
-            } else {
-                navigator.push(NovelScreen(novel.first, novel.second))
-            }
-        },
-    )
+    EntryAddDialogs(model.mangaAddFlow)
+    EntryAddDialogs(model.novelAddFlow)
 }
 
 @Composable

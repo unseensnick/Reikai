@@ -18,28 +18,21 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
-import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchViewModel
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchViewModel
-import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.TravelExplore
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.BulkCategoryDialogs
 import reikai.presentation.browse.BulkFavoriteViewModel
+import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.SearchResultSection
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
-import reikai.presentation.browse.components.EntryDuplicateDialog
-import reikai.presentation.browse.components.EntryRemoveDialog
-import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.listedEntries
 import reikai.presentation.browse.selectionTitle
 import reikai.presentation.components.ContentTypeTabs
-import reikai.presentation.migrate.flow.EntryMigrateFor
-import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
@@ -57,8 +50,8 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * the results rather than a switch between two screens.
  *
  * The query, which sources it covers, the order results land in and how many run at once live in
- * [GlobalSearchEngine]; this draws what it is given and routes a tap. Each content type keeps its own
- * long-press flow, because adding to the library differs all the way down.
+ * [GlobalSearchEngine]; this draws what it is given and routes a tap. A long press goes to the result's
+ * own content type's add flow, whose questions the shared [EntryAddDialogs] draw.
  */
 class EntryGlobalSearchScreen(
     val searchQuery: String = "",
@@ -91,7 +84,6 @@ class EntryGlobalSearchScreen(
             create(providers, searchQuery, scopedContentType, filter)
         }
         val state by engine.state.collectAsStateWithLifecycle()
-        val mangaState by mangaModel.state.collectAsStateWithLifecycle()
         val novelState by novelModel.state.collectAsStateWithLifecycle()
 
         val mangaBulk = metroViewModel<BulkFavoriteViewModel>()
@@ -228,7 +220,7 @@ class EntryGlobalSearchScreen(
                             if (selectionMode) {
                                 navigator.push(MangaScreen(manga.id, true))
                             } else {
-                                mangaModel.onLongClick(manga)
+                                mangaModel.addFlow.onLongClick(manga)
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
                         },
@@ -246,7 +238,7 @@ class EntryGlobalSearchScreen(
                             if (selectionMode) {
                                 navigator.push(NovelScreen(sourceId, item.path, item.cover, fromSource = true))
                             } else {
-                                novelModel.onLongClickItem(item, sourceId)
+                                novelModel.addFlow.onLongClick(item, sourceId)
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
                         },
@@ -255,87 +247,10 @@ class EntryGlobalSearchScreen(
             }
         }
 
-        MangaLongPressDialogs(mangaModel, mangaState.dialog)
-        NovelLongPressDialogs(novelModel, novelState.dialog)
+        EntryAddDialogs(mangaModel.addFlow)
+        EntryAddDialogs(novelModel.addFlow)
         // One prompt at a time: resolving the manga one reveals the novel one, and each is named so
         // the second is not a surprise.
         BulkCategoryDialogs(mangaBulk, novelBulk, mangaBulkState.dialog, novelBulkState.dialog, namePrompts)
-    }
-}
-
-@Composable
-private fun Screen.MangaLongPressDialogs(model: GlobalSearchViewModel, dialog: SearchViewModel.Dialog?) {
-    val navigator = LocalNavigator.currentOrThrow
-    val onDismissRequest = model::clearDialog
-    when (dialog) {
-        is SearchViewModel.Dialog.AddDuplicateManga -> EntryDuplicateDialog(
-            duplicates = dialog.duplicates,
-            toUi = { it.toDuplicateCard(dialog.sourceLabels) },
-            onDismissRequest = onDismissRequest,
-            onConfirm = { model.addFavorite(dialog.manga) },
-            onOpen = { navigator.push(MangaScreen(it.manga.id)) },
-            onMigrate = { model.setMigrateDialog(it.manga.id, dialog.manga) },
-            groupIdByEntryId = dialog.groupIdByMangaId,
-            onAddToGroup = { selectedIds: List<Long> ->
-                model.addToExistingGroup(dialog.manga, selectedIds)
-            }.takeIf { dialog.suggestGroup },
-        )
-        is SearchViewModel.Dialog.Migrate -> EntryMigrateFor(
-            contentType = ContentType.MANGA,
-            currentId = dialog.current.id,
-            targetId = dialog.target.id,
-            onDismissRequest = onDismissRequest,
-        )
-        is SearchViewModel.Dialog.RemoveManga -> EntryRemoveDialog(
-            title = dialog.manga.title,
-            onDismissRequest = onDismissRequest,
-            onConfirm = { model.changeMangaFavorite(dialog.manga) },
-        )
-        is SearchViewModel.Dialog.ChangeMangaCategory -> ChangeCategoryDialog(
-            initialSelection = dialog.initialSelection,
-            onDismissRequest = onDismissRequest,
-            onEditCategories = { navigator.push(CategoryScreen()) },
-            onConfirm = { include, _ ->
-                model.confirmCategories(dialog.manga, include, dialog.joinGroup)
-            },
-        )
-        null -> {}
-    }
-}
-
-@Composable
-private fun Screen.NovelLongPressDialogs(model: NovelGlobalSearchViewModel, dialog: NovelBrowseDialog?) {
-    val navigator = LocalNavigator.currentOrThrow
-    when (dialog) {
-        is NovelBrowseDialog.AddDuplicate -> EntryDuplicateDialog(
-            duplicates = dialog.duplicates,
-            toUi = { it.toDuplicateCard(dialog.sourceLabels) },
-            onDismissRequest = model::dismissDialog,
-            onConfirm = { model.addFromDuplicate(dialog.item, dialog.sourceId) },
-            onOpen = { navigator.push(NovelScreen(it.novel.source, it.novel.url)) },
-            onMigrate = { dup -> model.startMigrate(dup.novel.id, dialog.item, dialog.sourceId) },
-            groupIdByEntryId = dialog.groupIdByNovelId,
-            onAddToGroup = { selectedIds: List<Long> ->
-                model.addToExistingGroup(dialog.item, dialog.sourceId, selectedIds)
-            }.takeIf { dialog.suggestGroup },
-        )
-        is NovelBrowseDialog.ChangeCategory -> ChangeCategoryDialog(
-            initialSelection = dialog.initialSelection,
-            onDismissRequest = model::dismissDialog,
-            onEditCategories = { navigator.push(CategoryScreen()) },
-            onConfirm = { include, _ -> model.applyCategories(dialog.target, include) },
-        )
-        is NovelBrowseDialog.RemoveNovel -> EntryRemoveDialog(
-            title = dialog.item.name,
-            onDismissRequest = model::dismissDialog,
-            onConfirm = { model.confirmRemove(dialog.item, dialog.sourceId) },
-        )
-        is NovelBrowseDialog.Migrate -> EntryMigrateFor(
-            contentType = ContentType.NOVELS,
-            currentId = dialog.currentId,
-            targetId = dialog.targetId,
-            onDismissRequest = model::dismissDialog,
-        )
-        null -> {}
     }
 }

@@ -18,8 +18,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
-import reikai.presentation.novel.browse.NovelBrowseDialog
-import reikai.presentation.novel.browse.NovelCategoryTarget
+import reikai.presentation.novel.browse.NovelAddFlow
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
@@ -27,8 +26,7 @@ import tachiyomi.core.common.util.lang.launchIO
 /**
  * The novel provider behind the shared global search, which owns the query, the order, the fan-out
  * and its concurrency ([reikai.presentation.browse.fillEntryRows]) and when a search is worth re-running.
- * What is left here is the novel sources, the one-source call, and the long-press half, which is per
- * content type.
+ * What is left here is the novel sources, the one-source call, and the long-press add flow.
  */
 @Inject
 @ViewModelKey
@@ -67,65 +65,15 @@ class NovelGlobalSearchViewModel(
     suspend fun searchSource(source: NovelSource, query: String): List<NovelItem> =
         source.search(query, 1, filters = null).items
 
-    // --- Long-press add-to-library, via the shared [NovelLibraryAdder]. The source id comes from the
-    // tapped result's row since results span sources. ---
-
-    fun onLongClickItem(item: NovelItem, sourceId: String) {
-        viewModelScope.launchIO {
-            val dialog = libraryAdder.onLongClick(item, sourceId, state.value.favoritedKeys)
-            state.update { it.copy(dialog = dialog) }
-        }
-    }
-
-    fun addFromDuplicate(item: NovelItem, sourceId: String) {
-        viewModelScope.launchIO {
-            state.update { it.copy(dialog = libraryAdder.addToLibrary(item, sourceId)) }
-        }
-    }
-
-    /** Materialize the browsed result as a target row, then raise the migrate dialog on it. The
-     *  materialize is a source round trip, so it runs here rather than in a composable's own scope. */
-    fun startMigrate(duplicateId: Long, item: NovelItem, sourceId: String) {
-        viewModelScope.launchIO {
-            val target = libraryAdder.materialize(item, sourceId) ?: return@launchIO
-            state.update {
-                it.copy(dialog = NovelBrowseDialog.Migrate(currentId = duplicateId, targetId = target.id))
-            }
-        }
-    }
-
-    /** "Add to existing group": add, then merge it with the duplicates the user picked. */
-    fun addToExistingGroup(item: NovelItem, sourceId: String, selectedIds: List<Long>) {
-        viewModelScope.launchIO {
-            val dialog = libraryAdder.addToExistingGroup(item, sourceId, selectedIds)
-            state.update { it.copy(dialog = dialog) }
-        }
-    }
-
-    fun applyCategories(target: NovelCategoryTarget, categoryIds: List<Long>) {
-        viewModelScope.launchIO {
-            libraryAdder.confirmCategories(target, categoryIds)
-            state.update { it.copy(dialog = null) }
-        }
-    }
-
-    fun confirmRemove(item: NovelItem, sourceId: String) {
-        viewModelScope.launchIO {
-            libraryAdder.confirmRemove(item, sourceId)
-            state.update { it.copy(dialog = null) }
-        }
-    }
-
-    fun dismissDialog() = state.update { it.copy(dialog = null) }
+    // The source id comes from each result's row, since results span sources.
+    val addFlow = NovelAddFlow(libraryAdder, viewModelScope)
 }
 
 /**
- * What only the novel side answers: which of its results are already in the library, and the active
- * long-press dialog. The results themselves live in the shared global-search engine.
+ * What only the novel side answers: which of its results are already in the library. The results
+ * themselves live in the shared global-search engine.
  */
 data class NovelGlobalSearchState(
     /** (source, url) pairs in the library, for in-library marking of results. */
     val favoritedKeys: FavoritedNovels = FavoritedNovels.None,
-    /** Active long-press dialog (add-duplicate / category picker / remove), or null. */
-    val dialog: NovelBrowseDialog? = null,
 )
