@@ -1,7 +1,8 @@
 package reikai.presentation.browse.feed
 
-import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.domain.source.interactor.GetEnabledSources
 import eu.kanade.tachiyomi.source.CatalogueSource
+import kotlinx.coroutines.flow.first
 import mihon.domain.manga.model.toDomainManga
 import reikai.domain.library.ContentType
 import reikai.domain.novel.FavoritedNovels
@@ -20,7 +21,6 @@ import reikai.presentation.novel.browse.NovelSavedSearchRun
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.source.local.isLocal
 
 /**
  * One content type's half of the feed: which of its sources a row can be built on, how to resolve one
@@ -56,7 +56,7 @@ interface FeedProvider {
 /** The manga half, over Mihon's source manager. */
 class MangaFeedProvider(
     private val sourceManager: SourceManager,
-    private val sourcePreferences: SourcePreferences,
+    private val getEnabledSources: GetEnabledSources,
     private val networkToLocalManga: NetworkToLocalManga,
 ) : FeedProvider {
 
@@ -64,16 +64,12 @@ class MangaFeedProvider(
 
     override val contentType = ContentType.MANGA
 
-    override suspend fun sources(): List<BrowseSearchRow> {
-        val enabledLanguages = sourcePreferences.enabledLanguages.get()
-        val disabled = sourcePreferences.disabledSources.get()
-        return sourceManager.getAll()
-            .filterIsInstance<CatalogueSource>()
-            // Same predicate as GetEnabledSources, local source included: it has no language to
-            // enable, so filtering on language alone is what hides it from its own lists.
-            .filter { (it.lang in enabledLanguages || it.isLocal()) && "${it.id}" !in disabled }
+    // The Sources tab's list, without the duplicate row it adds for the last-used source.
+    override suspend fun sources(): List<BrowseSearchRow> =
+        getEnabledSources.subscribe().first()
+            .filterNot { it.isUsedLast }
+            .mapNotNull { sourceManager.get(it.id) as? CatalogueSource }
             .map(::toRow)
-    }
 
     override suspend fun source(key: SourceKey): BrowseSearchRow? =
         (key as? SourceKey.Manga)?.let { sourceManager.get(it.id) as? CatalogueSource }?.let(::toRow)

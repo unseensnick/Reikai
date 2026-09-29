@@ -11,7 +11,7 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.domain.source.interactor.GetEnabledSources
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -71,14 +71,14 @@ class FeedViewModel(
     private val mangaAdder: MangaLibraryAdder,
     private val novelAdder: NovelLibraryAdder,
     sourceManager: SourceManager,
-    sourcePreferences: SourcePreferences,
+    getEnabledSources: GetEnabledSources,
     networkToLocalManga: NetworkToLocalManga,
     novelSourceManager: NovelSourceManager,
     getEnabledNovelSources: GetEnabledNovelSources,
 ) : ViewModel() {
 
     private val providers = listOf(
-        MangaFeedProvider(sourceManager, sourcePreferences, networkToLocalManga),
+        MangaFeedProvider(sourceManager, getEnabledSources, networkToLocalManga),
         NovelFeedProvider(novelSourceManager, getEnabledNovelSources),
     )
 
