@@ -6,7 +6,7 @@ alwaysApply: true
 
 ## Coding principles (project-wide)
 
-- **DRY**: Before adding a helper, search the codebase (or run an Explore agent in plan mode) for an existing equivalent.
+- **DRY, with a receipt**: Before adding a function, class, extension or composable, grep all modules for an existing equivalent: by name stem, by the receiver and return type, and by the rule it encodes. Check the `reikai/domain/**` kernels and, for inherited shapes, `refs/mihon`. Record the result as a `Reuse:` line in the plan and a `Reuse:` footer in the commit: the symbol reused (`file:line`), or `none (searched: <terms>)`. Copying a private Mihon helper is not reuse: either share it, or say why not. `scripts/dup-check.ps1` catches a new cross-file token clone under `reikai/` and `exh/` against its baseline.
 - **YAGNI**: Only add what the current task requires. No speculative APIs, optional parameters, or abstractions for hypothetical callers.
 - **KISS**: Prefer the simplest correct solution. Complexity must be justified by concrete requirements, not elegance or anticipated scale.
 - **Minimal blast radius, measured against the defect and not the diff**: a bug fix changes only what's broken, and it changes it everywhere it is broken, not only at the site that reproduced. Grep for sibling sites before calling a fix done, and name any you deliberately left. A feature adds only what's specified, with one standing exception: a user-visible change specified for one content type is specified for both, per the write-once rule in [content-layer.md](content-layer.md). Leave working surrounding code untouched.

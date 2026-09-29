@@ -75,7 +75,7 @@ Decide which of these areas the task touches. Skip the ones that don't apply, br
 | Current Reikai code | Always | Target files, callers, callees, related ViewModel, tests. |
 | Reference source | Ports, parity checks | Upstream port: the matching Mihon file(s) + history (`git -C refs/mihon log -- <path>`). If the Mihon file has no local counterpart, check `docs/dev/off-path-manifest.md`: a deleted-and-manifested file's change lands in its Reikai twin instead. Reikai-feature port: the Yōkai-era source on `design/library-compose`. API differences from current code. |
 | Framework bridges | Theme, Compose, Voyager, DI | The relevant layer (e.g., Voyager screen lifecycle, `PreferenceStore`, the Metro graph). Specifically: what's mapped, what isn't, what falls through. |
-| Existing helpers (DRY) | New widget / utility tempting | Search for the project's existing equivalent before letting the plan invent one. |
+| Existing helpers (DRY) | Always | For every symbol the plan may add, the existing equivalent (`file:line`) or the searches run: name stem, receiver and return type, the rule it encodes, across all modules, the `reikai/domain/**` kernels and `refs/mihon`. |
 | Test coverage | Behavior changes, refactors | What's tested, what isn't, which test class to extend. |
 
 For each area, spawn one `Agent` call with `subagent_type: Explore` (read-only is enough). Run them in parallel in a single message. Brief each as a smart colleague who hasn't seen this conversation:
@@ -108,7 +108,7 @@ Additions specific to this skill:
 - **A claim that cannot cite a `file:line` from code actually read** goes in Open questions, never in Findings.
 - **A source contradiction is itself a finding.** When memory, `Handoff.md` or a plan doc disagrees with current code, trust the code and record the contradiction under Stale docs so it can be pruned.
 - **Deferred work is not a defect.** If the Step 2 descope list already covers something, say so once and move on.
-- **The plan names the helper it reuses.** A step that invents a utility the repo already has is a failed scout, so cite the existing one.
+- **The plan names the helper it reuses.** A step that invents a utility the repo already has is a failed scout, so cite the existing one. Every step that adds a symbol carries its `Reuse:` line (see plan-output.md).
 
 ## Step 6: Hand off
 

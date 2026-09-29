@@ -101,6 +101,10 @@ sites, with some of them wrong. Neither class shows up in the other's review.
   both call, the capability they both answer, or the conformance test that runs both. A marker with
   no pin named is debt, and it is paid the next time either half is touched, on the same trigger the
   parity rule uses. Never a standalone sweep to clear the backlog, and never a new unpinned twin.
+  **The spelling is fixed, so a check can read it:** `twin of X, pinned by Y`, where Y is the kernel,
+  the capability or the `...Test`, or `twin of X, type only` for a data shape that carries no rule.
+  `scripts/lint-docs.sh` rejects an added `twin of` / `mirrors` comment that has neither (or an
+  explicit `no pin:` with the reason).
 - **Parity is the default; a gap needs a ruling to stay open.** A gap you notice on a surface you are
   touching is levelled up in that change unless the owner gates it. Never fake a feature a type
   cannot support.

@@ -14,6 +14,7 @@ allowed-tools:
   - Bash(git branch *)
   - Bash(gh pr create *)
   - Bash(gh pr view *)
+  - Agent
 ---
 
 Ship the current changes through commit, push, and PR creation. Confirm with the user before each step using the AskUserQuestion tool.
@@ -39,6 +40,8 @@ Ship the current changes through commit, push, and PR creation. Confirm with the
   - Build output: `dist/`, `build/`, `.next/`, `__pycache__/`
   - Dependencies: `node_modules/`, `vendor/`, `.venv/`
   - OS/editor: `.DS_Store`, `Thumbs.db`, `*.swp`, `.idea/`, `.vscode/settings.json`
+- Run the `code-reviewer` agent on the staged diff (`git diff --cached`) before drafting the message, and show its findings with the proposal. Fix or explicitly defer each one before committing.
+- If the staged diff adds a non-private top-level `fun`, `class` or `object` under `reikai/` or `exh/` (tests exempt), the message needs a `Reuse:` footer: the symbol reused (`file:line`), or `none (searched: <terms>)`.
 - Draft a commit message based on the changes, matching the repo's existing commit style
 - **Do NOT include `Co-Authored-By` lines** in the commit message: this project explicitly forbids them
 - **ASK the user to confirm or edit**: show the exact files to stage and the proposed commit message

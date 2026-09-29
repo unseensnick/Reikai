@@ -76,12 +76,15 @@ Don't skip ahead to guessing:
 - Don't patch symptoms. Trace back to where bad data originates and fix it there.
 - Don't refactor surrounding code while fixing.
 - Don't add defensive checks that mask the problem.
+- Run the reuse search before writing a helper (the DRY rule in code-quality.md): grep all modules by name stem, receiver and return type, and the rule it encodes. Note what you reused, or `none (searched: <terms>)`, for the `Reuse:` footer.
 
 In `--fast` mode specifically:
 - If the fix needs more than ~50 lines changed, warn the user. This may not actually be a hotfix.
 - Do NOT add features, change formatting, clean up unrelated issues, or add non-essential comments.
 
 ## Step 6: Verify
+
+**Both modes**: grep for sibling sites of the same defect (the other content type, the other mode or viewer, the same call pattern elsewhere) and list each as fixed or left, with the reason. "The reported case passes" is not "the bug is fixed".
 
 **Default**:
 - Write a test that reproduces the bug and now passes.
@@ -96,6 +99,8 @@ In `--fast` mode specifically:
 - **ASK** the user if they want extra verification before shipping.
 
 ## Step 7: Wrap up or ship
+
+**Both modes**: the commit body ends with two footers. `Reuse:` names the symbol reused (`file:line`) or `none (searched: <terms>)`, and is required when the diff adds a non-private top-level declaration under `reikai/` or `exh/`. `Siblings:` lists the sweep from Step 6 (`none found (searched: <terms>)` when there were none).
 
 **Default**:
 - Create a branch if not already on one.

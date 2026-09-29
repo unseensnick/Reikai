@@ -30,6 +30,8 @@ Comments, KDoc, or plan-doc lines that contradict current code. One line each: w
 
 Steps as **bolded named items** (`Step 1a, the neutral identity for grouping`), each two or three sentences covering what it does and why it is safe at that point in the sequence. Ordering is the content: say what a step depends on and what it unblocks.
 
+Every step that adds a symbol carries `Reuse: <file:line> | none (searched: <terms>)`, per the DRY rule in [code-quality.md](code-quality.md).
+
 Omit this section for a pure audit with no implementation to propose.
 
 ### 5. Open questions

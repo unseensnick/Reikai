@@ -56,6 +56,7 @@ Write commits a user could skim and a contributor could read on. Scale the struc
 1. **Lead** with 1-2 plain-language sentences: what changed and why it matters, readable by a non-developer. Never open with implementation detail.
 2. **Bullets** for the notable changes, benefit-first and scannable. For a large commit, group them under short headers (a user-facing one first, e.g. the feature area, then `Under the hood:` for internals) so a reader can stop early.
 3. **Footer (optional):** tests, deferred items / tradeoffs, upstream refs (`mihonapp/mihon#N`, which links to the Mihon repo; a bare `#N` would auto-link to a Reikai issue).
+4. **`Reuse:` footer (required when the diff adds a non-private top-level `fun`, `class` or `object` under `reikai/` or `exh/`; tests exempt):** the symbol reused (`file:line`), or `none (searched: <terms>)`. It is the receipt for the DRY rule in [code-quality.md](code-quality.md). A fix also carries `Siblings:`, the sweep for the same defect elsewhere.
 
 **Rules:** blank line after the subject; no em dashes (see [code-quality.md](code-quality.md)); no AI watermarks (no AI co-author such as `Co-Authored-By: Claude`, no generated-by footer; a human co-author, such as the one GitHub adds for a committed review suggestion, is fine). Lead with the user-facing effect; keep deep internals in a labeled section.
 
@@ -65,6 +66,7 @@ Write commits a user could skim and a contributor could read on. Scale the struc
 2. **No bare `#N` anywhere in the message** (subject or body), per the ROADMAP-references rule above. A bare `#N` (and `Roadmap #8`, `Mihon PR #3403`) is the single most common past slip, so check the body too, not just the subject.
 3. No em dashes; no AI watermark (an AI `Co-Authored-By`, generated-by footer).
 4. Non-trivial commit: body leads with 1-2 plain-language sentences, then benefit-first bullets. A trivial commit is just the compliant subject (no body needed).
+5. A new non-private top-level declaration under `reikai/` or `exh/`: the `Reuse:` footer is there.
 
 A **`commit-msg` git hook enforces this** automatically: `.githooks/commit-msg` (tracked) is installed at `.git/hooks/commit-msg` and rejects a non-compliant message (bad subject, over-72 subject, bare `#<number>`, em dash, AI watermark). A companion **`pre-commit` hook** (`.githooks/pre-commit`) runs six checks, so a rejection can come from any of them. The first five look at staged content; the sixth reads the manifest whether or not you staged it:
 
