@@ -10,11 +10,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,9 +18,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.DragHandle
+import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
-import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.presentation.core.components.material.padding
 
 /**
@@ -40,23 +36,11 @@ fun FeedOrderList(
 ) {
     val listState = rememberLazyListState()
     val items = remember(entries.map { it.feedId }) { entries.toMutableStateList() }
-    var didDrag by remember { mutableStateOf(false) }
-
-    val reorderState = rememberReorderableLazyListState(listState, contentPadding) { from, to ->
-        val fromIndex = items.indexOfFirst { it.feedId == from.key }
-        val toIndex = items.indexOfFirst { it.feedId == to.key }
-        if (fromIndex == -1 || toIndex == -1) return@rememberReorderableLazyListState
-        items.add(toIndex, items.removeAt(fromIndex))
-        didDrag = true
-    }
 
     // Once the drag settles, not on every frame it passes over: a write re-reads the table, and that
     // rebuild asks every source again. One refresh per reorder is the price; twenty would not be.
-    LaunchedEffect(reorderState.isAnyItemDragging) {
-        if (!reorderState.isAnyItemDragging && didDrag) {
-            didDrag = false
-            onReorder(items.map { it.feedId })
-        }
+    val reorderState = rememberSettledReorder(items, listState, { it.feedId }, contentPadding) { settled ->
+        onReorder(settled.map { it.feedId })
     }
 
     LazyColumn(state = listState, contentPadding = contentPadding) {

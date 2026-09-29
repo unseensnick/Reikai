@@ -14,11 +14,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,9 +30,9 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.DragHandle
+import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
-import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -101,19 +98,8 @@ private fun ReaderBottomButtonsList(
     val listState = rememberLazyListState()
     // Held here while a drag runs, so the list moves under the finger without a write per step.
     val items = remember(rows) { rows.toMutableStateList() }
-    var didDrag by remember { mutableStateOf(false) }
-    val reorderState = rememberReorderableLazyListState(listState, contentPadding) { from, to ->
-        val fromIndex = items.indexOfFirst { it.button == from.key }
-        val toIndex = items.indexOfFirst { it.button == to.key }
-        if (fromIndex == -1 || toIndex == -1) return@rememberReorderableLazyListState
-        items.add(toIndex, items.removeAt(fromIndex))
-        didDrag = true
-    }
-    LaunchedEffect(reorderState.isAnyItemDragging) {
-        if (!reorderState.isAnyItemDragging && didDrag) {
-            didDrag = false
-            viewModel.move(items.map { it.button })
-        }
+    val reorderState = rememberSettledReorder(items, listState, { it.button }, contentPadding) { settled ->
+        viewModel.move(settled.map { it.button })
     }
 
     LazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier) {

@@ -18,9 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,7 +36,6 @@ import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
-import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.selectedBackground
@@ -71,7 +68,6 @@ fun ManageMergeSourcesDialog(
 ) {
     val items = remember { sources.toMutableStateList() }
     val listState = rememberLazyListState()
-    var didDrag by remember { mutableStateOf(false) }
     var selectionMode by remember { mutableStateOf(false) }
     var picked by remember { mutableStateOf(SelectionState<Long>()) }
     val selection = picked.selection
@@ -79,21 +75,10 @@ fun ManageMergeSourcesDialog(
     // appear immediately, without waiting for the persisted flag to round-trip back.
     var overridden by remember { mutableStateOf(isOverridden) }
 
-    val reorderState = rememberReorderableLazyListState(listState) { from, to ->
-        val fromIndex = items.indexOfFirst { it.id == from.key }
-        val toIndex = items.indexOfFirst { it.id == to.key }
-        if (fromIndex == -1 || toIndex == -1) return@rememberReorderableLazyListState
-        items.add(toIndex, items.removeAt(fromIndex))
-        didDrag = true
-    }
-
-    // Persist the new order once the drag settles (turning the override on), not on every frame.
-    LaunchedEffect(reorderState.isAnyItemDragging) {
-        if (!reorderState.isAnyItemDragging && didDrag) {
-            didDrag = false
-            overridden = true
-            onReorder(items.map { it.id })
-        }
+    // Persisting the new order turns the override on.
+    val reorderState = rememberSettledReorder(items, listState, keyOf = { it.id }) { settled ->
+        overridden = true
+        onReorder(settled.map { it.id })
     }
 
     fun exitSelection() {

@@ -109,6 +109,35 @@ fun arrangeCards(
     return slotted + remaining.values.flatten()
 }
 
+/** The card order the list shows, and the committed order it still waits to see echoed, if any. */
+data class CardOrder(val keys: List<String>, val pending: List<String>?)
+
+/**
+ * The list's order after the queue emits [incomingKeys]. A committed [pending] order is held until the
+ * queue echoes it back, so a stale progress emission arriving first cannot undo a drag; an emission
+ * that changes both the cards and their order is a real external change, so the list resyncs to it.
+ */
+fun reconcileCardOrder(incomingKeys: List<String>, localKeys: List<String>, pending: List<String>?): CardOrder {
+    if (pending == null) return CardOrder(incomingKeys, null)
+    val incoming = incomingKeys.toHashSet()
+    val pendingSet = pending.toHashSet()
+    return when {
+        pending.filter { it in incoming } == incomingKeys.filter { it in pendingSet } -> CardOrder(incomingKeys, null)
+        incoming == localKeys.toHashSet() -> CardOrder(localKeys, pending)
+        else -> CardOrder(incomingKeys, null)
+    }
+}
+
+/** These cards in [keys]' order, then any card [keys] does not name, in its own order. */
+fun List<EntryDownloadCardUi>.orderedBy(keys: List<String>): List<EntryDownloadCardUi> {
+    val byKey = associateBy { it.cardKey }
+    val seen = HashSet<String>()
+    return buildList {
+        keys.forEach { key -> byKey[key]?.let { if (seen.add(key)) add(it) } }
+        this@orderedBy.forEach { if (seen.add(it.cardKey)) add(it) }
+    }
+}
+
 /**
  * The saved order with every series that has left the queue taken out, so one queued again later goes
  * last instead of taking back its old position and moving a card nobody dragged.

@@ -257,4 +257,42 @@ class DownloadQueueKernelTest {
     }
 
     private fun queueState(vararg engines: EngineQueueStatus) = downloadQueueState(engines.toList())
+
+    @Test
+    fun `with no order waiting on an echo the list takes the queue's order`() {
+        reconcileCardOrder(incomingKeys = listOf("a", "b"), localKeys = listOf("b", "a"), pending = null) shouldBe
+            CardOrder(keys = listOf("a", "b"), pending = null)
+    }
+
+    @Test
+    fun `a queue that echoes the committed order releases it`() {
+        reconcileCardOrder(
+            incomingKeys = listOf("b", "a", "c"),
+            localKeys = listOf("b", "a"),
+            pending = listOf("b", "a"),
+        ) shouldBe CardOrder(keys = listOf("b", "a", "c"), pending = null)
+    }
+
+    @Test
+    fun `a stale emission over the same cards keeps the committed order`() {
+        reconcileCardOrder(
+            incomingKeys = listOf("a", "b"),
+            localKeys = listOf("b", "a"),
+            pending = listOf("b", "a"),
+        ) shouldBe CardOrder(keys = listOf("b", "a"), pending = listOf("b", "a"))
+    }
+
+    @Test
+    fun `a queue whose cards and order both changed resyncs the list`() {
+        reconcileCardOrder(
+            incomingKeys = listOf("a", "b", "d"),
+            localKeys = listOf("b", "a", "c"),
+            pending = listOf("b", "a", "c"),
+        ) shouldBe CardOrder(keys = listOf("a", "b", "d"), pending = null)
+    }
+
+    @Test
+    fun `cards the order does not name follow it in the queue's order`() {
+        listOf(m1, m2, n1).orderedBy(listOf(n1.cardKey, "gone", m1.cardKey)) shouldBe listOf(n1, m1, m2)
+    }
 }

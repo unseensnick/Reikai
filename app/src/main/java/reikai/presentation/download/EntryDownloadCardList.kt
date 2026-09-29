@@ -37,9 +37,9 @@ import mihon.icons.materialsymbols.rounded.ExpandLess
 import mihon.icons.materialsymbols.rounded.ExpandMore
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeBadge
+import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
-import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
@@ -89,16 +89,13 @@ fun EntryDownloadCardList(
 ) {
     val localItems = remember { items.toMutableStateList() }
     val listState = rememberLazyListState()
-    var didDrag by remember { mutableStateOf(false) }
     // The card-key order last committed here, held until the queue echoes it back (see class KDoc).
     var committedOrder by remember { mutableStateOf<List<String>?>(null) }
 
-    val reorderableState = rememberReorderableLazyListState(listState, contentPadding) { from, to ->
-        val fromIndex = localItems.indexOfFirst { it.cardKey == from.key }
-        val toIndex = localItems.indexOfFirst { it.cardKey == to.key }
-        if (fromIndex == -1 || toIndex == -1) return@rememberReorderableLazyListState
-        localItems.add(toIndex, localItems.removeAt(fromIndex))
-        didDrag = true
+    val reorderableState = rememberSettledReorder(localItems, listState, { it.cardKey }, contentPadding) { settled ->
+        val keys = settled.map { it.cardKey }
+        committedOrder = keys
+        onReorder(keys)
     }
 
     fun commit(keysInOrder: List<String>) {
@@ -112,40 +109,13 @@ fun EntryDownloadCardList(
 
     LaunchedEffect(items) {
         if (reorderableState.isAnyItemDragging) return@LaunchedEffect
-        val incomingByKey = items.associateBy { it.cardKey }
-        val incomingKeys = items.map { it.cardKey }
-        val localKeys = localItems.map { it.cardKey }
-        val pending = committedOrder
-        // Choose the order to display: adopt the manager's unless a committed order is still unechoed.
-        val order = when {
-            pending == null -> incomingKeys
-            pending.filter { it in incomingByKey } == incomingKeys.filter { it in pending.toHashSet() } -> {
-                committedOrder = null // echo caught up (agrees across shared cards)
-                incomingKeys
-            }
-            incomingKeys.toHashSet() == localKeys.toHashSet() -> localKeys // stale, same membership: keep
-            else -> { // membership and order both changed: a genuine external change, resync
-                committedOrder = null
-                incomingKeys
-            }
-        }
-        // Rebuild in the chosen order with fresh card content; append any card not in the order.
-        val seen = HashSet<String>()
-        val rebuilt = buildList {
-            order.forEach { key -> incomingByKey[key]?.let { if (seen.add(key)) add(it) } }
-            items.forEach { if (seen.add(it.cardKey)) add(it) }
-        }
+        val order = reconcileCardOrder(items.map { it.cardKey }, localItems.map { it.cardKey }, committedOrder)
+        committedOrder = order.pending
+        // Card content (counts, status) always refreshes; only the order is guarded.
+        val rebuilt = items.orderedBy(order.keys)
         if (rebuilt != localItems.toList()) {
             localItems.clear()
             localItems.addAll(rebuilt)
-        }
-    }
-    LaunchedEffect(reorderableState.isAnyItemDragging) {
-        if (!reorderableState.isAnyItemDragging && didDrag) {
-            didDrag = false
-            val keys = localItems.map { it.cardKey }
-            committedOrder = keys
-            onReorder(keys)
         }
     }
 
