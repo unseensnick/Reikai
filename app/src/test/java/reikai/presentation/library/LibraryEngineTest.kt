@@ -251,6 +251,34 @@ class LibraryEngineTest {
         engine.selection.value.isEmpty() shouldBe true
     }
 
+    /** The search field stays on screen across a chip flip, so the view flipped to must filter by it. */
+    private fun typeThenSwitch(from: ContentType, typedOn: LibraryProvider, to: ContentType) {
+        engine.setContentType(from)
+        every { typedOn.state } returns MutableStateFlow(screenState.copy(searchQuery = "Beast Tamer"))
+        engine.setContentType(to)
+    }
+
+    @Test
+    fun `a query typed on Manga filters Novels after the switch`() {
+        typeThenSwitch(from = ContentType.MANGA, typedOn = manga, to = ContentType.NOVELS)
+
+        verify { novel.search("Beast Tamer") }
+    }
+
+    @Test
+    fun `a query typed on Novels filters Manga after the switch`() {
+        typeThenSwitch(from = ContentType.NOVELS, typedOn = novel, to = ContentType.MANGA)
+
+        verify { manga.search("Beast Tamer") }
+    }
+
+    @Test
+    fun `a query typed on Manga filters the novel half of All after the switch`() {
+        typeThenSwitch(from = ContentType.MANGA, typedOn = manga, to = ContentType.ALL)
+
+        verify { novel.search("Beast Tamer") }
+    }
+
     @Test
     fun `opening a dialog keeps the selection until the dialog resolves`() {
         engine.toggleSelection(bucket, m1)

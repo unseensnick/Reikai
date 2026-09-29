@@ -476,7 +476,13 @@ class LibraryEngine(
      */
     fun setContentType(type: ContentType) {
         clearSelection()
+        // One search for the library, as Recents and Browse have. The field keeps its text across the
+        // flip, so the view flipped to must filter by it rather than by a query left on its own model.
+        // Read from the preference, not [contentType], whose change event lags the write.
+        val query = providersFor(reikaiLibraryPreferences.libraryContentType.get())
+            .firstOrNull()?.state?.value?.searchQuery
         reikaiLibraryPreferences.libraryContentType.set(type)
+        search(type, query)
     }
 
     // Per-type verbs the view dispatches for whatever the chip is showing.
