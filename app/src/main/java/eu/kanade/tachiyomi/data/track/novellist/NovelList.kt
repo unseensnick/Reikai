@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.track.novellist.dto.NLNovel
 import eu.kanade.tachiyomi.data.track.novellist.dto.NLReadingListEntry
 import eu.kanade.tachiyomi.data.track.novellist.dto.NLUpdateRequest
 import eu.kanade.tachiyomi.network.HttpException
+import reikai.data.track.MetadataAccess
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -52,6 +53,9 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
     override fun getLogo(): Int = R.drawable.brand_novellist
 
     override val supportsNovels = true
+
+    // Metadata comes from the public catalogue, no login needed.
+    override val metadataAccess = MetadataAccess.Public
 
     // Their catalogue holds novels only. It bills itself as a manhwa directory too, but manhwa are
     // links hanging off a novel row rather than entries: searching for one returns nothing.

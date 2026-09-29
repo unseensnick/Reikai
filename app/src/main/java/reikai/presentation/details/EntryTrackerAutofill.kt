@@ -4,6 +4,9 @@ import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.HttpException
+import reikai.data.track.MetadataAccess
+import reikai.data.track.TrackerSignedOutException
+import reikai.presentation.track.TrackerError
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.track.model.Track
 
@@ -32,17 +35,32 @@ sealed interface TrackerAutofillError {
     /** The tracker has no entry at the bound id, which it answers with a 404. */
     data object NotFound : TrackerAutofillError
 
+    /** No usable login for a tracker whose metadata needs one. */
+    data object SignedOut : TrackerAutofillError
+
     /** Any other failure, with its message, or null where it carries none worth showing. */
     data class Failed(val message: String?) : TrackerAutofillError
 }
 
 fun trackerAutofillError(error: Throwable): TrackerAutofillError = when {
     error is HttpException && error.code == 404 -> TrackerAutofillError.NotFound
+    TrackerError.of(error, isOnline = true) == TrackerError.SignedOut -> TrackerAutofillError.SignedOut
     else -> TrackerAutofillError.Failed(error.message?.takeIf { it.isNotBlank() })
 }
 
-/** One "Fill from tracker" fetch. Cancellation is not a failure: dismissing the dialog mid-fetch cancels
- *  it, and reporting that would toast a tracker error for something the tracker never did. */
-suspend fun <T> runTrackerFill(fetch: suspend () -> T, onFilled: (T) -> Unit, onFailed: (Throwable) -> Unit) {
+/**
+ * One "Fill from tracker" fetch. A tracker whose metadata needs a login is refused before it fetches
+ * while signed out; a public one fills regardless. Cancellation is not a failure: dismissing the dialog
+ * mid-fetch cancels it, and reporting that would toast a tracker error the tracker never raised.
+ */
+suspend fun <T> runTrackerFill(
+    tracker: Tracker,
+    fetch: suspend () -> T,
+    onFilled: (T) -> Unit,
+    onFailed: (Throwable) -> Unit,
+) {
+    if (tracker.metadataAccess == MetadataAccess.SignedIn && !tracker.isLoggedIn) {
+        return onFailed(TrackerSignedOutException(tracker.name))
+    }
     runCatchingCancellable { fetch() }.onSuccess(onFilled).onFailure(onFailed)
 }

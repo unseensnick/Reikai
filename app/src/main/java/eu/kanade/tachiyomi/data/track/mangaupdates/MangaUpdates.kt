@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.data.track.mangaupdates.dto.namesOfType
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.util.lang.htmlDecode
+import reikai.data.track.MetadataAccess
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -103,6 +104,9 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
 
     // RK --> novel-aware search: keep only "Novel"-type series from the unfiltered results
     override val supportsNovels = true
+
+    // Series details are fetched on the unauthenticated client (MangaUpdatesApi.getSeriesDetails).
+    override val metadataAccess = MetadataAccess.Public
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {
         query.trackerSearchId(::seriesId)?.let { seriesId ->

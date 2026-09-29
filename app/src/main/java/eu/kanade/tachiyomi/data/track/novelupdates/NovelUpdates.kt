@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
+import reikai.data.track.MetadataAccess
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.track.UnreadPushTracker
 import reikai.domain.track.autobind.AutoBindEntry
@@ -59,6 +60,9 @@ class NovelUpdates(id: Long) :
     override fun getLogo(): Int = R.drawable.brand_novelupdates
 
     override val supportsNovels = true
+
+    // Metadata comes from the public catalogue, no login needed.
+    override val metadataAccess = MetadataAccess.Public
 
     // Their catalogue is web novels only; a manga has nothing here to bind to.
     override val supportsManga = false

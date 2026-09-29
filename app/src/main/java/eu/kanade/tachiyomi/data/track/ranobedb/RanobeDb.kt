@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBSeries
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBSeriesListEntry
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBStaff
+import reikai.data.track.MetadataAccess
 import tachiyomi.i18n.MR
 import java.time.Instant
 import java.time.ZoneId
@@ -77,6 +78,9 @@ class RanobeDb(id: Long) :
     override fun getLogo(): Int = R.drawable.brand_ranobedb
 
     override val supportsNovels = true
+
+    // Metadata comes from the public catalogue, no login needed.
+    override val metadataAccess = MetadataAccess.Public
 
     // Their catalogue is light novels only, so a manga has nothing here to bind to. Left true, the
     // manga sheet would offer RanobeDB and search() would answer with light novels.

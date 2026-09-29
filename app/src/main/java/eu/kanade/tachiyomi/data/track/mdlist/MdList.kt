@@ -13,6 +13,7 @@ import exh.md.utils.MdUtil
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import reikai.data.track.MetadataAccess
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
@@ -25,6 +26,9 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
             .map(Int::toString)
             .toImmutableList()
     }
+
+    // Filled through the MangaDex source, which needs the source enabled rather than a login.
+    override val metadataAccess = MetadataAccess.Public
 
     // Resolved on every call rather than cached, so a change of preferred MangaDex source reaches
     // the tracker at once, as it does login.

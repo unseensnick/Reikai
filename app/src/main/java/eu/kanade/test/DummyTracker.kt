@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flowOf
 import okhttp3.OkHttpClient
+import reikai.data.track.MetadataAccess
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 
@@ -86,6 +87,8 @@ data class DummyTracker(
 
     // RK: Fill from tracker, which Tracker requires
     override suspend fun getMangaMetadata(track: Track): TrackMangaMetadata = TrackMangaMetadata()
+
+    override val metadataAccess: MetadataAccess = MetadataAccess.Public // RK
 
     override suspend fun refresh(
         track: eu.kanade.tachiyomi.data.database.models.Track,

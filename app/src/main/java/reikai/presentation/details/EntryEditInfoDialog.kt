@@ -115,6 +115,7 @@ fun EntryEditInfoDialog(
                 scope.launch {
                     val ctx = b.root.context
                     runTrackerFill(
+                        tracker = tracker,
                         fetch = { autofill.fetch(track, tracker) },
                         onFilled = { b.applyMetadata(it, colorScheme) },
                         onFailed = { e ->
@@ -122,6 +123,8 @@ fun EntryEditInfoDialog(
                             val message = when (val error = trackerAutofillError(e)) {
                                 TrackerAutofillError.NotFound ->
                                     ctx.stringResource(MR.strings.track_autofill_not_found, tracker.name)
+                                TrackerAutofillError.SignedOut ->
+                                    ctx.stringResource(MR.strings.tracker_error_signed_out, tracker.name)
                                 is TrackerAutofillError.Failed -> ctx.stringResource(
                                     MR.strings.track_error,
                                     tracker.name,

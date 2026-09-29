@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import okhttp3.OkHttpClient
+import reikai.data.track.MetadataAccess
 import tachiyomi.domain.track.model.Track as DomainTrack
 
 interface Tracker {
@@ -71,6 +72,8 @@ interface Tracker {
     // RK --> autofill entry metadata from a bound tracker (Fill from tracker). BaseTracker throws by
     // default; each supported service overrides it. Ported from Komikku, plus a genres field.
     suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata
+
+    val metadataAccess: MetadataAccess
     // RK <--
 
     suspend fun login(username: String, password: String)

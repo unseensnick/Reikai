@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import okhttp3.OkHttpClient
+import reikai.data.track.MetadataAccess
 import reikai.domain.track.TrackFieldMutations
 import reikai.domain.track.sendsProgressTo
 import reikai.presentation.track.trackerErrorMessage
@@ -57,6 +58,10 @@ abstract class BaseTracker(
     override val supportsNovels: Boolean = false
 
     override val supportsManga: Boolean = true
+
+    // A tracker is assumed to fetch metadata on its login, which is how every OAuth one does; the few
+    // with a public catalogue override it, so a new tracker cannot fill while signed out by accident.
+    override val metadataAccess: MetadataAccess = MetadataAccess.SignedIn
     // RK <--
 
     /**
