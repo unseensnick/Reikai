@@ -37,6 +37,10 @@ class ReikaiBrowseViewModel(
 
     val contentType: StateFlow<ContentType> = sourcePreferences.browseContentType.stateIn(viewModelScope)
 
+    /** Whether the Feed tab is shown at all, and whether it leads the tab row. */
+    val showFeedTab: StateFlow<Boolean> = sourcePreferences.showFeedTab.stateIn(viewModelScope)
+    val feedTabInFront: StateFlow<Boolean> = sourcePreferences.feedTabInFront.stateIn(viewModelScope)
+
     val novelUpdatesCount: StateFlow<Int> = updateCounts.novel
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), 0)
 

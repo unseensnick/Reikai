@@ -57,7 +57,8 @@ fun TachiyomiTheme(
     if (seedColor == null) {
         TachiyomiTheme(appTheme = null, amoled = amoled, content = content)
     } else {
-        val uiPreferences = LocalContext.current.appGraph.uiPreferences
+        val context = LocalContext.current
+        val uiPreferences = remember { context.appGraph.uiPreferences }
         DynamicMaterialExpressiveTheme(
             seedColor = seedColor,
             isAmoled = amoled ?: uiPreferences.themeDarkAmoled.get(),

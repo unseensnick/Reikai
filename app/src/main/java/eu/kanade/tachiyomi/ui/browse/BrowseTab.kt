@@ -7,7 +7,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.Navigator
@@ -23,7 +22,6 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
-import mihon.app.di.appGraph
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.extension.reikaiExtensionsTab
 import reikai.presentation.browse.feed.reikaiFeedTab
@@ -32,7 +30,6 @@ import reikai.presentation.browse.migrate.reikaiMigrateSourceTab
 import reikai.presentation.browse.source.reikaiSourcesTab
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.collectAsState
 
 data object BrowseTab : Tab {
 
@@ -71,9 +68,8 @@ data object BrowseTab : Tab {
         val extensionsViewModel = metroViewModel<ExtensionsViewModel>()
 
         // RK --> the Feed tab is opt-in, and can be asked to lead
-        val reikaiSourcePreferences = remember { context.appGraph.reikaiSourcePreferences }
-        val showFeed by reikaiSourcePreferences.showFeedTab.collectAsState()
-        val feedFirst by reikaiSourcePreferences.feedTabInFront.collectAsState()
+        val showFeed by browseViewModel.showFeedTab.collectAsStateWithLifecycle()
+        val feedFirst by browseViewModel.feedTabInFront.collectAsStateWithLifecycle()
         // Built only when it is shown. Resolving the model is what starts the feed loading, so the
         // call has to sit inside the condition rather than have its result filtered afterwards.
         val feedTab = if (showFeed) reikaiFeedTab() else null
