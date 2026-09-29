@@ -3,6 +3,8 @@ package reikai.novel.install
 import kotlinx.serialization.SerializationException
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.LnSourceIdentity
+import reikai.util.firstCause
+import reikai.util.rootMessage
 
 /**
  * An installed plugin that did not load, so the Extensions list can show it under Not loaded rather
@@ -42,13 +44,10 @@ data class LnPluginLoadFailure(
         ): LnPluginLoadFailure {
             val reason = if (error is LnPluginScriptMissingException) {
                 Reason.Missing
-            } else if (error.causes().any { it is SerializationException }) {
+            } else if (error.firstCause { it as? SerializationException } != null) {
                 Reason.Malformed
             } else {
-                Reason.Failed(
-                    message = error.message ?: error::class.java.simpleName,
-                    stackTrace = error.stackTraceToString(),
-                )
+                Reason.Failed(message = error.rootMessage, stackTrace = error.stackTraceToString())
             }
             return LnPluginLoadFailure(
                 url = url,
@@ -65,8 +64,6 @@ data class LnPluginLoadFailure(
         /** What to call a plugin in a message: the name it last loaded under, else its script's file name. */
         fun pluginName(url: String, seen: LnSourceIdentity?): String =
             seen?.name ?: url.substringAfterLast('/').substringBeforeLast('.')
-
-        private fun Throwable.causes(): Sequence<Throwable> = generateSequence(this) { it.cause }
     }
 }
 

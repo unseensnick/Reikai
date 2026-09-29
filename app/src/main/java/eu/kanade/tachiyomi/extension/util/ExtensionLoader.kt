@@ -22,6 +22,7 @@ import mihon.data.dalvik.DelegateLastClassLoaderCompat
 import mihon.domain.extension.model.ContentWarning
 import mihon.domain.extension.model.ExtensionStore
 import reikai.novel.source.ireader.IReaderSourceHolder
+import reikai.util.rootMessage
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import java.io.File
@@ -579,11 +580,4 @@ internal object ExtensionLoader {
     )
 }
 
-/**
- * The message of the deepest cause, which is the one that actually says what went wrong.
- */
-private val Throwable.rootMessage: String
-    get() {
-        val root = generateSequence(this) { it.cause }.last()
-        return listOfNotNull(root::class.simpleName, root.message).joinToString(": ")
-    }
+// RK: rootMessage moved to reikai.util.CauseChain, shared with the novel plugin loader

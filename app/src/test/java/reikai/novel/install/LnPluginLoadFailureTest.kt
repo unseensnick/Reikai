@@ -6,6 +6,8 @@ import kotlinx.serialization.SerializationException
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.LnSourceIdentity
+import java.io.IOException
+import java.net.UnknownHostException
 
 class LnPluginLoadFailureTest {
 
@@ -31,7 +33,18 @@ class LnPluginLoadFailureTest {
         val reason = LnPluginLoadFailure.of(url, IllegalStateException("fetch is not defined"), metadata, null).reason
 
         reason.shouldBeInstanceOf<LnPluginLoadFailure.Reason.Failed>()
-        reason.message shouldBe "fetch is not defined"
+        reason.message shouldBe "IllegalStateException: fetch is not defined"
+    }
+
+    /** A network failure arrives wrapped in a bare IOException, as a failed manga extension's does. */
+    @Test
+    fun `a plugin whose script fetch failed shows the real cause`() {
+        val error = IOException("wrapper", UnknownHostException("repo.test"))
+
+        val reason = LnPluginLoadFailure.of(url, error, metadata, null).reason
+
+        reason.shouldBeInstanceOf<LnPluginLoadFailure.Reason.Failed>()
+        reason.message shouldBe "UnknownHostException: repo.test"
     }
 
     @Test
