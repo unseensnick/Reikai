@@ -9,6 +9,8 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import reikai.data.toContentType
+import reikai.data.toDbValue
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RankedMember
@@ -335,22 +337,6 @@ class MergeGroupRepositoryImpl(
 
     companion object {
         private const val DEFAULT_SOURCE_PRIORITY = 0L
-
-        // Stable persisted values, mapped by enum constant (not ordinal, which ContentType.ALL would shift).
-        private const val DB_MANGA = 0L
-        private const val DB_NOVEL = 1L
         private const val ALL_UNSUPPORTED = "ContentType.ALL is not a valid merge-group type"
-
-        private fun ContentType.toDbValue(): Long = when (this) {
-            ContentType.MANGA -> DB_MANGA
-            ContentType.NOVELS -> DB_NOVEL
-            ContentType.ALL -> error(ALL_UNSUPPORTED)
-        }
-
-        private fun Long.toContentType(): ContentType = when (this) {
-            DB_MANGA -> ContentType.MANGA
-            DB_NOVEL -> ContentType.NOVELS
-            else -> error("Unknown merge-group content_type $this")
-        }
     }
 }
