@@ -92,6 +92,12 @@ So `EnhancedTracker` stays untouched and a Reikai-owned capability, `AutoBindTra
 
 Declined while their premise holds (owner, 2026-09-22): a novel copy of the pull-style progress sync, a shared migration re-point kernel, and the server-tracker screen behaviours as shared capabilities. No novel tracker pulls progress down, re-points on migration or is a source's own server: NovelUpdates binds to the series on its site, so novel migration's plain copy is correct. Revisit if one ever does.
 
+### Shared links, for both content types
+
+A web address shared into the app (or sent by an extension's link handler) is read in three tiers, manga before novel within each: a source's own reading of the link, then a row already stored for it, then a checked guess from the address. The first tier is Mihon's `ResolvableSource` for manga, the novel `links` capability for novels, and for a tachiyomi-format app of either type its own search with the link as the query, taken only when it finds one result whose address is the link. The guess matches the link's host against each source's site, tries the path with and without its leading slash, and keeps the spellings whose address, by the source's own `webUrl` rule, is the link. It opens only when one source matches, the page parses to a named entry with something to read, and the address one level up is not the same entry. All of this sits in one kernel, `SharedLink`, which `ResolveMangaLink` and `ResolveNovelLink` both call.
+
+A site ending in `/` joins `x` and `/x` to the same page, so both spellings name the link. The stored one is the spelling the source's own browse would give, read from the leading slash on the chapter paths its page returned; when those do not settle it, the guess is refused rather than risk a second row for a novel browse would later store under the other spelling.
+
 ## Sequenced steps
 
 Each step is verified on the emulator before the next starts; the checks named are the ones that would catch it being wrong.
@@ -125,6 +131,7 @@ Each step is verified on the emulator before the next starts; the checks named a
 - `app/.../domain/track/interactor/AddTracks.kt` (`bindEnhancedTrackers`), `SyncChapterProgressWithTrack.kt`, `reikai/domain/track/autobind/AutoBind.kt` (`offerTrackers`, `bindOnAdd`), `reikai/presentation/track/EntryTrackInfoDialog.kt` (`registerAutoBind`), `mihon/domain/migration/usecases/MigrateMangaUseCase.kt`, `reikai/domain/novel/interactor/MigrateNovelUseCase.kt`.
 - `app/.../data/track/novelupdates/` (`NovelUpdates.push`, `NovelUpdatesApi`).
 - `app/proguard-rules.pro`, `gradle/libs.versions.toml`.
+- `reikai/domain/source/SharedLink.kt` (`spelling`, `parentOf`, `soleResult`), `ResolveNovelLink.kt`, `ResolveMangaLink.kt`, the `// RK` islands in `app/.../ui/deeplink/DeepLinkViewModel.kt` and `DeepLinkScreen.kt`, and `NovelSource.links`.
 
 ## Status
 
@@ -143,6 +150,12 @@ What tsundoku's host (`b04f9a4d3`) and IReader's (`de8cf8b31`) do with these APK
 **Deliberately not taken.** tsundoku's host answers `getPageList` for a novel source with one page, but all 150 NovelSourcery extensions (`ae33a5c`) supply their own, so nothing relies on it. IReader's default repo (Reikai ships none, as Mihon ships none), its per-repo switch, install-everything, health check and security scan, APK folder drop-in and load retry (Reikai shows Not loaded with its reason). An IReader app's `source.icon` metadata, which is the address its store already lists. A details refresh hands an app only the novel's address; one extension reads the stored title, and only when its page has none.
 
 ## Decisions & tradeoffs
+
+- **A shared link tries hooks, then stored rows, then guesses, manga before novel within each** (owner, 2026-09-28), so a stored or authoritative novel beats a guessed manga. The manga guess ships beside the novel one, and the deep-link screen keeps its Mihon shape with the tiers in an `// RK` island rather than a takeover.
+- **An LNReader plugin cannot read a link** (unsupported, not deferred). The lnreader `Plugin` type (`src/types/plugin.ts`) declares only `resolveUrl`, from a path to an address, and nothing the other way, so a plugin's novel is reached through the address guess and a plugin chapter link falls to search. `NovelSourceConformanceTest` declares the case.
+- **The link hooks are verified by mock tests only** (owner, 2026-09-28). No installed or published extension in the local refs implements `ResolvableSource` for novels or IReader's `DeepLinkSource`, whose interface ships only in the IReader 1.5.1 artifact.
+- **An IReader source reads links only through its hooks.** Its search reads a Title filter, and no IReader convention sends a link there as a query; a tachiyomi-format app answers one (verified on Ranobes and BoxNovel), which is how the keiyoushi `UrlActivity` hands a link over.
+- **Known gaps of the guess, by design:** a plugin whose paths are slugs rather than addresses (chikari's `item.slug`) and a site that keys its entries in the query never round-trip, so their links fall to search; the query and fragment are dropped as LNReader drops them, so a `?utm` tag cannot split one entry into two rows.
 
 - **A keyless store updates only what no keyed store signs** (owner, 2026-09-28). Mihon now takes an update or an install only from a store whose signing key matches the apk (mihon 093841105). A store with no key, such as a third-party IReader repo, cannot match, so its listing counts for an installed apk only when none of the added stores' keys signs it, read from the stored store list so a keyed store whose fetch failed still claims its apks. Its downloads skip the key check; the loader's trust prompt and Android's own signature match on an update still apply.
 - **Both ecosystems, full version, in 0.4.0** (owner, 2026-09-21). IReader was offered as a separate item because it needs a second runtime; the owner ruled it in.

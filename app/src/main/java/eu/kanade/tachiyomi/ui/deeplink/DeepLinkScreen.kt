@@ -14,6 +14,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -66,6 +67,18 @@ class DeepLinkScreen(
                         ).also(context::startActivity)
                     }
                 }
+                // RK -->
+                is DeepLinkViewModel.State.NovelResult -> {
+                    val result = state as DeepLinkViewModel.State.NovelResult
+                    navigator.replace(NovelScreen(result.sourceId, result.url, fromSource = true))
+                }
+                is DeepLinkViewModel.State.NovelChapterResult -> {
+                    val result = state as DeepLinkViewModel.State.NovelChapterResult
+                    navigator.pop()
+                    ReaderActivity.newNovelIntent(context, result.novelId, result.chapterId)
+                        .also(context::startActivity)
+                }
+                // RK <--
             }
         }
     }

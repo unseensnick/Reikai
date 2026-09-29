@@ -385,6 +385,7 @@ every stable release now also ships a foss build with neither in it.
 - **Long-press a source in Browse -> Sources to turn incognito mode on for it, light-novel sources included, or for its whole extension on a manga source.**
 - **Settings -> Browse and sources can now hide the Latest button on Browse -> Sources rows.** Latest stays one tap away inside each source.
 - **Source catalogues in Browse now offer the panorama comfortable grid.** Wide covers show whole instead of cropped.
+- **A manga or novel link shared into Reikai now opens that series instead of a text search.** It opens when one installed source serves the link's site, and falls back to the search otherwise.
 
 #### Changed
 

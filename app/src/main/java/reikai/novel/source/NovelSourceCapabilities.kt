@@ -111,3 +111,17 @@ interface NovelPageFetch {
  */
 @JvmInline
 value class NovelChapterStylesheet(val css: String)
+
+/** What a link names in a source's own reading: a novel, or a chapter and the novel it belongs to. */
+sealed interface NovelLink {
+    data class Novel(val path: String) : NovelLink
+    data class Chapter(val novelPath: String, val chapterPath: String) : NovelLink
+}
+
+/**
+ * A source whose own code reads its site's links. Null from [resolve] means not one of its links, which a
+ * failed call also answers, so a broken extension falls back to the address guess instead of failing it.
+ */
+fun interface NovelLinkResolver {
+    suspend fun resolve(url: String): NovelLink?
+}

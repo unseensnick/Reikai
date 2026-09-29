@@ -16,9 +16,11 @@ import eu.kanade.tachiyomi.source.online.ResolvableSource
 import eu.kanade.tachiyomi.source.online.UriType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.domain.source.NovelLinkTarget
+import reikai.domain.source.ResolveMangaLink
+import reikai.domain.source.ResolveNovelLink
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.chapter.interactor.GetChapterByUrlAndMangaId
 import tachiyomi.domain.chapter.model.Chapter
@@ -33,6 +35,10 @@ class DeepLinkViewModel(
     private val networkToLocalManga: NetworkToLocalManga,
     private val getChapterByUrlAndMangaId: GetChapterByUrlAndMangaId,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
+    // RK -->
+    private val resolveMangaLink: ResolveMangaLink,
+    private val resolveNovelLink: ResolveNovelLink,
+    // RK <--
 ) : ViewModel() {
 
     val state: StateFlow<DeepLinkViewModel.State>
@@ -47,6 +53,26 @@ class DeepLinkViewModel(
 
     init {
         viewModelScope.launchIO {
+            // RK --> link hooks, then stored rows, then checked guesses, manga before novel within each
+            state.value = upstreamHook(query)
+                ?: resolveMangaLink.bySearch(query)?.let { State.Result(it) }
+                ?: resolveNovelLink.byHook(query)?.toState()
+                ?: resolveMangaLink.byStoredRow(query)?.let { State.Result(it) }
+                ?: resolveNovelLink.byStoredRow(query)?.toState()
+                ?: resolveMangaLink.byGuess(query)?.let { State.Result(it) }
+                ?: resolveNovelLink.byGuess(query)?.toState()
+                ?: State.NoResults
+        }
+    }
+
+    private fun NovelLinkTarget.toState(): State = when (this) {
+        is NovelLinkTarget.Novel -> State.NovelResult(sourceId, url)
+        is NovelLinkTarget.Chapter -> State.NovelChapterResult(novelId, chapterId)
+    }
+
+    private suspend fun upstreamHook(query: String): State? {
+        run {
+            // RK <--
             val source = sourceManager.getAll()
                 .filterIsInstance<ResolvableSource>()
                 .firstOrNull { it.getUriType(query) != UriType.Unknown }
@@ -61,18 +87,18 @@ class DeepLinkViewModel(
                 null
             }
 
-            state.update {
-                if (manga == null) {
-                    State.NoResults
+            // RK --> a miss falls through to the next tier instead of ending the search
+            return if (manga == null) {
+                null
+            } else {
+                if (chapter == null) {
+                    State.Result(manga)
                 } else {
-                    if (chapter == null) {
-                        State.Result(manga)
-                    } else {
-                        State.Result(manga, chapter.id)
-                    }
+                    State.Result(manga, chapter.id)
                 }
             }
         }
+        // RK <--
     }
 
     private suspend fun getChapterFromSChapter(sChapter: SChapter, manga: Manga, source: Source): Chapter? {
@@ -92,5 +118,13 @@ class DeepLinkViewModel(
 
         @Immutable
         data class Result(val manga: Manga, val chapterId: Long? = null) : State
+
+        // RK -->
+        @Immutable
+        data class NovelResult(val sourceId: String, val url: String) : State
+
+        @Immutable
+        data class NovelChapterResult(val novelId: Long, val chapterId: Long) : State
+        // RK <--
     }
 }

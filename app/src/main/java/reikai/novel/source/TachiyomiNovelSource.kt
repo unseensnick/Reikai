@@ -10,12 +10,16 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.source.online.ResolvableSource
+import eu.kanade.tachiyomi.source.online.UriType
 import reikai.data.coil.extensionIconUrl
 import reikai.data.novel.NovelStatusCode
+import reikai.domain.source.SharedLink
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
+import reikai.util.runCatchingCancellable
 
 /**
  * [NovelSource] over one catalogue of a novel extension app, a class the app loaded from the apk rather
@@ -45,6 +49,12 @@ class TachiyomiNovelSource(
     override val settings: NovelSettings? = (source as? ConfigurableSource)?.let(NovelSettings::PreferenceScreen)
     override val supportsLatest: Boolean = source.supportsLatest
     override val tracker: SourceTracker? = source as? SourceTracker
+
+    // A tachiyomi extension reads its own links as search queries (the keiyoushi UrlActivity sends one),
+    // so a catalogue without the link hooks still answers through its search.
+    override val links: NovelLinkResolver = NovelLinkResolver { url ->
+        runCatchingCancellable { appSourceCall { linkByHook(url) ?: linkBySearch(url) } }.getOrNull()
+    }
 
     // The extension's own code answers this, so a failure reads as no minimum rather than a crash.
     override val minimumRequestDelayMs: Long = (source as? RateLimited)
@@ -114,6 +124,24 @@ class TachiyomiNovelSource(
         } else {
             http.getChapterUrl(SChapter.create().apply { url = path })
         }
+    }
+
+    private suspend fun linkByHook(url: String): NovelLink? {
+        val resolvable = source as? ResolvableSource ?: return null
+        return when (resolvable.getUriType(url)) {
+            UriType.Manga -> resolvable.getManga(url)?.let { NovelLink.Novel(it.url) }
+            UriType.Chapter -> {
+                val novel = resolvable.getManga(url) ?: return null
+                resolvable.getChapter(url)?.let { NovelLink.Chapter(novel.url, it.url) }
+            }
+            UriType.Unknown -> null
+        }
+    }
+
+    private suspend fun linkBySearch(url: String): NovelLink? {
+        val link = SharedLink.parse(url)?.takeIf { it.relativeTo(site) != null } ?: return null
+        val results = source.getSearchManga(1, url, source.getFilterList()).mangas
+        return link.soleResult(results) { webUrl(it.url, isNovel = true) }?.let { NovelLink.Novel(it.url) }
     }
 
     private fun MangasPage.toPage() = NovelItemsPage(

@@ -2,9 +2,11 @@ package reikai.novel.source.ireader
 
 import eu.kanade.tachiyomi.extension.model.Extension
 import ireader.core.source.CatalogSource
+import ireader.core.source.DeepLinkSource
 import ireader.core.source.HttpSource
 import ireader.core.source.model.ChapterInfo
 import ireader.core.source.model.Command
+import ireader.core.source.model.DeepLink
 import ireader.core.source.model.Listing
 import ireader.core.source.model.MangaInfo
 import ireader.core.source.model.MangasPageInfo
@@ -21,12 +23,15 @@ import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelFilters
 import reikai.novel.source.NovelItemsPage
+import reikai.novel.source.NovelLink
+import reikai.novel.source.NovelLinkResolver
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelPageFetch
 import reikai.novel.source.NovelPageKind
 import reikai.novel.source.appSourceCall
 import reikai.novel.source.chapterNumberOf
 import reikai.novel.source.releaseTimeOf
+import reikai.util.runCatchingCancellable
 
 /**
  * [reikai.novel.source.NovelSource] over the catalogue of an IReader extension. IReader lists chapters
@@ -53,6 +58,22 @@ class IReaderNovelSource(
     override val filters: NovelFilters? = source.getFilters().takeIf { toMihonFilters(it).isNotEmpty() }
         ?.let { NovelFilters.FilterListSchema { toMihonFilters(source.getFilters()) } }
     override val supportsLatest: Boolean = source.getListings().size >= 2
+
+    // Only IReader's own link hooks: its search reads a Title filter, and no IReader convention sends a
+    // link there as a query, which is how a tachiyomi extension reads its links without the hooks.
+    override val links: NovelLinkResolver? = (source as? DeepLinkSource)?.let { deepLinks ->
+        NovelLinkResolver { url ->
+            runCatchingCancellable {
+                appSourceCall {
+                    when (val link = deepLinks.handleLink(url)) {
+                        is DeepLink.Manga -> NovelLink.Novel(link.key)
+                        is DeepLink.Chapter -> deepLinks.findMangaKey(link.key)?.let { NovelLink.Chapter(it, link.key) }
+                        null -> null
+                    }
+                }
+            }.getOrNull()
+        }
+    }
 
     override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage =
         appSourceCall {

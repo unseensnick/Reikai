@@ -87,6 +87,12 @@ interface NovelSource {
     /** Reads a page the user loaded in the in-app browser; null when the source cannot be handed one. */
     val pageFetch: NovelPageFetch? get() = null
 
+    /**
+     * Reads a link to the source's site into a novel or chapter; null when the source cannot. An LNReader
+     * plugin never can: its format declares only `resolveUrl`, from a path to an address.
+     */
+    val links: NovelLinkResolver? get() = null
+
     /** The stylesheet the source ships for its chapters; null when it ships none. */
     val chapterStylesheet: NovelChapterStylesheet? get() = null
 

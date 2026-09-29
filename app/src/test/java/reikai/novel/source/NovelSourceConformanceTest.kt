@@ -8,12 +8,17 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
+import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.source.online.ResolvableSource
+import eu.kanade.tachiyomi.source.online.UriType
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import ireader.core.source.DeepLinkSource
 import ireader.core.source.model.ChapterInfo
+import ireader.core.source.model.DeepLink
 import ireader.core.source.model.Listing
 import ireader.core.source.model.MangaInfo
 import ireader.core.source.model.MangasPageInfo
@@ -122,6 +127,111 @@ class NovelSourceConformanceTest {
         shouldThrow<Exception> { linkBroken(kind).parseChapter("c1") }
     }
 
+    @ParameterizedTest
+    @EnumSource(Kind::class, names = ["APP", "IREADER"])
+    fun `a source with link hooks names the novel a novel link opens`(kind: Kind) = runTest {
+        linking(kind).links!!.resolve(NOVEL_LINK) shouldBe NovelLink.Novel("novel")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class, names = ["APP", "IREADER"])
+    fun `a source with link hooks names a chapter link's chapter and novel`(kind: Kind) = runTest {
+        linking(kind).links!!.resolve(CHAPTER_LINK) shouldBe NovelLink.Chapter("novel", "c1")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class, names = ["APP", "IREADER"])
+    fun `a source whose link reading throws claims no link`(kind: Kind) = runTest {
+        linking(kind, broken = true).links!!.resolve(NOVEL_LINK) shouldBe null
+    }
+
+    // Unsupported for a plugin: the lnreader Plugin type declares no link hook (plugin.ts), only resolveUrl
+    // from a path to an address.
+    @Test
+    fun `a plugin offers no link reading`() {
+        source(Kind.PLUGIN).links shouldBe null
+    }
+
+    // Unsupported for IReader past its hooks: its search reads a Title filter, and no IReader convention
+    // sends a link there as a query.
+    @Test
+    fun `an IReader catalogue without link hooks offers no link reading`() {
+        source(Kind.IREADER).links shouldBe null
+    }
+
+    @Test
+    fun `an app catalogue without link hooks reads a link on its site through its search`() = runTest {
+        searching(listOf("/novel")).links.resolve(NOVEL_LINK) shouldBe NovelLink.Novel("/novel")
+    }
+
+    @Test
+    fun `an app catalogue's search with more than one result claims no link`() = runTest {
+        searching(listOf("/novel", "/other")).links.resolve(NOVEL_LINK) shouldBe null
+    }
+
+    // Its search would name the link, so only the site check keeps it from being asked.
+    @Test
+    fun `an app catalogue does not search a link to another site`() = runTest {
+        searching(listOf(OTHER_SITE_LINK)).links.resolve(OTHER_SITE_LINK) shouldBe null
+    }
+
+    private fun searching(results: List<String>) = TachiyomiNovelSource(
+        mockk<HttpSource> {
+            every { id } returns 7L
+            every { name } returns "App"
+            every { lang } returns "en"
+            every { supportsLatest } returns false
+            every { baseUrl } returns "https://example.com"
+            every { getFilterList() } returns FilterList()
+            every { getMangaUrl(any()) } answers {
+                firstArg<SManga>().url.let { if (it.startsWith("http")) it else "https://example.com$it" }
+            }
+            coEvery { getSearchManga(1, any(), any()) } returns MangasPage(results.map(::manga), false)
+        },
+        app(),
+    )
+
+    private fun linking(kind: Kind, broken: Boolean = false): NovelSource = when (kind) {
+        Kind.APP -> TachiyomiNovelSource(
+            mockk<CatalogueSource>(moreInterfaces = arrayOf(ResolvableSource::class)) {
+                every { id } returns 7L
+                every { name } returns "App"
+                every { lang } returns "en"
+                every { supportsLatest } returns false
+                every { getFilterList() } returns FilterList()
+                val resolvable = this as ResolvableSource
+                if (broken) {
+                    every { resolvable.getUriType(any()) } throws NoSuchMethodError("gone")
+                } else {
+                    every { resolvable.getUriType(NOVEL_LINK) } returns UriType.Manga
+                    every { resolvable.getUriType(CHAPTER_LINK) } returns UriType.Chapter
+                    coEvery { resolvable.getManga(any()) } returns manga("novel")
+                    coEvery { resolvable.getChapter(CHAPTER_LINK) } returns chapter("c1")
+                }
+            },
+            app(),
+        )
+        Kind.IREADER -> IReaderNovelSource(
+            mockk<IReaderCatalogSource>(moreInterfaces = arrayOf(DeepLinkSource::class)) {
+                every { id } returns 7L
+                every { name } returns "IReader"
+                every { lang } returns "en"
+                every { getFilters() } returns emptyList()
+                every { getListings() } returns listOf(listing)
+                val deepLinks = this as DeepLinkSource
+                if (broken) {
+                    every { deepLinks.handleLink(any()) } throws IllegalStateException("parse failed")
+                } else {
+                    every { deepLinks.handleLink(NOVEL_LINK) } returns DeepLink.Manga("novel")
+                    every { deepLinks.handleLink(CHAPTER_LINK) } returns DeepLink.Chapter("c1")
+                    every { deepLinks.findMangaKey("c1") } returns "novel"
+                }
+            },
+            app(Extension.Kind.IREADER),
+        )
+        Kind.PLUGIN -> error("a plugin has no link hook")
+    }
+
     private fun linkBroken(kind: Kind): NovelSource {
         val missing = NoSuchMethodError("a method this build no longer ships")
         return when (kind) {
@@ -222,5 +332,8 @@ class NovelSourceConformanceTest {
 
     private companion object {
         const val UPLOADED = 1_700_000_000_123L
+        const val NOVEL_LINK = "https://example.com/novel"
+        const val CHAPTER_LINK = "https://example.com/novel/c1"
+        const val OTHER_SITE_LINK = "https://other.example/novel"
     }
 }
