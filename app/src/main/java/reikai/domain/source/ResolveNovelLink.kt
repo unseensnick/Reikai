@@ -58,9 +58,6 @@ class ResolveNovelLink(
     // Loaded once for all three tiers, since each load retries every plugin that failed.
     private suspend fun sources() = loaded ?: loadedSources().also { loaded = it }
 
-    /** A source that names the entry: stored as [stored], or else [named] by the source's own address rule. */
-    private class Match(val source: NovelSource, val stored: String?, val named: List<String>)
-
     suspend fun byHook(text: String): NovelLinkTarget? {
         SharedLink.parse(text) ?: return null
         for (source in sources()) {
@@ -84,7 +81,10 @@ class ResolveNovelLink(
         val parsed = runCatchingCancellable { source.parseNovel(first) }.getOrNull() ?: return null
         if (!parsed.isANovel()) return null
         val path = SharedLink.spelling(match.named, parsed.chapters.orEmpty().map { it.path }) ?: return null
-        if (isBelowTheSameNovel(source, path, parsed)) return null
+        val isBelow = SharedLink.isBelowTheSameEntry(path, parsed.name.orEmpty()) { parent ->
+            runCatchingCancellable { source.parseNovel(parent) }.getOrNull()?.name
+        }
+        if (isBelow) return null
         insertOpenedNovel(
             parsed.copy(path = path),
             source.id,
@@ -95,35 +95,18 @@ class ResolveNovelLink(
         return NovelLinkTarget.Novel(source.id, path)
     }
 
-    private suspend fun single(text: String): Match? {
-        val link = SharedLink.parse(text) ?: return null
-        val matches = sources().filter { link.relativeTo(it.site) != null }.mapNotNull { source ->
-            val stored = link.storedSpellings(source.site).firstOrNull { isStored(it, source) }
-            val named = if (stored ==
-                null
-            ) {
-                link.named(link.candidates(source.site)) { source.webUrl(it, true) }
-            } else {
-                emptyList()
-            }
-            Match(source, stored, named).takeIf { stored != null || named.isNotEmpty() }
-        }
-        return SharedLink.single(matches) { it.stored != null }
-    }
-
-    private suspend fun isStored(url: String, source: NovelSource) =
-        novelRepository.getByUrlAndSource(url, source.id) != null
+    // A novel's stored value is the spelling its row carries, which the novel screen opens by.
+    private suspend fun single(text: String) = SharedLink.parse(text)?.matchOne(
+        sources(),
+        siteOf = { it.site },
+        storedAt = { source, url -> url.takeIf { novelRepository.getByUrlAndSource(url, source.id) != null } },
+        webUrl = { source, path -> source.webUrl(path, true) },
+    )
 
     // A page that is not a novel's still parses on many sites; a name and something to read is the bar.
     // Plugins fill a missing name with a placeholder (novelhall.ts `|| 'Untitled'`).
     private fun SourceNovel.isANovel() =
         !name.isNullOrBlank() && name !in PLACEHOLDER_NAMES && (!chapters.isNullOrEmpty() || totalPages > 1)
-
-    private suspend fun isBelowTheSameNovel(source: NovelSource, path: String, parsed: SourceNovel): Boolean {
-        val parent = SharedLink.parentOf(path) ?: return false
-        val parentNovel = runCatchingCancellable { source.parseNovel(parent) }.getOrNull() ?: return false
-        return parentNovel.name == parsed.name
-    }
 
     private suspend fun chapterTarget(source: NovelSource, link: NovelLink.Chapter): NovelLinkTarget? {
         val novel = novelRepository.getByUrlAndSource(link.novelPath, source.id)

@@ -187,21 +187,56 @@ class SharedLinkTest {
     }
 
     @Test
-    fun `a stored match in one source beats a guess in another`() {
-        SharedLink.single(listOf("guess" to false, "stored" to true)) { it.second }?.first shouldBe "stored"
+    fun `a stored match in one source beats a guess in another`() = runTest {
+        matchOne(listOf("guess", "stored"), stores = setOf("stored"))?.source shouldBe "stored"
     }
 
     @Test
-    fun `two guesses give nothing`() {
-        SharedLink.single(listOf("a" to false, "b" to false)) { it.second } shouldBe null
+    fun `two guesses give nothing`() = runTest {
+        matchOne(listOf("a", "b")) shouldBe null
     }
 
     @Test
-    fun `one guess is taken`() {
-        SharedLink.single(listOf("a" to false)) { it.second }?.first shouldBe "a"
+    fun `one guess is taken`() = runTest {
+        matchOne(listOf("a"))?.named shouldBe listOf("/novel/1")
     }
+
+    @Test
+    fun `a source that stores the link is never asked for its address`() = runTest {
+        matchOne(listOf("a"), stores = setOf("a"))?.named shouldBe emptyList<String>()
+    }
+
+    @Test
+    fun `a source on another site is not matched`() = runTest {
+        matchOne(listOf("a"), stores = setOf("a"), site = "https://other.com") shouldBe null
+    }
+
+    @Test
+    fun `a path whose parent has the same title is below that entry`() = runTest {
+        SharedLink.isBelowTheSameEntry("novel/1/chapter-2", "Novel") { "Novel" } shouldBe true
+    }
+
+    @Test
+    fun `a path whose parent has another title is not below the same entry`() = runTest {
+        SharedLink.isBelowTheSameEntry("novel/1/chapter-2", "Novel") { "Novel list" } shouldBe false
+    }
+
+    @Test
+    fun `a path at the top is below no entry`() = runTest {
+        SharedLink.isBelowTheSameEntry("/novel/", "Novel") { "Novel" } shouldBe false
+    }
+
+    // Every source names the link through the site's plain address rule; those in [stores] hold it as a row.
+    private suspend fun matchOne(sources: List<String>, stores: Set<String> = emptySet(), site: String = SITE) =
+        link.matchOne(
+            sources,
+            siteOf = { site },
+            storedAt = { source, url -> url.takeIf { source in stores } },
+            webUrl = { _, path -> "$SITE$path" },
+        )
 
     private companion object {
+        const val SITE = "https://example.com"
         val BOTH_NAMED = listOf("novel/1", "/novel/1", "https://example.com/novel/1")
     }
 }

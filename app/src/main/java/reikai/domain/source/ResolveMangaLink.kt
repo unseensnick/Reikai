@@ -31,9 +31,6 @@ class ResolveMangaLink(
         { networkToLocalManga(it) },
     )
 
-    /** A source that names the series: stored as [stored], or else [named] by its own address rule. */
-    private class Match(val source: HttpSource, val stored: Manga?, val named: List<String>)
-
     /** The series in the link's site's own search for it, as the keiyoushi UrlActivity asks for it. */
     suspend fun bySearch(text: String): Manga? {
         val link = SharedLink.parse(text) ?: return null
@@ -55,26 +52,16 @@ class ResolveMangaLink(
         val first = match.named.firstOrNull() ?: return null
         val (series, chapterPaths) = series(match.source, first) ?: return null
         val path = SharedLink.spelling(match.named, chapterPaths) ?: return null
-        val parentTitle = SharedLink.parentOf(path)?.let { series(match.source, it)?.first?.title }
-        if (parentTitle == series.title) return null
+        if (SharedLink.isBelowTheSameEntry(path, series.title) { series(match.source, it)?.first?.title }) return null
         return networkToLocalManga(series.copy(url = path))
     }
 
-    private suspend fun single(text: String): Match? {
-        val link = SharedLink.parse(text) ?: return null
-        val matches = onlineSources().filter { link.relativeTo(it.baseUrl) != null }.mapNotNull { source ->
-            val stored = link.storedSpellings(source.baseUrl).firstNotNullOfOrNull { storedManga(it, source.id) }
-            val named = if (stored ==
-                null
-            ) {
-                link.named(link.candidates(source.baseUrl)) { webUrl(source, it) }
-            } else {
-                emptyList()
-            }
-            Match(source, stored, named).takeIf { stored != null || named.isNotEmpty() }
-        }
-        return SharedLink.single(matches) { it.stored != null }
-    }
+    private suspend fun single(text: String) = SharedLink.parse(text)?.matchOne(
+        onlineSources(),
+        siteOf = { it.baseUrl },
+        storedAt = { source, url -> storedManga(url, source.id) },
+        webUrl = { source, path -> webUrl(source, path) },
+    )
 
     // An extension's own address rule may throw on a path it did not produce.
     private fun webUrl(source: HttpSource, path: String) =

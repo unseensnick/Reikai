@@ -48,6 +48,29 @@ class SharedLink private constructor(
     suspend fun <T> soleResult(results: List<T>, webUrl: suspend (T) -> String): T? =
         results.singleOrNull()?.takeIf { isNamedBy(webUrl(it)) }
 
+    /** A source that names this link: [stored] as its row, or else [named] by its own address rule. */
+    class Match<S, R>(val source: S, val stored: R?, val named: List<String>)
+
+    /**
+     * The one source among [sources] that names this link: a stored row wins, and failing one, a guess
+     * counts only when no other source guessed too, so the app never picks between two at random. A
+     * source storing the link is never asked for its address, so a stored entry is never guessed again.
+     */
+    suspend fun <S, R : Any> matchOne(
+        sources: List<S>,
+        siteOf: (S) -> String,
+        storedAt: suspend (S, String) -> R?,
+        webUrl: suspend (S, String) -> String,
+    ): Match<S, R>? {
+        val matches = sources.filter { relativeTo(siteOf(it)) != null }.mapNotNull { source ->
+            val site = siteOf(source)
+            val stored = storedSpellings(site).firstNotNullOfOrNull { storedAt(source, it) }
+            val named = if (stored == null) named(candidates(site)) { webUrl(source, it) } else emptyList()
+            Match(source, stored, named).takeIf { stored != null || named.isNotEmpty() }
+        }
+        return matches.filter { it.stored != null }.singleOrNull() ?: matches.singleOrNull()
+    }
+
     companion object {
 
         /** The link in [text], or null when it is not one http(s) address with a host. */
@@ -75,20 +98,19 @@ class SharedLink private constructor(
             return relative.singleOrNull { it.startsWith("/") == leading }
         }
 
-        /**
-         * The address one level above [path], or null at the top. A source that reads its entry from one path
-         * segment (WuxiaWorld's plugin) parses a chapter address as the whole entry, so a guess whose parent
-         * parses to the same entry was a link below one.
-         */
+        /** The address one level above [path], or null at the top. */
         fun parentOf(path: String): String? =
             path.trimEnd('/').substringBeforeLast('/', "").takeIf { it.trim('/').isNotEmpty() && !it.endsWith(":/") }
 
         /**
-         * One match across every source that serves a link: a stored row wins, and failing one, a guess
-         * counts only when no other source guessed too, so the app never picks between two at random.
+         * Whether a guessed [path] titled [title] sits below an entry of the same title, read by [titleAt]. A
+         * source that reads its entry from one path segment (WuxiaWorld's plugin) parses a chapter address as
+         * the whole entry, so such a guess was a link below one.
          */
-        fun <T> single(matches: List<T>, isStored: (T) -> Boolean): T? =
-            matches.filter(isStored).singleOrNull() ?: matches.singleOrNull()
+        suspend fun isBelowTheSameEntry(path: String, title: String, titleAt: suspend (String) -> String?): Boolean {
+            val parent = parentOf(path) ?: return false
+            return titleAt(parent) == title
+        }
 
         // Host without `www.`, any scheme, one trailing slash dropped, and a doubled slash after the host
         // read as one, since a site ending in `/` joined to a path starting with one is the same page.
