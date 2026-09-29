@@ -227,7 +227,7 @@ every stable release now also ships a foss build with neither in it.
 #### Added
 
 - **A manga or novel chapter that fails to load now offers Retry and Open in WebView, where a manga reader used to close on a brief message.** For a source that takes pages, saving the page there opens the chapter.
-- **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transitions, a display cutout mode, HDR, a Min width slider for the long strip modes, and a page Gap slider for Continuous vertical.
+- **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transitions, a display cutout mode, HDR, pages that fill in as they download, and Min width and Gap sliders for the long strip modes.
 - **Settings -> Novel reader can switch on selecting, copying and sharing text in the novel reader, which costs link taps in native text mode.** Both rendering modes keep every other gesture while it is on.
 - **Settings -> Novel reader now has a Scroll speed slider for auto-scroll.**
 - **The novel reader now reads straight on into the next and previous chapters, which Settings -> Novel reader -> Continuous chapters can switch off.** A marker names each boundary, and Add the next chapter at sets how far in the next one appears, 95% by default.

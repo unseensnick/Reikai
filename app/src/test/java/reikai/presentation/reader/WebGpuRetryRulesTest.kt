@@ -1,8 +1,12 @@
 package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.data.database.models.ChapterImpl
+import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
+import eu.kanade.tachiyomi.ui.reader.model.DownloadStream
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
+import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import org.junit.jupiter.api.Test
 
 class WebGpuRetryRulesTest {
@@ -61,6 +65,34 @@ class WebGpuRetryRulesTest {
     @Test
     fun `a transition page with nothing failed offers no retry`() {
         chapterToRetry(chapter(1L, ReaderChapter.State.Loading), chapter(2L, ReaderChapter.State.Wait)) shouldBe null
+    }
+
+    /** Without one, the forced refetch downloads out of sight and the page stays a ring until it ends. */
+    @Test
+    fun `a retried page reaches the loader already carrying the stream it renders from`() {
+        val loader = RecordingLoader()
+
+        requeueForRetry(ReaderPage(0), loader)
+
+        loader.streamAtRetry shouldNotBe null
+    }
+
+    @Test
+    fun `an error page that replaces the streaming preview takes the preview with it`() {
+        val preview = Any()
+
+        previewAfterError(preview, shown = preview) shouldBe null
+    }
+
+    private class RecordingLoader : PageLoader() {
+        override var isLocal = false
+        var streamAtRetry: DownloadStream? = null
+
+        override suspend fun getPages(): List<ReaderPage> = emptyList()
+
+        override fun retryPage(page: ReaderPage) {
+            streamAtRetry = page.downloadStream
+        }
     }
 
     private fun chapter(id: Long, state: ReaderChapter.State): ReaderChapter {
