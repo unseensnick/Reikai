@@ -1,5 +1,6 @@
 package reikai.presentation.recommendation.browse
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -135,7 +136,9 @@ class RelatedMangasBrowseScreen(
                 }
                 is RelatedMangasBrowseViewModel.Content.Items -> RelatedMangasBrowseContent(
                     items = content.items,
-                    columns = viewModel.getColumns(configuration.orientation),
+                    columns = state.columns.gridCells(
+                        isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+                    ),
                     selectedUrls = state.selectedUrls,
                     grouped = state.grouped,
                     contentPadding = contentPadding,

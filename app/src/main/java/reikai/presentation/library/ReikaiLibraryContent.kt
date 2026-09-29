@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.library.components.GlobalSearchItem
 import eu.kanade.presentation.library.components.MangaComfortableGridItem
 import eu.kanade.presentation.library.components.MangaCompactGridItem
@@ -27,6 +28,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import reikai.domain.entry.EntryId
+import reikai.presentation.browse.catalogue.AdaptiveGridMinCellWidth
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.presentation.core.components.material.PullRefresh
@@ -145,7 +147,6 @@ fun ReikaiLibraryContent(
     // Mode-qualified so Compose doesn't recycle a list-row slot as a grid cell when the mode flips.
     val cellContentType = "reikai_cell_${displayMode.serialize()}"
     val gridPadding = contentPadding + if (isList) PaddingValues(0.dp) else PaddingValues(8.dp)
-    val cellSpacing = 4.dp
 
     BoxWithConstraints {
         val density = LocalDensity.current
@@ -155,8 +156,8 @@ fun ReikaiLibraryContent(
             isList -> 1
             columns > 0 -> columns
             else -> with(density) {
-                val spacingPx = cellSpacing.roundToPx()
-                val minSizePx = 128.dp.roundToPx()
+                val spacingPx = CommonMangaItemDefaults.GridHorizontalSpacer.roundToPx()
+                val minSizePx = AdaptiveGridMinCellWidth.roundToPx()
                 val horizontalPaddingPx = gridPadding.calculateStartPadding(LayoutDirection.Ltr).roundToPx() +
                     gridPadding.calculateEndPadding(LayoutDirection.Ltr).roundToPx()
                 val availablePx = constraints.maxWidth - horizontalPaddingPx
@@ -207,8 +208,10 @@ fun ReikaiLibraryContent(
                 topContentPadding = contentPadding.calculateTopPadding(),
                 bottomContentPadding = contentPadding.calculateBottomPadding(),
                 endContentPadding = contentPadding.calculateEndPadding(LayoutDirection.Ltr),
-                verticalArrangement = Arrangement.spacedBy(if (isList) 0.dp else cellSpacing),
-                horizontalArrangement = Arrangement.spacedBy(cellSpacing),
+                verticalArrangement = Arrangement.spacedBy(
+                    if (isList) 0.dp else CommonMangaItemDefaults.GridVerticalSpacer,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
             ) {
                 if (!searchQuery.isNullOrEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }, contentType = "reikai_global_search") {

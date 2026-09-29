@@ -18,11 +18,14 @@ import tachiyomi.domain.library.service.LibraryPreferences
 @Immutable
 data class BrowseColumns(val portrait: Int = 0, val landscape: Int = 0) {
 
-    fun gridCells(isLandscape: Boolean): GridCells {
-        val columns = if (isLandscape) landscape else portrait
-        return if (columns == 0) GridCells.Adaptive(128.dp) else GridCells.Fixed(columns)
-    }
+    fun gridCells(isLandscape: Boolean): GridCells = gridCellsFor(if (isLandscape) landscape else portrait)
 }
+
+/** The narrowest cell an adaptive (zero-column) grid fits, shared so the library's two views count alike. */
+val AdaptiveGridMinCellWidth = 128.dp
+
+fun gridCellsFor(columns: Int): GridCells =
+    if (columns == 0) GridCells.Adaptive(AdaptiveGridMinCellWidth) else GridCells.Fixed(columns)
 
 /** Follows the column counts into a catalogue's own state, seeding it too, as [trackDisplayMode] does. */
 fun LibraryPreferences.trackBrowseColumns(scope: CoroutineScope, onChange: (BrowseColumns) -> Unit): Job =

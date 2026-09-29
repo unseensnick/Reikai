@@ -1,10 +1,7 @@
 package reikai.presentation.recommendation.browse
 
 import android.content.Context
-import android.content.res.Configuration
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
@@ -32,6 +29,8 @@ import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.localIdOf
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.catalogue.BrowseColumns
+import reikai.presentation.browse.catalogue.trackBrowseColumns
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.i18n.stringResource
@@ -86,6 +85,7 @@ class RelatedMangasBrowseViewModel(
     private var selectionState = SelectionState<String>()
 
     init {
+        libraryPreferences.trackBrowseColumns(viewModelScope) { columns -> state.update { it.copy(columns = columns) } }
         viewModelScope.launchIO {
             val assembly = prepareRecommendationAssembly.await()
             // Live off the cache, so a grid opened mid-load (the menu placement opens it before the load
@@ -127,16 +127,6 @@ class RelatedMangasBrowseViewModel(
         }
 
     fun toggleShowHidden() = state.update { it.copy(showHidden = !it.showHidden) }
-
-    /** Span count from the shared library grid-size prefs, mirroring browse-source. */
-    fun getColumns(orientation: Int): GridCells {
-        val columns = if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            libraryPreferences.landscapeColumns
-        } else {
-            libraryPreferences.portraitColumns
-        }.get()
-        return if (columns == 0) GridCells.Adaptive(128.dp) else GridCells.Fixed(columns)
-    }
 
     fun toggleGrouping() = state.update { it.copy(grouped = !it.grouped) }
 
@@ -251,6 +241,7 @@ class RelatedMangasBrowseViewModel(
         val loading: Boolean = true,
         // Explicit so the toolbar Select button can enter selection with nothing selected yet
         val selectionMode: Boolean = false,
+        val columns: BrowseColumns = BrowseColumns(),
     ) {
         val hasHidden: Boolean get() = items.any { it.hidden }
 

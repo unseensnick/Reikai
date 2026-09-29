@@ -28,6 +28,8 @@ import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.TitleNormalizer
 import reikai.domain.recommendation.taste.TasteProfile
 import reikai.presentation.browse.FakeMangaLibrary
+import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import kotlin.time.Duration.Companion.seconds
 
@@ -56,6 +58,9 @@ class RelatedMangasBrowseViewModelTest {
     /** The library, as a live table: a favourite write lands here and every read sees it. */
     private val library = FakeMangaLibrary()
 
+    // Emitting, so a preference written while the grid is open reaches a model that follows it.
+    private val store = EmittingPreferenceStore()
+
     private fun viewModel(
         cache: RelatedMangaCache = RelatedMangaCache().apply {
             put(MANGA_ID, RelatedPool(listOf(candidate("a"), candidate("b")), emptyMap()))
@@ -75,7 +80,7 @@ class RelatedMangasBrowseViewModelTest {
         networkToLocalManga = mockk {
             coEvery { this@mockk.invoke(any<Manga>()) } answers { library.insert(firstArg<Manga>().copy(id = 10L)) }
         },
-        libraryPreferences = library.libraryPreferences,
+        libraryPreferences = LibraryPreferences(store),
         prepareRecommendationAssembly = mockk {
             coEvery { await() } returns RecommendationAssembly(
                 RecommendationHideFilter(
@@ -152,6 +157,15 @@ class RelatedMangasBrowseViewModelTest {
 
         settle { viewModel.state.first { it.items.size == 2 } }.content shouldBe
             RelatedMangasBrowseViewModel.Content.Empty(hiddenCount = 2)
+    }
+
+    @Test
+    fun `a column count changed while the grid is open reaches it`() = runTest {
+        val viewModel = viewModel()
+
+        LibraryPreferences(store).portraitColumns.set(4)
+
+        settle { viewModel.state.first { it.columns.portrait == 4 } }.columns.portrait shouldBe 4
     }
 
     private companion object {
