@@ -29,7 +29,7 @@ These are the Mihon-file edits that wire the subsystem in (grep `// RK`):
 - `ExtensionManager`: reactive blacklist filter hiding the stock E-Hentai extension while built-in EH is on (`BlacklistedSources`).
 - `LibraryUpdateJob`: a `filterNot` dropping `LIBRARY_UPDATE_EXCLUDED_SOURCES` (all EH/ExH language ids + Pururin) and the derived nHentai ids from the sweep, so saved galleries are not re-fetched on every refresh (rate-limit / ban risk).
 - `MangaViewModel` / `MangaScreen`: the favorites-backup hook + the remove-from-account confirm dialog, and the metadata-viewer entry point.
-- `reikai/presentation/library/ReikaiLibraryBadges`: the EH-logo badge for built-in EH/ExH source rows (which ship no extension icon).
+- `exh/assets/BuiltInSourceLogo`: which bundled logo a built-in source (E-Hentai and ExHentai in every language, Pururin, nhentai) draws, and whether it sits on a white tile, since none ships an extension icon. Browse's `SourceIcon` (one `// RK` island) and the library cover badge (`ReikaiLibraryBadges`) each keep their own geometry and read the logo from it.
 
 ## Key files
 

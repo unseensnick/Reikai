@@ -31,11 +31,9 @@ import eu.kanade.domain.source.model.icon
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
-import exh.assets.EhAssets
-import exh.assets.ehassets.EhLogo
-import exh.source.NHENTAI_NET_SOURCE_ID
-import exh.source.PURURIN_SOURCE_ID
-import exh.source.eHentaiSourceIds
+import exh.assets.BuiltInSourceLogo
+import exh.assets.builtInSourceLogo
+import exh.assets.painter
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Dangerous
 import mihon.icons.materialsymbols.rounded.Warning
@@ -55,6 +53,7 @@ fun SourceIcon(
     modifier: Modifier = Modifier,
 ) {
     val icon = produceState<ImageBitmap?>(initialValue = null, source.id) { value = source.icon() }.value
+    val builtInLogo = builtInSourceLogo(source.id) // RK
 
     when {
         source.isStub && icon == null -> {
@@ -72,57 +71,29 @@ fun SourceIcon(
                 modifier = modifier.then(defaultModifier),
             )
         }
-        // RK: the built-in E-Hentai / ExHentai sources ship no extension icon, so draw the EH mark
-        //     on a light tile (the brand red reads on both themes) instead of the default placeholder.
-        source.id in eHentaiSourceIds -> {
-            Box(
-                modifier = modifier
-                    .then(defaultModifier)
-                    // Match the transparent safe-zone margin baked into extension launcher icons, so
-                    // the tile reads the same size as its neighbours instead of full-bleed.
-                    .padding(5.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    imageVector = EhAssets.EhLogo,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(0.72f),
-                )
+        // RK -->
+        // Built-in adult sources ship no extension icon, so draw their bundled logo. The 5dp inset
+        // matches the transparent safe-zone margin baked into extension launcher icons, so the tile
+        // reads the same size as its neighbours instead of full-bleed.
+        builtInLogo != null -> {
+            val tile = modifier
+                .then(defaultModifier)
+                .padding(5.dp)
+                .clip(RoundedCornerShape(2.dp))
+            if (builtInLogo.isTiled) {
+                Box(modifier = tile.background(Color.White), contentAlignment = Alignment.Center) {
+                    Image(
+                        painter = builtInLogo.painter(),
+                        contentDescription = null,
+                        // The EH mark is a bare vector with no margin of its own.
+                        modifier = Modifier.fillMaxSize(if (builtInLogo == BuiltInSourceLogo.EHENTAI) 0.72f else 1f),
+                    )
+                }
+            } else {
+                Image(painter = builtInLogo.painter(), contentDescription = null, modifier = tile)
             }
         }
-        // RK: the built-in Pururin source ships no extension icon; show its logo on the same tile
-        //     treatment as E-Hentai so the two built-in adult sources read consistently.
-        source.id == PURURIN_SOURCE_ID -> {
-            Box(
-                modifier = modifier
-                    .then(defaultModifier)
-                    .padding(5.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.pururin_logo),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
-        // RK: the built-in nhentai source ships no extension icon; its logo already has a black
-        //     backdrop, so draw it as its own tile. The 5dp inset matches the transparent safe-zone
-        //     margin baked into extension launcher icons so it reads the same size as its neighbours.
-        source.id == NHENTAI_NET_SOURCE_ID -> {
-            Image(
-                painter = painterResource(R.drawable.nhentai_logo),
-                contentDescription = null,
-                modifier = modifier
-                    .then(defaultModifier)
-                    .padding(5.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-            )
-        }
+        // RK <--
         source.isLocal() -> {
             Image(
                 painter = painterResource(R.mipmap.ic_local_source),

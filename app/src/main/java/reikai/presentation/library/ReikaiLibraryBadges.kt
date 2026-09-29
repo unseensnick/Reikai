@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -33,13 +32,10 @@ import eu.kanade.domain.source.model.icon
 import eu.kanade.presentation.library.components.DownloadsBadge
 import eu.kanade.presentation.library.components.LanguageBadge
 import eu.kanade.presentation.library.components.UnreadBadge
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import exh.assets.EhAssets
-import exh.assets.ehassets.EhLogo
-import exh.source.NHENTAI_NET_SOURCE_ID
-import exh.source.PURURIN_SOURCE_ID
-import exh.source.eHentaiSourceIds
+import exh.assets.BuiltInSourceLogo
+import exh.assets.builtInSourceLogo
+import exh.assets.painter
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Folder
 import mihon.icons.materialsymbols.rounded.LocalLibrary
@@ -74,6 +70,7 @@ fun SourceIconBadge(badge: SourceBadge) {
 @Composable
 private fun MangaSourceIconBadge(source: Source) {
     val icon = produceState<ImageBitmap?>(initialValue = null, source.id) { value = source.icon() }.value
+    val builtInLogo = builtInSourceLogo(source.id)
     when {
         source.isStub && icon == null -> MissingSourceBadge()
         icon != null -> Badge(
@@ -87,13 +84,7 @@ private fun MangaSourceIconBadge(source: Source) {
             color = MaterialTheme.colorScheme.tertiary,
             iconColor = MaterialTheme.colorScheme.onTertiary,
         )
-        // built-in E-Hentai / ExHentai ship no extension icon, so draw the EH mark on a white
-        //     tile (same treatment as the browse SourceIcon) instead of the generic library glyph.
-        source.id in eHentaiSourceIds -> EhSourceIconBadge()
-        // built-in Pururin / nhentai.net likewise ship no extension icon; give each its logo so the
-        //     library badge matches the browse source icon instead of the generic library glyph.
-        source.id == PURURIN_SOURCE_ID -> PururinSourceIconBadge()
-        source.id == NHENTAI_NET_SOURCE_ID -> NHentaiNetSourceIconBadge()
+        builtInLogo != null -> BuiltInSourceLogoBadge(builtInLogo)
         else -> GenericSourceBadge()
     }
 }
@@ -108,59 +99,20 @@ private fun GenericSourceBadge() {
     )
 }
 
-/** Source-icon badge for the built-in E-Hentai / ExHentai sources. The brand mark (its own dark red)
- *  is drawn untinted on a white tile so it reads on both themes, matching the browse [SourceIcon];
- *  scaled to the same footprint as the bitmap source badge. */
+/** A built-in source's logo at the bitmap badge's footprint, the same logo the browse SourceIcon draws. */
 @Composable
-private fun EhSourceIconBadge() {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .clip(RectangleShape)
-            .background(Color.White)
-            .height(18.dp)
-            .aspectRatio(1f),
-    ) {
-        Image(
-            imageVector = EhAssets.EhLogo,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(0.8f),
-        )
+private fun BuiltInSourceLogoBadge(logo: BuiltInSourceLogo) {
+    val square = Modifier
+        .clip(RectangleShape)
+        .height(18.dp)
+        .aspectRatio(1f)
+    if (logo.isTiled) {
+        Box(contentAlignment = Alignment.Center, modifier = square.background(Color.White)) {
+            Image(painter = logo.painter(), contentDescription = null, modifier = Modifier.fillMaxSize(0.8f))
+        }
+    } else {
+        Image(painter = logo.painter(), contentDescription = null, modifier = square)
     }
-}
-
-/** Source-icon badge for the built-in Pururin source. Its logo sits on the same white tile as the
- *  E-Hentai mark so the two built-in adult sources read consistently. */
-@Composable
-private fun PururinSourceIconBadge() {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .clip(RectangleShape)
-            .background(Color.White)
-            .height(18.dp)
-            .aspectRatio(1f),
-    ) {
-        Image(
-            painter = painterResource(R.drawable.pururin_logo),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(0.8f),
-        )
-    }
-}
-
-/** Source-icon badge for the built-in nhentai.net source. Its logo already carries a dark backdrop,
- *  so it's drawn edge-to-edge with no tile (matching the browse SourceIcon). */
-@Composable
-private fun NHentaiNetSourceIconBadge() {
-    Image(
-        painter = painterResource(R.drawable.nhentai_logo),
-        contentDescription = null,
-        modifier = Modifier
-            .clip(RectangleShape)
-            .height(18.dp)
-            .aspectRatio(1f),
-    )
 }
 
 /** The badge for a source that is no longer installed, the same for a manga and a novel. */
