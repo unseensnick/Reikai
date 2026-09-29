@@ -56,9 +56,6 @@ class NovelRepositoryImpl(
     override fun getLibraryNovelAsFlow(): Flow<List<LibraryNovel>> =
         database.novelLibraryViewQueries.novelLibrary(::mapLibraryNovel).subscribeToList()
 
-    override fun getRecentNovelUpdatesAsFlow(after: Long, limit: Long): Flow<List<NovelUpdateWithRelations>> =
-        database.novelUpdatesViewQueries.getRecentNovelUpdates(after, limit, ::mapNovelUpdate).subscribeToList()
-
     override fun getFilteredNovelUpdatesAsFlow(
         after: Long,
         limit: Long,

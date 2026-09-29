@@ -15,7 +15,6 @@ import logcat.LogPriority
 import reikai.domain.novel.NovelRepository
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.updates.interactor.GetUpdates
-import tachiyomi.presentation.widget.BaseUpdatesGridGlanceWidget
 
 /**
  * Refresh driver for [UnifiedUpdatesGlanceWidget]. Mihon's WidgetManager only watches manga updates
@@ -31,15 +30,13 @@ class UnifiedUpdatesWidgetManager(
 
     context(context: Context)
     fun init(scope: LifecycleCoroutineScope) {
-        val after = BaseUpdatesGridGlanceWidget.DateLimit.toEpochMilliseconds()
         combine(
-            getUpdates.subscribe(read = false, after = after),
-            novelRepository.getRecentNovelUpdatesAsFlow(after, UNIFIED_WIDGET_ROW_LIMIT),
+            unifiedWidgetUpdates(getUpdates, novelRepository),
             securityPreferences.useAuthenticator.changes(),
-        ) { manga, novel, locked ->
+        ) { updates, locked ->
             Triple(
-                manga.map { it.chapterId }.toSet(),
-                novel.map { it.chapterId }.toSet(),
+                updates.manga.map { it.chapterId }.toSet(),
+                updates.novel.map { it.chapterId }.toSet(),
                 locked,
             )
         }
@@ -55,9 +52,3 @@ class UnifiedUpdatesWidgetManager(
             .launchIn(scope)
     }
 }
-
-/**
- * The novel row cap, shared with [UnifiedUpdatesGlanceWidget]: this trigger watches the query the widget
- * draws, so a different limit would watch a different set of rows than the one on screen.
- */
-internal const val UNIFIED_WIDGET_ROW_LIMIT = 500L

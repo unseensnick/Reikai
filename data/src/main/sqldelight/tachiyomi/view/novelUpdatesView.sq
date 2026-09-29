@@ -24,15 +24,6 @@ WHERE novels.favorite_at IS NOT NULL
 AND novel_chapters.date_fetch > novels.favorite_at
 ORDER BY novel_chapters.date_fetch DESC;
 
--- Unfiltered feed. Kept alongside the filtered query below because the home-screen widget wants raw
--- recent updates, not whatever the Updates screen's filters happen to be set to.
-getRecentNovelUpdates:
-SELECT *
-FROM novelUpdatesView
-WHERE dateFetch > :after
-ORDER BY dateFetch DESC
-LIMIT :limit;
-
 -- Novel twin of updatesView's getRecentUpdatesWithFilters, same predicate shapes so the two feeds
 -- cannot drift: read/started/bookmarked, then the include/exclude category blocks with sentinel id 0
 -- for uncategorized. "Started" is progress without completion, measured in lastTextProgress rather

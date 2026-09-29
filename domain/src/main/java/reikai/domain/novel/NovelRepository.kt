@@ -47,17 +47,11 @@ interface NovelRepository {
     fun getLibraryNovelAsFlow(): Flow<List<LibraryNovel>>
 
     /**
-     * Reactive recent-updates feed: chapters of favorited novels fetched after the novel was added
-     * ([date_fetch] > [date_added]), newest first. [after] is a lower bound on the chapter upload
-     * date (the feed cutoff); [limit] caps the row count. Backs the novel side of the Updates tab.
-     */
-    fun getRecentNovelUpdatesAsFlow(after: Long, limit: Long): Flow<List<NovelUpdateWithRelations>>
-
-    /**
-     * The same feed with the recents filters applied in SQL, the novel twin of Mihon's
-     * `getRecentUpdatesWithFilters`. Separate from the unfiltered read above, which the home-screen
-     * widget uses and must keep seeing every recent update. Downloaded stays a Kotlin filter on both
-     * content types, since download state lives on disk rather than in the database.
+     * Reactive recent-updates feed: chapters of favorited novels fetched after the novel was added, newest
+     * first, with the recents filters applied in SQL: twin of Mihon's `getRecentUpdatesWithFilters`, pinned by
+     * RecentsFilterQueriesTest. [after] is a lower bound on the fetch date and [limit] caps the row count,
+     * applied after the filters. Downloaded stays a Kotlin filter on both content types, since download state
+     * lives on disk.
      */
     fun getFilteredNovelUpdatesAsFlow(
         after: Long,

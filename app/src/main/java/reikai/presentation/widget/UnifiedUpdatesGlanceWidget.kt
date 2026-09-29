@@ -70,7 +70,6 @@ import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.interactor.GetUpdates
-import tachiyomi.domain.updates.model.UpdatesWithRelations
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.widget.BaseUpdatesGridGlanceWidget
 import tachiyomi.presentation.widget.R
@@ -143,14 +142,12 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
             }
 
             val flow = remember {
-                val after = BaseUpdatesGridGlanceWidget.DateLimit.toEpochMilliseconds()
                 combine(
-                    getUpdates.subscribe(read = false, after = after),
-                    novelRepository.getRecentNovelUpdatesAsFlow(after, UNIFIED_WIDGET_ROW_LIMIT),
+                    unifiedWidgetUpdates(getUpdates, novelRepository),
                     getCustomMangaInfo.subscribeAll(),
                     getCustomNovelInfo.subscribeAll(),
-                ) { manga, novel, customManga, customNovel ->
-                    prepareSections(context, manga, novel, customManga, customNovel, rowCount, columnCount)
+                ) { updates, customManga, customNovel ->
+                    prepareSections(context, updates, customManga, customNovel, rowCount, columnCount)
                 }
             }
             val data by flow.collectAsState(initial = null)
@@ -174,8 +171,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
     @OptIn(ExperimentalCoilApi::class)
     private suspend fun prepareSections(
         context: Context,
-        manga: List<UpdatesWithRelations>,
-        novel: List<NovelUpdateWithRelations>,
+        updates: UnifiedWidgetUpdates,
         customManga: List<CustomMangaInfo>,
         customNovel: List<CustomNovelInfo>,
         rowCount: Int,
@@ -184,9 +180,8 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
         // Display-only custom-cover overlay (cover url only; the widget shows no titles), keyed by real id.
         val novelCoverOverlay = customNovel.associateBy { it.novelId }
         val mangaCoverOverlay = customManga.associateBy { it.mangaId }
-        // The manga query already returns unread only (getUpdates read=false); filter the novel side to
-        // match. Dedupe per series, then per merge group so a series grouped across sources draws one
-        // cover, then give each section half the rows.
+        // Dedupe per series, then per merge group so a series grouped across sources draws one cover, then
+        // give each section half the rows.
         val (mangaGroups, novelGroups) = withIOContext {
             if (reikaiLibraryPreferences.seriesMergingEnabled.get()) {
                 mergeGroupRepository.getAllMemberships(ContentType.MANGA) to
@@ -195,9 +190,8 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
                 emptyMap<Long, Long>() to emptyMap()
             }
         }
-        val novelRows = novel.filter { !it.read }.distinctBy { it.novelId }
-            .dedupeByMergeGroup(novelGroups) { it.novelId }
-        val mangaRows = manga.distinctBy { it.mangaId }.dedupeByMergeGroup(mangaGroups) { it.mangaId }
+        val novelRows = updates.novel.distinctBy { it.novelId }.dedupeByMergeGroup(novelGroups) { it.novelId }
+        val mangaRows = updates.manga.distinctBy { it.mangaId }.dedupeByMergeGroup(mangaGroups) { it.mangaId }
         val perSectionRows = (rowCount / 2).coerceAtLeast(1)
         val cap = perSectionRows * columnCount
 
