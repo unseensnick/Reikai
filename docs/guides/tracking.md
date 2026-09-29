@@ -34,6 +34,7 @@ A tracking sheet lists only the services whose catalogue holds that kind of entr
 * Status changes automatically when you start & complete a series, and so do the start & finish dates on a service that stores them.
 * After reading the last page of a chapter, or marking a chapter as read, the tracker's progress will update.
 * Offline progress syncs when back online.
+* Reikai uses the scoring system you selected on the tracker, if the tracker lets you pick one (AniList, Kitsu, MangaBaka).
 :::
 
 ## Light-novel trackers
