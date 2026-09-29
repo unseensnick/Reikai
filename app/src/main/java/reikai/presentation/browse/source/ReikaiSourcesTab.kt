@@ -17,6 +17,8 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.SourceItem
+import eu.kanade.presentation.browse.SourceLatestButton
+import eu.kanade.presentation.browse.SourcePinButton
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
@@ -36,8 +38,6 @@ import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.ContentWarningBadge
-import reikai.presentation.browse.components.NovelSourceLatestButton
-import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.browse.components.sourceDetail
@@ -264,9 +264,9 @@ private fun SourceRow(
                 badge = badge,
                 action = {
                     if (latestShown) {
-                        NovelSourceLatestButton(onClick = { onClickItem(row, true) })
+                        SourceLatestButton(onClick = { onClickItem(row, true) })
                     }
-                    NovelSourcePinButton(
+                    SourcePinButton(
                         isPinned = row.isPinned,
                         onClick = { onClickPin(row) },
                     )

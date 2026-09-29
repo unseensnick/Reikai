@@ -8,11 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,12 +27,7 @@ import eu.kanade.presentation.browse.components.BaseBrowseItem
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ChromeReaderMode
-import mihon.icons.materialsymbols.rounded.PushPin
-import mihon.icons.materialsymbols.roundedfilled.PushPin
-import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.material.SECONDARY_ALPHA
 import tachiyomi.presentation.core.components.material.padding
-import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.theme.header
 import tachiyomi.presentation.core.util.secondaryItemAlpha
 
@@ -112,39 +104,6 @@ fun NovelSourceRow(
             }
         },
     )
-}
-
-/**
- * Jump straight to a light-novel source's Latest listing, the novel twin of the button Mihon's
- * [eu.kanade.presentation.browse.SourceItem] puts on a manga row. Only drawn for a plugin that
- * declares latest support.
- */
-@Composable
-fun NovelSourceLatestButton(onClick: () -> Unit) {
-    TextButton(onClick = onClick) {
-        Text(
-            text = stringResource(MR.strings.latest),
-            style = LocalTextStyle.current.copy(color = MaterialTheme.colorScheme.primary),
-        )
-    }
-}
-
-/**
- * Pin / unpin toggle for a light-novel source row, the novel twin of the manga sources list's pin
- * button. Filled pin (primary tint) when pinned, outlined (dim) when not.
- */
-@Composable
-fun NovelSourcePinButton(isPinned: Boolean, onClick: () -> Unit) {
-    val icon = if (isPinned) MaterialSymbols.RoundedFilled.PushPin else MaterialSymbols.Rounded.PushPin
-    val tint = if (isPinned) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onBackground.copy(alpha = SECONDARY_ALPHA)
-    }
-    val description = if (isPinned) MR.strings.action_unpin else MR.strings.action_pin
-    IconButton(onClick = onClick) {
-        Icon(imageVector = icon, tint = tint, contentDescription = stringResource(description))
-    }
 }
 
 /**

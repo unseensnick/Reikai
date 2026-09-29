@@ -50,14 +50,7 @@ fun SourceItem(
         // RK <--
         action = {
             if (source.supportsLatest /* RK */ && showLatest) {
-                TextButton(onClick = { onClickItem(source, Listing.Latest) }) {
-                    Text(
-                        text = stringResource(MR.strings.latest),
-                        style = LocalTextStyle.current.copy(
-                            color = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                }
+                SourceLatestButton(onClick = { onClickItem(source, Listing.Latest) }) // RK: shared with novel rows
             }
             SourcePinButton(
                 isPinned = Pin.Pinned in source.pin,
@@ -67,8 +60,22 @@ fun SourceItem(
     )
 }
 
+// RK --> SourceItem's Latest button, lifted out so the novel source row draws the same one
 @Composable
-private fun SourcePinButton(
+fun SourceLatestButton(onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Text(
+            text = stringResource(MR.strings.latest),
+            style = LocalTextStyle.current.copy(
+                color = MaterialTheme.colorScheme.primary,
+            ),
+        )
+    }
+}
+// RK <--
+
+@Composable
+fun SourcePinButton( // RK: public, the novel source row draws it too
     isPinned: Boolean,
     onClick: () -> Unit,
 ) {
