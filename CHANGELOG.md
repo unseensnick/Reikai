@@ -490,6 +490,7 @@ every stable release now also ships a foss build with neither in it.
 - **Migrating a manga now keeps the page you reached in each chapter, as novels already did.**
 - **Migrating a novel now offers the same search options as manga: Additional keywords, Advanced search mode, Match based on chapter number, Hide entries without a match and Hide entries without newer chapters.**
 - **Migration search's Has results filter now keeps its setting, shared with global search.**
+- **The migration list now names the source an entry moves from, even when that source is uninstalled.**
 
 ### Tracking
 
@@ -607,6 +608,7 @@ every stable release now also ships a foss build with neither in it.
 - **Deleting a novel's downloads by hand now follows Allow deleting bookmarked chapters and Excluded categories in Settings -> Downloads, as manga does.** Removing a novel from the library still clears all of its downloads.
 - **A novel plugin that fails to load now names the real cause, as a failed extension does.**
 - **Crash logs now list novel extensions that failed to load or are out of date.**
+- **A queued novel whose plugin was removed now shows the plugin's name instead of its id.**
 
 ### Backup & restore
 

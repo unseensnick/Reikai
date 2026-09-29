@@ -76,7 +76,7 @@ class NovelMigrationFlowAdapterTest {
         id = EntryId.Novel(1L),
         title = "[Group] Title (Web Novel)",
         sourceKey = "elsewhere",
-        sourceName = null,
+        sourceName = "Elsewhere",
         chapterCount = 1,
         cover = null,
         payload = MigrationPayload.OfNovel(Novel.create().copy(id = 1L, source = "elsewhere", url = "/own")),

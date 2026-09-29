@@ -94,25 +94,17 @@ class NovelMigrationFlowAdapter(
 
     override fun pinnedKeys(): Set<String> = sourcePreferences.pinnedNovelSources.get()
 
-    override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> {
-        val memberIds = LinkedHashSet<Long>()
-        ids.forEach { id ->
-            val novel = novelRepository.getById(id) ?: return@forEach
-            mergeManager.computeRelatedIds(novel.id).forEach { memberIds += it }
+    override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> =
+        mergeGroupPickMembers(ids, novelRepository::getById, mergeManager::computeRelatedIds) { novel ->
+            PickMember(
+                id = novel.id,
+                title = novel.title,
+                coverData = novel.asNovelCover(),
+                payload = MigrationPayload.OfNovel(novel),
+                sourceName = sourceDisplayName(novel.source),
+                chapterCount = chapterRepository.getByNovelId(novel.id).size,
+            )
         }
-        return memberIds.mapNotNull { id ->
-            novelRepository.getById(id)?.let { novel ->
-                PickMember(
-                    id = novel.id,
-                    title = novel.title,
-                    coverData = novel.asNovelCover(),
-                    payload = MigrationPayload.OfNovel(novel),
-                    sourceName = sourceDisplayName(novel.source),
-                    chapterCount = chapterRepository.getByNovelId(novel.id).size,
-                )
-            }
-        }
-    }
 
     override fun readTuning(): MigrationTuning = MigrationTuning(
         deepSearch = novelPreferences.novelMigrationDeepSearch().get(),
@@ -154,12 +146,11 @@ class NovelMigrationFlowAdapter(
         return ids.mapNotNull { id ->
             val novel = novelRepository.getById(id) ?: return@mapNotNull null
             val chapters = chapterRepository.getByNovelId(id)
-            val source = sourceManager.get(novel.source)
             MigrationEntry(
                 id = EntryId.Novel(id),
                 title = novel.title,
                 sourceKey = novel.source,
-                sourceName = source?.name,
+                sourceName = sourceDisplayName(novel.source),
                 chapterCount = chapters.size,
                 latestChapter = chapters.latestChapterNumber { it.chapterNumber },
                 cover = novel.asNovelCover(),
@@ -280,7 +271,7 @@ class NovelMigrationFlowAdapter(
             ),
             // A refresh that stored nothing is not a sync (a soft-error page can parse as an empty
             // chapter list without throwing); claiming it would make the engine skip its
-            // compensating refresh and migrate onto an empty row. Mirrors the manga guard.
+            // compensating refresh and migrate onto an empty row.
             syncedNow = fetched && chapters.isNotEmpty(),
         )
     }
@@ -354,18 +345,12 @@ class NovelMigrationFlowAdapter(
         )
     }
 
-    override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> {
-        val novels = entries.mapNotNull { (it.payload as? MigrationPayload.OfNovel)?.novel }
-        return MigrationDataFlag.entries.filterTo(LinkedHashSet()) { flag ->
-            when (flag) {
-                MigrationDataFlag.CHAPTER -> true
-                MigrationDataFlag.CATEGORY -> true
-                MigrationDataFlag.CUSTOM_COVER -> novels.any { it.hasCustomCover(coverCache) }
-                MigrationDataFlag.NOTES -> novels.any { it.notes.isNotBlank() }
-                MigrationDataFlag.REMOVE_DOWNLOAD -> novels.any { downloadManager.getDownloadCount(it) > 0 }
-            }
-        }
-    }
+    override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> = applicableFlagsOf(
+        entries.mapNotNull { (it.payload as? MigrationPayload.OfNovel)?.novel },
+        hasCustomCover = { it.hasCustomCover(coverCache) },
+        hasNotes = { it.notes.isNotBlank() },
+        hasDownloads = { downloadManager.getDownloadCount(it) > 0 },
+    )
 
     override suspend fun migrate(
         entry: MigrationEntry,

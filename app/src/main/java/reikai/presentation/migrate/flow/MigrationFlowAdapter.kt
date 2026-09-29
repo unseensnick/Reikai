@@ -56,7 +56,8 @@ data class MigrationEntry(
     val id: EntryId,
     val title: String,
     val sourceKey: String,
-    val sourceName: String?,
+    /** From [MigrationFlowAdapter.sourceDisplayName]. */
+    val sourceName: String,
     val chapterCount: Int?,
     /** Highest known chapter number, the upstream comparison basis for prioritize-by-chapters and
      *  hide-without-updates (sources split/bundle chapters differently, so row count alone lies). */
@@ -169,8 +170,8 @@ interface MigrationFlowAdapter {
      *  screen skips itself when the members are exactly the input set (nothing merged). */
     suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember>
 
-    /** The display name for one source key, falling back to the key when the source is gone (the
-     *  favorites picker works for an uninstalled source; the stored rows still migrate). */
+    /** The display name for one source key, which still names an uninstalled source by the name it
+     *  was last seen with (its stored rows still migrate). */
     suspend fun sourceDisplayName(sourceKey: String): String
 
     /** The library favorites belonging to one source, title-sorted, for the favorites picker. */

@@ -122,9 +122,7 @@ class NovelDownloadQueueProvider(
     private suspend fun labelOf(novelId: Long): QueuedSeriesLabel = labels[novelId]
         ?: run {
             val novel = novelRepo.getById(novelId)
-            val sourceId = novel?.source.orEmpty()
-            val sourceName = sourceManager.get(sourceId)?.name?.ifBlank { null } ?: sourceId
-            QueuedSeriesLabel(novel?.title.orEmpty(), sourceName)
+            QueuedSeriesLabel(novel?.title.orEmpty(), sourceManager.nameOf(novel?.source.orEmpty()))
         }.also { labels[novelId] = it }
 
     private suspend fun chaptersOf(novelId: Long): List<NovelChapter> = chapterRepo.getByNovelId(novelId)

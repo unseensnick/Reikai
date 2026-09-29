@@ -92,25 +92,17 @@ class MangaMigrationFlowAdapter(
 
     override fun pinnedKeys(): Set<String> = sourcePreferences.pinnedSources.get()
 
-    override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> {
-        val memberIds = LinkedHashSet<Long>()
-        ids.forEach { id ->
-            val manga = getManga.await(id) ?: return@forEach
-            mergeManager.computeRelatedIds(manga.id).forEach { memberIds += it }
+    override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> =
+        mergeGroupPickMembers(ids, getManga::await, mergeManager::computeRelatedIds) { manga ->
+            PickMember(
+                id = manga.id,
+                title = manga.title,
+                coverData = manga.asMangaCover(),
+                payload = MigrationPayload.OfManga(manga),
+                sourceName = sourceDisplayName(manga.source.toString()),
+                chapterCount = getChaptersByMangaId.await(manga.id).size,
+            )
         }
-        return memberIds.mapNotNull { id ->
-            getManga.await(id)?.let { manga ->
-                PickMember(
-                    id = manga.id,
-                    title = manga.title,
-                    coverData = manga.asMangaCover(),
-                    payload = MigrationPayload.OfManga(manga),
-                    sourceName = sourceDisplayName(manga.source.toString()),
-                    chapterCount = getChaptersByMangaId.await(manga.id).size,
-                )
-            }
-        }
-    }
 
     override fun readTuning(): MigrationTuning = MigrationTuning(
         deepSearch = sourcePreferences.migrationDeepSearchMode.get(),
@@ -153,7 +145,7 @@ class MangaMigrationFlowAdapter(
                 id = EntryId.Manga(id),
                 title = manga.title,
                 sourceKey = "${manga.source}",
-                sourceName = sourceManager.get(manga.source)?.name,
+                sourceName = sourceDisplayName("${manga.source}"),
                 chapterCount = chapters.size,
                 latestChapter = chapters.latestChapterNumber { it.chapterNumber },
                 cover = manga.asMangaCover(),
@@ -274,18 +266,12 @@ class MangaMigrationFlowAdapter(
         sourcePreferences.migrationFlags.set(flags.mapTo(HashSet()) { MigrationFlag.valueOf(it.name) })
     }
 
-    override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> {
-        val mangas = entries.mapNotNull { (it.payload as? MigrationPayload.OfManga)?.manga }
-        return MigrationDataFlag.entries.filterTo(LinkedHashSet()) { flag ->
-            when (flag) {
-                MigrationDataFlag.CHAPTER -> true
-                MigrationDataFlag.CATEGORY -> true
-                MigrationDataFlag.CUSTOM_COVER -> mangas.any { it.hasCustomCover(coverCache) }
-                MigrationDataFlag.NOTES -> mangas.any { it.notes.isNotBlank() }
-                MigrationDataFlag.REMOVE_DOWNLOAD -> mangas.any { downloadManager.getDownloadCount(it) > 0 }
-            }
-        }
-    }
+    override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> = applicableFlagsOf(
+        entries.mapNotNull { (it.payload as? MigrationPayload.OfManga)?.manga },
+        hasCustomCover = { it.hasCustomCover(coverCache) },
+        hasNotes = { it.notes.isNotBlank() },
+        hasDownloads = { downloadManager.getDownloadCount(it) > 0 },
+    )
 
     override suspend fun migrate(
         entry: MigrationEntry,
