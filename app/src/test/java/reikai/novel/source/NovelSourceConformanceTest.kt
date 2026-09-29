@@ -57,6 +57,13 @@ class NovelSourceConformanceTest {
         source(kind).parseChapter("c1") shouldBe "<p>ab</p>"
     }
 
+    // An lnreader registry names a language in that language ("English"); the APK formats give the code.
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a source names its language as an ISO code`(kind: Kind) {
+        source(kind).lang shouldBe "en"
+    }
+
     @ParameterizedTest
     @EnumSource(Kind::class)
     fun `the last page of a listing says so`(kind: Kind) = runTest {
@@ -258,7 +265,7 @@ class NovelSourceConformanceTest {
     }
 
     private fun source(kind: Kind): NovelSource = when (kind) {
-        Kind.PLUGIN -> LnPluginSource(pluginHost(), LnPluginInfo(id = "p", name = "P"))
+        Kind.PLUGIN -> LnPluginSource(pluginHost(), LnPluginInfo(id = "p", name = "P", lang = "English"))
         Kind.APP -> TachiyomiNovelSource(catalogue(), app())
         Kind.IREADER -> IReaderNovelSource(iReaderCatalogue(), app(Extension.Kind.IREADER))
     }

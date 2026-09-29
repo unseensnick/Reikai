@@ -13,7 +13,6 @@ import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
-import reikai.novel.source.langCode
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.novel.browse.NovelSavedSearchRun
@@ -162,7 +161,7 @@ class NovelFeedProvider(
     private fun toRow(source: NovelSource) = BrowseSearchRow(
         key = SourceKey.Novel(source.id),
         name = source.name,
-        lang = source.langCode(),
+        lang = source.lang,
         isPinned = false,
         state = EntrySearchState.Loading,
         source = source,

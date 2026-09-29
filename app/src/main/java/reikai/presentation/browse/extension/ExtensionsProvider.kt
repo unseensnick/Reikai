@@ -16,7 +16,6 @@ import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSource
 import reikai.novel.source.ireader.IReaderSourceHolder
-import reikai.novel.source.langCode
 import reikai.novel.source.novelFormat
 import reikai.novel.source.toLangCode
 import reikai.novel.update.LnPluginUpdate
@@ -201,7 +200,7 @@ fun novelExtensionRows(
         val lang = it.lang.orEmpty().toLangCode()
         novelRow(claimed, it.url, it.pluginId ?: it.url, it.name, lang, ExtensionSection.NotLoaded, it)
     } + installed.mapNotNull {
-        novelRow(claimed, it.site, it.id, it.name, it.langCode(), ExtensionSection.Installed, it)
+        novelRow(claimed, it.site, it.id, it.name, it.lang, ExtensionSection.Installed, it)
     } + available.mapNotNull {
         val lang = it.lang.toLangCode()
         novelRow(claimed, it.site, it.id, it.name, lang, ExtensionSection.Available(lang), it)

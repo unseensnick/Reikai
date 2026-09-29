@@ -4,6 +4,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
+import reikai.novel.host.LnPluginInfo
 import reikai.presentation.browse.compareBrowseLanguages
 
 /**
@@ -37,15 +38,10 @@ class NovelSourceLanguageTest {
         "Klingon".toLangCode() shouldBe "Klingon"
     }
 
-    @Test
-    fun `an installed source reports the same code as the registry entry it came from`() {
-        source("T\u00FCrk\u00E7e").langCode() shouldBe "T\u00FCrk\u00E7e".toLangCode()
-    }
-
     /** A plugin says "English" where an app source says "en"; a sort by display name merged the two. */
     @Test
     fun `a plugin and an app source of one language share one group`() {
-        val plugin = named("Plugin", "English")
+        val plugin = plugin("Plugin", "English")
         val app = named("App", "en")
 
         groupByLanguage(listOf(plugin, app), naturalOrder()) shouldBe listOf("en" to listOf(app, plugin))
@@ -63,7 +59,7 @@ class NovelSourceLanguageTest {
 
     @Test
     fun `a language switched off by its code covers a plugin that names it`() {
-        source("English").isInDisabledLanguage(setOf("en")) shouldBe true
+        plugin("Plugin", "English").isInDisabledLanguage(setOf("en")) shouldBe true
     }
 
     @Test
@@ -90,6 +86,9 @@ class NovelSourceLanguageTest {
     fun `a source with neither its id nor its language switched off is enabled`() {
         withId("s1", "en").isDisabled(disabledIds = setOf("s2"), disabledLangs = setOf("es")) shouldBe false
     }
+
+    private fun plugin(name: String, declared: String) =
+        LnPluginSource(mockk(), LnPluginInfo(id = name, name = name, lang = declared))
 
     private fun source(lang: String) = mockk<NovelSource> { every { this@mockk.lang } returns lang }
 

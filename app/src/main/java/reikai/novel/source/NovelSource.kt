@@ -53,8 +53,8 @@ interface NovelSource {
     val version: String
     val site: String
 
-    /** The source's language as it declares it: an ISO code for an app source, the registry's endonym
-     *  (`English`, `Español`) for an LNReader plugin. Compare and group through [langCode]. */
+    /** The source's language as an ISO code, for every kind: a plugin's adapter turns the registry's
+     *  endonym (`English`, `Español`) into one, so this compares and groups with manga sources as-is. */
     val lang: String
 
     /**

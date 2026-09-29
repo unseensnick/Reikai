@@ -184,10 +184,12 @@ Nine steps, each independently shippable and device-verified before the next.
   the multi-language ones. Step 4 mapped the English names instead, which the registry emits for none
   of them except English, so 125 of the live registry's 278 entries fell through unmapped and Android
   could put no heading on them at all. `toLangCode` now inverts that table, strips the invisible
-  left-to-right mark the registry prefixes Arabic with, and sends Multi to Mihon's own "all". The
-  deny-list behind the Sources filter screen still keys on the raw value, so hiding a language there
-  hides only the plugins declaring it that way; that is a smaller pre-existing gap, left for the
-  filter screen's own step.
+  left-to-right mark the registry prefixes Arabic with, and sends Multi to Mihon's own "all".
+  `LnPluginSource` applies it once, so `NovelSource.lang` is an ISO code for all three source kinds
+  and no screen normalises it again (the preferred-sources list had skipped the step and showed
+  `ENGLISH`). Only raw registry strings and persisted values still pass through `toLangCode`: a
+  language switch or a remembered source identity saved before this holds whichever form its list
+  showed.
 - **Novel browse adopts manga's display mode and column preferences.** This is one screen serving two
   content types rather than two surfaces, so the surface-scoped-settings rule does not apply, and
   novels currently ignore the column setting entirely.

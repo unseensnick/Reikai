@@ -63,7 +63,6 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
-import reikai.novel.source.langCode
 import reikai.presentation.category.toLongIdSet
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryQuerySource
@@ -627,11 +626,11 @@ class NovelLibraryViewModel(
     private suspend fun novelSourceName(source: String): String = sourceManager.nameOf(source)
 
     // One novel source as the search terms read it, for the row's own source and every merged member's, so
-    // the two cannot resolve a name or language differently. The language is the code the manga side gives.
+    // the two cannot resolve a name or language differently.
     private suspend fun querySource(source: String) = LibraryQuerySource(
         key = source,
         name = novelSourceName(source).lowercase(),
-        language = sourceManager.get(source)?.langCode().orEmpty(),
+        language = sourceManager.get(source)?.lang.orEmpty(),
         isLocal = false,
     )
 

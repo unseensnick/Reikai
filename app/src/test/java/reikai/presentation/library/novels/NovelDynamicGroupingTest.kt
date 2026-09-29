@@ -2,13 +2,13 @@ package reikai.presentation.library.novels
 
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
-import reikai.novel.source.NovelSource
+import reikai.novel.host.LnPluginInfo
+import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.LibraryGroup
 
@@ -19,7 +19,7 @@ class NovelDynamicGroupingTest {
         val declared = listOf("Polski", "Português", "Español", "Multi")
         val novels = declared.mapIndexed { index, lang -> libraryNovel(index.toLong(), source = lang) }
         val sources = declared.associateWith { declaredLang ->
-            mockk<NovelSource> { every { lang } returns declaredLang }
+            LnPluginSource(mockk(), LnPluginInfo(id = declaredLang, name = declaredLang, lang = declaredLang))
         }
         val sourceManager = mockk<NovelSourceManager>()
         coEvery { sourceManager.get(any()) } answers { sources[firstArg()] }

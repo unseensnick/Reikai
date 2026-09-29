@@ -11,7 +11,6 @@ import reikai.domain.library.toSortMode
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelTrack
 import reikai.novel.source.NovelSourceManager
-import reikai.novel.source.langCode
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.DynamicGroupingFeed
 import reikai.presentation.library.LibraryDynamicGrouping
@@ -61,7 +60,7 @@ suspend fun novelDynamicGroupingFeed(
     val languageCodes = if (groupType == LibraryGroup.BY_LANGUAGE) {
         items.mapNotNull { item ->
             val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-            val lang = sourceManager.get(novel.source)?.langCode()?.takeUnless { it.isBlank() }
+            val lang = sourceManager.get(novel.source)?.lang?.takeUnless { it.isBlank() }
                 ?: return@mapNotNull null
             EntryId.Novel(item.id) as EntryId to lang
         }.toMap()

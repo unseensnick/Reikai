@@ -13,16 +13,13 @@ fun String.toLangCode(): String {
     return LANGUAGE_CODES[declared] ?: declared
 }
 
-/** The declared language of an installed plugin, normalised by [toLangCode]. */
-fun NovelSource.langCode(): String = lang.toLangCode()
-
 /**
- * Whether a language the user switched off covers this source. Compared as codes, since a plugin
- * names its language ("English") where an app source gives the code ("en"), and a switch saved before
- * the two were grouped together holds whichever of them its list showed.
+ * Whether a language the user switched off covers this source. The saved set is normalised because a
+ * switch saved before plugins and app sources were grouped together holds whichever of "English" or
+ * "en" its list showed.
  */
 fun NovelSource.isInDisabledLanguage(disabled: Set<String>): Boolean =
-    langCode() in disabled.mapTo(HashSet()) { it.toLangCode() }
+    lang in disabled.mapTo(HashSet()) { it.toLangCode() }
 
 /** Whether the user switched this source off, by its own id or by its language. */
 fun NovelSource.isDisabled(disabledIds: Set<String>, disabledLangs: Set<String>): Boolean =
@@ -30,7 +27,7 @@ fun NovelSource.isDisabled(disabledIds: Set<String>, disabledLangs: Set<String>)
 
 /** [sources] in one group per language code, so a plugin and an app source of one language share it. */
 fun groupByLanguage(sources: List<NovelSource>, order: Comparator<String>): List<Pair<String, List<NovelSource>>> =
-    sources.groupBy { it.langCode() }
+    sources.groupBy { it.lang }
         .toSortedMap(order)
         .map { (lang, langSources) -> lang to langSources.sortedBy { it.name.lowercase() } }
 

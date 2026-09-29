@@ -26,7 +26,7 @@ class LnPluginSource(
     override val name: String = info.name
     override val version: String = info.version.orEmpty()
     override val site: String = info.site.orEmpty()
-    override val lang: String = info.lang.orEmpty()
+    override val lang: String = info.lang.orEmpty().toLangCode()
 
     /** The plugin's image headers, keeping only the string values a header can carry. */
     val imageHeaders: Map<String, String> = info.imageHeaders.orEmpty().mapNotNull { (name, value) ->

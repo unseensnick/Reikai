@@ -9,7 +9,6 @@ import mihon.domain.extension.model.ContentWarning
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelSource
-import reikai.novel.source.langCode
 import tachiyomi.domain.source.model.Pin
 import tachiyomi.domain.source.model.Source
 import tachiyomi.source.local.isLocal
@@ -91,9 +90,7 @@ class NovelSourcesProvider(private val model: NovelSourcesViewModel) : SourcesPr
             BrowseSourceRow(
                 key = SourceKey.Novel(source.id),
                 name = source.name,
-                // Normalised to a code so a plugin declaring "Spanish" and one declaring "es" land
-                // in the same section, and in the same one as the manga sources.
-                lang = source.langCode(),
+                lang = source.lang,
                 isPinned = isPinned,
                 isUsedLast = isUsedLast,
                 supportsLatest = source.supportsLatest,
