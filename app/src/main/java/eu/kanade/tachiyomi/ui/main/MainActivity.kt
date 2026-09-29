@@ -99,7 +99,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownloadCache
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
-import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.browse.globalsearch.searchIntentScreen
 import reikai.presentation.browse.repos.RepositoriesScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.novel.details.NovelScreen
@@ -475,15 +475,15 @@ class MainActivity : BaseActivity() {
                 if (!query.isNullOrEmpty()) {
                     val filter = intent.getStringExtra(INTENT_SEARCH_FILTER)
                     navigator.popUntilRoot()
-                    // RK: an extension filter names a manga extension, so that search is a manga one.
-                    // A bare search intent says nothing, and opens on whatever Browse is set to.
-                    navigator.push(
-                        EntryGlobalSearchScreen(
-                            query,
-                            filter,
-                            scopedContentType = ContentType.MANGA.takeIf { !filter.isNullOrEmpty() },
-                        ),
-                    )
+                    // RK --> a novel app's link opens like a share; a manga filter scopes a manga search
+                    lifecycleScope.launch {
+                        navigator.push(
+                            searchIntentScreen(query, filter) {
+                                extensionManager.getLoadedNovelExtensions().map { it.pkgName }
+                            },
+                        )
+                    }
+                    // RK <--
                 }
                 null
             }
