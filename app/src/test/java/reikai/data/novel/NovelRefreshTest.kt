@@ -324,17 +324,6 @@ class NovelRefreshTest {
         rowsFor(novel, "/c/76").map { Triple(it.id, it.read, it.page) } shouldBe listOf(Triple(id, true, "2"))
     }
 
-    @Test
-    fun `a chapter stored on two pages keeps the copy that was read`() = runTest {
-        val novel = storedNovel(totalPages = 2L)
-        storedChapter(novel, "/c/5", 5.0, read = false, page = "1")
-        storedChapter(novel, "/c/5", 5.0, read = true, page = "2")
-
-        syncPage(novel, listOf(chapter("/c/5", 5.0)), "1")
-
-        rowsFor(novel, "/c/5").map { it.read to it.page } shouldBe listOf(true to "1")
-    }
-
     private companion object {
         const val COVER = "https://src.example/cover.jpg"
     }

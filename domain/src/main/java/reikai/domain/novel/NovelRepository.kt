@@ -82,6 +82,8 @@ interface NovelRepository {
         }
 
     fun getByUrlAndSourceAsFlow(url: String, source: String): Flow<Novel?>
+
+    /** The new row's id, or null when the source already lists this novel or the write failed. */
     suspend fun insert(novel: Novel): Long?
 
     /**

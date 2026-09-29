@@ -89,34 +89,32 @@ class NovelRepositoryImpl(
 
     override suspend fun insertOrGet(novel: Novel): Novel? {
         getByUrlAndSource(novel.url, novel.source)?.let { return it }
-        val id = insert(novel) ?: return null
-        return getById(id)
+        // A writer that stored the same novel since the read above wins, and this insert stores nothing
+        insert(novel)
+        return getByUrlAndSource(novel.url, novel.source)
     }
 
     override suspend fun insert(novel: Novel): Long? = try {
-        database.transactionWithResult {
-            database.novelsQueries.insert(
-                source = novel.source,
-                url = novel.url,
-                title = novel.title,
-                author = novel.author,
-                artist = novel.artist,
-                description = novel.description,
-                genre = novel.genre,
-                status = novel.status,
-                thumbnailUrl = novel.thumbnailUrl,
-                favoriteAt = novel.favoriteAt,
-                lastUpdate = novel.lastUpdate,
-                initialized = novel.initialized,
-                chapterFlags = novel.chapterFlags,
-                updateStrategy = novel.updateStrategy,
-                coverLastModified = novel.coverLastModified,
-                totalPages = novel.totalPages,
-                notes = novel.notes,
-                viewerFlags = novel.viewerFlags,
-            )
-            database.novelsQueries.selectLastInsertedRowId().awaitAsOne()
-        }
+        database.novelsQueries.insert(
+            source = novel.source,
+            url = novel.url,
+            title = novel.title,
+            author = novel.author,
+            artist = novel.artist,
+            description = novel.description,
+            genre = novel.genre,
+            status = novel.status,
+            thumbnailUrl = novel.thumbnailUrl,
+            favoriteAt = novel.favoriteAt,
+            lastUpdate = novel.lastUpdate,
+            initialized = novel.initialized,
+            chapterFlags = novel.chapterFlags,
+            updateStrategy = novel.updateStrategy,
+            coverLastModified = novel.coverLastModified,
+            totalPages = novel.totalPages,
+            notes = novel.notes,
+            viewerFlags = novel.viewerFlags,
+        ).awaitAsOneOrNull()
     } catch (e: Exception) {
         logcat(LogPriority.ERROR, e) { "Failed to insert novel '${novel.url}' (source=${novel.source})" }
         null

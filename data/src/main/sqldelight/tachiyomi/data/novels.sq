@@ -38,6 +38,8 @@ CREATE TABLE novels(
 );
 
 CREATE INDEX novels_url_index ON novels(url);
+-- A source lists a novel once, as manga's UNIQUE(source_id, remote_url) holds (51.sqm)
+CREATE UNIQUE INDEX novels_source_url_index ON novels(source, url);
 CREATE INDEX novels_library_favorite_at_index ON novels(favorite_at) WHERE favorite_at IS NOT NULL;
 
 findAll:
@@ -141,7 +143,10 @@ ON N._id = CC.novel_id;
 
 insert:
 INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite_at, last_update, initialized, chapter_flags, update_strategy, cover_last_modified, total_pages, notes, viewer_flags)
-VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favoriteAt, :lastUpdate, :initialized, :chapterFlags, :updateStrategy, :coverLastModified, :totalPages, :notes, :viewerFlags);
+VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favoriteAt, :lastUpdate, :initialized, :chapterFlags, :updateStrategy, :coverLastModified, :totalPages, :notes, :viewerFlags)
+-- A novel another writer stored first is left as it is and returns no id, so the caller reads it back
+ON CONFLICT(source, url) DO NOTHING
+RETURNING _id;
 
 -- Full-row update for the paths that legitimately write a complete Novel: restore and edit-info
 -- (which set columns back to null, something `coalesce` can't express). Surgical single/few-column
@@ -202,5 +207,3 @@ WHERE _id = :id;
 setGenre:
 UPDATE novels SET genre = :genre WHERE _id = :id;
 
-selectLastInsertedRowId:
-SELECT last_insert_rowid();

@@ -57,21 +57,17 @@ suspend fun syncChaptersWithNovelSource(
     // (old, new) pairs for chapters whose title changed; their downloaded file is renamed post-commit.
     val downloadRenames = mutableListOf<Pair<NovelChapter, NovelChapter>>()
 
-    // Earlier page-scoped syncs could store one url on two pages; keep the copy the reader has touched.
-    val keptByUrl = dbChapters.groupBy { it.url }.mapValues { (_, rows) ->
-        rows.firstOrNull { it.read || it.bookmark || it.lastTextProgress > 0L } ?: rows.first()
-    }
-    val duplicates = dbChapters.filterNot { keptByUrl[it.url] === it }
+    // A novel stores a url once (51.sqm merged the copies earlier page-scoped syncs left)
+    val dbByUrl = dbChapters.associateBy { it.url }
     val sourceUrls = sourceChapters.mapTo(mutableSetOf()) { it.url }
-    val notInSource = if (page == null) keptByUrl.values.filterNot { it.url in sourceUrls } else emptyList()
-    val toDelete = duplicates + notInSource
+    val toDelete = if (page == null) dbChapters.filterNot { it.url in sourceUrls } else emptyList()
 
     val managedUrls = mutableSetOf<String>()
     for (sourceChapter in sourceChapters) {
         if (sourceChapter.url in managedUrls) continue
         managedUrls += sourceChapter.url
 
-        val dbChapter = keptByUrl[sourceChapter.url]
+        val dbChapter = dbByUrl[sourceChapter.url]
         if (dbChapter == null) {
             toAdd.add(sourceChapter)
         } else if (shouldUpdateDbNovelChapter(dbChapter, sourceChapter)) {

@@ -25,7 +25,8 @@ CREATE TABLE novel_chapters(
     ON DELETE CASCADE
 );
 
-CREATE INDEX novel_chapters_novel_id_index ON novel_chapters(novel_id);
+-- A novel lists a chapter once, as a manga does under chapter's UNIQUE(manga_id, remote_url) (51.sqm)
+CREATE UNIQUE INDEX novel_chapters_novel_id_url_index ON novel_chapters(novel_id, url);
 CREATE INDEX novel_chapters_unread_by_novel_index ON novel_chapters(novel_id, read) WHERE read = 0;
 
 getByNovelId:

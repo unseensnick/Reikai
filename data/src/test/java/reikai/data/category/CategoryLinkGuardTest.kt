@@ -77,6 +77,17 @@ class CategoryLinkGuardTest {
         linkCount(type) shouldBe 0L
     }
 
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `linking a category the entry already has keeps one link`(type: ContentType) = runTest {
+        val categoryId = categoryOf(ownType(type))
+        link(type, categoryId)
+
+        link(type, categoryId)
+
+        linkCount(type) shouldBe 1L
+    }
+
     private var nextCategoryId = 10L
 
     private suspend fun categoryOf(contentType: Long): Long {
