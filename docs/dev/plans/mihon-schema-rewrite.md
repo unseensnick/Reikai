@@ -38,7 +38,9 @@ move creates, and the rename rewrites the `.sq` files four earlier fixes edit.
    row wins, otherwise the first copy's by upstream's precedence; one copy supplies the adult-source
    metadata, tags and titles together; merge groups left with fewer than two members are deleted with
    all their child rows, since foreign keys are off inside a migration and nothing cascades; the merged
-   chapter cache is wiped and rebuilt on read. A novel dedupe follows in its own migration.
+   chapter cache keeps every row whose chapter and group survive, so only a group the dedupe touched
+   restitches. The novel dedupe follows in its own migration, `51.sqm`, which also gives `novels`,
+   `novel_chapters` and `novels_categories` their unique indexes.
 
 Restore rules that must hold for both content types live in `reikai.domain.backup` kernels, which the
 manga restore repository and `NovelRestorer` both call rather than restating.
@@ -50,15 +52,20 @@ manga restore repository and `NovelRestorer` both call rather than restating.
 - `domain/src/main/java/reikai/domain/backup/RestoreMergeRules.kt`: the restore kernels both restorers
   call.
 - `data/src/main/java/reikai/data/`: the Reikai repositories.
-- `app/src/main/java/mihon/app/di/AppBindings.kt`: the driver and database providers, which upstream
-  moves to a `DatabaseBindings` in `:data`.
+- `data/src/main/java/tachiyomi/data/DatabaseBindings.kt`: the driver and database providers, which
+  tests call too rather than restating the adapters.
+- `data/src/test/java/reikai/data/migration/SchemaChainMigrationTest.kt`: the migrations run over rows
+  seeded into `43.db`, every dedupe case over both content types.
 
 ## Status
 
-In progress on `feat/0.4.0`. The preparation has landed (`81e4d65d4`, `cf8245ca9`, `80dd087cf`,
-`cb089a37d`, `800c694ea`), with `532575e29` as the synced base and every later fix in the range ported
-ahead of the chain (`02cb0ff90` to `9c8ef9a09`). The chain itself, from the scaffold drop through the
-rename and dedupe migrations, is next.
+Complete on `feat/0.4.0`, and the synced base is `2d1d2e4ca`. The preparation (`81e4d65d4`, `cf8245ca9`,
+`80dd087cf`, `cb089a37d`, `800c694ea`) and the fixes ported ahead of the chain (`02cb0ff90` to `9c8ef9a09`)
+came first; the chain is `71f4cb8dc` to `97690516f`, the novel dedupe `25710ad7f`. Simulated over three
+databases (the emulator copy, the seeded snapshot, and a crafted one with duplicates of every kind): no
+foreign-key violation, every row delta a merged duplicate, 36 precedence checks and 24 migration mutants
+red. On the emulator copy no merge group changes, so none restitches after the upgrade. Not yet run on a
+device: an upgrade from a 196 or 197 build with real data is the owner's check.
 
 ## Decisions & tradeoffs
 
@@ -71,4 +78,9 @@ rename and dedupe migrations, is next.
 - **The app keeps a test-only SQLDelight dependency** for the tests that need a real database and the
   app's backup models; tests that only touch `:data` move with their classes.
 - **Migration tests may start from the committed `43.db` snapshot** and run the real migrations, which
-  is the only way to seed rows a later migration has to carry.
+  is the only way to seed rows a later migration has to carry (now in database.md).
+- **The stitch cache is carried, not wiped.** Wiping it restitched every group on first open after the
+  upgrade; carrying the surviving rows leaves the stale checks to find the groups the dedupe changed,
+  which the ranking stamp (member ids) and the row count already detect.
+- **The `novels_categories` pair index lands in `51.sqm`**, after the novel merge that can bring a pair
+  together, rather than in `50.sqm`, which only rebuilds the table against the renamed `category`.
