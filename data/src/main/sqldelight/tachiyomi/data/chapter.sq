@@ -33,7 +33,7 @@ getChapterById:
 SELECT
     id, manga_id, remote_url, remote_name, remote_scanlator, remote_chapter_number,
     remote_date_upload, remote_order, remote_memo, user_read, user_bookmark,
-    user_last_page_read, state_date_fetch, page_count
+    user_last_page_read, state_date_fetch, page_count -- RK
 FROM chapter
 WHERE id = :id;
 
@@ -41,7 +41,7 @@ getChaptersByMangaId:
 SELECT
     C.id, C.manga_id, C.remote_url, C.remote_name, C.remote_scanlator, C.remote_chapter_number,
     C.remote_date_upload, C.remote_order, C.remote_memo, C.user_read, C.user_bookmark,
-    C.user_last_page_read, C.state_date_fetch, C.page_count
+    C.user_last_page_read, C.state_date_fetch, C.page_count -- RK
 FROM chapter C
 LEFT JOIN excluded_scanlator ES
 ON C.manga_id = ES.manga_id
@@ -70,7 +70,7 @@ getBookmarkedChaptersByMangaId:
 SELECT
     id, manga_id, remote_url, remote_name, remote_scanlator, remote_chapter_number,
     remote_date_upload, remote_order, remote_memo, user_read, user_bookmark,
-    user_last_page_read, state_date_fetch, page_count
+    user_last_page_read, state_date_fetch, page_count -- RK
 FROM chapter
 WHERE manga_id = :mangaId
 AND user_bookmark;
@@ -79,7 +79,7 @@ getChapterByUrlAndMangaId:
 SELECT
     id, manga_id, remote_url, remote_name, remote_scanlator, remote_chapter_number,
     remote_date_upload, remote_order, remote_memo, user_read, user_bookmark,
-    user_last_page_read, state_date_fetch, page_count
+    user_last_page_read, state_date_fetch, page_count -- RK
 FROM chapter
 WHERE manga_id = :mangaId
 AND remote_url = :remoteUrl;
@@ -89,7 +89,7 @@ getChapterByUrl:
 SELECT
     id, manga_id, remote_url, remote_name, remote_scanlator, remote_chapter_number,
     remote_date_upload, remote_order, remote_memo, user_read, user_bookmark,
-    user_last_page_read, state_date_fetch, page_count
+    user_last_page_read, state_date_fetch, page_count -- RK
 FROM chapter
 WHERE remote_url = :remoteUrl;
 
@@ -102,12 +102,12 @@ insertReturningId:
 INSERT INTO chapter(
     manga_id, remote_url, remote_name, remote_scanlator, remote_chapter_number,
     remote_date_upload, remote_order, remote_memo, user_read, user_bookmark,
-    user_last_page_read, state_date_fetch, page_count
+    user_last_page_read, state_date_fetch, page_count -- RK
 )
 VALUES (
     :mangaId, :remoteUrl, :remoteName, :remoteScanlator, :remoteChapterNumber,
     :remoteDateUpload, :remoteOrder, :remoteMemo, :userRead, :userBookmark,
-    :userLastPageRead, :stateDateFetch, :pageCount
+    :userLastPageRead, :stateDateFetch, :pageCount -- RK
 )
 -- Two syncs of the same entry can race; the chapter the other one already stored is skipped rather
 -- than failing the whole batch
