@@ -141,7 +141,7 @@ every stable release now also ships a foss build with neither in it.
 - **A merged series now downloads each chapter once, however many of its sources carry it, and deleting one from the All list removes every source's copy.** Under a source chip a chapter shows and deletes only that source's copy.
 - **A chapter you bookmarked before merging its series now still shows as bookmarked in the combined list.** The Bookmarked filter on the series page, in the reader and on the library's Continue button follows the same answer.
 - **The reader's "Skip chapters marked read" now skips a chapter read on another source of a merged series.** So do the Unread filters on the series page and in the reader.
-- **A merged row in Updates and History now shows, and changes, the read and bookmarked state for every source, as the library does.** Deleting a download from a History row removes every source's copy, from an Updates row only its own, in the Recents tab too.
+- **A merged row in Updates and History now shows, and changes, the read, bookmarked and downloaded state for every source, as the library does.** An Updates row's download is its own source's copy alone, since that is the copy it opens.
 - **Continue reading a merged series from History now opens the same chapter the library would, and carries on through the whole group.** History ignored the series' chapter sort, so a series sorted by name or upload date resumed somewhere else, and a merged light novel continued through one source only.
 - **A merged series' library update now announces a new chapter once, not once per source that carries it.**
 - **The Updates widget now draws one cover per merged series.** It drew one per source, so a grouped series filled the grid.

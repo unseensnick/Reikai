@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
 import reikai.domain.manga.ChapterAggregation
+import reikai.domain.merge.ChapterCopyRow
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -77,6 +78,56 @@ class MergedChapterUnitRepositoryImpl(
                 DownloadUnitRow(groupId, unit!!.toInt(), ownerId, name, scanlator, url)
             }
         }.subscribeToList().map { rows -> rows.groupBy { it.groupId } }
+
+    override fun getCopiesAsFlow(
+        contentType: ContentType,
+        chapterIds: Collection<Long>,
+    ): Flow<Map<Long, List<ChapterCopyRow>>> =
+        when (contentType) {
+            ContentType.NOVELS -> queries.copiesOfNovelChapters(chapterIds) {
+                    namedId,
+                    copyId,
+                    unit,
+                    copyOrder,
+                    _,
+                    ownerTitle,
+                    ownerSource,
+                    name,
+                    url,
+                ->
+                ChapterCopyRow(
+                    namedId,
+                    ChapterUnit(copyId, unit!!.toInt(), copyOrder.toInt()),
+                    ownerTitle,
+                    ownerSource,
+                    name,
+                    scanlator = null,
+                    chapterUrl = url,
+                )
+            }
+            else -> queries.copiesOfChapters(chapterIds) {
+                    namedId,
+                    copyId,
+                    unit,
+                    copyOrder,
+                    _,
+                    ownerTitle,
+                    ownerSource,
+                    name,
+                    scanlator,
+                    url,
+                ->
+                ChapterCopyRow(
+                    namedId,
+                    ChapterUnit(copyId, unit!!.toInt(), copyOrder.toInt()),
+                    ownerTitle,
+                    ownerSource.toString(),
+                    name,
+                    scanlator,
+                    url,
+                )
+            }
+        }.subscribeToList().map { rows -> rows.groupBy { it.namedId } }
 
     override suspend fun getRecognizedChapterCounts(): Map<Long, Long> =
         queries.recognizedChapterNumbersByManga().awaitAsList()

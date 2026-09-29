@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.merge
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.chapter.hiddenChapterKey
-import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -31,6 +30,9 @@ import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.inReadingOrder
+import reikai.domain.merge.ChapterCopyRow
+import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.recents.RECENTS_FEED_LIMIT
@@ -80,6 +82,7 @@ class MangaRecentsAdapter(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val mergeManager: MangaMergeManager,
     private val mergedChapterProvider: MergedChapterProvider,
+    private val mergedChapterUnits: MergedChapterUnitRepository,
     private val mangaPreferences: MangaPreferences,
     private val getManga: GetManga,
     private val mangaLibraryAdder: MangaLibraryAdder,
@@ -115,13 +118,17 @@ class MangaRecentsAdapter(
     // A null list is this model's "no emission yet", where the updates model carries a loading flag.
     // Lazy so a surface that renders neither lane never touches the model it was not given.
     override val readLane: Flow<RecentsLaneRows> by lazy {
-        historyRows().state.map { state ->
+        val rows = historyRows().state.map { state ->
             RecentsLaneRows(
                 items = state.list.orEmpty().map { it.toRecentsItem() },
                 loaded = state.list != null,
             )
         }
+        readCopies.lane(rows, membership) { ids -> mergedChapterUnits.getCopiesAsFlow(ContentType.MANGA, ids) }
     }
+
+    /** The read lane's grouped rows' copies, which their download state is drawn over. */
+    private val readCopies = RecentsRowCopiesIndex()
 
     override val updatedLane: Flow<RecentsLaneRows> by lazy {
         updatesRows().state.map { state ->
@@ -168,6 +175,7 @@ class MangaRecentsAdapter(
         downloadCache.changes,
         downloadManager.queueState.map { },
         downloadManager.statusFlow().map { },
+        readCopies.changes,
     )
 
     override val progressChanges: Flow<Unit> = downloadManager.progressFlow().map { }
@@ -181,6 +189,19 @@ class MangaRecentsAdapter(
         // Not necessarily this row's manga: a merged row resolves across the group, and the download
         // lookup is keyed by the owner's stored title and source.
         val owner = resolved.mangaById[chapter.mangaId] ?: return null
+        val unitOf = resolved.stitch.associateBy { it.chapterId }
+        val copies = recentsRowCopies(chapter, resolved.stitch, resolved.pooled) { it.id }.mapNotNull { copy ->
+            val copyOwner = resolved.mangaById[copy.mangaId] ?: return@mapNotNull null
+            ChapterCopyRow(
+                namedId = chapter.id,
+                copy = unitOf[copy.id] ?: ChapterUnit(copy.id, unit = 0, copyOrder = 0),
+                ownerTitle = copyOwner.title,
+                ownerSource = copyOwner.source.toString(),
+                chapterName = copy.name,
+                scanlator = copy.scanlator,
+                chapterUrl = copy.url,
+            )
+        }
         return RecentsTargetRow(
             ref = ChapterRef(EntryId.Manga(owner.id), chapter.id),
             chapter = item.lane.chapterLabel(chapter.name, chapter.chapterNumber),
@@ -189,14 +210,8 @@ class MangaRecentsAdapter(
                 bookmark = chapter.bookmark || chapter.id in resolved.bookmarkedElsewhere,
                 progress = ChapterProgress.Pages(chapter.lastPageRead, chapter.pageCount),
             ),
-            download = chapterDownloadUi(
-                chapterId = chapter.id,
-                chapterName = chapter.name,
-                scanlator = chapter.scanlator,
-                chapterUrl = chapter.url,
-                storedTitle = owner.title,
-                sourceId = owner.source,
-            ),
+            // The copy a tap opens, which on a group-scoped lane can be another source's on disk.
+            download = copiesDownloadUi(item.lane, chapter.id) { copies },
         )
     }
 
@@ -205,6 +220,9 @@ class MangaRecentsAdapter(
         val chapterId: Long,
         val chapters: Map<Long, Chapter>,
         val mangaById: Map<Long, Manga>,
+        /** The group's stitch and every member's chapters, where the row's copies on disk are found. */
+        val stitch: List<ChapterUnit> = emptyList(),
+        val pooled: List<Chapter> = emptyList(),
         /** Read or bookmarked on another source of the group, so the row says what the details list
          *  says rather than what the one copy the target rule picked happens to hold. */
         val readElsewhere: Set<Long> = emptySet(),
@@ -252,6 +270,8 @@ class MangaRecentsAdapter(
             chapterId = chapterId,
             chapters = chapters,
             mangaById = group?.mangaById.orEmpty(),
+            stitch = stitch,
+            pooled = pooled,
             readElsewhere = flaggedOnAnotherSource(pooled, named, stitch, { it.id }, { it.read }),
             bookmarkedElsewhere = flaggedOnAnotherSource(pooled, named, stitch, { it.id }, { it.bookmark }),
         )
@@ -335,52 +355,41 @@ class MangaRecentsAdapter(
     override fun rowUi(item: RecentsItem): RecentsRowUi = mangaRowUi(item)
 
     override fun downloadUi(item: RecentsItem): RecentsDownloadUi? = when (val payload = item.payload) {
-        is HistoryWithRelations -> historyDownloadUi(payload)
+        is HistoryWithRelations -> historyDownloadUi(item.lane, payload)
         else -> mangaDownloadUi(item)
     }
 
     /**
-     * The read lane has no model computing this per row, so it asks the same two sources the updates
-     * model does: the live queue first, then the on-disk index. Resolved on call rather than carried
-     * on the row, because combining the whole history feed with the download queue would re-map every
-     * row of it on each download tick. The combined modes' download indicator now calls it per drawn
-     * row, alongside the selection's download verbs and the downloaded filter while it is on.
+     * The read lane has no model computing this per row, so it asks the queue and the on-disk index
+     * itself, over the row's copies loaded with the lane ([readCopies]). Polled rather than carried on
+     * the row, because combining the whole feed with the download queue would re-map every row of it
+     * on each download tick. The Downloaded filter asks this same state.
      */
-    private fun historyDownloadUi(payload: HistoryWithRelations) = chapterDownloadUi(
-        chapterId = payload.chapterId,
-        chapterName = payload.chapterName,
-        scanlator = payload.scanlator,
-        chapterUrl = payload.chapterUrl,
-        // The stored title, never the displayed one: a download folder is named from the former and
-        // the history row carries the user's custom title in the latter.
-        storedTitle = payload.storedTitle,
-        sourceId = payload.sourceId,
-    )
-
-    /** Resolved on call through the [downloadStateOf] kernel both adapters share. */
-    private fun chapterDownloadUi(
-        chapterId: Long,
-        chapterName: String,
-        scanlator: String?,
-        chapterUrl: String,
-        storedTitle: String,
-        sourceId: Long,
-    ) = RecentsDownloadUi(
-        state = {
-            downloadStateOf(downloadManager.getQueuedDownloadOrNull(chapterId)?.status) {
-                downloadManager.isChapterDownloaded(
-                    chapterName = chapterName,
-                    chapterScanlator = scanlator,
-                    chapterUrl = chapterUrl,
-                    mangaTitle = storedTitle,
-                    sourceId = sourceId,
-                )
+    private fun historyDownloadUi(lane: RecentsLane, payload: HistoryWithRelations) =
+        copiesDownloadUi(lane, payload.chapterId) {
+            with(payload) {
+                readCopies.copiesOf(chapterId, storedTitle, sourceId.toString(), chapterName, scanlator, chapterUrl)
             }
-        },
-        progress = RecentsDownloadProgress.Live {
-            downloadManager.getQueuedDownloadOrNull(chapterId)?.progress ?: 0
-        },
-    )
+        }
+
+    private fun copiesDownloadUi(lane: RecentsLane, chapterId: Long, copies: () -> List<ChapterCopyRow>) =
+        recentsCopiesDownloadUi(
+            lane,
+            chapterId,
+            copies,
+            queued = { downloadManager.getQueuedDownloadOrNull(chapterId)?.status },
+            progress = RecentsDownloadProgress.Live {
+                downloadManager.getQueuedDownloadOrNull(chapterId)?.progress ?: 0
+            },
+        ) { copy ->
+            downloadManager.isChapterDownloaded(
+                copy.chapterName,
+                copy.scanlator,
+                copy.chapterUrl,
+                copy.ownerTitle,
+                copy.ownerSource.toLong(),
+            )
+        }
 }
 
 /** The updates model already builds both providers per row, so this only hands them over. */

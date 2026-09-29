@@ -54,6 +54,13 @@ interface MergedChapterUnitRepository {
     fun getDownloadUnitsAsFlow(contentType: ContentType): Flow<Map<Long, List<DownloadUnitRow>>>
 
     /**
+     * Every library copy of each of [chapterIds]' merged chapters, itself included, keyed by the chapter
+     * asked for: what a row naming one copy probes to say whether the copy a tap opens is on disk. The
+     * same copies [getDownloadUnitsAsFlow] counts. A chapter no stitched group places has no entry.
+     */
+    fun getCopiesAsFlow(contentType: ContentType, chapterIds: Collection<Long>): Flow<Map<Long, List<ChapterCopyRow>>>
+
+    /**
      * How many distinct recognized chapter numbers each grouped library manga lists, keyed by manga id:
      * the count the stitch ranks the trunk on, so the collapsed library row leads on the same source the
      * details chapter list does. Read from the chapter rows, so a group not yet stitched has it too. A

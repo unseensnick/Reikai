@@ -15,6 +15,21 @@ data class DownloadUnitRow(
 )
 
 /**
+ * One copy of the merged chapter [namedId] names, [copy] placing it in the stitch, with what a download
+ * probe needs: the owner's stored title and source, and the chapter's own name, scanlator and url.
+ * [ownerSource] is the source id as text, since a manga source is a number and a novel source is not.
+ */
+data class ChapterCopyRow(
+    val namedId: Long,
+    val copy: ChapterUnit,
+    val ownerTitle: String,
+    val ownerSource: String,
+    val chapterName: String,
+    val scanlator: String?,
+    val chapterUrl: String,
+)
+
+/**
  * How many of each group's merged chapters have a copy on disk, so a merged row's download badge
  * counts a chapter two sources both hold once, the way its unread badge already counts it once.
  *

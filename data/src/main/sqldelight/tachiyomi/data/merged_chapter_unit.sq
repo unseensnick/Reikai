@@ -331,3 +331,41 @@ JOIN novels N
 ON N._id = C.novel_id
 AND N.favorite_at IS NOT NULL
 WHERE U.unit IS NOT NULL;
+
+-- For each of :chapterIds the stitch places, every copy of the same merged chapter its group holds, the
+-- chapter itself included, with what a download probe needs. Only library members' copies, and none an
+-- excluded scanlator hides, the same rows downloadUnitsByGroup counts, so a recents row and the library
+-- badge agree on what is downloaded. A chapter no group places returns nothing.
+copiesOfChapters:
+SELECT U1.chapter_id AS namedId, U2.chapter_id AS copyId, U2.unit AS unit, U2.copy_order AS copyOrder,
+    C.manga_id AS ownerId, M.remote_title AS ownerTitle, M.source_id AS ownerSource,
+    C.remote_name AS name, C.remote_scanlator AS scanlator, C.remote_url AS url
+FROM merged_chapter_unit U1
+JOIN merged_chapter_unit U2
+ON U2.group_id = U1.group_id
+AND U2.unit = U1.unit
+JOIN chapter C
+ON C.id = U2.chapter_id
+JOIN manga M
+ON M.id = C.manga_id
+AND M.user_favorite_at IS NOT NULL
+LEFT JOIN excluded_scanlator ES
+ON C.manga_id = ES.manga_id
+AND C.remote_scanlator = ES.scanlator
+WHERE U1.chapter_id IN :chapterIds
+AND ES.scanlator IS NULL;
+
+-- Novel twin, with no scanlator to exclude.
+copiesOfNovelChapters:
+SELECT U1.chapter_id AS namedId, U2.chapter_id AS copyId, U2.unit AS unit, U2.copy_order AS copyOrder,
+    C.novel_id AS ownerId, N.title AS ownerTitle, N.source AS ownerSource, C.name, C.url
+FROM merged_novel_chapter_unit U1
+JOIN merged_novel_chapter_unit U2
+ON U2.group_id = U1.group_id
+AND U2.unit = U1.unit
+JOIN novel_chapters C
+ON C._id = U2.chapter_id
+JOIN novels N
+ON N._id = C.novel_id
+AND N.favorite_at IS NOT NULL
+WHERE U1.chapter_id IN :chapterIds;

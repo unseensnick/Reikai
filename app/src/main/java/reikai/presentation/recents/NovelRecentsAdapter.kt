@@ -19,10 +19,12 @@ import kotlinx.coroutines.flow.merge
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
-import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.ChapterCopyRow
+import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
@@ -72,6 +74,7 @@ class NovelRecentsAdapter(
     private val novelRepository: NovelRepository,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val mergeManager: NovelMergeManager,
+    private val mergedChapterUnits: MergedChapterUnitRepository,
     private val novelLibraryAdder: NovelLibraryAdder,
     // Providers, so building the adapter still does not build the download manager: constructing it
     // restores the persisted queue and can start the download worker. Both are only read when a row
@@ -105,13 +108,17 @@ class NovelRecentsAdapter(
 
     // Lazy so a surface that renders neither lane never touches the model it was not given.
     override val readLane: Flow<RecentsLaneRows> by lazy {
-        historyRows().state.map { state ->
+        val rows = historyRows().state.map { state ->
             RecentsLaneRows(
                 items = state.list.orEmpty().map { it.toRecentsItem() },
                 loaded = state.list != null,
             )
         }
+        readCopies.lane(rows, membership) { ids -> mergedChapterUnits.getCopiesAsFlow(ContentType.NOVELS, ids) }
     }
+
+    /** The read lane's grouped rows' copies, which their download state is drawn over. */
+    private val readCopies = RecentsRowCopiesIndex()
 
     override val updatedLane: Flow<RecentsLaneRows> by lazy {
         updatesRows().state.map { state ->
@@ -156,7 +163,13 @@ class NovelRecentsAdapter(
     // Built on collection, which the engine does only while its chip shows novels, so a surface drawing
     // no novel row never builds the download manager. The queue carries each download's state.
     override val downloadChanges: Flow<Unit> = flow {
-        emitAll(merge(novelDownloadCacheProvider().changes, novelDownloadManagerProvider().queueState.map { }))
+        emitAll(
+            merge(
+                novelDownloadCacheProvider().changes,
+                novelDownloadManagerProvider().queueState.map { },
+                readCopies.changes,
+            ),
+        )
     }
 
     // The novel engine reports no byte progress, matching the `Unsupported` its download states declare.
@@ -171,6 +184,23 @@ class NovelRecentsAdapter(
         // Not necessarily this row's novel: a merged row resolves across the group, and the download
         // lookup is keyed by the owner's stored title and source.
         val owner = novelRepository.getById(chapter.novelId) ?: return null
+        val sameChapter = recentsRowCopies(chapter, resolved.stitch, resolved.pooled) { it.id }
+        // Resolved here, off the draw path, so the state below only asks the in-memory index.
+        val ownerOf = sameChapter.map { it.novelId }.distinct().mapNotNull { novelRepository.getById(it) }
+            .associateBy { it.id }
+        val unitOf = resolved.stitch.associateBy { it.chapterId }
+        val copies = sameChapter.mapNotNull { copy ->
+            val copyOwner = ownerOf[copy.novelId] ?: return@mapNotNull null
+            ChapterCopyRow(
+                namedId = chapter.id,
+                copy = unitOf[copy.id] ?: ChapterUnit(copy.id, unit = 0, copyOrder = 0),
+                ownerTitle = copyOwner.title,
+                ownerSource = copyOwner.source,
+                chapterName = copy.name,
+                scanlator = null,
+                chapterUrl = copy.url,
+            )
+        }
         return RecentsTargetRow(
             ref = ChapterRef(EntryId.Novel(owner.id), chapter.id),
             chapter = item.lane.chapterLabel(chapter.name, chapter.chapterNumber),
@@ -179,13 +209,8 @@ class NovelRecentsAdapter(
                 bookmark = chapter.bookmark || chapter.id in resolved.bookmarkedElsewhere,
                 progress = ChapterProgress.Percent(chapter.lastTextProgress),
             ),
-            download = chapterDownloadUi(
-                chapterId = chapter.id,
-                source = owner.source,
-                storedTitle = owner.title,
-                chapterName = chapter.name,
-                chapterUrl = chapter.url,
-            ),
+            // The copy a tap opens, which on a group-scoped lane can be another source's on disk.
+            download = copiesDownloadUi(item.lane, chapter.id) { copies },
         )
     }
 
@@ -193,6 +218,8 @@ class NovelRecentsAdapter(
     private class TargetResolution(
         val chapterId: Long,
         val chapters: Map<Long, NovelChapter>,
+        val stitch: List<ChapterUnit> = emptyList(),
+        val pooled: List<NovelChapter> = emptyList(),
         val readElsewhere: Set<Long> = emptySet(),
         val bookmarkedElsewhere: Set<Long> = emptySet(),
     )
@@ -229,6 +256,8 @@ class NovelRecentsAdapter(
         return TargetResolution(
             chapterId = chapterId,
             chapters = chapters,
+            stitch = group.stitch,
+            pooled = group.pooledChapters,
             readElsewhere = flaggedOnAnotherSource(group.pooledChapters, named, group.stitch, { it.id }, { it.read }),
             bookmarkedElsewhere = flaggedOnAnotherSource(
                 group.pooledChapters,
@@ -316,38 +345,36 @@ class NovelRecentsAdapter(
     override fun rowUi(item: RecentsItem): RecentsRowUi = novelRowUi(item)
 
     override fun downloadUi(item: RecentsItem): RecentsDownloadUi? = when (val payload = item.payload) {
-        is NovelHistoryWithRelations -> historyDownloadUi(payload)
+        is NovelHistoryWithRelations -> historyDownloadUi(item.lane, payload)
         else -> novelDownloadUi(item)
     }
 
-    private fun historyDownloadUi(payload: NovelHistoryWithRelations) = chapterDownloadUi(
-        chapterId = payload.chapterId,
-        source = payload.source,
-        // The stored title, never the displayed one: a download folder is named from the former and
-        // the history row carries the user's custom title in the latter.
-        storedTitle = payload.storedTitle,
-        chapterName = payload.chapterName,
-        chapterUrl = payload.chapterUrl,
-    )
+    /** Over the row's copies loaded with the lane ([readCopies]); the Downloaded filter asks this too. */
+    private fun historyDownloadUi(lane: RecentsLane, payload: NovelHistoryWithRelations) =
+        copiesDownloadUi(lane, payload.chapterId) {
+            with(payload) { readCopies.copiesOf(chapterId, storedTitle, source, chapterName, null, chapterUrl) }
+        }
 
-    /** Resolved on call through the [downloadStateOf] kernel both adapters share. */
-    private fun chapterDownloadUi(
-        chapterId: Long,
-        source: String,
-        storedTitle: String,
-        chapterName: String,
-        chapterUrl: String,
-    ) = RecentsDownloadUi(
-        state = {
-            val queued = novelDownloadManagerProvider().queueState.value.find { it.chapterId == chapterId }
-            downloadStateOf(queued?.state?.toDownloadState()) {
-                novelDownloadCacheProvider().isChapterDownloaded(source, storedTitle, chapterName, chapterUrl)
-            }
-        },
-        // Same declaration the updated lane makes: the novel downloader tracks no per-chapter progress,
-        // and a zero would read as a download that has genuinely stalled.
-        progress = RecentsDownloadProgress.Unsupported,
-    )
+    private fun copiesDownloadUi(lane: RecentsLane, chapterId: Long, copies: () -> List<ChapterCopyRow>) =
+        recentsCopiesDownloadUi(
+            lane,
+            chapterId,
+            copies,
+            queued = {
+                novelDownloadManagerProvider().queueState.value.find { it.chapterId == chapterId }
+                    ?.state?.toDownloadState()
+            },
+            // Same declaration the updated lane makes: the novel downloader tracks no per-chapter
+            // progress, and a zero would read as a download that has genuinely stalled.
+            progress = RecentsDownloadProgress.Unsupported,
+        ) { copy ->
+            novelDownloadCacheProvider().isChapterDownloaded(
+                copy.ownerSource,
+                copy.ownerTitle,
+                copy.chapterName,
+                copy.chapterUrl,
+            )
+        }
 }
 
 /**
