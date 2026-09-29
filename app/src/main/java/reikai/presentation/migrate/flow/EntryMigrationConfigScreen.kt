@@ -28,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -58,7 +57,6 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
 import mihon.icons.materialsymbols.rounded.Deselect
@@ -97,9 +95,9 @@ class EntryMigrationConfigScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
+        val adapter = rememberMigrationAdapter(contentType)
         val viewModel = assistedMetroViewModel<EntryMigrationConfigViewModel, EntryMigrationConfigViewModel.Factory> {
-            create(adapter = context.appGraph.migrationAdapters.forType(contentType), io = Dispatchers.IO)
+            create(adapter = adapter, io = Dispatchers.IO)
         }
         val state by viewModel.state.collectAsState()
         val listState = rememberLazyListState()

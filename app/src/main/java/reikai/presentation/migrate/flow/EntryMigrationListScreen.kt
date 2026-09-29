@@ -55,7 +55,6 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Dispatchers
-import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.DoneAll
@@ -86,10 +85,11 @@ class EntryMigrationListScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
+        val adapter = rememberMigrationAdapter(contentType)
         val viewModel = assistedMetroViewModel<EntryMigrationListViewModel, EntryMigrationListViewModel.Factory> {
             create(
                 entryIds = entryIds,
-                adapter = context.appGraph.migrationAdapters.forType(contentType),
+                adapter = adapter,
                 extraQuery = extraQuery,
                 io = Dispatchers.IO,
             )

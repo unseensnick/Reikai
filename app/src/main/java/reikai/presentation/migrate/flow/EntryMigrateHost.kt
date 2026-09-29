@@ -2,14 +2,9 @@ package reikai.presentation.migrate.flow
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.autoSaver
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -28,7 +23,6 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
@@ -51,13 +45,14 @@ fun Screen.EntryMigrateFor(
 ) {
     val navigator = LocalNavigator.currentOrThrow
     val context = LocalContext.current
+    val adapter = rememberMigrationAdapter(contentType)
     // One model per content type; the pair is loaded per appearance rather than being a constructor
     // argument, so a cached model can neither serve a stale pair nor accumulate one per pair. The
     // `key` is load-bearing: without it both content types share one instance in this store.
     val viewModel = assistedMetroViewModel<EntryMigrateHostViewModel, EntryMigrateHostViewModel.Factory>(
         key = "migrateHost-$contentType",
     ) {
-        create(adapter = context.appGraph.migrationAdapters.forType(contentType))
+        create(adapter = adapter)
     }
     val request = remember(currentId, targetId) { EntryMigratePair(currentId, targetId) }
     LaunchedEffect(request) { viewModel.load(request) }

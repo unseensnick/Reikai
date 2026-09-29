@@ -11,7 +11,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -44,7 +43,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
-import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
 import mihon.icons.materialsymbols.rounded.FlipToBack
@@ -78,11 +76,11 @@ class EntryMigrationFavoritesScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
+        val adapter = rememberMigrationAdapter(contentType)
         val viewModel =
             assistedMetroViewModel<EntryMigrationFavoritesViewModel, EntryMigrationFavoritesViewModel.Factory> {
                 create(
-                    adapter = context.appGraph.migrationAdapters.forType(contentType),
+                    adapter = adapter,
                     sourceKey = sourceKey,
                 )
             }

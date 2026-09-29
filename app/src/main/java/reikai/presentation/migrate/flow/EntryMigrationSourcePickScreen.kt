@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -21,7 +20,6 @@ import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.MigrationSourcePickContent
 import reikai.presentation.migrate.PickMember
@@ -43,11 +41,11 @@ class EntryMigrationSourcePickScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
+        val adapter = rememberMigrationAdapter(contentType)
         val viewModel =
             assistedMetroViewModel<EntryMigrationSourcePickViewModel, EntryMigrationSourcePickViewModel.Factory> {
                 create(
-                    adapter = context.appGraph.migrationAdapters.forType(contentType),
+                    adapter = adapter,
                     entryIds = entryIds,
                 )
             }

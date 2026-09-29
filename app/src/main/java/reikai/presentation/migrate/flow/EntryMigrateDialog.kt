@@ -17,7 +17,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -34,7 +33,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
-import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
@@ -61,11 +59,11 @@ fun Screen.EntryMigrateDialog(
     // One model per content type: keying by pair would cache a model for every pair ever opened on
     // a long-lived screen, so the pair is loaded per appearance instead of being a constructor arg.
     // The `key` is load-bearing: without it both content types share one instance in this store.
-    val context = LocalContext.current
+    val adapter = rememberMigrationAdapter(contentType)
     val viewModel = assistedMetroViewModel<EntryMigrateDialogViewModel, EntryMigrateDialogViewModel.Factory>(
         key = "migrateDialog-$contentType",
     ) {
-        create(adapter = context.appGraph.migrationAdapters.forType(contentType))
+        create(adapter = adapter)
     }
     val state by viewModel.state.collectAsState()
 

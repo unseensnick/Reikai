@@ -45,7 +45,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
-import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import tachiyomi.core.common.preference.toggle
@@ -73,10 +72,11 @@ class EntryMigrationSearchScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
+        val adapter = rememberMigrationAdapter(contentType)
         val viewModel = assistedMetroViewModel<EntryMigrationSearchViewModel, EntryMigrationSearchViewModel.Factory> {
             create(
                 entryId = entryId,
-                adapter = context.appGraph.migrationAdapters.forType(contentType),
+                adapter = adapter,
                 extraQuery = extraQuery,
                 io = Dispatchers.IO,
             )
