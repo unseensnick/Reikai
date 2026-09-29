@@ -175,6 +175,7 @@ every stable release now also ships a foss build with neither in it.
 - **Tapping History again now always resumes the most recent thing you read, from the library you are looking at.** A search you had typed in could send it to a different entry, and with the Novels chip on it could pick up a manga instead.
 - **Pull to refresh on Updates now spins until the library update has actually finished.** It stopped after a second whatever the update was doing.
 - **An Updates row you expanded to see its new chapters now stays open when the screen rotates.**
+- **History and Updates now show new rows at the top when you were already at the top.** History opened on Yesterday, with what you had just read above the screen.
 
 ### Details
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -266,7 +267,9 @@ fun Screen.RecentsScreen(
                     )
                     else -> {
                         val feed: @Composable () -> Unit = {
-                            FastScrollLazyColumn(contentPadding = bodyPadding) {
+                            val listState = rememberLazyListState()
+                            KeepListAtTop(listState, rows.first().listKey())
+                            FastScrollLazyColumn(state = listState, contentPadding = bodyPadding) {
                                 if (showsUpdated) {
                                     lastUpdatedItem(lastUpdated)
                                 }
