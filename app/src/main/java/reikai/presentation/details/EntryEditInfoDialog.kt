@@ -314,7 +314,7 @@ private fun EditEntryInfoBinding.setup(
 
 /**
  * Fill the fields from a tracker's metadata. Text fields replace only when the tracker has a value;
- * genres merge into the existing chips (append-distinct) so autofill never wipes curated tags. The
+ * genres merge into the existing chips by [mergeTrackerGenres] so autofill never wipes curated tags. The
  * cover preview is not refreshed here (a typed/filled URL takes effect on Save, matching [setup]).
  */
 private fun EditEntryInfoBinding.applyMetadata(meta: TrackMangaMetadata, colorScheme: ColorScheme) {
@@ -324,9 +324,9 @@ private fun EditEntryInfoBinding.applyMetadata(meta: TrackMangaMetadata, colorSc
     thumbnailUrl.setTextIfNotBlank(meta.thumbnailUrl)
     mangaDescription.setTextIfNotBlank(meta.description)
 
-    val genres = meta.genres.orEmpty().filter { it.isNotBlank() }
-    if (genres.isNotEmpty()) {
-        mangaGenresTags.setChips((mangaGenresTags.collectTags() + genres).distinct(), colorScheme)
+    val genres = meta.genres.orEmpty()
+    if (genres.any { it.isNotBlank() }) {
+        mangaGenresTags.setChips(mergeTrackerGenres(mangaGenresTags.collectTags(), genres), colorScheme)
     }
 }
 

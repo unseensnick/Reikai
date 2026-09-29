@@ -508,6 +508,7 @@ every stable release now also ships a foss build with neither in it.
 - **Backing out of the category choice when adding a manga from its page no longer binds its server tracker.**
 - **Kitsu tracking restored from an old Yokai backup now refreshes and updates again, on manga and novels.** The restored link pointed at your Kitsu list entry instead of the series, so every refresh reported Kitsu as failed; it now repairs itself the first time it is used.
 
+- **Fill from tracker no longer adds a genre the manga or novel already has as a tag in different capitals.** The existing tag keeps its spelling, and new genres are still added after your tags.
 - **Fill from tracker now says "No entry found" when the tracker has no such entry.** A failure with no reason says "Unknown error" instead of ending in a blank.
 - **Start and finish dates pulled from MangaBaka no longer land a day early in timezones behind UTC (synced from Mihon, mihonapp/mihon#3711).**
 - **AniList tracking now stays under the service's request limit (synced from Mihon, mihonapp/mihon#3942).** The old ceiling sat above what AniList allows, so a burst of updates could come back rejected.

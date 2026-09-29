@@ -191,7 +191,10 @@ pass (2026-07-08) that traced Komikku's API and verified every tracker against i
   pipeline. **Hikka** has no Komikku reference (Komikku lacks Hikka); its DTO was extended to the live
   `MangaInfoResponse` (synopsis/authors/genres), with markdown-link stripping on the synopsis.
 - **Level-up over Komikku:** genres are filled everywhere the tracker exposes a clean list (Komikku fetches
-  none), merged append-distinct into the chips so autofill never wipes curated tags; Bangumi is the only
+  none), appended to the chips so autofill never wipes curated tags, by one kernel both content types
+  call (`mergeTrackerGenres`): a genre matching an existing tag bar case or surrounding spaces is not
+  added again, and the tag's own spelling wins, so an all-caps source tag and a tracker's title-case
+  genre cannot sit side by side. Merge rather than replace, because the tags may be the user's own. Bangumi is the only
   tracker with no usable genre field.
 - **Genres decision:** genres-only, skip the noisy tag/category dumps (AniList `tags` 66 w/ spoiler+adult
   flags, MangaUpdates `categories` 262 vote-noise). MangaDex uses the source's genre string as-is.
