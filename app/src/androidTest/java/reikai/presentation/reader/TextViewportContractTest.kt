@@ -1395,21 +1395,19 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
     @Test
     fun aTapOnAFailedPicturesRetryLoadsIt() {
-        val picture = PngServer(pngOf(SMALL_IMAGE_PX, SMALL_IMAGE_PX), failFirst = Int.MAX_VALUE).also { server = it }
-        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${picture.url}\"><p>$BELOW_RULE</p>"))
-        awaitWhile { imageFailure() == null }
-        picture.recover()
-        // Nothing but the tap may ask again: a render landing late would load it with no Retry at all.
-        Thread.sleep(QUIET_MS)
-        assertEquals("the picture loaded before the tap", true, imageFailure())
-        val failed = failedPictureHolder()
-        // The box changed the chapter's height, so Retry is found once the reader has stopped moving.
-        awaitScrollStill()
-        val retry = retryCentre()
-        val at = viewLocation()
-        tap(retry.x - at[0], retry.y - at[1])
+        val failed = tapRetryOnAFailedPicture()
         awaitWhile { !loadedInPlace(failed) }
         assertTrue("the picture never loaded where it failed", loadedInPlace(failed))
+    }
+
+    /** Retry is the reader's own control, so it answers a tap where the text has taken the touch for
+     *  selection, and the tap is not the chrome's as well. */
+    @Test
+    fun aTapOnAFailedPicturesRetryLoadsItWithSelectableText() {
+        useSelectableText()
+        val failed = tapRetryOnAFailedPicture()
+        awaitWhile { !loadedInPlace(failed) }
+        assertEquals(true to 0, loadedInPlace(failed) to menuToggles.get())
     }
 
     /** An inline picture has nowhere to be asked for again. */
@@ -2295,6 +2293,25 @@ class TextViewportContractTest(private val renderer: Renderer) {
             bottom
         }
         Renderer.WEB -> textBox(text).bottom
+    }
+
+    /** Opens a chapter whose picture fails, lets the server recover, and taps Retry. Returns the native
+     *  renderer's holder of the failed picture ([failedPictureHolder]). */
+    private fun tapRetryOnAFailedPicture(): DrawableWrapper? {
+        val picture = PngServer(pngOf(SMALL_IMAGE_PX, SMALL_IMAGE_PX), failFirst = Int.MAX_VALUE).also { server = it }
+        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${picture.url}\"><p>$BELOW_RULE</p>"))
+        awaitWhile { imageFailure() == null }
+        picture.recover()
+        // Nothing but the tap may ask again: a render landing late would load it with no Retry at all.
+        Thread.sleep(QUIET_MS)
+        assertEquals("the picture loaded before the tap", true, imageFailure())
+        val failed = failedPictureHolder()
+        // The box changed the chapter's height, so Retry is found once the reader has stopped moving.
+        awaitScrollStill()
+        val retry = retryCentre()
+        val at = viewLocation()
+        tap(retry.x - at[0], retry.y - at[1])
+        return failed
     }
 
     /** Null while no picture has failed, else whether its box offers Retry. */

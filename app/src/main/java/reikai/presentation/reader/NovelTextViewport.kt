@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Paint
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.text.Spannable
@@ -53,9 +54,11 @@ import reikai.presentation.reader.text.NovelWindowReach
 import reikai.presentation.reader.text.ParagraphShape
 import reikai.presentation.reader.text.ReadAloudBoxDecoration
 import reikai.presentation.reader.text.ReadAloudMark
+import reikai.presentation.reader.text.ReaderControlSpan
 import reikai.presentation.reader.text.chapterSwipeStep
 import reikai.presentation.reader.text.chunkRange
 import reikai.presentation.reader.text.hasTravelled
+import reikai.presentation.reader.text.linksAt
 import reikai.presentation.reader.text.readAloudParagraphs
 import reikai.presentation.reader.text.shownCharOffset
 import reikai.presentation.reader.text.shownCharPrefix
@@ -238,7 +241,7 @@ class NovelTextViewport(
         context,
         object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapUp(e: MotionEvent): Boolean {
-                onReaderTap(e.x, e.y)
+                if (!tapReaderControl(e.x, e.y)) onReaderTap(e.x, e.y)
                 return false
             }
         },
@@ -1036,6 +1039,29 @@ class NovelTextViewport(
                 y - item.top in it.top.toFloat()..it.bottom.toFloat()
         } == true
         if (!onFailure) onTap(x, y)
+    }
+
+    /**
+     * Runs the reader's own control under a tap on selectable text, where the Editor takes the touch and
+     * no movement method dispatches a span. Only a [ReaderControlSpan]: the chapter's links stay dead
+     * with selection on, as its setting's summary says. Returns whether one took the tap.
+     */
+    private fun tapReaderControl(x: Float, y: Float): Boolean {
+        val (chunk, bounds) = slots.asSequence()
+            .flatMap { it.block.chunkViews }
+            .filter { topInRecycler(it) != null }
+            .map { view ->
+                val bounds = Rect(0, 0, view.width, view.height)
+                recycler.offsetDescendantRectToMyCoords(view, bounds)
+                view to bounds
+            }
+            .firstOrNull { (_, bounds) -> bounds.contains(x.toInt(), y.toInt()) }
+            ?: return false
+        val text = chunk.text as? Spanned ?: return false
+        val control = chunk.linksAt(text, x - bounds.left, y - bounds.top).firstOrNull { it is ReaderControlSpan }
+            ?: return false
+        control.onClick(chunk)
+        return true
     }
 
     /** A swipe between chapters, by the rule both renderers take from `ChapterSwipe.kt`. */

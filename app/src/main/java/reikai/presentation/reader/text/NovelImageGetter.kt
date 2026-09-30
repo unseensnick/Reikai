@@ -457,8 +457,11 @@ class NovelImageGetter(
         )
     }
 
-    /** A link over a failed picture, so LinkOnlyMovementMethod gives it the tap a link gets. */
-    private inner class RetryImageSpan(val imageUrl: String, val wrapper: DrawableWrapper) : ClickableSpan() {
+    /** A link over a failed picture, so LinkOnlyMovementMethod gives it the tap a link gets, and a reader
+     *  control, so with selectable text the viewport's tap watcher gives it that tap instead. */
+    private inner class RetryImageSpan(val imageUrl: String, val wrapper: DrawableWrapper) :
+        ClickableSpan(),
+        ReaderControlSpan {
         override fun onClick(widget: View) {
             val box = wrapper.innerDrawable as? ImageFailureDrawable ?: return
             if (box.retrying) return
