@@ -350,6 +350,16 @@ class NovelChapterAggregationTest {
     }
 
     @Test
+    fun `a source sharing no chapter with the trunk follows it`() {
+        val trunk = listOf(chapter(1L, 1.0, "Alpha"), chapter(1L, 2.0, "Bravo"), chapter(1L, 3.0, "Charlie"))
+        val other = listOf(chapter(2L, 1.0, "Delta"), chapter(2L, 2.0, "Echo"))
+
+        val unified = NovelChapterAggregation.merge(mapOf(1L to trunk, 2L to other)).chapters
+
+        unified.map { it.name } shouldBe listOf("Alpha", "Bravo", "Charlie", "Delta", "Echo")
+    }
+
+    @Test
     fun `a chapter only the other source has lands between its neighbours`() {
         val trunk = listOf(chapter(1L, 1.0, "Alpha"), chapter(1L, 3.0, "Charlie"))
         val other = listOf(chapter(2L, 1.0, "Alpha"), chapter(2L, 2.0, "Bravo"), chapter(2L, 3.0, "Charlie"))

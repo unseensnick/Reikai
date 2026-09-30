@@ -1,5 +1,7 @@
 package reikai.domain.merge
 
+import java.util.Collections
+
 /**
  * [merged] with each chapter's source order overwritten by its merged position, the only order
  * comparable across sources: each source numbered its own list, and a sort on those interleaves them.
@@ -31,6 +33,12 @@ class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
     /** Where the last chapter this source contributed or matched sits. */
     private var cursor = -1
 
+    /** How many chapters this source placed. Until it matches one an earlier source placed, they are
+     *  exactly the head of [order], since it started from the top. */
+    private var placedBySource = 0
+
+    private var anchored = false
+
     /** Chapters this source offered that carry no identity, waiting on the next one that does. */
     private val deferred = mutableListOf<T>()
 
@@ -40,8 +48,10 @@ class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
 
     /** Call before walking each source, so it starts placing from the top again. */
     fun startSource() {
-        placeDeferred()
+        finishSource()
         cursor = -1
+        placedBySource = 0
+        anchored = false
     }
 
     /**
@@ -66,6 +76,8 @@ class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
      * the runs do not correspond and every one is kept.
      */
     fun followTo(index: Int, item: T) {
+        // A match inside this source's own head run is a repeated identity of its own, no anchor.
+        if (index >= placedBySource) anchored = true
         val between = index - cursor - 1
         if (deferred.size == between) {
             deferred.forEachIndexed { offset, held -> copies += held to order[cursor + 1 + offset].item }
@@ -89,14 +101,26 @@ class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
 
     fun place(item: T) {
         cursor += 1
+        placedBySource += 1
         val key = keyOf(item)
         order.add(cursor, Placed(key, item))
         if (key != null) placedKeys.add(key)
     }
 
     fun result(): Stitched<T> {
-        placeDeferred()
+        finishSource()
         return Stitched(order.map { it.item }, copies)
+    }
+
+    /**
+     * A source that matched nothing an earlier one placed has no position against them, and starting
+     * from the top would bury the trunk's first chapter under its whole run, so the run moves to the
+     * end of the walk: after the trunk for novels, which walk oldest first, and at the older end for
+     * manga, whose sources mostly list newest first. The trunk's own run is the whole order, a no-op.
+     */
+    private fun finishSource() {
+        placeDeferred()
+        if (!anchored) Collections.rotate(order, -placedBySource)
     }
 
     /** A run with no closing chapter cannot be aligned against anything, so it is kept. */

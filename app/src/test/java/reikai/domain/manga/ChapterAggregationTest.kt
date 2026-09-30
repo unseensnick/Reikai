@@ -326,6 +326,17 @@ class ChapterAggregationTest {
     }
 
     @Test
+    fun `a source sharing no chapter with the trunk follows it in walk order`() {
+        // Sources mostly list newest first, so the end of the walk is the trunk's older end.
+        val trunk = listOf(chapter(1L, 3.0), chapter(1L, 2.0), chapter(1L, 1.0))
+        val other = listOf(chapter(2L, 11.0), chapter(2L, 10.0))
+
+        val unified = ChapterAggregation.merge(mapOf(1L to trunk, 2L to other)).chapters
+
+        unified.map { it.chapterNumber } shouldBe listOf(3.0, 2.0, 1.0, 11.0, 10.0)
+    }
+
+    @Test
     fun `a chapter only the other source has lands between its neighbours`() {
         // The output is a reading order, not a pool the caller sorts: a gap-filled chapter has to sit
         // where it belongs, because no key it carries is comparable across sources.

@@ -76,6 +76,39 @@ class MergedChapterOrderTest {
     }
 
     @Test
+    @DisplayName("a source matching nothing already placed follows the others")
+    fun unanchoredSourceFollows() {
+        val order = order()
+
+        order.addSource("a:1", "b:1")
+        order.addSource("x:2", "y:2")
+
+        order.result().merged shouldBe listOf("a:1", "b:1", "x:2", "y:2")
+    }
+
+    @Test
+    @DisplayName("a source matching only its own earlier chapter still follows the others")
+    fun selfMatchIsNoAnchor() {
+        val order = order()
+
+        order.addSource("a:1", "b:1")
+        order.addSource("x:2", "y:2", "x:2")
+
+        order.result().merged shouldBe listOf("a:1", "b:1", "x:2", "y:2")
+    }
+
+    @Test
+    @DisplayName("an unidentifiable run from a source matching nothing follows the others")
+    fun unanchoredDeferredRunFollows() {
+        val order = order()
+
+        order.addTrunk("a:1", "b:1")
+        order.addSourceDeferring("?x:2", "?y:2")
+
+        order.result().merged shouldBe listOf("a:1", "b:1", "?x:2", "?y:2")
+    }
+
+    @Test
     @DisplayName("a chapter with no identity is never matched away")
     fun unkeyableChapterIsKept() {
         // Where it lands is not knowable, which is why both aggregations only ever place an
