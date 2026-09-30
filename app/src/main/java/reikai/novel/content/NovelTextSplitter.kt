@@ -29,30 +29,11 @@ object NovelTextSplitter {
         }
     }
 
-    private fun splitPlainText(text: String, targetWordCount: Int): String {
-        val result = StringBuilder()
-        val words = text.split(Regex("\\s+"))
-        var wordsSincePunctuation = 0
-
-        for (i in words.indices) {
-            val word = words[i]
-            if (word.isEmpty()) continue
-
-            result.append(word)
-            wordsSincePunctuation++
-
-            val endsWithPunctuation = word.lastOrNull()?.let { it in sentenceEndingPunctuation } == true
-
-            if (endsWithPunctuation && wordsSincePunctuation >= targetWordCount) {
-                result.append("\n\n")
-                wordsSincePunctuation = 0
-            } else {
-                result.append(" ")
-            }
+    // Each line is walked afresh, so an existing break restarts the count and survives as it came.
+    private fun splitPlainText(text: String, targetWordCount: Int): String =
+        text.split('\n').joinToString("\n") { line ->
+            buildString { appendSplitting(line, this, wordsSincePunctuation = 0, targetWordCount, "\n\n") }
         }
-
-        return result.toString().trim()
-    }
 
     private fun splitHtmlText(html: String, targetWordCount: Int): String {
         val result = StringBuilder()
@@ -85,35 +66,52 @@ object NovelTextSplitter {
             } else {
                 val nextTag = html.indexOf('<', i)
                 val textEnd = if (nextTag == -1) html.length else nextTag
-                val text = html.substring(i, textEnd)
-
-                // Walk character by character to preserve the original whitespace exactly.
-                var ti = 0
-                while (ti < text.length) {
-                    val wsStart = ti
-                    while (ti < text.length && text[ti].isWhitespace()) ti++
-                    if (ti > wsStart) result.append(text, wsStart, ti)
-                    if (ti >= text.length) break
-
-                    val wordStart = ti
-                    while (ti < text.length && !text[ti].isWhitespace()) ti++
-                    val word = text.substring(wordStart, ti)
-
-                    result.append(word)
-                    wordsSincePunctuation++
-
-                    val endsWithPunctuation = word.lastOrNull()?.let { it in sentenceEndingPunctuation } == true
-                    if (endsWithPunctuation && wordsSincePunctuation >= targetWordCount) {
-                        // Line breaks rather than paragraph tags, so the split stays valid inside
-                        // div-based chapters and body-level plain HTML.
-                        result.append("<br><br>")
-                        wordsSincePunctuation = 0
-                    }
-                }
+                // Line breaks rather than paragraph tags, so the split stays valid inside div-based
+                // chapters and body-level plain HTML.
+                wordsSincePunctuation = appendSplitting(
+                    html.substring(i, textEnd),
+                    result,
+                    wordsSincePunctuation,
+                    targetWordCount,
+                    "<br><br>",
+                )
                 i = textEnd
             }
         }
 
         return result.toString()
+    }
+
+    /**
+     * Appends [text] to [out] with its whitespace intact, adding [breakMark] after the first sentence
+     * end at or past [targetWordCount] words. Returns the running count, for a caller that carries it
+     * across text runs.
+     */
+    private fun appendSplitting(
+        text: String,
+        out: StringBuilder,
+        wordsSincePunctuation: Int,
+        targetWordCount: Int,
+        breakMark: String,
+    ): Int {
+        var count = wordsSincePunctuation
+        var ti = 0
+        while (ti < text.length) {
+            val wsStart = ti
+            while (ti < text.length && text[ti].isWhitespace()) ti++
+            if (ti > wsStart) out.append(text, wsStart, ti)
+            if (ti >= text.length) break
+
+            val wordStart = ti
+            while (ti < text.length && !text[ti].isWhitespace()) ti++
+            out.append(text, wordStart, ti)
+            count++
+
+            if (text[ti - 1] in sentenceEndingPunctuation && count >= targetWordCount) {
+                out.append(breakMark)
+                count = 0
+            }
+        }
+        return count
     }
 }

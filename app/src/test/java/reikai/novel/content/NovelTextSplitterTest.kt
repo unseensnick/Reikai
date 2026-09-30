@@ -44,6 +44,26 @@ class NovelTextSplitterTest {
         NovelTextSplitter.splitText(text, wordCount = 20, isHtml = false) shouldNotContain "\n\n"
     }
 
+    /** A line break restarts the count, so a text file already in paragraphs is left alone. */
+    @Test
+    fun `plain text keeps its own paragraphs and line breaks`() {
+        val text = "${sentences(count = 1, wordsEach = 15)}\n\n${sentences(count = 1, wordsEach = 15)}\n" +
+            sentences(count = 1, wordsEach = 15)
+
+        NovelTextSplitter.splitText(text, wordCount = 20, isHtml = false) shouldBe text
+    }
+
+    @Test
+    fun `plain text breaks an overlong line and keeps the paragraph after it`() {
+        val first = sentences(count = 1, wordsEach = 30)
+        val second = sentences(count = 1, wordsEach = 10)
+        val shortParagraph = sentences(count = 1, wordsEach = 5)
+
+        val split = NovelTextSplitter.splitText("$first $second\n\n$shortParagraph", wordCount = 20, isHtml = false)
+
+        split.split(Regex("\n\n\\s*")) shouldBe listOf(first, second, shortParagraph)
+    }
+
     /** Below twenty the target is raised, so a small number cannot shred the text into fragments. */
     @Test
     fun `a target below the floor is raised to it`() {
