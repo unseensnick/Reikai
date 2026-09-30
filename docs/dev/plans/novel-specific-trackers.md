@@ -453,6 +453,14 @@ That is the opposite of RanobeDB, whose SvelteKit host needs `Origin` on any non
 generated Cloud Run hostname carrying their project number, and it is the only host the spec
 describes. A move to a custom domain would brick the client, which is why the base URL is editable.
 
+**The editable address is taken only over https, and a backup never sets it** (owner ruling L2 on the
+2026-09-30 deep-audit leads). Every authenticated call carries the JWT as a bearer, so
+`NovelListApi.novelListApiUrl` falls back to the built-in host for an http or unparseable address,
+and `AppPreferenceCarry` skips `novellist_api_url` on restore, since a shared backup could otherwise
+point the next sign-in at its author's host. The host itself stays unrestricted, because allowing a
+move is the reason the setting exists. No LAN exception: NovelList is a public service, unlike the
+self-hosted bypass server.
+
 **MyNovelList's risk was who runs it, not whether it works, and that is what decided it.** The API is
 sound; the deployment behind it is a one-evening side project with an empty catalogue. The verdict
 and the evidence are in Status.

@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.backup
 
 import android.content.SharedPreferences
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.backup.create.creators.PreferenceBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.configurableSources
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
@@ -155,6 +156,7 @@ class SourcePreferencesBackupTest {
             novelPreferences,
             SourcePreferences(store),
             NetworkPreferences(store, isDebugBuild = false),
+            TrackPreferences(store),
         ),
     )
 

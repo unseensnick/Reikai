@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import android.content.Context
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
@@ -66,7 +67,12 @@ class PreferenceRestorerTest {
         preferenceStore = store,
         categoryIdPreferences = mockk<CategoryIdPreferences>(relaxed = true),
         getNovelCategories = mockk(),
-        appPreferenceCarry = AppPreferenceCarry(novelPreferences, sourcePreferences, networkPreferences),
+        appPreferenceCarry = AppPreferenceCarry(
+            novelPreferences,
+            sourcePreferences,
+            networkPreferences,
+            TrackPreferences(store),
+        ),
     )
 
     /** All five are WorkManager scheduling the restore does on its way out, which needs a real app. */
@@ -303,6 +309,17 @@ class PreferenceRestorerTest {
         )
 
         novelPreferences.readerWebViewDevTools().get() shouldBe false
+    }
+
+    /** The address decides where the tracker's sign-in token goes, and a shared backup is someone else's. */
+    @Test
+    @DisplayName("a restored novellist server address is not stored")
+    fun restoredNovelListAddressIsNotStored() = runTest {
+        val address = TrackPreferences(store).novelListApiUrl
+
+        restoreString(address.key(), "https://elsewhere.example/api")
+
+        address.isSet() shouldBe false
     }
 
     /** The switch comes before the bar in the backup, so the bar restored after it must still gain the button. */

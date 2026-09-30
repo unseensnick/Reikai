@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -98,5 +99,11 @@ class NovelListApi(
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
         fun novelUrl(slug: String): String = "$BASE_URL/novels/$slug"
+
+        /** The user's [override] of [DEFAULT_API_URL], taken only over https: authenticated calls carry the JWT. */
+        fun novelListApiUrl(override: String): String {
+            val url = override.trim().trimEnd('/')
+            return if (url.toHttpUrlOrNull()?.isHttps == true) url else DEFAULT_API_URL
+        }
     }
 }

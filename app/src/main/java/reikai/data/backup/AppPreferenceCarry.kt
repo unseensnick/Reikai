@@ -2,6 +2,7 @@ package reikai.data.backup
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
@@ -33,6 +34,7 @@ class AppPreferenceCarry(
     private val novelPreferences: NovelPreferences,
     private val extensionSourcePreferences: SourcePreferences,
     private val networkPreferences: NetworkPreferences,
+    private val trackPreferences: TrackPreferences,
 ) {
 
     /** Carries the keys it owns, hands the rest to [write], then applies what must follow the write. */
@@ -72,6 +74,8 @@ class AppPreferenceCarry(
                 (value as? BooleanPreferenceValue)?.let { novelPreferences.carryReaderTapToScroll(it.value) }
             DEAD_READER_AUTO_SCROLL_KEY ->
                 (value as? BooleanPreferenceValue)?.let { novelPreferences.carryReaderAutoScroll(it.value) }
+            // The address decides where the NovelList sign-in token goes, so a backup never moves it.
+            trackPreferences.novelListApiUrl.key() -> Unit
             else -> return key in SKIPPED_KEYS || SKIPPED_PREFIXES.any(key::startsWith)
         }
         return true

@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
@@ -82,6 +83,7 @@ class CategoryPreferenceRestoreTest {
             NovelPreferences(store),
             SourcePreferences(store),
             NetworkPreferences(store, isDebugBuild = false),
+            TrackPreferences(store),
         ),
     )
 

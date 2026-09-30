@@ -44,10 +44,7 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
     private val interceptor by lazy { NovelListInterceptor(restoreToken()) }
 
     private val api by lazy {
-        NovelListApi(interceptor, client) {
-            trackPreferences.novelListApiUrl.get().trim().trimEnd('/')
-                .ifBlank { NovelListApi.DEFAULT_API_URL }
-        }
+        NovelListApi(interceptor, client) { NovelListApi.novelListApiUrl(trackPreferences.novelListApiUrl.get()) }
     }
 
     override fun getLogo(): Int = R.drawable.brand_novellist
