@@ -38,12 +38,10 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
-import reikai.presentation.download.DownloadQueueSort
 import reikai.presentation.download.DownloadQueueSortSheet
 import reikai.presentation.download.EntryDownloadCardList
 import reikai.presentation.download.EntryDownloadQueueViewModel
 import reikai.presentation.download.EntryDownloadSeriesSheet
-import reikai.presentation.download.next
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.i18n.MR
@@ -66,7 +64,6 @@ object DownloadQueueScreen : Screen() {
         val isRunning = queueState is DownloadQueueState.Downloading
         val hasQueue = state.cards.isNotEmpty()
         var showSortSheet by remember { mutableStateOf(false) }
-        var sort by remember { mutableStateOf<DownloadQueueSort?>(null) }
         // RK <--
 
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
@@ -204,12 +201,7 @@ object DownloadQueueScreen : Screen() {
 
             if (showSortSheet) {
                 DownloadQueueSortSheet(
-                    sort = sort,
-                    onSort = { key ->
-                        val applied = sort.next(key)
-                        sort = applied
-                        screenModel.sort(applied.key, applied.descending)
-                    },
+                    onSort = { screenModel.sort(it.key, it.descending) },
                     onDismissRequest = { showSortSheet = false },
                 )
             }

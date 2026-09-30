@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
@@ -28,15 +32,18 @@ fun DownloadQueueSort?.next(tapped: DownloadQueueSortKey): DownloadQueueSort =
 /**
  * Sort modal for the download queue, built on the same [TabbedDialog] + [SortItem] as the library and
  * chapter sort sheets (rather than a nested overflow menu). Only the sort applied since the sheet was
- * opened shows an arrow, since a drag or a new enqueue can reorder the queue at any time. Stays open
- * so the direction can be toggled.
+ * opened shows an arrow, since a drag or a new enqueue can reorder the queue at any time, so the sheet
+ * holds that sort itself and a reopened sheet starts with none. Stays open so the direction can be toggled.
  */
 @Composable
 fun DownloadQueueSortSheet(
-    sort: DownloadQueueSort?,
-    onSort: (DownloadQueueSortKey) -> Unit,
+    onSort: (DownloadQueueSort) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
+    var sort by remember { mutableStateOf<DownloadQueueSort?>(null) }
+    fun apply(key: DownloadQueueSortKey) {
+        sort = sort.next(key).also(onSort)
+    }
     TabbedDialog(
         onDismissRequest = onDismissRequest,
         tabTitles = listOf(stringResource(MR.strings.action_sort)),
@@ -48,13 +55,13 @@ fun DownloadQueueSortSheet(
         ) {
             SortItem(
                 label = stringResource(MR.strings.action_order_by_chapter_number),
-                sortDescending = sort?.descending?.takeIf { sort.key == DownloadQueueSortKey.CHAPTER_NUMBER },
-                onClick = { onSort(DownloadQueueSortKey.CHAPTER_NUMBER) },
+                sortDescending = sort?.takeIf { it.key == DownloadQueueSortKey.CHAPTER_NUMBER }?.descending,
+                onClick = { apply(DownloadQueueSortKey.CHAPTER_NUMBER) },
             )
             SortItem(
                 label = stringResource(MR.strings.action_order_by_upload_date),
-                sortDescending = sort?.descending?.takeIf { sort.key == DownloadQueueSortKey.UPLOAD_DATE },
-                onClick = { onSort(DownloadQueueSortKey.UPLOAD_DATE) },
+                sortDescending = sort?.takeIf { it.key == DownloadQueueSortKey.UPLOAD_DATE }?.descending,
+                onClick = { apply(DownloadQueueSortKey.UPLOAD_DATE) },
             )
         }
     }
