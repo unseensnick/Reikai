@@ -53,17 +53,6 @@ class NovelReaderCssValuesTest {
         cssBackgroundColor("#12345") shouldBe readerDarkPreset.background
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = ["left", "center", "right", "justify"])
-    fun `each alignment the sheet offers is passed through`(alignment: String) {
-        cssTextAlign(alignment) shouldBe alignment
-    }
-
-    @Test
-    fun `an alignment that is not one of them falls back to left`() {
-        cssTextAlign("left; } </style><script>alert(1)</script>") shouldBe "left"
-    }
-
     @Test
     fun `a family name is passed through`() {
         cssFontFamily("Noto Serif") shouldBe "Noto Serif"

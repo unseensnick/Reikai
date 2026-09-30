@@ -44,6 +44,7 @@ import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
+import reikai.domain.novel.NovelTextAlign
 import reikai.domain.novel.tts.TtsColorPreset
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
@@ -149,17 +150,18 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
             modifier = Modifier.weight(1f),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf(
-                Triple("left", ReikaiIcons.FormatAlignLeft, MR.strings.pref_novel_text_align_left),
-                Triple("center", ReikaiIcons.FormatAlignCenter, MR.strings.pref_novel_text_align_center),
-                Triple("justify", ReikaiIcons.FormatAlignJustify, MR.strings.pref_novel_text_align_justify),
-                Triple("right", ReikaiIcons.FormatAlignRight, MR.strings.pref_novel_text_align_right),
-            ).forEach { (value, icon, labelRes) ->
+            NovelTextAlign.entries.forEach { align ->
+                val icon = when (align) {
+                    NovelTextAlign.LEFT -> ReikaiIcons.FormatAlignLeft
+                    NovelTextAlign.CENTER -> ReikaiIcons.FormatAlignCenter
+                    NovelTextAlign.JUSTIFY -> ReikaiIcons.FormatAlignJustify
+                    NovelTextAlign.RIGHT -> ReikaiIcons.FormatAlignRight
+                }
                 FilledIconToggleButton(
-                    checked = textAlign == value,
-                    onCheckedChange = { preferences.readerTextAlign().set(value) },
+                    checked = textAlign == align,
+                    onCheckedChange = { preferences.readerTextAlign().set(align) },
                 ) {
-                    Icon(icon, contentDescription = stringResource(labelRes))
+                    Icon(icon, contentDescription = stringResource(align.titleRes))
                 }
             }
         }

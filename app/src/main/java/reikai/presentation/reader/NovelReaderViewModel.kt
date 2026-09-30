@@ -57,6 +57,7 @@ import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.NovelTextAlign
 import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.GetNextNovelChapter
@@ -1561,7 +1562,7 @@ class NovelReaderViewModel(
     private data class TypePrefs(
         val fontSize: Int,
         val lineHeight: Float,
-        val textAlign: String,
+        val textAlign: NovelTextAlign,
         val fontFamily: String,
     )
     private data class DisplayPrefs(

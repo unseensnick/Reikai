@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import reikai.domain.novel.NovelTextAlign
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.novel.font.fontDisplayName
 import reikai.presentation.reader.web.NovelWebSnippets
@@ -14,7 +15,7 @@ import reikai.presentation.reader.web.NovelWebSnippets
 data class NovelReaderSettings(
     val fontSize: Int,
     val lineHeight: Float,
-    val textAlign: String,
+    val textAlign: NovelTextAlign,
     val margins: ReaderMargins,
     /** First-line indent, as a multiple of [fontSize]. */
     val paragraphIndent: Float,

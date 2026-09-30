@@ -117,7 +117,7 @@ object NovelWebDocument {
         append("--rk-text:").append(cssTextColor(settings.textColor)).append(';')
         append("--rk-font-size:").append(settings.fontSize).append("px;")
         append("--rk-line-height:").append(settings.lineHeight).append(';')
-        append("--rk-text-align:").append(cssTextAlign(settings.textAlign)).append(';')
+        append("--rk-text-align:").append(settings.textAlign.value).append(';')
         // The Default font is the device's own, which is what the native renderer draws it as
         // (Typeface.DEFAULT) and what its summary says. A serif fallback drew a different face in
         // each rendering mode from one setting.

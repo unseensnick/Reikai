@@ -14,8 +14,6 @@ import reikai.presentation.reader.readerDarkPreset
  * because CSS escaping is per-context while these shapes are small enough to state exactly.
  */
 
-private val cssTextAlignments = setOf("left", "center", "right", "justify")
-
 /** [value] when it is a colour [readerColorOrNull] reads, which is what the native renderer draws too. */
 fun cssColorOrDefault(value: String, fallback: String): String =
     if (readerColorOrNull(value) != null) value else fallback
@@ -23,8 +21,6 @@ fun cssColorOrDefault(value: String, fallback: String): String =
 fun cssBackgroundColor(value: String): String = cssColorOrDefault(value, readerDarkPreset.background)
 
 fun cssTextColor(value: String): String = cssColorOrDefault(value, readerDarkPreset.textColor)
-
-fun cssTextAlign(value: String): String = if (value in cssTextAlignments) value else "left"
 
 /**
  * A family name as CSS can read it, quoted or not: the characters that would end the declaration or

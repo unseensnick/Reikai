@@ -23,6 +23,7 @@ import mihon.app.di.appGraph
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
+import reikai.domain.novel.NovelTextAlign
 import reikai.domain.novel.tts.TtsColorPreset
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
@@ -267,12 +268,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerTextAlign(),
-                    entries = mapOf(
-                        "left" to stringResource(MR.strings.pref_novel_text_align_left),
-                        "center" to stringResource(MR.strings.pref_novel_text_align_center),
-                        "justify" to stringResource(MR.strings.pref_novel_text_align_justify),
-                        "right" to stringResource(MR.strings.pref_novel_text_align_right),
-                    ),
+                    entries = NovelTextAlign.entries.associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_novel_text_align),
                 ),
                 marginRow(novelPreferences.readerMarginTop(), MR.strings.pref_margin_top),

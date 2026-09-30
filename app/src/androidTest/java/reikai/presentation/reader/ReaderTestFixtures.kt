@@ -2,6 +2,7 @@ package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
 import reikai.domain.novel.NovelTapLayout
+import reikai.domain.novel.NovelTextAlign
 import reikai.domain.novel.tts.TtsHighlightStyle
 
 /**
@@ -12,7 +13,7 @@ import reikai.domain.novel.tts.TtsHighlightStyle
 internal val readerTestSettings = NovelReaderSettings(
     fontSize = 18,
     lineHeight = 1.6f,
-    textAlign = "left",
+    textAlign = NovelTextAlign.LEFT,
     margins = ReaderMargins(top = 24, bottom = 24, left = 16, right = 16),
     paragraphIndent = 1f,
     paragraphSpacing = 0.6f,

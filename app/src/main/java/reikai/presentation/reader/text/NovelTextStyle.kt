@@ -9,6 +9,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.TextView
 import logcat.LogPriority
+import reikai.domain.novel.NovelTextAlign
 import reikai.novel.font.NovelFontManager
 import reikai.novel.font.isGenericFont
 import reikai.novel.font.isSupportedFontFile
@@ -89,16 +90,16 @@ object NovelTextStyle {
     }
 
     /** Justification is a paragraph property the framework only honours from API 26, our minimum. */
-    private fun applyAlignment(view: TextView, align: String) {
-        view.justificationMode = if (align == "justify") {
+    private fun applyAlignment(view: TextView, align: NovelTextAlign) {
+        view.justificationMode = if (align == NovelTextAlign.JUSTIFY) {
             Layout.JUSTIFICATION_MODE_INTER_WORD
         } else {
             Layout.JUSTIFICATION_MODE_NONE
         }
         view.gravity = when (align) {
-            "center" -> Gravity.CENTER_HORIZONTAL
-            "right" -> Gravity.END
-            else -> Gravity.START
+            NovelTextAlign.LEFT, NovelTextAlign.JUSTIFY -> Gravity.START
+            NovelTextAlign.CENTER -> Gravity.CENTER_HORIZONTAL
+            NovelTextAlign.RIGHT -> Gravity.END
         }
     }
 
