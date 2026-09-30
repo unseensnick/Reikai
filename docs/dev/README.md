@@ -21,7 +21,7 @@ The machine-enforced conventions (commits, CHANGELOG, screen rules) live in [`.c
 
 | Doc | Owns |
 |---|---|
-| [development.md](development.md) | architecture, module map, build, reference clones |
+| [development.md](development.md) | architecture, module map, build (the reference clones are listed in [CLAUDE.md](../../CLAUDE.md)) |
 | [ln-plugin-host.md](ln-plugin-host.md) | the light-novel plugin host: navigation handbook, layer map, shim recipes |
 | [on-device-testing.md](on-device-testing.md) | running and verifying builds on a device |
 | [readme-showcase.md](readme-showcase.md) | how the README showcase animation is captured and rebuilt |

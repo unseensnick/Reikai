@@ -14,7 +14,7 @@ A routing map plus a few targeted collapses. The docs mostly own distinct questi
 
 - **Two front doors.** [`docs/README.md`](../../README.md) states the three tiers and carries the **topic map** (feature area to user doc + dev records). [`docs/dev/README.md`](../README.md) splits the dev docs into **process/records** and **architecture/reference**, gives each its one job, and holds the **file-to-file workflow** table plus a who-owns-which-fact section.
 - **Back-links.** Each user doc gained a one-line `Dev records:` pointer, so navigation is two-way.
-- **Single owner per fact.** The Mihon frontier lives only in the [upstream-sync.md](../upstream-sync.md) ledger; `shipped.md`'s frozen-SHA summary was removed and made a pointer. `development.md`'s porting section became a pointer to the two owners instead of a duplicate.
+- **Single owner per fact.** The Mihon frontier lives only in the [upstream-sync.md](../upstream-sync.md) ledger; `shipped.md`'s frozen-SHA summary was removed and made a pointer. `development.md`'s porting section became a pointer to the two owners instead of a duplicate, and its reference-clone list became a pointer to CLAUDE.md's, since the copy had drifted (missing clones, a shipped migration still called planned).
 - **No mass rename.** Encoding tier in filenames (`X.plan.md`) was considered and rejected: ~38 renames breaking ~100 inbound links, for a glance benefit the folder plus the maps mostly already give.
 
 ## Key files

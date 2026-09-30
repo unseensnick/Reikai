@@ -1,4 +1,4 @@
-# Reikai — Development
+# Reikai development
 
 ## Project overview
 
@@ -18,9 +18,9 @@ The rebase has shipped: `main` is the Mihon-based main. The forward backlog live
 
 The working rules under `.claude/rules/` are the single source of truth; this doc points to them rather than duplicating:
 
-- [architecture.md](../../.claude/rules/architecture.md) — Compose + Voyager, Metro DI, `PreferenceStore`, coroutines, domain models, modules, `// RK` patch markers.
-- [screen-conventions.md](../../.claude/rules/screen-conventions.md) — Reikai screen conventions on Mihon.
-- [workflow.md](../../.claude/rules/workflow.md) — CHANGELOG, commits/PRs, release-cut, upstream + feature porting.
+- [architecture.md](../../.claude/rules/architecture.md): Compose + Voyager, Metro DI, `PreferenceStore`, coroutines, domain models, modules, `// RK` patch markers.
+- [screen-conventions.md](../../.claude/rules/screen-conventions.md): Reikai screen conventions on Mihon.
+- [workflow.md](../../.claude/rules/workflow.md): CHANGELOG, commits/PRs, release-cut, upstream + feature porting.
 - [code-quality.md](../../.claude/rules/code-quality.md), [testing.md](../../.claude/rules/testing.md), [database.md](../../.claude/rules/database.md), [security.md](../../.claude/rules/security.md).
 
 ## Build
@@ -57,16 +57,7 @@ Compose + Voyager (no Conductor), Metro DI, SQLDelight, OkHttp, Coil 3, kotlinx.
 
 ## Reference clones
 
-Sibling read-only clones in `refs/` provide context:
-
-- `mihon` — the base; port upstream Mihon changes from here.
-- `yokai` — the Yōkai-era base; historical reference only.
-- `komikku` — Komikku (SY/EH lineage); reference for merge and feature approaches.
-- `tsundoku` — Tsundoku, a Mihon-fork novel reader; reference for novel-reader features and the planned native-reader migration.
-- `lnreader-main` / `lnreader-plugins` — LNReader; reference for the light-novel subsystem.
-- `keiyoushi-extensions` / `keiyoushi-extensions-source` — Keiyoushi extensions (distribution + source).
-- `tachiyomi-extension` — Suwayomi's extension repo.
-- `blueth-yokai` — another Yōkai fork.
+The read-only clones sit in `../refs/`, a sibling of this repo. What each one is for is listed once, in the reference-clone entry of [CLAUDE.md](../../CLAUDE.md) "Where things live".
 
 Reikai's own pre-rebase features are read from the `design/library-compose` branch, not from a clone.
 
