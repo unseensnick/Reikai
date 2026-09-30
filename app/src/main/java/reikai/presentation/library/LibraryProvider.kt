@@ -43,6 +43,13 @@ interface LibraryProvider : LibraryBehavior {
     fun trackerMeans(): Map<Long, Double>
 
     /**
+     * Identity of the track data [trackerMeans] and [dynamicGroupingFeed] read. Nothing reads its value:
+     * both are resolved on demand inside the assembly, and a track write leaves the rows equal, so without
+     * this the assembly never re-runs and the tracker-score sort and the tracking-status groups go stale.
+     */
+    val trackKey: Flow<Any?>
+
+    /**
      * Apply this type's display-only custom title/cover overlay to one of its rows. The assembly emits
      * raw rows (filter, sort and selection must never see an override), so the display read applies the
      * overlay through this seam, per category and only for what is actually rendered.

@@ -5,6 +5,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -31,6 +32,7 @@ import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibraryManga
+import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 
@@ -42,6 +44,7 @@ class LibraryEngineTest {
         every { provider.rows } returns flowOf(rows)
         every { provider.state } returns MutableStateFlow(screenState)
         every { provider.overlaid(any()) } answers { firstArg() }
+        every { provider.trackKey } returns flowOf(null)
         return provider
     }
 
@@ -57,14 +60,18 @@ class LibraryEngineTest {
     private fun engineOver(
         providers: List<LibraryProvider>,
         categories: List<Category> = emptyList(),
+        sort: LibrarySort = LibrarySort.default,
+        groupBy: Int = LibraryGroup.BY_DEFAULT,
     ): LibraryEngine {
         val store = EmittingPreferenceStore()
         val repository = mockk<CategoryRepository>(relaxed = true)
         every { repository.getUnfilteredAsFlow() } returns flowOf(categories)
+        val libraryPreferences = LibraryPreferences(store).also { it.sortingMode.set(sort) }
+        val reikaiLibraryPreferences = ReikaiLibraryPreferences(store).also { it.groupLibraryBy.set(groupBy) }
         return LibraryEngine(
             providers = providers,
-            reikaiLibraryPreferences = ReikaiLibraryPreferences(store),
-            libraryPreferences = LibraryPreferences(store),
+            reikaiLibraryPreferences = reikaiLibraryPreferences,
+            libraryPreferences = libraryPreferences,
             categoryRepository = repository,
             setSortModeForCategory = mockk(relaxed = true),
             // Only the dynamic-grouping assembly reaches these, which no case here exercises.
@@ -209,6 +216,49 @@ class LibraryEngineTest {
 
         assembled.presentIds shouldContainExactly setOf(m1)
     }
+
+    private val reading = Category(id = 11, name = "Reading", order = 0, flags = 0)
+
+    /**
+     * Track data is read on demand inside the assembly and a track write leaves the rows equal, so only
+     * the provider's track key can make the assembly run again after a score edit.
+     */
+    @Test
+    fun `a score change alone reorders the tracker score sort`() = runTest {
+        val means = MutableStateFlow(mapOf(1L to 9.0, 2L to 1.0))
+        val provider = provider(ContentType.MANGA, rows = listOf(row(1, listOf(11)), row(2, listOf(11))))
+        every { provider.trackerMeans() } answers { means.value }
+        every { provider.trackKey } returns means
+        val engine = engineOver(
+            listOf(provider),
+            categories = listOf(reading),
+            sort = LibrarySort(LibrarySort.Type.TrackerMean, LibrarySort.Direction.Descending),
+        )
+        engine.assembled.first { it?.firstEntry() == m1 }
+
+        means.value = mapOf(1L to 1.0, 2L to 9.0)
+
+        engine.assembled.first { it?.firstEntry() == m2 }?.firstEntry() shouldBe m2
+    }
+
+    @Test
+    fun `a status change alone moves the entry to its new tracking status group`() = runTest {
+        val statuses = MutableStateFlow(mapOf<EntryId, String>(m1 to "Reading"))
+        val provider = provider(ContentType.MANGA, rows = listOf(row(1, listOf(11))))
+        coEvery { provider.dynamicGroupingFeed(any()) } answers {
+            DynamicGroupingFeed(items = listOf(DynItem(m1, null, null, null)), trackStatuses = statuses.value)
+        }
+        every { provider.trackKey } returns statuses
+        val engine = engineOver(listOf(provider), groupBy = LibraryGroup.BY_TRACK_STATUS)
+        engine.assembled.first { it?.buckets?.singleOrNull()?.key == "reading" }
+
+        statuses.value = mapOf(m1 to "Completed")
+
+        engine.assembled.first { it?.buckets?.singleOrNull()?.key == "completed" }
+            ?.buckets?.single()?.key shouldBe "completed"
+    }
+
+    private fun LibraryAssembled.firstEntry() = buckets.firstOrNull()?.let { itemsFor(it).first().entryId }
 
     @Test
     fun `a model still loading hands over no rows`() = runTest {

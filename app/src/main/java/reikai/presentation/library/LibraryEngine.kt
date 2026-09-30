@@ -156,16 +156,22 @@ class LibraryEngine(
             contentType,
             combine(providers.map { it.rows }) { it.toList() },
             // Only what the assembly consumes from the provider states: the query (the
-            // search-forces-counts rule) and the overlay key (the per-item display read applies the
-            // custom-info overlay, so an edit must re-emit the assembled list to repaint). Taking
-            // the whole states re-ran the full bucket-and-sort on every state tick, page swipes and
-            // loading flags included.
+            // search-forces-counts rule), the overlay key (the per-item display read applies the
+            // custom-info overlay, so an edit must re-emit the assembled list to repaint) and the
+            // track key (the tracker-score sort and the tracking-status groups read tracks on
+            // demand). Taking the whole states re-ran the full bucket-and-sort on every state tick,
+            // page swipes and loading flags included.
             combine(
-                providers.map { p -> p.state.map { it.searchQuery to it.overlayKey }.distinctUntilChanged() },
+                providers.map { p ->
+                    combine(
+                        p.state.map { it.searchQuery to it.overlayKey }.distinctUntilChanged(),
+                        p.trackKey,
+                    ) { (query, _), _ -> query }
+                },
             ) { it.toList() },
             categoryRepository.getUnfilteredAsFlow(),
             prefsFlow,
-        ) { chip, rowsPerProvider, queryAndOverlay, allCategories, prefs ->
+        ) { chip, rowsPerProvider, queryPerProvider, allCategories, prefs ->
             // Piggybacked here rather than a collector of its own so it runs exactly when the list
             // changes: a selected entry the assembly dropped must leave the selection too, or the
             // toolbar count promises more than the verbs will touch. Pruned after the assembly, not
@@ -173,7 +179,7 @@ class LibraryEngine(
             // category, an emptied bucket and a lagging dynamic group all do, and those leave the
             // entry in the providers' rows, where the verbs would still find and act on it.
             // No assembly says nothing about what is on screen, so it prunes nothing.
-            assembleFor(chip, rowsPerProvider, queryAndOverlay.map { it.first }, allCategories, prefs)
+            assembleFor(chip, rowsPerProvider, queryPerProvider, allCategories, prefs)
                 ?.also { pruneSelection(it.presentIds) }
         }
             // The transform sorts and buckets the whole library; keep it off the main thread.

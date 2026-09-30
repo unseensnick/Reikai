@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.entry.EntryId
@@ -91,6 +92,9 @@ class MangaLibraryAdapter(
     // The split point: filtered but pre-grouping, pre-sort (LibraryData.favorites).
     override val rows: Flow<List<LibraryItem>?> =
         model.state.loadedRows({ it.isLoading }) { it.libraryData.favorites }
+
+    override val trackKey: Flow<Any?> =
+        model.state.map { it.libraryData.tracksMap to it.libraryData.loggedInTrackerIds }.distinctUntilChanged()
 
     override fun trackerMeans(): Map<Long, Double> {
         val data = model.state.value.libraryData

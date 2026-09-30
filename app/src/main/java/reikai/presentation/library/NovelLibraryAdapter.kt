@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.update.NovelUpdateJob
@@ -89,6 +90,9 @@ class NovelLibraryAdapter(
     // The split point: filtered but pre-grouping, pre-sort (State.favorites).
     override val rows: Flow<List<LibraryItem>?> =
         model.state.loadedRows({ it.isLoading }) { it.favorites }
+
+    override val trackKey: Flow<Any?> =
+        model.state.map { it.trackerMeans to it.tracksByRep }.distinctUntilChanged()
 
     override fun trackerMeans(): Map<Long, Double> = model.state.value.trackerMeans
 
