@@ -43,6 +43,7 @@ class GroupTrackReaderTest {
         val reader = GroupTrackReader<Row>(
             sharingEnabled = { false },
             relatedIds = { listOf(it, 2L) },
+            groupChanges = emptyFlow<Unit>(),
             readOne = { emptyList() },
             observeOne = { emptyFlow() },
             trackerId = Row::trackerId,

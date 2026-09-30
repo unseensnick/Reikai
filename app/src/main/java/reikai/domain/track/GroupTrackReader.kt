@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 
 /**
@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.onStart
 class GroupTrackReader<T>(
     private val sharingEnabled: () -> Boolean,
     private val relatedIds: suspend (Long) -> List<Long>,
+    private val groupChanges: Flow<*>,
     private val readOne: suspend (Long) -> List<T>,
     private val observeOne: (Long) -> Flow<List<T>>,
     private val trackerId: (T) -> Long,
@@ -32,11 +33,13 @@ class GroupTrackReader<T>(
 
     /**
      * Reactive [await]. Emits the entry's own tracks first, so a tracking icon shows without waiting on
-     * the group lookup (which loads the membership table), then refines to the whole group.
+     * the group lookup (which loads the membership table), then refines to the whole group. The group
+     * is looked up again on every [groupChanges] emission, the first on collection: a details page
+     * stays subscribed across a merge, and a one-time lookup left its Tracking button on the old group.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun subscribe(entryId: Long): Flow<List<T>> =
-        flow { emit(groupIds(entryId)) }
+        groupChanges.map { groupIds(entryId) }
             .onStart { emit(listOf(entryId)) }
             .distinctUntilChanged()
             .flatMapLatest { groupIds ->

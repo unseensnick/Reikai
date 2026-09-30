@@ -22,6 +22,7 @@ class GetTracksInGroup(
     private val reader = GroupTrackReader(
         sharingEnabled = { preferences.syncTrackerLinksGrouped.get() },
         relatedIds = { mergeManager.relatedIdsList(it) },
+        groupChanges = mergeManager.membershipChanges(),
         readOne = { getTracks.await(it) },
         observeOne = { getTracks.subscribe(it) },
         trackerId = Track::trackerId,

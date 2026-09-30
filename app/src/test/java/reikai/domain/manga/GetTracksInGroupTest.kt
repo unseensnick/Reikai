@@ -25,7 +25,9 @@ class GetTracksInGroupTest {
         every { syncTrackerLinksGrouped } returns sharingPref
     }
     private val getTracks = mockk<GetTracks>()
-    private val mergeManager = mockk<MangaMergeManager>()
+    private val mergeManager = mockk<MangaMergeManager> {
+        every { membershipChanges() } returns flowOf(emptyMap())
+    }
     private val interactor = GetTracksInGroup(preferences, getTracks, mergeManager)
 
     private fun track(mangaId: Long, trackerId: Long, lastChapterRead: Double = 0.0) = Track(
