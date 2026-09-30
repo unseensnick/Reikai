@@ -112,6 +112,7 @@ fun Screen.EntryDetailsDialogHost(
                 factory = coverFactory,
             )
             val cover by coverViewModel.coverModel.collectAsStateWithLifecycle()
+            val isCoverEditable by coverViewModel.isCoverEditable.collectAsStateWithLifecycle()
             if (cover != null) {
                 val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
                     if (uri != null) coverViewModel.editCover(context, uri)
@@ -122,10 +123,10 @@ fun Screen.EntryDetailsDialogHost(
                     snackbarHostState = coverViewModel.snackbarHostState,
                     onShareClick = { coverViewModel.shareCover(context) },
                     onSaveClick = { coverViewModel.saveCover(context) },
-                    // Null hides Edit and Delete, which is what a chip's sibling gets: a custom cover
-                    // has to land on the entry the library renders, so it is only offered where the
-                    // group's own cover is the one on screen.
-                    onEditClick = if (behavior.isCoverAnchored()) {
+                    // Null hides Edit and Delete: for an entry that cannot keep a custom cover, and for
+                    // a chip's sibling, since a custom cover has to land on the entry the library
+                    // renders, so it is only offered where the group's own cover is the one on screen.
+                    onEditClick = if (isCoverEditable && behavior.isCoverAnchored()) {
                         { action: EditCoverAction ->
                             when (action) {
                                 EditCoverAction.EDIT -> getContent.launch("image/*")

@@ -492,6 +492,7 @@ class NovelDetailsViewModel(
             val flags = group.novelRowFlags(pooled, ordered, stitch)
             val members = related.toList().mapNotNull { id -> if (id == anchor.id) anchor else novelRepo.getById(id) }
             rebuildLoaded(
+                group,
                 anchor,
                 anchor,
                 ordered,
@@ -556,6 +557,7 @@ class NovelDetailsViewModel(
             val stitch = mergedChapterProvider.stitchOf(viewNovel.id)
             val flags = group.novelRowFlags(chapters + siblings, chapters, stitch)
             rebuildLoaded(
+                group,
                 anchor,
                 viewNovel,
                 chapters,
@@ -581,8 +583,10 @@ class NovelDetailsViewModel(
 
     /** Build [NovelDetailsState.Loaded] from the [anchor] (identity, favorite, chapter-view flags) and
      *  the [viewNovel] whose metadata + source the header shows (== anchor for the unified view, the
-     *  selected sibling otherwise). Sort/filter always follow the anchor's flags. */
+     *  selected sibling otherwise). Sort/filter always follow the anchor's flags. The chips and the picked
+     *  chip come from [group], the one the rows were built for: the live group may have moved on. */
     private suspend fun rebuildLoaded(
+        group: EntryMergeGroupHost.GroupState,
         anchor: Novel,
         viewNovel: Novel,
         chapters: List<NovelChapter>,
@@ -658,8 +662,8 @@ class NovelDetailsViewModel(
                 downloadedFilter = anchor.effectiveDownloadedFilter(novelPreferences),
                 downloadedFilterLocked = basePreferences.downloadedOnly.get(),
                 hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
-                mergeSources = mergeGroup.chips.value,
-                selectedSourceNovelId = mergeGroup.selectedSource,
+                mergeSources = mergeGroup.chipsOf(group),
+                selectedSourceNovelId = group.selected,
                 // Match manga's swipe mapping (MangaViewModel): the start/end action fields cross
                 // the swipeToEnd/swipeToStart prefs, so a right-swipe reads the same on both content types.
                 chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get(),

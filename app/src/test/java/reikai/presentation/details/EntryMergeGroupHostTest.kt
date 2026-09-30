@@ -6,6 +6,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
@@ -143,6 +144,38 @@ class EntryMergeGroupHostTest {
     fun `marking read under a source chip still reaches every copy`() = runTest {
         mergedHost(selected = 1L).expandToGroup(listOf(1L), { it }, { stitch }, { it.toList() }).toSet() shouldBe
             setOf(1L, 2L)
+    }
+
+    /** A host whose live group has resolved to three sources, each with its chip. */
+    private suspend fun TestScope.threeSourceHost(): EntryMergeGroupHost {
+        val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L, 3L) }
+        val host = host(
+            manager = manager,
+            anchorChanges = MutableStateFlow(1L),
+            resolveSources = { ids -> ids.map { EntryMergeSource(it, "src$it") } },
+        )
+        host.observe(backgroundScope)
+        host.chips.first { it.size == 3 }
+        return host
+    }
+
+    private fun group(vararg ids: Long) = EntryMergeGroupHost.GroupState(ids, selected = null)
+
+    @Test
+    fun `a list built for the live group shows every chip`() = runTest {
+        val host = threeSourceHost()
+
+        host.chipsOf(host.state.value).map { it.id } shouldBe listOf(1L, 2L, 3L)
+    }
+
+    @Test
+    fun `a list built for an earlier group shows no chip of a source that joined since`() = runTest {
+        threeSourceHost().chipsOf(group(1L, 2L)).map { it.id } shouldBe listOf(1L, 2L)
+    }
+
+    @Test
+    fun `a list built before the entry was merged shows no chips`() = runTest {
+        threeSourceHost().chipsOf(group(1L)) shouldBe emptyList()
     }
 
     @Test

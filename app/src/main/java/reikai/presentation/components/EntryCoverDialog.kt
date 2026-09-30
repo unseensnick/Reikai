@@ -71,10 +71,9 @@ import tachiyomi.presentation.core.util.clickableNoIndication
 /**
  * Full-cover dialog shared by manga and novels: a zoomable full-resolution cover with share / save /
  * set-custom-cover / delete-custom-cover actions. [cover] is a coil model (a `Manga` or a
- * `reikai.domain.novel.model.NovelCover`), so each content type feeds its own object; [onEditClick] is null when
- * the cover shown is not the entry's own, a merged series' sibling source, which hides the edit menu.
- * Delete is offered in that menu only when [isCustomCover]. Replaces the twin `MangaCoverDialog` /
- * `NovelCoverDialog`.
+ * `reikai.domain.novel.model.NovelCover`), so each content type feeds its own object. A null [onEditClick]
+ * hides the edit menu: the entry cannot keep a custom cover, or the cover is a merged series' sibling.
+ * Delete is offered in that menu only when [isCustomCover]. Replaces `MangaCoverDialog` / `NovelCoverDialog`.
  */
 @Composable
 fun EntryCoverDialog(

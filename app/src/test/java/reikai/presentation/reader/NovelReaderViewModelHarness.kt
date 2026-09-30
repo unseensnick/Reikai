@@ -3,7 +3,9 @@ package reikai.presentation.reader
 import android.content.Context
 import android.os.SystemClock
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
@@ -14,11 +16,16 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.withContext
 import mihon.domain.extension.model.ContentWarning
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.merge.MergedChapterUnitRepositoryImpl
@@ -62,6 +69,8 @@ import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.domain.library.service.LibraryPreferences
 import java.io.IOException
+import java.util.concurrent.Semaphore
+import java.util.concurrent.TimeUnit
 
 /**
  * A real [NovelReaderViewModel] over an in-memory database, the real repositories, interactors and
@@ -69,12 +78,12 @@ import java.io.IOException
  * process: the plugin host ([FakeNovelSource]), the download manager's disk, the tracker network and
  * the clock. Every launch runs on [dispatcher], so `advanceUntilIdle` settles the whole session.
  *
- * [create] it with the test's scheduler, seed rows, [open] a model, drive it, and [close] it afterwards.
+ * [create] it with the test's scheduler and [use] it: seed rows, [open] a model and drive it.
  */
 class NovelReaderViewModelHarness private constructor(
     scheduler: TestCoroutineScheduler,
     private val driver: JdbcSqliteDriver,
-) : AutoCloseable {
+) {
 
     companion object {
         suspend fun create(scheduler: TestCoroutineScheduler): NovelReaderViewModelHarness {
@@ -95,9 +104,14 @@ class NovelReaderViewModelHarness private constructor(
     private val groups = MergeGroupRepositoryImpl(database)
     private val units = MergedChapterUnitRepositoryImpl(database)
 
+    /** One permit per plugin host load, which a details screen asks for just before it names a group's chips. */
+    val pluginLoads = Semaphore(0)
+
     // Plugins are fetched and evaluated by the installer, which is the network; a registered fake
     // source stands in for what it would have loaded.
-    private val installer = mockk<LnPluginInstaller>(relaxed = true)
+    private val installer = mockk<LnPluginInstaller>(relaxed = true) {
+        coEvery { ensureLoaded() } answers { pluginLoads.release() }
+    }
     private val sourceManager = NovelSourceManager(
         installer = { installer },
         extensionManager = mockk { every { loadedNovelExtensionsFlow } returns flowOf(emptyList()) },
@@ -125,11 +139,19 @@ class NovelReaderViewModelHarness private constructor(
         every { changes } returns MutableStateFlow(Unit)
         every { isChapterDownloaded(any<Novel>(), any()) } answers { secondArg<NovelChapter>().id in downloaded }
         every { downloadedChapterIds(any<Novel>(), any()) } answers {
+            diskProbeGate?.pass()
             secondArg<List<NovelChapter>>().mapTo(HashSet()) { it.id }.filterTo(HashSet()) { it in downloaded }
         }
     }
 
+    @Volatile
+    private var diskProbeGate: DiskProbeGate? = null
+
+    /** Stops every later disk probe of a chapter list at the returned gate, freezing that list's rebuild. */
+    fun holdDiskProbes(): DiskProbeGate = DiskProbeGate().also { diskProbeGate = it }
+
     private val viewModels = ViewModelStore()
+    private val modelJobs = mutableListOf<Job>()
 
     init {
         // The warm cooldown reads the uptime clock, which an Android stub cannot answer on the JVM.
@@ -270,7 +292,7 @@ class NovelReaderViewModelHarness private constructor(
                 mergedChapterProvider,
             ),
             io = dispatcher,
-        ).also { viewModels.put("novel-$novelId-$chapterId-${viewModels.keys().size}", it) }
+        ).also(::track)
     }
 
     /**
@@ -325,18 +347,64 @@ class NovelReaderViewModelHarness private constructor(
             removeNovelsFromLibrary = mockk(relaxed = true),
             trackPorts = mockk(relaxed = true),
             autoBindTrackers = mockk(relaxed = true),
-        ).also { viewModels.put("details-$novelId-${viewModels.keys().size}", it) }
+        ).also(::track)
     }
 
-    /** Clears every model it opened, as leaving the reader does, then releases the database and clock. */
-    override fun close() {
+    private fun track(model: ViewModel) {
+        viewModels.put("model-${modelJobs.size}", model)
+        modelJobs += model.viewModelScope.coroutineContext.job
+    }
+
+    /** Runs [block] over this harness, then [close]s it. */
+    suspend inline fun <T> use(block: (NovelReaderViewModelHarness) -> T): T = try {
+        block(this)
+    } finally {
+        close()
+    }
+
+    /**
+     * Clears every model it opened, as leaving the screen does, and waits for their work to stop before
+     * releasing the database and clock. A details model works on the real IO dispatcher, and a query
+     * of its still running against a closed database throws into whichever test is running by then.
+     */
+    suspend fun close() {
+        diskProbeGate?.open()
         viewModels.clear()
+        withContext(NonCancellable) { modelJobs.joinAll() }
         driver.close()
         unmockkStatic(SystemClock::class)
     }
 }
 
 data class SeededChapter(val id: Long, val url: String)
+
+/**
+ * A door the details list's disk probes queue at, so a test can hold one rebuild mid-flight while the
+ * screen's other inputs move on, the interleaving a busy machine produces by chance.
+ */
+class DiskProbeGate {
+    private val arrived = Semaphore(0)
+    private val admitted = Semaphore(0)
+
+    /** Called by a probe: reports in, then waits to be let through. Gives up rather than strand its thread. */
+    fun pass() {
+        arrived.release()
+        admitted.tryAcquire(WAIT_SECONDS, TimeUnit.SECONDS)
+    }
+
+    /** Waits until [count] more probes have reached the gate. */
+    fun awaitArrived(count: Int = 1) =
+        check(arrived.tryAcquire(count, WAIT_SECONDS, TimeUnit.SECONDS)) { "No disk probe reached the gate" }
+
+    fun admit(count: Int = 1) = admitted.release(count)
+
+    /** Lets every probe through from here on. */
+    fun open() = admitted.release(Int.MAX_VALUE / 2)
+
+    private companion object {
+        const val WAIT_SECONDS = 10L
+    }
+}
 
 /**
  * The plugin host's side of a novel source: every chapter answers with text naming it, unless its

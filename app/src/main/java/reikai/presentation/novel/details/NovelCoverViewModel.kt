@@ -6,13 +6,16 @@ import dev.zacsweers.metro.AssistedInject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.asNovelCover
+import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.details.EntryCoverViewModel
 import java.io.InputStream
@@ -41,19 +44,18 @@ class NovelCoverViewModel(
     // Overlaid with the edit-info cover URL, matching the manga twin: the header renders it, so
     // the viewer and Save/Share must show the same image. A custom cover file still wins.
     override suspend fun subscribe(): Flow<Novel?> =
-        novelRepo.getByUrlAndSourceAsFlow(novelUrl, novelSource)
-            .combine(getCustomNovelInfo.subscribeAll()) { novel, custom ->
-                novel?.withCustomInfo(custom.firstOrNull { it.novelId == novel.id })
-            }
+        novelRepo.getByUrlAndSourceAsFlow(novelUrl, novelSource).flatMapLatest { novel ->
+            if (novel == null) flowOf(null) else getCustomNovelInfo.subscribe(novel.id).map(novel::withCustomInfo)
+        }
 
     override fun coilModel(entry: Novel): Any = entry.asNovelCover()
 
     override fun coverName(entry: Novel): String = entry.title
 
-    override fun hasCustomCover(): Boolean {
-        val novel = entry.value ?: return false
-        return coverCache.getCustomCoverFile(EntryId.Novel(novel.id)).exists()
-    }
+    // Novels have no local source, so only the library keeps a custom cover.
+    override fun canEditCover(entry: Novel): Boolean = entry.favorite
+
+    override fun hasCustomCover(): Boolean = entry.value?.hasCustomCover(coverCache) ?: false
 
     override suspend fun persistCustomCover(entry: Novel, stream: InputStream) {
         coverCache.getCustomCoverFile(EntryId.Novel(entry.id))

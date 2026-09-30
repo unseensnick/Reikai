@@ -74,6 +74,14 @@ class EntryMergeGroupHost(
     val chips: StateFlow<List<EntryMergeSource>> = _chips.asStateFlow()
 
     /**
+     * The chips a list built for [group] shows. [chips] resolves after the group it names, so a rebuild
+     * still in flight for an earlier group would otherwise put the later group's switcher over its own
+     * rows; only chips naming members of [group] count, and one member alone is no group.
+     */
+    fun chipsOf(group: GroupState): List<EntryMergeSource> =
+        _chips.value.filter { it.id in group.ids }.takeIf { it.size > 1 }.orEmpty()
+
+    /**
      * Start the two collectors: recompute the group when the anchor or group membership changes, and
      * rebuild [chips] whenever the membership changes.
      */

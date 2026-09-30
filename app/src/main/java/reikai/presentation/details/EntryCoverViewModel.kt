@@ -36,8 +36,9 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Shared backing for the full-cover dialog, holding the save / share / set-custom / delete-custom logic
  * once for both content types (the twin of Mihon's per-type cover models). Subclasses supply only the
- * five per-type seams: the entry subscription, its coil model + save name, the custom-cover check, and
- * the two custom-cover writes (each keyed by its own [reikai.domain.entry.EntryId], so ids never collide).
+ * per-type seams: the entry subscription, its coil model + save name, whether it can keep a custom
+ * cover, the custom-cover check, and the two custom-cover writes (each keyed by its own
+ * [reikai.domain.entry.EntryId], so ids never collide).
  */
 abstract class EntryCoverViewModel<T : Any>(
     private val imageSaver: ImageSaver,
@@ -52,6 +53,9 @@ abstract class EntryCoverViewModel<T : Any>(
 
     /** Filename for a saved or shared cover. */
     protected abstract fun coverName(entry: T): String
+
+    /** Whether [entry] can keep a custom cover; one set outside the library is orphaned, as removal deletes it. */
+    protected abstract fun canEditCover(entry: T): Boolean
 
     /** True when the entry has a user-set custom cover (drives the edit/delete dropdown). */
     abstract fun hasCustomCover(): Boolean
@@ -75,6 +79,11 @@ abstract class EntryCoverViewModel<T : Any>(
     val coverModel: StateFlow<Any?> = entry
         .map { it?.let(::coilModel) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
+
+    /** Whether the dialog offers Edit and Delete, which are hidden rather than left to write nothing. */
+    val isCoverEditable: StateFlow<Boolean> = entry
+        .map { it != null && canEditCover(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), false)
 
     fun saveCover(context: Context) {
         viewModelScope.launch {

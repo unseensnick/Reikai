@@ -15,12 +15,13 @@ import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.source.local.image.LocalCoverManager
+import tachiyomi.source.local.isLocal
 import java.io.InputStream
 
 /**
  * The manga cover source for the shared [EntryCoverViewModel]. Keyed by the positive manga id; custom
- * covers write through the standard `Manga.editCover` (local source or favorite only). Replaces Mihon's
- * `MangaCoverViewModel`, whose save / share machinery now lives in the shared base.
+ * covers write through the standard `Manga.editCover`. Replaces Mihon's `MangaCoverViewModel`, whose
+ * save / share machinery now lives in the shared base.
  */
 @AssistedInject
 class MangaEntryCoverViewModel(
@@ -48,6 +49,9 @@ class MangaEntryCoverViewModel(
     override fun coilModel(entry: Manga): Any = entry
 
     override fun coverName(entry: Manga): String = entry.title
+
+    // The two cases Manga.editCover writes for; any other entry it silently skips.
+    override fun canEditCover(entry: Manga): Boolean = entry.favorite || entry.isLocal()
 
     override fun hasCustomCover(): Boolean = entry.value?.hasCustomCover(coverCache) ?: false
 
