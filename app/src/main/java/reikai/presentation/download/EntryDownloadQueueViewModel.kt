@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.util.lang.launchIO
@@ -43,6 +44,18 @@ class EntryDownloadQueueViewModel(
     private val providers: Map<ContentType, DownloadQueueProvider> =
         listOf(mangaProvider, novelProvider).associateBy { it.contentType }
 
+    // The types whose downloader has loaded its saved queue; the saved card order is pruned only for these.
+    private val restoredTypes = MutableStateFlow<Set<ContentType>>(emptySet())
+
+    init {
+        providers.values.forEach { provider ->
+            viewModelScope.launchIO {
+                provider.awaitQueueRestored()
+                restoredTypes.update { it + provider.contentType }
+            }
+        }
+    }
+
     private val snapshots: Flow<Map<ContentType, DownloadQueueSnapshot>> = combine(
         mangaProvider.snapshots,
         novelProvider.snapshots,
@@ -52,11 +65,12 @@ class EntryDownloadQueueViewModel(
     val state: StateFlow<State> = combine(
         snapshots,
         sourcePreferences.downloadQueueOrder.changes(),
-    ) { snapshotsByType, savedOrder -> snapshotsByType to savedOrder }
-        .mapLatest { (snapshotsByType, savedOrder) ->
+        restoredTypes,
+    ) { snapshotsByType, savedOrder, restored -> Triple(snapshotsByType, savedOrder, restored) }
+        .mapLatest { (snapshotsByType, savedOrder, restored) ->
             val cardsByType = snapshotsByType.mapValues { (type, snapshot) -> snapshot.toCards(type) }
             val saved = savedOrder.toKeys()
-            val kept = prunedOrder(saved, cardsByType)
+            val kept = prunedOrder(saved, cardsByType, restored)
             if (kept.size != saved.size) sourcePreferences.downloadQueueOrder.set(kept.joinToString(ORDER_SEPARATOR))
             State(arrangeCards(kept, cardsByType).map { it.withChapterName() })
         }

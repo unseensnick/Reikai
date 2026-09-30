@@ -155,11 +155,32 @@ class DownloadQueueKernelTest {
         val kept = prunedOrder(
             listOf(m1.cardKey, n1.cardKey),
             mapOf(ContentType.MANGA to listOf(m3), ContentType.NOVELS to listOf(n1)),
+            restored = setOf(ContentType.MANGA, ContentType.NOVELS),
         )
 
         val arranged = arrangeCards(kept, mapOf(ContentType.MANGA to listOf(m3, m1), ContentType.NOVELS to listOf(n1)))
 
         arranged shouldBe listOf(n1, m3, m1)
+    }
+
+    @Test
+    @DisplayName("a type whose downloader has not restored its queue keeps its saved slots")
+    fun unrestoredTypeKeepsItsSlots() {
+        val saved = listOf(n1.cardKey, m2.cardKey, n2.cardKey)
+
+        prunedOrder(saved, mapOf(ContentType.MANGA to listOf(m2)), restored = setOf(ContentType.MANGA)) shouldBe saved
+    }
+
+    @Test
+    @DisplayName("once a type has restored, its series no longer queued leave the saved order")
+    fun restoredTypeLosesGoneSlots() {
+        val saved = listOf(n1.cardKey, m2.cardKey, n2.cardKey)
+
+        prunedOrder(
+            saved,
+            mapOf(ContentType.MANGA to listOf(m2)),
+            restored = setOf(ContentType.MANGA, ContentType.NOVELS),
+        ) shouldBe listOf(m2.cardKey)
     }
 
     @Test

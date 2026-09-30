@@ -30,6 +30,8 @@ class NovelDownloadQueueProvider(
 
     override val isRunning: Flow<Boolean> get() = downloadManager.isDownloaderRunning
 
+    override suspend fun awaitQueueRestored() = downloadManager.awaitQueueRestored()
+
     // Labels and chapter names per novel, so the progress-driven emissions don't re-read the database.
     private val labels = ConcurrentHashMap<Long, QueuedSeriesLabel>()
     private val chapterNames = ConcurrentHashMap<Long, Map<Long, String>>()

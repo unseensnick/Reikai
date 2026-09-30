@@ -15,6 +15,9 @@ interface DownloadQueueProvider {
 
     val isRunning: Flow<Boolean>
 
+    /** Returns once the downloader has loaded the queue it saved before the app last stopped. */
+    suspend fun awaitQueueRestored()
+
     /** Names of a series' queued chapters, by chapter id. */
     suspend fun chapterNames(seriesId: Long, chapterIds: Collection<Long>): Map<Long, String>
 

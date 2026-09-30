@@ -144,11 +144,17 @@ fun <T, K> List<T>.inOrderOf(keys: List<K>, keyOf: (T) -> K): List<T> {
 
 /**
  * The saved order with every series that has left the queue taken out, so one queued again later goes
- * last instead of taking back its old position and moving a card nobody dragged.
+ * last instead of taking back its old position and moving a card nobody dragged. A key of a type not in
+ * [restored] keeps its slot: that downloader has not loaded its saved queue yet, so its card may still come.
  */
-fun prunedOrder(savedKeys: List<String>, cardsByType: Map<ContentType, List<EntryDownloadCardUi>>): List<String> {
+fun prunedOrder(
+    savedKeys: List<String>,
+    cardsByType: Map<ContentType, List<EntryDownloadCardUi>>,
+    restored: Set<ContentType>,
+): List<String> {
     val present = cardsByType.values.flatten().mapTo(HashSet()) { it.cardKey }
-    return savedKeys.filter { it in present }
+    // A card key starts with its type's name (EntryDownloadCardUi.cardKey).
+    return savedKeys.filter { key -> key in present || restored.none { key.startsWith("${it.name}-") } }
 }
 
 /**

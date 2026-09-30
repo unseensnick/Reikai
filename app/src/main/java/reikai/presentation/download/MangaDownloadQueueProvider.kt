@@ -30,6 +30,8 @@ class MangaDownloadQueueProvider(
 
     override val isRunning: Flow<Boolean> get() = downloadManager.isDownloaderRunning
 
+    override suspend fun awaitQueueRestored() = downloadManager.awaitQueueRestored()
+
     override val snapshots: Flow<DownloadQueueSnapshot> = channelFlow {
         var shownNonEmpty = false
         combine(
