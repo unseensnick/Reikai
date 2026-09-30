@@ -54,9 +54,11 @@ interface MergedChapterUnitRepository {
     fun getDownloadUnitsAsFlow(contentType: ContentType): Flow<Map<Long, List<DownloadUnitRow>>>
 
     /**
-     * Every library copy of each of [chapterIds]' merged chapters, itself included, keyed by the chapter
-     * asked for: what a row naming one copy probes to say whether the copy a tap opens is on disk. The
-     * same copies [getDownloadUnitsAsFlow] counts. A chapter no stitched group places has no entry.
+     * Every library copy of each of [chapterIds]' merged chapters, keyed by the chapter asked for: what a
+     * row naming one copy probes to say whether the copy a tap opens is on disk. Besides that chapter, the
+     * same copies [getDownloadUnitsAsFlow] counts. The chapter asked for is always among its own copies,
+     * even off the library or under an excluded scanlator, since callers look it up by id. A chapter no
+     * stitched group places has no entry.
      */
     fun getCopiesAsFlow(contentType: ContentType, chapterIds: Collection<Long>): Flow<Map<Long, List<ChapterCopyRow>>>
 

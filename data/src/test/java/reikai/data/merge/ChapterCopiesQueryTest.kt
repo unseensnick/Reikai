@@ -53,10 +53,10 @@ class ChapterCopiesQueryTest {
 
     @ParameterizedTest
     @EnumSource(names = ["MANGA", "NOVELS"])
-    fun `a copy on an entry outside the library is left out`(type: ContentType) = runTest {
+    fun `a chapter named on an entry outside the library keeps its own copy`(type: ContentType) = runTest {
         stitchedGroup(type)
 
-        copyIds(type, 30L) shouldBe mapOf(30L to setOf(10L, 20L))
+        copyIds(type, 30L) shouldBe mapOf(30L to setOf(10L, 20L, 30L))
     }
 
     @ParameterizedTest
@@ -81,6 +81,14 @@ class ChapterCopiesQueryTest {
         driver.execute(null, "INSERT INTO excluded_scanlator(manga_id, scanlator) VALUES (2, 'hidden')", 0).await()
 
         copyIds(ContentType.MANGA, 10L) shouldBe mapOf(10L to setOf(10L))
+    }
+
+    @Test
+    fun `a named manga chapter an excluded scanlator hides keeps its own copy`() = runTest {
+        stitchedGroup(ContentType.MANGA)
+        driver.execute(null, "INSERT INTO excluded_scanlator(manga_id, scanlator) VALUES (2, 'hidden')", 0).await()
+
+        copyIds(ContentType.MANGA, 20L) shouldBe mapOf(20L to setOf(10L, 20L))
     }
 
     @Test
