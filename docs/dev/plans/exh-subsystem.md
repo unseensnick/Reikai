@@ -19,7 +19,7 @@ Mechanism:
 - **Tags + search + viewer.** The full E-Hentai tag catalogue (`exh/eh/tags/`) drives browse-side `namespace:tag` autocomplete; saved galleries' tags feed library tag search; `MetadataViewScreen` renders the captured `EHentaiSearchMetadata` as a read-only info panel reachable from gallery details.
 - **Account config (uconfig).** `EHConfigurator` / `EhUConfigBuilder` push image-quality, Hentai@Home, and tag-threshold choices to the E-Hentai server profile and persist the session. Surfaced in `SettingsEhScreen` (its own top-level Settings category, gated by the pref).
 - **Favorited-gallery update checker.** `EHentaiUpdateWorker` (WorkManager) re-checks favorited EH galleries for a newer version and reconciles the version chain locally via the disk-backed `EHentaiUpdateHelper` (merging chapters, read state, history, categories). EH galleries are deliberately excluded from the normal library sweep (see below), so this is their only update path.
-- **Favorites backup (one-way).** `EhFavoritesBackupJob` pushes the library's EH galleries to the account's favorites (a chosen slot, throttled via `ThrottleManager`). It is a backup, not a sync: it never pulls account -> library. See Decisions.
+- **Favorites backup (one-way).** `EhFavoritesBackupJob` pushes the library's EH galleries to the account's favorites (a chosen slot, throttled via `ThrottleManager`), under its own progress notification (`ID_EHENTAI_BACKUP_PROGRESS`), since sharing the update checker's id let either job's finish cancel the other's. It is a backup, not a sync: it never pulls account -> library. See Decisions.
 
 ### Reikai integration islands (`// RK`)
 

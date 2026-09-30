@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.core.app.NotificationCompat
+import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
@@ -22,9 +23,10 @@ import java.math.RoundingMode
 import java.text.NumberFormat
 
 /**
- * Ongoing progress notification for the E-Hentai gallery update checker. The "new chapters"
- * result is delivered through Mihon's [eu.kanade.tachiyomi.data.library.LibraryUpdateNotifier],
- * since enhanced galleries are manga. Styling mirrors that library notifier so the two read the same.
+ * Ongoing progress notifications for the E-Hentai gallery update checker and the favorites backup,
+ * each on its own id so one job never replaces or cancels the other's. The "new chapters" result is
+ * delivered through Mihon's [eu.kanade.tachiyomi.data.library.LibraryUpdateNotifier], since enhanced
+ * galleries are manga. Styling mirrors that library notifier so the two read the same.
  */
 @Inject
 class EHentaiUpdateNotifier(
@@ -41,38 +43,29 @@ class EHentaiUpdateNotifier(
         BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
     }
 
-    val progressNotificationBuilder by lazy {
-        context.notificationBuilder(Notifications.CHANNEL_LIBRARY_EHENTAI) {
-            setContentTitle(context.stringResource(MR.strings.app_name))
-            setSmallIcon(R.drawable.ic_refresh_24dp)
-            setLargeIcon(notificationBitmap)
-            setOngoing(true)
-            setOnlyAlertOnce(true)
-        }
-    }
+    val progressNotificationBuilder by lazy { newProgressBuilder() }
+
+    val backupProgressNotificationBuilder by lazy { newProgressBuilder() }
 
     fun showProgressNotification(manga: Manga, current: Int, total: Int) {
-        progressNotificationBuilder
-            .setContentTitle(
-                context.stringResource(
-                    MR.strings.notification_updating_progress,
-                    percentFormatter.format(current.toFloat() / total),
-                ),
-            )
-
-        // A gallery is always adult.
-        shownEntryName(
-            manga.title,
-            securityPreferences.hideNotificationContent.get(),
-            securityPreferences.hideAdultNotificationContent.get(),
-            isAdult = true,
-        )?.let { progressNotificationBuilder.setStyle(NotificationCompat.BigTextStyle().bigText(it.chop(40))) }
-
-        context.notificationManager.notify(
+        showProgress(
+            progressNotificationBuilder,
             Notifications.ID_EHENTAI_PROGRESS,
-            progressNotificationBuilder
-                .setProgress(total, current, false)
-                .build(),
+            MR.strings.notification_updating_progress,
+            manga,
+            current,
+            total,
+        )
+    }
+
+    fun showBackupProgressNotification(manga: Manga, current: Int, total: Int) {
+        showProgress(
+            backupProgressNotificationBuilder,
+            Notifications.ID_EHENTAI_BACKUP_PROGRESS,
+            MR.strings.eh_favorites_backup_progress,
+            manga,
+            current,
+            total,
         )
     }
 
@@ -100,5 +93,38 @@ class EHentaiUpdateNotifier(
 
     fun cancelProgressNotification() {
         context.notificationManager.cancel(Notifications.ID_EHENTAI_PROGRESS)
+    }
+
+    fun cancelBackupProgressNotification() {
+        context.notificationManager.cancel(Notifications.ID_EHENTAI_BACKUP_PROGRESS)
+    }
+
+    private fun newProgressBuilder() = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_EHENTAI) {
+        setContentTitle(context.stringResource(MR.strings.app_name))
+        setSmallIcon(R.drawable.ic_refresh_24dp)
+        setLargeIcon(notificationBitmap)
+        setOngoing(true)
+        setOnlyAlertOnce(true)
+    }
+
+    private fun showProgress(
+        builder: NotificationCompat.Builder,
+        id: Int,
+        title: StringResource,
+        manga: Manga,
+        current: Int,
+        total: Int,
+    ) {
+        builder.setContentTitle(context.stringResource(title, percentFormatter.format(current.toFloat() / total)))
+
+        // A gallery is always adult.
+        shownEntryName(
+            manga.title,
+            securityPreferences.hideNotificationContent.get(),
+            securityPreferences.hideAdultNotificationContent.get(),
+            isAdult = true,
+        )?.let { builder.setStyle(NotificationCompat.BigTextStyle().bigText(it.chop(40))) }
+
+        context.notificationManager.notify(id, builder.setProgress(total, current, false).build())
     }
 }

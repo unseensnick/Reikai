@@ -59,6 +59,10 @@ object Notifications {
     const val ID_EHENTAI_PROGRESS = -110
     const val ID_EHENTAI_ERROR = -107
 
+    // RK: the E-Hentai favorites backup's progress, apart from the update checker's so a backup
+    // and a gallery check running together never replace or cancel each other's notification.
+    const val ID_EHENTAI_BACKUP_PROGRESS = -111
+
     // RK: library-wide tracker refresh. Its own ids on the shared library channels, so its progress
     // neither overwrites nor is overwritten by a chapter update running beside it.
     const val ID_TRACKER_REFRESH_PROGRESS = -108

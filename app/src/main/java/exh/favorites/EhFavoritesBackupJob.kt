@@ -69,7 +69,7 @@ class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerPar
             val slot = exhPreferences.exhFavoritesBackupSlot().get()
             val throttle = ThrottleManager()
             toPush.forEachIndexed { index, manga ->
-                notifier.showProgressNotification(manga, index, toPush.size)
+                notifier.showBackupProgressNotification(manga, index, toPush.size)
                 throttle.throttle()
                 runCatching {
                     source.addFavorite(
@@ -91,14 +91,14 @@ class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerPar
             logcat(LogPriority.ERROR, e) { "E-Hentai favorites backup failed" }
             Result.success()
         } finally {
-            notifier.cancelProgressNotification()
+            notifier.cancelBackupProgressNotification()
         }
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         return ForegroundInfo(
-            Notifications.ID_EHENTAI_PROGRESS,
-            notifier.progressNotificationBuilder.build(),
+            Notifications.ID_EHENTAI_BACKUP_PROGRESS,
+            notifier.backupProgressNotificationBuilder.build(),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             } else {
