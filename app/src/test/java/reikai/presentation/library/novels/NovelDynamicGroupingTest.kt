@@ -23,7 +23,7 @@ class NovelDynamicGroupingTest {
             LnPluginSource(mockk(), LnPluginInfo(id = declaredLang, name = declaredLang, lang = declaredLang))
         }
         val sourceManager = mockk<NovelSourceManager>()
-        coEvery { sourceManager.get(any()) } answers { sources[firstArg()] }
+        coEvery { sourceManager.langOf(any()) } answers { sources.getValue(firstArg()).lang }
 
         val feed = novelDynamicGroupingFeed(
             items = novels.map { it.toLibraryItem(false, false, false, "", false, SourceBadge.Generic, "") },

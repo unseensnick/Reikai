@@ -117,6 +117,23 @@ class NovelSourceManagerTest {
         manager.nameOf("gone") shouldBe "gone"
     }
 
+    /** The library's language badge, `language:` search and language groups read this, as a manga stub keeps its language. */
+    @Test
+    fun `a source no longer installed keeps the language it was last seen with`() = runTest {
+        every { seen.get() } returns mapOf("gone" to LnSourceIdentity(name = "Old Name", lang = "ja"))
+
+        manager.langOf("gone") shouldBe "ja"
+    }
+
+    @Test
+    fun `an installed source's own language wins over its seen record`() = runTest {
+        every { seen.get() } returns mapOf("tachiyomi:7" to LnSourceIdentity(name = "App 7", lang = "ja"))
+        loaded.value = listOf(app(catalogue(7L)))
+        manager.sources.first { it.isNotEmpty() }
+
+        manager.langOf("tachiyomi:7") shouldBe "en"
+    }
+
     private fun iReaderApp(sourceId: Long) = app().copy(
         pkgName = "ireader.app.en",
         kind = Extension.Kind.IREADER,

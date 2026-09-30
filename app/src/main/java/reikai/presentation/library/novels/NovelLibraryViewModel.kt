@@ -531,7 +531,7 @@ class NovelLibraryViewModel(
     private suspend fun querySource(source: String) = LibraryQuerySource(
         key = source,
         name = novelSourceName(source).lowercase(),
-        language = sourceManager.get(source)?.lang.orEmpty(),
+        language = sourceManager.langOf(source),
         isLocal = false,
     )
 

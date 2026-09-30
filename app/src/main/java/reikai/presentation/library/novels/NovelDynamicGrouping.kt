@@ -53,8 +53,7 @@ suspend fun novelDynamicGroupingFeed(
     val languageCodes = if (groupType == LibraryGroup.BY_LANGUAGE) {
         items.mapNotNull { item ->
             val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-            val lang = sourceManager.get(novel.source)?.lang?.takeUnless { it.isBlank() }
-                ?: return@mapNotNull null
+            val lang = sourceManager.langOf(novel.source).takeUnless { it.isBlank() } ?: return@mapNotNull null
             EntryId.Novel(item.id) as EntryId to lang
         }.toMap()
     } else {

@@ -114,6 +114,11 @@ class NovelSourceManager(
     suspend fun nameOf(id: String): String =
         get(id)?.name ?: prefs.seenNovelSources().get()[id]?.name ?: id
 
+    /** A source's language by the same rule, blank when neither it nor its seen record names one, as a
+     *  manga stub keeps the language it was stored with. */
+    suspend fun langOf(id: String): String =
+        get(id)?.lang ?: prefs.seenNovelSources().get()[id]?.lang.orEmpty()
+
     /** A registered source without loading the plugins first: for a caller only an app's source serves. */
     suspend fun getWithoutPlugins(id: String): NovelSource? {
         appsRegistered.await()
