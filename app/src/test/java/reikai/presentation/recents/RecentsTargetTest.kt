@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.entry.EntryId
 import reikai.domain.merge.ChapterUnit
 
 /**
@@ -66,7 +67,7 @@ class RecentsTargetTest {
      * Source A leads the stitch with chapters 1 and 2, both read. Source B's copies of them, 11 and 12,
      * are unread and dropped from the group list; B's 14 is a chapter the stitch places nowhere.
      */
-    private data class Copy(val id: Long, val read: Boolean)
+    private data class Copy(val id: Long, val read: Boolean, val bookmark: Boolean = false)
 
     private val pooled = listOf(Copy(1, true), Copy(2, true), Copy(11, false), Copy(12, false), Copy(14, false))
     private val stitch = listOf(
@@ -131,6 +132,50 @@ class RecentsTargetTest {
         addedTarget(listOf(chapter(1))) { listOf(chapter(9)).also { fetched = true } }
 
         fetched shouldBe false
+    }
+
+    private suspend fun resolve(
+        lane: RecentsLane,
+        group: List<Copy>,
+        pooled: List<Copy> = this.pooled,
+        ownSource: List<Copy> = emptyList(),
+    ) = resolveRecentsTarget(
+        lane = lane,
+        group = group,
+        pooled = pooled,
+        stitch = stitch,
+        ownSource = { ownSource },
+        id = { it.id },
+        read = { it.read },
+        bookmark = { it.bookmark },
+        isHidden = { false },
+    )
+
+    private fun updated(chapterId: Long) = RecentsLane.Updated(ChapterRef(EntryId.Manga(1), chapterId))
+
+    @Test
+    fun `an own-source chapter the rule names is projected into the row's chapters`() = runTest {
+        val target = resolve(RecentsLane.Added, group = pooled.take(2), ownSource = pooled.drop(2))
+
+        target?.chapters?.get(target.chapterId) shouldBe Copy(14, false)
+    }
+
+    @Test
+    fun `a chapter read on another source is flagged`() = runTest {
+        resolve(updated(11), group = listOf(Copy(11, false)))?.readElsewhere shouldBe setOf(11L)
+    }
+
+    @Test
+    fun `a chapter bookmarked on another source is flagged`() = runTest {
+        val pooled = listOf(Copy(1, false, bookmark = true), Copy(11, false))
+
+        resolve(updated(11), group = listOf(Copy(11, false)), pooled = pooled)?.bookmarkedElsewhere shouldBe
+            setOf(11L)
+    }
+
+    @Test
+    fun `a lane whose rule finds nothing resolves no target`() = runTest {
+        resolve(RecentsLane.Added, group = pooled.take(2)) shouldBe null
     }
 
     @Test

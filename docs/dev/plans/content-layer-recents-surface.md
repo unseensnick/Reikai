@@ -88,7 +88,7 @@ The row a user sees and the chapter a tap opens are different things, and the ru
 
 **What a row names and what its tap opens are one decision** (owner, 2026-09-24). `RecentsEngine.open` asks `resolvesTarget`, the same predicate the label reads: a combined-mode read row whose label moved onto a resolved chapter opens that chapter out of the one memo, so the two cannot disagree, and an updated row neither resolves nor moves, so its label and its tap are both its own chapter. History is the one place the two still differ, by ruling: its row names the record it logs, and its tap resumes, as upstream's does.
 
-Per content type the mechanics stay behind the provider: manga resolves through `GetNextChapters` with the scanlator filter, novels through `GetNextNovelChapter` in source order. Both are merge-unaware today; step 6 closes that.
+The lane dispatch is one kernel, `resolveRecentsTarget` in `RecentsTarget.kt`, pinned by `RecentsTargetTest`: it seeds the chapters a rule can name, adds an own-source copy the stitch dropped when the fallback reaches it, and flags what another source of the group read or bookmarked. Each provider supplies only its chapter reads (the group list in reading order, its own source's list, manga's with the scanlator filter) and its hidden rule.
 
 **Resolution is lazy, per rendered row.** Resolving eagerly at assembly means one chapter query per row per emission, which on a five-hundred-row feed is the cost Yokai paid for the same feature. Resolve when a row is rendered, cache by `EntryId` for the assembly's life, and invalidate with the assembly. If a row's subtitle needs the resolved chapter's name rather than the recorded one, that is the case to measure before committing to lazy.
 

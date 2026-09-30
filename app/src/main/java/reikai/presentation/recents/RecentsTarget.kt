@@ -85,3 +85,56 @@ fun firstUnreadOf(chapters: List<RecentsChapter>): Long? = chapters.firstOrNull 
  */
 suspend fun addedTarget(group: List<RecentsChapter>, ownSource: suspend () -> List<RecentsChapter>): Long? =
     firstUnreadOf(group) ?: firstUnreadOf(ownSource())
+
+/**
+ * The chapter a lane's rule picked for a row, with what the row is drawn from. [chapters] holds every
+ * chapter a rule could name, so the picked id projects back into a row: the group's list plus any
+ * own-source copy the stitch dropped. [readElsewhere] and [bookmarkedElsewhere] are the named chapters
+ * flagged on another source of the group, so the row says what the details list says.
+ */
+class RecentsTarget<T>(
+    val chapterId: Long,
+    val chapters: Map<Long, T>,
+    val stitch: List<ChapterUnit>,
+    val pooled: List<T>,
+    val readElsewhere: Set<Long>,
+    val bookmarkedElsewhere: Set<Long>,
+)
+
+/**
+ * Merge-aware on all three lanes: a collapsed row stands for the whole group, so it must not reopen
+ * what another of its sources already read. An unmerged entry passes its own list and an empty stitch.
+ * [group] and [ownSource] come in ascending reading order; only [ownSource]'s query is paid, and only
+ * when the group list cannot answer. Each provider supplies its chapter reads and hidden rule.
+ */
+suspend fun <T> resolveRecentsTarget(
+    lane: RecentsLane,
+    group: List<T>,
+    pooled: List<T>,
+    stitch: List<ChapterUnit>,
+    ownSource: suspend () -> List<T>,
+    id: (T) -> Long,
+    read: (T) -> Boolean,
+    bookmark: (T) -> Boolean,
+    isHidden: (T) -> Boolean,
+): RecentsTarget<T>? {
+    val chapters = group.associateByTo(mutableMapOf(), id)
+    fun List<T>.forRules() = recentsChapters(this, pooled, stitch, id, read, isHidden)
+    suspend fun ownSourceForRules() = ownSource().onEach { chapters[id(it)] = it }.forRules()
+
+    val chapterId = when (lane) {
+        is RecentsLane.Read -> resumeTarget(group.forRules(), lane.chapter.chapterId) { ownSourceForRules() }
+        is RecentsLane.Updated -> lane.chapter.chapterId
+        RecentsLane.Added -> addedTarget(group.forRules()) { ownSourceForRules() }
+    } ?: return null
+    // Over both lists, so a row naming a copy the stitch dropped says what the group says of it.
+    val named = chapters.values.toList()
+    return RecentsTarget(
+        chapterId = chapterId,
+        chapters = chapters,
+        stitch = stitch,
+        pooled = pooled,
+        readElsewhere = flaggedOnAnotherSource(pooled, named, stitch, id, read),
+        bookmarkedElsewhere = flaggedOnAnotherSource(pooled, named, stitch, id, bookmark),
+    )
+}

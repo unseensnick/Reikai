@@ -35,7 +35,6 @@ import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.ChapterCopyRow
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.MergedChapterUnitRepository
-import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.recents.RECENTS_FEED_LIMIT
 import reikai.domain.recents.RecentlyAddedManga
@@ -187,17 +186,17 @@ class MangaRecentsAdapter(
     override val progressChanges: Flow<Unit> = downloadManager.progressFlow().map { }
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? =
-        resolveTarget(item)?.let { ChapterRef(item.entryId, it.chapterId) }
+        resolveTarget(item)?.let { (target, _) -> ChapterRef(item.entryId, target.chapterId) }
 
     override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
-        val resolved = resolveTarget(item) ?: return null
+        val (resolved, mangaById) = resolveTarget(item) ?: return null
         val chapter = resolved.chapters[resolved.chapterId] ?: return null
         // Not necessarily this row's manga: a merged row resolves across the group, and the download
         // lookup is keyed by the owner's stored title and source.
-        val owner = resolved.mangaById[chapter.mangaId] ?: return null
+        val owner = mangaById[chapter.mangaId] ?: return null
         val unitOf = resolved.stitch.associateBy { it.chapterId }
         val copies = recentsRowCopies(chapter, resolved.stitch, resolved.pooled) { it.id }.mapNotNull { copy ->
-            val copyOwner = resolved.mangaById[copy.mangaId] ?: return@mapNotNull null
+            val copyOwner = mangaById[copy.mangaId] ?: return@mapNotNull null
             ChapterCopyRow(
                 namedId = chapter.id,
                 copy = unitOf[copy.id] ?: ChapterUnit(copy.id, unit = 0, copyOrder = 0),
@@ -221,66 +220,31 @@ class MangaRecentsAdapter(
         )
     }
 
-    /** The chapter a lane's rule picked, with everything a row needs to be drawn from it. */
-    private class TargetResolution(
-        val chapterId: Long,
-        val chapters: Map<Long, Chapter>,
-        val mangaById: Map<Long, Manga>,
-        /** The group's stitch and every member's chapters, where the row's copies on disk are found. */
-        val stitch: List<ChapterUnit> = emptyList(),
-        val pooled: List<Chapter> = emptyList(),
-        /** Read or bookmarked on another source of the group, so the row says what the details list
-         *  says rather than what the one copy the target rule picked happens to hold. */
-        val readElsewhere: Set<Long> = emptySet(),
-        val bookmarkedElsewhere: Set<Long> = emptySet(),
-    )
-
     /**
-     * Merge-aware on all three lanes: a collapsed row stands for the whole group, so it must not reopen
-     * what another of its sources already read. An unmerged entry gets its own list back, so this is
-     * the plain path too. Resolved per rendered row rather than at assembly, which is what keeps a
-     * five-hundred-row feed from paying a chapter query per row on every emission.
+     * The lane's target over the group, with the group's members by id, which a copy's download is looked
+     * up under. Resolved per rendered row rather than at assembly, which is what keeps a five-hundred-row
+     * feed from paying a chapter query per row on every emission.
      */
-    private suspend fun resolveTarget(item: RecentsItem): TargetResolution? {
+    private suspend fun resolveTarget(item: RecentsItem): Pair<RecentsTarget<Chapter>, Map<Long, Manga>>? {
         val mangaId = item.entryId.rawId
         val manga = getManga.await(mangaId)
         val group = manga?.let { mergedChapterProvider.load(it) }
-        val pooled = group?.pooledChapters.orEmpty()
-        val stitch = group?.stitch.orEmpty()
-        val groupChapters = readingOrder(manga, group?.chapters)
-        // Every chapter a rule below could name, so the id it returns can be projected back into a
-        // row. The own-source list is not a subset of the group's: the cross-source stitch drops the
-        // copies another source stands in for.
-        val chapters = groupChapters.associateByTo(mutableMapOf()) { it.id }
-        suspend fun ownSource(): List<Chapter> =
-            readingOrder(manga, getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true))
-                .onEach { chapters[it.id] = it }
         val hidden = mangaPreferences.hiddenChapters().get()
-        val isHidden = { chapter: Chapter ->
-            val owner = group?.mangaById?.get(chapter.mangaId) ?: manga
-            owner != null && hiddenChapterKey(owner.source.toString(), chapter.url) in hidden
-        }
-        fun List<Chapter>.forRules() =
-            recentsChapters(this, pooled, stitch, { it.id }, { it.read }, isHidden)
-
-        val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read -> resumeTarget(groupChapters.forRules(), lane.chapter.chapterId) {
-                ownSource().forRules()
-            }
-            is RecentsLane.Updated -> lane.chapter.chapterId
-            RecentsLane.Added -> addedTarget(groupChapters.forRules()) { ownSource().forRules() }
-        } ?: return null
-        // Over both lists, so a row naming a copy the stitch dropped says what the group says of it.
-        val named = chapters.values.toList()
-        return TargetResolution(
-            chapterId = chapterId,
-            chapters = chapters,
-            mangaById = group?.mangaById.orEmpty(),
-            stitch = stitch,
-            pooled = pooled,
-            readElsewhere = flaggedOnAnotherSource(pooled, named, stitch, { it.id }, { it.read }),
-            bookmarkedElsewhere = flaggedOnAnotherSource(pooled, named, stitch, { it.id }, { it.bookmark }),
-        )
+        val target = resolveRecentsTarget(
+            lane = item.lane,
+            group = readingOrder(manga, group?.chapters),
+            pooled = group?.pooledChapters.orEmpty(),
+            stitch = group?.stitch.orEmpty(),
+            ownSource = { readingOrder(manga, getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true)) },
+            id = { it.id },
+            read = { it.read },
+            bookmark = { it.bookmark },
+            isHidden = { chapter ->
+                val owner = group?.mangaById?.get(chapter.mangaId) ?: manga
+                owner != null && hiddenChapterKey(owner.source.toString(), chapter.url) in hidden
+            },
+        ) ?: return null
+        return target to group?.mangaById.orEmpty()
     }
 
     /** Ascending reading order, which every shared target rule expects: the one the reader pages in. */

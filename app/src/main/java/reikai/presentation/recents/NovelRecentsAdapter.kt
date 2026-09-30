@@ -27,7 +27,6 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterCopyRow
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.MergedChapterUnitRepository
-import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -220,58 +219,22 @@ class NovelRecentsAdapter(
         )
     }
 
-    /** [resolveTarget]'s answer: this type's chapters and the group's flags. */
-    private class TargetResolution(
-        val chapterId: Long,
-        val chapters: Map<Long, NovelChapter>,
-        val stitch: List<ChapterUnit> = emptyList(),
-        val pooled: List<NovelChapter> = emptyList(),
-        val readElsewhere: Set<Long> = emptySet(),
-        val bookmarkedElsewhere: Set<Long> = emptySet(),
-    )
-
-    /**
-     * Merge-aware on all three lanes. Only the chapter reads are this type's; the lane rules are the
-     * shared kernels in RecentsTarget.kt, which RecentsTargetTest pins for both adapters.
-     */
-    private suspend fun resolveTarget(item: RecentsItem): TargetResolution? {
+    /** Only the chapter reads are this type's; the lane rules are [resolveRecentsTarget]'s. */
+    private suspend fun resolveTarget(item: RecentsItem): RecentsTarget<NovelChapter>? {
         val novelId = item.entryId.rawId
-        // Already ascending reading order, which is the contract every rule below reads under.
+        // Both lists come in the novel's own ascending reading order, which the rules read under; the
+        // stored rows arrive in whatever order the table hands them over.
         val group = getNextNovelChapter.groupChapters(novelId)
-        // Every chapter a rule below could name, so the id it returns can be projected back into a
-        // row: the stitch drops the copies another source stands in for, so the two lists differ.
-        val chapters = group.chapters.associateByTo(mutableMapOf()) { it.id }
-
-        // In the novel's own reading order, which is what every rule below reads under; the stored
-        // rows arrive in whatever order the table hands them over.
-        suspend fun ownSource(): List<NovelChapter> =
-            getNextNovelChapter.ownSourceChapters(novelId).onEach { chapters[it.id] = it }
-        val isHidden = getNextNovelChapter.hiddenAmong(group.pooledChapters)
-        fun List<NovelChapter>.forRules() =
-            recentsChapters(this, group.pooledChapters, group.stitch, { it.id }, { it.read }, isHidden)
-
-        val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read -> resumeTarget(group.chapters.forRules(), lane.chapter.chapterId) {
-                ownSource().forRules()
-            }
-            is RecentsLane.Updated -> lane.chapter.chapterId
-            RecentsLane.Added -> addedTarget(group.chapters.forRules()) { ownSource().forRules() }
-        } ?: return null
-        // Over both lists, so a row naming a copy the stitch dropped says what the group says of it.
-        val named = chapters.values.toList()
-        return TargetResolution(
-            chapterId = chapterId,
-            chapters = chapters,
-            stitch = group.stitch,
+        return resolveRecentsTarget(
+            lane = item.lane,
+            group = group.chapters,
             pooled = group.pooledChapters,
-            readElsewhere = flaggedOnAnotherSource(group.pooledChapters, named, group.stitch, { it.id }, { it.read }),
-            bookmarkedElsewhere = flaggedOnAnotherSource(
-                group.pooledChapters,
-                named,
-                group.stitch,
-                { it.id },
-                { it.bookmark },
-            ),
+            stitch = group.stitch,
+            ownSource = { getNextNovelChapter.ownSourceChapters(novelId) },
+            id = { it.id },
+            read = { it.read },
+            bookmark = { it.bookmark },
+            isHidden = getNextNovelChapter.hiddenAmong(group.pooledChapters),
         )
     }
 
