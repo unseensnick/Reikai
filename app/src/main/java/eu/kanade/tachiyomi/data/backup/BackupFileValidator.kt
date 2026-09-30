@@ -37,31 +37,8 @@ class BackupFileValidator(
         // restore is one, so without this every installed novel source reports as missing.
         novelSourceManager.ensureLoaded()
 
-        val backupSources = mutableListOf<BackupSource>()
-        val mangaTrackerIds = mutableSetOf<Int>()
-        val novelSources = mutableSetOf<String>()
-        val novelSourceNames = mutableMapOf<String, String>() // RK: field 717, absent before it existed
-        val novelTrackerIds = mutableSetOf<Long>()
-
-        try {
-            BackupProtoReader(context).read(uri) { fieldNumber, data ->
-                when (fieldNumber) {
-                    1 -> parser.decodeFromByteArray(BackupManga.serializer(), data)
-                        .tracking.forEach { mangaTrackerIds.add(it.syncId) }
-                    101 -> backupSources.add(parser.decodeFromByteArray(BackupSource.serializer(), data))
-                    700 -> parser.decodeFromByteArray(BackupNovel.serializer(), data).let { novel ->
-                        novelSources.add(novel.source)
-                        novel.tracking.forEach { novelTrackerIds.add(it.trackerId) }
-                    }
-                    717 -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
-                        novelSourceNames[it.sourceId] = it.name
-                    }
-                }
-            }
-            // RK <--
-        } catch (e: Exception) {
-            throw IllegalStateException(e)
-        }
+        val (backupSources, mangaTrackerIds, novelSources, novelSourceNames, novelTrackerIds) = scan(uri)
+        // RK <--
 
         val sources = backupSources.associate { it.sourceId to it.name } // RK: streamed
         val missingSources = sources
@@ -100,6 +77,51 @@ class BackupFileValidator(
         )
         // RK <--
     }
+
+    // RK -->
+
+    /**
+     * Throws [IllegalStateException] when the file at [uri] does not decode, and resolves nothing: the
+     * check a freshly written backup needs. Resolving novel sources loads every installed plugin and can
+     * fetch over the network, which [validate] does only because the restore screen shows its answer.
+     */
+    suspend fun checkReadable(uri: Uri) {
+        scan(uri)
+    }
+
+    // Streams the backup field by field and decodes only what validation reads.
+    private suspend fun scan(uri: Uri): Scanned {
+        val scanned = Scanned()
+        try {
+            BackupProtoReader(context).read(uri) { fieldNumber, data ->
+                when (fieldNumber) {
+                    1 -> parser.decodeFromByteArray(BackupManga.serializer(), data)
+                        .tracking.forEach { scanned.mangaTrackerIds.add(it.syncId) }
+                    101 -> scanned.backupSources.add(parser.decodeFromByteArray(BackupSource.serializer(), data))
+                    700 -> parser.decodeFromByteArray(BackupNovel.serializer(), data).let { novel ->
+                        scanned.novelSources.add(novel.source)
+                        novel.tracking.forEach { scanned.novelTrackerIds.add(it.trackerId) }
+                    }
+                    717 -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
+                        scanned.novelSourceNames[it.sourceId] = it.name
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            throw IllegalStateException(e)
+        }
+        return scanned
+    }
+
+    private data class Scanned(
+        val backupSources: MutableList<BackupSource> = mutableListOf(),
+        val mangaTrackerIds: MutableSet<Int> = mutableSetOf(),
+        val novelSources: MutableSet<String> = mutableSetOf(),
+        // Field 717, absent from a backup made before it existed.
+        val novelSourceNames: MutableMap<String, String> = mutableMapOf(),
+        val novelTrackerIds: MutableSet<Long> = mutableSetOf(),
+    )
+    // RK <--
 
     data class Results(
         val missingSources: List<String>,

@@ -5,6 +5,7 @@ import android.net.Uri
 import eu.kanade.tachiyomi.data.backup.create.BackupProtoWriter
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -22,23 +23,48 @@ import java.util.zip.GZIPOutputStream
 class BackupFileValidatorTest {
 
     private fun validator(vararg fields: Pair<Int, ByteArray>): BackupFileValidator {
-        val file = ByteArrayOutputStream().also { out ->
-            GZIPOutputStream(out).use { gzip ->
-                fields.forEach { (n, data) -> BackupProtoWriter.writeField(gzip, n, data) }
-            }
-        }
         val novelSources = mockk<NovelSourceManager>()
         coEvery { novelSources.ensureLoaded() } just runs
         coEvery { novelSources.get(any()) } returns null
-        return BackupFileValidator(
-            context = mockk<Context> {
-                every { contentResolver.openInputStream(any()) } returns file.toByteArray().inputStream()
-            },
-            sourceManager = mockk(),
-            trackerManager = mockk(),
-            novelSourceManager = novelSources,
-            parser = ProtoBuf,
+        return validator(novelSources, fields.asList())
+    }
+
+    // Strict mocks: touching a source or tracker manager that is not stubbed fails the test.
+    private fun validator(novelSources: NovelSourceManager, fields: List<Pair<Int, ByteArray>>) =
+        validatorOver(
+            ByteArrayOutputStream().also { out ->
+                GZIPOutputStream(out).use { gzip ->
+                    fields.forEach { (n, data) -> BackupProtoWriter.writeField(gzip, n, data) }
+                }
+            }.toByteArray(),
+            novelSources,
         )
+
+    private fun validatorOver(file: ByteArray, novelSources: NovelSourceManager) = BackupFileValidator(
+        context = mockk<Context> {
+            every { contentResolver.openInputStream(any()) } returns file.inputStream()
+        },
+        sourceManager = mockk(),
+        trackerManager = mockk(),
+        novelSourceManager = novelSources,
+        parser = ProtoBuf,
+    )
+
+    @Test
+    fun `the check after writing a backup reads it without resolving any source`() = runTest {
+        // Resolving novel sources loads every installed plugin and can fetch over the network, on every
+        // backup including the automatic ones, for a result the caller never reads.
+        validator(mockk<NovelSourceManager>(), listOf(novel)).checkReadable(mockk<Uri>()) shouldBe Unit
+    }
+
+    @Test
+    fun `the check after writing a backup rejects a malformed file`() = runTest {
+        // A length-delimited field claiming more bytes than the file holds.
+        val truncated = byteArrayOf(0x0A, 0x7F, 0x01)
+
+        shouldThrow<IllegalStateException> {
+            validatorOver(truncated, mockk()).checkReadable(mockk<Uri>())
+        }
     }
 
     private val novel = 700 to ProtoBuf.encodeToByteArray(

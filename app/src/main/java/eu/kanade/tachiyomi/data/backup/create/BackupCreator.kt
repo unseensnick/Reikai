@@ -196,7 +196,9 @@ class BackupCreator(
             val fileUri = file.uri
 
             // Make sure it's a valid backup file
-            backupFileValidator.validate(fileUri)
+            // RK: checkReadable, not validate: upstream resolves sources here and discards the answer, and
+            // Reikai's novel resolution loads every installed plugin.
+            backupFileValidator.checkReadable(fileUri)
 
             if (isAutoBackup) {
                 backupPreferences.lastAutoBackupTimestamp.set(Clock.System.now().toEpochMilliseconds())
