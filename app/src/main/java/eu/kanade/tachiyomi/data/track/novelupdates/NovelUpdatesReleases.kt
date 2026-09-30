@@ -76,12 +76,16 @@ internal sealed interface BindOnSite {
 }
 
 /**
- * How a bind treats the site, given the list the series is on ([onList], with [siteStatus] null for a
- * custom list). A kept series moves from Plan to read to Reading once chapters are read, as the list
- * trackers do, and otherwise stays where the user put it.
+ * How a bind treats the site, given the status of the list the series is on ([siteStatus], null for
+ * none). A kept series moves from Plan to read to Reading once chapters are read, as the list trackers
+ * do, and otherwise stays where the user put it, a list of their own included.
  */
-internal fun bindOnSite(onList: Boolean, siteStatus: Long?, hasReadChapters: Boolean): BindOnSite = when {
-    !onList -> BindOnSite.File(if (hasReadChapters) NovelUpdates.READING else NovelUpdates.PLAN_TO_READ)
+internal fun bindOnSite(siteStatus: Long?, hasReadChapters: Boolean): BindOnSite = when {
+    siteStatus == null -> BindOnSite.File(if (hasReadChapters) NovelUpdates.READING else NovelUpdates.PLAN_TO_READ)
     hasReadChapters && siteStatus == NovelUpdates.PLAN_TO_READ -> BindOnSite.Keep(NovelUpdates.READING)
     else -> BindOnSite.Keep(moveTo = null)
 }
+
+/** A read files the series under Reading, except a Completed one or one on a list of the user's own. */
+internal fun statusAfterRead(status: Long): Long =
+    if (status == NovelUpdates.COMPLETED || status == NovelUpdates.OTHER_LIST) status else NovelUpdates.READING

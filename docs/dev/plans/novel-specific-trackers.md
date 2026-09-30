@@ -421,6 +421,19 @@ OkHttp's bridge replaced the stored credential's `Cookie` header with the jar's 
 resolves a cookie before a bearer token, so a token login could read and write as the WebView's
 account. Pinned by `CookieLoginSignOutTest` and `RanobeDbApiCookieTest`.
 
+**A NovelUpdates series on a list of the user's own stays there** (owner, 2026-09-30, option (a)
+of three; the others were filing it on Reading at bind, or treating it as on no list). A list the
+mapping does not cover reads as `NovelUpdates.OTHER_LIST` (status 0), at bind and at every refresh,
+and `listIdFor` answers null for it, so a push writes the note and the bookmark but moves the series
+nowhere, and a read leaves the status alone (`statusAfterRead`). Before this the bind left status 0
+by accident, the backfill push moved the series onto Reading through `listIdFor`'s Reading fallback,
+and a series moved to a custom list on the site after binding was moved back on the next push.
+Picking a status in the sheet moves it as before; the sheet shows no status name for 0. One gap stays:
+the shared first-read rule (`TrackFieldMutations.applyLastChapterRead`) files a row whose note has no
+progress yet under Reading, as it does for Plan to read, so a series on the user's own list with an
+empty note moves on its first pushed read. Pinned by `NovelUpdatesListMappingTest` and
+`NovelUpdatesReleasesTest`.
+
 **A refresh re-reads NovelList's chapter total from the catalogue.** The total was set only at
 search time, so an ongoing web novel bound at 300 chapters and read to 450 kept 300, and choosing
 Completed ran the shared `TrackFieldMutations.applyStatus`, which sets progress to the total, and

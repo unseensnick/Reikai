@@ -575,6 +575,7 @@ every stable release now also ships a foss build with neither in it.
 - **An expired AniList login now asks you to sign in again instead of showing an HTTP error.**
 - **Marking a NovelList novel Completed no longer lowers its chapter progress.**
 - **RanobeDB updates now go to the account you signed in with.**
+- **Binding or reading a NovelUpdates novel no longer moves it off your own reading list.**
 
 ### Downloads & extensions
 

@@ -46,6 +46,13 @@ class NovelUpdates(id: Long) :
         const val DROPPED = 4L
         const val PLAN_TO_READ = 5L
 
+        /**
+         * On a list of the user's own that the list mapping does not cover. Not offered as a choice:
+         * pushes leave the series on that list and write only progress, until the user picks one of
+         * [STATUSES], which moves it.
+         */
+        const val OTHER_LIST = 0L
+
         val STATUSES = listOf(READING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_READ)
 
         const val SESSION_COOKIE_PREFIX = "wordpress_logged_in"
@@ -109,9 +116,8 @@ class NovelUpdates(id: Long) :
                 ?: throw IOException("NovelUpdates returned an unusable id")
         }
         val novelId = track.remote_id.toString()
-        val listId = api.findListId(novelId)
-        val siteStatus = listId?.let { mapping().statusFor(it) }
-        when (val plan = bindOnSite(listId != null, siteStatus, hasReadChapters)) {
+        val siteStatus = api.findListId(novelId)?.let { mapping().statusFor(it) }
+        when (val plan = bindOnSite(siteStatus, hasReadChapters)) {
             is BindOnSite.File -> {
                 track.status = plan.status
                 push(track)
@@ -122,7 +128,7 @@ class NovelUpdates(id: Long) :
                 api.readNotes(novelId)?.let { progressFrom(it.notes) }?.let { track.last_chapter_read = it.toDouble() }
                 plan.moveTo?.let {
                     track.status = it
-                    api.moveToList(novelId, mapping().listIdFor(it))
+                    moveToList(novelId, it)
                 }
             }
         }
@@ -130,8 +136,8 @@ class NovelUpdates(id: Long) :
     }
 
     override suspend fun update(track: Track, didReadChapter: Boolean): Track {
-        if (didReadChapter && track.status != COMPLETED) {
-            track.status = READING
+        if (didReadChapter) {
+            track.status = statusAfterRead(track.status)
         }
         push(track, readChapter = didReadChapter)
         return track
@@ -180,9 +186,7 @@ class NovelUpdates(id: Long) :
 
     override suspend fun refresh(track: Track): Track {
         val novelId = track.remote_id.toString()
-        api.findListId(novelId)
-            ?.let { mapping().statusFor(it) }
-            ?.let { track.status = it }
+        api.findListId(novelId)?.let { track.status = mapping().statusFor(it) }
         api.readNotes(novelId)
             ?.let { progressFrom(it.notes) }
             ?.let { track.last_chapter_read = it.toDouble() }
@@ -258,7 +262,7 @@ class NovelUpdates(id: Long) :
      */
     private suspend fun push(track: Track, readChapter: Boolean = false) {
         val novelId = track.remote_id.toString()
-        api.moveToList(novelId, mapping().listIdFor(track.status))
+        moveToList(novelId, track.status)
 
         val existing = api.readNotes(novelId) ?: return
         val onSite = progressFrom(existing.notes)
@@ -276,6 +280,11 @@ class NovelUpdates(id: Long) :
         if (updated != existing.notes) {
             api.writeNotes(novelId, updated, existing.tags)
         }
+    }
+
+    // A series on a list of the user's own has no list to move to, so it stays there.
+    private suspend fun moveToList(novelId: String, status: Long) {
+        mapping().listIdFor(status)?.let { api.moveToList(novelId, it) }
     }
 
     /**

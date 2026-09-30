@@ -28,7 +28,7 @@ class NovelUpdatesListMappingTest {
     fun `every default status survives a round trip through its list`(status: Long) {
         val mapping = NovelUpdatesListMapping.Default
 
-        mapping.statusFor(mapping.listIdFor(status)) shouldBe status
+        mapping.listIdFor(status)?.let(mapping::statusFor) shouldBe status
     }
 
     /** The failure this exists for: a remapped status must read back as itself, not as the default. */
@@ -37,7 +37,7 @@ class NovelUpdatesListMappingTest {
     fun `a custom status survives a round trip too`(status: Long) {
         val mapping = NovelUpdatesListMapping.from("""{"1":7,"3":8,"4":9}""", json)
 
-        mapping.statusFor(mapping.listIdFor(status)) shouldBe status
+        mapping.listIdFor(status)?.let(mapping::statusFor) shouldBe status
     }
 
     @Test
@@ -58,9 +58,15 @@ class NovelUpdatesListMappingTest {
         }
     }
 
-    /** A list the mapping has never heard of leaves the local status alone rather than resetting it. */
+    /** A list the user made that the mapping does not cover reads as that, not as a stock status. */
     @Test
-    fun `an unknown list reports no status`() {
-        NovelUpdatesListMapping.Default.statusFor(42L) shouldBe null
+    fun `an unknown list reads as a list of the user's own`() {
+        NovelUpdatesListMapping.Default.statusFor(42L) shouldBe NovelUpdates.OTHER_LIST
+    }
+
+    /** So a push leaves the series on the user's own list instead of moving it onto Reading. */
+    @Test
+    fun `a series on a list of the user's own is moved nowhere`() {
+        NovelUpdatesListMapping.Default.listIdFor(NovelUpdates.OTHER_LIST) shouldBe null
     }
 }

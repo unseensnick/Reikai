@@ -5,6 +5,9 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 
 class NovelUpdatesReleasesTest {
 
@@ -128,36 +131,58 @@ class NovelUpdatesReleasesTest {
 
     @Test
     fun `a series on none of the user's lists is filed as plan to read when nothing is read`() {
-        bindOnSite(onList = false, siteStatus = null, hasReadChapters = false) shouldBe
+        bindOnSite(siteStatus = null, hasReadChapters = false) shouldBe
             BindOnSite.File(NovelUpdates.PLAN_TO_READ)
     }
 
     @Test
     fun `a series on none of the user's lists is filed as reading once chapters are read`() {
-        bindOnSite(onList = false, siteStatus = null, hasReadChapters = true) shouldBe
+        bindOnSite(siteStatus = null, hasReadChapters = true) shouldBe
             BindOnSite.File(NovelUpdates.READING)
     }
 
     @Test
     fun `a series already on a list keeps it and writes nothing`() {
-        bindOnSite(onList = true, siteStatus = NovelUpdates.ON_HOLD, hasReadChapters = true) shouldBe
+        bindOnSite(siteStatus = NovelUpdates.ON_HOLD, hasReadChapters = true) shouldBe
             BindOnSite.Keep(moveTo = null)
     }
 
     @Test
-    fun `a series on a custom list keeps it too`() {
-        bindOnSite(onList = true, siteStatus = null, hasReadChapters = true) shouldBe BindOnSite.Keep(moveTo = null)
+    fun `a series on a list of the user's own keeps it too`() {
+        bindOnSite(siteStatus = NovelUpdates.OTHER_LIST, hasReadChapters = true) shouldBe
+            BindOnSite.Keep(moveTo = null)
     }
 
     @Test
     fun `a planned series moves to reading once chapters are read`() {
-        bindOnSite(onList = true, siteStatus = NovelUpdates.PLAN_TO_READ, hasReadChapters = true) shouldBe
+        bindOnSite(siteStatus = NovelUpdates.PLAN_TO_READ, hasReadChapters = true) shouldBe
             BindOnSite.Keep(moveTo = NovelUpdates.READING)
     }
 
     @Test
     fun `a planned series with nothing read stays planned`() {
-        bindOnSite(onList = true, siteStatus = NovelUpdates.PLAN_TO_READ, hasReadChapters = false) shouldBe
+        bindOnSite(siteStatus = NovelUpdates.PLAN_TO_READ, hasReadChapters = false) shouldBe
             BindOnSite.Keep(moveTo = null)
+    }
+
+    @ParameterizedTest(name = "{0} -> {1}")
+    @MethodSource("statusesAfterRead")
+    fun `a read moves a series to reading unless it is completed or on a list of the user's own`(
+        status: Long,
+        expected: Long,
+    ) {
+        statusAfterRead(status) shouldBe expected
+    }
+
+    companion object {
+        @JvmStatic
+        fun statusesAfterRead() = listOf(
+            Arguments.of(NovelUpdates.PLAN_TO_READ, NovelUpdates.READING),
+            Arguments.of(NovelUpdates.ON_HOLD, NovelUpdates.READING),
+            Arguments.of(NovelUpdates.DROPPED, NovelUpdates.READING),
+            Arguments.of(NovelUpdates.READING, NovelUpdates.READING),
+            Arguments.of(NovelUpdates.COMPLETED, NovelUpdates.COMPLETED),
+            Arguments.of(NovelUpdates.OTHER_LIST, NovelUpdates.OTHER_LIST),
+        )
     }
 }

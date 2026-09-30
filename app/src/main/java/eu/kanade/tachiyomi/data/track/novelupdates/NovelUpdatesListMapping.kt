@@ -16,10 +16,11 @@ class NovelUpdatesListMapping(private val statusToList: Map<Long, Long>) {
             .sortedBy { it.key }
             .associate { (status, list) -> list to status }
 
-    fun listIdFor(status: Long): Long = statusToList[status] ?: statusToList.getValue(NovelUpdates.READING)
+    /** Null for [NovelUpdates.OTHER_LIST]: the series stays on the user's own list. */
+    fun listIdFor(status: Long): Long? = statusToList[status]
 
-    /** Null for a list this mapping does not know, so the caller keeps the status it already had. */
-    fun statusFor(listId: Long): Long? = listToStatus[listId]
+    /** A list this mapping does not know is one the user made, read as [NovelUpdates.OTHER_LIST]. */
+    fun statusFor(listId: Long): Long = listToStatus[listId] ?: NovelUpdates.OTHER_LIST
 
     /** The map as stored, for the settings picker to edit. */
     fun asStatusToList(): Map<Long, Long> = statusToList
