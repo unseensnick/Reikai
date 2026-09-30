@@ -635,6 +635,7 @@ every stable release now also ships a foss build with neither in it.
 - **A queued novel whose plugin was removed now shows the plugin's name instead of its id.**
 - **Marking a manga chapter read no longer deletes its download in a category excluded from removal.**
 - **Retrying a failed manga chapter while other chapters are downloading now retries it at once, instead of doing nothing.**
+- **A chapter row on the details screen now shows a failed or retried download as it happens.** It used to keep the old mark until the screen was reopened, most visibly on a merged series.
 
 ### Backup & restore
 

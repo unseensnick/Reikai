@@ -284,6 +284,11 @@ class NovelDetailsViewModel(
     @Volatile
     private var currentCustomInfo: CustomNovelInfo? = null
 
+    /** The queue's states, held outside state like [currentTrackingButton]: the queue speaks only when
+     *  it changes, so one that spoke before the list loaded would leave its rows unmarked. */
+    @Volatile
+    private var currentDownloadStates: Map<Long, Download.State> = emptyMap()
+
     /** The viewed list's rows before hiding, filters and sort: one page on a paged source. */
     @Volatile
     private var viewRows: List<NovelChapter> = emptyList()
@@ -370,6 +375,7 @@ class NovelDetailsViewModel(
         viewModelScope.launchIO {
             downloadManager.queueState.collectLatest { queue ->
                 val map = queue.associate { it.chapterId to it.state.toDownloadState() }
+                currentDownloadStates = map
                 state.update { (it as? NovelDetailsState.Loaded)?.copy(downloadStates = map) ?: it }
             }
         }
@@ -637,7 +643,7 @@ class NovelDetailsViewModel(
                 pageIndex = if (pages.isEmpty()) 0 else pageIndex.coerceIn(0, pages.lastIndex),
                 isPageLoading = loaded?.isPageLoading ?: false,
                 isRefreshing = loaded?.isRefreshing ?: false,
-                downloadStates = loaded?.downloadStates.orEmpty(),
+                downloadStates = currentDownloadStates,
                 downloadedChapterIds = downloadedChapterIds,
                 downloadFolderOwner = downloadFolderOwner,
                 readInOtherSources = readInOtherSources,

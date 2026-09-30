@@ -89,6 +89,7 @@ import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenKey
+import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.EntryId
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
@@ -912,7 +913,7 @@ class MangaViewModel(
     private fun observeDownloads() {
         viewModelScope.launchIO {
             downloadManager.statusFlow()
-                .filter { it.manga.id == successState?.manga?.id }
+                .filter { successState?.showsChaptersOf(it.manga.id) == true } // RK
                 .catch { error -> logcat(LogPriority.ERROR, error) }
                 .collect {
                     withUIContext {
@@ -923,7 +924,7 @@ class MangaViewModel(
 
         viewModelScope.launchIO {
             downloadManager.progressFlow()
-                .filter { it.manga.id == successState?.manga?.id }
+                .filter { successState?.showsChaptersOf(it.manga.id) == true } // RK
                 .catch { error -> logcat(LogPriority.ERROR, error) }
                 .collect {
                     withUIContext {
@@ -963,13 +964,9 @@ class MangaViewModel(
             } else {
                 downloadManager.getQueuedDownloadOrNull(chapter.id)
             }
-            val downloaded = flags.isDownloaded(chapter)
+            // The rule every Reikai row reads, novels' details list included.
+            val downloadState = downloadStateOf(activeDownload?.status) { flags.isDownloaded(chapter) }
             // RK <--
-            val downloadState = when {
-                activeDownload != null -> activeDownload.status
-                downloaded -> Download.State.DOWNLOADED
-                else -> Download.State.NOT_DOWNLOADED
-            }
 
             ChapterList.Item(
                 chapter = chapter,
@@ -1924,6 +1921,10 @@ class MangaViewModel(
             // to expanded in the library too (Mihon only auto-expands when arriving from a source).
             val isMetadataSource: Boolean
                 get() = source.getMainSource<MetadataSource<*, *>>() != null
+
+            // Whose queued downloads the rows follow. A merged series lists chapters of every source
+            // it shows, so matching [manga] alone left a sibling source's row on a stale mark.
+            fun showsChaptersOf(mangaId: Long) = mangaId == manga.id || mangaId in mergedMangaById
             // RK <--
 
             val processedChapters by lazy {
