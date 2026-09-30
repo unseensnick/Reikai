@@ -203,7 +203,6 @@ class NovelReaderViewModelHarness private constructor(
         val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
         val mergedChapterProvider = NovelMergedChapterProvider(
             mergeManager,
-            units,
             ReconcileMergedChapters(units, setOf(stitcher)),
         )
         return NovelReaderViewModel(
@@ -301,7 +300,6 @@ class NovelReaderViewModelHarness private constructor(
             mergeManager = mergeManager,
             mergedChapterProvider = NovelMergedChapterProvider(
                 mergeManager,
-                units,
                 ReconcileMergedChapters(units, setOf(stitcher)),
             ),
             reikaiLibraryPreferences = reikaiLibraryPreferences,

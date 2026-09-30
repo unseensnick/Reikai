@@ -77,7 +77,7 @@ class GetNextNovelChapterTest {
     private fun merged(stitch: List<ChapterUnit>) {
         coEvery { mergeManager.computeRelatedIds(any()) } returns longArrayOf(1L, 2L)
         coEvery { mergedChapterProvider.stitchOf(any()) } returns stitch
-        val render = NovelMergedChapterProvider(mockk(), mockk(), mockk())
+        val render = NovelMergedChapterProvider(mockk(), mockk())
         every { mergedChapterProvider.merged(any(), any()) } answers { render.merged(firstArg(), secondArg()) }
     }
 

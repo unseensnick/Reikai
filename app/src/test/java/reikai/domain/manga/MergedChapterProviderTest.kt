@@ -27,7 +27,7 @@ class MergedChapterProviderTest {
     private fun chapter(mangaId: Long, number: Double): Chapter =
         Chapter.create().copy(id = nextId++, mangaId = mangaId, chapterNumber = number, name = "Chapter $number")
 
-    private fun provider() = MergedChapterProvider(mockk(), mockk(), mockk(), mockk(), mockk(), mockk())
+    private fun provider() = MergedChapterProvider(mockk(), mockk(), mockk(), mockk(), mockk())
 
     @Test
     @DisplayName("the merged list is renumbered onto one source-order scale")
@@ -64,7 +64,6 @@ class MergedChapterProviderTest {
             mergeManager = MangaMergeManager(repository, preferences) {},
             sourceManager = mockk(relaxed = true),
             reikaiLibraryPreferences = preferences,
-            units = mockk(relaxed = true),
             reconcile = mockk(relaxed = true),
         )
 

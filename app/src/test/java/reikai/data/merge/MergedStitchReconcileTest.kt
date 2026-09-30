@@ -78,10 +78,10 @@ class MergedStitchReconcileTest {
         val fixture = fixture(type)
         val group = fixture.twoSourceGroup()
         val reconcile = fixture.reconcile()
-        reconcile.awaitGroup(type, group)
+        reconcile.currentStitch(type, group)
 
         groups.setSourceOrder(type, group, fixture.membersOf(group).reversed())
-        reconcile.awaitGroup(type, group)
+        reconcile.currentStitch(type, group)
 
         fixture.ownerOfFirstChapter(group) shouldBe SECOND
     }
@@ -93,10 +93,10 @@ class MergedStitchReconcileTest {
         val group = fixture.twoSourceGroup()
         groups.setSourceOrder(type, group, fixture.membersOf(group).reversed())
         val reconcile = fixture.reconcile()
-        reconcile.awaitGroup(type, group)
+        reconcile.currentStitch(type, group)
 
         groups.clearSourceOrder(type, group)
-        reconcile.awaitGroup(type, group)
+        reconcile.currentStitch(type, group)
 
         fixture.ownerOfFirstChapter(group) shouldBe FIRST
     }
@@ -106,7 +106,7 @@ class MergedStitchReconcileTest {
     fun `a changed preferred-source list restitches the group`(type: ContentType) = runTest {
         val fixture = fixture(type)
         val group = fixture.twoSourceGroup()
-        fixture.reconcile().awaitGroup(type, group)
+        fixture.reconcile().currentStitch(type, group)
 
         // A preference store reads its values once, so the changed list is a new stitcher over it.
         fixture.reconcile(preferredSources = listOf(SECOND_SOURCE)).await()
@@ -121,9 +121,9 @@ class MergedStitchReconcileTest {
         val group = fixture.twoSourceGroup()
         val counting = CountingStitcher(fixture.stitcher(emptyList()))
         val reconcile = ReconcileMergedChapters(units, setOf(counting))
-        reconcile.awaitGroup(type, group)
+        reconcile.currentStitch(type, group)
 
-        reconcile.awaitGroup(type, group)
+        reconcile.currentStitch(type, group)
 
         counting.stitched shouldBe listOf(group)
     }
@@ -139,7 +139,7 @@ class MergedStitchReconcileTest {
         reconcile.await()
         fixture.addChapter(owner = fixture.membersOf(changed).first(), name = "Chapter 3: Charlie", number = 3.0)
 
-        reconcile.awaitGroup(type, settled)
+        reconcile.currentStitch(type, settled)
 
         counting.stitched.count { it == settled } shouldBe 1
     }
@@ -151,12 +151,24 @@ class MergedStitchReconcileTest {
         val group = fixture.twoSourceGroup()
         val counting = CountingStitcher(fixture.stitcher(emptyList()))
         val reconcile = ReconcileMergedChapters(units, setOf(counting))
-        reconcile.awaitGroup(type, group)
+        reconcile.currentStitch(type, group)
         fixture.addChapter(owner = fixture.membersOf(group).first(), name = "Chapter 3: Charlie", number = 3.0)
 
-        reconcile.awaitGroup(type, group)
+        reconcile.currentStitch(type, group)
 
         counting.stitched shouldBe listOf(group, group)
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a stale group's current stitch already holds its new chapter`(type: ContentType) = runTest {
+        val fixture = fixture(type)
+        val group = fixture.twoSourceGroup()
+        val reconcile = fixture.reconcile()
+        reconcile.currentStitch(type, group)
+        val added = fixture.addChapter(owner = fixture.membersOf(group).first(), name = "Chapter 3", number = 3.0)
+
+        reconcile.currentStitch(type, group).map { it.chapterId } shouldContain added
     }
 
     @ParameterizedTest
@@ -170,7 +182,7 @@ class MergedStitchReconcileTest {
             val early = launch { reconcile.await() }
             runCurrent()
             val added = fixture.addChapter(owner = fixture.membersOf(group).first(), name = "Chapter 3", number = 3.0)
-            val late = launch { reconcile.awaitGroup(type, group) }
+            val late = launch { reconcile.currentStitch(type, group) }
             runCurrent()
 
             gate.complete(Unit)

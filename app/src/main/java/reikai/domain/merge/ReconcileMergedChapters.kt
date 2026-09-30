@@ -62,13 +62,15 @@ class ReconcileMergedChapters(
         }
 
     /**
-     * Rebuild [groupId] if it is stale, for a screen about to render it. A group whose chapters just
-     * arrived cannot wait for the next library update to be stitched, and a reader that stitched for
-     * itself instead is how the surfaces came to disagree in the first place.
+     * [groupId]'s stored stitch, rebuilt first if it is stale, for a screen about to render it. A group
+     * whose chapters just arrived cannot wait for the next library update to be stitched, and a reader
+     * that stitched for itself instead is how the surfaces came to disagree in the first place.
      */
-    suspend fun awaitGroup(contentType: ContentType, groupId: Long) {
-        val stitcher = stitchers.firstOrNull { it.contentType == contentType } ?: return
-        rebuildIfStale(stitcher, groupId, stitcher.rankings()[groupId])
+    suspend fun currentStitch(contentType: ContentType, groupId: Long): List<ChapterUnit> {
+        stitchers.firstOrNull { it.contentType == contentType }?.let { stitcher ->
+            rebuildIfStale(stitcher, groupId, stitcher.rankings()[groupId])
+        }
+        return repository.getStitch(contentType, groupId)
     }
 
     /**

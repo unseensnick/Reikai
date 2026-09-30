@@ -20,6 +20,17 @@ fun <T> renderStoredStitch(chapters: List<T>, stitch: List<ChapterUnit>, id: (T)
 }
 
 /**
+ * [renderStoredStitch] as a reading order: a grouped list takes its merged positions as source order,
+ * so a "by source order" sort reads it top to bottom. An ungrouped list keeps its own.
+ */
+fun <T> renderMergedReadingOrder(
+    chapters: List<T>,
+    stitch: List<ChapterUnit>,
+    id: (T) -> Long,
+    restamp: (T, Long) -> T,
+): List<T> = if (stitch.isEmpty()) chapters else stampedReadingOrder(renderStoredStitch(chapters, stitch, id), restamp)
+
+/**
  * Chapters of [shown] whose own row does not carry [flag] but whose copy on another source of the
  * group does. A merged chapter appears once, so without this it reads as unflagged purely because the
  * copy the stitch ranked first happens to be the one without it. [chapters] is every member's

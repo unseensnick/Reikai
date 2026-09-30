@@ -1,6 +1,14 @@
 package reikai.domain.merge
 
 /**
+ * [merged] with each chapter's source order overwritten by its merged position, the only order
+ * comparable across sources: each source numbered its own list, and a sort on those interleaves them.
+ * The chapters are copies, so nothing persists.
+ */
+fun <T> stampedReadingOrder(merged: List<T>, restamp: (T, Long) -> T): List<T> =
+    merged.mapIndexed { position, chapter -> restamp(chapter, position.toLong()) }
+
+/**
  * Places several sources' chapters into one reading order, Komikku's `dedupeByPriority` shape.
  *
  * Neither key a chapter carries is comparable across sources: its number is whatever that site

@@ -96,7 +96,7 @@ class MangaReadingOrderTest {
             chapter(GAMMA, mangaId = 1L, name = "Gamma", upload = 200L),
         ).map { it.copy(read = it.id in read) }
         val stitch = stitched.mapIndexed { index, chapter -> ChapterUnit(chapter.id, index, 0) }
-        return MergedChapterProvider(mockk(), mockk(), mockk(), mockk(), mockk(), mockk()).merged(stitched, stitch)
+        return MergedChapterProvider(mockk(), mockk(), mockk(), mockk(), mockk()).merged(stitched, stitch)
     }
 
     private fun chapter(id: Long, mangaId: Long, name: String, upload: Long) =

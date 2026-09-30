@@ -16,7 +16,7 @@ app/src/main/java/reikai/domain/library/ReikaiLibraryPreferences.kt	app/src/main
 app/src/main/java/reikai/domain/library/updateerror/LibraryUpdateErrorInteractors.kt	app/src/main/java/reikai/domain/novel/updateerror/NovelUpdateErrorInteractors.kt	2f49a3018a725c47
 app/src/main/java/reikai/domain/manga/MangaGroupStitcher.kt	app/src/main/java/reikai/domain/novel/NovelGroupStitcher.kt	921901091f325374
 app/src/main/java/reikai/domain/manga/PropagateTrackerLinks.kt	app/src/main/java/reikai/domain/novel/track/PropagateNovelTrackerLinks.kt	d521d8ce981e2e4b
-app/src/main/java/reikai/domain/novel/NovelChapterAggregation.kt	domain/src/main/java/reikai/domain/manga/ChapterAggregation.kt	58fb84df9013442b
+app/src/main/java/reikai/domain/novel/NovelChapterAggregation.kt	domain/src/main/java/reikai/domain/manga/ChapterAggregation.kt	b68c4663445dff92
 app/src/main/java/reikai/novel/source/TachiyomiNovelSource.kt	app/src/main/java/reikai/novel/source/ireader/IReaderNovelSource.kt	29c26324d163de81
 app/src/main/java/reikai/presentation/browse/catalogue/SavedSearchDialogs.kt	app/src/main/java/reikai/presentation/browse/feed/FeedDialogs.kt	09675367cbee9fc1
 app/src/main/java/reikai/presentation/details/EntryDetailsScaffold.kt	app/src/main/java/reikai/presentation/details/EntryDetailsTwoPaneScaffold.kt	4b2c4c139da865ad

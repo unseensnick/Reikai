@@ -27,5 +27,5 @@ fun <T> withOpenedChapter(
         val at = unified.indexOfFirst { byNumber.compare(it, opened) > 0 }
         placed.add(if (at >= 0) at else unified.size, opened)
     }
-    return placed.mapIndexed { index, chapter -> restamp(chapter, index.toLong()) }
+    return stampedReadingOrder(placed, restamp)
 }

@@ -3,6 +3,7 @@ package reikai.domain.novel
 import reikai.domain.merge.MergedChapterOrder
 import reikai.domain.merge.MergedChapters
 import reikai.domain.merge.sourcePriority
+import reikai.domain.merge.stampedReadingOrder
 import reikai.domain.merge.stitchOrder
 import reikai.domain.merge.trunkOrder
 import reikai.domain.merge.unstitchedChapters
@@ -80,11 +81,7 @@ object NovelChapterAggregation {
             }
         }
         val stitched = order.result()
-        // The merged position, which is the only order comparable across sources. Overwrites each
-        // chapter's own index; these are copies, so nothing persists.
-        val merged = stitched.merged.mapIndexed { position, chapter ->
-            chapter.copy(sourceOrder = position.toLong())
-        }
+        val merged = stampedReadingOrder(stitched.merged) { chapter, position -> chapter.copy(sourceOrder = position) }
         return MergedChapters(merged, stitched.units { it.id })
     }
 

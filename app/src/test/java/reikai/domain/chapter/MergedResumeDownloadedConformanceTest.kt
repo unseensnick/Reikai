@@ -126,7 +126,7 @@ class MergedResumeDownloadedConformanceTest {
                         .mapTo(HashSet()) { it.id }
                 }
             }
-            val render = NovelMergedChapterProvider(mockk(), mockk(), mockk())
+            val render = NovelMergedChapterProvider(mockk(), mockk())
             val mergedChapterProvider = mockk<NovelMergedChapterProvider> {
                 coEvery { stitchOf(any()) } returns stitch
                 every { merged(any(), any()) } answers { render.merged(firstArg(), secondArg()) }

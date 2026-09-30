@@ -6,10 +6,9 @@ import dev.zacsweers.metro.SingleIn
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterUnit
-import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.flaggedOnAnotherSource
-import reikai.domain.merge.renderStoredStitch
+import reikai.domain.merge.renderMergedReadingOrder
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.model.Manga
@@ -29,7 +28,6 @@ class MergedChapterProvider(
     private val mergeManager: MangaMergeManager,
     private val sourceManager: SourceManager,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
-    private val units: MergedChapterUnitRepository,
     private val reconcile: ReconcileMergedChapters,
 ) {
 
@@ -82,16 +80,12 @@ class MergedChapterProvider(
      * keeps a screen from producing a second answer to the question the library badge asks of the
      * same rows.
      */
-    suspend fun stitchOf(anchorId: Long): List<ChapterUnit> {
-        val groupId = mergeManager.groupIdOf(anchorId) ?: return emptyList()
-        reconcile.awaitGroup(ContentType.MANGA, groupId)
-        return units.getStitch(ContentType.MANGA, groupId)
-    }
+    suspend fun stitchOf(anchorId: Long): List<ChapterUnit> =
+        mergeManager.groupIdOf(anchorId)?.let { reconcile.currentStitch(ContentType.MANGA, it) }.orEmpty()
 
-    /** [chapters] as the merged reading order [stitch] describes, source order restamped onto it. */
+    /** [chapters] as the merged reading order [stitch] describes. */
     fun merged(chapters: List<Chapter>, stitch: List<ChapterUnit>): List<Chapter> =
-        renderStoredStitch(chapters, stitch) { it.id }
-            .let { if (stitch.isEmpty()) it else restampReadingOrder(it) }
+        renderMergedReadingOrder(chapters, stitch, { it.id }) { chapter, order -> chapter.copy(sourceOrder = order) }
 
     /** The member manga ids in trunk order (first = trunk), for ordering the manage-sources rows so the
      *  primary sits on top. Uses the stitch's own ranking; [memberRanking] is the caller's
@@ -106,12 +100,4 @@ class MergedChapterProvider(
         reikaiLibraryPreferences.preferredMangaSources.get(),
         memberRanking,
     )
-
-    /**
-     * The list arrives in reading order from the aggregation and keeps it. Sorting by chapter number
-     * here was the interleave: a number is whatever its own source counted, and two sources of one
-     * series routinely disagree, so the pooled numbers are on different scales.
-     */
-    private fun restampReadingOrder(chapters: List<Chapter>): List<Chapter> =
-        chapters.mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) }
 }
