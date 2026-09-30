@@ -32,7 +32,7 @@ class SystemTtsEngine(
 
     /** The paragraph being spoken, so a piece's start can be told where it sits. Replaced by every speak. */
     @Volatile
-    private var spoken: Spoken? = null
+    private var spoken: SpokenParagraph? = null
 
     /** Raised by every speak, so a callback from pieces already flushed names a paragraph no longer spoken. */
     private var generation = 0
@@ -63,10 +63,16 @@ class SystemTtsEngine(
                 if (current.indexOf(utteranceId) == current.pieces.lastIndex) fireDone()
             }
 
+            // Checked as onStart and onDone are, or an error from a piece the last speak flushed would end
+            // the paragraph being spoken now.
             @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) = abort()
-            override fun onError(utteranceId: String?, errorCode: Int) = abort()
+            override fun onError(utteranceId: String?) = abortIfCurrent(utteranceId)
+            override fun onError(utteranceId: String?, errorCode: Int) = abortIfCurrent(utteranceId)
         })
+    }
+
+    private fun abortIfCurrent(utteranceId: String?) {
+        if (spoken?.indexOf(utteranceId) != null) abort()
     }
 
     private fun fireDone() {
@@ -131,7 +137,7 @@ class SystemTtsEngine(
             return
         }
         pendingDone = onDone
-        val current = Spoken(++generation, pieces, onPieceStart)
+        val current = SpokenParagraph(++generation, pieces, onPieceStart)
         spoken = current
         pieces.forEachIndexed { index, piece ->
             val queueMode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
@@ -155,21 +161,21 @@ class SystemTtsEngine(
         spoken = null
         runCatching { tts.shutdown() }
     }
+}
 
-    /** A paragraph's pieces under one generation. An utterance id names both, so a stale one matches nothing. */
-    private class Spoken(
-        val generation: Int,
-        val pieces: List<TtsPiece>,
-        val onPieceStart: (index: Int) -> Unit,
-    ) {
-        fun idOf(index: Int) = "$UTTERANCE_PREFIX$generation:$index"
+/** A paragraph's pieces under one generation. An utterance id names both, so a stale one matches nothing. */
+internal class SpokenParagraph(
+    val generation: Int,
+    val pieces: List<TtsPiece>,
+    val onPieceStart: (index: Int) -> Unit,
+) {
+    fun idOf(index: Int) = "$UTTERANCE_PREFIX$generation:$index"
 
-        fun indexOf(utteranceId: String?): Int? {
-            val (idGeneration, index) = utteranceId?.removePrefix(UTTERANCE_PREFIX)?.split(':')
-                ?.takeIf { it.size == 2 } ?: return null
-            if (idGeneration.toIntOrNull() != generation) return null
-            return index.toIntOrNull()?.takeIf { it in pieces.indices }
-        }
+    fun indexOf(utteranceId: String?): Int? {
+        val (idGeneration, index) = utteranceId?.removePrefix(UTTERANCE_PREFIX)?.split(':')
+            ?.takeIf { it.size == 2 } ?: return null
+        if (idGeneration.toIntOrNull() != generation) return null
+        return index.toIntOrNull()?.takeIf { it in pieces.indices }
     }
 
     private companion object {
