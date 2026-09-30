@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.isConnectedToWifi
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
+import exh.debug.DebugToggles
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.source.ExhPreferences
 import kotlinx.serialization.encodeToString
@@ -131,8 +132,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
             val meta = getFlatMetadataById.await(manga.id) ?: return@mapNotNull null
             val raisedMeta = meta.raise<EHentaiSearchMetadata>()
 
-            // Don't update aged (dead) galleries, nor galleries checked too recently.
-            if (raisedMeta.aged || startTime - raisedMeta.lastUpdateCheck < MIN_BACKGROUND_UPDATE_FREQ) {
+            if (isSkipped(raisedMeta, startTime, DebugToggles.RESTRICT_EXH_GALLERY_UPDATE_CHECK_FREQUENCY.enabled)) {
                 return@mapNotNull null
             }
 
@@ -271,6 +271,10 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
         private val MIN_BACKGROUND_UPDATE_FREQ = 1.days.inWholeMilliseconds
 
         private const val TAG = "EHBackgroundUpdater"
+
+        /** A dead gallery is never checked, and one checked within a day waits unless the debug menu lifts that. */
+        internal fun isSkipped(meta: EHentaiSearchMetadata, now: Long, restrictFrequency: Boolean): Boolean =
+            meta.aged || (restrictFrequency && now - meta.lastUpdateCheck < MIN_BACKGROUND_UPDATE_FREQ)
 
         fun launchBackgroundTest(context: Context) {
             context.workManager.enqueue(

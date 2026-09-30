@@ -17,6 +17,8 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import dev.zacsweers.metrox.viewmodel.LocalMetroViewModelFactory
 import eu.kanade.presentation.theme.TachiyomiTheme
+import exh.debug.LocalCoverImagesHidden
+import exh.debug.rememberCoverImagesHidden
 import mihon.app.di.appGraph
 
 inline fun ComponentActivity.setComposeContent(
@@ -29,6 +31,7 @@ inline fun ComponentActivity.setComposeContent(
                 LocalTextStyle provides MaterialTheme.typography.bodySmall,
                 LocalContentColor provides MaterialTheme.colorScheme.onBackground,
                 LocalMetroViewModelFactory provides appGraph.viewModelFactory,
+                LocalCoverImagesHidden provides rememberCoverImagesHidden(), // RK: the debug menu's hidden covers
             ) {
                 content()
             }
@@ -47,6 +50,7 @@ fun ComposeView.setComposeContent(
                 LocalContentColor provides MaterialTheme.colorScheme.onBackground,
                 // RK: the view-model factory, so metroViewModel resolves inside a ComposeView too
                 LocalMetroViewModelFactory provides context.appGraph.viewModelFactory,
+                LocalCoverImagesHidden provides rememberCoverImagesHidden(), // RK: the debug menu's hidden covers
             ) {
                 content()
             }

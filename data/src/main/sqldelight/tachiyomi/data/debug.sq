@@ -1,0 +1,35 @@
+-- Whole-table reads and bulk rewrites for the debug menu (exh/debug/DebugFunctions), ported from
+-- Komikku's eh.sq and re-typed to this schema. Nothing outside the debug menu calls them.
+
+getAllManga:
+SELECT
+    id, source_id, remote_url, remote_title, remote_author, remote_artist, remote_description,
+    remote_genre, remote_status, remote_cover, remote_update_strategy, remote_memo,
+    user_favorite_at, user_notes, user_reader_flags, user_chapter_flags,
+    state_chapter_last_update, state_chapter_next_update, state_chapter_fetch_interval,
+    state_cover_last_modified, state_initialized
+FROM manga;
+
+-- OR IGNORE: (source_id, remote_url) is unique, so a row the target already holds stays put.
+migrateMangaSource:
+UPDATE OR IGNORE manga
+SET source_id = :newId
+WHERE source_id = :oldId;
+
+migrateSavedSearchSource:
+UPDATE saved_search
+SET source_key = :newKey
+WHERE source_key = :oldKey;
+
+migrateFeedSource:
+UPDATE feed_saved_search
+SET source_key = :newKey
+WHERE source_key = :oldKey;
+
+resetBrokenReaderFlags:
+UPDATE manga
+SET user_reader_flags = 0
+WHERE user_reader_flags = -1;
+
+deleteAllSavedSearches:
+DELETE FROM saved_search;

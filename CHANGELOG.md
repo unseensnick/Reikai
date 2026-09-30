@@ -426,6 +426,7 @@ every stable release now also ships a foss build with neither in it.
 - **A light-novel source only offers Latest when it can really list latest.** Around half the plugins ignore the request and hand back the popular list, so the chip is hidden on those instead of quietly repeating Popular.
 - **The duplicate warning when adding a novel now also catches a library novel tracked to the same tracker entry, as the manga one does.**
 - **Text or a link shared into Reikai that matches no series now searches manga and novels across all your sources, whatever Browse was last set to.** The same goes for a search sent from another app.
+- **Opening an adult-source gallery whose older version is already in your library now opens that library copy.**
 
 #### Fixed
 - **Adding a manga no longer flags an unrelated library manga as a duplicate because both are tracked on a tracker that gives no entry id (synced from Mihon, mihonapp/mihon#4008).**
@@ -678,6 +679,7 @@ every stable release now also ships a foss build with neither in it.
 - **Icons across the app are now drawn in Google's newer Material Symbols style (synced from Mihon, mihonapp/mihon#3873).** Eleven that Mihon does not ship, like the novel reader's text-alignment controls and the gallery star ratings, keep the look they have now.
 - **Settings -> About now links Reikai's website and privacy policy.** Both open reikai.app, which is where the documentation lives.
 - **Settings -> Advanced -> Solve interactive Cloudflare challenges ticks the verification box instead of giving up, while you use the app or, with a second switch, during background library updates.**
+- **Settings -> Advanced -> Open debug menu adds debugging toggles and maintenance tools, including hiding every cover and a debug-build overlay.**
 
 #### Changed
 

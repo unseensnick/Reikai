@@ -82,6 +82,7 @@ import eu.kanade.tachiyomi.util.system.isBenchmarkBuildType
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
 import eu.kanade.tachiyomi.util.system.updaterEnabled
 import eu.kanade.tachiyomi.util.view.setComposeContent
+import exh.debug.DebugModeOverlay
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -272,6 +273,8 @@ class MainActivity : BaseActivity() {
                     // RK: Reikai does not run Mihon's donation campaign.
                 }
             }
+
+            DebugModeOverlay() // RK: the debug menu's overlay, over every screen
         }
 
         val startTime = System.currentTimeMillis()

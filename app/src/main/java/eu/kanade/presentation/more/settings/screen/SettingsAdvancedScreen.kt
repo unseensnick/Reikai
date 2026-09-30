@@ -59,6 +59,7 @@ import eu.kanade.tachiyomi.util.system.powerManager
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.workManager
+import exh.debug.SettingsDebugScreen
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
@@ -121,6 +122,11 @@ object SettingsAdvancedScreen : SearchableSettings {
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(MR.strings.pref_debug_info),
                         onClick = { navigator.push(DebugInfoScreen()) },
+                    ),
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.open_debug_menu),
+                        subtitle = stringResource(MR.strings.open_debug_menu_summary),
+                        onClick = { navigator.push(SettingsDebugScreen()) },
                     ),
                 ),
             ),

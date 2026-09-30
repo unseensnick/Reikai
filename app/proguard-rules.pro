@@ -12,6 +12,8 @@
 # DelegateSourcePreferences reads, and ExhPreferences / EHentaiUpdateHelper in the built-in E-Hentai
 # source. Minified builds only, so it is invisible in debug.
 -keep,allowoptimization class exh.**
+# RK: the debug menu lists and calls these by reflection, so nothing else reaches them (as Komikku keeps them).
+-keep,allowoptimization class exh.debug.DebugFunctions { public *; }
 
 # RK: keep @JavascriptInterface bridge methods. They are invoked only from JS (the WebView novel
 # renderer's reader.js -> window.ReikaiWeb), so R8's shrinker sees them as unreachable and strips them in

@@ -53,6 +53,8 @@ import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
+import exh.debug.DebugToggles
+import exh.eh.EHentaiUpdateHelper
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.FlatMetadata
@@ -60,6 +62,7 @@ import exh.source.ExhPreferences
 import exh.source.getMainSource
 import exh.source.isEhBasedManga
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -72,6 +75,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -222,6 +227,7 @@ class MangaViewModel(
     private val setCustomMangaInfo: SetCustomMangaInfo,
     private val sourceManager: SourceManager,
     private val exhPreferences: ExhPreferences,
+    private val updateHelper: EHentaiUpdateHelper,
     private val trackPorts: EntryTrackPorts,
     private val autoBindTrackers: AutoBindTrackers,
     // RK <--
@@ -231,6 +237,10 @@ class MangaViewModel(
 
     val state: StateFlow<State>
         field = MutableStateFlow<State>(State.Loading)
+
+    // RK: a gallery id to open in this screen's place, see observeExhRootRedirect
+    private val exhRootRedirect = Channel<Long>(Channel.CONFLATED)
+    val exhRootRedirects: Flow<Long> = exhRootRedirect.receiveAsFlow()
 
     @AssistedFactory
     @ManualViewModelAssistedFactoryKey
@@ -462,6 +472,7 @@ class MangaViewModel(
                     updateSuccessState { it.copy(galleryMetadata = raiseMetadata(flat, targetId)) }
                 }
         }
+        observeExhRootRedirect()
         // RK <--
 
         viewModelScope.launchIO {
@@ -736,6 +747,32 @@ class MangaViewModel(
     }
 
     // RK -->
+
+    // Komikku's root redirect: opening a gallery whose version chain holds an older favorited copy
+    // reconciles the chain and opens that copy. Sequential, so a reconcile is never cut off halfway.
+    private fun observeExhRootRedirect() {
+        if (!DebugToggles.ENABLE_EXH_ROOT_REDIRECT.enabled) return
+        viewModelScope.launchIO {
+            val root = getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true)
+                .distinctUntilChanged()
+                .mapNotNull { (manga, chapters) -> favoritedRootOf(manga, chapters) }
+                .first()
+            exhRootRedirect.send(root)
+        }
+    }
+
+    private suspend fun favoritedRootOf(manga: Manga, chapters: List<Chapter>): Long? {
+        if (chapters.isEmpty() || !manga.isEhBasedManga()) return null
+        val accepted = try {
+            updateHelper.findAcceptedRootAndDiscardOthers(manga.source, chapters)?.first
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Error loading accepted chapter chain" }
+            null
+        } ?: return null
+        return accepted.manga.id.takeIf { it != manga.id && accepted.manga.favorite }
+    }
 
     private fun shouldConfirmEhRemoveFromAccount(manga: Manga): Boolean {
         return manga.isEhBasedManga() && exhPreferences.isFavoritesBackupOn()

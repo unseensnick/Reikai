@@ -1152,6 +1152,9 @@
     <string name="action_clear">Clear</string>
     <string name="action_clear_all">Clear all</string>
     <string name="pref_debug_info">Debug info</string>
+    <!-- RK: Komikku's debug menu, under Settings -> Advanced -> Debugging -->
+    <string name="open_debug_menu">Open debug menu</string>
+    <string name="open_debug_menu_summary">Its functions can corrupt your library. Use it only if you know what they do</string>
     <string name="pref_update_library_manga_titles">Update library titles to match source</string>
     <string name="pref_update_library_manga_titles_summary">Warning: if a series is renamed, it will be removed from the download queue (if present).</string>
 

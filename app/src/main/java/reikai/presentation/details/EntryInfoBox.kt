@@ -44,6 +44,7 @@ import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.manga.components.DotSeparatorText
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import exh.debug.LocalCoverImagesHidden
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Brush
 import mihon.icons.materialsymbols.rounded.Person
@@ -123,22 +124,25 @@ fun EntryInfoBox(
             Color.Transparent,
             MaterialTheme.colorScheme.background,
         )
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(header.coverModel)
-                .crossfade(true)
-                .build(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .matchParentSize()
-                .drawWithContent {
-                    drawContent()
-                    drawRect(brush = Brush.verticalGradient(colors = backdropGradientColors))
-                }
-                .blur(4.dp)
-                .alpha(0.2f),
-        )
+        // The backdrop is the cover image too, so hiding covers from the debug menu drops it.
+        if (!LocalCoverImagesHidden.current) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(header.coverModel)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .matchParentSize()
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(brush = Brush.verticalGradient(colors = backdropGradientColors))
+                    }
+                    .blur(4.dp)
+                    .alpha(0.2f),
+            )
+        }
 
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
             if (!isTabletUi) {

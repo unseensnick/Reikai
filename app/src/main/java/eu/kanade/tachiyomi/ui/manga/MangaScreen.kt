@@ -95,6 +95,11 @@ class MangaScreen(
             create(mangaId = mangaId, isFromSource = fromSource)
         }
 
+        // RK: the E-Hentai root redirect opens the gallery's favorited copy in this screen's place
+        LaunchedEffect(viewModel) {
+            viewModel.exhRootRedirects.collect { navigator.replace(MangaScreen(it)) }
+        }
+
         val state by viewModel.state.collectAsStateWithLifecycle()
 
         if (state is MangaViewModel.State.Loading) {
