@@ -314,6 +314,23 @@ class Downloader(
             .map { Download(source, manga, it) }
             .toList()
 
+        // RK -->
+        // A failed chapter asked for again goes back to waiting, as a novel's does. Upstream retries
+        // failures only when the downloader starts, which a busy one never does, so that one is
+        // restarted the way a queue edit restarts it.
+        val retried = queueState.value.filter { download ->
+            download.status == Download.State.ERROR && chapters.any { it.id == download.chapter.id }
+        }
+        retried.forEach {
+            it.status = Download.State.QUEUE
+            it.failure = null
+        }
+        if (autoStart && retried.isNotEmpty() && isRunning) {
+            pause()
+            start()
+        }
+        // RK <--
+
         if (chaptersToQueue.isNotEmpty()) {
             addAllToQueue(chaptersToQueue)
 
@@ -339,12 +356,13 @@ class Downloader(
                     )
                 }
             }
-            // RK: (re)start whenever the downloader isn't already running, not only on a fresh
-            // (previously-empty) queue, so a leftover errored or paused download at the head of
-            // the queue no longer leaves newly-added chapters stuck until a manual resume.
-            if (autoStart && !isRunning) {
-                DownloadJob.start(context)
-            }
+        }
+        // RK: (re)start whenever the downloader isn't already running, not only on a fresh
+        // (previously-empty) queue, so a leftover errored or paused download at the head of
+        // the queue no longer leaves newly-added chapters stuck until a manual resume. A chapter
+        // queued again after failing starts it the same way.
+        if (autoStart && !isRunning && (chaptersToQueue.isNotEmpty() || retried.isNotEmpty())) {
+            DownloadJob.start(context)
         }
     }
 
@@ -355,21 +373,13 @@ class Downloader(
      */
     private suspend fun downloadChapter(download: Download) {
         val mangaDir = provider.getMangaDir(download.manga.title, download.source).getOrElse { e ->
-            download.failure = e.message // RK
-            download.status = Download.State.ERROR
-            notifier.onError(e.message, download.chapter.name, download.manga) // RK
+            fail(download, e.message) // RK
             return
         }
 
         val availSpace = DiskUtil.getAvailableStorageSpace(mangaDir)
         if (!hasRoomToDownload(availSpace)) { // RK: the floor novels share
-            download.failure = context.stringResource(MR.strings.download_insufficient_space) // RK
-            download.status = Download.State.ERROR
-            notifier.onError(
-                context.stringResource(MR.strings.download_insufficient_space),
-                download.chapter.name,
-                download.manga, // RK
-            )
+            fail(download, context.stringResource(MR.strings.download_insufficient_space)) // RK
             return
         }
 
@@ -451,11 +461,24 @@ class Downloader(
             if (error is CancellationException) throw error
             // If the page list threw, it will resume here
             logcat(LogPriority.ERROR, error)
-            download.failure = error.message // RK
-            download.status = Download.State.ERROR
-            notifier.onError(error.message, download.chapter.name, download.manga) // RK
+            fail(download, error.message) // RK
         }
     }
+
+    // RK -->
+
+    /**
+     * Fails [download] and tells the user. The status goes last: it is what makes the downloader job
+     * cancel this download, and the notice suspends for the adult verdict. Set first, the download is
+     * cancelled inside the notice and never reaches the check that stops a downloader with nothing
+     * left to run, so every later start is refused as already running.
+     */
+    private suspend fun fail(download: Download, reason: String?) {
+        download.failure = reason
+        notifier.onError(reason, download.chapter.name, download.manga)
+        download.status = Download.State.ERROR
+    }
+    // RK <--
 
     /**
      * Gets the image from the filesystem if it exists or downloads it otherwise.

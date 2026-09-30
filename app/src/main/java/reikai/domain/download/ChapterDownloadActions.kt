@@ -3,7 +3,6 @@ package reikai.domain.download
 import dev.zacsweers.metro.Inject
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.DownloadManager
-import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.domain.chapter.model.Chapter
@@ -28,15 +27,9 @@ class MangaChapterDownloadActions(
         deleteTargets: suspend () -> List<Chapter>,
     ) {
         when (action) {
-            ChapterDownloadAction.START -> {
-                // The downloader stops once only failures are left, and queueing a queued chapter adds
-                // nothing, so a retry has to start it again.
-                val anyFailed = chapters.any {
-                    downloadManager.getQueuedDownloadOrNull(it.id)?.status == Download.State.ERROR
-                }
+            // Queueing a failed chapter again is its retry, which the downloader does for itself.
+            ChapterDownloadAction.START ->
                 forEachOwner(chapters) { manga, owned -> downloadManager.downloadChapters(manga, owned) }
-                if (anyFailed) downloadManager.startDownloads()
-            }
             ChapterDownloadAction.START_NOW -> chapters.singleOrNull()?.let { downloadManager.startDownloadNow(it.id) }
             ChapterDownloadAction.CANCEL -> chapters.mapNotNull { downloadManager.getQueuedDownloadOrNull(it.id) }
                 .takeIf { it.isNotEmpty() }
@@ -58,8 +51,7 @@ class MangaChapterDownloadActions(
 }
 
 /**
- * Novels' twin of [MangaChapterDownloadActions.run], pinned by ChapterDownloadActionsConformanceTest. No
- * retry step: [NovelDownloadManager.downloadChapters] re-queues a failed chapter itself.
+ * Novels' twin of [MangaChapterDownloadActions.run], pinned by ChapterDownloadActionsConformanceTest.
  */
 suspend fun NovelDownloadManager.runChapterAction(
     action: ChapterDownloadAction,

@@ -632,6 +632,7 @@ every stable release now also ships a foss build with neither in it.
 - **Crash logs now list novel extensions that failed to load or are out of date.**
 - **A queued novel whose plugin was removed now shows the plugin's name instead of its id.**
 - **Marking a manga chapter read no longer deletes its download in a category excluded from removal.**
+- **Retrying a failed manga chapter while other chapters are downloading now retries it at once, instead of doing nothing.**
 
 ### Backup & restore
 

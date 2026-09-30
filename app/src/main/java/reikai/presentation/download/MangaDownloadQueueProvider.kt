@@ -13,10 +13,8 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.sample
+import reikai.domain.download.queuedDownloadChanges
 import reikai.domain.library.ContentType
 import tachiyomi.domain.download.service.DownloadPreferences
 
@@ -39,11 +37,7 @@ class MangaDownloadQueueProvider(
             downloadManager.isDownloaderRunning,
             downloadPreferences.parallelSourceLimit.changes(),
             downloader.completions.counts,
-            // queueState does not re-emit when one download's status or page progress changes.
-            merge(
-                downloadManager.statusFlow().map { },
-                downloadManager.progressFlow().map { }.sample(PROGRESS_SAMPLE_MS),
-            ).onStart { emit(Unit) },
+            downloadManager.queuedDownloadChanges().onStart { emit(Unit) },
         ) { queue, running, sourceLimit, completed, _ ->
             Triple(queue, if (running) sourceLimit else 0, completed)
         }.collectLatest { (queue, sourceLimit, completed) ->
@@ -110,9 +104,6 @@ class MangaDownloadQueueProvider(
         // Long enough to swallow the reorder's clear-then-re-add, short enough to be imperceptible on a
         // real cancel-all.
         private const val TRANSIENT_EMPTY_DEBOUNCE_MS = 150L
-
-        // Page progress moves many times a second; the chapter sheet only needs to look live.
-        private const val PROGRESS_SAMPLE_MS = 500L
     }
 }
 

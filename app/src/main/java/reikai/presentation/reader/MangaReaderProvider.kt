@@ -29,10 +29,10 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.sample
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.domain.download.downloadStateOf
+import reikai.domain.download.queuedDownloadChanges
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.reader.pageIndex
@@ -42,7 +42,6 @@ import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.asMangaCover
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Manga's answers, over the live [ReaderViewModel] the host already resolved. It stays Mihon's and
@@ -214,8 +213,8 @@ class MangaReaderProvider(
 
         /**
          * The disk check is the expensive half (a folder-name hash per chapter), so it runs once per
-         * queue change, which is also when a finished download leaves the queue. Only the progress
-         * numbers refresh on the sampled tick, and they are read off the live queue entries. A row
+         * queue change, which is also when a finished download leaves the queue. A queued download's
+         * status and progress refresh on their own tick, read off the live queue entries. A row
          * shows the merge group's read, bookmarked and on-disk state, as the details list does.
          */
         override val rows: Flow<List<ReaderChapterRow>> = downloadManager.queueState
@@ -229,7 +228,7 @@ class MangaReaderProvider(
                 if (queued.isEmpty()) {
                     flowOf(build())
                 } else {
-                    downloadManager.progressFlow().sample(PROGRESS_SAMPLE).map { build() }.onStart { emit(build()) }
+                    downloadManager.queuedDownloadChanges().map { build() }.onStart { emit(build()) }
                 }
             }
             .flowOn(Dispatchers.IO)
@@ -327,10 +326,6 @@ class MangaReaderProvider(
         override fun setAsCover() = viewModel.setAsCover(page)
     }
 }
-
-/** How often a running download refreshes the sheet. Rebuilding the whole list on every reported frame
- *  would recompose it many times a second for a spinner that cannot show that detail. */
-private val PROGRESS_SAMPLE = 500.milliseconds
 
 /** A chapter sheet's row, as the merge group's [flags] answer for it. */
 internal fun ReaderChapterItem.toReaderChapterRow(

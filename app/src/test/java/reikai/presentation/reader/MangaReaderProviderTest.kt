@@ -1,6 +1,8 @@
 package reikai.presentation.reader
 
 import eu.kanade.domain.chapter.model.toDbChapter
+import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
@@ -13,30 +15,41 @@ import io.kotest.matchers.shouldNotBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Test
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReaderPosition
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.manga.model.Manga
+import kotlin.time.Duration.Companion.seconds
 
 /** How manga reports a chapter it could not open, and whether the reader can stay open after it. */
 class MangaReaderProviderTest {
 
     private val failed = Chapter.create().copy(id = 5L)
 
-    private fun provider(state: ReaderViewModel.State, viewModel: ReaderViewModel = mockk(relaxed = true)) =
-        MangaReaderProvider(
-            viewModel = viewModel.also { every { it.state } returns MutableStateFlow(state) },
-            readerPreferences = ReaderPreferences(InMemoryPreferenceStore()),
-            downloadManager = mockk(relaxed = true),
-            titleWords = EnglishChapterTitleWords,
-        )
+    private fun provider(
+        state: ReaderViewModel.State,
+        viewModel: ReaderViewModel = mockk(relaxed = true),
+        downloadManager: DownloadManager = mockk(relaxed = true),
+    ) = MangaReaderProvider(
+        viewModel = viewModel.also { every { it.state } returns MutableStateFlow(state) },
+        readerPreferences = ReaderPreferences(InMemoryPreferenceStore()),
+        downloadManager = downloadManager,
+        titleWords = EnglishChapterTitleWords,
+    )
 
     private fun failure(message: String?, fromSource: Boolean = false, attempt: Long = 1L) =
         ReaderViewModel.AdjacentLoadFailure(5L, message, fromSource, attempt)
@@ -130,6 +143,35 @@ class MangaReaderProviderTest {
         seen.map { it.key }.distinct().size shouldBe 2
     }
 
+    /** A failed download stays in the queue, so the queue itself does not emit; only its status moves. */
+    @Test
+    fun `a chapter row follows its download failing`() = runTest {
+        val chapter = Chapter.create().copy(id = 7L)
+        val download = Download(mockk(), Manga.create(), chapter).apply { status = Download.State.DOWNLOADING }
+        val statusChanges = MutableSharedFlow<Download>()
+        val downloadManager = mockk<DownloadManager> {
+            every { queueState } returns MutableStateFlow(listOf(download))
+            every { statusFlow() } returns statusChanges
+            every { progressFlow() } returns emptyFlow()
+        }
+        val viewModel = mockk<ReaderViewModel>(relaxed = true) {
+            every { getChapters() } returns listOf(ReaderChapterItem(chapter, sourceName = null))
+        }
+        val rows = provider(ReaderViewModel.State(), viewModel, downloadManager).chapterList.rows
+        // The rows are built on the IO dispatcher, so they are awaited in real time, bounded.
+        val failedRow = backgroundScope.async(Dispatchers.Default) {
+            withTimeoutOrNull(WAIT) { rows.first { it.single().downloadState == Download.State.ERROR } }
+        }
+        withContext(Dispatchers.Default) {
+            withTimeoutOrNull(WAIT) { statusChanges.subscriptionCount.first { it > 0 } }
+        }
+
+        download.status = Download.State.ERROR
+        statusChanges.emit(download)
+
+        failedRow.await()?.single()?.downloadState shouldBe Download.State.ERROR
+    }
+
     private fun showing(
         page: ReaderPage,
         chapter: ReaderChapter = ReaderChapter(Chapter.create().copy(id = 7L).toDbChapter()),
@@ -147,4 +189,8 @@ class MangaReaderProviderTest {
         downloadManager = mockk(relaxed = true),
         titleWords = EnglishChapterTitleWords,
     )
+
+    private companion object {
+        val WAIT = 3.seconds
+    }
 }
