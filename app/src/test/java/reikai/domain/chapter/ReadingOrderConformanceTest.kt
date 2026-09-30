@@ -9,7 +9,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
-import reikai.domain.novel.model.sortedAndFiltered
+import reikai.presentation.novel.details.novelShownRows
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.getChapterSort
@@ -150,7 +150,7 @@ class ReadingOrderConformanceTest {
                         sorting or
                         if (descending) NovelChapterFlags.SORT_DESC else NovelChapterFlags.SORT_ASC,
                 )
-                listed.mapIndexed { index, spec ->
+                val rows = listed.mapIndexed { index, spec ->
                     NovelChapter(
                         id = spec.id,
                         novelId = 1L,
@@ -166,14 +166,20 @@ class ReadingOrderConformanceTest {
                         dateUpload = spec.upload,
                         page = "",
                     )
-                }.sortedAndFiltered(
+                }
+                // The rows the details list shows, which Mark previous as read walks too.
+                novelShownRows(
+                    rows,
                     novel,
                     NovelPreferences(InMemoryPreferenceStore(sequenceOf())),
-                    emptySet(),
-                    emptySet(),
-                    emptySet(),
+                    hiddenKeys = emptySet(),
+                    showHiddenRequested = false,
+                    keyOf = { it.url },
+                    downloadedChapterIds = emptySet(),
+                    readInOtherSources = emptySet(),
+                    bookmarkedInOtherSources = emptySet(),
                     downloadedOnly = false,
-                )
+                ).visible
             },
             id = { it.id },
             isRead = { it.read },

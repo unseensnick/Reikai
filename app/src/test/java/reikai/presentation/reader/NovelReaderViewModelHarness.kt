@@ -152,6 +152,8 @@ class NovelReaderViewModelHarness private constructor(
         number: Double,
         read: Boolean = false,
         progressPercent: Int = 0,
+        bookmark: Boolean = false,
+        page: String = "",
     ): SeededChapter {
         val url = "/chapter/$novelId/$number"
         val chapter = NovelChapter(
@@ -160,13 +162,13 @@ class NovelReaderViewModelHarness private constructor(
             url = url,
             name = "Chapter $number",
             read = read,
-            bookmark = false,
+            bookmark = bookmark,
             lastTextProgress = progressPercent * 100L,
             chapterNumber = number,
             sourceOrder = number.toLong(),
             dateFetch = 0L,
             dateUpload = 0L,
-            page = "",
+            page = page,
         )
         return SeededChapter(chapterRepo.insert(chapter)!!, url)
     }
@@ -195,11 +197,21 @@ class NovelReaderViewModelHarness private constructor(
         downloaded[chapter.id] = text
     }
 
+    private val removable =
+        NovelRemovableDownloads(novelPreferences, GetNovelCategories(CategoryRepositoryImpl(database)))
+
+    /** Marks read as the app does; only the source tracker and the unread push, both network, are faked. */
+    private fun setNovelReadStatus() = SetNovelReadStatus(
+        chapterRepo,
+        DeleteNovelChaptersAfterRead(novelPreferences, removable, { downloadManager }),
+        mockk(relaxed = true),
+        mockk(relaxed = true),
+    )
+
     fun open(novelId: Long, chapterId: Long, sourceScoped: Boolean = false): NovelReaderViewModel {
         val context = mockk<Context>(relaxed = true)
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
         val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences) {}
-        val removable = NovelRemovableDownloads(novelPreferences, GetNovelCategories(CategoryRepositoryImpl(database)))
         val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
         val mergedChapterProvider = NovelMergedChapterProvider(
             mergeManager,
@@ -217,12 +229,7 @@ class NovelReaderViewModelHarness private constructor(
             novelPreferences = novelPreferences,
             downloadManagerProvider = { downloadManager },
             upsertNovelHistory = UpsertNovelHistory(history),
-            setNovelReadStatus = SetNovelReadStatus(
-                chapterRepo,
-                DeleteNovelChaptersAfterRead(novelPreferences, removable, { downloadManager }),
-                mockk(relaxed = true),
-                mockk(relaxed = true),
-            ),
+            setNovelReadStatus = setNovelReadStatus(),
             mergeManager = mergeManager,
             mergedChapterProvider = mergedChapterProvider,
             libraryPreferences = LibraryPreferences(store),
@@ -292,7 +299,7 @@ class NovelReaderViewModelHarness private constructor(
             installer = installer,
             filterChaptersForDownload = mockk(relaxed = true),
             novelLibraryAdder = mockk(relaxed = true),
-            setNovelReadStatus = mockk(relaxed = true),
+            setNovelReadStatus = setNovelReadStatus(),
             novelPreferences = novelPreferences,
             uiPreferences = mockk(relaxed = true) {
                 every { themeCoverBased } returns store.getBoolean("theme_cover_based", false)

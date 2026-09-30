@@ -59,6 +59,8 @@ import reikai.domain.download.runChapterAction
 import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.NovelChapterRepository
@@ -93,7 +95,6 @@ import reikai.domain.novel.model.effectiveReadFilter
 import reikai.domain.novel.model.effectiveSortDescending
 import reikai.domain.novel.model.effectiveSorting
 import reikai.domain.novel.model.readingOrderComparator
-import reikai.domain.novel.model.sortedAndFiltered
 import reikai.domain.novel.novelMissingChapterCount
 import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.TrackNovelChapter
@@ -126,7 +127,6 @@ import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.overridesOver
-import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
@@ -489,10 +489,7 @@ class NovelDetailsViewModel(
             val pooled = byNovel.values.flatten()
             val stitch = mergedChapterProvider.stitchOf(anchor.id)
             val ordered = mergedChapterProvider.merged(pooled, stitch)
-            // Probed over every member's chapters, so a merged chapter reads as downloaded when any of
-            // the group's copies holds the file, not only the copy the stitch shows.
-            val downloaded = downloadedIdsFor(pooled)
-            val flags = group.rowFlags(pooled, ordered, stitch, { it.id }, { it.read }, { it.bookmark }) { downloaded }
+            val flags = group.novelRowFlags(pooled, ordered, stitch)
             val members = related.toList().mapNotNull { id -> if (id == anchor.id) anchor else novelRepo.getById(id) }
             rebuildLoaded(
                 anchor,
@@ -511,6 +508,17 @@ class NovelDetailsViewModel(
     /** Which of [chapters] are on disk, each under its own novel: a unified merged list spans several. */
     private suspend fun downloadedIdsFor(chapters: List<NovelChapter>): Set<Long> =
         novelDownloadCache.downloadedChapterIds(chapters, novelRepo.ownersOf(chapters))
+
+    /** Disk state is probed over every copy in [pooled], so a merged chapter reads as downloaded when any
+     *  of the group's copies holds the file, not only the copy [shown] lists. */
+    private suspend fun EntryMergeGroupHost.GroupState.novelRowFlags(
+        pooled: List<NovelChapter>,
+        shown: List<NovelChapter>,
+        stitch: List<ChapterUnit>,
+    ): GroupChapterFlags<NovelChapter> {
+        val downloaded = downloadedIdsFor(pooled)
+        return rowFlags(pooled, shown, stitch, { it.id }, { it.read }, { it.bookmark }) { downloaded }
+    }
 
     /** Single-source view: the anchor (non-merged or its own chip) or a selected sibling, with that
      *  novel's own per-page lazy list. Auto-fetch only runs for the anchor (its [source] is resolved);
@@ -546,9 +554,7 @@ class NovelDetailsViewModel(
             chapters to siblings
         }.collectLatest { (chapters, siblings) ->
             val stitch = mergedChapterProvider.stitchOf(viewNovel.id)
-            val pooled = chapters + siblings
-            val downloaded = downloadedIdsFor(pooled)
-            val flags = group.rowFlags(pooled, chapters, stitch, { it.id }, { it.read }, { it.bookmark }) { downloaded }
+            val flags = group.novelRowFlags(chapters + siblings, chapters, stitch)
             rebuildLoaded(
                 anchor,
                 viewNovel,
@@ -589,17 +595,11 @@ class NovelDetailsViewModel(
     ) {
         viewRows = chapters
         val hidden = hiddenChaptersPref.get()
-        val view = resolveHiddenChapterView(chapters, hidden, showHiddenFlow.value, ::hiddenKey)
+        val view =
+            shownRows(anchor, chapters, hidden, downloadedChapterIds, readInOtherSources, bookmarkedInOtherSources)
         val hasHiddenChapters = view.hasHidden
         val showHidden = view.showHidden
-        val display = view.visible.sortedAndFiltered(
-            anchor,
-            novelPreferences,
-            downloadedChapterIds,
-            readInOtherSources,
-            bookmarkedInOtherSources,
-            downloadedOnly = basePreferences.downloadedOnly.get(),
-        )
+        val display = view.visible
         val sortDescending = anchor.effectiveSortDescending(novelPreferences)
         // The header total is the sum of the gaps the list itself would mark, so the two can never
         // disagree: counting the pooled numbers instead claimed gaps between chapters of different
@@ -1216,28 +1216,57 @@ class NovelDetailsViewModel(
         chapterRepo.setBookmarkBulk(expandToGroup(chapters).map { it.id }, bookmark)
     }
 
-    /** Mark every chapter the reader passes before the earliest selected one read. Spans all fetched
-     *  pages (operates on stored rows), not just the page on screen. */
+    /** Mark every chapter the list shows before the earliest selected one read, across all fetched pages
+     *  of a paged source; expandToGroup folds it across the group. */
     fun markPreviousRead() {
         viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            // In the unified ("All") view the selection can be a sibling-source chapter that the anchor's
-            // own rows don't contain, so operate over the pooled display list (which spans every grouped
-            // source, unpaginated). A single source (or a selected chip) uses its own stored rows, which
-            // span all fetched pages, not just what's on screen. expandToGroup folds across the group.
-            val unifiedView = loaded.mergeSources.size > 1 && loaded.selectedSourceNovelId == null
-            val ascending = if (unifiedView) {
-                ReadingOrder.of(loaded.chapters, loaded.sortDescending)
-            } else {
-                // Stored rows carry no display position, so they take the novel's sort directly.
-                chapterRepo.getByNovelId(loaded.displayNovel.id)
-                    .sortedWith(readingOrderComparator(loaded.novel, novelPreferences))
+            val shown = if (loaded.pages.isEmpty()) loaded.chapters else shownAcrossPages(loaded)
+            val previous = ReadingOrder.before(ReadingOrder.of(shown, loaded.sortDescending)) {
+                it.id in loaded.selection
             }
-            val previous = ReadingOrder.before(ascending) { it.id in loaded.selection }
             if (previous.isNotEmpty()) setRead(previous, read = true)
             clearSelection()
         }
     }
+
+    /** A paged source's list holds one page, so its stored rows stand in for every page, shown as it would. */
+    private suspend fun shownAcrossPages(loaded: NovelDetailsState.Loaded): List<NovelChapter> {
+        val viewNovel = loaded.displayNovel
+        val group = mergeGroup.state.value
+        val chapters = chapterRepo.getByNovelId(viewNovel.id)
+        val siblings = group.ids.filter { it != viewNovel.id }.flatMap { chapterRepo.getByNovelId(it) }
+        val flags = group.novelRowFlags(chapters + siblings, chapters, mergedChapterProvider.stitchOf(viewNovel.id))
+        val hidden = hiddenChaptersPref.get()
+        return shownRows(
+            loaded.novel,
+            chapters,
+            hidden,
+            flags.downloadedIds,
+            flags.readElsewhere,
+            flags.bookmarkedElsewhere,
+        ).visible
+    }
+
+    private fun shownRows(
+        anchor: Novel,
+        chapters: List<NovelChapter>,
+        hidden: Set<String>,
+        downloadedChapterIds: Set<Long>,
+        readInOtherSources: Set<Long>,
+        bookmarkedInOtherSources: Set<Long>,
+    ) = novelShownRows(
+        chapters,
+        anchor,
+        novelPreferences,
+        hidden,
+        showHiddenFlow.value,
+        ::hiddenKey,
+        downloadedChapterIds,
+        readInOtherSources,
+        bookmarkedInOtherSources,
+        downloadedOnly = basePreferences.downloadedOnly.get(),
+    )
 
     fun toggleChapterBookmark(chapter: NovelChapter) {
         viewModelScope.launchIO {
