@@ -293,6 +293,7 @@ class DownloadQueueKernelTest {
 
     @Test
     fun `cards the order does not name follow it in the queue's order`() {
-        listOf(m1, m2, n1).orderedBy(listOf(n1.cardKey, "gone", m1.cardKey)) shouldBe listOf(n1, m1, m2)
+        listOf(m1, m2, n1).inOrderOf(listOf(n1.cardKey, "gone", m1.cardKey)) { it.cardKey } shouldBe
+            listOf(n1, m1, m2)
     }
 }

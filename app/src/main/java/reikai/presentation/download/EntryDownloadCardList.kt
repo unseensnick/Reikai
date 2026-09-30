@@ -112,7 +112,7 @@ fun EntryDownloadCardList(
         val order = reconcileCardOrder(items.map { it.cardKey }, localItems.map { it.cardKey }, committedOrder)
         committedOrder = order.pending
         // Card content (counts, status) always refreshes; only the order is guarded.
-        val rebuilt = items.orderedBy(order.keys)
+        val rebuilt = items.inOrderOf(order.keys) { it.cardKey }
         if (rebuilt != localItems.toList()) {
             localItems.clear()
             localItems.addAll(rebuilt)

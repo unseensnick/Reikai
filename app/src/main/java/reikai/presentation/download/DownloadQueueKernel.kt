@@ -128,13 +128,17 @@ fun reconcileCardOrder(incomingKeys: List<String>, localKeys: List<String>, pend
     }
 }
 
-/** These cards in [keys]' order, then any card [keys] does not name, in its own order. */
-fun List<EntryDownloadCardUi>.orderedBy(keys: List<String>): List<EntryDownloadCardUi> {
-    val byKey = associateBy { it.cardKey }
-    val seen = HashSet<String>()
+/**
+ * This list's own items in [keys]' order, then any item [keys] does not name, in its current order. A
+ * key naming nothing here is skipped, so an order computed from an older copy of a list can be applied
+ * to the live one without bringing back what left it or dropping what joined it.
+ */
+fun <T, K> List<T>.inOrderOf(keys: List<K>, keyOf: (T) -> K): List<T> {
+    val byKey = associateBy(keyOf)
+    val seen = HashSet<K>()
     return buildList {
         keys.forEach { key -> byKey[key]?.let { if (seen.add(key)) add(it) } }
-        this@orderedBy.forEach { if (seen.add(it.cardKey)) add(it) }
+        this@inOrderOf.forEach { if (seen.add(keyOf(it))) add(it) }
     }
 }
 

@@ -37,6 +37,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.download.inOrderOf
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -71,6 +72,13 @@ class NovelDownloadManager(
 ) {
 
     private val store = NovelDownloadStore(context, chapterRepo)
+
+    /**
+     * Held for every write to [store]. Each write follows the live queue's change, and a rewrite reads the
+     * live queue under it, so no write can put back a row the queue already dropped.
+     */
+    private val storeLock = Any()
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _queueState = MutableStateFlow<List<NovelDownload>>(emptyList())
@@ -139,7 +147,7 @@ class NovelDownloadManager(
             }
             byId.values.toList()
         }
-        store.addAll(targets)
+        synchronized(storeLock) { store.addAll(targets) }
         // Adding downloads implies wanting them, so clear any user pause and (re)start the drain.
         sourcePreferences.novelDownloadsPaused.set(false)
         dismissPausedNotification()
@@ -151,9 +159,11 @@ class NovelDownloadManager(
     fun cancelAllDownloads() {
         NovelDownloadJob.stop(context)
         sourcePreferences.novelDownloadsPaused.set(false)
-        _queueState.value = emptyList()
+        synchronized(storeLock) {
+            _queueState.value = emptyList()
+            store.clear()
+        }
         completions.clear()
-        store.clear()
         dismissPausedNotification()
     }
 
@@ -186,7 +196,7 @@ class NovelDownloadManager(
         if (ids.isEmpty()) return
         val left = _queueState.updateAndGet { q -> q.filter { it.chapterId !in ids } }
         retainQueuedCompletions()
-        scope.launch { ids.forEach { store.remove(it) } }
+        scope.launch { removeSaved(ids) }
         // A paused queue emptied one series at a time has nothing left to resume.
         if (left.isEmpty()) dismissPausedNotification()
     }
@@ -194,8 +204,8 @@ class NovelDownloadManager(
     /** Bump a queued chapter to the front so it downloads next, retrying it if it failed, and persist
      *  the order, as manga's startDownloadNow does. No-op if it isn't queued. */
     fun startDownloadNow(chapterId: Long) {
-        val queue = _queueState.updateAndGet { q ->
-            val target = q.find { it.chapterId == chapterId } ?: return@updateAndGet q
+        _queueState.update { q ->
+            val target = q.find { it.chapterId == chapterId } ?: return@update q
             val front = if (target.state ==
                 NovelDownload.State.ERROR
             ) {
@@ -205,19 +215,29 @@ class NovelDownloadManager(
             }
             listOf(front) + q.filter { it.chapterId != chapterId }
         }
-        scope.launch { store.replaceAll(queue) }
+        persistQueue()
         startDownloads()
     }
 
-    /** Replace the pending queue order (drag-to-reorder or sort from the queue screen) and persist it,
-     *  so a cold restart drains in the new order. The active drain re-reads the queue each step, so a
-     *  reorder takes effect on the next pick and the in-flight chapter is left alone; a paused or idle
-     *  queue stays paused, as manga's does. */
+    /**
+     * Puts the pending queue in [downloads]' order (drag-to-reorder or sort from the queue screen) and
+     * persists it, so a cold restart drains in the new order. [downloads] may be an older copy, so only
+     * its order is taken: a chapter that left the queue since stays out and one queued since is kept,
+     * last. The drain re-reads the queue each step, so the in-flight chapter is left alone.
+     */
     fun reorderQueue(downloads: List<NovelDownload>) {
-        // update{} (not value=) so this composes with the active drain's atomic removals instead of
-        // overwriting them, which could otherwise re-add a chapter the drain just completed.
-        _queueState.update { downloads }
-        scope.launch { store.replaceAll(downloads) }
+        _queueState.update { q -> q.inOrderOf(downloads.map { it.chapterId }) { it.chapterId } }
+        persistQueue()
+    }
+
+    /** Rewrites the saved queue from the live one as it is at write time. */
+    private fun persistQueue() {
+        scope.launch { synchronized(storeLock) { store.replaceAll(_queueState.value) } }
+    }
+
+    /** Call after the live queue dropped [chapterIds], so a rewrite cannot save them again. */
+    private fun removeSaved(chapterIds: Collection<Long>) {
+        synchronized(storeLock) { chapterIds.forEach(store::remove) }
     }
 
     /** Relocate a downloaded chapter's file after a source re-title, keeping the disk index in sync.
@@ -279,7 +299,7 @@ class NovelDownloadManager(
         _queueState.update { q -> q.filterNot { it.novelId == novel.id } }
         retainQueuedCompletions()
         withIOContext {
-            queued.forEach { store.remove(it) }
+            removeSaved(queued)
             provider.deleteNovel(novel)
         }
         cache.removeNovel(novel)
@@ -297,8 +317,8 @@ class NovelDownloadManager(
 
     private suspend fun deleteChapterFiles(chapters: List<NovelChapter>) {
         val novelsById = novelRepo.ownersOf(chapters)
+        removeSaved(chapters.map { it.id })
         chapters.forEach { ch ->
-            store.remove(ch.id)
             val novel = novelsById[ch.novelId] ?: return@forEach
             provider.deleteChapter(novel, ch)
             cache.removeChapter(novel, ch)
@@ -425,9 +445,9 @@ class NovelDownloadManager(
                     continue
                 }
                 if (ok) {
-                    store.remove(next.chapterId)
                     completions.record(next.novelId)
                     _queueState.update { q -> q.filter { it.chapterId != next.chapterId } }
+                    removeSaved(listOf(next.chapterId))
                     retainQueuedCompletions()
                     done++
                 } else {

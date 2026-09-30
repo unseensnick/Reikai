@@ -67,12 +67,11 @@ class MangaDownloadQueueProvider(
     override fun moveChapterToBottom(chapterId: Long) {
         val queue = downloadManager.queueState.value
         val moved = queue.withChapterLastInSeries(chapterId, { it.chapter.id }, { it.manga.id })
-        if (moved != queue) downloadManager.reorderQueue(moved)
+        if (moved != queue) reorder(moved)
     }
 
     override fun reorderSeries(seriesIdsInOrder: List<Long>) {
-        val reordered = downloadManager.queueState.value.withSeriesInOrder(seriesIdsInOrder) { it.manga.id }
-        downloadManager.reorderQueue(reordered)
+        reorder(downloadManager.queueState.value.withSeriesInOrder(seriesIdsInOrder) { it.manga.id })
     }
 
     override fun cancelSeries(seriesId: Long) {
@@ -97,7 +96,16 @@ class MangaDownloadQueueProvider(
             },
             descending = descending,
         )
-        downloadManager.reorderQueue(sorted)
+        reorder(sorted)
+    }
+
+    /**
+     * Hands Mihon's downloader [downloads]' order over its live queue, the rule the novel manager's
+     * reorderQueue applies, so an order computed from an older copy brings back nothing and drops nothing.
+     */
+    private fun reorder(downloads: List<Download>) {
+        val live = downloadManager.queueState.value
+        downloadManager.reorderQueue(live.inOrderOf(downloads.map { it.chapter.id }) { it.chapter.id })
     }
 
     companion object {
