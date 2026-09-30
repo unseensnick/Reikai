@@ -104,6 +104,9 @@ envelope, so a value the settings UI writes is exactly what the plugin sees at r
   (a plugin row, a plugin's page, or a novel, chapter or catalogue whose source is a plugin), and
   `LnPluginHost.storeWebStorage` keeps it when the browser closes. That also rebuilds the plugin's
   engine before its next call, because a plugin can read the storage once, while it is constructed.
+  The captured storage holds the site's sign-in, so a backup treats it like a tracker token: Source
+  settings carry it only with "Include sensitive settings" on (`isSensitivePluginKey`), and a restore
+  writes it back like any other plugin setting. Mihon backs up no WebView storage or cookies at all.
 - A `require()` resolver (`makeRequire`) mapping the `@libs/*` aliases and vendor modules plugins
   import: `cheerio`, `htmlparser2`, `dayjs`, `protobufjs`, `urlencode`, `@libs/novelStatus`,
   `@libs/fetch`, `@libs/isAbsoluteUrl`, `@libs/filterInputs`, `@libs/defaultCover`,

@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.preferenceKey
 import eu.kanade.tachiyomi.source.sourcePreferences
 import kotlinx.coroutines.flow.first
+import reikai.novel.source.isSensitivePluginKey
 import reikai.novel.source.pluginStorageScope
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -55,6 +56,9 @@ class PreferenceBackupCreator(
     // RK -->
     private fun pluginStorageSettings(includePrivatePreferences: Boolean): List<BackupSourcePreferences> =
         preferenceStore.getAll().entries
+            // A plugin's captured site sign-in is private the way a tracker token is, though its key has
+            // no private prefix: the plugin's JS reads it back by this exact key.
+            .filter { includePrivatePreferences || !isSensitivePluginKey(it.key) }
             .groupBy({ pluginStorageScope(it.key) }, { it.key to it.value })
             .mapNotNull { (scope, entries) ->
                 scope ?: return@mapNotNull null

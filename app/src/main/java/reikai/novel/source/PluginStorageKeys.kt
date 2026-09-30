@@ -6,6 +6,18 @@ private const val IREADER_STORAGE_PREFIX = "ireader_storage::"
 /** The app-store prefix an LN plugin's own settings sit under. */
 fun lnStorageScope(pluginId: String) = "$LN_STORAGE_PREFIX$pluginId::"
 
+/** Leads a plugin's storage key holding the site storage its WebView captured; headless.js reads it too. */
+const val WEB_STORAGE_KEY_PREFIX = "webview:"
+
+/**
+ * Whether [key] holds a plugin's captured site storage, which carries the site's sign-in: a backup
+ * treats it like a tracker token and carries it only with sensitive settings included.
+ */
+fun isSensitivePluginKey(key: String): Boolean {
+    val scope = pluginStorageScope(key) ?: return false
+    return key.startsWith(WEB_STORAGE_KEY_PREFIX, startIndex = scope.length)
+}
+
 /** The app-store prefix an IReader extension's own settings sit under. */
 fun ireaderStorageScope(packageName: String) = "$IREADER_STORAGE_PREFIX$packageName::"
 

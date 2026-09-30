@@ -35,6 +35,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import logcat.LogPriority
 import reikai.novel.network.deviceWebViewUserAgent
+import reikai.novel.source.WEB_STORAGE_KEY_PREFIX
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.ConcurrentHashMap
@@ -282,8 +283,8 @@ class LnPluginHost(
      */
     fun storeWebStorage(pluginId: String, storage: WebStorageSnapshot) {
         // headless.js makeWebStorage reads these keys.
-        bridge.setStorage(pluginId, "webview:local", storage.local)
-        bridge.setStorage(pluginId, "webview:session", storage.session)
+        bridge.setStorage(pluginId, "${WEB_STORAGE_KEY_PREFIX}local", storage.local)
+        bridge.setStorage(pluginId, "${WEB_STORAGE_KEY_PREFIX}session", storage.session)
         pluginSlots[pluginId]?.rebuild = true
     }
 

@@ -751,7 +751,8 @@
 
   // LNReader's localStorage / sessionStorage are read-only: get() takes no key and returns the site's
   // own storage as it stood when its WebView last closed, an object of item strings, or undefined.
-  // Kotlin writes it under this key (LnPluginHost.storeWebStorage), so the two spellings must agree.
+  // Kotlin writes it under this key (LnPluginHost.storeWebStorage, from WEB_STORAGE_KEY_PREFIX in
+  // PluginStorageKeys.kt), so the two spellings must agree.
   function makeWebStorage(pluginId, kind) {
     return {
       get: function () {

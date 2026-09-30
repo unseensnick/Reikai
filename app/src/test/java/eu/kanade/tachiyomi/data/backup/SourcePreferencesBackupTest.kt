@@ -83,6 +83,8 @@ class SourcePreferencesBackupTest {
 
     private val appStore = mapOf(
         "ln_storage::boxnovel::token" to "t",
+        // The site storage the plugin's WebView captured: its sign-in, as sensitive as a tracker token.
+        "ln_storage::boxnovel::webview:local" to "{\"auth\":\"secret\"}",
         "ireader_storage::org.ireader.app::lang" to "en",
         "app_theme" to "dark",
     )
@@ -108,6 +110,15 @@ class SourcePreferencesBackupTest {
                 "ireader_storage::org.ireader.app::" to listOf("ireader_storage::org.ireader.app::lang"),
             )
     }
+
+    @Test
+    fun `a plugin's captured site sign-in rides Source settings only with sensitive settings included`() =
+        runTest {
+            creator().createSource(includePrivatePreferences = true)
+                .single { it.sourceKey == "ln_storage::boxnovel::" }
+                .prefs.map { it.key } shouldBe
+                listOf("ln_storage::boxnovel::token", "ln_storage::boxnovel::webview:local")
+        }
 
     @Test
     fun `a plugin's restored settings go back to the app store, and only its own keys`() = runTest {
