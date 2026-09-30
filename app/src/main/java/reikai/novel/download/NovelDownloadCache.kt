@@ -1,6 +1,7 @@
 package reikai.novel.download
 
 import android.content.Context
+import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -231,26 +232,10 @@ class NovelDownloadCache(
         val scannedAt = invalidations.get()
         try {
             if (lastRenew == 0L) _isInitializing.value = true
-            val root = storageManager.getNovelDownloadsDirectory()
-            val scanned: Map<String, Map<String, Set<String>>> = buildMap {
-                root?.listFiles().orEmpty()
-                    .filter { it.isDirectory && !it.name.isNullOrBlank() }
-                    .forEach { sourceDir ->
-                        val novels = buildMap<String, Set<String>> {
-                            sourceDir.listFiles().orEmpty()
-                                .filter { it.isDirectory && !it.name.isNullOrBlank() }
-                                .forEach { novelDir ->
-                                    val files = novelDir.listFiles().orEmpty()
-                                        .mapNotNull { it.name }
-                                        .filter(DownloadIndexRules::isIndexed)
-                                        .toSet()
-                                    if (files.isNotEmpty()) put(novelDir.name!!, files)
-                                }
-                        }
-                        if (novels.isNotEmpty()) put(sourceDir.name!!, novels)
-                    }
-            }
+            // Held across the scan, as Mihon's renewCache holds its lock: an edit made mid-scan waits and
+            // lands on the new tree, where the swap would otherwise overwrite it with the older listing.
             val current = mutex.withLock {
+                val scanned = scan(storageManager.getNovelDownloadsDirectory())
                 // Scanned before an invalidate: the root it read may be the old one, so keep nothing.
                 if (invalidations.get() != scannedAt) return@withLock false
                 tree = scanned
@@ -264,6 +249,25 @@ class NovelDownloadCache(
         }
         // An invalidate that arrived during the scan, or just after it, found the flag held and gave up.
         if (invalidations.get() != scannedAt) scope.launch { renew() }
+    }
+
+    private fun scan(root: UniFile?): Map<String, Map<String, Set<String>>> = buildMap {
+        root?.listFiles().orEmpty()
+            .filter { it.isDirectory && !it.name.isNullOrBlank() }
+            .forEach { sourceDir ->
+                val novels = buildMap<String, Set<String>> {
+                    sourceDir.listFiles().orEmpty()
+                        .filter { it.isDirectory && !it.name.isNullOrBlank() }
+                        .forEach { novelDir ->
+                            val files = novelDir.listFiles().orEmpty()
+                                .mapNotNull { it.name }
+                                .filter(DownloadIndexRules::isIndexed)
+                                .toSet()
+                            if (files.isNotEmpty()) put(novelDir.name!!, files)
+                        }
+                }
+                if (novels.isNotEmpty()) put(sourceDir.name!!, novels)
+            }
     }
 
     private suspend fun restoreIndex() {
