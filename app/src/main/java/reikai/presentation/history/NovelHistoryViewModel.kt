@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -86,7 +85,7 @@ class NovelHistoryViewModel(
                     )
                 }
                     .distinctUntilChanged()
-                    .catch { error ->
+                    .emptyOnFailure { error ->
                         logcat(LogPriority.ERROR, error)
                         _events.send(Event.InternalError)
                     }

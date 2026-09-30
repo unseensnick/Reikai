@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -30,6 +29,7 @@ import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.overlayCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.history.emptyOnFailure
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -82,7 +82,8 @@ class HistoryViewModel(
                     )
                 }
                     .distinctUntilChanged()
-                    .catch { error ->
+                    // RK: a failure lands on an empty feed, where upstream's empty seed left it.
+                    .emptyOnFailure { error ->
                         logcat(LogPriority.ERROR, error)
                         _events.send(Event.InternalError)
                     }
@@ -90,7 +91,8 @@ class HistoryViewModel(
             }
             // RK: seeded null, where upstream seeds an empty list. Null is this feed's "not loaded yet",
             //     read by the shared screen and by the recents read lane; an empty seed would make both
-            //     announce an empty history a tick before the query answers.
+            //     announce an empty history a tick before the query answers. A failed query therefore
+            //     has to emit its empty list itself (emptyOnFailure), or the tab loads for good.
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 
     val state: StateFlow<State> = history
