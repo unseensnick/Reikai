@@ -190,10 +190,11 @@ class NovelTtsService : Service() {
             .collectLatest { value ->
                 refreshNotification()
                 if (value !is SleepTimer.At) return@collectLatest
-                while (true) {
+                // Until the countdown ends: expiring clears it, paused or not, and a zero delay would not
+                // suspend for collectLatest to cancel this on the cleared value.
+                while (timer.timer.value == value) {
                     delay(timer.untilNextTick(value))
-                    if (timer.expire()) return@collectLatest pause()
-                    refreshNotification()
+                    if (timer.expire()) pause() else refreshNotification()
                 }
             }
     }

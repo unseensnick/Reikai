@@ -40,7 +40,7 @@ object NovelTtsSession {
 
     fun publish(value: State) {
         state.value = value
-        sleepTimer.onPublished(stopped = value.playback == TtsPlayback.Stopped)
+        sleepTimer.onPublished(value.playback)
     }
 
     fun reset() {

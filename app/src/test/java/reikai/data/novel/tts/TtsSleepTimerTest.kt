@@ -2,6 +2,7 @@ package reikai.data.novel.tts
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.tts.TtsPlayback
 
 class TtsSleepTimerTest {
 
@@ -27,10 +28,47 @@ class TtsSleepTimerTest {
 
     @Test
     fun `a countdown fires at its end`() {
+        sleepTimer.onPublished(TtsPlayback.Playing)
         sleepTimer.setMinutes(15)
         now += 15 * 60_000L
 
         sleepTimer.expire() shouldBe true
+    }
+
+    @Test
+    fun `a countdown that ends while paused does not pause`() {
+        sleepTimer.onPublished(TtsPlayback.Playing)
+        sleepTimer.setMinutes(15)
+        sleepTimer.onPublished(TtsPlayback.Paused)
+        now += 20 * 60_000L
+
+        sleepTimer.expire() shouldBe false
+    }
+
+    /** The countdown's tick can run late after the device slept, so resuming must not find it still set. */
+    @Test
+    fun `a countdown that ended while paused is cleared when reading resumes`() {
+        sleepTimer.onPublished(TtsPlayback.Playing)
+        sleepTimer.setMinutes(15)
+        sleepTimer.onPublished(TtsPlayback.Paused)
+        now += 20 * 60_000L
+
+        sleepTimer.onPublished(TtsPlayback.Playing)
+
+        sleepTimer.timer.value shouldBe SleepTimer.Off
+    }
+
+    @Test
+    fun `a countdown still running when reading resumes is kept`() {
+        sleepTimer.onPublished(TtsPlayback.Playing)
+        sleepTimer.setMinutes(15)
+        val set = at
+        sleepTimer.onPublished(TtsPlayback.Paused)
+        now += 5 * 60_000L
+
+        sleepTimer.onPublished(TtsPlayback.Playing)
+
+        sleepTimer.timer.value shouldBe set
     }
 
     @Test
@@ -78,29 +116,29 @@ class TtsSleepTimerTest {
     fun `stopping clears a countdown`() {
         sleepTimer.setMinutes(30)
 
-        sleepTimer.onPublished(stopped = true)
+        sleepTimer.onPublished(TtsPlayback.Stopped)
 
         sleepTimer.timer.value shouldBe SleepTimer.Off
     }
 
     @Test
     fun `a countdown set while stopped starts counting when reading starts`() {
-        sleepTimer.onPublished(stopped = true)
+        sleepTimer.onPublished(TtsPlayback.Stopped)
         sleepTimer.setMinutes(15)
         now += 30 * 60_000L
-        sleepTimer.onPublished(stopped = false)
+        sleepTimer.onPublished(TtsPlayback.Playing)
 
         at.endsAt shouldBe now + 15 * 60_000L
     }
 
     @Test
     fun `playing on keeps a countdown`() {
-        sleepTimer.onPublished(stopped = false)
+        sleepTimer.onPublished(TtsPlayback.Playing)
         sleepTimer.setMinutes(30)
         val set = at
         now += 5 * 60_000L
 
-        sleepTimer.onPublished(stopped = false)
+        sleepTimer.onPublished(TtsPlayback.Playing)
 
         sleepTimer.timer.value shouldBe set
     }
@@ -131,7 +169,7 @@ class TtsSleepTimerTest {
     fun `playing on keeps the end of chapter timer`() {
         sleepTimer.setEndOfChapter()
 
-        sleepTimer.onPublished(stopped = false)
+        sleepTimer.onPublished(TtsPlayback.Playing)
 
         sleepTimer.timer.value shouldBe SleepTimer.EndOfChapter
     }

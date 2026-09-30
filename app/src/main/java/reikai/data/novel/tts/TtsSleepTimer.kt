@@ -2,6 +2,7 @@ package reikai.data.novel.tts
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import reikai.domain.novel.tts.TtsPlayback
 
 sealed interface SleepTimer {
 
@@ -52,12 +53,12 @@ class TtsSleepTimer(private val clock: () -> Long) {
         return (left % MINUTE_MS).takeIf { it > 0 } ?: MINUTE_MS
     }
 
-    /** True when a countdown has reached its end, which clears it; the caller pauses. */
+    /** Clears a countdown that has reached its end. True only while reading plays, when the caller pauses. */
     fun expire(): Boolean {
         val at = timer.value as? SleepTimer.At ?: return false
         if (clock() < at.endsAt) return false
         clear()
-        return true
+        return last == TtsPlayback.Playing
     }
 
     /** True once, at the chapter end the timer was set to stop at. */
@@ -67,20 +68,21 @@ class TtsSleepTimer(private val clock: () -> Long) {
         return true
     }
 
-    /** Whether the last state published was stopped, which a session starts as. */
-    private var wasStopped = true
+    /** The playback last published; a session starts stopped. */
+    private var last = TtsPlayback.Stopped
 
     /**
      * Stopping clears the timer. Starting again restarts a countdown from its full length: one set while
-     * nothing played would otherwise have run down already, and fired the moment reading began.
+     * nothing played would otherwise have run down already, and fired the moment reading began. Resuming
+     * clears one that ended while paused, since the service's tick can run late after the device slept.
      */
-    fun onPublished(stopped: Boolean) {
-        if (stopped) {
-            clear()
-        } else if (wasStopped) {
-            (timer.value as? SleepTimer.At)?.let { setMinutes(it.minutes) }
+    fun onPublished(playback: TtsPlayback) {
+        when {
+            playback == TtsPlayback.Stopped -> clear()
+            last == TtsPlayback.Stopped -> (timer.value as? SleepTimer.At)?.let { setMinutes(it.minutes) }
+            last == TtsPlayback.Paused && playback == TtsPlayback.Playing -> expire()
         }
-        wasStopped = stopped
+        last = playback
     }
 
     companion object {
