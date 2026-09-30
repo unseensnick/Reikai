@@ -28,6 +28,7 @@ import org.junit.jupiter.params.provider.ValueSource
 import reikai.data.backup.AppPreferenceCarry
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
+import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -57,6 +58,12 @@ class CategoryPreferenceRestoreTest {
         Category(id = 200, name = "Completed", order = 2, flags = 0),
     )
 
+    // What the novel side reads: one category of its own, and one named like a manga category.
+    private val deviceNovelCategories = deviceCategories + listOf(
+        Category(id = 300, name = "Light novels", order = 3, flags = 0, contentType = CategoryContentType.NOVEL),
+        Category(id = 400, name = "Reading", order = 4, flags = 0, contentType = CategoryContentType.NOVEL),
+    )
+
     private val categoryIdPreferences = CategoryIdPreferences(
         libraryPreferences,
         DownloadPreferences(store),
@@ -70,7 +77,7 @@ class CategoryPreferenceRestoreTest {
         getCategories = mockk<GetCategories> { coEvery { await() } returns deviceCategories },
         preferenceStore = store,
         categoryIdPreferences = categoryIdPreferences,
-        getNovelCategories = mockk<GetNovelCategories> { coEvery { await() } returns deviceCategories },
+        getNovelCategories = mockk<GetNovelCategories> { coEvery { await() } returns deviceNovelCategories },
         appPreferenceCarry = AppPreferenceCarry(
             NovelPreferences(store),
             SourcePreferences(store),
@@ -206,6 +213,34 @@ class CategoryPreferenceRestoreTest {
         )
 
         preference.get() shouldBe setOf("100")
+    }
+
+    /** A library or recents filter holds ids of both content types, which share one id space. */
+    @ParameterizedTest(name = "shared set {0}")
+    @ValueSource(ints = [0, 1, 2, 3, 4, 5, 6, 7])
+    fun `a shared filter keeps its novel categories`(index: Int) = runTest {
+        val filter = categoryIdPreferences.sharedSets[index]
+
+        restore(
+            reikaiCategories,
+            BackupPreference(filter.key(), StringSetPreferenceValue(setOf("12", "21"))),
+            novelCategories = listOf(BackupNovelCategory("Light novels", id = 21)),
+        )
+
+        filter.get() shouldBe setOf("200", "300")
+    }
+
+    @Test
+    fun `a shared filter naming a manga and a novel category of one name keeps each`() = runTest {
+        val filter = categoryIdPreferences.sharedSets.first()
+
+        restore(
+            reikaiCategories,
+            BackupPreference(filter.key(), StringSetPreferenceValue(setOf("11", "22"))),
+            novelCategories = listOf(BackupNovelCategory("Reading", id = 22)),
+        )
+
+        filter.get() shouldBe setOf("100", "400")
     }
 
     /** The Backup field 2 of each app, alone. */

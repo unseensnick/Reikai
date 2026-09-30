@@ -26,12 +26,12 @@ import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.backupCategoryIdToName
 import reikai.domain.category.byNamePreferring
 import reikai.domain.category.translateCategoryId
-import reikai.domain.category.translateCategoryIds
 import reikai.novel.source.pluginStorageScope
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.plusAssign
 import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.model.Category
 
 @Inject
 class PreferenceRestorer(
@@ -101,21 +101,23 @@ class PreferenceRestorer(
         // Through the shared translation, which keeps the Default category and trusts no id a backup
         // repeats (Yōkai writes none, so all of its categories decode as 0). Only keys the backup
         // carries are translated, so a setting it left out keeps its live on-device value.
-        val manga = CategoryIdTranslation(
-            backupIdToName = backupCategoryIdToName(backupCategories.orEmpty().map { it.id to it.name }),
-            nameToNewId = allCategories.byNamePreferring(CategoryContentType.MANGA).mapValues {
-                it.value.id.toString()
-            },
+        val manga = categoryIdTranslation(
+            backupCategories.orEmpty().map { it.id to it.name },
+            allCategories,
+            CategoryContentType.MANGA,
         )
         val novelCategories = if (backupNovelCategories != null) getNovelCategories.await() else emptyList()
-        val novel = CategoryIdTranslation(
-            backupIdToName = backupCategoryIdToName(backupNovelCategories.orEmpty().map { it.id to it.name }),
-            nameToNewId = novelCategories.byNamePreferring(CategoryContentType.NOVEL).mapValues {
-                it.value.id.toString()
-            },
+        val novel = categoryIdTranslation(
+            backupNovelCategories.orEmpty().map { it.id to it.name },
+            novelCategories,
+            CategoryContentType.NOVEL,
         )
+        // A shared set holds ids of both types, which never collide since both lists come from one table.
+        // Per id rather than one merged name map, since a manga and a novel category may share a name.
+        val shared = CategoryIdTranslation { manga.translate(it) ?: novel.translate(it) }
         val translations by lazy {
-            (categoryIdPreferences.mangaSets + categoryIdPreferences.sharedSets).associate { it.key() to manga } +
+            categoryIdPreferences.mangaSets.associate { it.key() to manga } +
+                categoryIdPreferences.sharedSets.associate { it.key() to shared } +
                 categoryIdPreferences.novelSets.associate { it.key() to novel } +
                 mapOf(
                     categoryIdPreferences.mangaDefault.key() to manga,
@@ -181,25 +183,19 @@ class PreferenceRestorer(
         }
     }
 
-    // RK: the remapped key list comes from the shared CategoryIdPreferences registry (manga side), so
-    // it also covers the Reikai library and Updates-tab category filters, not just Mihon's update/download
-    // prefs. The novel prefs are remapped after the restore, in NovelRestorer, since novel categories are
-    // not restored yet at this point.
+    // RK: the remapped key list comes from the shared CategoryIdPreferences registry, so it covers both
+    // content types' settings and the shared library and recents filters, not just Mihon's update/download
+    // prefs. Both category lists are restored before the settings (BackupRestorer).
     private fun restoreCategoriesPreference(
         key: String,
         value: Set<String>,
         preferenceStore: PreferenceStore,
-        // RK: per key, so the novel sets translate against novel categories; the shared sets go through
-        // the manga pass, so a backup's novel ids in them drop (see CategoryIdPreferences).
+        // RK: per key, so each set translates against its own content type's categories
         translations: Map<String, CategoryIdTranslation>,
     ): Boolean {
         val translation = translations[key] ?: return false
 
-        val ids = translateCategoryIds(
-            ids = value,
-            backupIdToName = translation.backupIdToName,
-            nameToNewId = translation.nameToNewId,
-        )
+        val ids = value.mapNotNullTo(mutableSetOf(), translation::translate) // RK
 
         if (ids.isNotEmpty()) {
             preferenceStore.getStringSet(key) += ids
@@ -208,15 +204,21 @@ class PreferenceRestorer(
     }
 }
 
-// RK: one content type's backup-id to local-id translation for the category-id settings.
-private class CategoryIdTranslation(
-    val backupIdToName: Map<String, String>,
-    val nameToNewId: Map<String, String>,
-) {
+// RK: a backup category id to its local id, for the category-id settings.
+private fun interface CategoryIdTranslation {
+    fun translate(id: String): String?
+
     /** A negative default is a sentinel (prompt on favourite) rather than a category, so it is kept. */
-    fun defaultCategory(id: Int): Int? = if (id < 0) {
-        id
-    } else {
-        translateCategoryId(id.toString(), backupIdToName, nameToNewId)?.toInt()
-    }
+    fun defaultCategory(id: Int): Int? = if (id < 0) id else translate(id.toString())?.toInt()
+}
+
+// RK: one content type's translation, from the backup's categories to the ones restored here by name.
+private fun categoryIdTranslation(
+    backupIdsAndNames: List<Pair<Long, String>>,
+    localCategories: List<Category>,
+    contentType: Long,
+): CategoryIdTranslation {
+    val backupIdToName = backupCategoryIdToName(backupIdsAndNames)
+    val nameToNewId = localCategories.byNamePreferring(contentType).mapValues { it.value.id.toString() }
+    return CategoryIdTranslation { translateCategoryId(it, backupIdToName, nameToNewId) }
 }

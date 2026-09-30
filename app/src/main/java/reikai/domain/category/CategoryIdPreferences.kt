@@ -44,9 +44,8 @@ class CategoryIdPreferences(
     /**
      * Sets that may hold ids of EITHER content type: the include/exclude library filter, and one pair
      * per rendered recents surface (see `RecentsSurface`). Scrubbed against the union of valid ids,
-     * and a delete of any content type scrubs them. On restore they are remapped on the manga pass only
-     * (manga + universal names), so a backup's novel ids in them are dropped; a filter is cheaply
-     * re-picked.
+     * and a delete of any content type scrubs them. On restore each id translates as a manga category
+     * first, then as a novel one.
      */
     val sharedSets: List<Preference<Set<String>>> = listOf(
         reikaiLibraryPreferences.filterCategoriesInclude,
@@ -80,22 +79,11 @@ class CategoryIdPreferences(
 const val DEAD_LAST_USED_NOVEL_CATEGORY_KEY = "last_used_novel_category"
 
 /**
- * Translate a set of backup category ids to the freshly restored local ids, matched by category name.
- * A restore mints new rowids, so a stored id only survives if some restored category still carries the
- * same name; anything unmatched is dropped. PreferenceRestorer runs it on both content types' keys as
- * it writes them, so a key the backup left out is never translated and keeps its live value.
- */
-fun translateCategoryIds(
-    ids: Set<String>,
-    backupIdToName: Map<String, String>,
-    nameToNewId: Map<String, String>,
-): Set<String> = ids.mapNotNullTo(mutableSetOf()) { id ->
-    translateCategoryId(id, backupIdToName, nameToNewId)
-}
-
-/**
- * One id of [translateCategoryIds]. 0 is the Default category in Mihon, Yōkai and Reikai alike and is
- * never in a backup's category list, so it stays 0 instead of being dropped.
+ * Translate a backup category id to the freshly restored local id, matched by category name. A restore
+ * mints new rowids, so a stored id only survives if some restored category still carries the same name;
+ * anything unmatched is null. PreferenceRestorer runs it on both content types' keys as it writes them,
+ * so a key the backup left out is never translated and keeps its live value. 0 is the Default category
+ * in Mihon, Yōkai and Reikai alike and is never in a backup's category list, so it stays 0.
  */
 fun translateCategoryId(
     id: String,
@@ -108,7 +96,7 @@ fun translateCategoryId(
 }
 
 /**
- * A backup's category id to name, for [translateCategoryIds]. Empty when two categories share an id:
+ * A backup's category id to name, for [translateCategoryId]. Empty when two categories share an id:
  * Yōkai writes no category id, so each of its categories decodes as 0 and no id names one category.
  */
 fun backupCategoryIdToName(idsAndNames: List<Pair<Long, String>>): Map<String, String> =

@@ -147,7 +147,8 @@ both sides, unchanged.
      the registry's `novelSets`; the manga delete scrubs the registry's `mangaSets` after Mihon's `DeleteCategory`
      (domain can't see the app-module `ReikaiLibraryPreferences`/`ReikaiSourcePreferences`).
   3. **Restore remap**: both types translate inline in `PreferenceRestorer`, key by key from the registry, as each
-     backed-up value is written, through the shared `translateCategoryIds` (old-id -> name -> new-id). Novel
+     backed-up value is written, through the shared `translateCategoryId` (old-id -> name -> new-id). The shared library and recents filters
+     translate each id as a manga category first, then as a novel one. Novel
      categories restore beside the manga ones, before the app settings, so they exist when the novel keys land. A key
      the backup did not carry is never translated, so its live value cannot be re-pointed by an id the backup reuses,
      and with Categories off the novel keys keep the device's values exactly as manga's do. A negative default (ask on

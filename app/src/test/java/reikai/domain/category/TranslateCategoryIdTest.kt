@@ -9,29 +9,29 @@ import org.junit.jupiter.api.Test
  * under the same name must survive with its fresh local id, and one that did not must be dropped rather
  * than left dangling.
  */
-class TranslateCategoryIdsTest {
+class TranslateCategoryIdTest {
 
     private val backupIdToName = mapOf("1" to "Reading", "2" to "Plan to read", "9" to "Gone")
     private val nameToNewId = mapOf("Reading" to "10", "Plan to read" to "20")
 
     @Test
-    fun `remaps each id through its category name to the new local id`() {
-        translateCategoryIds(setOf("1", "2"), backupIdToName, nameToNewId) shouldBe setOf("10", "20")
+    fun `remaps an id through its category name to the new local id`() {
+        translateCategoryId("2", backupIdToName, nameToNewId) shouldBe "20"
     }
 
     @Test
     fun `drops an id whose category name did not come back on restore`() {
-        translateCategoryIds(setOf("1", "9"), backupIdToName, nameToNewId) shouldBe setOf("10")
+        translateCategoryId("9", backupIdToName, nameToNewId) shouldBe null
     }
 
     @Test
     fun `drops an id that is not in the backup category set`() {
-        translateCategoryIds(setOf("1", "7"), backupIdToName, nameToNewId) shouldBe setOf("10")
+        translateCategoryId("7", backupIdToName, nameToNewId) shouldBe null
     }
 
     @Test
     fun `keeps the Default category, which is 0 in every app that writes these backups`() {
-        translateCategoryIds(setOf("0", "1"), backupIdToName, nameToNewId) shouldBe setOf("0", "10")
+        translateCategoryId("0", backupIdToName, nameToNewId) shouldBe "0"
     }
 
     @Test
@@ -43,10 +43,5 @@ class TranslateCategoryIdsTest {
     @Test
     fun `names no backup id when two categories share one, as a Yokai backup's all do`() {
         backupCategoryIdToName(listOf(0L to "Reading", 0L to "Completed")) shouldBe emptyMap()
-    }
-
-    @Test
-    fun `returns empty for empty input`() {
-        translateCategoryIds(emptySet(), backupIdToName, nameToNewId) shouldBe emptySet()
     }
 }
