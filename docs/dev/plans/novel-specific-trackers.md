@@ -409,6 +409,18 @@ It is very likely a defect on their side rather than a deliberate contract, sinc
 chapter count for anyone changing status through the website too. Worth reporting to the maintainer,
 and worth coding around regardless: a fix would not reach the deployed backend on any known schedule.
 
+**Signing out of a cookie-login tracker signs the in-app browser out of its site** (owner,
+2026-09-30). The WebView's cookies live in the app-wide `AndroidCookieJar`, and nothing cleared them,
+so a sign-out followed by a WebView sign-in silently captured the old account again, and NovelUpdates,
+which authenticates through the jar, stayed signed in on the site. `BaseTracker.logout` (an `// RK`
+line) runs `CookieLoginTracker.clearSiteCookies` for RanobeDB, NovelList and NovelUpdates alike, which
+expires every cookie on the site's domain, Cloudflare's clearance included. A captured session the
+service rejects runs the same logout, so the WebView returns to the sign-in form instead of capturing
+the rejected session on every page load. Separately, RanobeDB's API clients use no cookie jar at all:
+OkHttp's bridge replaced the stored credential's `Cookie` header with the jar's session, and the server
+resolves a cookie before a bearer token, so a token login could read and write as the WebView's
+account. Pinned by `CookieLoginSignOutTest` and `RanobeDbApiCookieTest`.
+
 **A refresh re-reads NovelList's chapter total from the catalogue.** The total was set only at
 search time, so an ongoing web novel bound at 300 chapters and read to 450 kept 300, and choosing
 Completed ran the shared `TrackFieldMutations.applyStatus`, which sets progress to the total, and

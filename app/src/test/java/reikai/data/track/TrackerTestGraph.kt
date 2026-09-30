@@ -2,6 +2,7 @@ package reikai.data.track
 
 import android.app.Application
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.tachiyomi.network.NetworkHelper
 import io.mockk.every
 import io.mockk.mockk
 import mihon.app.di.AppGraph
@@ -16,9 +17,10 @@ import uy.kohesive.injekt.api.InjektScope
  * builds one installs a graph standing in for the app's, the way the app installs its own: through
  * the Injekt registrar. Returns the scope it replaced, which the caller restores.
  */
-fun installTrackerTestGraph(): InjektScope {
+fun installTrackerTestGraph(network: NetworkHelper = mockk(relaxed = true)): InjektScope {
     val graph = mockk<AppGraph>(relaxed = true) {
         every { trackPreferences } returns TrackPreferences(InMemoryPreferenceStore())
+        every { networkHelper } returns network
     }
     val application = mockk<Application>(relaxed = true, moreInterfaces = arrayOf(GraphProvider::class))
     @Suppress("UNCHECKED_CAST")

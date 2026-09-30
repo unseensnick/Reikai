@@ -87,6 +87,7 @@ abstract class BaseTracker(
     @CallSuper
     override fun logout() {
         trackPreferences.setCredentials(this, "", "")
+        (this as? CookieLoginTracker)?.clearSiteCookies(networkService.cookieJar) // RK
     }
 
     override val isLoggedIn: Boolean

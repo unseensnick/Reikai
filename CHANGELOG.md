@@ -538,6 +538,7 @@ every stable release now also ships a foss build with neither in it.
 
 - **MangaUpdates results now show each entry's rating and creators while you pick one to bind (synced from Mihon, mihonapp/mihon#3795).** Covers manga and novels alike.
 - **Kitsu scores now use whichever rating scale your Kitsu account is set to, smileys, stars or the 10 point decimal (synced from Mihon, mihonapp/mihon#3818).** Existing scores are converted on upgrade, for manga and novels alike.
+- **Signing out of RanobeDB, NovelList or NovelUpdates now also signs the in-app browser out of that site.**
 
 #### Fixed
 - **Adding a manga tracker no longer takes history you removed as the day you started reading (synced from Mihon).**
@@ -573,6 +574,7 @@ every stable release now also ships a foss build with neither in it.
 - **Marking chapters read now stays quiet when trackers update, and shows one message naming any tracker that failed.** A failed update is still retried in the background.
 - **An expired AniList login now asks you to sign in again instead of showing an HTTP error.**
 - **Marking a NovelList novel Completed no longer lowers its chapter progress.**
+- **RanobeDB updates now go to the account you signed in with.**
 
 ### Downloads & extensions
 

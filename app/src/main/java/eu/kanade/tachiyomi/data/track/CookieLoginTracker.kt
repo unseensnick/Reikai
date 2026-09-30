@@ -1,5 +1,8 @@
 package eu.kanade.tachiyomi.data.track
 
+import eu.kanade.tachiyomi.network.AndroidCookieJar
+import okhttp3.HttpUrl.Companion.toHttpUrl
+
 /**
  * A tracker signed into by driving its own website in a WebView and reading the session cookie it
  * sets, for services offering neither an OAuth flow nor a token to paste.
@@ -26,4 +29,12 @@ interface CookieLoginTracker {
 
     /** Persist [credential], and whatever else the service needs, such as a display name. */
     suspend fun loginWithCookie(credential: String)
+
+    /**
+     * Signs the in-app browser out of the site too; [BaseTracker.logout] runs it for every cookie-login
+     * tracker. Otherwise the next WebView sign-in silently captures the old account's session again.
+     */
+    fun clearSiteCookies(cookieJar: AndroidCookieJar) {
+        cookieJar.remove(cookieDomain.toHttpUrl())
+    }
 }

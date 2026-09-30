@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
+import okhttp3.CookieJar
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -27,7 +28,11 @@ class RanobeDbApi(
 
     // The published docs ask for no more than 60 requests a minute, so stay under it rather than
     // at it. Both clients share the limiter because they hit the same host.
+    //
+    // No cookie jar: the shared one holds whatever session the WebView left on the site, which the
+    // server reads before the Authorization header, so a token login could act as another account.
     private val rateLimitedClient = client.newBuilder()
+        .cookieJar(CookieJar.NO_COOKIES)
         .rateLimit(permits = 55, period = 1.minutes)
         .build()
 
