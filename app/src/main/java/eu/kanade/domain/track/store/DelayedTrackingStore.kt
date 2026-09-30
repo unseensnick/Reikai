@@ -8,14 +8,18 @@ import dev.zacsweers.metro.SingleIn
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 
-@Inject
+// RK --> open over a named file, so the novel queue (NovelDelayedTrackingStore) is this store too
 @SingleIn(AppScope::class)
-class DelayedTrackingStore(context: Context) {
+open class DelayedTrackingStore(context: Context, name: String) {
+
+    @Inject
+    constructor(context: Context) : this(context, "tracking_queue")
+    // RK <--
 
     /**
      * Preference file where queued tracking updates are stored.
      */
-    private val preferences = context.getSharedPreferences("tracking_queue", Context.MODE_PRIVATE)
+    private val preferences = context.getSharedPreferences(name, Context.MODE_PRIVATE) // RK
 
     fun add(trackId: Long, lastChapterRead: Double) {
         val previousLastChapterRead = preferences.getFloat(trackId.toString(), 0f)

@@ -10,17 +10,15 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.util.system.workManager
-import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import reikai.domain.novel.interactor.GetNovelTracks
-import tachiyomi.core.common.util.lang.withIOContext
-import tachiyomi.core.common.util.system.logcat
+import reikai.domain.track.drainDelayedTracking
 import java.util.concurrent.TimeUnit
 
 /**
- * Novel twin of [eu.kanade.domain.track.service.DelayedTrackingUpdateJob]: drains the novel tracking
- * queue and retries each push when the network returns.
+ * Drains the novel tracking queue through the same kernel as Mihon's manga job. A class of its own
+ * because WorkManager keys unique work by tag, and the two queues retry independently.
  */
 class NovelDelayedTrackingUpdateJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
@@ -37,28 +35,13 @@ class NovelDelayedTrackingUpdateJob(private val context: Context, workerParams: 
         graph.inject(this)
     }
 
-    override suspend fun doWork(): Result {
-        if (runAttemptCount > 3) {
-            return Result.failure()
-        }
-        withIOContext {
-            delayedTrackingStore.getItems()
-                .mapNotNull {
-                    val track = getNovelTracks.awaitOne(it.trackId)
-                    if (track == null) {
-                        delayedTrackingStore.remove(it.trackId)
-                    }
-                    track?.copy(lastChapterRead = it.lastChapterRead.toDouble())
-                }
-                .forEach { track ->
-                    logcat(LogPriority.DEBUG) {
-                        "Updating delayed novel track item: ${track.novelId}, last chapter read: ${track.lastChapterRead}"
-                    }
-                    trackNovelChapter.await(context, track.novelId, track.lastChapterRead, setupJobOnFailure = false)
-                }
-        }
-
-        return if (delayedTrackingStore.getItems().isEmpty()) Result.success() else Result.retry()
+    override suspend fun doWork(): Result = drainDelayedTracking(
+        runAttemptCount = runAttemptCount,
+        items = delayedTrackingStore::getItems,
+        remove = delayedTrackingStore::remove,
+        trackOf = { getNovelTracks.awaitOne(it) },
+    ) { track, lastChapterRead ->
+        trackNovelChapter.await(context, track.novelId, lastChapterRead, setupJobOnFailure = false)
     }
 
     companion object {

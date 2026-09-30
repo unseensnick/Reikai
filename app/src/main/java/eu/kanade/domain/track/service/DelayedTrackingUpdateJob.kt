@@ -12,11 +12,9 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.domain.track.store.DelayedTrackingStore
 import eu.kanade.tachiyomi.util.system.workManager
-import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
-import tachiyomi.core.common.util.lang.withIOContext
-import tachiyomi.core.common.util.system.logcat
+import reikai.domain.track.drainDelayedTracking
 import tachiyomi.domain.track.interactor.GetTracks
 import java.util.concurrent.TimeUnit
 
@@ -36,30 +34,16 @@ class DelayedTrackingUpdateJob(private val context: Context, workerParams: Worke
         graph.inject(this)
     }
 
-    override suspend fun doWork(): Result {
-        if (runAttemptCount > 3) {
-            return Result.failure()
-        }
-
-        withIOContext {
-            delayedTrackingStore.getItems()
-                .mapNotNull {
-                    val track = getTracks.awaitOne(it.trackId)
-                    if (track == null) {
-                        delayedTrackingStore.remove(it.trackId)
-                    }
-                    track?.copy(lastChapterRead = it.lastChapterRead.toDouble())
-                }
-                .forEach { track ->
-                    logcat(LogPriority.DEBUG) {
-                        "Updating delayed track item: ${track.mangaId}, last chapter read: ${track.lastChapterRead}"
-                    }
-                    trackChapter.await(context, track.mangaId, track.lastChapterRead, setupJobOnFailure = false)
-                }
-        }
-
-        return if (delayedTrackingStore.getItems().isEmpty()) Result.success() else Result.retry()
+    // RK --> the drain is the drainDelayedTracking kernel the novel job runs too; port upstream changes there
+    override suspend fun doWork(): Result = drainDelayedTracking(
+        runAttemptCount = runAttemptCount,
+        items = delayedTrackingStore::getItems,
+        remove = delayedTrackingStore::remove,
+        trackOf = { getTracks.awaitOne(it) },
+    ) { track, lastChapterRead ->
+        trackChapter.await(context, track.mangaId, lastChapterRead, setupJobOnFailure = false)
     }
+    // RK <--
 
     companion object {
         private const val TAG = "DelayedTrackingUpdate"
