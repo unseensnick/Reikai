@@ -566,6 +566,8 @@ every stable release now also ships a foss build with neither in it.
 - **Binding a tracker to a novel you have already read now fills in when you started reading, as it does for manga.**
 - **Marking a chapter read now updates the tracker status on the entry straight away, on manga and novels.** It kept showing the status from before the push, so an entry could sit on "plan to read" while the service already said reading.
 - **Tapping Tracking on a novel when none of your signed-in trackers cover novels now opens Settings -> Tracking, as it does for manga, instead of an empty sheet.**
+- **A tracker's start date is now filled in when the first chapter you read is not chapter 1.** A date already on the tracker is never replaced.
+- **The Tracking button on a series' page now counts the group's trackers right after you add it to an existing group.** Before, it showed no trackers until the page was reopened.
 
 ### Downloads & extensions
 
