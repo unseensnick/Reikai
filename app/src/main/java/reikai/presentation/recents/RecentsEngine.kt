@@ -169,12 +169,13 @@ class RecentsEngine(
     val assembled: StateFlow<RecentsAssembled?> by lazy {
         combine(
             contentType,
-            // The memo is emptied on a chapter write, since the target a row resolved to may now be read.
-            // Not on a lane emission, which a download tick causes too, and not on a keystroke. A write
-            // re-sends the same lanes, which the distinct check drops, so it costs no assembly pass.
+            // The memo is emptied when a target's input changes, since the target a row resolved to may
+            // now be read, re-sorted or hidden. Not on a lane emission, which a download tick causes too,
+            // and not on a keystroke. A write re-sends the same lanes, which the distinct check drops, so
+            // it costs no assembly pass.
             combine(
                 combine(providers.map(::collectedLanes)) { it.toList() },
-                merge(*providers.map { it.chapterWrites }.toTypedArray())
+                merge(*providers.map { it.targetInputs }.toTypedArray())
                     .onEach { mutableTargets.value = emptyMap() },
             ) { lanes, _ -> lanes }
                 .distinctUntilChanged(),

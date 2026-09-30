@@ -24,8 +24,9 @@ import tachiyomi.data.Novels
 
 /**
  * The recents surface's chapter-side reads, over a real schema. The write signal is what drops a
- * resolved continue-reading target, so it has to hear both tables a target is read from: the chapter
- * rows, and the stitch a merged row resolves over. Pinned once over both content types.
+ * resolved continue-reading target, so it has to hear every table a target is read from: the chapter
+ * rows, the entry, the group membership and the stitch a merged row resolves over, and on manga the
+ * excluded scanlators. Pinned once over both content types.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class RecentsUnreadRepositoryTest {
@@ -135,7 +136,7 @@ class RecentsUnreadRepositoryTest {
     }
 
     /** How many times [probe]'s signal fired, counting the one it sends on collection, across [write]. */
-    private fun TestScope.signalsAcross(probe: ChapterWriteProbe, write: suspend (Database) -> Unit): Int {
+    private fun TestScope.signalsAcross(probe: TargetWriteProbe, write: suspend (Database) -> Unit): Int {
         var fired = 0
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             probe.signal(repository).collect { fired++ }
@@ -148,14 +149,34 @@ class RecentsUnreadRepositoryTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("writeProbes")
-    fun `a chapter write reaches the signal`(probe: ChapterWriteProbe) = runTest {
+    fun `a chapter write reaches the signal`(probe: TargetWriteProbe) = runTest {
         signalsAcross(probe, probe.writeChapter) shouldBe 2
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("writeProbes")
-    fun `a stitch write reaches the signal`(probe: ChapterWriteProbe) = runTest {
+    fun `a stitch write reaches the signal`(probe: TargetWriteProbe) = runTest {
         signalsAcross(probe, probe.writeStitch) shouldBe 2
+    }
+
+    /** The entry row carries the chapter sort a target is ordered by. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("writeProbes")
+    fun `an entry write reaches the signal`(probe: TargetWriteProbe) = runTest {
+        signalsAcross(probe, probe.writeEntry) shouldBe 2
+    }
+
+    /** Group membership decides which sources a merged target resolves across. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("writeProbes")
+    fun `a group membership write reaches the signal`(probe: TargetWriteProbe) = runTest {
+        signalsAcross(probe, probe.writeMembership) shouldBe 2
+    }
+
+    /** Novels have no scanlators, so this input has no novel case. */
+    @Test
+    fun `an excluded scanlator write reaches the manga signal`() = runTest {
+        signalsAcross(writeProbes().first()) { it.excluded_scanlatorQueries.insert(99L, "hidden") } shouldBe 2
     }
 
     companion object {
@@ -211,17 +232,21 @@ class RecentsUnreadRepositoryTest {
 
         @JvmStatic
         fun writeProbes() = listOf(
-            ChapterWriteProbe(
+            TargetWriteProbe(
                 label = "manga",
-                signal = { it.mangaChapterWrites() },
+                signal = { it.mangaTargetWrites() },
                 writeChapter = { it.chapterQueries.removeChaptersWithIds(listOf(99L)) },
                 writeStitch = { it.merged_chapter_unitQueries.deleteGroup(99L) },
+                writeEntry = { it.mangaQueries.resetViewerFlags() },
+                writeMembership = { it.merge_groupQueries.deleteMangaMember(99L) },
             ),
-            ChapterWriteProbe(
+            TargetWriteProbe(
                 label = "novels",
-                signal = { it.novelChapterWrites() },
+                signal = { it.novelTargetWrites() },
                 writeChapter = { it.novel_chaptersQueries.delete(99L) },
                 writeStitch = { it.merged_chapter_unitQueries.deleteNovelGroup(99L) },
+                writeEntry = { it.novelsQueries.setGenre(null, 99L) },
+                writeMembership = { it.merge_groupQueries.deleteNovelMember(99L) },
             ),
         )
     }
@@ -240,12 +265,14 @@ class UnreadProbe(
     override fun toString() = label
 }
 
-/** One content type's write signal and the two kinds of write it has to hear. */
-class ChapterWriteProbe(
+/** One content type's write signal and the kinds of write it has to hear. */
+class TargetWriteProbe(
     private val label: String,
     val signal: (RecentsUnreadRepository) -> Flow<Unit>,
     val writeChapter: suspend (Database) -> Unit,
     val writeStitch: suspend (Database) -> Unit,
+    val writeEntry: suspend (Database) -> Unit,
+    val writeMembership: suspend (Database) -> Unit,
 ) {
     override fun toString() = label
 }

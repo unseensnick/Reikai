@@ -21,11 +21,12 @@ interface RecentsUnreadRepository {
     fun subscribeNovelIdsWithUnread(mergingEnabled: Boolean): Flow<Set<Long>>
 
     /**
-     * Emits on every write to this type's chapters or its merge stitch, and once on collection. A
-     * signal rather than data: it is what tells a resolved continue-reading row that its target may
-     * have been read, which no feed emission can say, since a download tick re-emits one too.
+     * Emits on every write to a table this type's continue-reading target is resolved from (listed in
+     * recentsUnread.sq), and once on collection. A signal rather than data: it is what tells a resolved
+     * row that its target may have moved, which no feed emission can say, since a download tick
+     * re-emits one too. The preferences a target reads are the provider's to add.
      */
-    fun mangaChapterWrites(): Flow<Unit>
+    fun mangaTargetWrites(): Flow<Unit>
 
-    fun novelChapterWrites(): Flow<Unit>
+    fun novelTargetWrites(): Flow<Unit>
 }

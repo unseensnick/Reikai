@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -34,6 +35,14 @@ internal fun MergeManager.membershipFlow(
     combine(mergingEnabled.changes(), membershipChanges()) { enabled, memberships ->
         if (enabled) memberships.mapKeys { entryId(it.key) } else emptyMap()
     }
+
+/**
+ * A continue-reading target's inputs as one signal: [writes], the tables its resolve reads, plus each
+ * preference in [reads] that the resolve reads too (hidden chapters, the merging switch, a global
+ * chapter sort). A memo cleared on anything less keeps naming a target the user has re-sorted or hidden.
+ */
+internal fun recentsTargetInputs(writes: Flow<Unit>, vararg reads: Preference<*>): Flow<Unit> =
+    merge(writes, *reads.map { read -> read.changes().map { } }.toTypedArray())
 
 /** A query-backed lane: its first emission is real data, so it only needs a value to start from. */
 internal fun Flow<List<RecentsItem>>.asLane(): Flow<RecentsLaneRows> =
@@ -67,11 +76,11 @@ interface RecentsProvider : RecentsBehavior {
     val unreadEntries: Flow<Set<EntryId>>
 
     /**
-     * Emits whenever this type's chapter data may have changed: a chapter row or the merge stitch. It
-     * is what invalidates a resolved target, which a lane emission cannot do, since a lane re-emits on
-     * every download tick as well as on a write.
+     * Emits whenever anything a resolved target was read from may have changed, the tables and the
+     * preferences both ([recentsTargetInputs]). It is what invalidates a resolved target, which a lane
+     * emission cannot do, since a lane re-emits on every download tick as well as on a write.
      */
-    val chapterWrites: Flow<Unit>
+    val targetInputs: Flow<Unit>
 
     /** When this type's library last finished updating. Each type has its own update job and key. */
     val lastUpdated: Flow<Long>

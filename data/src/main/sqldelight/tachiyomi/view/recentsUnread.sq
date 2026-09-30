@@ -71,17 +71,23 @@ WHERE C.read = 0
 AND C.novel_id NOT IN (SELECT novelId FROM groupJudged);
 
 -- A write signal per content type, for the recents surface's continue-reading memo: a subscription is
--- told of every write to the tables a query names, so these two exist for their FROM lists, covering
--- the chapter rows a target is read from and the stitch a merged one is resolved over. The caller
--- never runs them, which is why the select is only something valid to name the tables with.
-mangaChapterWrites:
+-- told of every write to the tables a query names, so these two exist for their FROM lists, naming
+-- every table a target is resolved from: the chapter rows, the entry row (its chapter sort), the group
+-- membership and the stitch a merged one is resolved over, and on manga the excluded scanlators. The
+-- caller never runs them, which is why the select is only something valid to name the tables with.
+mangaTargetWrites:
 SELECT chapter.id
 FROM chapter
+JOIN manga ON manga.id = chapter.manga_id
 JOIN merged_chapter_unit ON merged_chapter_unit.chapter_id = chapter.id
+JOIN merge_group_manga ON merge_group_manga.manga_id = manga.id
+JOIN excluded_scanlator ON excluded_scanlator.manga_id = manga.id
 LIMIT 1;
 
-novelChapterWrites:
+novelTargetWrites:
 SELECT novel_chapters._id
 FROM novel_chapters
+JOIN novels ON novels._id = novel_chapters.novel_id
 JOIN merged_novel_chapter_unit ON merged_novel_chapter_unit.chapter_id = novel_chapters._id
+JOIN merge_group_novel ON merge_group_novel.novel_id = novels._id
 LIMIT 1;

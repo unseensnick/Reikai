@@ -1377,13 +1377,13 @@ class RecentsEngineTest {
     }
 
     @Test
-    fun `a chapter write drops the resolved rows, because the target may now be read`() = runTest {
+    fun `a target input change drops the resolved rows, because the target may have moved`() = runTest {
         val row = readRow(manga1, chapterId = 5)
         val fake = resolvingProvider(row, targetRow(ref(manga1, 2), readState(read = false)))
         val engine = resolvedFeed(fake, row)
-        fake.awaitChapterWriteWatcher()
+        fake.awaitTargetInputWatcher()
 
-        fake.writeChapter()
+        fake.changeTargetInput()
 
         engine.targets.first { it.isEmpty() } shouldBe emptyMap()
     }
@@ -1646,16 +1646,16 @@ private class FakeRecentsProvider(
     // property here, which is null while the object is still being built.
     override val unreadEntries: Flow<Set<EntryId>> = flowOf(unread)
 
-    private val chapterWriteSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
-    override val chapterWrites: Flow<Unit> = chapterWriteSignal.onStart { emit(Unit) }
+    private val targetInputSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+    override val targetInputs: Flow<Unit> = targetInputSignal.onStart { emit(Unit) }
 
-    /** A chapter or stitch write, reported the way the database's subscription reports one. */
-    fun writeChapter() {
-        chapterWriteSignal.tryEmit(Unit)
+    /** A change to a target input (a table write or a preference), reported the way the signal reports one. */
+    fun changeTargetInput() {
+        targetInputSignal.tryEmit(Unit)
     }
 
-    suspend fun awaitChapterWriteWatcher() {
-        chapterWriteSignal.subscriptionCount.first { it > 0 }
+    suspend fun awaitTargetInputWatcher() {
+        targetInputSignal.subscriptionCount.first { it > 0 }
     }
 
     override fun rowUi(item: RecentsItem): RecentsRowUi =

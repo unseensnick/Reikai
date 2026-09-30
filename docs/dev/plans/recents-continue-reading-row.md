@@ -99,9 +99,17 @@ the combined modes' read rows resolve a target, and they collapse to one row per
 is drawn. Updated rows resolved too while the combined modes followed Yokai's burst rule; since that was
 retired (owner, 2026-09-25) an updated row opens the chapter it names and never asks.
 
-The memo is emptied on a chapter write, told by each provider's `chapterWrites` signal: a subscription
-on a query naming that type's chapter table and its stitch table, which the database notifies on every
-write to either and which is never itself run. It used to be emptied on every lane emission instead,
+The memo is emptied whenever an input of a target changes, told by each provider's `targetInputs`
+signal (`recentsTargetInputs`): a subscription on a query naming every table the target is resolved
+from, which the database notifies on every write to any of them and which is never itself run, merged
+with every preference the resolve reads. The tables are the chapters, the entry row (its chapter sort),
+the group membership, the stitch and, on manga, the excluded scanlators; the preferences are the hidden
+chapters, the series-merging switch and, on novels, the global chapter sort a novel without its own
+follows. The first cut named only the chapter and stitch tables, so a re-sort or an excluded scanlator
+left rows naming and opening the old target until some unrelated write (deep-audit lead U93,
+2026-09-30). The entry table is also written by a library update, which now clears the memo once per
+updated series; that is accepted, being nothing like the per-download-tick clearing described next.
+It used to be emptied on every lane emission instead,
 which was wrong twice over: the manga updated lane re-emits on every download tick, so a running
 download re-resolved every drawn row several times a second, and a lane emission is not what says a
 target was read. A keystroke leaves the memo alone, and a write re-sends the same lanes, which a

@@ -468,8 +468,9 @@ bulk verbs are mapped onto it before they dispatch. The record is untouched, so 
 dims and acts on it: that tab is a log of what was read rather than a list of what to read next. Full
 record: [recents-continue-reading-row.md](recents-continue-reading-row.md).
 
-Two seam facts worth carrying forward. The memo is emptied by each provider's chapter-write signal
-(owner, 2026-09-24), not by a lane emission, which a download tick causes too, and not by the assembly,
+Two seam facts worth carrying forward. The memo is emptied by each provider's `targetInputs` signal
+(owner, 2026-09-24; widened from chapter writes to every target input by deep-audit lead U93,
+2026-09-30, the list being in [recents-continue-reading-row.md](recents-continue-reading-row.md)), not by a lane emission, which a download tick causes too, and not by the assembly,
 which a search keystroke re-runs; it is also emptied on a mode switch so a resolution made in Grouped
 cannot answer for a History row. And
 the four selection verbs now take the chapters to act on rather than reading the selection back out of

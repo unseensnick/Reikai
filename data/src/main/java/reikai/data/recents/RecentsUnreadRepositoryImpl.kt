@@ -29,7 +29,7 @@ class RecentsUnreadRepositoryImpl(
             .map { it.toSet() }
 
     // asFlow hands over the query on each write without running it, and nothing here runs it either.
-    override fun mangaChapterWrites(): Flow<Unit> = database.recentsUnreadQueries.mangaChapterWrites().asFlow().map { }
+    override fun mangaTargetWrites(): Flow<Unit> = database.recentsUnreadQueries.mangaTargetWrites().asFlow().map { }
 
-    override fun novelChapterWrites(): Flow<Unit> = database.recentsUnreadQueries.novelChapterWrites().asFlow().map { }
+    override fun novelTargetWrites(): Flow<Unit> = database.recentsUnreadQueries.novelTargetWrites().asFlow().map { }
 }

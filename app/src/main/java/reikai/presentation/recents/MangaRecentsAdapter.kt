@@ -167,7 +167,11 @@ class MangaRecentsAdapter(
             .flatMapLatest { recentsUnread.subscribeMangaIdsWithUnread(mergingEnabled = it) }
             .map { ids -> ids.mapTo(HashSet(), EntryId::Manga) }
 
-    override val chapterWrites: Flow<Unit> = recentsUnread.mangaChapterWrites()
+    override val targetInputs: Flow<Unit> = recentsTargetInputs(
+        recentsUnread.mangaTargetWrites(),
+        mangaPreferences.hiddenChapters(),
+        reikaiLibraryPreferences.seriesMergingEnabled,
+    )
 
     override val lastUpdated: Flow<Long> = libraryPreferences.lastUpdatedTimestamp.changes()
 

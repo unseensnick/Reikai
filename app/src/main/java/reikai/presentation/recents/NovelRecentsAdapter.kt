@@ -157,7 +157,13 @@ class NovelRecentsAdapter(
             .flatMapLatest { recentsUnread.subscribeNovelIdsWithUnread(mergingEnabled = it) }
             .map { ids -> ids.mapTo(HashSet(), EntryId::Novel) }
 
-    override val chapterWrites: Flow<Unit> = recentsUnread.novelChapterWrites()
+    // The global sort is what a novel without its own sort orders its chapters by (readingOrderComparator).
+    override val targetInputs: Flow<Unit> = recentsTargetInputs(
+        recentsUnread.novelTargetWrites(),
+        novelPreferences.hiddenChapters(),
+        novelPreferences.defaultChapterSortOrder(),
+        reikaiLibraryPreferences.seriesMergingEnabled,
+    )
 
     override val lastUpdated: Flow<Long> = novelPreferences.novelLibraryUpdateLastTimestamp().changes()
 
