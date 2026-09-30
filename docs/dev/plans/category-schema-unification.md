@@ -90,6 +90,11 @@ both sides, unchanged.
   that keeps only universal and own-type rows, so a novels-only id handed to a manga link is dropped
   silently rather than erroring, which would abort a whole bulk or restore transaction for one bad id.
   A query change, not a schema one, so no `.sqm`. Pinned by `CategoryLinkGuardTest`.
+- **The edit-categories selection lives in one `SelectionStore`.** The screen used to keep the published
+  set and the kernel's `SelectionState` (with its range anchor) as two copies, and the bulk delete cleared
+  only the published one, so after Undo a long press ranged from the deleted rows' stale anchor and lit
+  them up again. Every verb now writes both through the store, as the library and recents engines do.
+  Pinned by `CategoryViewModelTest`.
 
 ## Key files
 

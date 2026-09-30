@@ -26,7 +26,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.category.CategoryActions
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.selection.EntrySelection
-import reikai.presentation.selection.SelectionState
+import reikai.presentation.selection.SelectionStore
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -47,11 +47,12 @@ class CategoryViewModel(
     private val _events = MutableSharedFlow<CategoryEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<CategoryEvent> = _events.asSharedFlow()
 
-    // RK --> multi-select + deferred-delete. `selectedIds` drives the action-mode UI; `pendingDelete`
+    // RK --> multi-select + deferred-delete. The selection store drives the action-mode UI and keeps the
+    // kernel's anchor with it, so a verb cannot clear one and leave the other; `pendingDelete`
     // is the deferred-delete buffer: rows in it are hidden immediately but only committed to the DB once
     // the undo snackbar resolves without an undo. Both fold into the live category flow so a DB re-emission
     // can't clobber them mid-undo.
-    private val selectedIds = MutableStateFlow<Set<Long>>(emptySet())
+    private val selectionStore = SelectionStore<Long>()
 
     // Holds the rows, not just their ids: a delete has to know the category's content type to clean the
     // right side's preferences, and by commit time the row is gone from the live list.
@@ -70,7 +71,7 @@ class CategoryViewModel(
     private val content = combine(
         actions.subscribe(),
         reikaiLibraryPreferences.categorySortOrder.changes(),
-        selectedIds,
+        selectionStore.selection,
         pendingDelete,
         chipContentType,
     ) { categories, sortOrder, selected, pending, contentType ->
@@ -117,43 +118,36 @@ class CategoryViewModel(
     }
 
     // RK --> multi-select + deferred bulk delete, over the shared selection kernel
-    private var categorySelection = SelectionState<Long>()
-
     fun toggleSelection(categoryId: Long) {
-        categorySelection = EntrySelection.toggle(categorySelection, categoryId)
-        selectedIds.value = categorySelection.selection
+        selectionStore.update { EntrySelection.toggle(it, categoryId) }
     }
 
     /** Long press: sweep from the last row touched to this one, or drop it if it is already picked. */
     fun toggleRangeSelection(categoryId: Long) {
         val ids = visibleCategoryIds() ?: return
-        categorySelection = EntrySelection.rangeOrToggle(categorySelection, categoryId, ids)
-        selectedIds.value = categorySelection.selection
+        selectionStore.update { EntrySelection.rangeOrToggle(it, categoryId, ids) }
     }
 
     private fun visibleCategoryIds(): List<Long>? =
         (state.value as? CategoryScreenState.Success)?.categories?.map { it.id }
 
     fun selectAll() {
-        val ids = (state.value as? CategoryScreenState.Success)?.categories?.map { it.id } ?: return
-        categorySelection = EntrySelection.selectAll(categorySelection, ids)
-        selectedIds.value = categorySelection.selection
+        val ids = visibleCategoryIds() ?: return
+        selectionStore.update { EntrySelection.selectAll(it, ids) }
     }
 
     fun invertSelection() {
-        val ids = (state.value as? CategoryScreenState.Success)?.categories?.map { it.id } ?: return
-        categorySelection = EntrySelection.invert(categorySelection, ids)
-        selectedIds.value = categorySelection.selection
+        val ids = visibleCategoryIds() ?: return
+        selectionStore.update { EntrySelection.invert(it, ids) }
     }
 
     fun clearSelection() {
-        categorySelection = EntrySelection.clear()
-        selectedIds.value = categorySelection.selection
+        selectionStore.update { EntrySelection.clear() }
     }
 
     /** Hide the selected categories and arm the undo snackbar; the DB delete waits for [commitPendingDelete]. */
     fun deleteSelected() {
-        val ids = selectedIds.value
+        val ids = selectionStore.selection.value
         if (ids.isEmpty()) return
         val categories = (state.value as? CategoryScreenState.Success)
             ?.categories
@@ -161,7 +155,7 @@ class CategoryViewModel(
             .orEmpty()
         if (categories.isEmpty()) return
         pendingDelete.update { it + categories }
-        selectedIds.value = emptySet()
+        clearSelection()
         viewModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(categories.size)) }
     }
 
