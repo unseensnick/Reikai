@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
-import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.chapter.hiddenKey
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.overlayCustomInfo
 import reikai.domain.entry.withCustomInfo
@@ -241,7 +241,7 @@ class MangaRecentsAdapter(
             bookmark = { it.bookmark },
             isHidden = { chapter ->
                 val owner = group?.mangaById?.get(chapter.mangaId) ?: manga
-                owner != null && hiddenChapterKey(owner.source.toString(), chapter.url) in hidden
+                owner != null && chapter.hiddenKey(owner) in hidden
             },
         ) ?: return null
         return target to group?.mangaById.orEmpty()

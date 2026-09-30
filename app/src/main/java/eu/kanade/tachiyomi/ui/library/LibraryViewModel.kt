@@ -45,7 +45,7 @@ import kotlinx.coroutines.flow.update
 import mihon.core.common.utils.mutate
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.chapter.DownloadCandidates
-import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.chapter.hiddenKey
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -603,7 +603,7 @@ class LibraryViewModel(
             action,
             isRead = flags::isRead,
             isBookmarked = flags::isBookmarked,
-            isHidden = { hiddenChapterKey(ownerOf(it).source.toString(), it.url) in hidden },
+            isHidden = { it.hiddenKey(ownerOf(it)) in hidden },
             isExcluded = { downloadManager.getQueuedDownloadOrNull(it.id) != null || flags.isDownloaded(it) },
         )
             .groupBy { it.mangaId }

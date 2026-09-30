@@ -4,7 +4,7 @@ import eu.kanade.domain.chapter.model.applyFilters
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import reikai.domain.chapter.ReadingOrder
-import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.chapter.hiddenKey
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
@@ -41,9 +41,7 @@ fun List<Chapter>.getNextUnread(
     val shown = applyFilters(manga, flags)
     // RK <--
     // RK: the order the reader pages in, asked the question novels resume by, hidden chapters last.
-    val isHidden = { chapter: Chapter ->
-        hiddenChapterKey(ownerOf(chapter).source.toString(), chapter.url) in hiddenKeys
-    }
+    val isHidden = { chapter: Chapter -> chapter.hiddenKey(ownerOf(chapter)) in hiddenKeys }
     return ReadingOrder.nextToRead(ReadingOrder.hiddenLast(shown.inReadingOrder(manga), isHidden)) {
         flags.isRead(it) // RK
     }

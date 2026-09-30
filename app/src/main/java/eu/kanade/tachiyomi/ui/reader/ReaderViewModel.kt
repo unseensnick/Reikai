@@ -72,7 +72,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
-import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.chapter.hiddenKey
 import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.entry.withCustomInfo
@@ -282,10 +282,7 @@ class ReaderViewModel(
         val hidden = mangaPreferences.hiddenChapters().get()
         return chapters.navigableChapters(
             current,
-            isHidden = {
-                hidden.isNotEmpty() &&
-                    hiddenChapterKey(mangaForChapterId(it.mangaId).source.toString(), it.url) in hidden
-            },
+            isHidden = { hidden.isNotEmpty() && it.hiddenKey(mangaForChapterId(it.mangaId)) in hidden },
             skipDuplicates = readerPreferences.skipDupe.get(),
             numberOf = { it.chapterNumber },
             idOf = { it.id },

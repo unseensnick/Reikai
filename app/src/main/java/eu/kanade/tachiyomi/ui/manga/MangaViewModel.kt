@@ -84,7 +84,7 @@ import reikai.data.coil.seedColor
 import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.ReadingOrder
-import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.chapter.hiddenKey
 import reikai.domain.entry.EntryId
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
@@ -1124,10 +1124,6 @@ class MangaViewModel(
     // chapters also drop from the resume FAB and download-all (which read that list). The in-app manga
     // reader excludes them too (ReaderViewModel.chapterList), so next/prev navigation skips hidden.
 
-    /** Restore-stable hidden-chapter key: the chapter's own source (per-source for a merged group). */
-    private fun hiddenKey(chapter: Chapter, manga: Manga, mangaBySource: Map<Long, Manga>): String =
-        hiddenChapterKey((mangaBySource[chapter.mangaId] ?: manga).source.toString(), chapter.url)
-
     private data class HiddenChapters(
         val chapters: List<ChapterList.Item>,
         val showHidden: Boolean,
@@ -1144,7 +1140,7 @@ class MangaViewModel(
         mangaBySource: Map<Long, Manga>,
     ): HiddenChapters {
         val hidden = hiddenChaptersPref.get()
-        val keyOf = { item: ChapterList.Item -> hiddenKey(item.chapter, manga, mangaBySource) }
+        val keyOf = { item: ChapterList.Item -> item.chapter.hiddenKey(mangaBySource[item.chapter.mangaId] ?: manga) }
         val view = resolveHiddenChapterView(items, hidden, showHiddenFlow.value, keyOf)
         val hiddenChapterIds = hiddenChapterIdsIn(view.visible, hidden, view.showHidden, keyOf) { it.id }
         return HiddenChapters(view.visible, view.showHidden, view.hasHidden, hiddenChapterIds)
@@ -1153,7 +1149,7 @@ class MangaViewModel(
     fun hideSelected() {
         val state = successState ?: return
         val keys = state.processedChapters.filter { it.selected }
-            .map { hiddenKey(it.chapter, state.manga, state.mergedMangaById) }
+            .map { it.chapter.hiddenKey(state.mergedMangaById[it.chapter.mangaId] ?: state.manga) }
         if (keys.isEmpty()) return
         hiddenChaptersPref.set(hiddenChaptersPref.get() + keys)
         toggleAllSelection(false)
@@ -1163,7 +1159,7 @@ class MangaViewModel(
     fun unhideSelected() {
         val state = successState ?: return
         val keys = state.processedChapters.filter { it.selected }
-            .mapTo(HashSet()) { hiddenKey(it.chapter, state.manga, state.mergedMangaById) }
+            .mapTo(HashSet()) { it.chapter.hiddenKey(state.mergedMangaById[it.chapter.mangaId] ?: state.manga) }
         if (keys.isEmpty()) return
         hiddenChaptersPref.set(hiddenChaptersPref.get().filterNotTo(HashSet()) { it in keys })
         toggleAllSelection(false)
