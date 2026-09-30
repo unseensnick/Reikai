@@ -124,6 +124,7 @@ import reikai.presentation.reader.putEntryId
 import reikai.presentation.reader.readEntryId
 import reikai.presentation.reader.settings.ReaderSettingsPages
 import reikai.presentation.reader.settings.ReaderSettingsSheet
+import reikai.presentation.reader.text.hasTravelled
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -131,7 +132,6 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.util.collectAsState
-import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.seconds
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -845,9 +845,7 @@ class ReaderActivity : BaseActivity() {
                 touchDownY = ev.y
             }
             // Past the slop only: a tap that opens the menu moves nothing.
-            MotionEvent.ACTION_MOVE -> if (
-                abs(ev.x - touchDownX) > touchSlop || abs(ev.y - touchDownY) > touchSlop
-            ) {
+            MotionEvent.ACTION_MOVE -> if (hasTravelled(ev.x - touchDownX, ev.y - touchDownY, touchSlop)) {
                 engine.provider.onReaderMoved()
             }
             // A finger on the screen pauses auto-scroll, released only by the last finger up.

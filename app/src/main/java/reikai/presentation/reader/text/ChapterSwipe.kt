@@ -9,6 +9,14 @@ import kotlin.math.abs
 internal const val CHAPTER_SWIPE_MIN_DP = 180
 
 /**
+ * Whether a touch has left where it went down. From there it is a drag, never a tap or a long press
+ * however slowly it goes, so a swipe has no time limit. The WebView page has this from its browser;
+ * an Android view keeps its press until the finger leaves its bounds, so the native renderer ends
+ * the press by this rule.
+ */
+internal fun hasTravelled(dx: Float, dy: Float, slop: Int): Boolean = abs(dx) > slop || abs(dy) > slop
+
+/**
  * Which way a swipe steps chapters: true forward, false back, null for no step. It must be mostly
  * sideways, travel past [minimum], and start on the half it moves away from, so it crosses the middle
  * rather than flicking in a corner. LNReader's rule (core.js), strict comparisons included; reader.js

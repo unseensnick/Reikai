@@ -635,6 +635,8 @@
 
     document.addEventListener('touchmove', function (e) {
       if (!e.isTrusted || e.touches.length !== 1) return;
+      // A touch that has travelled is a drag and never a tap, the rule hasTravelled (ChapterSwipe.kt)
+      // gives the native renderer.
       if (Math.abs(e.touches[0].clientX - startX) > 10 ||
         Math.abs(e.touches[0].clientY - startY) > 10) moved = true;
       if (moved) onReaderMove();

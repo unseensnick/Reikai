@@ -13,6 +13,7 @@ import android.view.GestureDetector
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.LinearLayout
@@ -54,6 +55,7 @@ import reikai.presentation.reader.text.ReadAloudBoxDecoration
 import reikai.presentation.reader.text.ReadAloudMark
 import reikai.presentation.reader.text.chapterSwipeStep
 import reikai.presentation.reader.text.chunkRange
+import reikai.presentation.reader.text.hasTravelled
 import reikai.presentation.reader.text.readAloudParagraphs
 import reikai.presentation.reader.text.shownCharOffset
 import reikai.presentation.reader.text.shownCharPrefix
@@ -210,6 +212,24 @@ class NovelTextViewport(
     private var touchDownX = 0f
     private var touchDownY = 0f
 
+    /** Whether the touch on screen has left where it went down ([hasTravelled]). */
+    private var dragging = false
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+
+    /**
+     * Ends a child's press once its touch is a drag. A view keeps its click and its long press for as
+     * long as the finger stays inside it, and a chapter's text is as wide as the screen: a sideways
+     * drag ended as a tap, and one slower than a long press selected the text under it, which stops
+     * the list seeing the finger lift and so stepped no chapter. Set on every child given a press.
+     */
+    private val dragEndsPress = View.OnTouchListener { child, _ ->
+        if (dragging) {
+            child.cancelLongPress()
+            child.isPressed = false
+        }
+        false
+    }
+
     /** Only consulted for selectable text, where the Editor takes the touch and no click follows. */
     private val selectableTaps = GestureDetector(
         context,
@@ -234,7 +254,11 @@ class NovelTextViewport(
                 MotionEvent.ACTION_DOWN -> {
                     touchDownX = e.x
                     touchDownY = e.y
+                    dragging = false
                 }
+                // Before the child under the finger is handed the same move, so its press ends on it.
+                MotionEvent.ACTION_MOVE ->
+                    if (hasTravelled(e.x - touchDownX, e.y - touchDownY, touchSlop)) dragging = true
                 MotionEvent.ACTION_UP -> onPointerUp(e.x, e.y)
             }
             if (textSelectable) selectableTaps.onTouchEvent(e)
@@ -1286,6 +1310,7 @@ class NovelTextViewport(
             // Without selection the click is the owner instead, because LinkOnlyMovementMethod
             // cancels the click a tap on a link queued and lets every other tap through to here.
             if (!textSelectable) setOnClickListener { onTap(touchDownX, touchDownY) }
+            setOnTouchListener(dragEndsPress)
             // Off on both branches: the click is dispatched by the movement method below, so leaving
             // it on would let the framework fire its own unchecked intent for the same tap.
             linksClickable = false
@@ -1418,7 +1443,10 @@ class NovelTextViewport(
             bindSeam(holder, position)
             bindEnd(holder, position)
             bindBoundaries(holder, position)
-            if (!textSelectable) holder.root.setOnClickListener { onReaderTap(touchDownX, touchDownY) }
+            if (!textSelectable) {
+                holder.root.setOnClickListener { onReaderTap(touchDownX, touchDownY) }
+                holder.root.setOnTouchListener(dragEndsPress)
+            }
         }
 
         /** Lets go of the chapter, since a holder can sit in the pool long after its chapter left the

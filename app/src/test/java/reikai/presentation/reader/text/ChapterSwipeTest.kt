@@ -33,4 +33,19 @@ class ChapterSwipeTest {
     fun `a swipe started on the half it moves towards does not step`() {
         chapterSwipeStep(dx = 300f, dy = 0f, startX = 600f, width = width, minimum = minimum) shouldBe null
     }
+
+    @Test
+    fun `a touch past the slop sideways has travelled`() {
+        hasTravelled(dx = -9f, dy = 0f, slop = 8) shouldBe true
+    }
+
+    @Test
+    fun `a touch past the slop up or down has travelled`() {
+        hasTravelled(dx = 0f, dy = 9f, slop = 8) shouldBe true
+    }
+
+    @Test
+    fun `a touch exactly the slop from where it went down has not travelled`() {
+        hasTravelled(dx = 8f, dy = -8f, slop = 8) shouldBe false
+    }
 }

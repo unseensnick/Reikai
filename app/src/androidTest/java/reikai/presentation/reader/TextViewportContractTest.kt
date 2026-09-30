@@ -20,6 +20,7 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.widget.TextView
@@ -65,6 +66,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -98,6 +100,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     private val fits = ConcurrentHashMap<Long, Boolean>()
     private val endsSeen = CopyOnWriteArrayList<Long>()
     private val steps = CopyOnWriteArrayList<Boolean>()
+    private val menuToggles = AtomicInteger()
 
     /** Every scroll the viewport reported as the reader's finger, in pixels. */
     private val scrolls = CopyOnWriteArrayList<Int>()
@@ -122,7 +125,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
         onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
         onTopLine = { id, line -> topLines += id to line },
-        onToggleMenu = {},
+        onToggleMenu = { menuToggles.incrementAndGet() },
         onStepChapter = { steps += it },
         onVisibleChapter = { visibleChapters += it },
         onRetryBoundary = {},
@@ -407,6 +410,35 @@ class TextViewportContractTest(private val renderer: Renderer) {
         )
         Thread.sleep(QUIET_MS)
         assertEquals(emptyList<Boolean>(), steps.toList())
+    }
+
+    /** A swipe has no time limit. Only a finger held still is a long press, so one that travels for
+     *  longer than a long press takes still steps instead of selecting the text under it. It starts
+     *  well inside the column, on the text a long press would select. */
+    @Test
+    fun aSwipeSlowerThanALongPressOverSelectableTextSteps() {
+        useSelectableText()
+        open(chapter(FIRST, long("first")))
+        slowDrag(fromX = view.width * 0.75f, toX = view.width * 0.75f - dp(SWIPE_DP))
+        awaitWhile { steps.isEmpty() }
+        assertEquals(listOf(true), steps.toList())
+    }
+
+    /** The middle third opens the menu, which is what the drag below must not do. */
+    @Test
+    fun aTapInTheMiddleOfTheScreenTogglesTheMenu() {
+        open(chapter(FIRST, long("first")))
+        tap(view.width / 2f, view.height / 2f)
+        awaitWhile { menuToggles.get() == 0 }
+        assertEquals(1, menuToggles.get())
+    }
+
+    @Test
+    fun aDragShortOfASwipeIsNotATap() {
+        open(chapter(FIRST, long("first")))
+        drag(fromX = view.width / 2f, toX = view.width / 2f + dp(SHORT_SWIPE_DP))
+        Thread.sleep(QUIET_MS)
+        assertEquals(0, menuToggles.get())
     }
 
     // endregion
@@ -2943,6 +2975,25 @@ class TextViewportContractTest(private val renderer: Renderer) {
             touch(MotionEvent.ACTION_MOVE, toX, toY + 1, down, now)
             touch(MotionEvent.ACTION_UP, toX, toY + 1, down, now + DRAG_STEP_MS)
         }
+    }
+
+    /** A sideways drag spread over real time, twice what a long press takes, so a press still armed
+     *  under the finger fires part-way along. */
+    private fun slowDrag(fromX: Float, toX: Float, y: Float = view.height / 2f) {
+        val stepMs = ViewConfiguration.getLongPressTimeout() * 2L / DRAG_STEPS
+        var down = 0L
+        instrumentation.runOnMainSync {
+            down = SystemClock.uptimeMillis()
+            touch(MotionEvent.ACTION_DOWN, fromX, y, down, down)
+        }
+        (1..DRAG_STEPS).forEach { step ->
+            Thread.sleep(stepMs)
+            instrumentation.runOnMainSync {
+                val x = fromX + (toX - fromX) * step / DRAG_STEPS
+                touch(MotionEvent.ACTION_MOVE, x, y, down, SystemClock.uptimeMillis())
+            }
+        }
+        instrumentation.runOnMainSync { touch(MotionEvent.ACTION_UP, toX, y, down, SystemClock.uptimeMillis()) }
     }
 
     private fun touch(action: Int, x: Float, y: Float, downAt: Long, at: Long) {
