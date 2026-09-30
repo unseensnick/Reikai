@@ -1,8 +1,8 @@
 package reikai.presentation.recents
 
 import androidx.compose.runtime.Immutable
-import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
+import reikai.domain.download.swipeDownloadAction
 import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
 
 /**
@@ -15,16 +15,6 @@ data class RecentsSwipeActions(
     val start: ChapterSwipeAction,
     val end: ChapterSwipeAction,
 )
-
-/**
- * What a Download swipe does, decided by what the row's indicator is already showing. One definition
- * for both content types, where the two details models each carry their own copy of this mapping.
- */
-fun swipeDownloadAction(state: Download.State): ChapterDownloadAction = when (state) {
-    Download.State.NOT_DOWNLOADED, Download.State.ERROR -> ChapterDownloadAction.START_NOW
-    Download.State.QUEUE, Download.State.DOWNLOADING -> ChapterDownloadAction.CANCEL
-    Download.State.DOWNLOADED -> ChapterDownloadAction.DELETE
-}
 
 /**
  * Runs one row's swipe. Each verb acts on that row alone and leaves the selection alone, which is why
@@ -41,7 +31,7 @@ internal fun RecentsEngine.runChapterSwipe(
     when (action) {
         ChapterSwipeAction.ToggleRead -> markRead(refs, !state.read)
         ChapterSwipeAction.ToggleBookmark -> setBookmark(refs, !state.bookmark)
-        ChapterSwipeAction.Download -> download(refs, swipeDownloadAction(downloadState()), lane)
+        ChapterSwipeAction.Download -> download(refs, downloadState().swipeDownloadAction(), lane)
         // Unreachable rather than unhandled: getSwipeAction draws no gesture for it, so nothing can
         // raise it here. Upstream throws instead, which would put a crash behind an absent gesture.
         ChapterSwipeAction.Disabled -> Unit

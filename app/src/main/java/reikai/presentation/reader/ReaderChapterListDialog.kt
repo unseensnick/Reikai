@@ -20,6 +20,7 @@ import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.tachiyomi.data.download.model.Download
+import reikai.domain.download.swipeDownloadAction
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -104,7 +105,7 @@ fun ReaderChapterListDialog(
                                 onBookmark(row.id, !bookmark)
                             }
                             LibraryPreferences.ChapterSwipeAction.Download ->
-                                runDownloadAction(row.id, downloadState.toSwipeDownloadAction())
+                                runDownloadAction(row.id, downloadState.swipeDownloadAction())
                             LibraryPreferences.ChapterSwipeAction.Disabled -> {}
                         }
                     },
@@ -112,14 +113,6 @@ fun ReaderChapterListDialog(
             }
         }
     }
-}
-
-/** Which download action a Download-configured swipe runs, given the row's state: start now when it is
- *  absent, cancel while it is queued or running, delete when it is on disk. Matches the details list. */
-internal fun Download.State.toSwipeDownloadAction(): ChapterDownloadAction = when (this) {
-    Download.State.ERROR, Download.State.NOT_DOWNLOADED -> ChapterDownloadAction.START_NOW
-    Download.State.QUEUE, Download.State.DOWNLOADING -> ChapterDownloadAction.CANCEL
-    Download.State.DOWNLOADED -> ChapterDownloadAction.DELETE
 }
 
 /** Whether the queue is holding this chapter, which is the state a row must not let an override mask. */

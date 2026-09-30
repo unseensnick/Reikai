@@ -1,5 +1,6 @@
 package reikai.domain.download
 
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 
 /**
@@ -11,4 +12,14 @@ inline fun downloadStateOf(queued: Download.State?, isOnDisk: () -> Boolean): Do
     queued != null -> queued
     isOnDisk() -> Download.State.DOWNLOADED
     else -> Download.State.NOT_DOWNLOADED
+}
+
+/**
+ * What a Download swipe does, decided by what the row's indicator is already showing, for every
+ * Reikai row of both content types. MangaViewModel keeps upstream's copy of this mapping.
+ */
+fun Download.State.swipeDownloadAction(): ChapterDownloadAction = when (this) {
+    Download.State.NOT_DOWNLOADED, Download.State.ERROR -> ChapterDownloadAction.START_NOW
+    Download.State.QUEUE, Download.State.DOWNLOADING -> ChapterDownloadAction.CANCEL
+    Download.State.DOWNLOADED -> ChapterDownloadAction.DELETE
 }

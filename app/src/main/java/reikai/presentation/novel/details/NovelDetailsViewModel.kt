@@ -55,6 +55,7 @@ import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.download.downloadStateOf
+import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelChapterAggregation
@@ -1287,7 +1288,7 @@ class NovelDetailsViewModel(
     )
 
     /** Row swipe, dispatched by the configured [LibraryPreferences.ChapterSwipeAction] (mirrors the
-     *  manga path's `executeChapterSwipeAction`, with the same download-state to action mapping). */
+     *  manga path's `executeChapterSwipeAction`; the download mapping is [swipeDownloadAction]). */
     fun chapterSwipe(chapter: NovelChapter, action: LibraryPreferences.ChapterSwipeAction) {
         when (action) {
             // Toggled against the row's shown state, so a chapter read on a grouped source turns unread.
@@ -1299,12 +1300,7 @@ class NovelDetailsViewModel(
             LibraryPreferences.ChapterSwipeAction.Download -> {
                 val loaded = state.value as? NovelDetailsState.Loaded
                 val downloadState = loaded?.downloadStateOf(chapter.id) ?: Download.State.NOT_DOWNLOADED
-                val downloadAction = when (downloadState) {
-                    Download.State.NOT_DOWNLOADED, Download.State.ERROR -> ChapterDownloadAction.START_NOW
-                    Download.State.QUEUE, Download.State.DOWNLOADING -> ChapterDownloadAction.CANCEL
-                    Download.State.DOWNLOADED -> ChapterDownloadAction.DELETE
-                }
-                onChapterDownloadAction(chapter, downloadAction)
+                onChapterDownloadAction(chapter, downloadState.swipeDownloadAction())
             }
             LibraryPreferences.ChapterSwipeAction.Disabled -> {}
         }
