@@ -974,15 +974,14 @@ class NovelDetailsViewModel(
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             if (!novel.favorite) {
                 // Warn on a similarly-named library novel before adding (mirrors MangaViewModel).
-                novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { dup ->
-                    val groupIdByNovelId = mergeManager.groupIdsFor(dup.duplicates.map { it.novel.id })
+                novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { prompt ->
                     updateLoaded {
                         it.copy(
                             dialog = NovelDetailsDialog.DuplicateNovel(
-                                dup.duplicates,
-                                dup.sourceLabels,
-                                mergeManager.suggestGroupingOnAdd,
-                                groupIdByNovelId,
+                                prompt.duplicates,
+                                prompt.sourceLabels,
+                                prompt.suggestGroup,
+                                prompt.groupIdByEntryId,
                             ),
                         )
                     }

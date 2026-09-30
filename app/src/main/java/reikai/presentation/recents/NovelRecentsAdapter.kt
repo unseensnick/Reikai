@@ -255,17 +255,10 @@ class NovelRecentsAdapter(
     override suspend fun addDecision(entry: EntryId): AddDecision<RecentsDuplicates>? {
         val novel = novelOf(entry) ?: return null
         return decideAdd(inLibrary = novel.favorite) {
-            novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { found ->
-                RecentsDuplicates(
-                    duplicates = found.duplicates.map {
-                        RecentsDuplicate(
-                            EntryId.Novel(it.novel.id),
-                            it.toDuplicateCard(found.sourceLabels),
-                        )
-                    },
-                    groupIdByRawId = novelLibraryAdder.getDuplicateGroupIds(found.duplicates),
-                    suggestGroup = novelLibraryAdder.suggestGrouping,
-                )
+            novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { prompt ->
+                prompt.toRecentsDuplicates {
+                    RecentsDuplicate(EntryId.Novel(it.novel.id), it.toDuplicateCard(prompt.sourceLabels))
+                }
             }
         }
     }

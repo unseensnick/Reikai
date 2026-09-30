@@ -2,6 +2,7 @@ package reikai.presentation.recents
 
 import androidx.compose.runtime.Immutable
 import reikai.domain.entry.EntryId
+import reikai.presentation.browse.DuplicatePrompt
 import reikai.presentation.browse.components.EntryDuplicateCardUi
 
 /**
@@ -21,4 +22,11 @@ data class RecentsDuplicates(
     val duplicates: List<RecentsDuplicate>,
     val groupIdByRawId: Map<Long, Long>,
     val suggestGroup: Boolean,
+)
+
+/** The adder's [DuplicatePrompt] in the engine's neutral shape; [entry] gives each duplicate its identity and card. */
+fun <D, K> DuplicatePrompt<D, K>.toRecentsDuplicates(entry: (D) -> RecentsDuplicate) = RecentsDuplicates(
+    duplicates = duplicates.map(entry),
+    groupIdByRawId = groupIdByEntryId,
+    suggestGroup = suggestGroup,
 )

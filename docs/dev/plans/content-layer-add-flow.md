@@ -81,11 +81,11 @@ Creating the row stays inside each type's favorite verb, and the sequence takes 
 categories against from what that verb returns. This is needed by the shared write sequence, not by
 the decision: `decideAdd` asks each type for its own lookup, so no identity crosses that seam at all.
 
-**Duplicate rows stay per type up to the shared dialog.** `decideAdd` is generic over the payload
-each type hands its dialog (manga the rows themselves, novels the rows plus resolved source names),
-so the branch order is shared without forcing a neutral row type ahead of the component that needs
-one. The shared `EntryDuplicateDialog` maps each payload to its neutral `EntryDuplicateCardUi` through
-`toUi`.
+**Duplicate rows stay per type up to the shared dialog.** Each adder's `findDuplicates` answers a
+`DuplicatePrompt` over its own row type: the rows, their source labels, their merge groups and the
+grouping offer, assembled by the one `duplicatePrompt` builder. `decideAdd` is generic over it, so the
+branch order is shared without forcing a neutral row type ahead of the component that needs one. The
+shared `EntryDuplicateDialog` maps each row to its neutral `EntryDuplicateCardUi` through `toUi`.
 
 Sequenced so each step is independently shippable and device-verifiable:
 
@@ -194,7 +194,7 @@ nullable `onMigrate`, whose null branch (a tap that opens instead of migrating, 
 does nothing) no call site could reach; and the novel long-press dismissing the dialog before
 opening the duplicate, which abandoned the pending add, where manga's leaves the question open to
 come back to. Moved rather than changed: manga's per-card `SourceManager.getOrStub` lookup now runs
-in `MangaLibraryAdder.duplicateSourceLabels`, the same call one layer out, which is what took the
+in `MangaLibraryAdder.findDuplicates`, the same call one layer out, which is what took the
 last DI call out of a composable here.
 
 - **Device pass on the emulator (2026-08-09), every add path**: browse and global search on both
@@ -308,3 +308,13 @@ two orders would have baked the divergence into the engine.
   add on the IO dispatcher rather than the main one, like every other host. Dropped: the catalogue's
   check that a migrate target was among the listed duplicates, which the dialog's own list already
   guarantees.
+- **One duplicate prompt, built once per content type.** Every add path used to find the duplicates
+  and then pack the group ids, the grouping offer and the source labels itself: both adders, both
+  details screens (which bypassed the adders) and both recents providers. Now `duplicatePrompt`
+  (`reikai/presentation/browse/DuplicatePrompt.kt`) builds a `DuplicatePrompt` from the merge
+  manager's `groupIdsFor` and `suggestGroupingOnAdd`, and `MangaLibraryAdder.findDuplicates` and
+  `NovelLibraryAdder.findDuplicates` are the only callers; every path asks one of those. Labels
+  resolve once per distinct source rather than once per duplicate. Manga details asks the adder from
+  an `// RK` island in `MangaViewModel.toggleFavorite`, whose own `GetDuplicateLibraryManga`
+  parameter went. The dialog data shapes are unchanged. `AddDecisionConformanceTest` pins the
+  prompt for both types over the real adders.

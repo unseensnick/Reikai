@@ -22,10 +22,12 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.AddOutcome
+import reikai.presentation.browse.DuplicatePrompt
 import reikai.presentation.browse.addEntry
 import reikai.presentation.browse.addEntryOrPrompt
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
+import reikai.presentation.browse.duplicatePrompt
 import reikai.presentation.browse.finishAdd
 import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.preference.CheckboxState
@@ -70,32 +72,29 @@ class NovelLibraryAdder(
                 sourceId = sourceId,
                 duplicates = decision.duplicates.duplicates,
                 sourceLabels = decision.duplicates.sourceLabels,
-                suggestGroup = suggestGrouping,
-                groupIdByNovelId = getDuplicateGroupIds(decision.duplicates.duplicates),
+                suggestGroup = decision.duplicates.suggestGroup,
+                groupIdByNovelId = decision.duplicates.groupIdByEntryId,
             )
             AddDecision.Add -> addToLibrary(item, sourceId)
         }
     }
 
     /**
-     * Shared duplicate lookup for every novel add-path (browse long-press, details favorite, history
-     * add). Returns the possible library duplicates with their source names resolved, or null
-     * when there is none. One source of truth so the three add-paths can't drift. [id] is the row to
-     * exclude from its own match (-1 when the item has no library row yet).
+     * The duplicate prompt every novel add path raises, or null when nothing similar is in the library.
+     * [id] is the row to exclude from its own match (-1 when the item has no library row yet). A source
+     * the manager cannot answer for is not installed, so only its stored key is known and the card warns
+     * about it. Twin of `MangaLibraryAdder.findDuplicates`, pinned by `AddDecisionConformanceTest`.
      */
-    suspend fun findDuplicates(id: Long, title: String): NovelDuplicateInfo? {
-        val duplicates = novelRepository.getDuplicateLibraryNovel(id, title)
-        if (duplicates.isEmpty()) return null
-        // Resolve names here so each dialog host stays DI-free. A source the manager cannot
-        // answer for is not installed, so only its stored key is known and the card warns about it.
-        val resolved = duplicates.associate { it.novel.source to manager.get(it.novel.source) }
-        return NovelDuplicateInfo(
-            duplicates = duplicates,
-            sourceLabels = resolved.mapValues { (key, src) ->
-                src?.let { EntrySourceLabel.Installed(it.name) } ?: EntrySourceLabel.Missing(key)
-            },
-        )
-    }
+    suspend fun findDuplicates(id: Long, title: String): DuplicatePrompt<NovelWithChapterCount, String>? =
+        duplicatePrompt(
+            duplicates = novelRepository.getDuplicateLibraryNovel(id, title),
+            entryId = { it.novel.id },
+            mergeManager = mergeManager,
+        ) { duplicates ->
+            duplicates.map { it.novel.source }.distinct().associateWith { key ->
+                manager.get(key)?.let { EntrySourceLabel.Installed(it.name) } ?: EntrySourceLabel.Missing(key)
+            }
+        }
 
     /**
      * Add the browsed item through the shared sequence ([addEntry]): decide, favorite, then file. The
@@ -156,13 +155,6 @@ class NovelLibraryAdder(
         autoBindOnAdd.novel(novel)
         return novelId
     }
-
-    /** Whether to offer add-time grouping in the duplicate dialog (see [NovelMergeManager]). */
-    val suggestGrouping: Boolean get() = mergeManager.suggestGroupingOnAdd
-
-    /** Group ids for the duplicate dialog, which collapses same-group duplicates into one card. */
-    suspend fun getDuplicateGroupIds(duplicates: List<NovelWithChapterCount>): Map<Long, Long> =
-        mergeManager.groupIdsFor(duplicates.map { it.novel.id })
 
     /** Where an entry joining [selectedIds]'s group lands, or null to ask. Reads only. */
     suspend fun groupOrDefaultCategories(selectedIds: List<Long>): List<Long>? =
@@ -302,10 +294,3 @@ class NovelLibraryAdder(
         novelRepository.getByUrlAndSource(item.path, sourceId)?.let { removeNovelsFromLibrary.await(listOf(it.id)) }
     }
 }
-
-/** The possible-duplicate data [NovelLibraryAdder.findDuplicates] returns; each add-path wraps it in
- *  its own dialog type to feed the shared `EntryDuplicateDialog`. */
-data class NovelDuplicateInfo(
-    val duplicates: List<NovelWithChapterCount>,
-    val sourceLabels: Map<String, EntrySourceLabel>,
-)

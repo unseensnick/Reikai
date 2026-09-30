@@ -6,7 +6,7 @@ This is the add-time duplicate check. For how same-series-different-source entri
 
 ## How it works
 
-Adding a manga runs `MangaLibraryAdder.getDuplicates`, which calls the `GetDuplicateLibraryManga` interactor and runs the `getDuplicateLibraryManga` query in `manga.sq`. The query flags an existing favorite as a duplicate of the manga being added when either of two conditions holds:
+Adding a manga runs `MangaLibraryAdder.findDuplicates`, which calls the `GetDuplicateLibraryManga` interactor and runs the `getDuplicateLibraryManga` query in `manga.sq`. The query flags an existing favorite as a duplicate of the manga being added when either of two conditions holds:
 
 - **Title match:** the existing favorite's title contains the new manga's title (case-insensitive substring), across any source. This is the original behavior.
 - **Tracker identity:** the two manga share a `(tracker_id, remote_id)` row in `manga_track`, meaning they are the same entry on the same tracker regardless of how each source titles them locally. A `track_dupes` CTE self-joins `manga_track` on `(tracker_id, remote_id)` (excluding the manga's own id) to find every other library manga bound to the same tracker entry. A `remote_id` of 0 is a tracker that gave no entry id, so it never matches.

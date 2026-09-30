@@ -1,5 +1,6 @@
 package reikai.presentation.browse
 
+import eu.kanade.tachiyomi.source.Source
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -10,11 +11,18 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
-import reikai.presentation.novel.browse.NovelDuplicateInfo
+import reikai.domain.manga.MangaMergeManager
+import reikai.domain.merge.EntryMergeManager
+import reikai.domain.novel.NovelMergeManager
+import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelWithChapterCount
+import reikai.novel.source.NovelSource
+import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 
 /**
@@ -29,7 +37,7 @@ class AddDecisionConformanceTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `an entry already in the library is offered for removal`(probe: AddDecisionProbe) = runTest {
-        decideAdd(inLibrary = true) { probe.duplicatePayload() } shouldBe AddDecision.Remove
+        decideAdd(inLibrary = true) { probe.prompt(duplicate = true) } shouldBe AddDecision.Remove
     }
 
     @ParameterizedTest(name = "{0}")
@@ -38,7 +46,7 @@ class AddDecisionConformanceTest {
         var lookups = 0
         decideAdd(inLibrary = true) {
             lookups++
-            probe.duplicatePayload()
+            probe.prompt(duplicate = true)
         }
 
         lookups shouldBe 0
@@ -47,15 +55,40 @@ class AddDecisionConformanceTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `a possible duplicate asks before adding`(probe: AddDecisionProbe) = runTest {
-        val payload = probe.duplicatePayload()
+        val prompt = probe.prompt(duplicate = true)
 
-        decideAdd(inLibrary = false) { payload } shouldBe AddDecision.ConfirmDuplicate(payload)
+        decideAdd(inLibrary = false) { prompt } shouldBe AddDecision.ConfirmDuplicate(prompt!!)
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `nothing similar adds outright`(probe: AddDecisionProbe) = runTest {
-        decideAdd(inLibrary = false) { probe.noDuplicates() } shouldBe AddDecision.Add
+        decideAdd(inLibrary = false) { probe.prompt(duplicate = false) } shouldBe AddDecision.Add
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `nothing similar raises no prompt`(probe: AddDecisionProbe) = runTest {
+        probe.prompt(duplicate = false) shouldBe null
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a duplicate's prompt carries the group it belongs to`(probe: AddDecisionProbe) = runTest {
+        probe.prompt(duplicate = true)?.groupIdByEntryId shouldBe mapOf(DUPLICATE_ID to GROUP_ID)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a duplicate's prompt offers grouping when the merge manager does`(probe: AddDecisionProbe) = runTest {
+        probe.prompt(duplicate = true)?.suggestGroup shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a duplicate's prompt names its source`(probe: AddDecisionProbe) = runTest {
+        probe.prompt(duplicate = true)?.sourceLabels?.values?.toList() shouldBe
+            listOf(EntrySourceLabel.Installed(SOURCE_NAME))
     }
 
     @ParameterizedTest(name = "{0}")
@@ -97,6 +130,16 @@ class AddDecisionConformanceTest {
     }
 }
 
+private const val DUPLICATE_ID = 7L
+private const val GROUP_ID = 70L
+private const val SOURCE_NAME = "Home"
+
+/** A merge manager that has [DUPLICATE_ID] grouped and offers grouping on add. */
+private inline fun <reified T : EntryMergeManager> groupingMergeManager(): T = mockk(relaxed = true) {
+    coEvery { groupIdsFor(listOf(DUPLICATE_ID)) } returns mapOf(DUPLICATE_ID to GROUP_ID)
+    every { suggestGroupingOnAdd } returns true
+}
+
 private fun category(id: Long, name: String = "category $id") =
     Category(id = id, name = name, order = 0L, flags = 0L)
 
@@ -114,11 +157,8 @@ interface AddDecisionProbe {
         sortOrder: Int = 0,
     ): List<Pair<Long, Boolean>>
 
-    /** This type's duplicate payload, as its own adder would hand it to a dialog. */
-    fun duplicatePayload(): Any
-
-    /** What this type's lookup answers when nothing similar is in the library. */
-    fun noDuplicates(): Any?
+    /** The prompt this type's adder raises with one possible duplicate in the library, or with none. */
+    suspend fun prompt(duplicate: Boolean): DuplicatePrompt<*, *>?
 }
 
 class MangaAddDecisionProbe : AddDecisionProbe {
@@ -132,9 +172,12 @@ class MangaAddDecisionProbe : AddDecisionProbe {
         defaultId: Int,
         current: List<Category>,
         sortOrder: Int = 0,
+        duplicates: List<MangaWithChapterCount> = emptyList(),
     ) =
         MangaLibraryAdder(
-            sourceManager = mockk(relaxed = true),
+            sourceManager = mockk {
+                coEvery { getOrStub(DUPLICATE_SOURCE) } returns mockk<Source> { every { name } returns SOURCE_NAME }
+            },
             coverCache = mockk(relaxed = true),
             libraryPreferences = mockk(relaxed = true) {
                 every { defaultCategory } returns mockk { every { get() } returns defaultId }
@@ -143,7 +186,7 @@ class MangaAddDecisionProbe : AddDecisionProbe {
                 every { subscribe() } returns flowOf(userCategories)
                 coEvery { await(any<Long>()) } returns current
             },
-            getDuplicateLibraryManga = mockk(relaxed = true),
+            getDuplicateLibraryManga = mockk { coEvery { this@mockk.invoke(any()) } returns duplicates },
             getManga = mockk(relaxed = true),
             setMangaCategories = mockk<SetMangaCategories> {
                 coEvery { await(any(), any()) } answers { wroteCategories = true }
@@ -151,7 +194,7 @@ class MangaAddDecisionProbe : AddDecisionProbe {
             setMangaDefaultChapterFlags = mockk(relaxed = true),
             updateManga = mockk(relaxed = true),
             autoBindOnAdd = mockk(relaxed = true),
-            mergeManager = mockk(relaxed = true),
+            mergeManager = groupingMergeManager<MangaMergeManager>(),
             transactions = PassThroughTransactions,
             reikaiLibraryPreferences = mockk {
                 every { categorySortOrder } returns mockk { every { get() } returns sortOrder }
@@ -170,10 +213,15 @@ class MangaAddDecisionProbe : AddDecisionProbe {
             .categoryPickerSelection(mangaId = 1L)
             .map { it.value.id to (it is CheckboxState.State.Checked) }
 
-    /** Manga hands the dialog the rows themselves, so an empty list is what "none" looks like. */
-    override fun duplicatePayload(): Any = listOf(mockk<MangaWithChapterCount>())
+    override suspend fun prompt(duplicate: Boolean): DuplicatePrompt<*, *>? {
+        val row = MangaWithChapterCount(Manga.create().copy(id = DUPLICATE_ID, source = DUPLICATE_SOURCE), 0L)
+        return adder(emptyList(), -1, emptyList(), duplicates = listOfNotNull(row.takeIf { duplicate }))
+            .findDuplicates(Manga.create())
+    }
 
-    override fun noDuplicates(): Any? = emptyList<MangaWithChapterCount>().takeIf { it.isNotEmpty() }
+    private companion object {
+        const val DUPLICATE_SOURCE = 5L
+    }
 }
 
 class NovelAddDecisionProbe : AddDecisionProbe {
@@ -187,10 +235,16 @@ class NovelAddDecisionProbe : AddDecisionProbe {
         defaultId: Int,
         current: List<Category>,
         sortOrder: Int = 0,
+        duplicates: List<NovelWithChapterCount> = emptyList(),
     ) =
         NovelLibraryAdder(
-            novelRepository = mockk(relaxed = true),
-            manager = mockk(relaxed = true),
+            novelRepository = mockk(relaxed = true) {
+                coEvery { getDuplicateLibraryNovel(any(), any()) } returns duplicates
+            },
+            manager = mockk {
+                coEvery { this@mockk.get(DUPLICATE_SOURCE) } returns
+                    mockk<NovelSource> { every { name } returns SOURCE_NAME }
+            },
             getNovelCategories = mockk<GetNovelCategories> {
                 coEvery { await() } returns userCategories
                 coEvery { awaitByNovelId(any()) } returns current
@@ -202,7 +256,7 @@ class NovelAddDecisionProbe : AddDecisionProbe {
             novelPreferences = mockk(relaxed = true) {
                 every { defaultNovelCategory() } returns mockk { every { get() } returns defaultId }
             },
-            mergeManager = mockk(relaxed = true),
+            mergeManager = groupingMergeManager<NovelMergeManager>(),
             transactions = PassThroughTransactions,
             reikaiLibraryPreferences = mockk {
                 every { categorySortOrder } returns mockk { every { get() } returns sortOrder }
@@ -222,9 +276,13 @@ class NovelAddDecisionProbe : AddDecisionProbe {
             .categoryPickerPrompt(novelId = 1L)
             .map { it.value.id to it.isChecked }
 
-    /** Novels hand the dialog resolved source names beside the rows, so "none" is a null payload. */
-    override fun duplicatePayload(): Any =
-        NovelDuplicateInfo(listOf(mockk()), sourceLabels = emptyMap())
+    override suspend fun prompt(duplicate: Boolean): DuplicatePrompt<*, *>? {
+        val row = NovelWithChapterCount(Novel.create().copy(id = DUPLICATE_ID, source = DUPLICATE_SOURCE), 0L)
+        return adder(emptyList(), -1, emptyList(), duplicates = listOfNotNull(row.takeIf { duplicate }))
+            .findDuplicates(-1L, "Title")
+    }
 
-    override fun noDuplicates(): Any? = null
+    private companion object {
+        const val DUPLICATE_SOURCE = "home"
+    }
 }

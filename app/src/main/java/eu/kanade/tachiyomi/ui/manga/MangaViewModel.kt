@@ -152,7 +152,6 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
-import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
@@ -188,7 +187,7 @@ class MangaViewModel(
     private val downloadManager: DownloadManager,
     private val downloadCache: DownloadCache,
     private val getMangaAndChapters: GetMangaWithChapters,
-    private val getDuplicateLibraryManga: GetDuplicateLibraryManga,
+    // RK: getDuplicateLibraryManga moved to MangaLibraryAdder.findDuplicates, which toggleFavorite asks
     private val getAvailableScanlators: GetAvailableScanlators,
     private val getExcludedScanlators: GetExcludedScanlators,
     private val setExcludedScanlators: SetExcludedScanlators,
@@ -696,25 +695,24 @@ class MangaViewModel(
                 // Add to library
                 // First, check if duplicate exists if callback is provided
                 if (checkDuplicate) {
-                    val duplicates = getDuplicateLibraryManga(manga)
+                    // RK --> the merge-aware duplicate prompt every add path takes from the shared adder
+                    val prompt = mangaLibraryAdder.findDuplicates(manga)
 
-                    if (duplicates.isNotEmpty()) {
-                        // RK --> merge-aware duplicate dialog: existing groups, grouping suggestion, source labels
-                        val groupIdByMangaId = mergeManager.groupIdsFor(duplicates.map { it.manga.id })
+                    if (prompt != null) {
                         updateSuccessState {
                             it.copy(
                                 dialog = Dialog.DuplicateManga(
                                     manga,
-                                    duplicates,
-                                    mergeManager.suggestGroupingOnAdd,
-                                    groupIdByMangaId,
-                                    mangaLibraryAdder.duplicateSourceLabels(duplicates),
+                                    prompt.duplicates,
+                                    prompt.suggestGroup,
+                                    prompt.groupIdByEntryId,
+                                    prompt.sourceLabels,
                                 ),
                             )
                         }
-                        // RK <--
                         return@launchIO
                     }
+                    // RK <--
                 }
 
                 // RK: the shared add sequence, so no add path can drift from the others: decide,

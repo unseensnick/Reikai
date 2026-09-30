@@ -62,18 +62,15 @@ class MangaLibraryAdder(
      * `NovelLibraryAdder.onLongClick`, pinned by `EntryAddFlowConformanceTest`.
      */
     suspend fun onLongClick(manga: Manga): MangaAddDialog? {
-        val decision = decideAdd(
-            inLibrary = isInLibrary(manga.id),
-            findDuplicates = { getDuplicates(manga).takeIf { it.isNotEmpty() } },
-        )
+        val decision = decideAdd(inLibrary = isInLibrary(manga.id)) { findDuplicates(manga) }
         return when (decision) {
             AddDecision.Remove -> MangaAddDialog.Remove(manga)
             is AddDecision.ConfirmDuplicate -> MangaAddDialog.AddDuplicate(
                 manga = manga,
-                duplicates = decision.duplicates,
-                suggestGroup = suggestGrouping,
-                groupIdByMangaId = getDuplicateGroupIds(decision.duplicates),
-                sourceLabels = duplicateSourceLabels(decision.duplicates),
+                duplicates = decision.duplicates.duplicates,
+                suggestGroup = decision.duplicates.suggestGroup,
+                groupIdByMangaId = decision.duplicates.groupIdByEntryId,
+                sourceLabels = decision.duplicates.sourceLabels,
             )
             AddDecision.Add -> addToLibrary(manga)
         }
@@ -82,12 +79,23 @@ class MangaLibraryAdder(
     /** A browse add, answering the picker to raise when there is no usable default category. */
     suspend fun addToLibrary(manga: Manga): MangaAddDialog? = resolveAddFavorite(manga).pickerFor(manga)
 
-    /** Whether to offer add-time grouping in the duplicate dialog (see [MangaMergeManager]). */
-    val suggestGrouping: Boolean get() = mergeManager.suggestGroupingOnAdd
-
-    /** Group ids for the duplicate dialog, which collapses same-group duplicates into one card. */
-    suspend fun getDuplicateGroupIds(duplicates: List<MangaWithChapterCount>): Map<Long, Long> =
-        mergeManager.groupIdsFor(duplicates.map { it.manga.id })
+    /**
+     * The duplicate prompt every manga add path raises, or null when nothing similar is in the library.
+     * A stub source means the extension is not installed, which the duplicate card warns about. Twin of
+     * `NovelLibraryAdder.findDuplicates`, pinned by `AddDecisionConformanceTest`.
+     */
+    suspend fun findDuplicates(manga: Manga): DuplicatePrompt<MangaWithChapterCount, Long>? = duplicatePrompt(
+        duplicates = getDuplicateLibraryManga(manga),
+        entryId = { it.manga.id },
+        mergeManager = mergeManager,
+    ) { duplicates ->
+        duplicates.map { it.manga.source }.distinct().associateWith { id ->
+            when (val source = sourceManager.getOrStub(id)) {
+                is StubSource -> EntrySourceLabel.Missing(source.name)
+                else -> EntrySourceLabel.Installed(source.name)
+            }
+        }
+    }
 
     /** Where an entry joining [selectedIds]'s group lands, or null to ask. Reads only. */
     suspend fun groupOrDefaultCategories(selectedIds: List<Long>): List<Long>? =
@@ -168,22 +176,6 @@ class MangaLibraryAdder(
             if (updated) sourceTracker.favoriteChanged(EntryId.Manga(manga.id), favorite = false)
         }
     }
-
-    suspend fun getDuplicates(manga: Manga): List<MangaWithChapterCount> =
-        getDuplicateLibraryManga.invoke(manga)
-
-    /**
-     * Each duplicate's source, resolved here so no dialog host needs a [SourceManager] of its own.
-     * A stub source means the extension is not installed, which the duplicate card warns about.
-     */
-    suspend fun duplicateSourceLabels(duplicates: List<MangaWithChapterCount>): Map<Long, EntrySourceLabel> =
-        duplicates.associate { duplicate ->
-            val source = sourceManager.getOrStub(duplicate.manga.source)
-            duplicate.manga.source to when (source) {
-                is StubSource -> EntrySourceLabel.Missing(source.name)
-                else -> EntrySourceLabel.Installed(source.name)
-            }
-        }
 
     suspend fun moveToCategories(manga: Manga, categoryIds: List<Long>) {
         setMangaCategories.await(manga.id, categoryIds.withoutSystemCategory())

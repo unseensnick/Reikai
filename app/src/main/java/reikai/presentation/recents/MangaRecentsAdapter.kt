@@ -270,17 +270,11 @@ class MangaRecentsAdapter(
     override suspend fun addDecision(entry: EntryId): AddDecision<RecentsDuplicates>? {
         val manga = mangaOf(entry) ?: return null
         return decideAdd(inLibrary = manga.favorite) {
-            val duplicates = mangaLibraryAdder.getDuplicates(manga)
-            if (duplicates.isEmpty()) return@decideAdd null
-
-            val labels = mangaLibraryAdder.duplicateSourceLabels(duplicates)
-            RecentsDuplicates(
-                duplicates = duplicates.map {
-                    RecentsDuplicate(EntryId.Manga(it.manga.id), it.toDuplicateCard(labels))
-                },
-                groupIdByRawId = mangaLibraryAdder.getDuplicateGroupIds(duplicates),
-                suggestGroup = mangaLibraryAdder.suggestGrouping,
-            )
+            mangaLibraryAdder.findDuplicates(manga)?.let { prompt ->
+                prompt.toRecentsDuplicates {
+                    RecentsDuplicate(EntryId.Manga(it.manga.id), it.toDuplicateCard(prompt.sourceLabels))
+                }
+            }
         }
     }
 
