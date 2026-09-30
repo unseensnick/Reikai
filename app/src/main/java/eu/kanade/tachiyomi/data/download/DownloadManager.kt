@@ -304,7 +304,7 @@ class DownloadManager(
     fun deleteManga(manga: Manga, source: Source, removeQueued: Boolean = true) {
         launchIO {
             if (removeQueued) {
-                downloader.removeFromQueue(manga)
+                removeQueuedManga(manga) // RK
             }
             provider.findMangaDir(manga.title, source)?.delete()
             cache.removeManga(manga)
@@ -333,11 +333,19 @@ class DownloadManager(
                 downloader.start()
             }
         }
-        // RK: a paused queue emptied one series at a time has nothing left to resume
+        // RK: a paused queue emptied one series at a time has nothing left to resume, so clear and stop:
+        // a network pause keeps DownloadJob in the foreground until stop() ends it
         else if (queueState.value.isEmpty()) {
-            downloader.clearQueue()
+            clearQueue()
         }
     }
+
+    // RK --> a whole manga leaves the queue by the rule above, so emptying a paused queue ends it too
+    private fun removeQueuedManga(manga: Manga) {
+        val queued = queueState.value.filter { it.manga.id == manga.id }.map { it.chapter }
+        if (queued.isNotEmpty()) removeFromDownloadQueue(queued)
+    }
+    // RK <--
 
     /**
      * Adds a list of chapters to be deleted later.
@@ -400,7 +408,7 @@ class DownloadManager(
         if (oldFolder.name == newName) return
 
         // just to be safe, don't allow downloads for this manga while renaming it
-        downloader.removeFromQueue(manga)
+        removeQueuedManga(manga) // RK
 
         val capitalizationChanged = oldFolder.name.equals(newName, ignoreCase = true)
         if (capitalizationChanged) {

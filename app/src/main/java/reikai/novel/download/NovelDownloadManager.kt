@@ -373,7 +373,7 @@ class NovelDownloadManager(
                 // wait for it to return instead of erroring chapters, mirroring the Wi-Fi-only pause below.
                 if (!context.activeNetworkState().isOnline) {
                     _downloadingNovelId.value = null
-                    while (!context.activeNetworkState().isOnline) {
+                    while (!context.activeNetworkState().isOnline && hasQueued()) {
                         val pending = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
                         val status = context.stringResource(MR.strings.download_notifier_no_network)
                         onProgress(NovelDownloadProgress.Paused(done, pending, status))
@@ -388,7 +388,11 @@ class NovelDownloadManager(
                 if (downloadPreferences.downloadOnlyOverWifi.get() && !context.activeNetworkState().isWifi) {
                     // Paused off Wi-Fi: nothing is downloading, so the UI should read Queued, not Downloading.
                     _downloadingNovelId.value = null
-                    while (downloadPreferences.downloadOnlyOverWifi.get() && !context.activeNetworkState().isWifi) {
+                    while (
+                        downloadPreferences.downloadOnlyOverWifi.get() &&
+                        !context.activeNetworkState().isWifi &&
+                        hasQueued()
+                    ) {
                         val pending = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
                         val status = context.stringResource(MR.strings.download_notifier_text_only_wifi)
                         onProgress(NovelDownloadProgress.Paused(done, pending, status))
@@ -484,7 +488,7 @@ class NovelDownloadManager(
                 )
                 val paceMs = NovelDownloadPacing.next(sourceDelays[novel?.source] ?: floorMs, ok, floorMs)
                 novel?.source?.let { sourceDelays[it] = paceMs }
-                if (_queueState.value.any { it.state == NovelDownload.State.QUEUE }) {
+                if (hasQueued()) {
                     // Up to a quarter more, never less, so the cadence is not metronomic and the
                     // user's delay stays a minimum.
                     delay((paceMs * (1.0 + Random.nextDouble() * 0.25)).toLong())
@@ -494,6 +498,9 @@ class NovelDownloadManager(
             _downloadingNovelId.value = null
         }
     }
+
+    // A wait for the network ends once nothing is left to fetch, so an emptied paused queue ends the drain.
+    private fun hasQueued() = _queueState.value.any { it.state == NovelDownload.State.QUEUE }
 
     private fun setState(chapterId: Long, state: NovelDownload.State, failure: String? = null) {
         _queueState.update { q ->

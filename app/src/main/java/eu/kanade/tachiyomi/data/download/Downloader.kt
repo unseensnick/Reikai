@@ -764,10 +764,6 @@ class Downloader(
         removeFromQueueIf { it.chapter.id in chapterIds }
     }
 
-    fun removeFromQueue(manga: Manga) {
-        removeFromQueueIf { it.manga.id == manga.id }
-    }
-
     private fun internalClearQueue() {
         _queueState.update {
             it.forEach { download ->
