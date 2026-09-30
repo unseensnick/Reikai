@@ -104,7 +104,8 @@ class RelatedMangasBrowseViewModel(
                 val items = shown.map {
                     BrowseItem(
                         it,
-                        (it.manga.url to it.sourceId) in libraryKeys,
+                        // The live keys only add what joined the library after the assembly was built.
+                        (it.manga.url to it.sourceId) in libraryKeys || assembly.hideFilter.isInLibrary(it),
                         hidden = assembly.hideFilter.shouldHide(it),
                     )
                 }

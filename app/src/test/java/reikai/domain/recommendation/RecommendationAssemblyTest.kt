@@ -28,13 +28,15 @@ class RecommendationAssemblyTest {
     )
 
     private fun hiding(vararg titles: String) = RecommendationHideFilter(
+        RecommendationHideFilter.Index.EMPTY,
+        hidesInLibrary = false,
         RecommendationHideFilter.Index(
+            emptySet(),
             emptySet(),
             emptySet(),
             emptySet(),
             titles.map(TitleNormalizer::normalize).toSet(),
         ),
-        RecommendationHideFilter.Index.EMPTY,
         anilistTrackerId = 100L,
         malTrackerId = 200L,
     )

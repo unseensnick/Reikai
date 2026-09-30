@@ -7,6 +7,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -17,11 +18,14 @@ import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.recommendation.BuildRecommendationHideFilter
+import reikai.domain.recommendation.PrepareRecommendationAssembly
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RecommendationAssembly
 import reikai.domain.recommendation.RecommendationHideFilter
 import reikai.domain.recommendation.RecommendationOrigin
 import reikai.domain.recommendation.RecommendationRanker
+import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedPool
@@ -30,6 +34,7 @@ import reikai.domain.recommendation.taste.TasteProfile
 import reikai.presentation.browse.FakeMangaLibrary
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.Manga
 import kotlin.time.Duration.Companion.seconds
 
@@ -46,11 +51,11 @@ class RelatedMangasBrowseViewModelTest {
     }
 
     /** Tracker-origin, so an add skips it without resolving anything and goes straight to finishing. */
-    private fun candidate(url: String, sourceId: Long = RECOMMENDS_SOURCE) = RelatedMangaCandidate(
+    private fun candidate(url: String, sourceId: Long = RECOMMENDS_SOURCE, title: String = url) = RelatedMangaCandidate(
         sourceId = sourceId,
         manga = SManga.create().apply {
             this.url = url
-            title = url
+            this.title = title
         },
         origin = RecommendationOrigin.Tracker("tracker"),
     )
@@ -61,38 +66,63 @@ class RelatedMangasBrowseViewModelTest {
     // Emitting, so a preference written while the grid is open reaches a model that follows it.
     private val store = EmittingPreferenceStore()
 
+    private val getFavorites: GetFavorites = mockk {
+        coEvery { await() } answers { library.rows.values.filter { it.favorite } }
+        every { subscribe(any()) } answers
+            { library.favorites.map { list -> list.filter { it.source == firstArg<Long>() } } }
+    }
+
+    private fun hiding(titles: Set<String>): PrepareRecommendationAssembly = mockk {
+        coEvery { await() } returns RecommendationAssembly(
+            RecommendationHideFilter(
+                RecommendationHideFilter.Index.EMPTY,
+                hidesInLibrary = false,
+                RecommendationHideFilter.Index(emptySet(), emptySet(), emptySet(), emptySet(), titles),
+                anilistTrackerId = 1L,
+                malTrackerId = 2L,
+            ),
+            RecommendationRanker(),
+            TasteProfile.EMPTY,
+        )
+    }
+
+    /** The assembly as the app builds it, reading the library above and the recommendation settings. */
+    private fun assemblyFromLibrary(): PrepareRecommendationAssembly {
+        val preferences = ReikaiRecommendationPreferences(store)
+        return PrepareRecommendationAssembly(
+            preferences = preferences,
+            getTasteProfile = mockk { coEvery { await() } returns TasteProfile.EMPTY },
+            buildHideFilter = BuildRecommendationHideFilter(
+                getFavorites = getFavorites,
+                getTracksPerManga = mockk { every { subscribe() } returns flowOf(emptyMap()) },
+                repository = mockk { coEvery { getAll() } returns emptyList() },
+                preferences = preferences,
+                localTrackStatusMapper = mockk(),
+                trackerManager = mockk {
+                    every { aniList.id } returns 1L
+                    every { myAnimeList.id } returns 2L
+                },
+            ),
+        )
+    }
+
     private fun viewModel(
         cache: RelatedMangaCache = RelatedMangaCache().apply {
             put(MANGA_ID, RelatedPool(listOf(candidate("a"), candidate("b")), emptyMap()))
         },
-        hiddenTitles: Set<String> = emptySet(),
+        assembly: PrepareRecommendationAssembly = hiding(emptySet()),
     ): RelatedMangasBrowseViewModel = RelatedMangasBrowseViewModel(
         mangaId = MANGA_ID,
         context = mockk(relaxed = true),
         relatedMangaCache = cache,
-        getFavorites = mockk {
-            coEvery { await() } answers { library.rows.values.filter { it.favorite } }
-            every { subscribe(any()) } answers
-                { library.favorites.map { list -> list.filter { it.source == firstArg<Long>() } } }
-        },
+        getFavorites = getFavorites,
         getCategories = library.getCategories,
         libraryAdder = library.adder,
         networkToLocalManga = mockk {
             coEvery { this@mockk.invoke(any<Manga>()) } answers { library.insert(firstArg<Manga>().copy(id = 10L)) }
         },
         libraryPreferences = LibraryPreferences(store),
-        prepareRecommendationAssembly = mockk {
-            coEvery { await() } returns RecommendationAssembly(
-                RecommendationHideFilter(
-                    RecommendationHideFilter.Index(emptySet(), emptySet(), emptySet(), hiddenTitles),
-                    RecommendationHideFilter.Index.EMPTY,
-                    anilistTrackerId = 1L,
-                    malTrackerId = 2L,
-                ),
-                RecommendationRanker(),
-                TasteProfile.EMPTY,
-            )
-        },
+        prepareRecommendationAssembly = assembly,
     )
 
     // The model loads on the IO dispatcher, so waits run in real time rather than the test clock.
@@ -153,10 +183,51 @@ class RelatedMangasBrowseViewModelTest {
 
     @Test
     fun `a pool your filters hide completely says how many are hidden`() = runTest {
-        val viewModel = viewModel(hiddenTitles = setOf(TitleNormalizer.normalize("a"), TitleNormalizer.normalize("b")))
+        val viewModel =
+            viewModel(assembly = hiding(setOf(TitleNormalizer.normalize("a"), TitleNormalizer.normalize("b"))))
 
         settle { viewModel.state.first { it.items.size == 2 } }.content shouldBe
             RelatedMangasBrowseViewModel.Content.Empty(hiddenCount = 2)
+    }
+
+    @Test
+    fun `a library title the source lists under another url is marked in the library`() = runTest {
+        library.insert(
+            Manga.create().copy(
+                id = 26L,
+                url = "/series/1/Slug",
+                source = SOURCE_ID,
+                title = "Series",
+                favoriteAt = 1L,
+            ),
+        )
+        val cache = RelatedMangaCache().apply {
+            put(MANGA_ID, RelatedPool(listOf(candidate("/series/1", SOURCE_ID, title = "Series")), emptyMap()))
+        }
+        val viewModel = viewModel(cache = cache, assembly = assemblyFromLibrary())
+
+        settle { viewModel.state.first { it.items.isNotEmpty() } }.items.single().inLibrary shouldBe true
+    }
+
+    @Test
+    fun `with the library filter on a library title under another url is hidden`() = runTest {
+        ReikaiRecommendationPreferences(store).hideInLibraryRecommendations.set(true)
+        library.insert(
+            Manga.create().copy(
+                id = 26L,
+                url = "/series/1/Slug",
+                source = SOURCE_ID,
+                title = "Series",
+                favoriteAt = 1L,
+            ),
+        )
+        val cache = RelatedMangaCache().apply {
+            put(MANGA_ID, RelatedPool(listOf(candidate("/series/1", SOURCE_ID, title = "Series")), emptyMap()))
+        }
+        val viewModel = viewModel(cache = cache, assembly = assemblyFromLibrary())
+
+        settle { viewModel.state.first { it.items.isNotEmpty() } }.content shouldBe
+            RelatedMangasBrowseViewModel.Content.Empty(hiddenCount = 1)
     }
 
     @Test

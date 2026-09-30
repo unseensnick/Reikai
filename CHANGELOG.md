@@ -234,6 +234,7 @@ every stable release now also ships a foss build with neither in it.
 - **The related-manga row no longer favours a title that lists the same genre twice.**
 - **Sharing a novel now opens the same titled share sheet as manga.**
 - **Mark previous as read on a novel now skips chapters your filters or hidden list leave out, as it does for manga.**
+- **A recommendation already in your library is now dimmed and badged even when its source lists it under a different link.** The badge follows the same match as Settings -> Recommendations -> Hide manga already in my library.
 
 ### Reader
 

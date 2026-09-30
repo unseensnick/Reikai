@@ -91,7 +91,7 @@ They apply whether or not reranking is on.
 
 All five live in <nav to="recommendations">, under **Filters**.
 
-- **Hide manga already in my library**, matched by title across sources and trackers.
+- **Hide manga already in my library**, matched by title across sources and trackers. With it off, those titles stay in the list, dimmed and badged as in your library.
 - **Hide reading & completed**, by tracker status.
 - **Hide dropped**.
 - **Hide on-hold**.

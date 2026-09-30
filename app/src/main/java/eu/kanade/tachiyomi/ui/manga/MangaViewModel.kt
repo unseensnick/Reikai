@@ -152,7 +152,6 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
-import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -215,7 +214,6 @@ class MangaViewModel(
     private val relatedMangaCache: RelatedMangaCache,
     private val refreshTrackerLibrary: RefreshTrackerLibrary,
     private val prepareRecommendationAssembly: PrepareRecommendationAssembly,
-    private val getFavorites: GetFavorites,
     private val networkToLocalManga: NetworkToLocalManga,
     private val uiPreferences: UiPreferences,
     private val getFlatMetadataById: GetFlatMetadataById,
@@ -1639,7 +1637,7 @@ class MangaViewModel(
         data class EditMangaInfo(val manga: Manga) : Dialog
     }
 
-    // RK: a related-carousel candidate plus whether it already resolves to a favorited library entry.
+    // RK: a related-carousel candidate plus whether the library already holds that series.
     data class RelatedMangaItem(val candidate: RelatedMangaCandidate, val inLibrary: Boolean)
 
     fun dismissDialog() {
@@ -1793,12 +1791,10 @@ class MangaViewModel(
         // the profile read below uses whatever is already cached, the pull lands for the next open.
         viewModelScope.launchIO { refreshTrackerLibrary.refreshIfStale() }
         viewModelScope.launchIO {
-            val favorites = getFavorites.await()
-            val favoriteKeys = favorites.mapTo(HashSet()) { it.url to it.source }
             // Hide filter, ranker and taste, applied on read so a settings change is never baked into the cache.
             val assembly = prepareRecommendationAssembly.await()
             if (cached != null) {
-                applyRelated(cached.pool, favoriteKeys, assembly)
+                applyRelated(cached.pool, assembly)
                 if (cached.isComplete && relatedMangaCache.isFresh(cached)) return@launchIO
             } else {
                 updateSuccessState { it.copy(relatedLoading = true) }
@@ -1818,21 +1814,17 @@ class MangaViewModel(
                 // cache kept, so a stale refresh never shrinks a full pool mid-stream or empties it.
                 onUpdate = {
                     val kept = relatedMangaCache.put(mangaId, it, isComplete = false)
-                    applyRelated(kept.pool, favoriteKeys, assembly)
+                    applyRelated(kept.pool, assembly)
                 },
             )
-            applyRelated(relatedMangaCache.put(mangaId, pool).pool, favoriteKeys, assembly)
+            applyRelated(relatedMangaCache.put(mangaId, pool).pool, assembly)
             updateSuccessState { it.copy(relatedLoading = false) }
         }
     }
 
-    private fun applyRelated(
-        pool: RelatedPool,
-        favoriteKeys: Set<Pair<String, Long>>,
-        assembly: RecommendationAssembly,
-    ) {
+    private fun applyRelated(pool: RelatedPool, assembly: RecommendationAssembly) {
         val items = assembly.assemble(pool, cap = CAROUSEL_CAP)
-            .map { RelatedMangaItem(it, (it.manga.url to it.sourceId) in favoriteKeys) }
+            .map { RelatedMangaItem(it, assembly.hideFilter.isInLibrary(it)) }
         // The count is of everything "See all" shows, which is the same assembly without the cap.
         val total = pool.candidates.count { !assembly.hideFilter.shouldHide(it) }
         updateSuccessState { it.copy(relatedItems = items, relatedTotalCount = total) }

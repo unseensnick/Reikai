@@ -7,13 +7,14 @@ import reikai.domain.recommendation.taste.LocalTrackStatusMapper
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.recommendation.taste.TrackStatus
 import tachiyomi.domain.manga.interactor.GetFavorites
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 
 /**
- * Assembles a [RecommendationHideFilter] from the user's library tracks and the taste-library cache,
- * gated by the opt-in recommendation filter prefs. The status index draws from **both** the library's
- * own tracks and the cached tracker lists, so a title tracked-but-not-in-library (the common gap) is
- * suppressed too.
+ * Assembles a [RecommendationHideFilter] from the user's library, its tracks and the taste-library
+ * cache. The library index is always built, since it marks a card when the opt-in filter is not hiding
+ * it. The status index draws from **both** the library's own tracks and the cached tracker lists, so
+ * a title tracked-but-not-in-library (the common gap) is suppressed too.
  */
 @Inject
 class BuildRecommendationHideFilter(
@@ -39,27 +40,16 @@ class BuildRecommendationHideFilter(
             if (preferences.hideTrackedOnHold.get()) add(TrackStatus.ON_HOLD)
             if (preferences.hideTrackedPlanToRead.get()) add(TrackStatus.PLAN_TO_READ)
         }
-        if (!hideInLibrary && hiddenStatuses.isEmpty()) {
-            return RecommendationHideFilter(
-                RecommendationHideFilter.Index.EMPTY,
-                RecommendationHideFilter.Index.EMPTY,
-                anilistTrackerId,
-                malTrackerId,
-            )
-        }
-
         val favorites = getFavorites.await()
         val tracksByManga = getTracksPerManga.subscribe().first()
 
         val inLibrary = IndexBuilder(anilistTrackerId, malTrackerId)
         val status = IndexBuilder(anilistTrackerId, malTrackerId)
 
-        if (hideInLibrary) {
-            for (manga in favorites) {
-                inLibrary.addTitle(manga.title)
-                for (track in tracksByManga[manga.id].orEmpty()) {
-                    inLibrary.addTrack(track.trackerId, track.remoteId)
-                }
+        for (manga in favorites) {
+            inLibrary.addManga(manga)
+            for (track in tracksByManga[manga.id].orEmpty()) {
+                inLibrary.addTrack(track.trackerId, track.remoteId)
             }
         }
 
@@ -68,7 +58,7 @@ class BuildRecommendationHideFilter(
                 for (track in tracksByManga[manga.id].orEmpty()) {
                     if (localTrackStatusMapper.map(track) in hiddenStatuses) {
                         status.addTrack(track.trackerId, track.remoteId)
-                        status.addTitle(manga.title)
+                        status.addManga(manga)
                     }
                 }
             }
@@ -82,10 +72,17 @@ class BuildRecommendationHideFilter(
             }
         }
 
-        return RecommendationHideFilter(inLibrary.build(), status.build(), anilistTrackerId, malTrackerId)
+        return RecommendationHideFilter(
+            inLibrary.build(),
+            hideInLibrary,
+            status.build(),
+            anilistTrackerId,
+            malTrackerId,
+        )
     }
 
     private class IndexBuilder(private val anilistTrackerId: Long, private val malTrackerId: Long) {
+        private val sourceKeys = HashSet<Pair<String, Long>>()
         private val pairs = HashSet<Pair<Long, Long>>()
         private val anilistIds = HashSet<Long>()
         private val malIds = HashSet<Long>()
@@ -105,12 +102,17 @@ class BuildRecommendationHideFilter(
             TitleNormalizer.normalize(title).takeIf { it.isNotEmpty() }?.let { titles += it }
         }
 
+        fun addManga(manga: Manga) {
+            sourceKeys += manga.url to manga.source
+            addTitle(manga.title)
+        }
+
         fun addTrack(trackerId: Long, remoteId: Long) {
             pairs += trackerId to remoteId
             if (trackerId == anilistTrackerId) anilistIds += remoteId
             if (trackerId == malTrackerId) malIds += remoteId
         }
 
-        fun build() = RecommendationHideFilter.Index(pairs, anilistIds, malIds, titles)
+        fun build() = RecommendationHideFilter.Index(sourceKeys, pairs, anilistIds, malIds, titles)
     }
 }
