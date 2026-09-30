@@ -44,7 +44,7 @@ Confirmed in `app/src/main/java/`:
 - `reikai/presentation/updates/EntryUpdatesRow.kt`: the shared flat update row for both content types (replaced the separate manga `UpdatesUiItem` / novel `NovelUpdatesUiItem`; grouped children already share `UpdatesGroupChildRow`).
 - `reikai/presentation/recents/RecentsFilterSheet.kt`: the filter sheet every recents surface opens, carrying the include/exclude category control (`CategoryFilter`) and the group-by-series toggle (`GroupBySeriesSwitch`).
 - `eu/kanade/tachiyomi/ui/updates/UpdatesViewModel.kt`: Mihon's manga model, kept close to stock so it hand-ports cleanly; the shell reads its state and calls its public actions. It carries three `// RK` islands: the category filter and custom-info overlay sharing the fifth `combine` slot, the category flow feeding the active-filter tint, and `applyReikaiCategoryFilter` with its membership cache.
-- `eu/kanade/tachiyomi/ui/updates/UpdatesSettingsViewModel.kt`: the filter-sheet model; carries the Reikai category-preference accessors and category flows.
+- `eu/kanade/tachiyomi/ui/updates/UpdatesSettingsViewModel.kt`: the filter-sheet model; carries the Reikai category selection, Show read and Group by series as state with their write verbs, plus the category list.
 - Mihon's `UpdatesFilterDialog.kt` was deleted and manifested, replaced by `RecentsFilterSheet.kt` above.
 
 The novel feed is produced by the background novel update job documented in novel-update-job.md.

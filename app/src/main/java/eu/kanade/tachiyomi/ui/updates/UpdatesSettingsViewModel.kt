@@ -19,6 +19,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.getAndSet
+import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
@@ -32,7 +33,7 @@ class UpdatesSettingsViewModel(
     // Which surface's sheet this is backing. The filter sheet is shared by every recents surface, and
     // while the combined tab is off Updates and History are two tabs, so each edits its own selection.
     @Assisted private val surface: RecentsSurface,
-    val reikaiSourcePreferences: ReikaiSourcePreferences,
+    private val reikaiSourcePreferences: ReikaiSourcePreferences,
     private val getCategories: GetCategories,
     private val getNovelCategories: GetNovelCategories,
     // RK <--
@@ -58,24 +59,34 @@ class UpdatesSettingsViewModel(
         }
     }
 
-    // The one place this sheet's surface turns into keys. Exposed rather than read through, because the
-    // picker shows a stored selection even while the toggle is off, which the resolved filter clears.
+    // The one place this sheet's surface turns into keys. The stored selection is exposed rather than the
+    // resolved filter, because the picker shows it even while the toggle is off, which the resolved one clears.
     private val categoryPrefs = reikaiSourcePreferences.categoryFilterPrefs(surface)
-    val filterCategories: Preference<Boolean> get() = categoryPrefs.first
-    val filterCategoriesInclude: Preference<Set<String>> get() = categoryPrefs.second
-    val filterCategoriesExclude: Preference<Set<String>> get() = categoryPrefs.third
+    val filterCategories: StateFlow<Boolean> = categoryPrefs.first.stateIn(viewModelScope)
+    val filterCategoriesInclude: StateFlow<Set<String>> = categoryPrefs.second.stateIn(viewModelScope)
+    val filterCategoriesExclude: StateFlow<Set<String>> = categoryPrefs.third.stateIn(viewModelScope)
 
     // Not surface-scoped like the category prefs: only the combined tab draws the modes this applies
     // to, so there is no second surface to hold a competing value.
-    val showRead: Preference<Boolean> get() = reikaiSourcePreferences.recentsShowRead
+    val showRead: StateFlow<Boolean> = reikaiSourcePreferences.recentsShowRead.stateIn(viewModelScope)
+
+    val groupBySeries: StateFlow<Boolean> = reikaiSourcePreferences.updatesGroupBySeries.stateIn(viewModelScope)
 
     fun setFilterCategories(enabled: Boolean) {
-        filterCategories.set(enabled)
+        categoryPrefs.first.set(enabled)
     }
 
     fun setCategorySelections(include: Set<Long>, exclude: Set<Long>) {
-        filterCategoriesInclude.set(include.map(Long::toString).toSet())
-        filterCategoriesExclude.set(exclude.map(Long::toString).toSet())
+        categoryPrefs.second.set(include.map(Long::toString).toSet())
+        categoryPrefs.third.set(exclude.map(Long::toString).toSet())
+    }
+
+    fun toggleShowRead() {
+        reikaiSourcePreferences.recentsShowRead.toggle()
+    }
+
+    fun toggleGroupBySeries() {
+        reikaiSourcePreferences.updatesGroupBySeries.toggle()
     }
 
     @AssistedFactory

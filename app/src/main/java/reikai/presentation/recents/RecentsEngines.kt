@@ -1,10 +1,12 @@
 package reikai.presentation.recents
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
+import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import reikai.domain.category.RecentsSurface
 import reikai.presentation.history.NovelHistoryViewModel
@@ -22,11 +24,10 @@ import reikai.presentation.updates.NovelUpdatesViewModel
 fun rememberUpdatesEngine(): RecentsEngine {
     val manga = mangaUpdatesModel(RecentsSurface.UPDATES)
     val novel = novelUpdatesModel(RecentsSurface.UPDATES)
-    val graph = LocalContext.current.appGraph
     return recentsEngine(RecentsSurface.UPDATES, setOf(RecentsMode.UPDATES)) {
         listOf(
-            graph.mangaRecentsAdapterFactory.forUpdates(manga),
-            graph.novelRecentsAdapterFactory.forUpdates(novel),
+            mangaRecentsAdapterFactory.forUpdates(manga),
+            novelRecentsAdapterFactory.forUpdates(novel),
         )
     }
 }
@@ -36,11 +37,10 @@ fun rememberUpdatesEngine(): RecentsEngine {
 fun rememberHistoryEngine(): RecentsEngine {
     val manga = mangaHistoryModel(RecentsSurface.HISTORY)
     val novel = novelHistoryModel(RecentsSurface.HISTORY)
-    val graph = LocalContext.current.appGraph
     return recentsEngine(RecentsSurface.HISTORY, setOf(RecentsMode.HISTORY)) {
         listOf(
-            graph.mangaRecentsAdapterFactory.forHistory(manga),
-            graph.novelRecentsAdapterFactory.forHistory(novel),
+            mangaRecentsAdapterFactory.forHistory(manga),
+            novelRecentsAdapterFactory.forHistory(novel),
         )
     }
 }
@@ -56,11 +56,10 @@ fun rememberRecentsEngine(): RecentsEngine {
     val novelUpdates = novelUpdatesModel(RecentsSurface.RECENTS)
     val mangaHistory = mangaHistoryModel(RecentsSurface.RECENTS)
     val novelHistory = novelHistoryModel(RecentsSurface.RECENTS)
-    val graph = LocalContext.current.appGraph
     return recentsEngine(RecentsSurface.RECENTS, RecentsMode.entries.toSet()) {
         listOf(
-            graph.mangaRecentsAdapterFactory.forRecents(mangaUpdates, mangaHistory),
-            graph.novelRecentsAdapterFactory.forRecents(novelUpdates, novelHistory),
+            mangaRecentsAdapterFactory.forRecents(mangaUpdates, mangaHistory),
+            novelRecentsAdapterFactory.forRecents(novelUpdates, novelHistory),
         )
     }
 }
@@ -91,7 +90,11 @@ fun novelHistoryModel(surface: RecentsSurface): NovelHistoryViewModel =
 private fun recentsEngine(
     surface: RecentsSurface,
     modes: Set<RecentsMode>,
-    providers: () -> List<RecentsProvider>,
-): RecentsEngine = assistedMetroViewModel<RecentsEngine, RecentsEngine.Factory> {
-    create(providers = providers(), surface = surface, modes = modes)
+    providers: AppGraph.() -> List<RecentsProvider>,
+): RecentsEngine {
+    val context = LocalContext.current
+    val graph = remember(context) { context.appGraph }
+    return assistedMetroViewModel<RecentsEngine, RecentsEngine.Factory> {
+        create(providers = graph.providers(), surface = surface, modes = modes)
+    }
 }

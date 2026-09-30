@@ -159,9 +159,9 @@ private fun ColumnScope.ChapterStateFilters(viewModel: UpdatesSettingsViewModel)
 private fun ColumnScope.CategoryFilter(viewModel: UpdatesSettingsViewModel) {
     val categories by viewModel.categories.collectAsState()
 
-    val enabled by viewModel.filterCategories.collectAsPrefState()
-    val include by viewModel.filterCategoriesInclude.collectAsPrefState()
-    val exclude by viewModel.filterCategoriesExclude.collectAsPrefState()
+    val enabled by viewModel.filterCategories.collectAsState()
+    val include by viewModel.filterCategoriesInclude.collectAsState()
+    val exclude by viewModel.filterCategoriesExclude.collectAsState()
 
     if (categories.isEmpty()) return
 
@@ -183,12 +183,12 @@ private fun ColumnScope.CategoryFilter(viewModel: UpdatesSettingsViewModel) {
  */
 @Composable
 private fun ColumnScope.ShowReadSwitch(viewModel: UpdatesSettingsViewModel) {
-    val showRead by viewModel.showRead.collectAsPrefState()
+    val showRead by viewModel.showRead.collectAsState()
 
     SwitchRow(
         label = stringResource(MR.strings.recents_filter_show_read),
         checked = showRead,
-        onToggle = { viewModel.showRead.getAndSet { !it } },
+        onToggle = viewModel::toggleShowRead,
     )
 }
 
@@ -207,14 +207,12 @@ private fun ColumnScope.ExcludedScanlatorsSwitch(viewModel: UpdatesSettingsViewM
 
 @Composable
 private fun ColumnScope.GroupBySeriesSwitch(viewModel: UpdatesSettingsViewModel) {
-    val grouped by viewModel.reikaiSourcePreferences.updatesGroupBySeries.collectAsPrefState()
-
-    fun toggle() = viewModel.reikaiSourcePreferences.updatesGroupBySeries.getAndSet { !it }
+    val grouped by viewModel.groupBySeries.collectAsState()
 
     SwitchRow(
         label = stringResource(MR.strings.updates_group_by_series),
         checked = grouped,
-        onToggle = ::toggle,
+        onToggle = viewModel::toggleGroupBySeries,
     )
 }
 
