@@ -3,7 +3,9 @@ package reikai.domain.track
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -17,7 +19,7 @@ import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
  */
 class PushChapterProgressTest {
 
-    private val tracker = mockk<Tracker>()
+    private val tracker = mockk<Tracker> { every { supportsReadingDates } returns true }
 
     private fun localRow() = DbTrack.create(TRACKER_ID).apply {
         id = LOCAL_ID
@@ -40,14 +42,14 @@ class PushChapterProgressTest {
             }
         }
 
-        tracker.pushChapterProgress(localRow()).status shouldBe READING
+        tracker.pushChapterProgress(localRow(), progressBefore = 4.0).status shouldBe READING
     }
 
     @Test
     fun `takes the status from a tracker that answers with a different row`() = runTest {
         coEvery { tracker.update(any(), any()) } returns remoteAnswer()
 
-        tracker.pushChapterProgress(localRow()).status shouldBe READING
+        tracker.pushChapterProgress(localRow(), progressBefore = 4.0).status shouldBe READING
     }
 
     @Test
@@ -56,15 +58,59 @@ class PushChapterProgressTest {
         // Losing it here would make the row unpersistable.
         coEvery { tracker.update(any(), any()) } returns remoteAnswer()
 
-        tracker.pushChapterProgress(localRow()).id shouldBe LOCAL_ID
+        tracker.pushChapterProgress(localRow(), progressBefore = 4.0).id shouldBe LOCAL_ID
     }
 
     @Test
     fun `takes the start date a tracker stamps on a different row`() = runTest {
         coEvery { tracker.update(any(), any()) } returns remoteAnswer()
 
-        tracker.pushChapterProgress(localRow()).started_reading_date shouldBe STARTED_AT
+        tracker.pushChapterProgress(localRow(), progressBefore = 4.0).started_reading_date shouldBe STARTED_AT
     }
+
+    @Test
+    fun `stamps a start date on a first push that is not chapter one`() = runTest {
+        upstreamStampsOnlyChapterOne()
+
+        tracker.pushChapterProgress(unstartedRow(), progressBefore = 0.0).started_reading_date shouldNotBe 0L
+    }
+
+    @Test
+    fun `keeps a start date the row already has`() = runTest {
+        upstreamStampsOnlyChapterOne()
+        val row = unstartedRow().apply { started_reading_date = STARTED_AT }
+
+        tracker.pushChapterProgress(row, progressBefore = 0.0).started_reading_date shouldBe STARTED_AT
+    }
+
+    @Test
+    fun `stamps no start date on a push past progress the service already had`() = runTest {
+        // Progress with no date was started somewhere that recorded none, or had its date cleared by
+        // the user: today would be wrong for the first and unwanted for the second.
+        upstreamStampsOnlyChapterOne()
+
+        tracker.pushChapterProgress(unstartedRow(), progressBefore = 71.0).started_reading_date shouldBe 0L
+    }
+
+    @Test
+    fun `stamps no start date on a tracker that keeps none`() = runTest {
+        upstreamStampsOnlyChapterOne()
+        every { tracker.supportsReadingDates } returns false
+
+        tracker.pushChapterProgress(unstartedRow(), progressBefore = 0.0).started_reading_date shouldBe 0L
+    }
+
+    /** The clause every dated tracker's `update` carries upstream: only chapter 1 starts the series. */
+    private fun upstreamStampsOnlyChapterOne() {
+        coEvery { tracker.update(any(), any()) } answers {
+            firstArg<DbTrack>().apply {
+                status = READING
+                if (last_chapter_read == 1.0) started_reading_date = STARTED_AT
+            }
+        }
+    }
+
+    private fun unstartedRow() = localRow().apply { last_chapter_read = 72.0 }
 
     private fun remoteAnswer(): TrackSearch = TrackSearch.create(TRACKER_ID).apply {
         title = "A novel"

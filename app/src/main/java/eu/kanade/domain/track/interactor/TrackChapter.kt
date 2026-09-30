@@ -43,11 +43,13 @@ class TrackChapter(
                     runCatching {
                         try {
                             // RK --> pushed through the shared pushChapterProgress kernel, which keeps the
-                            // status and start date the tracker's update wrote, where upstream saved the row it sent
-                            val refreshed = service.refresh(track.toDbTrack())
-                                .toDomainTrack(idRequired = true)!!
-                                .copy(lastChapterRead = chapterNumber)
-                            val pushed = service.pushChapterProgress(refreshed.toDbTrack())
+                            // status and start date the tracker's update wrote, where upstream saved the row it
+                            // sent, and starts the series on a first push of any chapter, where upstream needs 1
+                            val refreshed = service.refresh(track.toDbTrack()).toDomainTrack(idRequired = true)!!
+                            val pushed = service.pushChapterProgress(
+                                refreshed.copy(lastChapterRead = chapterNumber).toDbTrack(),
+                                progressBefore = refreshed.lastChapterRead,
+                            )
                             upsertTrack.await(pushed.toDomainTrack(idRequired = true)!!)
                             // RK <--
                             delayedTrackingStore.remove(track.id)

@@ -42,10 +42,11 @@ class TrackNovelChapter(
                 async {
                     runCatching {
                         try {
-                            val refreshed = service.refresh(track.toDbTrack())
-                                .toNovelTrack(idRequired = true)!!
-                                .copy(lastChapterRead = chapterNumber)
-                            val pushed = service.pushChapterProgress(refreshed.toDbTrack())
+                            val refreshed = service.refresh(track.toDbTrack()).toNovelTrack(idRequired = true)!!
+                            val pushed = service.pushChapterProgress(
+                                refreshed.copy(lastChapterRead = chapterNumber).toDbTrack(),
+                                progressBefore = refreshed.lastChapterRead,
+                            )
                             upsertNovelTrack.await(pushed.toNovelTrack(idRequired = true)!!)
                             delayedTrackingStore.remove(track.id)
                         } catch (e: Exception) {
