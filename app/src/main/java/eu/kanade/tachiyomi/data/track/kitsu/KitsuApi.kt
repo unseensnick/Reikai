@@ -4,7 +4,6 @@ import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.Optional
 import com.apollographql.apollo.network.okHttpClient
 import eu.kanade.tachiyomi.data.database.models.Track
-import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuCategoryNode
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUser
@@ -373,15 +372,11 @@ class KitsuApi(
             title = media.titles.preferred.orEmpty(),
             status = status,
             ratingTwenty = rating,
-            tags = media.categories.nodes.mapNotNull { it.localizedTitle() },
+            tags = media.categories.nodes.mapNotNull { it.title.localized() },
             malId = externalIds[MAL_MAPPING_SITE]?.toLongOrNull(),
             anilistId = externalIds[ANILIST_MAPPING_SITE]?.toLongOrNull(),
         )
     }
-
-    /** Prefers English, but takes whatever locale the entry has rather than dropping the tag. */
-    private fun KitsuCategoryNode.localizedTitle(): String? =
-        (title["en"] ?: title.values.firstOrNull())?.takeIf { it.isNotBlank() }
 
     // "Fill from tracker" metadata. Its own operation rather than upstream's fragment, which caps staff
     // at five and selects no categories. Kitsu returns its NSFW categories only to an account whose own
@@ -418,6 +413,7 @@ class KitsuApi(
         )
     }
 
+    /** Prefers English, but takes whatever locale the entry has rather than dropping the tag. */
     private fun Map<String, Any?>.localized(): String? =
         ((this["en"] ?: values.firstOrNull()) as? String)?.takeIf { it.isNotBlank() }
     // RK <--
