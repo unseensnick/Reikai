@@ -53,18 +53,19 @@ internal fun holdsBack(isRead: Boolean, neverBackwards: Boolean, chapter: Double
     isRead && neverBackwards && onSite != null && chapter < onSite
 
 /**
- * The site's progress after unreading [unreadChapter]: the highest chapter still read, never above what
- * the site had. Null when the unread is above the site's progress, which was never marked there.
+ * The site's progress after unreading the chapters numbered [unread]: the highest chapter still read,
+ * never above what the site had. Null, leaving the site alone, when the unread moved nothing it could
+ * carry: no numbered chapter (a prologue has no position), the lowest one above the site's progress
+ * (never marked there), or the highest one still below [stillRead] (the app's own progress is unchanged,
+ * and the site may be ahead from reading elsewhere).
  */
-internal fun progressAfterUnread(unreadChapter: Double, stillRead: Double?, onSite: Int?): Double? {
-    if (onSite != null && unreadChapter > onSite) return null
+internal fun progressAfterUnread(unread: List<Double>, stillRead: Double?, onSite: Int?): Double? {
+    val numbered = unread.filter { it > 0 }.ifEmpty { return null }
+    if (onSite != null && numbered.min() > onSite) return null
+    if (stillRead != null && stillRead >= numbered.max()) return null
     val left = stillRead ?: 0.0
     return if (onSite != null) minOf(left, onSite.toDouble()) else left
 }
-
-/** The unread chapter that decides how far the site moves back: the lowest one unread. */
-internal fun <T> unreadTarget(unread: List<T>, numberOf: (T) -> Double): T? =
-    unread.filter { numberOf(it) > 0 }.minByOrNull(numberOf) ?: unread.firstOrNull()
 
 /** What binding does on the site: file a series on no list yet, or keep the list the user already chose. */
 internal sealed interface BindOnSite {

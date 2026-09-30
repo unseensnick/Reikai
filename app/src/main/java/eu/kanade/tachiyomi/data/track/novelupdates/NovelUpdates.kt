@@ -146,14 +146,13 @@ class NovelUpdates(id: Long) :
     override suspend fun pushUnread(track: Track, unread: List<NovelChapter>): Track? {
         if (!trackPreferences.novelUpdatesUnreadPush.get()) return null
         val novelId = track.remote_id.toString()
-        val target = unreadTarget(unread) { it.chapterNumber } ?: return null
         val onSite = api.readNotes(novelId)?.let { progressFrom(it.notes) }
         // Called after the unread is written, so this is what is still read.
         val chapters = groupChapters(track.manga_id)
         val stillRead = chapters
             .filter { it.read && it.chapterNumber > 0 }
             .maxOfOrNull { it.chapterNumber }
-        val progress = progressAfterUnread(target.chapterNumber, stillRead, onSite) ?: return null
+        val progress = progressAfterUnread(unread.map { it.chapterNumber }, stillRead, onSite) ?: return null
         // With nothing still read the bookmark stays: the site has no way to move it to "none".
         if (progress > 0) bookmarkRelease(track, novelId, progress, readReleaseIds(chapters, progress))
         track.last_chapter_read = progress

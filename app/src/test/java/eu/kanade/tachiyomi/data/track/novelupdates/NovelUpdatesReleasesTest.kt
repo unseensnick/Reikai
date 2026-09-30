@@ -81,22 +81,47 @@ class NovelUpdatesReleasesTest {
 
     @Test
     fun `an unread moves the site back to the highest chapter still read`() {
-        progressAfterUnread(unreadChapter = 8.0, stillRead = 7.0, onSite = 10) shouldBe 7.0
+        progressAfterUnread(unread = listOf(8.0), stillRead = 7.0, onSite = 10) shouldBe 7.0
     }
 
     @Test
-    fun `an unread never moves the site forward`() {
-        progressAfterUnread(unreadChapter = 8.0, stillRead = 29.0, onSite = 20) shouldBe 20.0
+    fun `an unread of the top chapter among others moves the site back to the highest still read`() {
+        progressAfterUnread(unread = listOf(8.0, 30.0), stillRead = 29.0, onSite = 200) shouldBe 29.0
+    }
+
+    @Test
+    fun `an unread below the highest chapter still read leaves a site that is ahead alone`() {
+        progressAfterUnread(unread = listOf(8.0), stillRead = 29.0, onSite = 200).shouldBeNull()
+    }
+
+    @Test
+    fun `an unread below the highest chapter still read never moves the site forward`() {
+        progressAfterUnread(unread = listOf(8.0), stillRead = 29.0, onSite = 20).shouldBeNull()
+    }
+
+    @Test
+    fun `an unread of an unnumbered chapter leaves the site alone`() {
+        progressAfterUnread(unread = listOf(-1.0), stillRead = 50.0, onSite = 200).shouldBeNull()
+    }
+
+    @Test
+    fun `an unread of the only chapter read, an unnumbered one, leaves the site alone`() {
+        progressAfterUnread(unread = listOf(-1.0), stillRead = null, onSite = 200).shouldBeNull()
     }
 
     @Test
     fun `an unread above the site's progress leaves the site alone`() {
-        progressAfterUnread(unreadChapter = 30.0, stillRead = 29.0, onSite = 20).shouldBeNull()
+        progressAfterUnread(unread = listOf(30.0), stillRead = 29.0, onSite = 20).shouldBeNull()
+    }
+
+    @Test
+    fun `an unread reaching below the site's progress moves it back though it also reaches above`() {
+        progressAfterUnread(unread = listOf(8.0, 30.0), stillRead = 7.0, onSite = 20) shouldBe 7.0
     }
 
     @Test
     fun `an unread of every chapter moves the site to none read`() {
-        progressAfterUnread(unreadChapter = 1.0, stillRead = null, onSite = 5) shouldBe 0.0
+        progressAfterUnread(unread = listOf(1.0), stillRead = null, onSite = 5) shouldBe 0.0
     }
 
     @Test
@@ -117,16 +142,6 @@ class NovelUpdatesReleasesTest {
     @Test
     fun `a progress set by hand is never held back`() {
         holdsBack(isRead = false, neverBackwards = true, chapter = 3.0, onSite = 5) shouldBe false
-    }
-
-    @Test
-    fun `an unread moves back from its lowest chapter`() {
-        unreadTarget(listOf(4.0, 2.0, 3.0)) { it } shouldBe 2.0
-    }
-
-    @Test
-    fun `an unread of unnumbered chapters moves back from the first`() {
-        unreadTarget(listOf(-1.0, -1.0)) { it } shouldBe -1.0
     }
 
     @Test
