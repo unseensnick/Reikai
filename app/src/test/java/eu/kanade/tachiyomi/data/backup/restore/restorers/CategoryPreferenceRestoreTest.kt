@@ -25,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import reikai.data.backup.AppPreferenceCarry
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.category.CategoryIdPreferences
@@ -69,10 +70,12 @@ class CategoryPreferenceRestoreTest {
         getCategories = mockk<GetCategories> { coEvery { await() } returns deviceCategories },
         preferenceStore = store,
         categoryIdPreferences = categoryIdPreferences,
-        novelPreferences = NovelPreferences(store),
-        extensionSourcePreferences = SourcePreferences(store),
-        networkPreferences = NetworkPreferences(store, isDebugBuild = false),
         getNovelCategories = mockk<GetNovelCategories> { coEvery { await() } returns deviceCategories },
+        appPreferenceCarry = AppPreferenceCarry(
+            NovelPreferences(store),
+            SourcePreferences(store),
+            NetworkPreferences(store, isDebugBuild = false),
+        ),
     )
 
     @BeforeEach

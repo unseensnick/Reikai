@@ -1,22 +1,46 @@
 package eu.kanade.tachiyomi.data.backup
 
+import android.content.SharedPreferences
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.backup.create.creators.PreferenceBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.configurableSources
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
+import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
+import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
+import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
 import eu.kanade.tachiyomi.extension.model.Extension
+import eu.kanade.tachiyomi.network.NetworkPreferences
+import eu.kanade.tachiyomi.network.interceptor.FLARESOLVERR_URL_KEY
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.sourcePreferences
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
+import reikai.data.backup.AppPreferenceCarry
+import reikai.domain.novel.DEAD_READER_AUTO_SCROLL_KEY
+import reikai.domain.novel.DEAD_READER_PADDING_KEY
+import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
+import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
+import reikai.domain.novel.NovelPreferences
+import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.content.NovelCodeSnippet
+import reikai.novel.content.NovelSnippets
+import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 
 class SourcePreferencesBackupTest {
@@ -99,10 +123,8 @@ class SourcePreferencesBackupTest {
             getCategories = mockk(),
             preferenceStore = store,
             categoryIdPreferences = mockk(),
-            novelPreferences = mockk(),
-            extensionSourcePreferences = mockk(),
-            networkPreferences = mockk(),
             getNovelCategories = mockk(),
+            appPreferenceCarry = mockk(),
         )
 
         restorer.restoreSource(
@@ -118,5 +140,97 @@ class SourcePreferencesBackupTest {
         )
 
         written shouldBe listOf("ln_storage::boxnovel::token" to "t")
+    }
+
+    private val store = EmittingPreferenceStore()
+    private val novelPreferences = NovelPreferences(store)
+
+    private val restorer = PreferenceRestorer(
+        context = mockk(),
+        getCategories = mockk(),
+        preferenceStore = store,
+        categoryIdPreferences = mockk(relaxed = true),
+        getNovelCategories = mockk(),
+        appPreferenceCarry = AppPreferenceCarry(
+            novelPreferences,
+            SourcePreferences(store),
+            NetworkPreferences(store, isDebugBuild = false),
+        ),
+    )
+
+    /** An extension's settings file, which the restore opens through the source contract. */
+    private suspend fun restoreIntoAnExtension(vararg prefs: BackupPreference) {
+        mockkStatic("eu.kanade.tachiyomi.source.ConfigurableSourceKt")
+        try {
+            every { sourcePreferences(any<String>()) } returns mockk<SharedPreferences>(relaxed = true) {
+                every { all } returns emptyMap<String, Any>()
+            }
+            restorer.restoreSource(listOf(BackupSourcePreferences("source_1234", prefs.toList())))
+        } finally {
+            unmockkStatic("eu.kanade.tachiyomi.source.ConfigurableSourceKt")
+        }
+    }
+
+    /** Source settings can be restored with App settings off, so an entry must not reach an app setting. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("appKeys")
+    fun `an extension's restored settings leave the app's own settings alone`(
+        key: String,
+        value: PreferenceValue,
+        written: (PreferenceStore) -> Boolean,
+    ) = runTest {
+        restoreIntoAnExtension(BackupPreference(key, value))
+
+        written(store) shouldBe false
+    }
+
+    @Test
+    fun `an extension's restored settings leave the reader bar alone`() = runTest {
+        val bar = setOf(ReaderBottomButton.ViewChapters.value)
+        novelPreferences.readerBottomButtons().set(bar)
+
+        restoreIntoAnExtension(BackupPreference(DEAD_READER_TTS_ENABLED_KEY, BooleanPreferenceValue(true)))
+
+        novelPreferences.readerBottomButtons().get() shouldBe bar
+    }
+
+    companion object {
+        @JvmStatic
+        fun appKeys() = listOf(
+            Arguments.of(
+                FLARESOLVERR_URL_KEY,
+                StringPreferenceValue("https://elsewhere.example"),
+                { s: PreferenceStore -> NetworkPreferences(s, isDebugBuild = false).flareSolverrUrl.isSet() },
+            ),
+            Arguments.of(
+                NovelPreferences.JS_SNIPPETS_KEY,
+                StringPreferenceValue(
+                    NovelSnippets.encode(
+                        listOf(NovelCodeSnippet(title = "x", code = "alert(1)", enabled = true, id = "a")),
+                    ),
+                ),
+                { s: PreferenceStore -> NovelPreferences(s).readerJsSnippets().isSet() },
+            ),
+            Arguments.of(
+                DEAD_READER_PADDING_KEY,
+                IntPreferenceValue(32),
+                { s: PreferenceStore -> NovelPreferences(s).readerMarginLeft().isSet() },
+            ),
+            Arguments.of(
+                ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY,
+                BooleanPreferenceValue(false),
+                { s: PreferenceStore -> SourcePreferences(s).enabledContentWarnings.isSet() },
+            ),
+            Arguments.of(
+                DEAD_READER_TAP_TO_SCROLL_KEY,
+                BooleanPreferenceValue(true),
+                { s: PreferenceStore -> NovelPreferences(s).readerTapLayout().isSet() },
+            ),
+            Arguments.of(
+                DEAD_READER_AUTO_SCROLL_KEY,
+                BooleanPreferenceValue(true),
+                { s: PreferenceStore -> NovelPreferences(s).readerAutoScrollOnOpen().isSet() },
+            ),
+        )
     }
 }

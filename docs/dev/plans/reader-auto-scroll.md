@@ -24,7 +24,7 @@ Novels had auto-scroll and manga had none, an open parity gap on the reader surf
 
 **Settings.** Settings -> Manga reader has Start auto-scroll when opening a chapter, Page turn interval (paged modes) and Scroll speed (long strip). Settings -> Novel reader has Start auto-scroll when opening a chapter and Scroll speed. The reader sheet's Controls tab shows the Auto-scroll checkbox and whichever rate the viewport showing now runs on.
 
-**Upgrade.** The novel reader's old `ln_reader_auto_scroll` switch was whether the scroll ran, and it persisted across sessions. `NovelAutoScrollOnOpenMigration` (versionCode 197) carries it into `ln_reader_auto_scroll_on_open` and deletes it, and `PreferenceRestorer` carries it the same way when an older backup lands it after the migration has run.
+**Upgrade.** The novel reader's old `ln_reader_auto_scroll` switch was whether the scroll ran, and it persisted across sessions. `NovelAutoScrollOnOpenMigration` (versionCode 197) carries it into `ln_reader_auto_scroll_on_open` and deletes it, and an App settings restore carries it the same way (`AppPreferenceCarry`) when an older backup lands it after the migration has run.
 
 ## Key files
 

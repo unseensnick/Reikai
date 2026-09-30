@@ -609,7 +609,7 @@ class NovelPreferences(
         preferenceStore.getBoolean("novel_migration_hide_without_updates", false)
 
     companion object {
-        // Referenced by backup restore (PreferenceRestorer) to flag restored plugin URLs for
+        // Referenced by backup restore (AppPreferenceCarry) to flag restored plugin URLs for
         // validation against the added repos before the host evaluates any.
         const val INSTALLED_PLUGIN_URLS_KEY = "ln_installed_plugin_urls"
         const val PLUGINS_NEED_REVALIDATION_KEY = "ln_plugins_need_revalidation"

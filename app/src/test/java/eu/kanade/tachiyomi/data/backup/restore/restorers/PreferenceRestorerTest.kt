@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.data.backup.AppPreferenceCarry
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.category.CategoryIdPreferences
@@ -64,10 +65,8 @@ class PreferenceRestorerTest {
         getCategories = mockk<GetCategories>(),
         preferenceStore = store,
         categoryIdPreferences = mockk<CategoryIdPreferences>(relaxed = true),
-        novelPreferences = novelPreferences,
-        extensionSourcePreferences = sourcePreferences,
-        networkPreferences = networkPreferences,
         getNovelCategories = mockk(),
+        appPreferenceCarry = AppPreferenceCarry(novelPreferences, sourcePreferences, networkPreferences),
     )
 
     /** All five are WorkManager scheduling the restore does on its way out, which needs a real app. */
