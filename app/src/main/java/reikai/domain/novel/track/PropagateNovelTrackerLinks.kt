@@ -2,7 +2,6 @@ package reikai.domain.novel.track
 
 import dev.zacsweers.metro.Inject
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.UpsertNovelTrack
@@ -13,14 +12,10 @@ import reikai.domain.track.handOutGroupTrackers
 @Inject
 class PropagateNovelTrackerLinks(
     private val preferences: ReikaiLibraryPreferences,
-    private val mergeManager: NovelMergeManager,
     private val novelRepository: NovelRepository,
     private val getNovelTracks: GetNovelTracks,
     private val upsertNovelTrack: UpsertNovelTrack,
 ) {
-
-    /** Resolve [seedNovelId]'s group and copy each shared tracker onto every favorited member. */
-    suspend fun fromSeed(seedNovelId: Long) = distribute(mergeManager.relatedIdsList(seedNovelId))
 
     /** Ensure every favorited member of [groupIds] carries each tracker bound anywhere in the group. */
     suspend fun distribute(groupIds: List<Long>) = handOutGroupTrackers(

@@ -708,10 +708,12 @@ contributed model cannot resolve without all three.
 
 ## Traps
 
-- **The merge-manager cycle.** `MangaMergeManager` and `NovelMergeManager` take a lambda resolving
-  `PropagateTrackerLinks` / `PropagateNovelTrackerLinks`, which depend on the managers. Metro rejects
-  the direct cycle at compile time, so `ReikaiBindings` supplies that lambda from a `Provider`.
-  Upstream has the same shape at `AndroidSourceManager` and solves it with `Lazy<DownloadManager>`.
+- **The novel merge-manager cycle.** `NovelMergeManager` takes a lambda resolving
+  `PropagateNovelTrackerLinks`, which reads tracks through `GetNovelTracks`, which takes the manager.
+  Metro rejects the direct cycle at compile time, so `ReikaiBindings` supplies the propagator
+  deferred, as a `() -> T`. The two cycles through each propagator's own manager parameter went with
+  its only reader, the uncalled `fromSeed` (2026-09-30), so `MangaMergeManager` takes its propagator
+  directly. Upstream has the same shape at `AndroidSourceManager` and solves it with `Lazy<DownloadManager>`.
 - **`LnPluginHost` and `LnPluginLoader` took an `OkHttpClient`** built from `NetworkHelper.client`.
   `@Inject` alone cannot resolve a bare `OkHttpClient`, so both constructors take `NetworkHelper`
   rather than a global `OkHttpClient` binding that other code could bind by accident.

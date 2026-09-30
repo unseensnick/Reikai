@@ -18,14 +18,10 @@ import tachiyomi.domain.track.model.Track
 @SingleIn(AppScope::class)
 class PropagateTrackerLinks(
     private val preferences: ReikaiLibraryPreferences,
-    private val mergeManager: MangaMergeManager,
     private val getManga: GetManga,
     private val getTracks: GetTracks,
     private val upsertTrack: UpsertTrack,
 ) {
-
-    /** Resolve [seedMangaId]'s group and copy each shared tracker onto every favorited member. */
-    suspend fun fromSeed(seedMangaId: Long) = distribute(mergeManager.computeRelatedIds(seedMangaId).toList())
 
     /** Ensure every favorited member of [groupIds] carries each tracker bound anywhere in the group. */
     suspend fun distribute(groupIds: List<Long>) = handOutGroupTrackers(

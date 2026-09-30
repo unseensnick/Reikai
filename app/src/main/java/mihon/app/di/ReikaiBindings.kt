@@ -25,18 +25,17 @@ import reikai.domain.recommendation.taste.TrackerLibraryFetcher
 @BindingContainer
 object ReikaiBindings {
 
-    // The propagator arrives deferred because it depends on the manager it is being handed to.
-    // Three cycles run through this one edge: each manager to its own propagator, and the novel
-    // propagator again through GetNovelTracks. The lambda only ever runs inside a suspend function,
-    // never during construction, so deferring it is safe.
     @Provides
     @SingleIn(AppScope::class)
     fun providesMangaMergeManager(
         repository: MergeGroupRepository,
         preferences: ReikaiLibraryPreferences,
-        propagate: () -> PropagateTrackerLinks,
-    ): MangaMergeManager = MangaMergeManager(repository, preferences) { propagate().distribute(it) }
+        propagate: PropagateTrackerLinks,
+    ): MangaMergeManager = MangaMergeManager(repository, preferences) { propagate.distribute(it) }
 
+    // The novel propagator arrives deferred because it reads tracks through GetNovelTracks, which
+    // takes this manager, and Metro rejects the cycle. The lambda only ever runs inside a suspend
+    // function, never during construction, so deferring it is safe.
     @Provides
     @SingleIn(AppScope::class)
     fun providesNovelMergeManager(
