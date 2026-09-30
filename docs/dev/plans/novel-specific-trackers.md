@@ -104,7 +104,7 @@ That is what the **`ranobeDbSyncWhileReading`** preference exists for. Two rules
 A read-driven push happens only when the status actually **moves**, so reading a hundred chapters
 costs one write rather than a hundred. And deliberate edits in the tracking sheet are never gated,
 because a switch that makes a user's own action silently do nothing is exactly what
-[content-layer.md](../../.claude/rules/content-layer.md) forbids.
+[content-layer.md](../../../.claude/rules/content-layer.md) forbids.
 
 **It defaults on, reversing an earlier call to default it off** (2026-08-25). Off was chosen before
 the status-moved test existed, when the cost looked like one write per chapter rather than one per
