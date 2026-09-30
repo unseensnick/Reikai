@@ -51,9 +51,12 @@ class NovelPluginRestorerTest {
 
     @Test
     fun `a plugin whose script could not be fetched again is named`() = runTest {
-        loadFailures.value = mapOf(PLUGIN_URL to failure(LnPluginLoadFailure.Reason.Missing))
+        loadFailures.value =
+            mapOf(PLUGIN_URL to failure(LnPluginLoadFailure.Reason.Missing("UnknownHostException: repo.test")))
 
-        restorer.restore() shouldBe listOf(NotRestored("Novel Fire", "script could not be downloaded"))
+        restorer.restore() shouldBe listOf(
+            NotRestored("Novel Fire", "script could not be downloaded (UnknownHostException: repo.test)"),
+        )
     }
 
     @Test

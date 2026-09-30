@@ -24,14 +24,19 @@ data class LnPluginLoadFailure(
     val reason: Reason,
 ) {
     sealed interface Reason {
-        /** No script is stored for it, so there is nothing to run until it is installed again. */
-        data object Missing : Reason
+        /** The root cause in words, where the reason has one to name. */
+        val message: String?
+
+        /** No script is stored for it and fetching it again threw, so nothing runs until it is installed again. */
+        data class Missing(override val message: String) : Reason
 
         /** The plugin ran, but what it says about itself could not be read. */
-        data object Malformed : Reason
+        data object Malformed : Reason {
+            override val message: String? = null
+        }
 
-        /** Downloading or running the plugin threw. Retried on the next load either way. */
-        data class Failed(val message: String, val stackTrace: String) : Reason
+        /** Running the plugin threw. Retried on the next load either way. */
+        data class Failed(override val message: String, val stackTrace: String) : Reason
     }
 
     companion object {
@@ -43,7 +48,7 @@ data class LnPluginLoadFailure(
             seen: LnSourceIdentity?,
         ): LnPluginLoadFailure {
             val reason = if (error is LnPluginScriptMissingException) {
-                Reason.Missing
+                Reason.Missing(message = error.rootMessage)
             } else if (error.firstCause { it as? SerializationException } != null) {
                 Reason.Malformed
             } else {
@@ -68,5 +73,5 @@ data class LnPluginLoadFailure(
 }
 
 /** An installed plugin whose script is not stored and could not be fetched from its URL again. */
-class LnPluginScriptMissingException(url: String, cause: Throwable? = null) :
+class LnPluginScriptMissingException(url: String, cause: Throwable) :
     Exception("no installed script for $url", cause)

@@ -22,10 +22,13 @@ class LnPluginLoadFailureTest {
         LnPluginLoadFailure.of(url, error, metadata, seen = null).reason shouldBe LnPluginLoadFailure.Reason.Malformed
     }
 
+    /** The refetch fails inside OkHttp's bare IOException, so the cause worth showing is two levels down. */
     @Test
-    fun `a plugin with no stored script is missing`() {
-        LnPluginLoadFailure.of(url, LnPluginScriptMissingException(url), metadata, seen = null).reason shouldBe
-            LnPluginLoadFailure.Reason.Missing
+    fun `a plugin whose script could not be fetched again is missing and names the real cause`() {
+        val error = LnPluginScriptMissingException(url, IOException("wrapper", UnknownHostException("repo.test")))
+
+        LnPluginLoadFailure.of(url, error, metadata, seen = null).reason shouldBe
+            LnPluginLoadFailure.Reason.Missing("UnknownHostException: repo.test")
     }
 
     @Test

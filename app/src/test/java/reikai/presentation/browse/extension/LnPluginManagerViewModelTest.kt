@@ -245,7 +245,7 @@ class LnPluginManagerViewModelTest {
             lang = null,
             version = ENTRY.version,
             customCssUrl = ENTRY.customCSS,
-            reason = LnPluginLoadFailure.Reason.Missing,
+            reason = LnPluginLoadFailure.Reason.Missing("UnknownHostException: repo.test"),
         )
     }
 }

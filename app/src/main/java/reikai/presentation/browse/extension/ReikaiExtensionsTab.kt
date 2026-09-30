@@ -347,26 +347,24 @@ private fun ExtensionsList(
         val dismiss = { failedPlugin = null }
         NotLoadedDialog(
             description = when (reason) {
-                LnPluginLoadFailure.Reason.Missing -> MR.strings.ln_plugin_script_missing_message
+                is LnPluginLoadFailure.Reason.Missing -> MR.strings.ln_plugin_script_missing_message
                 LnPluginLoadFailure.Reason.Malformed -> MR.strings.ext_malformed_message
                 is LnPluginLoadFailure.Reason.Failed -> MR.strings.ext_load_failed_message
             },
-            failureMessage = (reason as? LnPluginLoadFailure.Reason.Failed)?.message,
+            failureMessage = reason.message,
             stackTrace = (reason as? LnPluginLoadFailure.Reason.Failed)?.stackTrace,
             onClickUninstall = {
                 lnModel.uninstall(failure)
                 dismiss()
             },
             onDismissRequest = dismiss,
-            confirmLabel = if (reason ==
-                LnPluginLoadFailure.Reason.Missing
-            ) {
+            confirmLabel = if (reason is LnPluginLoadFailure.Reason.Missing) {
                 MR.strings.ext_reinstall
             } else {
                 MR.strings.action_ok
             },
             onClickConfirm = {
-                if (reason == LnPluginLoadFailure.Reason.Missing) lnModel.reinstall(failure)
+                if (reason is LnPluginLoadFailure.Reason.Missing) lnModel.reinstall(failure)
                 dismiss()
             },
         )

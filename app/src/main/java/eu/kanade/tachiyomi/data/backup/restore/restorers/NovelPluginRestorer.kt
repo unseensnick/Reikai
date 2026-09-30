@@ -34,7 +34,7 @@ class NovelPluginRestorer(
     }
 
     private fun LnPluginLoadFailure.Reason.label(): String = when (this) {
-        LnPluginLoadFailure.Reason.Missing -> "script could not be downloaded"
+        is LnPluginLoadFailure.Reason.Missing -> "script could not be downloaded ($message)"
         LnPluginLoadFailure.Reason.Malformed -> "plugin malformed"
         is LnPluginLoadFailure.Reason.Failed -> message
     }
