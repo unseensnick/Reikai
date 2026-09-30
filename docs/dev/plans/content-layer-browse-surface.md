@@ -312,7 +312,7 @@ installed" like a manga stub, and the manga list's fetch-error snackbar, which h
 after `MigrateSourceTab.kt` was deleted, is wired again.
 **Step 7 replaced both search screens with one (`c8e938037`), and the content type became tabs
 rather than a second chip row.** Two chip rows would have put an All chip beside an All chip meaning
-different things, so `ContentTypeTabs` sits above the source filters, matching the recents strip. The
+different things, so a `HeaderTabRow` sits above the source filters, the same strip recents uses. The
 engine owns the query, the source filter, the has-results toggle, one comparator and one concurrency
 limiter, and it fans each query to both providers. A selection can span both types; the categories
 prompt then runs twice, labelled per type, because novel categories are a different partition of the

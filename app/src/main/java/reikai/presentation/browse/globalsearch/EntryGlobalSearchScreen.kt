@@ -23,6 +23,7 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchViewModel
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.TravelExplore
 import reikai.domain.library.ContentType
+import reikai.domain.library.labelRes
 import reikai.presentation.browse.BulkCategoryDialogs
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
@@ -35,7 +36,7 @@ import reikai.presentation.browse.selectedRowKeys
 import reikai.presentation.browse.selectionTitle
 import reikai.presentation.browse.startAdd
 import reikai.presentation.browse.toggleSelection
-import reikai.presentation.components.ContentTypeTabs
+import reikai.presentation.components.HeaderTabRow
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
 import tachiyomi.i18n.MR
@@ -166,8 +167,10 @@ class EntryGlobalSearchScreen(
                         novelBulk.addFavorite()
                     },
                     tabs = {
-                        ContentTypeTabs(
+                        HeaderTabRow(
+                            items = ContentType.entries,
                             selected = state.contentType,
+                            label = ContentType::labelRes,
                             onSelect = engine::setContentType,
                         )
                     },

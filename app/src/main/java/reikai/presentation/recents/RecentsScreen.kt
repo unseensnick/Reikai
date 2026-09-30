@@ -66,6 +66,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.components.HeaderTabRow
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.updates.EntryUpdatesRow
 import tachiyomi.core.common.i18n.stringResource
@@ -242,8 +243,9 @@ fun Screen.RecentsScreen(
         val layoutDirection = LocalLayoutDirection.current
         Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
             val modes = remember(engine.modes) { RECENTS_MODE_ORDER.filter { it in engine.modes } }
+            // Only where there is a choice to make, so the two single-mode tabs never draw it.
             if (modes.size > 1) {
-                RecentsModeTabs(modes = modes, selected = mode, onSelect = engine::setMode)
+                HeaderTabRow(items = modes, selected = mode, label = RecentsMode::labelRes, onSelect = engine::setMode)
             }
             ContentTypeFilterChips(selected = contentType, onSelect = engine::setContentType)
             HorizontalDivider()
