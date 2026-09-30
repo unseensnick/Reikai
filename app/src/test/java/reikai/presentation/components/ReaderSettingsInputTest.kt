@@ -3,6 +3,7 @@ package reikai.presentation.components
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 
 /** What the settings sheet accepts when a value or a colour is typed rather than stepped or slid. */
@@ -43,5 +44,22 @@ class ReaderSettingsInputTest {
     @Test
     fun `a typed value outside the range is refused`() {
         parseStepperInput("0.5", scale = 10, range = 8..50) shouldBe null
+    }
+
+    /** A comma-decimal keyboard types the value the row shows, which is formatted for the locale. */
+    @ParameterizedTest
+    @CsvSource(value = ["'0,5', 0, 100, 5", "'1,5', 8, 50, 15"])
+    fun `a comma decimal typed for a tenths setting keeps its decimal`(
+        text: String,
+        first: Int,
+        last: Int,
+        tenths: Int,
+    ) {
+        parseStepperInput(stepperInputText(text, scale = 10), scale = 10, range = first..last) shouldBe tenths
+    }
+
+    @Test
+    fun `a whole-number stepper keeps digits only`() {
+        stepperInputText("1,5.", scale = 1) shouldBe "15"
     }
 }

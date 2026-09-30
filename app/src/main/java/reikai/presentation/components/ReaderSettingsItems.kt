@@ -128,7 +128,7 @@ private fun StepperInputDialog(
         text = {
             OutlinedTextField(
                 value = input,
-                onValueChange = { text -> input = text.filter { it.isDigit() || (scale > 1 && it == '.') } },
+                onValueChange = { text -> input = stepperInputText(text, scale) },
                 singleLine = true,
                 isError = parsed == null,
                 keyboardOptions = KeyboardOptions(
@@ -154,9 +154,14 @@ private fun StepperInputDialog(
     )
 }
 
+/** What the stepper's field keeps of [text]: digits, and a decimal point or comma where [scale] allows one,
+ *  since a comma-decimal keyboard types the comma the locale-formatted row shows. */
+internal fun stepperInputText(text: String, scale: Int): String =
+    text.filter { it.isDigit() || (scale > 1 && (it == '.' || it == ',')) }
+
 /** What a person types for a stepper holding [range] in units of 1/[scale], or null for anything outside it. */
 internal fun parseStepperInput(input: String, scale: Int, range: IntRange): Int? =
-    input.toFloatOrNull()?.let { (it * scale).roundToInt() }?.takeIf { it in range }
+    input.replace(',', '.').toFloatOrNull()?.let { (it * scale).roundToInt() }?.takeIf { it in range }
 
 private fun unscaled(value: Int, scale: Int): String =
     if (scale == 1) value.toString() else (value.toFloat() / scale).toString()
