@@ -1332,13 +1332,14 @@ class ReaderViewModel(
     // RK -->
 
     /** Set the read state of an arbitrary chapter from the chapter dialog. Uses SetReadStatus so tracker
-     *  sync + delete-after-read fire like the details "mark as read", not just a raw read-flag write. */
+     *  sync + delete-after-read fire like the details "mark as read", not just a raw read-flag write.
+     *  The targets are read fresh: SetReadStatus skips a chapter already in the state asked for, and
+     *  the chapters loaded at open do not know what this session has marked since. */
     fun setChapterReadStatus(chapter: Chapter, read: Boolean) {
         val ids = groupCopyIds(chapter.id)
         ids.forEach { id -> chapterCopies(id).forEach { it.read = read } }
         viewModelScope.launchNonCancellable {
-            val targets = ids.mapNotNull { id -> unfilteredChapterList.find { it.id == id } }
-                .ifEmpty { listOf(chapter) }
+            val targets = ids.mapNotNull { getChapter.await(it) }.ifEmpty { listOf(chapter) }
             setReadStatus.await(read, *targets.toTypedArray())
         }
     }
