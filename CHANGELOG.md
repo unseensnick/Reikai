@@ -471,6 +471,7 @@ every stable release now also ships a foss build with neither in it.
 - **Adding manga from global search, the feed or a browse list no longer resets the date added or chapter settings of manga already in your library.**
 - **Entries added by batch add, a shared link or a follows sync now take your default chapter settings and default category, and re-adding one keeps its date added.**
 - **Entries added from a recommendations list now take your default chapter settings.**
+- **Adult-source galleries show the same star rating in Browse and on their details page.**
 
 ### Migration
 

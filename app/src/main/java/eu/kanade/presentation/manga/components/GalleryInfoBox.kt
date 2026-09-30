@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import exh.metadata.MetadataUtil
@@ -42,7 +43,6 @@ import reikai.presentation.icons.StarHalf
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.icons.FlagEmoji.Companion.getEmojiLangFlag
 import kotlin.math.roundToInt
 
 /**
@@ -82,16 +82,10 @@ fun GalleryInfoBox(
 
 @Composable
 private fun EHentaiGalleryInfo(metadata: EHentaiSearchMetadata, onMoreInfoClick: (() -> Unit)?) {
-    val stars = remember(metadata) { metadata.averageRating?.toFloat()?.roundToHalf() ?: 0f }
-    val genre = remember(metadata) { ehGenre(metadata.genre) }
+    val genre = remember(metadata) { SourceTagsUtil.ehGenre(metadata.genre) }
     val language = remember(metadata) {
         metadata.language?.let { lang ->
-            val flag = metadata.tags
-                .filter { it.namespace == EHentaiSearchMetadata.EH_LANGUAGE_NAMESPACE }
-                .firstNotNullOfOrNull { SourceTagsUtil.getLocaleSourceUtil(it.name) }
-                ?.toLanguageTag()
-                ?.let(::getEmojiLangFlag)
-            listOfNotNull(flag, lang).joinToString(" ")
+            listOfNotNull(SourceTagsUtil.ehLanguageFlag(metadata), lang).joinToString(" ")
         }
     }
 
@@ -112,7 +106,7 @@ private fun EHentaiGalleryInfo(metadata: EHentaiSearchMetadata, onMoreInfoClick:
         TwoColumnRow(
             left = {
                 metadata.averageRating?.let {
-                    RatingRow(stars, it.toFloat(), it.toFloat() * 2, MaterialTheme.typography.bodySmall)
+                    RatingRow(it.toFloat(), it.toFloat(), it.toFloat() * 2, MaterialTheme.typography.bodySmall)
                 }
             },
             right = {
@@ -148,7 +142,7 @@ private fun EHentaiGalleryInfo(metadata: EHentaiSearchMetadata, onMoreInfoClick:
 @Composable
 private fun MangaDexGalleryInfo(metadata: MangaDexSearchMetadata, onMoreInfoClick: (() -> Unit)?) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        metadata.rating?.let { RatingRow((it / 2f).roundToHalf(), it, it) }
+        metadata.rating?.let { RatingRow(it / 2f, it, it) }
         Spacer(Modifier.weight(1f))
         onMoreInfoClick?.let { MoreInfoLink(it) }
     }
@@ -173,7 +167,7 @@ private fun RatingRow(
     textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        RatingStars(stars)
+        RatingStars(stars, starSize = 20.dp)
         Text(
             text = "%.2f - %s".format(score, stringResource(ratingLabel(scoreOutOfTen))),
             style = textStyle,
@@ -245,14 +239,14 @@ private fun InfoRow(label: String, value: String) {
     }
 }
 
+/** A genre label on its site colour, or on the default card colours for a genre with none. */
 @Composable
-private fun GenreBadge(color: GenreColor, label: String) {
-    val background = Color(color.color)
-    val foreground = if (background.luminance() > 0.5f) Color.Black else Color.White
-    Card(colors = CardDefaults.cardColors(containerColor = background)) {
+internal fun GenreBadge(color: GenreColor?, label: String) {
+    val background = color?.let { Color(it.color) }
+    Card(colors = background?.let { CardDefaults.cardColors(containerColor = it) } ?: CardDefaults.cardColors()) {
         Text(
             text = label,
-            color = foreground,
+            color = background?.let { if (it.luminance() > 0.5f) Color.Black else Color.White } ?: Color.Unspecified,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             maxLines = 1,
             style = MaterialTheme.typography.bodyMedium,
@@ -260,27 +254,28 @@ private fun GenreBadge(color: GenreColor, label: String) {
     }
 }
 
+/** Five stars for a 0-5 [rating], drawn to the nearest half as the site's own star image is. */
 @Composable
-private fun RatingStars(rating: Float) {
+internal fun RatingStars(rating: Float, starSize: Dp) {
+    val stars = rating.toHalfStars()
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         for (star in 1..5) {
             val icon = when {
-                rating >= star -> ReikaiIcons.Star
-                rating >= star - 0.5f -> ReikaiIcons.StarHalf
+                stars >= star -> ReikaiIcons.Star
+                stars >= star - 0.5f -> ReikaiIcons.StarHalf
                 else -> ReikaiIcons.StarBorder
             }
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(starSize),
             )
         }
     }
 }
 
-// Round to the nearest half so the star row matches the reference (e.g. 4.48 -> 4.5, not floored 4.0).
-private fun Float.roundToHalf(): Float = (this * 2).roundToInt() / 2f
+internal fun Float.toHalfStars(): Float = (this * 2).roundToInt() / 2f
 
 // A 0-10 rating mapped to Komikku's descriptor buckets (9 = Amazing, 10 = Masterpiece).
 private fun ratingLabel(rating: Float): StringResource = when (rating.roundToInt()) {
@@ -296,18 +291,4 @@ private fun ratingLabel(rating: Float): StringResource = when (rating.roundToInt
     9 -> MR.strings.rating9
     10 -> MR.strings.rating10
     else -> MR.strings.no_rating
-}
-
-private fun ehGenre(genre: String?): Pair<GenreColor, StringResource>? = when (genre) {
-    "doujinshi" -> GenreColor.DOUJINSHI_COLOR to MR.strings.doujinshi
-    "manga" -> GenreColor.MANGA_COLOR to MR.strings.content_type_manga
-    "artistcg" -> GenreColor.ARTIST_CG_COLOR to MR.strings.artist_cg
-    "gamecg" -> GenreColor.GAME_CG_COLOR to MR.strings.game_cg
-    "western" -> GenreColor.WESTERN_COLOR to MR.strings.western
-    "non-h" -> GenreColor.NON_H_COLOR to MR.strings.non_h
-    "imageset" -> GenreColor.IMAGE_SET_COLOR to MR.strings.image_set
-    "cosplay" -> GenreColor.COSPLAY_COLOR to MR.strings.cosplay
-    "asianporn" -> GenreColor.ASIAN_PORN_COLOR to MR.strings.asian_porn
-    "misc" -> GenreColor.MISC_COLOR to MR.strings.misc
-    else -> null
 }
