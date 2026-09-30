@@ -49,15 +49,14 @@ interface EntryTrackPort {
     suspend fun unbindInGroup(trackerId: Long)
 }
 
-/**
- * The one removal for every tracker and both types. The service goes first and a failure there throws
- * before the local binding is touched, so the user can retry instead of leaving an entry on the
- * service nothing here points at. Upstream drops the binding either way; see novel-tracking.md.
- */
-suspend fun EntryTrackPort.removeTrack(tracker: Tracker, track: Track, alsoFromService: Boolean) {
-    if (alsoFromService) (tracker as DeletableTracker).delete(track)
-    unbindInGroup(tracker.id)
-}
+/** The one removal for every tracker and both types; a failed service delete keeps the binding. */
+fun EntryTrackPort.removeTrack(removal: RemoteFirstRemoval, tracker: Tracker, track: Track, alsoFromService: Boolean) =
+    removal.launch(
+        name = tracker.name,
+        alsoRemote = alsoFromService,
+        remote = { (tracker as DeletableTracker).delete(track) },
+        local = { unbindInGroup(tracker.id) },
+    )
 
 /** The one place an [EntryId] picks its tracking engine, so nothing above it branches on the type. */
 @Inject

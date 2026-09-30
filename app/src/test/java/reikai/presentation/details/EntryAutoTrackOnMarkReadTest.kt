@@ -58,7 +58,7 @@ class EntryAutoTrackOnMarkReadTest {
             mockk(relaxed = true)
         }
         every { any<Context>().stringResource(any(), *anyVararg()) } returns "localized"
-        every { any<Context>().trackerErrorMessage(any(), any()) } answers { "${secondArg<Tracker>().name} failed" }
+        every { any<Context>().trackerErrorMessage(any(), any()) } answers { "${secondArg<String>()} failed" }
     }
 
     @AfterEach

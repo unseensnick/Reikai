@@ -1,19 +1,31 @@
 package reikai.domain.track
 
+import android.content.Context
 import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.source.Source
-import io.kotest.assertions.throwables.shouldThrow
+import eu.kanade.tachiyomi.util.system.toast
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.entry.EntryId
@@ -30,6 +42,7 @@ import reikai.domain.novel.track.NovelTrackUpdater
 import reikai.domain.track.autobind.AutoBindEntry
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.track.trackerErrorMessage
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -39,6 +52,7 @@ import tachiyomi.domain.track.model.Track
  * The tracking sheet reaches each content type's engine only through [EntryTrackPorts.of], so the
  * per-type choices it used to make on an isNovel flag are pinned here once, over both ports.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class EntryTrackPortConformanceTest {
 
     enum class Type(val entry: EntryId, val catalogue: String) {
@@ -126,6 +140,7 @@ class EntryTrackPortConformanceTest {
             failure: Exception? = null,
         ) = mockk<Tracker>(moreInterfaces = arrayOf(DeletableTracker::class)) {
             every { id } returns TRACKER_ID
+            every { name } returns "AniList"
             coEvery { (this@mockk as DeletableTracker).delete(any()) } answers {
                 failure?.let { throw it }
                 calls += "remote delete"
@@ -134,6 +149,26 @@ class EntryTrackPortConformanceTest {
     }
 
     private val h = Harness()
+    private val toasts = mutableListOf<String?>()
+
+    @BeforeEach
+    fun setUp() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        mockkStatic(TOAST, TRACKER_ERROR)
+        every { any<Context>().toast(any<String>(), any(), any()) } answers {
+            toasts += secondArg<String?>()
+            mockk(relaxed = true)
+        }
+        every { any<Context>().trackerErrorMessage(any(), any()) } answers { "${secondArg<String>()} failed" }
+    }
+
+    @AfterEach
+    fun tearDown() {
+        unmockkStatic(TOAST, TRACKER_ERROR)
+        Dispatchers.resetMain()
+    }
+
+    private fun TestScope.removal() = RemoteFirstRemoval(mockk(relaxed = true), this)
 
     @ParameterizedTest
     @EnumSource(Type::class)
@@ -165,25 +200,26 @@ class EntryTrackPortConformanceTest {
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a failed remote delete keeps the local binding`(type: Type) = runTest {
-        runCatching {
-            h.ports.of(type.entry).removeTrack(h.deletableTracker(RATE_LIMITED), mangaTrack(OWN_ROW), true)
-        }
+        h.ports.of(type.entry).removeTrack(removal(), h.deletableTracker(RATE_LIMITED), mangaTrack(OWN_ROW), true)
+        advanceUntilIdle()
 
         h.calls shouldBe emptyList()
     }
 
     @ParameterizedTest
     @EnumSource(Type::class)
-    fun `a failed remote delete reaches the caller`(type: Type) = runTest {
-        shouldThrow<HttpException> {
-            h.ports.of(type.entry).removeTrack(h.deletableTracker(RATE_LIMITED), mangaTrack(OWN_ROW), true)
-        } shouldBe RATE_LIMITED
+    fun `a failed remote delete is told by the tracker's name`(type: Type) = runTest {
+        h.ports.of(type.entry).removeTrack(removal(), h.deletableTracker(RATE_LIMITED), mangaTrack(OWN_ROW), true)
+        advanceUntilIdle()
+
+        toasts shouldBe listOf("AniList failed")
     }
 
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `removing from the service deletes there before unbinding`(type: Type) = runTest {
-        h.ports.of(type.entry).removeTrack(h.deletableTracker(), mangaTrack(OWN_ROW), true)
+        h.ports.of(type.entry).removeTrack(removal(), h.deletableTracker(), mangaTrack(OWN_ROW), true)
+        advanceUntilIdle()
 
         h.calls shouldBe listOf("remote delete", "${type.catalogue} group unbind $ENTRY_ID $TRACKER_ID")
     }
@@ -191,7 +227,8 @@ class EntryTrackPortConformanceTest {
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a local-only removal leaves the service alone`(type: Type) = runTest {
-        h.ports.of(type.entry).removeTrack(h.deletableTracker(), mangaTrack(OWN_ROW), false)
+        h.ports.of(type.entry).removeTrack(removal(), h.deletableTracker(), mangaTrack(OWN_ROW), false)
+        advanceUntilIdle()
 
         h.calls shouldBe listOf("${type.catalogue} group unbind $ENTRY_ID $TRACKER_ID")
     }
@@ -232,6 +269,8 @@ class EntryTrackPortConformanceTest {
         const val GROUP_ROW = "group row"
         const val OWN_ROW = "own row"
         val RATE_LIMITED = HttpException(429)
+        const val TOAST = "eu.kanade.tachiyomi.util.system.ToastExtensionsKt"
+        const val TRACKER_ERROR = "reikai.presentation.track.TrackerErrorMessageKt"
 
         fun hit(title: String) = TrackSearch.create(TRACKER_ID).apply { this.title = title }
 

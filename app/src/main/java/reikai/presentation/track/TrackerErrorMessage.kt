@@ -1,7 +1,6 @@
 package reikai.presentation.track
 
 import android.content.Context
-import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.util.system.isOnline
 import reikai.data.track.TrackerSignedOutException
@@ -36,11 +35,12 @@ sealed interface TrackerError {
     }
 }
 
-fun Context.trackerErrorMessage(tracker: Tracker, error: Throwable): String =
+/** [name] is the tracker's, or a source's own account (E-Hentai favourites), whichever the call went to. */
+fun Context.trackerErrorMessage(name: String, error: Throwable): String =
     when (val kind = TrackerError.of(error, isOnline())) {
         TrackerError.Offline -> stringResource(MR.strings.exception_offline)
-        TrackerError.Unreachable -> stringResource(MR.strings.exception_unknown_host, tracker.name)
-        TrackerError.SignedOut -> stringResource(MR.strings.tracker_error_signed_out, tracker.name)
-        is TrackerError.Http -> stringResource(MR.strings.tracker_error_http, tracker.name, kind.code)
+        TrackerError.Unreachable -> stringResource(MR.strings.exception_unknown_host, name)
+        TrackerError.SignedOut -> stringResource(MR.strings.tracker_error_signed_out, name)
+        is TrackerError.Http -> stringResource(MR.strings.tracker_error_http, name, kind.code)
         is TrackerError.Other -> kind.message ?: error::class.simpleName.orEmpty()
     }

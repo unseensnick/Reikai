@@ -79,6 +79,7 @@ import mihon.icons.materialsymbols.rounded.Warning
 import reikai.domain.entry.EntryId
 import reikai.domain.track.EntryTrackPort
 import reikai.domain.track.EntryTrackPorts
+import reikai.domain.track.RemoteFirstRemoval
 import reikai.domain.track.autobind.AutoBindTracker
 import reikai.domain.track.autobind.AutoBindTrackers
 import reikai.domain.track.autobind.offerTrackers
@@ -887,7 +888,7 @@ data class EntryTrackerRemoveScreen(
         @Assisted entry: EntryId,
         @Assisted private val track: Track,
         @Assisted trackerId: Long,
-        private val context: Context,
+        private val removal: RemoteFirstRemoval,
         trackerManager: TrackerManager,
         ports: EntryTrackPorts,
     ) : ViewModel() {
@@ -907,18 +908,9 @@ data class EntryTrackerRemoveScreen(
         fun isDeletable() = tracker is DeletableTracker
 
         // Cleared from every merged source, so a sibling's row can't keep the tracker alive in the
-        // library's tracker filter, sort and grouping. A failed service delete keeps the binding, so
-        // the toast is the only sign the user has to retry.
-        fun remove(alsoFromService: Boolean) {
-            viewModelScope.launchNonCancellable {
-                try {
-                    port.removeTrack(tracker, track, alsoFromService)
-                } catch (e: Exception) {
-                    logcat(LogPriority.ERROR, e) { "Failed to remove tracking" }
-                    withUIContext { context.toast(context.trackerErrorMessage(tracker, e)) }
-                }
-            }
-        }
+        // library's tracker filter, sort and grouping. Not on viewModelScope: the screen pops as the
+        // removal starts.
+        fun remove(alsoFromService: Boolean) = port.removeTrack(removal, tracker, track, alsoFromService)
     }
 }
 
@@ -955,6 +947,6 @@ private suspend fun bindTrack(context: Context, port: EntryTrackPort, tracker: T
     try {
         port.bind(tracker, item)
     } catch (e: Throwable) {
-        withUIContext { context.toast(context.trackerErrorMessage(tracker, e)) }
+        withUIContext { context.toast(context.trackerErrorMessage(tracker.name, e)) }
     }
 }

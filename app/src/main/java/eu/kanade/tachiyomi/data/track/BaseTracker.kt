@@ -143,7 +143,7 @@ abstract class BaseTracker(
             addTracks.bind(this, item, mangaId)
         } catch (e: Throwable) {
             // RK --> the tracker-worded message both content types' binds share
-            withUIContext { context.toast(context.trackerErrorMessage(this@BaseTracker, e)) }
+            withUIContext { context.toast(context.trackerErrorMessage(name, e)) }
             // RK <--
         }
     }

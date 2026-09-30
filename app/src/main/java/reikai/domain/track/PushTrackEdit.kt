@@ -22,6 +22,6 @@ suspend fun Tracker.pushTrackEdit(context: Context, track: DbTrack, persist: sus
             persist(track)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to update remote track data id=$id" }
-            withUIContext { context.toast(context.trackerErrorMessage(this@pushTrackEdit, e)) }
+            withUIContext { context.toast(context.trackerErrorMessage(name, e)) }
         }
     }

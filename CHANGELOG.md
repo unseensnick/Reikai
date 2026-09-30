@@ -236,6 +236,7 @@ every stable release now also ships a foss build with neither in it.
 - **Sharing a novel now opens the same titled share sheet as manga.**
 - **Mark previous as read on a novel now skips chapters your filters or hidden list leave out, as it does for manga.**
 - **A recommendation already in your library is now dimmed and badged even when its source lists it under a different link.** The badge follows the same match as Settings -> Recommendations -> Hide manga already in my library.
+- **Removing a gallery from your library and your account favorites now keeps it in the library if the account removal fails.** A message says why, so you can try again.
 
 ### Reader
 

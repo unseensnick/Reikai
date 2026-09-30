@@ -55,7 +55,7 @@ import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
 import exh.debug.DebugToggles
 import exh.eh.EHentaiUpdateHelper
-import exh.metadata.metadata.EHentaiSearchMetadata
+import exh.favorites.removeGallery
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.FlatMetadata
 import exh.source.ExhPreferences
@@ -112,6 +112,7 @@ import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.localIdOf
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.track.EntryTrackPorts
+import reikai.domain.track.RemoteFirstRemoval
 import reikai.domain.track.autobind.AutoBindTrackers
 import reikai.domain.track.autobind.offerTrackers
 import reikai.domain.track.autobind.trackingButtonState
@@ -228,6 +229,7 @@ class MangaViewModel(
     private val updateHelper: EHentaiUpdateHelper,
     private val trackPorts: EntryTrackPorts,
     private val autoBindTrackers: AutoBindTrackers,
+    private val remoteFirstRemoval: RemoteFirstRemoval,
     // RK <--
 ) : ViewModel() {
 
@@ -773,21 +775,16 @@ class MangaViewModel(
         return manga.isEhBasedManga() && exhPreferences.isFavoritesBackupOn()
     }
 
+    // A failed account removal keeps the gallery in the library. The removal runs on an app-wide scope
+    // so leaving the page mid-request cannot drop the library half; the downloads prompt needs the page.
     fun confirmEhRemoveFromLibrary(removeFromAccount: Boolean) {
-        val manga = successState?.manga
+        val state = successState ?: return
         dismissDialog()
-        if (manga == null) return
-        toggleFavorite(onRemoved = ::promptDeleteDownloadsOnRemoved)
-        if (removeFromAccount) {
-            viewModelScope.launchIO { removeFromEhAccount(manga) }
+        val source = state.source as? EHentai
+        if (source == null) return toggleFavorite(onRemoved = ::promptDeleteDownloadsOnRemoved)
+        source.removeGallery(remoteFirstRemoval, state.manga, removeFromAccount) {
+            if (mangaLibraryAdder.removeFromLibrary(state.manga)) withUIContext { promptDeleteDownloadsOnRemoved() }
         }
-    }
-
-    private suspend fun removeFromEhAccount(manga: Manga) {
-        val source = sourceManager.get(manga.source) as? EHentai ?: return
-        runCatching {
-            source.removeFavorites(listOf(EHentaiSearchMetadata.galleryId(manga.url)))
-        }.onFailure { logcat(LogPriority.ERROR, it) { "Failed to remove E-Hentai favorite remotely" } }
     }
     // RK <--
 

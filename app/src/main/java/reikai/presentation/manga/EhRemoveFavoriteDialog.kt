@@ -17,8 +17,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * Confirm removing a favorited E-Hentai gallery from the library, with an opt-in checkbox to
- * also remove it from the E-Hentai account favorites. Mirrors Mihon's tracker remove dialog
- * (DeletableTracker): local removal always happens; the remote removal is the opt-in.
+ * also remove it from the E-Hentai account favorites. Shaped like the tracker remove dialog: the
+ * remote removal is the opt-in, and a failed one keeps the gallery in the library (`removeGallery`).
  */
 @Composable
 fun EhRemoveFavoriteDialog(
