@@ -1,9 +1,12 @@
 package reikai.domain.track
 
 import eu.kanade.domain.track.interactor.RefreshTracks
+import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.source.Source
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -117,6 +120,17 @@ class EntryTrackPortConformanceTest {
             coEvery { searchNovel(QUERY) } returns listOf(hit(NOVEL_CATALOGUE))
             coEvery { register(any(), any()) } answers { calls += "manga bind ${secondArg<Long>()}" }
         }
+
+        /** A tracker that can delete from its service, failing with [failure] when one is given. */
+        fun deletableTracker(
+            failure: Exception? = null,
+        ) = mockk<Tracker>(moreInterfaces = arrayOf(DeletableTracker::class)) {
+            every { id } returns TRACKER_ID
+            coEvery { (this@mockk as DeletableTracker).delete(any()) } answers {
+                failure?.let { throw it }
+                calls += "remote delete"
+            }
+        }
     }
 
     private val h = Harness()
@@ -144,6 +158,40 @@ class EntryTrackPortConformanceTest {
     @EnumSource(Type::class)
     fun `unbinding clears the tracker across the entry's merge group`(type: Type) = runTest {
         h.ports.of(type.entry).unbindInGroup(TRACKER_ID)
+
+        h.calls shouldBe listOf("${type.catalogue} group unbind $ENTRY_ID $TRACKER_ID")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a failed remote delete keeps the local binding`(type: Type) = runTest {
+        runCatching {
+            h.ports.of(type.entry).removeTrack(h.deletableTracker(RATE_LIMITED), mangaTrack(OWN_ROW), true)
+        }
+
+        h.calls shouldBe emptyList()
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a failed remote delete reaches the caller`(type: Type) = runTest {
+        shouldThrow<HttpException> {
+            h.ports.of(type.entry).removeTrack(h.deletableTracker(RATE_LIMITED), mangaTrack(OWN_ROW), true)
+        } shouldBe RATE_LIMITED
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `removing from the service deletes there before unbinding`(type: Type) = runTest {
+        h.ports.of(type.entry).removeTrack(h.deletableTracker(), mangaTrack(OWN_ROW), true)
+
+        h.calls shouldBe listOf("remote delete", "${type.catalogue} group unbind $ENTRY_ID $TRACKER_ID")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a local-only removal leaves the service alone`(type: Type) = runTest {
+        h.ports.of(type.entry).removeTrack(h.deletableTracker(), mangaTrack(OWN_ROW), false)
 
         h.calls shouldBe listOf("${type.catalogue} group unbind $ENTRY_ID $TRACKER_ID")
     }
@@ -183,6 +231,7 @@ class EntryTrackPortConformanceTest {
         const val NOVEL_CATALOGUE = "novel"
         const val GROUP_ROW = "group row"
         const val OWN_ROW = "own row"
+        val RATE_LIMITED = HttpException(429)
 
         fun hit(title: String) = TrackSearch.create(TRACKER_ID).apply { this.title = title }
 

@@ -82,6 +82,7 @@ import reikai.domain.track.EntryTrackPorts
 import reikai.domain.track.autobind.AutoBindTracker
 import reikai.domain.track.autobind.AutoBindTrackers
 import reikai.domain.track.autobind.offerTrackers
+import reikai.domain.track.removeTrack
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
@@ -865,8 +866,7 @@ data class EntryTrackerRemoveScreen(
                     }
                     FilledTonalButton(
                         onClick = {
-                            viewModel.unregisterTracking(serviceId)
-                            if (removeRemoteTrack) viewModel.deleteEntryFromService()
+                            viewModel.remove(alsoFromService = removeRemoteTrack)
                             navigator.pop()
                         },
                         colors = ButtonDefaults.filledTonalButtonColors(
@@ -887,6 +887,7 @@ data class EntryTrackerRemoveScreen(
         @Assisted entry: EntryId,
         @Assisted private val track: Track,
         @Assisted trackerId: Long,
+        private val context: Context,
         trackerManager: TrackerManager,
         ports: EntryTrackPorts,
     ) : ViewModel() {
@@ -905,21 +906,17 @@ data class EntryTrackerRemoveScreen(
 
         fun isDeletable() = tracker is DeletableTracker
 
-        fun deleteEntryFromService() {
+        // Cleared from every merged source, so a sibling's row can't keep the tracker alive in the
+        // library's tracker filter, sort and grouping. A failed service delete keeps the binding, so
+        // the toast is the only sign the user has to retry.
+        fun remove(alsoFromService: Boolean) {
             viewModelScope.launchNonCancellable {
                 try {
-                    (tracker as DeletableTracker).delete(track)
+                    port.removeTrack(tracker, track, alsoFromService)
                 } catch (e: Exception) {
-                    logcat(LogPriority.ERROR, e) { "Failed to delete entry from service" }
+                    logcat(LogPriority.ERROR, e) { "Failed to remove tracking" }
+                    withUIContext { context.toast(context.trackerErrorMessage(tracker, e)) }
                 }
-            }
-        }
-
-        fun unregisterTracking(serviceId: Long) {
-            viewModelScope.launchNonCancellable {
-                // Cleared from every merged source, so a sibling's row can't keep the tracker alive in
-                // the library's tracker filter, sort and grouping.
-                port.unbindInGroup(serviceId)
             }
         }
     }

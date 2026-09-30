@@ -2,6 +2,7 @@ package reikai.domain.track
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.track.interactor.RefreshTracks
+import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.coroutines.flow.Flow
@@ -46,6 +47,16 @@ interface EntryTrackPort {
     suspend fun bind(tracker: Tracker, item: TrackSearch)
 
     suspend fun unbindInGroup(trackerId: Long)
+}
+
+/**
+ * The one removal for every tracker and both types. The service goes first and a failure there throws
+ * before the local binding is touched, so the user can retry instead of leaving an entry on the
+ * service nothing here points at. Upstream drops the binding either way; see novel-tracking.md.
+ */
+suspend fun EntryTrackPort.removeTrack(tracker: Tracker, track: Track, alsoFromService: Boolean) {
+    if (alsoFromService) (tracker as DeletableTracker).delete(track)
+    unbindInGroup(tracker.id)
 }
 
 /** The one place an [EntryId] picks its tracking engine, so nothing above it branches on the type. */
