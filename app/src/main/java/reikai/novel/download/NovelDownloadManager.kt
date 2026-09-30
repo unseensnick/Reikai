@@ -107,16 +107,20 @@ class NovelDownloadManager(
      *  Only touched inside the single active drain, so a plain map is safe. */
     private val sourceDelays = HashMap<String, Long>()
 
-    init {
-        // Load the persisted queue into memory on launch, off the main thread (restore() reads the DB),
-        // so the queue screen shows it before anything resumes it. Nothing starts here, as in Mihon: a
-        // worker the system was running when the process died is rescheduled by WorkManager, and any
-        // other queue waits for Resume. Constructing this manager still reads the database, which is
-        // why its consumers take a Provider rather than the manager itself.
-        scope.launch {
-            val restored = store.restore()
-            if (restored.isNotEmpty() && _queueState.value.isEmpty()) {
-                _queueState.value = restored
+    /**
+     * Loads the saved queue on launch, off the main thread, behind anything queued meanwhile, as Mihon's
+     * Downloader appends its restored queue. A row no longer saved by the time it lands (cancelled or
+     * cleared while the restore read the database) stays out. Nothing starts here, as in Mihon: a worker
+     * the system was running is rescheduled by WorkManager, and any other queue waits for Resume. It is
+     * also why the manager's consumers take a provider: building it reads the database.
+     */
+    private val restoreJob = scope.launch {
+        val restored = store.restore()
+        synchronized(storeLock) {
+            val saved = store.persisted().mapTo(HashSet()) { it.chapterId }
+            _queueState.update { current ->
+                val live = current.mapTo(HashSet()) { it.chapterId }
+                current + restored.filter { it.chapterId in saved && it.chapterId !in live }
             }
         }
     }
@@ -230,9 +234,15 @@ class NovelDownloadManager(
         persistQueue()
     }
 
-    /** Rewrites the saved queue from the live one as it is at write time. */
+    /**
+     * Rewrites the saved queue from the live one as it is at write time, once the launch restore has
+     * landed: a rewrite before it would delete the saved rows it has not read yet.
+     */
     private fun persistQueue() {
-        scope.launch { synchronized(storeLock) { store.replaceAll(_queueState.value) } }
+        scope.launch {
+            restoreJob.join()
+            synchronized(storeLock) { store.replaceAll(_queueState.value) }
+        }
     }
 
     /** Call after the live queue dropped [chapterIds], so a rewrite cannot save them again. */
@@ -332,8 +342,9 @@ class NovelDownloadManager(
 
     /**
      * Drain the queue sequentially until empty. Called by [NovelDownloadJob]; the worker stays
-     * foreground for the duration. Restores the persisted queue first if the in-memory one is empty
-     * (cold restart). [onProgress] reports the chapter being downloaded, or why the drain is paused.
+     * foreground for the duration. Waits for the launch restore first, so a worker WorkManager reschedules
+     * after a restart sees the saved queue. [onProgress] reports the chapter being downloaded, or why the
+     * drain is paused.
      */
     suspend fun runQueue(
         onProgress: (NovelDownloadProgress) -> Unit,
@@ -341,9 +352,7 @@ class NovelDownloadManager(
     ) = drainLock.withLock {
         try {
             installer.ensureLoaded()
-            if (_queueState.value.isEmpty()) {
-                store.restore().takeIf { it.isNotEmpty() }?.let { _queueState.value = it }
-            }
+            restoreJob.join()
             // Everything still in the queue goes back to QUEUE, matching manga's Downloader.start. A
             // finished download leaves the queue, so what is left is either DOWNLOADING from a drain
             // that was cancelled (a user pause, a crash, a force-kill) or ERROR, which is exactly what

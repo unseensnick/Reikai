@@ -649,6 +649,7 @@ every stable release now also ships a foss build with neither in it.
 - **Retrying a failed manga chapter while other chapters are downloading now retries it at once, instead of doing nothing.**
 - **A chapter row on the details screen now shows a failed or retried download as it happens.** It used to keep the old mark until the screen was reopened, most visibly on a merged series.
 - **Sorting or reordering the download queue no longer brings back a chapter that just finished or drops one just queued.**
+- **Novel downloads queued before a restart are no longer lost when another chapter is queued right after opening the app.**
 
 ### Backup & restore
 
