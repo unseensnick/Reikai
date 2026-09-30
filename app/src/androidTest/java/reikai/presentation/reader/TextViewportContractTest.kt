@@ -1158,7 +1158,11 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(0, reports.lastOrNull { it.chapterId == FIRST }?.percent)
     }
 
-    /** Whether the opened chapter's text is on screen, before anything has said it rendered. */
+    /**
+     * Whether the opened chapter's text is on screen, before anything has said it rendered. The page has
+     * to have drawn it, not only parsed it: a WebView drops every touch sent to a page that has painted
+     * nothing, so a drag sent on the parse alone moved nothing and the case ran with no reader in it.
+     */
     private fun textShown(): Boolean = when (renderer) {
         Renderer.NATIVE -> {
             var shown = false
@@ -1167,7 +1171,10 @@ class TextViewportContractTest(private val renderer: Renderer) {
             }
             shown
         }
-        Renderer.WEB -> eval("document.querySelectorAll('#rk-chapters .rk-chapter p').length > 0") == "true"
+        Renderer.WEB -> eval(
+            "document.querySelectorAll('#rk-chapters .rk-chapter p').length > 0 &&" +
+                " performance.getEntriesByName('first-contentful-paint').length > 0",
+        ) == "true"
     }
 
     /**
