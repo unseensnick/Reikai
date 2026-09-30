@@ -440,12 +440,7 @@ class EntryMigrationListViewModel(
         row.scope.launch(io) { acceptPicked(row, candidate) }
     }
 
-    /**
-     * Take a manually picked target: resolve it first, and accept it only if it came back with
-     * chapters, which is upstream's refusal. A pick is the one target nothing else verified, and a
-     * chapterless one is what the commit would throw on, leaving the row failed for no reason the
-     * user could act on. A refusal puts the row back where it was and says so.
-     */
+    /** Take a manually picked target through [resolvePick]. A refusal puts the row back and says so. */
     private suspend fun acceptPicked(row: MigratingEntryRow, candidate: MigrationCandidate) {
         if (!MigrationRowRules.canChoose(row.commit.value)) return
         // A pick answers the question the picker was open for; leaving it open buries the result.
@@ -458,13 +453,13 @@ class EntryMigrationListViewModel(
             row.search.value = SearchPhase.Searching
             syncCounts()
         }
-        val resolved = runCatchingCancellable { adapter.resolve(candidate) }.getOrNull()
         // The counts come from the resolve, so no peek follows this.
-        val target = resolved?.candidate?.takeIf { it.chapterCount != null }
-        when {
-            target == null -> reportPick(PickOutcome.NoChapters)
+        when (val pick = adapter.resolvePick(candidate)) {
+            is PendingPick.Rejected -> reportPick(pick.outcome)
             // Re-checked after the fetch: a commit may have claimed the row while it ran.
-            MigrationRowRules.canChoose(row.commit.value) -> row.acceptance.value = Acceptance.Accepted(target)
+            is PendingPick.Ready -> if (MigrationRowRules.canChoose(row.commit.value)) {
+                row.acceptance.value = Acceptance.Accepted(pick.candidate)
+            }
         }
         if (previous != null) row.search.value = previous
         syncCounts()

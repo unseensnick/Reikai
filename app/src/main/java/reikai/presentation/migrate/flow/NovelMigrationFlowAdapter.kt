@@ -37,7 +37,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
 /**
  * The adapter-owned novel candidate: the raw search hit, and the stored row once
  * [NovelMigrationFlowAdapter.resolve] has materialised it. A hit is only a plugin's search-result
- * entry until then, which is why novel candidates start unresolved.
+ * entry until then, which is why novel candidates start unresolved. A stored row says the row
+ * exists, not that its chapters were ever fetched: a browsed pick arrives stored and empty.
  */
 data class NovelCandidateHandle(
     val item: NovelItem,
@@ -235,13 +236,13 @@ class NovelMigrationFlowAdapter(
 
     override suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget? {
         val handle = candidate.handle as? NovelCandidateHandle ?: return null
-        // The handle says whether this was already materialised: a stored row means resolve has run.
-        if (handle.stored != null) return ResolvedTarget(candidate, syncedNow = false)
         val source = sourceManager.get(candidate.sourceKey) ?: return null
         // The search hit already carries everything a row needs to exist (title, path, cover), so it
         // is stored straight from that; the refresh below is the one call that parses the source, and
         // it fills in the details and chapters. Parsing here as well would double every accept.
-        val stored = novelRepository.insertOrGet(handle.item.toNovel(source.id)) ?: return null
+        // A row the handle already holds is reused, never taken as synced: a target picked by
+        // browsing a source is stored with no chapters, so it still owes the fetch below.
+        val stored = handle.stored ?: novelRepository.insertOrGet(handle.item.toNovel(source.id)) ?: return null
         // Skipped for a row that already has chapters, and best-effort, as manga's fetch is: a
         // failure still resolves, unsynced, and the engine's own refresh is the second attempt,
         // which fails the row if the source is still failing.

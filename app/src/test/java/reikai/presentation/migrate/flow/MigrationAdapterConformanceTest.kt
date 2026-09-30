@@ -13,6 +13,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
+import mihon.domain.source.interactor.UpdateMangaFromRemote
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.entry.EntryId
@@ -35,13 +36,15 @@ import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
+import java.io.IOException
 
 /**
  * The rules both migration adapters must answer alike, run over each real adapter with its engine
  * mocked at the repository and source boundary. The world is the same for both: one stored entry
  * (id [ENTRY_ID], url [OWN_URL]) on an uninstalled source last seen as [OLD_NAME], and an installed
- * target source listing the given urls, where every stored row has the given number of chapters
- * and every listing's own chapter list is the given chapter urls.
+ * target source listing the given urls, with one row ([PICK_ID]) already stored from it. Every stored
+ * row has the given number of chapters until the source is asked for a chapter list to store, and
+ * the given chapter urls, as the source lists them, after that.
  */
 class MigrationAdapterConformanceTest {
 
@@ -72,6 +75,15 @@ class MigrationAdapterConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `resolving a stored pick that has no chapters asks its source for them`(probe: Probe) = runTest {
+        val adapter = probe.adapter(chapters = 0, sourceChapters = listOf("/c1", "/c2"))
+        val pick = adapter.storedCandidate(PICK_ID) ?: error("the picked row is stored")
+
+        adapter.resolve(pick)?.candidate?.chapterCount shouldBe 2
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `a peek counts a chapter the source lists twice once`(probe: Probe) = runTest {
         val adapter = probe.adapter(listing = listOf("/t"), chapters = 0, sourceChapters = listOf("/c1", "/c1", "/c2"))
         val hit = adapter.candidates(probe.entry(onSource = probe.oldSource), "q", probe.target).single()
@@ -87,6 +99,7 @@ class MigrationAdapterConformanceTest {
 
     companion object {
         const val ENTRY_ID = 1L
+        const val PICK_ID = 2L
         const val OWN_URL = "/own"
         const val OLD_NAME = "Old source"
 
@@ -122,9 +135,17 @@ object MangaProbe : Probe {
         url = MigrationAdapterConformanceTest.OWN_URL,
         title = "Title",
     )
+    private val picked = Manga.create().copy(
+        id = MigrationAdapterConformanceTest.PICK_ID,
+        source = 2L,
+        url = "/picked",
+        title = "Picked",
+        thumbnailUrl = "cover",
+    )
 
     override fun adapter(listing: List<String>, chapters: Int, sourceChapters: List<String>): MigrationFlowAdapter {
-        val rows = mutableMapOf(stored.id to stored)
+        val rows = mutableMapOf(stored.id to stored, picked.id to picked)
+        var synced = false
         val catalogue = mockk<CatalogueSource>(relaxed = true) {
             every { id } returns 2L
             every { name } returns "Target"
@@ -160,8 +181,10 @@ object MangaProbe : Probe {
             sourcePreferences = mockk(relaxed = true),
             getManga = mockk<GetManga> { coEvery { await(any<Long>()) } answers { rows[firstArg()] } },
             getChaptersByMangaId = mockk<GetChaptersByMangaId> {
-                coEvery { await(any(), any()) } returns List(chapters) {
-                    Chapter.create().copy(id = it + 1L, chapterNumber = it + 1.0)
+                coEvery { await(any(), any()) } answers {
+                    List(if (synced) sourceChapters.size else chapters) {
+                        Chapter.create().copy(id = it + 1L, chapterNumber = it + 1.0)
+                    }
                 }
             },
             networkToLocalManga = mockk<NetworkToLocalManga> {
@@ -176,7 +199,12 @@ object MangaProbe : Probe {
             migrateManga = mockk(relaxed = true),
             mergeManager = mockk(relaxed = true),
             getFavorites = mockk(relaxed = true),
-            updateMangaFromRemote = mockk(relaxed = true),
+            updateMangaFromRemote = mockk<UpdateMangaFromRemote>(relaxed = true) {
+                coEvery { this@mockk.invoke(any<Manga>(), any(), fetchChapters = true, any(), any()) } answers {
+                    synced = true
+                    Result.failure(IOException("the probe stores no update"))
+                }
+            },
         )
     }
 
@@ -203,15 +231,23 @@ object NovelProbe : Probe {
         url = MigrationAdapterConformanceTest.OWN_URL,
         title = "Title",
     )
+    private val picked = Novel.create().copy(
+        id = MigrationAdapterConformanceTest.PICK_ID,
+        source = "target",
+        url = "/picked",
+        title = "Picked",
+    )
 
     override fun adapter(listing: List<String>, chapters: Int, sourceChapters: List<String>): MigrationFlowAdapter {
-        val rows = mutableMapOf(stored.id to stored)
+        val rows = mutableMapOf(stored.id to stored, picked.id to picked)
+        var synced = false
         val targetSource = mockk<NovelSource>(relaxed = true) {
             every { id } returns "target"
             every { name } returns "Target"
             coEvery { search(any(), any(), any()) } returns
                 NovelItemsPage(listing.map { NovelItem(it, it, null) }, hasNextPage = false)
             coEvery { parseNovel(any()) } answers {
+                synced = true
                 SourceNovel(firstArg(), chapters = sourceChapters.map { ChapterItem("Chapter ${it.drop(2)}", it) })
             }
         }
@@ -241,7 +277,9 @@ object NovelProbe : Probe {
                 }
             },
             chapterRepository = mockk<NovelChapterRepository> {
-                coEvery { getByNovelId(any()) } answers { List(chapters) { storedChapter(firstArg(), it + 1.0) } }
+                coEvery { getByNovelId(any()) } answers {
+                    List(if (synced) sourceChapters.size else chapters) { storedChapter(firstArg(), it + 1.0) }
+                }
             },
             libraryPreferences = mockk(relaxed = true),
             coverCache = mockk(relaxed = true),

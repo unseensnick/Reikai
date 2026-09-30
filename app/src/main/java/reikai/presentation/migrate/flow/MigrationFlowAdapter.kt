@@ -97,7 +97,8 @@ data class MigrationCandidate(
      * candidate a materialising [MigrationFlowAdapter.resolve] is a property of the handle, not of
      * the shared model. It used to be a Boolean here whose meaning differed per adapter, which the
      * surface's standing rules forbid. The novel handle answers it with its stored row; manga
-     * candidates are stored from search time, so its resolve re-checks chapters regardless.
+     * candidates are stored from search time. Both resolves re-check chapters regardless, since a
+     * stored row may never have been synced.
      */
     val handle: MigrationHandle,
 )

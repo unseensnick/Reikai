@@ -2,7 +2,9 @@ package reikai.presentation.migrate.flow
 
 import eu.kanade.domain.source.service.SourcePreferences
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -11,6 +13,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.entry.EntryId
 import reikai.presentation.recents.EmittingPreferenceStore
 
 /**
@@ -31,10 +34,11 @@ class EntryMigrationSearchViewModelTest {
     private fun model(
         adapter: FakeMigrationFlowAdapter = FakeMigrationFlowAdapter(listOf(migrationEntry(1))),
         extraQuery: String? = null,
+        pickHandoff: MigrationPickHandoff = MigrationPickHandoff(),
     ) = EntryMigrationSearchViewModel(
         entryId = 1L,
         adapter = adapter,
-        pickHandoff = MigrationPickHandoff(),
+        pickHandoff = pickHandoff,
         sourcePreferences = sourcePreferences,
         extraQuery = extraQuery,
         io = dispatcher,
@@ -70,6 +74,97 @@ class EntryMigrationSearchViewModelTest {
         advanceUntilIdle()
 
         adapter.candidateQueries shouldBe listOf("Entry 1")
+    }
+
+    @Test
+    fun `a picked target with no chapters is refused before the dialog`() = runTest(dispatcher.scheduler) {
+        val adapter = FakeMigrationFlowAdapter(listOf(migrationEntry(1)), suggestionLatestChapter = null)
+        val model = model(adapter)
+        advanceUntilIdle()
+        val chapterless = adapter.candidates(migrationEntry(1), "Entry 1", "target").single()
+
+        model.pick(chapterless)
+        advanceUntilIdle()
+
+        model.state.value.let { it.dialogTarget to it.pickOutcome } shouldBe (null to PickOutcome.NoChapters)
+    }
+
+    @Test
+    fun `a picked target with chapters opens the dialog on it`() = runTest(dispatcher.scheduler) {
+        val adapter = FakeMigrationFlowAdapter(listOf(migrationEntry(1)))
+        val model = model(adapter)
+        advanceUntilIdle()
+        val target = adapter.candidates(migrationEntry(1), "Entry 1", "target").single()
+
+        model.pick(target)
+        advanceUntilIdle()
+
+        model.state.value.dialogTarget shouldBe target
+    }
+
+    @Test
+    fun `a pick still being resolved shows as working`() = runTest(dispatcher.scheduler) {
+        val adapter = FakeMigrationFlowAdapter(listOf(migrationEntry(1)), onResolve = { awaitCancellation() })
+        val model = model(adapter)
+        advanceUntilIdle()
+
+        model.pick(adapter.candidates(migrationEntry(1), "Entry 1", "target").single())
+        advanceUntilIdle()
+
+        model.state.value.resolvingPick shouldBe true
+    }
+
+    @Test
+    fun `a settled pick stops showing as working`() = runTest(dispatcher.scheduler) {
+        val adapter = FakeMigrationFlowAdapter(listOf(migrationEntry(1)))
+        val model = model(adapter)
+        advanceUntilIdle()
+
+        model.pick(adapter.candidates(migrationEntry(1), "Entry 1", "target").single())
+        advanceUntilIdle()
+
+        model.state.value.resolvingPick shouldBe false
+    }
+
+    @Test
+    fun `a later pick replaces one still being resolved`() = runTest(dispatcher.scheduler) {
+        val slowResolve = CompletableDeferred<Unit>()
+        val adapter = FakeMigrationFlowAdapter(
+            listOf(migrationEntry(1)),
+            onResolve = {
+                if (it.key == "slow") slowResolve.await()
+                ResolvedTarget(it, syncedNow = true)
+            },
+        )
+        val model = model(adapter)
+        advanceUntilIdle()
+        val later = adapter.candidates(migrationEntry(1), "Entry 1", "target").single()
+
+        model.pick(later.copy(key = "slow"))
+        advanceUntilIdle()
+        model.pick(later)
+        advanceUntilIdle()
+        slowResolve.complete(Unit)
+        advanceUntilIdle()
+
+        model.state.value.dialogTarget shouldBe later
+    }
+
+    @Test
+    fun `a browsed pick with no chapters is refused before the dialog`() = runTest(dispatcher.scheduler) {
+        val handoff = MigrationPickHandoff().apply { offer(EntryId.Manga(1), targetRawId = 9L) }
+        val adapter = FakeMigrationFlowAdapter(
+            listOf(migrationEntry(1)),
+            suggestionLatestChapter = null,
+            storedIds = setOf(9L),
+        )
+        val model = model(adapter, pickHandoff = handoff)
+        advanceUntilIdle()
+
+        model.collectPendingPick()
+        advanceUntilIdle()
+
+        model.state.value.let { it.dialogTarget to it.pickOutcome } shouldBe (null to PickOutcome.NoChapters)
     }
 
     @Test

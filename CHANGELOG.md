@@ -495,6 +495,7 @@ every stable release now also ships a foss build with neither in it.
 
 - **Migrating no longer asks the target's source for the same thing twice, roughly halving the load a large migration puts on the site.** That matters most where rate limits bite.
 - **Migrating a manga or novel with its chapters now brings its reading history along.** Its History entries and its place in the library's Last read sort follow it to the new source.
+- **Single-entry migration search now refuses a match with no chapters before the migrate dialog, like the batch list.** A novel picked by browsing a source is no longer refused as having no chapters.
 
 #### Fixed
 

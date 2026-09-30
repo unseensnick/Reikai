@@ -53,6 +53,7 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Migrating a single entry: search the chosen sources and pick the target directly.
@@ -119,12 +120,15 @@ class EntryMigrationSearchScreen(
                         )
                         val progress = state.searchedCount
                         val total = state.sections.size
-                        if (progress in 1..<total) {
-                            LinearProgressIndicator(
+                        val barModifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                        when {
+                            // Indeterminate: a resolve is one fetch of unknown length.
+                            state.resolvingPick -> LinearProgressIndicator(modifier = barModifier)
+                            progress in 1..<total -> LinearProgressIndicator(
                                 progress = { progress / total.toFloat() },
-                                modifier = Modifier
-                                    .align(Alignment.BottomStart)
-                                    .fillMaxWidth(),
+                                modifier = barModifier,
                             )
                         }
                     }
@@ -169,7 +173,7 @@ class EntryMigrationSearchScreen(
                         strip = section,
                         showsFormat = showsFormat,
                         isCurrentSource = section.sourceKey == entry.sourceKey,
-                        onPick = viewModel::showDialog,
+                        onPick = viewModel::pick,
                         onPreview = { it.openDetails(navigator) },
                         onBrowseSource = {
                             if (!openDeepPicker(navigator, entry, section.sourceKey, query)) {
@@ -245,6 +249,10 @@ class EntryMigrationSearchViewModel(
     @Volatile
     private var searchJob: Job? = null
 
+    // A count, not a job handle: a handle is only assigned once launch returns, so a resolve that
+    // got going first would compare itself against the pick before it.
+    private val pickGeneration = AtomicInteger()
+
     init {
         viewModelScope.launch(io) {
             adapter.prepare()
@@ -291,9 +299,25 @@ class EntryMigrationSearchViewModel(
         pickHandoff.clear()
     }
 
-    /** Held in model state, not the composition, so a rotation mid-migrate keeps the dialog alive
-     *  to receive its result. */
-    fun showDialog(target: MigrationCandidate) = state.update { it.copy(dialogTarget = target) }
+    /**
+     * Take a picked target through [resolvePick]: open the migrate dialog on it, or say why it was
+     * refused. The dialog is held in model state, not the composition, so a rotation mid-migrate
+     * keeps it alive to receive its result. A later pick supersedes one still resolving.
+     */
+    fun pick(target: MigrationCandidate) {
+        val generation = pickGeneration.incrementAndGet()
+        state.update { it.copy(resolvingPick = true) }
+        viewModelScope.launch(io) {
+            val pick = adapter.resolvePick(target)
+            state.update {
+                if (generation != pickGeneration.get()) return@update it
+                when (pick) {
+                    is PendingPick.Ready -> it.copy(resolvingPick = false, dialogTarget = pick.candidate)
+                    is PendingPick.Rejected -> it.copy(resolvingPick = false, pickOutcome = pick.outcome)
+                }
+            }
+        }
+    }
 
     fun dismissDialog() = state.update { it.copy(dialogTarget = null) }
 
@@ -303,16 +327,16 @@ class EntryMigrationSearchViewModel(
     }
 
     /**
-     * Open the migrate dialog for a target picked on a pushed browse screen, if one came back for
-     * this entry. Called when the screen returns to the foreground; the pick is a stored row
-     * already, so it wraps into a resolved candidate with no search.
+     * Take a target picked on a pushed browse screen, if one came back for this entry. Called when
+     * the screen returns to the foreground. The pick is a stored row, which says nothing about its
+     * chapters, so it goes through [pick] like a tapped result.
      */
     fun collectPendingPick() {
         val entry = state.value.entry ?: return
         viewModelScope.launch(io) {
             when (val pick = adapter.takePendingPick(pickHandoff, entry.id)) {
                 null -> return@launch
-                is PendingPick.Ready -> state.update { it.copy(dialogTarget = pick.candidate) }
+                is PendingPick.Ready -> pick(pick.candidate)
                 is PendingPick.Rejected -> state.update { it.copy(pickOutcome = pick.outcome) }
             }
         }
@@ -326,6 +350,8 @@ class EntryMigrationSearchViewModel(
         val entry: MigrationEntry? = null,
         val sections: List<SourceStrip> = emptyList(),
         val dialogTarget: MigrationCandidate? = null,
+        /** A picked target is being resolved before its dialog opens; see [pick]. */
+        val resolvingPick: Boolean = false,
         /** Consume-once: see [PickOutcome]. */
         val pickOutcome: PickOutcome? = null,
         val onlyShowHasResults: Boolean = false,

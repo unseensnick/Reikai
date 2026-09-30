@@ -141,7 +141,7 @@ suspend fun MigrationFlowAdapter.fanOutCandidates(
     }
 }
 
-/** A target picked on a pushed browse screen, once it has been read back. */
+/** A hand-picked target once it has been read back: ready to take, or refused with the reason. */
 sealed interface PendingPick {
     data class Ready(val candidate: MigrationCandidate) : PendingPick
 
@@ -166,6 +166,17 @@ suspend fun MigrationFlowAdapter.takePendingPick(
     val candidate = runCatchingCancellable { storedCandidate(targetRawId) }.getOrNull()
         ?: return PendingPick.Rejected(PickOutcome.Unavailable)
     return PendingPick.Ready(candidate)
+}
+
+/**
+ * Resolve a hand-picked target, refusing one that comes back with no chapters, which is upstream's
+ * refusal. A pick is the one target nothing else verified, and a chapterless one is what the commit
+ * throws on, where the user gets only a generic failure. Every route that takes a pick calls this.
+ */
+suspend fun MigrationFlowAdapter.resolvePick(candidate: MigrationCandidate): PendingPick {
+    val resolved = runCatchingCancellable { resolve(candidate) }.getOrNull()?.candidate
+    return resolved?.takeIf { it.chapterCount != null }?.let(PendingPick::Ready)
+        ?: PendingPick.Rejected(PickOutcome.NoChapters)
 }
 
 /** Announce a pick that could not be applied, then consume it. */

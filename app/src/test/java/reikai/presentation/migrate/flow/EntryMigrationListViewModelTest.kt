@@ -113,6 +113,23 @@ class EntryMigrationListViewModelTest {
     }
 
     @Test
+    fun `a picked target with no chapters is refused`() = runTest(dispatcher.scheduler) {
+        val adapter = FakeMigrationFlowAdapter(listOf(entry(1)), suggestionLatestChapter = null)
+        val model = EntryMigrationListViewModel(
+            entryIds = listOf(1L),
+            adapter = adapter,
+            pickHandoff = MigrationPickHandoff(),
+            io = dispatcher,
+        )
+        advanceUntilIdle()
+
+        model.pick(EntryId.Manga(1), adapter.candidates(entry(1), "Entry 1", "target").single())
+        advanceUntilIdle()
+
+        model.state.value.pickOutcome shouldBe PickOutcome.NoChapters
+    }
+
+    @Test
     fun `a manual search on a row sends the extra query with it`() = runTest(dispatcher.scheduler) {
         val adapter = FakeMigrationFlowAdapter(listOf(entry(1)))
         val model = EntryMigrationListViewModel(

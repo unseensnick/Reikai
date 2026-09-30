@@ -30,6 +30,10 @@ class FakeMigrationFlowAdapter(
     private val peekLatestChapter: Double? = null,
     /** The library entries the favorites picker lists for any source. */
     private val favorites: List<MigrationFavorite> = emptyList(),
+    /** The rows a browsed pick can be read back from; each reads back as this entry's candidate. */
+    private val storedIds: Set<Long> = emptySet(),
+    /** What resolving a candidate answers: by default the candidate as it stands, freshly synced. */
+    private val onResolve: suspend (MigrationCandidate) -> ResolvedTarget? = { ResolvedTarget(it, syncedNow = true) },
 ) : MigrationFlowAdapter {
     val migrated = mutableListOf<EntryId>()
     val blocked = CompletableDeferred<Unit>()
@@ -70,10 +74,11 @@ class FakeMigrationFlowAdapter(
         return listOf(candidateFor(entry))
     }
 
-    override suspend fun resolve(candidate: MigrationCandidate) = ResolvedTarget(candidate, syncedNow = true)
+    override suspend fun resolve(candidate: MigrationCandidate) = onResolve(candidate)
     override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? =
         peekLatestChapter?.let { candidate.copy(latestChapter = it) }
-    override suspend fun storedCandidate(id: Long): MigrationCandidate? = null
+    override suspend fun storedCandidate(id: Long): MigrationCandidate? =
+        entries.firstOrNull()?.takeIf { id in storedIds }?.let(::candidateFor)
     override fun savedFlags(): Set<MigrationDataFlag> = emptySet()
     override fun persistFlags(flags: Set<MigrationDataFlag>) = Unit
     override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> = emptySet()
