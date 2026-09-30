@@ -1,11 +1,13 @@
 package reikai.presentation.reader.text
 
 import android.content.Context
+import androidx.annotation.ColorInt
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.AbstractComposeView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -28,9 +31,11 @@ import tachiyomi.presentation.core.i18n.stringResource
 /**
  * Drawn at the edge of the window where the chapter beyond it would not load, so the text stops with
  * a reason and a way out rather than simply ending. The manga viewers put the same thing in their
- * chapter transition; this is that shape for a reader whose seams are not separate items.
+ * chapter transition; this is that shape for a reader whose seams are not separate items. It sits on
+ * the reader's background, so it draws in the reader's [textColor], Retry and its progress included,
+ * and only the source's message keeps the app's error colour, as the WebView page's box does.
  */
-class NovelBoundaryFailureView(context: Context) : AbstractComposeView(context) {
+class NovelBoundaryFailureView(context: Context, @ColorInt val textColor: Int) : AbstractComposeView(context) {
 
     private var failure: Failure? by mutableStateOf(null)
 
@@ -50,8 +55,9 @@ class NovelBoundaryFailureView(context: Context) : AbstractComposeView(context) 
     @Composable
     override fun Content() {
         val shown = failure ?: return
+        val readerText = Color(textColor)
         TachiyomiTheme {
-            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+            CompositionLocalProvider(LocalContentColor provides readerText) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -71,9 +77,10 @@ class NovelBoundaryFailureView(context: Context) : AbstractComposeView(context) 
                         )
                     }
                     if (retrying) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = readerText)
                     } else {
                         TextButton(
+                            colors = ButtonDefaults.textButtonColors(contentColor = readerText),
                             onClick = {
                                 retrying = true
                                 shown.onRetry()

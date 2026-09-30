@@ -616,13 +616,19 @@ class NovelTextViewport(
     private fun NovelReaderSettings.markShape() =
         listOf(ttsHighlight, ttsHighlightStyle, ttsHighlightColor, ttsHighlightTextColor)
 
+    /** What the markers and failure views draw in: they sit on the reader's background, not the app's. */
+    private fun readerTextColor() = readerTextColorInt(checkNotNull(settings).textColor)
+
     override fun applySettings(settings: NovelReaderSettings) {
         val previous = this.settings
         this.settings = settings
-        // The markers are views of their own, so showing or hiding them re-measures no text.
-        if (previous != null && previous.alwaysShowChapterTransition != settings.alwaysShowChapterTransition) {
-            adapter.refreshSeams()
-        }
+        // The markers are views of their own, so showing, hiding or recolouring them re-measures no text.
+        val recoloured = previous != null && previous.textColor != settings.textColor
+        val seamsToggled =
+            previous != null && previous.alwaysShowChapterTransition != settings.alwaysShowChapterTransition
+        if (recoloured || seamsToggled) adapter.refreshMarkers()
+        // A cached holder is rebound whole by the notice above; the bound ones need their failures redrawn.
+        if (recoloured) adapter.refreshBoundaries()
         if (previous?.markShape() != settings.markShape()) drawSpokenParagraph()
         if (previous != null && previous.renderShape() == settings.renderShape()) return
         // A chapter still rendering built its pictures at the old size and joins with a restyle.
@@ -1395,7 +1401,7 @@ class NovelTextViewport(
                 before.getOrNull(oldItemPosition - 1)?.chapter?.chapterId ==
                     after.getOrNull(newItemPosition - 1)?.chapter?.chapterId
 
-            override fun getChangePayload(oldItemPosition: Int, newItemPosition: Int): Any = SEAM_CHANGED
+            override fun getChangePayload(oldItemPosition: Int, newItemPosition: Int): Any = MARKERS_CHANGED
         }
 
         /** The seam marker sits above the chapter rather than between two items, so a position still
@@ -1415,10 +1421,11 @@ class NovelTextViewport(
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
-            val head = NovelBoundaryFailureView(parent.context).apply { isVisible = false }
-            val seam = NovelChapterSeamView(parent.context, seam = null)
-            val end = NovelChapterSeamView(parent.context, seam = null)
-            val tail = NovelBoundaryFailureView(parent.context).apply { isVisible = false }
+            val color = readerTextColor()
+            val head = NovelBoundaryFailureView(parent.context, color).apply { isVisible = false }
+            val seam = NovelChapterSeamView(parent.context, seam = null, color)
+            val end = NovelChapterSeamView(parent.context, seam = null, color)
+            val tail = NovelBoundaryFailureView(parent.context, color).apply { isVisible = false }
             val root = LinearLayout(parent.context).apply {
                 orientation = LinearLayout.VERTICAL
                 layoutParams = RecyclerView.LayoutParams(
@@ -1433,11 +1440,12 @@ class NovelTextViewport(
             return Holder(root, head, seam, end, tail)
         }
 
-        /** A seam-only change rebinds just the seam: a full bind re-adds the chapter's text container,
+        /** A marker-only change rebinds just the markers: a full bind re-adds the chapter's text container,
          *  re-measuring every chunk of what may be the chapter on screen. */
         override fun onBindViewHolder(holder: Holder, position: Int, payloads: MutableList<Any>) {
-            if (payloads.isNotEmpty() && payloads.all { it === SEAM_CHANGED }) {
+            if (payloads.isNotEmpty() && payloads.all { it === MARKERS_CHANGED }) {
                 bindSeam(holder, position)
+                bindEnd(holder, position)
             } else {
                 onBindViewHolder(holder, position)
             }
@@ -1480,16 +1488,18 @@ class NovelTextViewport(
             val finished = shown.getOrNull(position - 1)?.chapter
             val seam = finished?.let { NovelSeam.between(it, shown[position].chapter) }
                 ?.drawn(settings?.alwaysShowChapterTransition)
-            if (seam == holder.seam.seam) return
-            holder.seam = holder.root.replace(holder.seam, NovelChapterSeamView(holder.root.context, seam))
+            val color = readerTextColor()
+            if (seam == holder.seam.seam && color == holder.seam.textColor) return
+            holder.seam = holder.root.replace(holder.seam, NovelChapterSeamView(holder.root.context, seam, color))
         }
 
-        /** The marker below the novel's last chapter, which depends on that chapter alone, so a full
-         *  bind is the only point it can change. */
+        /** The marker below the novel's last chapter, which depends on that chapter and the text colour
+         *  alone, so a full bind and a colour change are the only points it can change. */
         private fun bindEnd(holder: Holder, position: Int) {
             val end = NovelSeam.end(shown[position].chapter)?.drawn(settings?.alwaysShowChapterTransition)
-            if (end == holder.end.seam) return
-            holder.end = holder.root.replace(holder.end, NovelChapterSeamView(holder.root.context, end))
+            val color = readerTextColor()
+            if (end == holder.end.seam && color == holder.end.textColor) return
+            holder.end = holder.root.replace(holder.end, NovelChapterSeamView(holder.root.context, end, color))
         }
 
         /**
@@ -1497,20 +1507,21 @@ class NovelTextViewport(
          * A single-chapter window is both ends at once, which is the shape a first load leaves.
          */
         private fun bindBoundaries(holder: Holder, position: Int) {
+            val color = readerTextColor()
             val above = failedPrevious.takeIf { position == 0 }
-            if (above != holder.headFailure) {
+            if (above != holder.headFailure || color != holder.head.textColor) {
                 holder.headFailure = above
-                holder.head = holder.root.replace(holder.head, failureView(above, forward = false))
+                holder.head = holder.root.replace(holder.head, failureView(above, forward = false, color))
             }
             val below = failedNext.takeIf { position == shown.lastIndex }
-            if (below != holder.tailFailure) {
+            if (below != holder.tailFailure || color != holder.tail.textColor) {
                 holder.tailFailure = below
-                holder.tail = holder.root.replace(holder.tail, failureView(below, forward = true))
+                holder.tail = holder.root.replace(holder.tail, failureView(below, forward = true, color))
             }
         }
 
-        private fun failureView(failure: NovelReaderViewModel.BoundaryFailure?, forward: Boolean) =
-            NovelBoundaryFailureView(context).apply {
+        private fun failureView(failure: NovelReaderViewModel.BoundaryFailure?, forward: Boolean, color: Int) =
+            NovelBoundaryFailureView(context, color).apply {
                 failure?.let { bind(it.message) { callbacks.onRetryBoundary(forward) } }
                 isVisible = failure != null
             }
@@ -1537,10 +1548,11 @@ class NovelTextViewport(
             }
         }
 
-        /** Re-decides every seam once the setting that hides them has changed. A change notice rather
-         *  than the bound holders alone, since a holder cached off screen would come back with its old
-         *  seam. One above the text the reader is in moves that text, so that is taken back. */
-        fun refreshSeams() = keepingReaderStill { notifyItemRangeChanged(0, shown.size, SEAM_CHANGED) }
+        /** Re-decides every marker once the setting that hides seams or the text colour has changed. A
+         *  change notice rather than the bound holders alone, since a holder cached off screen would come
+         *  back with its old marker. One above the text the reader is in moves that text, so that is
+         *  taken back. */
+        fun refreshMarkers() = keepingReaderStill { notifyItemRangeChanged(0, shown.size, MARKERS_CHANGED) }
 
         override fun getItemCount(): Int = shown.size
     }
@@ -1554,9 +1566,9 @@ class NovelTextViewport(
          *  the edge above it and the seam marker, before the end marker and the failure view below. */
         const val CHAPTER_CHILD_INDEX = 2
 
-        /** The one partial change an item takes: what its seam draws, since the chapter above it moved
-         *  or the setting that hides seams changed. */
-        val SEAM_CHANGED = Any()
+        /** The one partial change an item takes: what its markers draw, since the chapter above it moved,
+         *  the setting that hides seams changed or the text colour did. */
+        val MARKERS_CHANGED = Any()
     }
 }
 

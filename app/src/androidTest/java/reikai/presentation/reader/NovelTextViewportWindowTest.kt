@@ -28,6 +28,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.text.ChapterImageSpan
+import reikai.presentation.reader.text.NovelBoundaryFailureView
 import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.PngServer
 import reikai.presentation.reader.text.pngOf
@@ -170,6 +171,29 @@ class NovelTextViewportWindowTest {
             precomputed = textViews(viewport.view).first { it.text.contains("current 1.") }.text is PrecomputedText
         }
         assertTrue("the chapter's text was copied out of its precomputed layout", precomputed)
+    }
+
+    /** The markers and failures sit on the reader's background, so they follow its text colour rather
+     *  than the app theme's, and a colour change redraws the ones already shown. */
+    @Test
+    fun aColourChangeRedrawsTheFailureAndEndMarkerInTheNewColour() {
+        open(LONG, long("current"), isLast = true)
+        instrumentation.runOnMainSync {
+            viewport.setBoundaryFailures(
+                NovelReaderViewModel.BoundaryFailure("offline", failedAtElapsedMs = 1L, chapterId = PREVIOUS),
+                null,
+            )
+        }
+        settle()
+        instrumentation.runOnMainSync { viewport.applySettings(readerTestSettings.copy(textColor = "#FF8800")) }
+        settle()
+        var drawn = emptyList<Int>()
+        instrumentation.runOnMainSync {
+            drawn = descendants(viewport.view).filter { it.isVisible }.mapNotNull {
+                (it as? NovelBoundaryFailureView)?.textColor ?: (it as? NovelChapterSeamView)?.textColor
+            }
+        }
+        assertEquals(List(2) { readerTextColorInt("#FF8800") }, drawn)
     }
 
     /** The marker naming both chapters appears on the lower one once the upper one has joined. */

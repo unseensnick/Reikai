@@ -1,6 +1,7 @@
 package reikai.presentation.reader.text
 
 import android.content.Context
+import androidx.annotation.ColorInt
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.LocalContentColor
@@ -10,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.AbstractComposeView
 import androidx.core.view.isVisible
 import eu.kanade.presentation.reader.TransitionChapter
@@ -20,13 +22,17 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * The marker between two chapters the reader runs straight through, drawn by the same composable the
- * manga viewers use so a seam reads the same in either. Without it a chapter simply becomes the next
- * one mid-scroll, which is what it looked like before.
+ * manga viewers use so a seam reads the same in either.
  *
  * [seam] is what it says, or null to hide it; one with no next chapter is the end-of-novel marker.
- * Fixed at construction, because the viewport swaps in a new view rather than re-binding one.
+ * [textColor] is the reader's, as the marker sits on the reader's background. Both are fixed at
+ * construction, because the viewport swaps in a new view rather than re-binding one.
  */
-class NovelChapterSeamView(context: Context, val seam: NovelSeam?) : AbstractComposeView(context) {
+class NovelChapterSeamView(
+    context: Context,
+    val seam: NovelSeam?,
+    @ColorInt val textColor: Int,
+) : AbstractComposeView(context) {
 
     init {
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
@@ -44,7 +50,7 @@ class NovelChapterSeamView(context: Context, val seam: NovelSeam?) : AbstractCom
             CompositionLocalProvider(
                 // ChapterTransition's own style, which the manga viewers draw this with.
                 LocalTextStyle provides MaterialTheme.typography.bodyMedium,
-                LocalContentColor provides MaterialTheme.colorScheme.onBackground,
+                LocalContentColor provides Color(textColor),
             ) {
                 // Centred the way the webtoon holder's gravity centres it, on a screen wider than
                 // the column's cap.
