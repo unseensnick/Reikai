@@ -32,6 +32,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.data.novel.expectedNextUpdate
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.asNovelCover
@@ -318,12 +319,7 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabl
             sources = d.sources,
             isOverridden = d.isOverridden,
         )
-        NovelDetailsDialog.TrackSheet -> EntryDetailsDialog.TrackSheet(
-            entryId = novel.id,
-            entryTitle = novel.title,
-            sourceId = null,
-            isNovel = true,
-        )
+        NovelDetailsDialog.TrackSheet -> EntryDetailsDialog.TrackSheet(EntryId.Novel(novel.id), novel.title)
         is NovelDetailsDialog.DeleteChapters -> EntryDetailsDialog.DeleteChapters(d.chapters.map { it.id })
         is NovelDetailsDialog.ClearDownloads -> EntryDetailsDialog.ClearDownloads(d.sourceName)
         else -> null

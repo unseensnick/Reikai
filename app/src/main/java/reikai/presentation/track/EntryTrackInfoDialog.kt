@@ -42,7 +42,6 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
-import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.track.TrackChapterSelector
@@ -62,7 +61,6 @@ import eu.kanade.tachiyomi.util.lang.convertEpochMillisZone
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -78,30 +76,17 @@ import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Warning
-import reikai.domain.manga.DeleteTrackInGroup
-import reikai.domain.manga.GetTracksInGroup
-import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.interactor.AddNovelTrack
-import reikai.domain.novel.interactor.DeleteNovelTrack
-import reikai.domain.novel.interactor.GetNovelTracks
-import reikai.domain.novel.interactor.RefreshNovelTracks
-import reikai.domain.novel.model.NovelTrack
-import reikai.domain.novel.track.NovelTrackUpdater
-import reikai.domain.novel.track.toUiTrack
-import reikai.domain.track.autobind.AutoBindEntry
+import reikai.domain.entry.EntryId
+import reikai.domain.track.EntryTrackPort
+import reikai.domain.track.EntryTrackPorts
 import reikai.domain.track.autobind.AutoBindTracker
 import reikai.domain.track.autobind.AutoBindTrackers
 import reikai.domain.track.autobind.offerTrackers
-import reikai.domain.track.supportingContent
-import reikai.domain.track.trackWriterFor
-import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.manga.interactor.GetManga
-import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
@@ -114,16 +99,14 @@ import kotlin.time.Instant
 /**
  * The single track-info dialog stack for both manga and novels: the same domain [Track] (novels adapt
  * via [reikai.domain.novel.track.toUiTrack]) written through a [TrackWriter], so the two cannot drift.
- * Whatever is engine-specific branches on [isNovel]: the track subscription, the entry lookup, the
- * search endpoint, the bind target, the refresh, the delete scope, the writer and the tracker filter.
+ * Whatever is engine-specific goes through the entry's [EntryTrackPort], which [EntryTrackPorts] picks
+ * from the [EntryId] once, so no screen here branches on the content type.
  * A tracker that binds entries from a source it knows ([AutoBindTracker]) matches on a tap instead of
  * searching for those entries; [offerTrackers] decides the rows, for both types.
  */
 data class EntryTrackInfoDialogHomeScreen(
-    private val entryId: Long,
+    private val entry: EntryId,
     private val entryTitle: String,
-    private val sourceId: Long?,
-    private val isNovel: Boolean,
 ) : Screen() {
 
     @Composable
@@ -131,7 +114,7 @@ data class EntryTrackInfoDialogHomeScreen(
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(entryId = entryId, sourceId = sourceId, isNovel = isNovel)
+            create(entry = entry)
         }
 
         val dateFormat = remember { UiPreferences.dateFormat(context.appGraph.uiPreferences.dateFormat.get()) }
@@ -142,19 +125,19 @@ data class EntryTrackInfoDialogHomeScreen(
             trackItems = state.trackItems,
             dateFormat = dateFormat,
             onStatusClick = {
-                navigator.push(EntryTrackStatusSelectorScreen(it.track!!, it.tracker.id, isNovel))
+                navigator.push(EntryTrackStatusSelectorScreen(it.track!!, it.tracker.id, entry))
             },
             onChapterClick = {
-                navigator.push(EntryTrackChapterSelectorScreen(it.track!!, it.tracker.id, isNovel))
+                navigator.push(EntryTrackChapterSelectorScreen(it.track!!, it.tracker.id, entry))
             },
             onScoreClick = {
-                navigator.push(EntryTrackScoreSelectorScreen(it.track!!, it.tracker.id, isNovel))
+                navigator.push(EntryTrackScoreSelectorScreen(it.track!!, it.tracker.id, entry))
             },
             onStartDateEdit = {
-                navigator.push(EntryTrackDateSelectorScreen(it.track!!, it.tracker.id, start = true, isNovel))
+                navigator.push(EntryTrackDateSelectorScreen(it.track!!, it.tracker.id, start = true, entry))
             },
             onEndDateEdit = {
-                navigator.push(EntryTrackDateSelectorScreen(it.track!!, it.tracker.id, start = false, isNovel))
+                navigator.push(EntryTrackDateSelectorScreen(it.track!!, it.tracker.id, start = false, entry))
             },
             onNewSearch = {
                 if (it.tracker.id in state.autoMatchTrackerIds) {
@@ -162,18 +145,17 @@ data class EntryTrackInfoDialogHomeScreen(
                 } else {
                     navigator.push(
                         EntryTrackerSearchScreen(
-                            entryId = entryId,
+                            entry = entry,
                             initialQuery = it.track?.title ?: entryTitle,
                             currentUrl = it.track?.remoteUrl,
                             serviceId = it.tracker.id,
-                            isNovel = isNovel,
                         ),
                     )
                 }
             },
             onOpenInBrowser = { openTrackerInBrowser(context, it) },
             onRemoved = {
-                navigator.push(EntryTrackerRemoveScreen(entryId, it.track!!, it.tracker.id, isNovel))
+                navigator.push(EntryTrackerRemoveScreen(entry, it.track!!, it.tracker.id))
             },
             onCopyLink = { context.copyTrackerLink(it) },
             onTogglePrivate = viewModel::togglePrivate,
@@ -204,22 +186,11 @@ data class EntryTrackInfoDialogHomeScreen(
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
     class Model(
-        @Assisted private val entryId: Long,
-        @Assisted private val sourceId: Long?,
-        @Assisted private val isNovel: Boolean,
+        @Assisted private val entry: EntryId,
         private val context: Context,
-        private val getTracksInGroup: GetTracksInGroup,
-        private val getNovelTracks: GetNovelTracks,
-        private val getManga: GetManga,
         private val trackerManager: TrackerManager,
-        private val sourceManager: SourceManager,
-        private val novelRepository: NovelRepository,
-        private val novelSourceManager: NovelSourceManager,
         private val autoBindTrackers: AutoBindTrackers,
-        private val addNovelTrack: AddNovelTrack,
-        private val refreshTracks: RefreshTracks,
-        private val refreshNovelTracks: RefreshNovelTracks,
-        novelTrackUpdater: NovelTrackUpdater,
+        ports: EntryTrackPorts,
     ) : ViewModel() {
 
         val state: StateFlow<Model.State>
@@ -229,16 +200,16 @@ data class EntryTrackInfoDialogHomeScreen(
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(entryId: Long, sourceId: Long?, isNovel: Boolean): Model
+            fun create(entry: EntryId): Model
         }
 
-        private val writer = trackWriterFor(isNovel, novelTrackUpdater)
+        private val port = ports.of(entry)
 
         init {
             viewModelScope.launch { refreshTrackers() }
 
             viewModelScope.launch {
-                entryTrackFlow()
+                port.tracks()
                     .catch { logcat(LogPriority.ERROR, it) }
                     .distinctUntilChanged()
                     .map { it.toState() }
@@ -246,21 +217,13 @@ data class EntryTrackInfoDialogHomeScreen(
             }
         }
 
-        private fun entryTrackFlow(): Flow<List<Track>> =
-            if (isNovel) {
-                // Both reads span the merge group, so a track bound on a sibling source shows here.
-                getNovelTracks.subscribeGroup(entryId).map { tracks -> tracks.map(NovelTrack::toUiTrack) }
-            } else {
-                getTracksInGroup.subscribe(entryId)
-            }
-
         /** A tracker that knows the entry's source binds it to its match with no manual search. */
         fun registerAutoBind(item: TrackItem) {
             val candidate = autoBindTrackers.of(item.tracker) ?: return
             viewModelScope.launchNonCancellable {
-                val entry = autoBindEntry() ?: return@launchNonCancellable
+                val bindEntry = port.autoBindEntry() ?: return@launchNonCancellable
                 val match = try {
-                    candidate.match(entry)
+                    candidate.match(bindEntry)
                 } catch (_: Exception) {
                     null
                 }
@@ -268,29 +231,16 @@ data class EntryTrackInfoDialogHomeScreen(
                     withUIContext { context.toast(MR.strings.error_no_match) }
                     return@launchNonCancellable
                 }
-                bindTrack(context, addNovelTrack, item.tracker, match, entryId, isNovel)
+                bindTrack(context, port, item.tracker, match)
             }
-        }
-
-        private suspend fun autoBindEntry(): AutoBindEntry? = if (isNovel) {
-            novelRepository.getById(entryId)?.let { novel ->
-                novelSourceManager.get(novel.source)?.let { AutoBindEntry.Novel(novel, it) }
-            }
-        } else {
-            getManga.await(entryId)?.let { AutoBindEntry.Manga(it, sourceManager.getOrStub(sourceId!!)) }
         }
 
         private suspend fun refreshTrackers() {
-            val results = if (isNovel) {
-                refreshNovelTracks.await(entryId)
-            } else {
-                refreshTracks.await(entryId)
-            }
-            results
+            port.refresh()
                 .filter { it.first != null }
                 .forEach { (track, e) ->
                     logcat(LogPriority.ERROR, e) {
-                        "Failed to refresh track data entryId=$entryId for service ${track!!.id}"
+                        "Failed to refresh track data entry=$entry for service ${track!!.id}"
                     }
                     withUIContext {
                         context.toast(context.stringResource(MR.strings.track_error, track!!.name, e.message ?: ""))
@@ -300,16 +250,16 @@ data class EntryTrackInfoDialogHomeScreen(
 
         fun togglePrivate(item: TrackItem) {
             viewModelScope.launchNonCancellable {
-                writer.setRemotePrivate(item.tracker, item.track!!.toDbTrack(), !item.track.private)
+                port.writer.setRemotePrivate(item.tracker, item.track!!.toDbTrack(), !item.track.private)
             }
         }
 
         private suspend fun List<Track>.toState(): State {
             // Only trackers whose catalogue holds this type; the rest would silently bind the other's hit.
-            val loggedInTrackers = trackerManager.loggedInTrackers().supportingContent(isNovel)
+            val loggedInTrackers = trackerManager.loggedInTrackers().filter(port::supports)
             // Resolved only when a tracker asks: for a novel it loads the plugins.
-            val entry = if (loggedInTrackers.any { autoBindTrackers.of(it) != null }) autoBindEntry() else null
-            val offer = offerTrackers(loggedInTrackers, entry, autoBindTrackers::of)
+            val bindEntry = if (loggedInTrackers.any { autoBindTrackers.of(it) != null }) port.autoBindEntry() else null
+            val offer = offerTrackers(loggedInTrackers, bindEntry, autoBindTrackers::of)
             return State(
                 trackItems = offer.offered.map { service -> TrackItem(find { it.trackerId == service.id }, service) },
                 autoMatchTrackerIds = offer.matchedByTap,
@@ -328,14 +278,14 @@ data class EntryTrackInfoDialogHomeScreen(
 data class EntryTrackStatusSelectorScreen(
     private val track: Track,
     private val serviceId: Long,
-    private val isNovel: Boolean,
+    private val entry: EntryId,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(track = track, trackerId = serviceId, isNovel = isNovel)
+            create(track = track, trackerId = serviceId, entry = entry)
         }
         val state by viewModel.state.collectAsState()
         TrackStatusSelector(
@@ -355,9 +305,9 @@ data class EntryTrackStatusSelectorScreen(
     class Model(
         @Assisted private val track: Track,
         @Assisted trackerId: Long,
-        @Assisted isNovel: Boolean,
+        @Assisted entry: EntryId,
         trackerManager: TrackerManager,
-        novelTrackUpdater: NovelTrackUpdater,
+        ports: EntryTrackPorts,
     ) : ViewModel() {
 
         val state: StateFlow<Model.State>
@@ -367,13 +317,13 @@ data class EntryTrackStatusSelectorScreen(
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(track: Track, trackerId: Long, isNovel: Boolean): Model
+            fun create(track: Track, trackerId: Long, entry: EntryId): Model
         }
 
         // The tracker and the writer are derived from the ids rather than passed in, so the dialog
         // stops resolving DI from a composable body. Every selector model below does the same.
         private val tracker = trackerManager.get(trackerId)!!
-        private val writer = trackWriterFor(isNovel, novelTrackUpdater)
+        private val writer = ports.of(entry).writer
 
         fun getSelections(): Map<Long, StringResource?> =
             tracker.getStatusList().associateWith { tracker.getStatus(it) }
@@ -394,14 +344,14 @@ data class EntryTrackStatusSelectorScreen(
 data class EntryTrackChapterSelectorScreen(
     private val track: Track,
     private val serviceId: Long,
-    private val isNovel: Boolean,
+    private val entry: EntryId,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(track = track, trackerId = serviceId, isNovel = isNovel)
+            create(track = track, trackerId = serviceId, entry = entry)
         }
         val state by viewModel.state.collectAsState()
         TrackChapterSelector(
@@ -421,9 +371,9 @@ data class EntryTrackChapterSelectorScreen(
     class Model(
         @Assisted private val track: Track,
         @Assisted trackerId: Long,
-        @Assisted isNovel: Boolean,
+        @Assisted entry: EntryId,
         trackerManager: TrackerManager,
-        novelTrackUpdater: NovelTrackUpdater,
+        ports: EntryTrackPorts,
     ) : ViewModel() {
 
         val state: StateFlow<Model.State>
@@ -433,11 +383,11 @@ data class EntryTrackChapterSelectorScreen(
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(track: Track, trackerId: Long, isNovel: Boolean): Model
+            fun create(track: Track, trackerId: Long, entry: EntryId): Model
         }
 
         private val tracker = trackerManager.get(trackerId)!!
-        private val writer = trackWriterFor(isNovel, novelTrackUpdater)
+        private val writer = ports.of(entry).writer
 
         fun getRange(): Iterable<Int> {
             val endRange = if (track.totalChapters > 0) track.totalChapters else 10000
@@ -460,14 +410,14 @@ data class EntryTrackChapterSelectorScreen(
 data class EntryTrackScoreSelectorScreen(
     private val track: Track,
     private val serviceId: Long,
-    private val isNovel: Boolean,
+    private val entry: EntryId,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(track = track, trackerId = serviceId, isNovel = isNovel)
+            create(track = track, trackerId = serviceId, entry = entry)
         }
         val state by viewModel.state.collectAsState()
         TrackScoreSelector(
@@ -487,15 +437,15 @@ data class EntryTrackScoreSelectorScreen(
     class Model(
         @Assisted private val track: Track,
         @Assisted trackerId: Long,
-        @Assisted isNovel: Boolean,
+        @Assisted entry: EntryId,
         trackerManager: TrackerManager,
-        novelTrackUpdater: NovelTrackUpdater,
+        ports: EntryTrackPorts,
     ) : ViewModel() {
 
         // Declared above the state, which seeds itself from the tracker: property initializers run in
         // declaration order, so the reverse order would read an unset tracker.
         private val tracker = trackerManager.get(trackerId)!!
-        private val writer = trackWriterFor(isNovel, novelTrackUpdater)
+        private val writer = ports.of(entry).writer
 
         val state: StateFlow<Model.State>
             field = MutableStateFlow<Model.State>(State(tracker.displayScore(track)))
@@ -504,7 +454,7 @@ data class EntryTrackScoreSelectorScreen(
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(track: Track, trackerId: Long, isNovel: Boolean): Model
+            fun create(track: Track, trackerId: Long, entry: EntryId): Model
         }
 
         fun getSelections(): List<String> = tracker.getScoreList()
@@ -526,7 +476,7 @@ data class EntryTrackDateSelectorScreen(
     private val track: Track,
     private val serviceId: Long,
     private val start: Boolean,
-    private val isNovel: Boolean,
+    private val entry: EntryId,
 ) : Screen() {
 
     @Transient
@@ -576,7 +526,7 @@ data class EntryTrackDateSelectorScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(track = track, trackerId = serviceId, start = start, isNovel = isNovel)
+            create(track = track, trackerId = serviceId, start = start, entry = entry)
         }
 
         val canRemove = if (start) track.startDate > 0 else track.finishDate > 0
@@ -603,20 +553,20 @@ data class EntryTrackDateSelectorScreen(
         @Assisted private val track: Track,
         @Assisted trackerId: Long,
         @Assisted private val start: Boolean,
-        @Assisted private val isNovel: Boolean,
+        @Assisted private val entry: EntryId,
         trackerManager: TrackerManager,
-        novelTrackUpdater: NovelTrackUpdater,
+        ports: EntryTrackPorts,
     ) : ViewModel() {
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(track: Track, trackerId: Long, start: Boolean, isNovel: Boolean): Model
+            fun create(track: Track, trackerId: Long, start: Boolean, entry: EntryId): Model
         }
 
         private val tracker = trackerManager.get(trackerId)!!
-        private val writer = trackWriterFor(isNovel, novelTrackUpdater)
+        private val writer = ports.of(entry).writer
 
         // In UTC
         val initialSelection: Long
@@ -641,7 +591,7 @@ data class EntryTrackDateSelectorScreen(
         }
 
         fun confirmRemoveDate(navigator: Navigator) {
-            navigator.push(EntryTrackDateRemoverScreen(track, tracker.id, start, isNovel))
+            navigator.push(EntryTrackDateRemoverScreen(track, tracker.id, start, entry))
         }
     }
 }
@@ -650,14 +600,14 @@ data class EntryTrackDateRemoverScreen(
     private val track: Track,
     private val serviceId: Long,
     private val start: Boolean,
-    private val isNovel: Boolean,
+    private val entry: EntryId,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(track = track, trackerId = serviceId, start = start, isNovel = isNovel)
+            create(track = track, trackerId = serviceId, start = start, entry = entry)
         }
         AlertDialogContent(
             modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
@@ -709,20 +659,20 @@ data class EntryTrackDateRemoverScreen(
         @Assisted private val track: Track,
         @Assisted trackerId: Long,
         @Assisted private val start: Boolean,
-        @Assisted isNovel: Boolean,
+        @Assisted entry: EntryId,
         trackerManager: TrackerManager,
-        novelTrackUpdater: NovelTrackUpdater,
+        ports: EntryTrackPorts,
     ) : ViewModel() {
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(track: Track, trackerId: Long, start: Boolean, isNovel: Boolean): Model
+            fun create(track: Track, trackerId: Long, start: Boolean, entry: EntryId): Model
         }
 
         private val tracker = trackerManager.get(trackerId)!!
-        private val writer = trackWriterFor(isNovel, novelTrackUpdater)
+        private val writer = ports.of(entry).writer
 
         fun getServiceName() = tracker.name
 
@@ -739,11 +689,10 @@ data class EntryTrackDateRemoverScreen(
 }
 
 data class EntryTrackerSearchScreen(
-    private val entryId: Long,
+    private val entry: EntryId,
     private val initialQuery: String,
     private val currentUrl: String?,
     private val serviceId: Long,
-    private val isNovel: Boolean,
 ) : Screen() {
 
     @Composable
@@ -751,11 +700,10 @@ data class EntryTrackerSearchScreen(
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = assistedMetroViewModel<Model, Model.Factory> {
             create(
-                entryId = entryId,
+                entry = entry,
                 currentUrl = currentUrl,
                 initialQuery = initialQuery,
                 trackerId = serviceId,
-                isNovel = isNovel,
             )
         }
 
@@ -799,14 +747,13 @@ data class EntryTrackerSearchScreen(
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
     class Model(
-        @Assisted private val entryId: Long,
+        @Assisted entry: EntryId,
         @Assisted private val currentUrl: String?,
         @Assisted initialQuery: String,
         @Assisted trackerId: Long,
-        @Assisted private val isNovel: Boolean,
         private val context: Context,
-        private val addNovelTrack: AddNovelTrack,
         trackerManager: TrackerManager,
+        ports: EntryTrackPorts,
     ) : ViewModel() {
 
         val state: StateFlow<Model.State>
@@ -817,15 +764,15 @@ data class EntryTrackerSearchScreen(
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
             fun create(
-                entryId: Long,
+                entry: EntryId,
                 currentUrl: String?,
                 initialQuery: String,
                 trackerId: Long,
-                isNovel: Boolean,
             ): Model
         }
 
         private val tracker = trackerManager.get(trackerId)!!
+        private val port = ports.of(entry)
 
         val supportsPrivateTracking = tracker.supportsPrivateTracking
 
@@ -847,9 +794,7 @@ data class EntryTrackerSearchScreen(
 
                 val result = withIOContext {
                     try {
-                        // Novels have their own catalogue on some trackers (e.g. a separate endpoint).
-                        val results = if (isNovel) tracker.searchNovel(query) else tracker.search(query)
-                        Result.success(results)
+                        Result.success(port.search(tracker, query))
                     } catch (e: Throwable) {
                         Result.failure(e)
                     }
@@ -865,7 +810,7 @@ data class EntryTrackerSearchScreen(
 
         fun registerTracking(item: TrackSearch) {
             viewModelScope.launchNonCancellable {
-                bindTrack(context, addNovelTrack, tracker, item, entryId, isNovel)
+                bindTrack(context, port, tracker, item)
             }
         }
 
@@ -880,17 +825,16 @@ data class EntryTrackerSearchScreen(
 }
 
 data class EntryTrackerRemoveScreen(
-    private val entryId: Long,
+    private val entry: EntryId,
     private val track: Track,
     private val serviceId: Long,
-    private val isNovel: Boolean,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(entryId = entryId, track = track, trackerId = serviceId, isNovel = isNovel)
+            create(entry = entry, track = track, trackerId = serviceId)
         }
         val serviceName = viewModel.getName()
         var removeRemoteTrack by remember { mutableStateOf(false) }
@@ -944,23 +888,22 @@ data class EntryTrackerRemoveScreen(
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
     class Model(
-        @Assisted private val entryId: Long,
+        @Assisted entry: EntryId,
         @Assisted private val track: Track,
         @Assisted trackerId: Long,
-        @Assisted private val isNovel: Boolean,
-        private val deleteNovelTrack: DeleteNovelTrack,
-        private val deleteTrackInGroup: DeleteTrackInGroup,
         trackerManager: TrackerManager,
+        ports: EntryTrackPorts,
     ) : ViewModel() {
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(entryId: Long, track: Track, trackerId: Long, isNovel: Boolean): Model
+            fun create(entry: EntryId, track: Track, trackerId: Long): Model
         }
 
         private val tracker = trackerManager.get(trackerId)!!
+        private val port = ports.of(entry)
 
         fun getName() = tracker.name
 
@@ -978,13 +921,9 @@ data class EntryTrackerRemoveScreen(
 
         fun unregisterTracking(serviceId: Long) {
             viewModelScope.launchNonCancellable {
-                // Group-aware on both types: clear the tracker from every merged source, so a sibling's
-                // row can't keep it alive in the library's tracker filter, sort and grouping.
-                if (isNovel) {
-                    deleteNovelTrack.awaitGroup(entryId, serviceId)
-                } else {
-                    deleteTrackInGroup.await(entryId, serviceId)
-                }
+                // Cleared from every merged source, so a sibling's row can't keep the tracker alive in
+                // the library's tracker filter, sort and grouping.
+                port.unbindInGroup(serviceId)
             }
         }
     }
@@ -1019,16 +958,9 @@ private fun ReplaceEntryConfirmDialog(
  * The one bind both sheets call, with one error path for both types: a failure toasts what went wrong.
  * Manga's register already catches and toasts; a novel bind would otherwise reach the crash handler.
  */
-private suspend fun bindTrack(
-    context: Context,
-    addNovelTrack: AddNovelTrack,
-    tracker: Tracker,
-    item: TrackSearch,
-    entryId: Long,
-    isNovel: Boolean,
-) {
+private suspend fun bindTrack(context: Context, port: EntryTrackPort, tracker: Tracker, item: TrackSearch) {
     try {
-        if (isNovel) addNovelTrack.bind(tracker, item, entryId) else tracker.register(item, entryId)
+        port.bind(tracker, item)
     } catch (e: Throwable) {
         withUIContext { context.toast(context.trackerErrorMessage(tracker, e)) }
     }

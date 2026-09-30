@@ -47,6 +47,7 @@ import exh.ui.metadata.MetadataViewScreen
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo // RK
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
@@ -473,12 +474,7 @@ private fun MangaViewModel.State.Success.toSharedDetailsDialog(isUpdateIntervalE
             sources = d.sources,
             isOverridden = d.isOverridden,
         )
-        MangaViewModel.Dialog.TrackSheet -> EntryDetailsDialog.TrackSheet(
-            entryId = manga.id,
-            entryTitle = manga.title,
-            sourceId = source.id,
-            isNovel = false,
-        )
+        MangaViewModel.Dialog.TrackSheet -> EntryDetailsDialog.TrackSheet(EntryId.Manga(manga.id), manga.title)
         is MangaViewModel.Dialog.DeleteChapters -> EntryDetailsDialog.DeleteChapters(d.chapters.map { it.id })
         is MangaViewModel.Dialog.ClearDownloads -> EntryDetailsDialog.ClearDownloads(d.sourceName)
         else -> null

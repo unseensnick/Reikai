@@ -18,6 +18,7 @@ import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.DeleteChaptersDialog
 import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.util.Screen
+import reikai.domain.entry.EntryId
 import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.ManageMergeSourcesDialog
@@ -51,12 +52,7 @@ sealed interface EntryDetailsDialog {
         val isOverridden: Boolean,
     ) : EntryDetailsDialog
 
-    data class TrackSheet(
-        val entryId: Long,
-        val entryTitle: String,
-        val sourceId: Long?,
-        val isNovel: Boolean,
-    ) : EntryDetailsDialog
+    data class TrackSheet(val entry: EntryId, val entryTitle: String) : EntryDetailsDialog
 
     /** Confirm a bulk chapter delete; [chapterIds] are the rows captured when the dialog opened. */
     data class DeleteChapters(val chapterIds: List<Long>) : EntryDetailsDialog
@@ -164,13 +160,8 @@ fun Screen.EntryDetailsDialogHost(
         is EntryDetailsDialog.TrackSheet -> {
             // Remember the screen so the merge collectors' frequent recompositions don't rebuild it and reset
             // its navigator mid-write (the manga side hit an UpsertTrack JobCancellationException here).
-            val trackScreen = remember(dialog.entryId, dialog.sourceId) {
-                EntryTrackInfoDialogHomeScreen(
-                    entryId = dialog.entryId,
-                    entryTitle = dialog.entryTitle,
-                    sourceId = dialog.sourceId,
-                    isNovel = dialog.isNovel,
-                )
+            val trackScreen = remember(dialog.entry) {
+                EntryTrackInfoDialogHomeScreen(entry = dialog.entry, entryTitle = dialog.entryTitle)
             }
             NavigatorAdaptiveSheet(
                 screen = trackScreen,

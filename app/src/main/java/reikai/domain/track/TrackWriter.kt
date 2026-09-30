@@ -8,7 +8,7 @@ import reikai.domain.novel.track.NovelTrackUpdater
  * The tracker-write surface the unified track dialog ([reikai.presentation.track.EntryTrackInfoDialogHomeScreen])
  * writes through, so manga and novel share one dialog stack. Both content types already push the same mutable
  * [Track] (DbTrack); only the persistence sink differs, so a manga write delegates straight to the tracker
- * while a novel write routes through [NovelTrackUpdater] into `novel_tracks`.
+ * while a novel write routes through [NovelTrackUpdater] into `novel_tracks`. [EntryTrackPort.writer] picks one.
  */
 interface TrackWriter {
     suspend fun setRemoteStatus(tracker: Tracker, track: Track, status: Long)
@@ -45,11 +45,3 @@ object MangaTrackWriter : TrackWriter {
         tracker.setRemotePrivate(track, private)
     }
 }
-
-/**
- * The one place the content type picks a writer. The novel writer arrives from the caller because it is a
- * graph binding ([NovelTrackUpdater]) while the manga writer is a stateless object the graph cannot build,
- * so a caller injects the former and passes it here rather than each deciding for itself.
- */
-fun trackWriterFor(isNovel: Boolean, novelWriter: TrackWriter): TrackWriter =
-    if (isNovel) novelWriter else MangaTrackWriter

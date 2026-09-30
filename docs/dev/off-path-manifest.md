@@ -143,7 +143,8 @@ deleted and drop the row with a note. Only a deliberate, recorded conclusion clo
 (`mihonapp/mihon#3609`) dropped `private` from the eight nested models so the factory could reach them, and
 mihon `b2015d1ef` converted all eight to Metro assisted injection; the twin's own conversion lands both, since
 a graph-contributed factory cannot be private either. Reikai diverges in two places upstream has no reason to
-have: the writer is picked by content type through `trackWriterFor`, and the score model declares its tracker
+have: every model reaches its content type's engine through the `EntryTrackPort` its `EntryId` picks (the
+writer among it), and the score model declares its tracker
 above its state rather than seeding the state from an `init` block. On a sync, still confirm nothing new
 touched the file (`git log --oneline <base>..HEAD -- "*TrackInfoDialog.kt"`).
 

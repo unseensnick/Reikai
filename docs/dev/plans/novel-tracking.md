@@ -14,7 +14,7 @@ Tracking is a core reader-app expectation: users keep a single list of what they
 
 A "Tracking" action in the novel's overflow menu opens a sheet that looks and works exactly like the manga tracking sheet. Search the tracker for the matching title, bind it, then set status / chapters read / score / dates. The app pushes those values to the tracker as you read. Almost everything is Mihon's existing machinery; only a thin novel-specific layer sits on top.
 
-**The Tracking sheet.** The novel details overflow has a Tracking action that opens the shared `reikai.presentation.track.EntryTrackInfoDialog`: one dialog serving both content types, parameterized on an `isNovel` flag and carrying the domain `Track` (novels adapt via `toUiTrack`). Writes go through a thin `TrackWriter` seam, `NovelTrackUpdater` on the novel side. Detail: [content-parity-drift-and-collapse.md](content-parity-drift-and-collapse.md) Phase 6 (`bba220e2b`).
+**The Tracking sheet.** The novel details overflow has a Tracking action that opens the shared `reikai.presentation.track.EntryTrackInfoDialog`: one dialog serving both content types, carrying the entry's `EntryId` and the domain `Track` (novels adapt via `toUiTrack`). Everything engine-specific (the group-wide track read, refresh, the auto-bind entry, which trackers hold the type, the search endpoint, bind, the group-wide unbind and the `TrackWriter`) goes through one `EntryTrackPort` per content type, which `EntryTrackPorts.of(entry)` picks in one exhaustive `when`; `EntryTrackPortConformanceTest` pins each choice over both ports. `NovelTrackUpdater` is the novel writer. Detail: [content-parity-drift-and-collapse.md](content-parity-drift-and-collapse.md) Phase 6 (`bba220e2b`).
 
 **Reusing Mihon's Tracker services and OAuth.** The novel-capable trackers are Mihon's own `Tracker` service classes. Sign-in (OAuth), the "find this entry by remote id" path, and the per-field update calls are all reused as-is. Three dedicated novel services were added later, RanobeDB, NovelUpdates and NovelList, recorded in [novel-specific-trackers.md](novel-specific-trackers.md).
 
@@ -62,6 +62,7 @@ Mihon files patched with `// RK` islands (search path, sheet wiring, DI):
 UI / sync wiring:
 
 - `app/src/main/java/reikai/presentation/novel/details/NovelDetailsViewModel.kt`: opens the sheet and drives mark-read auto-sync.
+- `app/src/main/java/reikai/presentation/track/EntryTrackInfoDialog.kt`: the one sheet stack for both types, over `app/src/main/java/reikai/domain/track/EntryTrackPort.kt` (`EntryTrackPorts.of`).
 
 (File list confirmed against the working tree and commit `7c56e07eb`; see `git show --stat 7c56e07eb`.)
 
@@ -78,6 +79,8 @@ Shipped in commit `7c56e07eb`, on-device verified (Z Fold). Roadmap Active item 
 - **Binding a read novel fills in its start date, as manga's bind does** (2026-09-17, reversing the earlier "no on-bind backfill" cut). When the tracker has no start date, `AddNovelTrack` sends the novel's earliest read, skipping removed history, through the `bindBackfill` kernel `AddTracks` calls too. Only that novel's own history is read, matching manga, which reads one manga's history rather than its merge group's.
 
 - **One track row while merged, not copy-to-each-member.** Group-aware tracking keeps a single row for a merged group and resolves the group at read/display time. Manga has since moved to the same shape, copying only just before a split (`PropagateTrackerLinks`); the novel twin is `PropagateNovelTrackerLinks`, so each source keeps the tracker after a split.
+
+- **The sheet carries one `EntryId`, not an id, a source id and a type flag.** The manga port reads the auto-bind source from the manga row (`getOrStub(manga.source)`), which is the source the details screen used to pass in, so the sheet needs nothing but the entry; the id is `Serializable` so the nested selector screens survive process death.
 
 - **Two queue files and two jobs, one store class and one drain.** The novel queue keeps its own preference file (`novel_tracking_queue`) because it is keyed by track id and the two track tables share one id space. It stays a second job class because WorkManager keys unique work by tag, so each queue retries on its own schedule. Everything else is Mihon's: `DelayedTrackingStore` takes the file name (an `// RK` island), and both jobs' `doWork` call `drainDelayedTracking`, pinned by `DelayedTrackingDrainTest`.
 

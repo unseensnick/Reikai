@@ -1,7 +1,6 @@
 package reikai.domain.track
 
 import eu.kanade.tachiyomi.data.track.Tracker
-import io.kotest.matchers.shouldBe
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -48,17 +47,5 @@ class MangaTrackWriterTest {
     fun `setRemotePrivate forwards to the tracker`() = runTest {
         MangaTrackWriter.setRemotePrivate(tracker, track, true)
         coVerify { tracker.setRemotePrivate(track, true) }
-    }
-
-    @Test
-    fun `trackWriterFor picks the manga writer for manga`() {
-        trackWriterFor(isNovel = false, novelWriter = mockk()) shouldBe MangaTrackWriter
-    }
-
-    @Test
-    fun `trackWriterFor picks the caller's novel writer for novels`() {
-        val novelWriter = mockk<TrackWriter>()
-
-        trackWriterFor(isNovel = true, novelWriter = novelWriter) shouldBe novelWriter
     }
 }

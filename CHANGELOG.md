@@ -743,6 +743,7 @@ every stable release now also ships a foss build with neither in it.
 - Plugin settings load and save off the main thread.
 - Reader text settings are read from one place, so a new one cannot miss the live refresh.
 - Novel covers load through the same code as manga covers.
+- The tracking sheet reaches manga and novel tracking through one typed port per content type.
 
 ## [0.3.2]
 
