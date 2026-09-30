@@ -7,7 +7,6 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.ReconcileMergedChapters
-import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.merge.renderMergedReadingOrder
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
@@ -37,8 +36,6 @@ class MergedChapterProvider(
         val mangaById: Map<Long, Manga>,
         val chapters: List<Chapter>,
         val sourceNameByMangaId: Map<Long, String>,
-        /** Chapters unread on their own row but already read on another grouped source. */
-        val readInOtherSources: Set<Long> = emptySet(),
         /** The stored stitch behind [chapters], so a reader acting on a row can reach the group's
          *  other copies of it without matching numbers the sources disagree on. */
         val stitch: List<ChapterUnit> = emptyList(),
@@ -68,7 +65,6 @@ class MergedChapterProvider(
             mangaById = mangaById,
             chapters = merged,
             sourceNameByMangaId = sourceNameByMangaId,
-            readInOtherSources = flaggedOnAnotherSource(pooled, merged, stitch, { it.id }, { it.read }),
             stitch = stitch,
             pooledChapters = pooled,
         )
