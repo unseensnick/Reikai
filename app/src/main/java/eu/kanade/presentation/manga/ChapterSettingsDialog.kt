@@ -98,6 +98,7 @@ fun ChapterSettingsDialog(
         ) {
             when (page) {
                 0 -> {
+                    // RK --> the scanlator row sits outside FilterPage, which the novel chapter settings share
                     FilterPage(
                         downloadFilter = manga?.downloadedFilter ?: TriState.DISABLED,
                         onDownloadFilterChanged = onDownloadFilterChanged
@@ -106,9 +107,12 @@ fun ChapterSettingsDialog(
                         onUnreadFilterChanged = onUnreadFilterChanged,
                         bookmarkedFilter = manga?.bookmarkedFilter ?: TriState.DISABLED,
                         onBookmarkedFilterChanged = onBookmarkedFilterChanged,
-                        scanlatorFilterActive = scanlatorFilterActive,
-                        onScanlatorFilterClicked = onScanlatorFilterClicked,
                     )
+                    ScanlatorFilterItem(
+                        active = scanlatorFilterActive,
+                        onClick = onScanlatorFilterClicked,
+                    )
+                    // RK <--
                 }
                 1 -> {
                     SortPage(
@@ -128,16 +132,16 @@ fun ChapterSettingsDialog(
     }
 }
 
+// RK: internal, shared with the novel chapter settings.
 @Composable
-private fun ColumnScope.FilterPage(
+internal fun ColumnScope.FilterPage(
     downloadFilter: TriState,
     onDownloadFilterChanged: ((TriState) -> Unit)?,
     unreadFilter: TriState,
     onUnreadFilterChanged: (TriState) -> Unit,
     bookmarkedFilter: TriState,
     onBookmarkedFilterChanged: (TriState) -> Unit,
-    scanlatorFilterActive: Boolean,
-    onScanlatorFilterClicked: (() -> Unit),
+    // RK: the scanlator parameters moved to ChapterSettingsDialog's page 0, since novels have no scanlators
 ) {
     TriStateItem(
         label = stringResource(MR.strings.label_downloaded),
@@ -154,10 +158,7 @@ private fun ColumnScope.FilterPage(
         state = bookmarkedFilter,
         onClick = onBookmarkedFilterChanged,
     )
-    ScanlatorFilterItem(
-        active = scanlatorFilterActive,
-        onClick = onScanlatorFilterClicked,
-    )
+    // RK: ScanlatorFilterItem moved to ChapterSettingsDialog's page 0
 }
 
 @Composable
@@ -189,8 +190,9 @@ fun ScanlatorFilterItem(
     }
 }
 
+// RK: internal, shared with the novel chapter settings.
 @Composable
-private fun ColumnScope.SortPage(
+internal fun ColumnScope.SortPage(
     sortingMode: Long,
     sortDescending: Boolean,
     onItemSelected: (Long) -> Unit,
@@ -209,8 +211,9 @@ private fun ColumnScope.SortPage(
     }
 }
 
+// RK: internal, shared with the novel chapter settings.
 @Composable
-private fun ColumnScope.DisplayPage(
+internal fun ColumnScope.DisplayPage(
     displayMode: Long,
     onItemSelected: (Long) -> Unit,
 ) {

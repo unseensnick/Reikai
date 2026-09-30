@@ -1,15 +1,20 @@
 package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
+import reikai.domain.chapter.ChapterSortPick
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.novel.model.effectiveSortDescending
+import reikai.domain.novel.model.effectiveSorting
 import reikai.domain.novel.model.setNovelFlag
 
 /**
- * Per-novel chapter sort / filter / display writes, the novel twin of
- * [tachiyomi.domain.manga.interactor.SetMangaChapterFlags]. Each setter recomputes the packed
+ * Per-novel chapter sort / filter / display writes, twin of
+ * [tachiyomi.domain.manga.interactor.SetMangaChapterFlags], pinned by [ChapterSortPick] for the one rule
+ * the two share (the sort page's flip). Each setter recomputes the packed
  * [Novel.chapterFlags] from the current value and writes only that column via a [NovelUpdate].
  * Setting a sort / filter / display also flips the matching local-override bit so the novel uses its
  * own value instead of the global default.
@@ -17,11 +22,18 @@ import reikai.domain.novel.model.setNovelFlag
 @Inject
 class SetNovelChapterFlags(
     private val novelRepository: NovelRepository,
+    private val novelPreferences: NovelPreferences,
 ) {
 
-    suspend fun awaitSetSortOrder(novel: Novel, sort: Long, descending: Boolean): Boolean {
+    /** Judged against what the list shows, which for a novel without its own sort is the global default. */
+    suspend fun awaitSetSortingModeOrFlipOrder(novel: Novel, picked: Long): Boolean {
+        val descending = ChapterSortPick.descendingAfter(
+            shownSorting = novel.effectiveSorting(novelPreferences),
+            shownDescending = novel.effectiveSortDescending(novelPreferences),
+            picked = picked,
+        )
         val direction = if (descending) NovelChapterFlags.SORT_DESC else NovelChapterFlags.SORT_ASC
-        var flags = setNovelFlag(novel.chapterFlags, sort, NovelChapterFlags.SORTING_MASK)
+        var flags = setNovelFlag(novel.chapterFlags, picked, NovelChapterFlags.SORTING_MASK)
         flags = setNovelFlag(flags, direction, NovelChapterFlags.SORT_DIR_MASK)
         flags = setNovelFlag(flags, NovelChapterFlags.SORT_LOCAL, NovelChapterFlags.SORT_LOCAL_MASK)
         return novelRepository.update(NovelUpdate(novel.id) { chapterFlags = flags })

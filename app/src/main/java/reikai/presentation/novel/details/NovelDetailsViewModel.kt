@@ -1106,8 +1106,8 @@ class NovelDetailsViewModel(
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
         tracker.getMangaMetadata(track)
 
-    fun setSortOrder(sort: Long, descending: Boolean) =
-        withLoadedNovel { setNovelChapterFlags.awaitSetSortOrder(it, sort, descending) }
+    fun setSortMode(sort: Long) =
+        withLoadedNovel { setNovelChapterFlags.awaitSetSortingModeOrFlipOrder(it, sort) }
 
     fun setFilters(read: Long, bookmarked: Long, downloaded: Long) =
         withLoadedNovel { setNovelChapterFlags.awaitSetFilters(it, read, bookmarked, downloaded) }

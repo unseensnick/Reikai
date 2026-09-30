@@ -1,6 +1,7 @@
 package tachiyomi.domain.manga.interactor
 
 import dev.zacsweers.metro.Inject
+import reikai.domain.chapter.ChapterSortPick
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
@@ -43,22 +44,12 @@ class SetMangaChapterFlags(
     }
 
     suspend fun awaitSetSortingModeOrFlipOrder(manga: Manga, flag: Long): Boolean {
-        val newFlags = manga.chapterFlags.let {
-            if (manga.sorting == flag) {
-                // Just flip the order
-                val orderFlag = if (manga.sortDescending()) {
-                    Manga.CHAPTER_SORT_ASC
-                } else {
-                    Manga.CHAPTER_SORT_DESC
-                }
-                it.setFlag(orderFlag, Manga.CHAPTER_SORT_DIR_MASK)
-            } else {
-                // Set new flag with ascending order
-                it
-                    .setFlag(flag, Manga.CHAPTER_SORTING_MASK)
-                    .setFlag(Manga.CHAPTER_SORT_ASC, Manga.CHAPTER_SORT_DIR_MASK)
-            }
-        }
+        // RK --> the flip-or-ascending rule is ChapterSortPick, which the novel chapter settings share
+        val descending = ChapterSortPick.descendingAfter(manga.sorting, manga.sortDescending(), flag)
+        val newFlags = manga.chapterFlags
+            .setFlag(flag, Manga.CHAPTER_SORTING_MASK)
+            .setFlag(if (descending) Manga.CHAPTER_SORT_DESC else Manga.CHAPTER_SORT_ASC, Manga.CHAPTER_SORT_DIR_MASK)
+        // RK <--
         return mangaRepository.update(
             MangaUpdate(manga.id) {
                 chapterFlags = newFlags

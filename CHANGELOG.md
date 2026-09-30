@@ -388,6 +388,7 @@ every stable release now also ships a foss build with neither in it.
 - **Refreshing a novel no longer erases a chapter's date when the source stops giving one.**
 - **Novel chapter names no longer repeat the novel's title in front.**
 - **New novel chapters the source leaves undated now get a date, as manga chapters do.**
+- **Picking a new chapter sort on a novel now starts ascending, as it does for manga.**
 
 ### Browse & sources
 

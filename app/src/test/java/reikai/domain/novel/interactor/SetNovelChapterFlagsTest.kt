@@ -38,11 +38,14 @@ class SetNovelChapterFlagsTest {
         ),
     )
 
-    private suspend fun written(write: suspend SetNovelChapterFlags.(Novel) -> Unit): Novel {
+    private suspend fun written(
+        chapterFlags: Long = 0L,
+        write: suspend SetNovelChapterFlags.(Novel) -> Unit,
+    ): Novel {
         val sent = slot<NovelUpdate>()
         val repository = mockk<NovelRepository> { coEvery { update(capture(sent)) } returns true }
-        val novel = Novel.create().copy(id = 1L, chapterFlags = 0L)
-        SetNovelChapterFlags(repository).write(novel)
+        val novel = Novel.create().copy(id = 1L, chapterFlags = chapterFlags)
+        SetNovelChapterFlags(repository, prefs).write(novel)
         return novel.copy(chapterFlags = sent.captured.chapterFlags!!)
     }
 
@@ -55,8 +58,29 @@ class SetNovelChapterFlagsTest {
 
     @Test
     fun `changing the sort leaves title display on the global default`() = runTest {
-        val novel = written { awaitSetSortOrder(it, NovelChapterFlags.SORTING_ALPHABET, descending = true) }
+        val novel = written { awaitSetSortingModeOrFlipOrder(it, NovelChapterFlags.SORTING_ALPHABET) }
         novel.effectiveHideChapterTitles(prefs) shouldBe true
+    }
+
+    @Test
+    fun `a picked sort sticks`() = runTest {
+        val novel = written { awaitSetSortingModeOrFlipOrder(it, NovelChapterFlags.SORTING_ALPHABET) }
+        novel.effectiveSorting(prefs) shouldBe NovelChapterFlags.SORTING_ALPHABET
+    }
+
+    @Test
+    fun `picking a new sort mode sorts ascending`() = runTest {
+        val newestFirst =
+            NovelChapterFlags.SORT_LOCAL or NovelChapterFlags.SORTING_NUMBER or NovelChapterFlags.SORT_DESC
+        val novel = written(newestFirst) { awaitSetSortingModeOrFlipOrder(it, NovelChapterFlags.SORTING_ALPHABET) }
+        novel.effectiveSortDescending(prefs) shouldBe false
+    }
+
+    // The novel's stored bits say source order, newest first; what it shows is the global number, ascending.
+    @Test
+    fun `a global-default novel flips the direction it shows`() = runTest {
+        val novel = written { awaitSetSortingModeOrFlipOrder(it, NovelChapterFlags.SORTING_NUMBER) }
+        novel.effectiveSortDescending(prefs) shouldBe true
     }
 
     @Test
@@ -73,7 +97,7 @@ class SetNovelChapterFlagsTest {
         )
         val sent = slot<NovelUpdate>()
         val repository = mockk<NovelRepository> { coEvery { update(capture(sent)) } returns true }
-        SetNovelChapterFlags(repository).awaitClearLocalOverrides(displayed)
+        SetNovelChapterFlags(repository, prefs).awaitClearLocalOverrides(displayed)
         displayed.copy(chapterFlags = sent.captured.chapterFlags!!).effectiveHideChapterTitles(prefs) shouldBe true
     }
 
@@ -86,7 +110,7 @@ class SetNovelChapterFlagsTest {
             coEvery { getFavorites() } returns library
             coEvery { update(capture(sent)) } returns true
         }
-        SetNovelChapterFlags(repository).awaitClearLibraryLocalOverrides()
+        SetNovelChapterFlags(repository, prefs).awaitClearLibraryLocalOverrides()
         sent.map { update -> library.first { it.id == update.id }.copy(chapterFlags = update.chapterFlags!!) }
             .map { it.effectiveSorting(prefs) } shouldBe
             listOf(NovelChapterFlags.SORTING_NUMBER, NovelChapterFlags.SORTING_NUMBER)
