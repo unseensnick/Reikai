@@ -487,11 +487,8 @@ class ReaderViewModel(
                     ) -> {
                         currentChapter.requestedPage = currentChapter.chapter.last_page_read
                     }
-                    // A finished chapter opens at its start, the gate ChapterLoader applies when it
-                    // loads one. Reset rather than left alone, because the same instance serves the
-                    // whole session and every progress save rewrites this field, so the leftover
-                    // would be the page the chapter ended on.
-                    else -> currentChapter.requestedPage = 0
+                    // A finished chapter is left alone, as upstream does: paging back into one keeps the
+                    // page on screen. Opening one at its start is loadAdjacent's, a pick or a step.
                 }
                 chapterId = currentChapter.chapter.id!!
             }
@@ -666,6 +663,12 @@ class ReaderViewModel(
         reportExplicitLoad(chapter.chapter.id!!, fromSource = false) {
             // A pick or a step outranks any switch a page asked for before it, see ChapterSwitches.
             withUIContext { chapterSwitches.beginExplicit() }
+            // A finished chapter opens at its start, the gate ChapterLoader applies when it loads one.
+            // Reset because the same instance serves the whole session, so the field still holds the
+            // page it was last on. Only here: paging back into it must keep the page on screen.
+            if (!ReaderResume.keepsPosition(chapter.chapter.read, readerPreferences.preserveReadingPosition.get())) {
+                chapter.requestedPage = 0
+            }
             withIOContext {
                 loadChapter(loader, chapter)
             }
