@@ -7,8 +7,10 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelCover
@@ -182,19 +184,19 @@ class RecentsMappingTest {
         probe.rowUi(probe.added()).chapter shouldBe null
     }
 
-    // Search matches the row's title, so an added row without the overlay cannot be found by the
-    // name every other lane shows.
+    // Search matches the row's title, so a lane without the overlay cannot be found by the name every
+    // other lane shows.
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("probes")
-    fun `a recently added row shows the user's custom title`(probe: RecentsMappingProbe) {
-        probe.rowUi(probe.addedWithCustomInfo(title = "custom", thumbnailUrl = "cover")).title shouldBe "custom"
+    @ParameterizedTest(name = "{0} {1}")
+    @MethodSource("probesByLane")
+    fun `a row shows the user's custom title`(probe: RecentsMappingProbe, lane: OverlaidLane) {
+        probe.rowUi(probe.withCustomInfo(lane, title = "custom", thumbnailUrl = "cover")).title shouldBe "custom"
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("probes")
-    fun `a recently added row shows the user's custom cover`(probe: RecentsMappingProbe) {
-        val row = probe.rowUi(probe.addedWithCustomInfo(title = "custom", thumbnailUrl = "cover"))
+    @ParameterizedTest(name = "{0} {1}")
+    @MethodSource("probesByLane")
+    fun `a row shows the user's custom cover`(probe: RecentsMappingProbe, lane: OverlaidLane) {
+        val row = probe.rowUi(probe.withCustomInfo(lane, title = "custom", thumbnailUrl = "cover"))
 
         probe.coverUrl(row) shouldBe "cover"
     }
@@ -234,8 +236,14 @@ class RecentsMappingTest {
     companion object {
         @JvmStatic
         fun probes() = listOf(MangaRecentsMappingProbe(), NovelRecentsMappingProbe())
+
+        @JvmStatic
+        fun probesByLane() = probes().flatMap { probe -> OverlaidLane.entries.map { Arguments.of(probe, it) } }
     }
 }
+
+/** The three lanes whose rows carry an entry's own title and cover, which the user's overrides replace. */
+enum class OverlaidLane { UPDATED, READ, ADDED }
 
 /**
  * One content type's rows, normalized so both answer in the same shape. Every row uses id 7 and
@@ -256,8 +264,8 @@ interface RecentsMappingProbe {
 
     fun added(): RecentsItem
 
-    /** An added row with the user's overrides laid over it, the way the added lane does. */
-    fun addedWithCustomInfo(title: String, thumbnailUrl: String): RecentsItem
+    /** A [lane] row with the user's overrides laid over it, the way that lane's feed does. */
+    fun withCustomInfo(lane: OverlaidLane, title: String, thumbnailUrl: String): RecentsItem
 
     fun rowUi(item: RecentsItem): RecentsRowUi
 
@@ -275,8 +283,17 @@ class MangaRecentsMappingProbe : RecentsMappingProbe {
 
     private val cover = MangaCover(mangaId = 7, sourceId = 1, isMangaFavorite = true, url = null, lastModified = 0)
 
-    override fun update(read: Boolean, bookmark: Boolean, started: Boolean) = UpdatesItem(
-        update = UpdatesWithRelations(
+    override fun update(read: Boolean, bookmark: Boolean, started: Boolean) =
+        updateItem(updateRow(read, bookmark, started))
+
+    private fun updateItem(row: UpdatesWithRelations) = UpdatesItem(
+        update = row,
+        downloadStateProvider = { Download.State.NOT_DOWNLOADED },
+        downloadProgressProvider = { 0 },
+    ).toRecentsItem()
+
+    private fun updateRow(read: Boolean = false, bookmark: Boolean = false, started: Boolean = false) =
+        UpdatesWithRelations(
             mangaId = 7,
             mangaTitle = "t",
             chapterId = 70,
@@ -290,12 +307,17 @@ class MangaRecentsMappingProbe : RecentsMappingProbe {
             sourceId = 1,
             dateFetch = 1000,
             coverData = cover,
-        ),
-        downloadStateProvider = { Download.State.NOT_DOWNLOADED },
-        downloadProgressProvider = { 0 },
-    ).toRecentsItem()
+        )
 
     override fun history(readAt: Long?, read: Boolean, bookmark: Boolean, started: Boolean) =
+        historyRow(readAt, read, bookmark, started).toRecentsItem()
+
+    private fun historyRow(
+        readAt: Long? = 1L,
+        read: Boolean = true,
+        bookmark: Boolean = false,
+        started: Boolean = false,
+    ) =
         HistoryWithRelations(
             id = 1,
             chapterId = 70,
@@ -314,15 +336,20 @@ class MangaRecentsMappingProbe : RecentsMappingProbe {
             pageCount = 38,
             sourceId = 1,
             storedTitle = "t",
-        ).toRecentsItem()
+        )
 
-    override fun added() =
-        RecentlyAddedManga(mangaId = 7, title = "t", dateAdded = 99, coverData = cover).toRecentsItem()
+    private fun addedRow() = RecentlyAddedManga(mangaId = 7, title = "t", dateAdded = 99, coverData = cover)
 
-    override fun addedWithCustomInfo(title: String, thumbnailUrl: String) =
-        RecentlyAddedManga(mangaId = 7, title = "t", dateAdded = 99, coverData = cover)
-            .withCustomInfo(CustomMangaInfo(mangaId = 7, title = title, thumbnailUrl = thumbnailUrl))
-            .toRecentsItem()
+    override fun added() = addedRow().toRecentsItem()
+
+    override fun withCustomInfo(lane: OverlaidLane, title: String, thumbnailUrl: String): RecentsItem {
+        val custom = CustomMangaInfo(mangaId = 7, title = title, thumbnailUrl = thumbnailUrl)
+        return when (lane) {
+            OverlaidLane.UPDATED -> updateItem(updateRow().withCustomInfo(custom))
+            OverlaidLane.READ -> historyRow().withCustomInfo(custom).toRecentsItem()
+            OverlaidLane.ADDED -> addedRow().withCustomInfo(custom).toRecentsItem()
+        }
+    }
 
     override fun rowUi(item: RecentsItem) = mangaRowUi(item)
 
@@ -339,8 +366,14 @@ class NovelRecentsMappingProbe : RecentsMappingProbe {
 
     private val cover = NovelCover(url = null, sourceId = null, isNovelFavorite = true, lastModified = 0, novelId = 7)
 
-    override fun update(read: Boolean, bookmark: Boolean, started: Boolean) = NovelUpdatesItem(
-        update = NovelUpdateWithRelations(
+    override fun update(read: Boolean, bookmark: Boolean, started: Boolean) =
+        updateItem(updateRow(read, bookmark, started))
+
+    private fun updateItem(row: NovelUpdateWithRelations) =
+        NovelUpdatesItem(update = row, downloadState = Download.State.NOT_DOWNLOADED).toRecentsItem()
+
+    private fun updateRow(read: Boolean = false, bookmark: Boolean = false, started: Boolean = false) =
+        NovelUpdateWithRelations(
             novelId = 7,
             novelTitle = "t",
             chapterId = 70,
@@ -353,11 +386,17 @@ class NovelRecentsMappingProbe : RecentsMappingProbe {
             dateFetch = 1000,
             coverData = cover,
             novelUrl = "nu",
-        ),
-        downloadState = Download.State.NOT_DOWNLOADED,
-    ).toRecentsItem()
+        )
 
     override fun history(readAt: Long?, read: Boolean, bookmark: Boolean, started: Boolean) =
+        historyRow(readAt, read, bookmark, started).toRecentsItem()
+
+    private fun historyRow(
+        readAt: Long? = 1L,
+        read: Boolean = true,
+        bookmark: Boolean = false,
+        started: Boolean = false,
+    ) =
         NovelHistoryWithRelations(
             id = 1,
             chapterId = 70,
@@ -374,19 +413,20 @@ class NovelRecentsMappingProbe : RecentsMappingProbe {
             lastTextProgress = if (started) 5000L else 0L,
             source = "s",
             storedTitle = "t",
-        ).toRecentsItem()
+        )
 
-    override fun added() = RecentlyAddedNovel(
-        novelId = 7,
-        title = "t",
-        dateAdded = 99,
-        coverData = cover,
-    ).toRecentsItem()
+    private fun addedRow() = RecentlyAddedNovel(novelId = 7, title = "t", dateAdded = 99, coverData = cover)
 
-    override fun addedWithCustomInfo(title: String, thumbnailUrl: String) =
-        RecentlyAddedNovel(novelId = 7, title = "t", dateAdded = 99, coverData = cover)
-            .withCustomInfo(CustomNovelInfo(novelId = 7, title = title, thumbnailUrl = thumbnailUrl))
-            .toRecentsItem()
+    override fun added() = addedRow().toRecentsItem()
+
+    override fun withCustomInfo(lane: OverlaidLane, title: String, thumbnailUrl: String): RecentsItem {
+        val custom = CustomNovelInfo(novelId = 7, title = title, thumbnailUrl = thumbnailUrl)
+        return when (lane) {
+            OverlaidLane.UPDATED -> updateItem(updateRow().withCustomInfo(custom))
+            OverlaidLane.READ -> historyRow().withCustomInfo(custom).toRecentsItem()
+            OverlaidLane.ADDED -> addedRow().withCustomInfo(custom).toRecentsItem()
+        }
+    }
 
     override fun rowUi(item: RecentsItem) = novelRowUi(item)
 

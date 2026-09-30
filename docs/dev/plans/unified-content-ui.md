@@ -149,12 +149,18 @@ Flow combine in the details ScreenModel (NOT in a mapper, NOT a synchronous stor
 source row is never written, so Reset cleanly restores the source (even offline). A pure `withCustomInfo`
 helper produces a display-only entry; the raw entry stays source-accurate for tracker search, refresh,
 duplicate detection, download folder names, and merge (manga reuses the `mergeDisplayManga` display path).
-- Manga: `custom_manga_info` (migration 27), `CustomMangaInfo` + `Manga.withCustomInfo`, `Get/SetCustomMangaInfo`.
+- Manga: `custom_manga_info` (migration 27), `CustomMangaInfo`, `Get/SetCustomMangaInfo`.
 - Novels: `custom_novel_info` (migration 28), `CustomNovelInfo` + `Novel.withCustomInfo`, `Get/SetCustomNovelInfo`.
   Novels were REFACTORED off their old destructive in-row model (`editedFlags` lock bits + `mergeRefreshedNovel`):
   those are retired, `28.sqm` one-time-migrates existing edits into the overlay (per lock bit) and drops the
   `edited_flags` column, and a refresh now writes source straight into the row. `BackupNovel.editedFlags`
   (proto 18) is kept as an inert reserved slot for backup round-trip compat.
+- Both override rows implement `EntryCustomInfo` (`reikai/domain/entry/EntryCustomInfo.kt` in `:domain`),
+  which owns the one overlay rule: `isEmpty`, a single `Manga.withCustomInfo` (the library's manga-shaped
+  novel rows take it too), the title-and-cover overlay for each feed row (Updates, History, Recents' added
+  lane, the combined widget) and `overlayCustomInfo`, the list helper every feed runs after its filters and
+  download lookups. `Novel.withCustomInfo` stays with the novel model. Pinned by `EntryCustomInfoOverlayTest`
+  over both override types and `RecentsMappingTest` over type by lane.
 - The SQLDelight driver is async-only (`generateAsync`), which is why a synchronous mapper overlay was ruled
   out; the Flow combine mirrors how the details ScreenModels already read. A cover-URL override re-renders on
   its own (the URL is in Coil's key), except while a local custom-cover file is set (that file wins).

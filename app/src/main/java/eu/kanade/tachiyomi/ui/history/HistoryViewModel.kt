@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.stateIn
 import logcat.LogPriority
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
+import reikai.domain.entry.overlayCustomInfo
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
@@ -73,14 +75,11 @@ class HistoryViewModel(
                     getHistory.subscribe("", categories.include, categories.exclude),
                     getCustomMangaInfo.subscribeAll(),
                 ) { history, customInfo ->
-                    val overlay = customInfo.associateBy { it.mangaId }
-                    history.map { row ->
-                        val custom = overlay[row.mangaId] ?: return@map row
-                        row.copy(
-                            title = custom.title ?: row.title,
-                            coverData = row.coverData.copy(url = custom.thumbnailUrl ?: row.coverData.url),
-                        )
-                    }
+                    history.overlayCustomInfo(
+                        customInfo.associateBy { it.mangaId },
+                        HistoryWithRelations::mangaId,
+                        HistoryWithRelations::withCustomInfo,
+                    )
                 }
                     .distinctUntilChanged()
                     .catch { error ->

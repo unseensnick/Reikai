@@ -20,6 +20,8 @@ import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.overlayCustomInfo
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterCopyRow
@@ -31,7 +33,6 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
-import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
@@ -144,8 +145,11 @@ class NovelRecentsAdapter(
                 ),
                 getCustomNovelInfo.subscribeAll(),
             ) { rows, customInfo ->
-                val overlay = customInfo.associateBy { it.novelId }
-                rows.map { it.withCustomInfo(overlay[it.novelId]).toRecentsItem() }
+                rows.overlayCustomInfo(
+                    customInfo.associateBy { it.novelId },
+                    RecentlyAddedNovel::novelId,
+                    RecentlyAddedNovel::withCustomInfo,
+                ).map { it.toRecentsItem() }
             }
         }.asLane()
 
@@ -441,15 +445,6 @@ internal fun NovelHistoryWithRelations.toRecentsItem(): RecentsItem = RecentsIte
     lane = RecentsLane.Read(ChapterRef(EntryId.Novel(novelId), chapterId)),
     payload = this,
 )
-
-/** The novel twin of the manga overlay, which [RecentsMappingTest] pins over both. */
-internal fun RecentlyAddedNovel.withCustomInfo(custom: CustomNovelInfo?): RecentlyAddedNovel {
-    if (custom == null) return this
-    return copy(
-        title = custom.title ?: title,
-        coverData = coverData.copy(url = custom.thumbnailUrl ?: coverData.url),
-    )
-}
 
 internal fun RecentlyAddedNovel.toRecentsItem(): RecentsItem = RecentsItem(
     entryId = EntryId.Novel(novelId),

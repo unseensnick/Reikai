@@ -55,6 +55,7 @@ import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.util.system.dpToPx
 import kotlinx.coroutines.flow.combine
 import mihon.app.di.appGraph
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergeGroupRepository
@@ -203,9 +204,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
             val novelCovers = novelRows
                 .take(cap)
                 .map { row ->
-                    val cover = row.coverData.copy(
-                        url = novelCoverOverlay[row.novelId]?.thumbnailUrl ?: row.coverData.url,
-                    )
+                    val cover = row.withCustomInfo(novelCoverOverlay[row.novelId]).coverData
                     WidgetCover(
                         bitmap = loadCover(context, cover, widthPx, heightPx, roundPx),
                         intent = novelIntent(context, row),
@@ -218,7 +217,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
                         mangaId = row.mangaId,
                         sourceId = row.sourceId,
                         isMangaFavorite = true,
-                        url = mangaCoverOverlay[row.mangaId]?.thumbnailUrl ?: row.coverData.url,
+                        url = row.withCustomInfo(mangaCoverOverlay[row.mangaId]).coverData.url,
                         lastModified = row.coverData.lastModified,
                     )
                     WidgetCover(

@@ -29,9 +29,10 @@ import reikai.domain.category.RecentsCategoryFilter
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.download.downloadStateOf
+import reikai.domain.entry.overlayCustomInfo
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
-import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.recents.RECENTS_FEED_LIMIT
 import reikai.domain.recents.recentsFeedCutoff
@@ -129,7 +130,9 @@ class NovelUpdatesViewModel(
             .filter { applyFilter(filterDownloaded) { it.downloadState == Download.State.DOWNLOADED } }
             // Display-only custom-info overlay, applied last and keyed by the real novel id.
             // Filters and download detection ran on the raw values above.
-            .overlayCustomInfo(customInfo)
+            .overlayCustomInfo(customInfo.associateBy { it.novelId }, { it.update.novelId }) {
+                copy(update = update.withCustomInfo(it))
+            }
     }
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
@@ -145,21 +148,6 @@ class NovelUpdatesViewModel(
         val bookmarked: TriState,
         val categories: RecentsCategoryFilter,
     )
-
-    // Overlay the user's custom title/cover onto each row for display, keyed by real novel id.
-    private fun List<NovelUpdatesItem>.overlayCustomInfo(customInfo: List<CustomNovelInfo>): List<NovelUpdatesItem> {
-        if (customInfo.isEmpty()) return this
-        val overlay = customInfo.associateBy { it.novelId }
-        return map { item ->
-            val custom = overlay[item.update.novelId] ?: return@map item
-            item.copy(
-                update = item.update.copy(
-                    novelTitle = custom.title ?: item.update.novelTitle,
-                    coverData = item.update.coverData.copy(url = custom.thumbnailUrl ?: item.update.coverData.url),
-                ),
-            )
-        }
-    }
 
     @Immutable
     data class State(

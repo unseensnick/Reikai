@@ -34,13 +34,14 @@ import kotlinx.datetime.minus
 import logcat.LogPriority
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
+import reikai.domain.entry.overlayCustomInfo
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
-import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.domain.updates.model.UpdatesWithRelations
@@ -119,7 +120,10 @@ class UpdatesViewModel(
         updates
             .toUpdateItems()
             .applyFilters(itemPreferences)
-            .overlayCustomInfo(customInfo) // RK: display-only custom title and cover
+            // RK: display-only custom title and cover
+            .overlayCustomInfo(customInfo.associateBy { it.mangaId }, { it.update.mangaId }) {
+                copy(update = update.withCustomInfo(it))
+            }
     }
         .flowOn(Dispatchers.IO)
         // RK: seeded null for the same reason the history feeds are, and read the same way: the
@@ -169,22 +173,6 @@ class UpdatesViewModel(
             filterFnDownloaded(it)
         }
     }
-
-    // RK --> overlay the user's custom title/cover onto each row for display, keyed by real manga id.
-    private fun List<UpdatesItem>.overlayCustomInfo(customInfo: List<CustomMangaInfo>): List<UpdatesItem> {
-        if (customInfo.isEmpty()) return this
-        val overlay = customInfo.associateBy { it.mangaId }
-        return map { item ->
-            val custom = overlay[item.update.mangaId] ?: return@map item
-            item.copy(
-                update = item.update.copy(
-                    mangaTitle = custom.title ?: item.update.mangaTitle,
-                    coverData = item.update.coverData.copy(url = custom.thumbnailUrl ?: item.update.coverData.url),
-                ),
-            )
-        }
-    }
-    // RK <--
 
     // RK --> overlay live queue progress onto the queried rows, which only know what the disk index
     // said. Upstream merges this inline in its state combine, where it also stamps each row's

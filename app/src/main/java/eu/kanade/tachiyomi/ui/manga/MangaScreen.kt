@@ -47,6 +47,7 @@ import exh.ui.metadata.MetadataViewScreen
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import reikai.domain.entry.withCustomInfo // RK
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
@@ -73,7 +74,6 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
-import tachiyomi.domain.manga.model.withCustomInfo // RK
 
 class MangaScreen(
     val mangaId: Long, // RK: exposed so the migrate flow can identity-check the screen below it

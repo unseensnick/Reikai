@@ -78,6 +78,7 @@ import reikai.presentation.library.memberIds
 import reikai.presentation.library.memberIdsOf
 import reikai.presentation.library.mergedGroupTracks
 import reikai.presentation.library.toQueryOverlay
+import reikai.presentation.library.withCustomInfo
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.category.interactor.GetCategories
@@ -99,7 +100,6 @@ import tachiyomi.domain.manga.interactor.GetSearchTitles
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
-import tachiyomi.domain.manga.model.withCustomInfo
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracksPerManga
@@ -813,13 +813,7 @@ class LibraryViewModel(
         // RK: the one place the overlay is applied, reached through the provider seam
         //     (LibraryProvider.overlaid) at the shared assembly's display read. It stays out of the raw
         //     favorites, which is what search, filter, sort and selection read.
-        fun withOverlay(item: LibraryItem): LibraryItem {
-            val custom = libraryData.customInfo[item.libraryManga.manga.id] ?: return item
-            return item.copy(
-                libraryManga = item.libraryManga.copy(
-                    manga = item.libraryManga.manga.withCustomInfo(custom),
-                ),
-            )
-        }
+        fun withOverlay(item: LibraryItem): LibraryItem =
+            item.withCustomInfo(libraryData.customInfo[item.libraryManga.manga.id])
     }
 }

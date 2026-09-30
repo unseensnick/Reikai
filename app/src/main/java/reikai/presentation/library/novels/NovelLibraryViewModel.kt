@@ -53,7 +53,6 @@ import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
-import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.toUiTrack
 import reikai.novel.download.NovelDownloadCache
@@ -76,6 +75,7 @@ import reikai.presentation.library.mergedGroupTracks
 import reikai.presentation.library.novelSourceBadge
 import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.library.toQueryOverlay
+import reikai.presentation.library.withCustomInfo
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
@@ -623,14 +623,7 @@ class NovelLibraryViewModel(
          * (LibraryProvider.overlaid) at the shared assembly's display read, so the overrides never reach
          * the raw rows that filter, sort and search read. Mirrors the manga library.
          */
-        fun withOverlay(item: LibraryItem): LibraryItem {
-            val custom = customInfo[item.id] ?: return item
-            return item.copy(
-                libraryManga = item.libraryManga.copy(
-                    manga = item.libraryManga.manga.withCustomInfo(custom),
-                ),
-            )
-        }
+        fun withOverlay(item: LibraryItem): LibraryItem = item.withCustomInfo(customInfo[item.id])
 
         /** (source, url) for the item id, to open the novel details screen. */
         fun routeFor(itemId: Long): NovelRoute? = novelRoutes[itemId]

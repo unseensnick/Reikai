@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.stateIn
 import logcat.LogPriority
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
+import reikai.domain.entry.overlayCustomInfo
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.RemoveNovelHistory
@@ -77,14 +79,11 @@ class NovelHistoryViewModel(
                     getNovelHistory.subscribe("", categories.include, categories.exclude),
                     getCustomNovelInfo.subscribeAll(),
                 ) { history, customInfo ->
-                    val overlay = customInfo.associateBy { it.novelId }
-                    history.map { row ->
-                        val custom = overlay[row.novelId] ?: return@map row
-                        row.copy(
-                            title = custom.title ?: row.title,
-                            coverData = row.coverData.copy(url = custom.thumbnailUrl ?: row.coverData.url),
-                        )
-                    }
+                    history.overlayCustomInfo(
+                        customInfo.associateBy { it.novelId },
+                        NovelHistoryWithRelations::novelId,
+                        NovelHistoryWithRelations::withCustomInfo,
+                    )
                 }
                     .distinctUntilChanged()
                     .catch { error ->

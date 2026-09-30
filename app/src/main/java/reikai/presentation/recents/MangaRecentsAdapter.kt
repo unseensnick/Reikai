@@ -24,6 +24,8 @@ import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.overlayCustomInfo
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
@@ -52,7 +54,6 @@ import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
-import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -154,8 +155,11 @@ class MangaRecentsAdapter(
                 ),
                 getCustomMangaInfo.subscribeAll(),
             ) { rows, customInfo ->
-                val overlay = customInfo.associateBy { it.mangaId }
-                rows.map { it.withCustomInfo(overlay[it.mangaId]).toRecentsItem() }
+                rows.overlayCustomInfo(
+                    customInfo.associateBy { it.mangaId },
+                    RecentlyAddedManga::mangaId,
+                    RecentlyAddedManga::withCustomInfo,
+                ).map { it.toRecentsItem() }
             }
         }.asLane()
 
@@ -456,15 +460,6 @@ internal fun HistoryWithRelations.toRecentsItem(): RecentsItem = RecentsItem(
     lane = RecentsLane.Read(ChapterRef(EntryId.Manga(mangaId), chapterId)),
     payload = this,
 )
-
-/** The overlay every other feed applies to its rows, so an added row reads and searches the same. */
-internal fun RecentlyAddedManga.withCustomInfo(custom: CustomMangaInfo?): RecentlyAddedManga {
-    if (custom == null) return this
-    return copy(
-        title = custom.title ?: title,
-        coverData = coverData.copy(url = custom.thumbnailUrl ?: coverData.url),
-    )
-}
 
 internal fun RecentlyAddedManga.toRecentsItem(): RecentsItem = RecentsItem(
     entryId = EntryId.Manga(mangaId),

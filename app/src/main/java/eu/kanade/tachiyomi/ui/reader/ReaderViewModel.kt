@@ -75,6 +75,7 @@ import logcat.LogPriority
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.entry.EntryId // RK
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
@@ -125,7 +126,6 @@ import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.withCustomInfo
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.image.LocalCoverManager
 import tachiyomi.source.local.isLocal

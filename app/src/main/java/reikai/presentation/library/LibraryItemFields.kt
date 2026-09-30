@@ -2,10 +2,10 @@ package reikai.presentation.library
 
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.entry.EntryCustomInfo
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.LibrarySortFields
-import reikai.domain.novel.model.CustomNovelInfo
 import reikai.util.isLewd
-import tachiyomi.domain.manga.model.CustomMangaInfo
 
 /**
  * The one binding of the shared filter and sort kernels onto the library's row type, used by both
@@ -76,12 +76,14 @@ fun libraryItemQueryFields(
 /** This row's own source as the search terms read it; [key] is per content type, see [LibraryQuerySource.key]. */
 fun LibraryItem.querySource(key: String) = LibraryQuerySource(key, sourceName, sourceLanguage, isLocal)
 
-// The two custom-info rows differ only in their id field's name, so each maps onto the neutral overlay
-// here rather than either content type learning about the query kernel.
+/** Maps onto the neutral overlay here rather than either content type learning about the query kernel. */
+fun EntryCustomInfo.toQueryOverlay() = LibraryQueryOverlay(title, author, artist, description, genre)
 
-fun CustomMangaInfo.toQueryOverlay() = LibraryQueryOverlay(title, author, artist, description, genre)
-
-fun CustomNovelInfo.toQueryOverlay() = LibraryQueryOverlay(title, author, artist, description, genre)
+/** The display read's overlay, which the raw rows that filter, sort and search read never take. */
+fun LibraryItem.withCustomInfo(custom: EntryCustomInfo?): LibraryItem {
+    if (custom == null) return this
+    return copy(libraryManga = libraryManga.copy(manga = libraryManga.manga.withCustomInfo(custom)))
+}
 
 /**
  * The sort twin of [libraryItemFilterFields]. Every key reads the row, so the only seam is the tracker

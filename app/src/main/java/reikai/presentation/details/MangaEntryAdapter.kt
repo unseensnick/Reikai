@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.merge.ChapterGap
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
@@ -25,7 +26,6 @@ import reikai.presentation.selection.EntrySelection
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.withCustomInfo
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.track.model.Track
 

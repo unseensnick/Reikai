@@ -10,10 +10,10 @@ import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.util.editCover
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import reikai.domain.entry.withCustomInfo
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.withCustomInfo
 import tachiyomi.source.local.image.LocalCoverManager
 import java.io.InputStream
 
