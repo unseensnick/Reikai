@@ -2,6 +2,8 @@ package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
 
 /**
@@ -27,10 +29,10 @@ interface LibraryProvider : LibraryBehavior {
      * unbucketed, with the custom-info overlay deliberately NOT applied (it is applied only at the display
      * read). Filtering stays per provider (each reads its own repositories and source manager); everything
      * downstream of these rows (concatenation, the chip predicate, bucketing, per-category sort) is the
-     * shared assembly's job. Cold on purpose: nothing may resolve a scope at construction, and the engine
-     * collects it only once assembly lands.
+     * shared assembly's job. Null until the first real list, through [loadedRows]. Cold on purpose:
+     * nothing may resolve a scope at construction, and the engine collects it only once assembly lands.
      */
-    val rows: Flow<List<LibraryItem>>
+    val rows: Flow<List<LibraryItem>?>
 
     /**
      * Mean 0-10 tracker score per row of this type, keyed by the row's own raw id (safe: the map never
@@ -54,3 +56,14 @@ interface LibraryProvider : LibraryBehavior {
      */
     suspend fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed
 }
+
+/**
+ * A model's rows as [LibraryProvider.rows] hands them over: null while the model is still loading. Its
+ * state flow is seeded, so it answers at once with an empty list that is not data yet, and an assembly
+ * built from that shows a view without this type's entries until the real list lands. Distinct because
+ * the state re-emits for changes the row list is upstream of.
+ */
+internal fun <S> Flow<S>.loadedRows(
+    isLoading: (S) -> Boolean,
+    rows: (S) -> List<LibraryItem>,
+): Flow<List<LibraryItem>?> = map { if (isLoading(it)) null else rows(it) }.distinctUntilChanged()

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -173,6 +174,51 @@ class LibraryEngineTest {
         val assembled = engine.assembled.filterNotNull().first()
 
         assembled.buckets.map { it.key } shouldContainExactly listOf("11")
+    }
+
+    /** A loaded manga library beside a novel one still loading, under the Manga chip a fresh store starts on. */
+    private fun engineWithNovelsLoading(): LibraryEngine {
+        val novels = provider(ContentType.NOVELS)
+        every { novels.rows } returns flowOf(null)
+        return engineOver(
+            listOf(provider(ContentType.MANGA, rows = listOf(row(1, categories = listOf(11)))), novels),
+            categories = listOf(Category(id = 11, name = "Reading", order = 0, flags = 0)),
+        )
+    }
+
+    /**
+     * A view built without one of its types shows that type's entries missing, and its counts short,
+     * until the real rows land. The tab draws a view with no assembly as loading, so none is the answer.
+     */
+    @Test
+    fun `a view waits for every provider in it to load`() = runTest {
+        val engine = engineWithNovelsLoading()
+        // The Manga view assembling first is what shows the engine ran before the chip moved.
+        engine.assembled.filterNotNull().first()
+
+        engine.setContentType(ContentType.ALL)
+
+        engine.assembled.first { it?.chip != ContentType.MANGA } shouldBe null
+    }
+
+    @Test
+    fun `a provider outside the view does not hold it back`() = runTest {
+        val engine = engineWithNovelsLoading()
+
+        val assembled = engine.assembled.filterNotNull().first()
+
+        assembled.presentIds shouldContainExactly setOf(m1)
+    }
+
+    @Test
+    fun `a model still loading hands over no rows`() = runTest {
+        val loaded = listOf(row(1, categories = emptyList()))
+
+        val handed = flowOf(true to emptyList(), false to loaded)
+            .loadedRows(isLoading = { it.first }) { it.second }
+            .toList()
+
+        handed shouldBe listOf(null, loaded)
     }
 
     /**

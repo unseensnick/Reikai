@@ -118,8 +118,8 @@ class LibraryEngine(
     /**
      * The assembled list the tab renders: the providers' row flows concatenated per the chip, then either
      * bucketed into real categories by [assembleLibrary] or into dynamic groups by
-     * [assembleDynamicGroups], whichever the one library-wide grouping preference asks for. Null only
-     * before the first emission, where the tab falls back to the active provider's own list.
+     * [assembleDynamicGroups], whichever the one library-wide grouping preference asks for. Null until
+     * every provider in the view has loaded its rows, which the tab draws as loading.
      * `by lazy` like every preference-backed member: eager resolution breaks direct construction in tests.
      */
     val assembled: StateFlow<LibraryAssembled?> by lazy {
@@ -172,8 +172,9 @@ class LibraryEngine(
             // before it, because a filter is not the only thing that can drop an entry: a hidden
             // category, an emptied bucket and a lagging dynamic group all do, and those leave the
             // entry in the providers' rows, where the verbs would still find and act on it.
+            // No assembly says nothing about what is on screen, so it prunes nothing.
             assembleFor(chip, rowsPerProvider, queryAndOverlay.map { it.first }, allCategories, prefs)
-                .also { pruneSelection(it.presentIds) }
+                ?.also { pruneSelection(it.presentIds) }
         }
             // The transform sorts and buckets the whole library; keep it off the main thread.
             .flowOn(Dispatchers.Default)
@@ -187,15 +188,18 @@ class LibraryEngine(
 
     private suspend fun assembleFor(
         chip: ContentType,
-        rowsPerProvider: List<List<LibraryItem>>,
+        rowsPerProvider: List<List<LibraryItem>?>,
         searchQueryPerProvider: List<String?>,
         allCategories: List<Category>,
         prefs: AssemblyPrefs,
-    ): LibraryAssembled {
+    ): LibraryAssembled? {
         val active = providersFor(chip)
+        // A provider in the view that has not loaded yet means no assembly, never one without its rows:
+        // the tab would draw that as the whole library, short by every entry of that type. One outside
+        // the view is not waited for, or the Manga chip would sit behind the novel plugins loading.
         val rows = providers.indices
             .filter { providers[it] in active }
-            .flatMap { rowsPerProvider[it] }
+            .flatMap { rowsPerProvider[it] ?: return null }
         val searchActive = active.any {
             !searchQueryPerProvider[providers.indexOf(it)].isNullOrEmpty()
         }
