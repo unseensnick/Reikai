@@ -294,7 +294,7 @@ class UpdatesViewModel(
     )
 }
 
-private fun TriState.toBooleanOrNull(): Boolean? {
+internal fun TriState.toBooleanOrNull(): Boolean? { // RK: shared with NovelUpdatesViewModel
     return when (this) {
         TriState.DISABLED -> null
         TriState.ENABLED_IS -> true

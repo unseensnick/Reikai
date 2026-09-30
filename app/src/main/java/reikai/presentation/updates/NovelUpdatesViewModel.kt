@@ -11,6 +11,7 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.ui.updates.toBooleanOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -172,10 +173,3 @@ data class NovelUpdatesItem(
     val update: NovelUpdateWithRelations,
     val downloadState: Download.State,
 )
-
-/** Mirrors the manga model's private conversion; the query wants a nullable Boolean, not a TriState. */
-private fun TriState.toBooleanOrNull(): Boolean? = when (this) {
-    TriState.DISABLED -> null
-    TriState.ENABLED_IS -> true
-    TriState.ENABLED_NOT -> false
-}
