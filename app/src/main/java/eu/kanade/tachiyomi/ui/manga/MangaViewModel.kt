@@ -270,9 +270,7 @@ class MangaViewModel(
     val chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get()
     val chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get()
 
-    // RK: unread by us since the mark-read tracker push moved into EntryAutoTrackOnMarkRead, which reads
-    // the preference itself. Kept as upstream wrote it so the next sync of this file stays a clean merge.
-    var autoTrackState = trackPreferences.autoUpdateTrackOnMarkRead.get()
+    // RK: autoTrackState moved to EntryAutoTrackOnMarkRead, which reads the preference itself.
 
     private val skipFiltered by readerPreferences.skipFiltered.asState(viewModelScope)
 
