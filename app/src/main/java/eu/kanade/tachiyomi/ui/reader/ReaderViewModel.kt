@@ -277,12 +277,18 @@ class ReaderViewModel(
         chapterMangaId?.let { mergedGroup?.mangaById?.get(it) } ?: manga!!
 
     // RK: the chapters paging steps through from [current], by the kernel the novel reader runs too:
-    // hidden ones dropped (the details screen's key), then duplicates when skip-duplicate is on.
-    private fun navigable(chapters: List<Chapter>, current: Chapter): List<Chapter> {
+    // hidden ones dropped (the details screen's key), then duplicates when skip-duplicate is on, keeping
+    // a copy [isForwardEligible] lets a forward step land on.
+    private fun navigable(
+        chapters: List<Chapter>,
+        current: Chapter,
+        isForwardEligible: (Chapter) -> Boolean,
+    ): List<Chapter> {
         val hidden = mangaPreferences.hiddenChapters().get()
         return chapters.navigableChapters(
             current,
             isHidden = { hidden.isNotEmpty() && it.hiddenKey(mangaForChapterId(it.mangaId)) in hidden },
+            isForwardEligible = isForwardEligible,
             skipDuplicates = readerPreferences.skipDupe.get(),
             numberOf = { it.chapterNumber },
             idOf = { it.id },
@@ -308,6 +314,18 @@ class ReaderViewModel(
         read = { it.read },
         bookmark = { it.bookmark },
     ) { downloadManager.downloadedChapterIds(pooled) { mangaForChapterId(it.mangaId) } }
+
+    /** RK: whether a forward step may land on each of [chapters], asked of the whole group through the one
+     *  eligibility rule the novel readers share. The filter PREFS stay the opened manga's, which is the
+     *  user's current context. On disk is probed only behind a downloaded filter. */
+    private fun forwardEligibility(chapters: List<Chapter>): (Chapter) -> Boolean {
+        val skipRead = readerPreferences.skipRead.get()
+        val skipFiltered = readerPreferences.skipFiltered.get()
+        if (!skipRead && !skipFiltered) return { true }
+        val flags = groupFlags(chapters)
+        val filters = manga!!.readerChapterFilters()
+        return { flags.isForwardEligible(it, skipRead, skipFiltered, filters) }
+    }
 
     // RK: per-source "is this chapter downloaded" check for the transition card. Resolves the
     // chapter's OWN merged source, and uses the in-memory download cache (skipCache = false) instead
@@ -390,24 +408,13 @@ class ReaderViewModel(
         val selectedChapter = chapters.find { it.id == chapterId }
             ?: error("Requested chapter of id $chapterId not found in chapter list")
 
+        // RK: asked once, so the skip filters and the duplicate pass below keep the same copy of a chapter
+        val isForwardEligible = forwardEligibility(chapters)
         val chaptersForReader = when {
             // RK: only the skip-filtered list applies the skip filters
             applyReadFilter &&
                 (readerPreferences.skipRead.get() || readerPreferences.skipFiltered.get()) -> {
-                // RK --> read, bookmarked and on disk are asked of the whole group here, through the one
-                // eligibility rule the novel readers share. The filter PREFS stay the opened manga's,
-                // which is the user's current context. On disk is probed only behind a downloaded filter.
-                val flags = groupFlags(chapters)
-                val filters = manga.readerChapterFilters()
-                val filteredChapters = chapters.filter {
-                    flags.isForwardEligible(
-                        it,
-                        skipRead = readerPreferences.skipRead.get(),
-                        skipFiltered = readerPreferences.skipFiltered.get(),
-                        filters = filters,
-                    )
-                }
-                // RK <--
+                val filteredChapters = chapters.filter(isForwardEligible) // RK
 
                 if (filteredChapters.any { it.id == chapterId }) {
                     filteredChapters
@@ -424,7 +431,7 @@ class ReaderViewModel(
             .inReadingOrder(manga)
             // RK --> user-hidden chapters and, with skip-duplicate on, duplicates, by the kernel the novel
             // reader runs too. The opened chapter is kept, so opening a hidden one directly still resolves.
-            .let { sorted -> navigable(sorted, selectedChapter) }
+            .let { sorted -> navigable(sorted, selectedChapter, isForwardEligible) }
             // RK <--
             .run {
                 if (basePreferences.downloadedOnly.get()) {
@@ -808,7 +815,8 @@ class ReaderViewModel(
                 // Sorted the way the reader itself pages, not by stitch position: a group sorted by
                 // upload date or by name otherwise queues chapters the reader never steps into next.
                 // RK: through the reader's own rule, or it queued chapters the reader never stops on.
-                val ahead = navigable(opened.inReadingOrder(manga), nextChapter.toDomainChapter()!!)
+                val ahead = opened.inReadingOrder(manga)
+                    .let { sorted -> navigable(sorted, nextChapter.toDomainChapter()!!, forwardEligibility(sorted)) }
                 chaptersToDownloadAhead(
                     ahead,
                     from = ahead.indexOfFirst { it.id == nextChapter.id },
@@ -816,7 +824,8 @@ class ReaderViewModel(
                     isRead = groupFlags(opened)::isRead,
                 )
             } else {
-                navigable(getNextChapters.await(nextChapterManga.id, nextChapter.id!!), nextChapter.toDomainChapter()!!)
+                getNextChapters.await(nextChapterManga.id, nextChapter.id!!)
+                    .let { next -> navigable(next, nextChapter.toDomainChapter()!!, forwardEligibility(next)) }
                     // RK: a source-scoped session on a merged series skips what another source read too.
                     .let { own -> chaptersToDownloadAhead(own, 0, downloadAheadAmount, groupFlags(own)::isRead) }
             }

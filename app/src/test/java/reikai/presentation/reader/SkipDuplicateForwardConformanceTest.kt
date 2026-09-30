@@ -1,0 +1,82 @@
+package reikai.presentation.reader
+
+import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
+
+/**
+ * Skip duplicates keeps one copy of each chapter number, and the skip filters then say which chapters a
+ * forward step may land on. Chapter 5 is listed twice, the first copy read: with Skip read on too, the
+ * step from 4 has to reach the unread copy of 5, never jump to 6. Pinned once over both readers.
+ */
+class SkipDuplicateForwardConformanceTest {
+
+    /** One reader opened on chapter 4 of an entry listing 4, 5 (read), 5 (unread) and 6. */
+    interface Probe {
+        /** Whether the next chapter from 4 is the unread copy of 5. */
+        suspend fun nextIsTheUnreadCopy(scope: TestScope): Boolean
+    }
+
+    @BeforeEach
+    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+
+    @AfterEach
+    fun tearDown() = Dispatchers.resetMain()
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a forward step reaches the unread copy of a duplicated chapter`(probe: Probe) = runTest {
+        probe.nextIsTheUnreadCopy(this) shouldBe true
+    }
+
+    companion object {
+        @JvmStatic
+        fun probes() = listOf(MangaProbe(), NovelProbe())
+    }
+
+    /** The read copy is the current chapter's own scanlator's, so origin alone would keep it. */
+    class MangaProbe : Probe {
+        override fun toString() = "manga"
+
+        override suspend fun nextIsTheUnreadCopy(scope: TestScope): Boolean =
+            MangaReaderViewModelHarness.create().use { harness ->
+                val manga = harness.manga(1L, source = 100L, title = "Series")
+                harness.chapter(40L, manga, 4.0, scanlator = "x")
+                harness.chapter(50L, manga, 5.0, scanlator = "x", read = true, order = 951L)
+                val unread = harness.chapter(51L, manga, 5.0, scanlator = "y", order = 950L)
+                harness.chapter(60L, manga, 6.0, scanlator = "x")
+                val skips = mapOf("skip_read" to true, "skip_dupe" to true)
+                harness.open(manga, chapterId = 40L, preferences = skips) { _, state ->
+                    state.viewerChapters?.nextChapter?.chapter?.id == unread.id
+                }
+            }
+    }
+
+    class NovelProbe : Probe {
+        override fun toString() = "novel"
+
+        override suspend fun nextIsTheUnreadCopy(scope: TestScope): Boolean =
+            NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+                val novel = harness.novel(harness.source("alpha"))
+                val four = harness.chapter(novel, 4.0)
+                harness.chapter(novel, 5.0, read = true)
+                val unread = harness.chapter(novel, 5.0, url = "/chapter/$novel/5-again", sourceOrder = 6L)
+                harness.chapter(novel, 6.0, sourceOrder = 7L)
+                harness.novelPreferences.readerSkipRead().set(true)
+                harness.novelPreferences.readerSkipDuplicateChapters().set(true)
+                val model = harness.open(novel, four.id)
+                scope.advanceUntilIdle()
+
+                model.chapterNeighbours.value.next == unread.id
+            }
+    }
+}

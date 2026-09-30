@@ -2,14 +2,15 @@ package reikai.domain.reader
 
 /**
  * Drop same-numbered duplicate chapters WITHIN one entry, which a source produces by listing a chapter
- * twice or under several scanlators. Of each set the chapter being read wins, then one from the same
- * origin as it (a scanlator; a novel has none, one novel being one source), then the first. Dropping
- * them rather than stepping over them keeps the chapter sheet, download-ahead and delete-after-read
- * counting the chapters the reader will stop on. [ownerOf] keeps the pass inside one entry: across a
- * merge group a number identifies nothing, and the stitch has already decided what is one chapter there.
+ * twice or under several scanlators. Of each set the chapter being read wins, then a [prefer]red one
+ * (a forward step may land on it), the same origin as the current chapter first (a scanlator; a novel
+ * has none), then the first. Dropping them rather than stepping over them keeps the chapter sheet,
+ * download-ahead and delete-after-read counting the chapters the reader will stop on. [ownerOf] keeps
+ * the pass inside one entry: across a merge group a number identifies nothing.
  */
 fun <T> List<T>.removeDuplicateChapters(
     current: T,
+    prefer: (T) -> Boolean,
     numberOf: (T) -> Double,
     idOf: (T) -> Long,
     originOf: (T) -> String?,
@@ -22,7 +23,10 @@ fun <T> List<T>.removeDuplicateChapters(
         val number = numberOf(chapter)
         Triple(ownerOf(chapter), number, if (number < 0) idOf(chapter) else null)
     }.map { (_, chapters) ->
+        val preferred = chapters.filter(prefer)
         chapters.find { idOf(it) == currentId }
+            ?: preferred.find { originOf(it) == currentOrigin }
+            ?: preferred.firstOrNull()
             ?: chapters.find { originOf(it) == currentOrigin }
             ?: chapters.first()
     }
@@ -61,13 +65,15 @@ fun <T> List<T>.downloadedOrCurrent(current: T, idOf: (T) -> Long, downloadedIds
 
 /**
  * The chapters a reader steps through: user-hidden ones dropped, the one being read kept, and then, with
- * skip-duplicate on, same-numbered copies removed. Hidden first, so a hidden copy can never be the one
- * a duplicate group keeps and take the whole number with it when it is hidden afterwards. Both readers
- * sort before calling this, and download-ahead calls it too, so it queues what the reader stops on.
+ * skip-duplicate on, same-numbered copies removed. Hidden first, and a copy the skip filters let a
+ * forward step land on ([isForwardEligible]) preferred, so a copy the step passes over can never be the
+ * one a duplicate group keeps and take the whole number with it. Both readers sort before calling this,
+ * and download-ahead calls it too, so it queues what the reader stops on.
  */
 fun <T> List<T>.navigableChapters(
     current: T,
     isHidden: (T) -> Boolean,
+    isForwardEligible: (T) -> Boolean,
     skipDuplicates: Boolean,
     numberOf: (T) -> Double,
     idOf: (T) -> Long,
@@ -75,5 +81,6 @@ fun <T> List<T>.navigableChapters(
     ownerOf: (T) -> Long,
 ): List<T> {
     val shown = filter { idOf(it) == idOf(current) || !isHidden(it) }
-    return if (skipDuplicates) shown.removeDuplicateChapters(current, numberOf, idOf, originOf, ownerOf) else shown
+    if (!skipDuplicates) return shown
+    return shown.removeDuplicateChapters(current, isForwardEligible, numberOf, idOf, originOf, ownerOf)
 }

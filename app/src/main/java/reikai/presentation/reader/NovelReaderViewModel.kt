@@ -1324,7 +1324,11 @@ class NovelReaderViewModel(
                 restamp = { chapter, order -> chapter.copy(sourceOrder = order) },
             )
         }
-        val inOrder = navigable(chapters.sortedWith(getNextNovelChapter.readingOrder(novelId)))
+        val sorted = chapters.sortedWith(getNextNovelChapter.readingOrder(novelId))
+        val members = pooled.ifEmpty { sorted }
+        // Every copy is asked before duplicates go, so the copy a group keeps is one a forward step may land on.
+        val eligible = resolveForwardEligible(sorted, groupFlags(members, sorted, novelRepo.ownersOf(members)))
+        val inOrder = navigable(sorted) { it.id in eligible }
         aheadIds = inOrder.map { it.id }
         val current = inOrder.find { it.id == currentChapterId }
         val visible = if (basePreferences.downloadedOnly.get() && current != null) {
@@ -1335,8 +1339,7 @@ class NovelReaderViewModel(
             inOrder
         }
         orderedIds = visible.map { it.id }
-        val members = pooled.ifEmpty { visible }
-        forwardEligibleIds = resolveForwardEligible(visible, groupFlags(members, visible, novelRepo.ownersOf(members)))
+        forwardEligibleIds = eligible
     }
 
     /**
@@ -1344,12 +1347,16 @@ class NovelReaderViewModel(
      * has no origin to break a duplicate tie with: every chapter of one has the same source. Hidden is
      * the details screen's and the resume's rule.
      */
-    private suspend fun navigable(chapters: List<NovelChapter>): List<NovelChapter> {
+    private suspend fun navigable(
+        chapters: List<NovelChapter>,
+        isForwardEligible: (NovelChapter) -> Boolean,
+    ): List<NovelChapter> {
         val isHidden = getNextNovelChapter.hiddenAmong(chapters)
         val current = chapters.find { it.id == currentChapterId } ?: return chapters.filterNot(isHidden)
         return chapters.navigableChapters(
             current,
             isHidden = isHidden,
+            isForwardEligible = isForwardEligible,
             skipDuplicates = novelPreferences.readerSkipDuplicateChapters().get(),
             numberOf = { it.chapterNumber },
             idOf = { it.id },

@@ -6,17 +6,30 @@ import org.junit.jupiter.api.Test
 /** The chapters a reader steps through, the same pipeline in the manga and novel readers. */
 class NavigableChaptersTest {
 
-    private data class Ch(val id: Long, val number: Double, val hidden: Boolean = false)
+    private data class Ch(
+        val id: Long,
+        val number: Double,
+        val hidden: Boolean = false,
+        val origin: String? = null,
+        val eligible: Boolean = true,
+    )
 
     private fun List<Ch>.navigable(current: Ch, skipDuplicates: Boolean = true) = navigableChapters(
         current,
         isHidden = { it.hidden },
+        isForwardEligible = { it.eligible },
         skipDuplicates = skipDuplicates,
         numberOf = { it.number },
         idOf = { it.id },
-        originOf = { null },
+        originOf = { it.origin },
         ownerOf = { 1L },
     )
+
+    /** Where a forward step from [from] lands, as both readers walk the list this returns. */
+    private fun List<Ch>.nextAfter(from: Ch): Ch? {
+        val navigable = navigable(from)
+        return navigable.neighbourChapter(navigable.indexOf(from), forward = true) { it.eligible }
+    }
 
     private val one = Ch(id = 1, number = 1.0)
     private val twoHidden = Ch(id = 2, number = 2.0, hidden = true)
@@ -47,5 +60,25 @@ class NavigableChaptersTest {
     fun `the chapter being read stays when it is hidden`() {
         listOf(one, twoHidden, three).navigable(twoHidden, skipDuplicates = false).map { it.id } shouldBe
             listOf(1L, 2L, 4L)
+    }
+
+    /** A manga's chapter 5 under two scanlators, only the other one's on disk behind a Downloaded filter. */
+    @Test
+    fun `a forward step reaches the copy the skip filters let it land on, not the next number`() {
+        val fourX = Ch(id = 40, number = 4.0, origin = "x")
+        val fiveX = Ch(id = 50, number = 5.0, origin = "x", eligible = false)
+        val fiveY = Ch(id = 51, number = 5.0, origin = "y")
+        val six = Ch(id = 60, number = 6.0, origin = "x")
+        listOf(fourX, fiveX, fiveY, six).nextAfter(fourX) shouldBe fiveY
+    }
+
+    /** A novel listing chapter 5 twice with the first copy read, under Skip read. */
+    @Test
+    fun `a forward step reaches an unread copy listed after a read one`() {
+        val four = Ch(id = 40, number = 4.0)
+        val fiveRead = Ch(id = 50, number = 5.0, eligible = false)
+        val fiveUnread = Ch(id = 51, number = 5.0)
+        val six = Ch(id = 60, number = 6.0)
+        listOf(four, fiveRead, fiveUnread, six).nextAfter(four) shouldBe fiveUnread
     }
 }

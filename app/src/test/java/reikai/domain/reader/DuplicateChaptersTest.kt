@@ -10,10 +10,17 @@ import org.junit.jupiter.api.Test
  */
 class DuplicateChaptersTest {
 
-    private data class Ch(val id: Long, val number: Double, val origin: String?, val owner: Long = 1L)
+    private data class Ch(
+        val id: Long,
+        val number: Double,
+        val origin: String?,
+        val owner: Long = 1L,
+        val eligible: Boolean = true,
+    )
 
     private fun List<Ch>.dedup(current: Ch) = removeDuplicateChapters(
         current,
+        prefer = { it.eligible },
         numberOf = { it.number },
         idOf = { it.id },
         originOf = { it.origin },
@@ -85,5 +92,29 @@ class DuplicateChaptersTest {
         val named = Ch(id = 6, number = 1.0, origin = "alpha")
         val unnamed = Ch(id = 7, number = 1.0, origin = null)
         listOf(named, unnamed).dedup(Ch(id = 9, number = 5.0, origin = null)).map { it.id } shouldBe listOf(7L)
+    }
+
+    /** Skip filtered with a Downloaded filter: only the other scanlator's copy of 5 is on disk. */
+    @Test
+    fun `a duplicate set keeps a copy a forward step may land on over the same-origin one`() {
+        val fourX = Ch(id = 40, number = 4.0, origin = "x")
+        val fiveX = Ch(id = 50, number = 5.0, origin = "x", eligible = false)
+        val fiveY = Ch(id = 51, number = 5.0, origin = "y")
+        listOf(fourX, fiveX, fiveY).dedup(fourX).map { it.id } shouldBe listOf(40L, 51L)
+    }
+
+    @Test
+    fun `of the copies a forward step may land on, the same origin wins`() {
+        val fourX = Ch(id = 40, number = 4.0, origin = "x")
+        val fiveZ = Ch(id = 52, number = 5.0, origin = "z")
+        val fiveX = Ch(id = 50, number = 5.0, origin = "x")
+        listOf(fourX, fiveZ, fiveX).dedup(fourX).map { it.id } shouldBe listOf(40L, 50L)
+    }
+
+    @Test
+    fun `the chapter being read wins over a copy a forward step may land on`() {
+        val readX = Ch(id = 50, number = 5.0, origin = "x", eligible = false)
+        val fiveY = Ch(id = 51, number = 5.0, origin = "y")
+        listOf(readX, fiveY).dedup(readX).map { it.id } shouldBe listOf(50L)
     }
 }

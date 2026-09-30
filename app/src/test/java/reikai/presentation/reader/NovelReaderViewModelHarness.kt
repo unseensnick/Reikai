@@ -168,7 +168,10 @@ class NovelReaderViewModelHarness private constructor(
         return novelRepo.insert(Novel.create().copy(source = source.id, url = url, title = title, favoriteAt = 0L))!!
     }
 
-    /** [progressPercent] is where the reader last was in it, stored as the reader stores it. */
+    /**
+     * [progressPercent] is where the reader last was in it, stored as the reader stores it. A second copy
+     * of one [number] needs its own [url], and a [sourceOrder] to say which copy the source lists first.
+     */
     suspend fun chapter(
         novelId: Long,
         number: Double,
@@ -176,8 +179,9 @@ class NovelReaderViewModelHarness private constructor(
         progressPercent: Int = 0,
         bookmark: Boolean = false,
         page: String = "",
+        url: String = "/chapter/$novelId/$number",
+        sourceOrder: Long = number.toLong(),
     ): SeededChapter {
-        val url = "/chapter/$novelId/$number"
         val chapter = NovelChapter(
             id = -1L,
             novelId = novelId,
@@ -187,7 +191,7 @@ class NovelReaderViewModelHarness private constructor(
             bookmark = bookmark,
             lastTextProgress = progressPercent * 100L,
             chapterNumber = number,
-            sourceOrder = number.toLong(),
+            sourceOrder = sourceOrder,
             dateFetch = 0L,
             dateUpload = 0L,
             page = page,
