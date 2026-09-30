@@ -106,6 +106,7 @@ every stable release now also ships a foss build with neither in it.
 - **Novel sources on the Preferred sources screen now show their language code, like manga sources.**
 - **Failed checks from the adult content update checker now land in the shared update error log, and their notification clears when tapped.**
 - **The library filter icon no longer lights up for a custom-interval filter whose update restriction is off.**
+- **Settings -> Library -> Preferred sources lists the local source again, so it can be ranked.**
 
 ### Merged series
 

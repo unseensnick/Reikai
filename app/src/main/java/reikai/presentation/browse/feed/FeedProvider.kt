@@ -1,7 +1,7 @@
 package reikai.presentation.browse.feed
 
 import eu.kanade.domain.source.interactor.GetEnabledSources
-import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.Source
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import mihon.domain.manga.model.toDomainManga
@@ -62,20 +62,21 @@ class MangaFeedProvider(
 
     override val contentType = ContentType.MANGA
 
-    // The Sources tab's list, without the duplicate row it adds for the last-used source.
+    // The Sources tab's list, without the duplicate row it adds for the last-used source. Typed as the
+    // base Source, which carries every listing: the local source is no CatalogueSource.
     override suspend fun sources(): List<BrowseSearchRow> =
         getEnabledSources.subscribe().first()
             .filterNot { it.isUsedLast }
-            .mapNotNull { sourceManager.get(it.id) as? CatalogueSource }
+            .mapNotNull { sourceManager.get(it.id) }
             .map(::toRow)
 
     override suspend fun source(key: SourceKey): BrowseSearchRow? =
-        (key as? SourceKey.Manga)?.let { sourceManager.get(it.id) as? CatalogueSource }?.let(::toRow)
+        (key as? SourceKey.Manga)?.let { sourceManager.get(it.id) }?.let(::toRow)
 
-    override fun supportsLatest(row: BrowseSearchRow) = (row.source as CatalogueSource).supportsLatest
+    override fun supportsLatest(row: BrowseSearchRow) = (row.source as Source).supportsLatest
 
     override suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<EntryBrowseRow> {
-        val source = row.source as CatalogueSource
+        val source = row.source as Source
         val page = when {
             savedSearch != null -> {
                 // Onto a list the source builds now, so anything the search does not carry keeps the
@@ -95,7 +96,7 @@ class MangaFeedProvider(
             .map { liveMangaRow(it, getManga.subscribe(it.url, it.source)) }
     }
 
-    private fun toRow(source: CatalogueSource) = BrowseSearchRow(
+    private fun toRow(source: Source) = BrowseSearchRow(
         key = SourceKey.Manga(source.id),
         name = source.name,
         lang = source.lang,

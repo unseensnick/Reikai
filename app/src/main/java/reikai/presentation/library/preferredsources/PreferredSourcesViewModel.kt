@@ -7,7 +7,6 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import eu.kanade.tachiyomi.source.CatalogueSource
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -33,7 +32,7 @@ class PreferredSourcesViewModel(
     val manga = SourceRankingEditor(
         scope = viewModelScope,
         sources = sourceManager.sources.map { sources ->
-            sources.filterIsInstance<CatalogueSource>().map { PreferredSourceItem(it.id.toString(), it.name, it.lang) }
+            sources.map { PreferredSourceItem(it.id.toString(), it.name, it.lang) }
         },
         ranking = preferences.preferredMangaSources,
         parseKey = String::toLongOrNull,

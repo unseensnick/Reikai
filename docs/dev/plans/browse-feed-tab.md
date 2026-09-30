@@ -362,6 +362,15 @@ adult-source saved-search specialization.
   otherwise the same entry twice. Komikku also shows an icon and sorts pinned sources first; the icon
   needs the picker to stop being a list of strings and pinned-first needs both providers to carry
   pinned state, neither worth it for a dialog opened once per added row.
+- **The add-source picker offers exactly what the Sources tab lists.** The manga half reads
+  `GetEnabledSources` and drops only the duplicate row it adds for the last-used source; the novel
+  half and the novel Sources list both call the `isDisabled` kernel. The local source is in, since it
+  serves Latest and Popular like any other: it went missing while the picker typed its sources as
+  `CatalogueSource`, which the local source stopped implementing when upstream moved the listings
+  onto `Source`, so `MangaFeedProvider` is typed on `Source` now. A built-in site registered once per
+  language is one source per enabled language in both lists; the picker writes the language beside
+  the name where the Sources tab files the row under that language's heading, so the same source
+  reads differently in the two places. `MangaFeedProviderTest` runs both lists over one fixture.
 - **A saved search whose filters cannot be read applies what it can, silently.** Komikku toasts and
   aborts. Ours degrades per element by design, so there is nothing to abort, and warning would mean
   threading an error channel through `applySearch` for a case only a corrupt payload reaches.
