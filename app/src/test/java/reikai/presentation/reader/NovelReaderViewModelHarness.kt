@@ -26,6 +26,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ReconcileMergedChapters
@@ -115,7 +116,6 @@ class NovelReaderViewModelHarness private constructor(
     val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
         every { queueState } returns MutableStateFlow(emptyList())
         every { getChapterText(any(), any()) } answers { downloaded[secondArg<NovelChapter>().id] }
-        every { isChapterDownloaded(any(), any()) } answers { secondArg<NovelChapter>().id in downloaded }
     }
 
     /** What the in-app browser reports as a chapter saved from its page. */
@@ -199,7 +199,7 @@ class NovelReaderViewModelHarness private constructor(
         val context = mockk<Context>(relaxed = true)
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
         val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences) {}
-        val categories = GetNovelCategories(CategoryRepositoryImpl(database))
+        val removable = NovelRemovableDownloads(novelPreferences, GetNovelCategories(CategoryRepositoryImpl(database)))
         val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
         val mergedChapterProvider = NovelMergedChapterProvider(
             mergeManager,
@@ -220,7 +220,7 @@ class NovelReaderViewModelHarness private constructor(
             upsertNovelHistory = UpsertNovelHistory(history),
             setNovelReadStatus = SetNovelReadStatus(
                 chapterRepo,
-                DeleteNovelChaptersAfterRead(novelPreferences, categories, { downloadManager }, novelRepo),
+                DeleteNovelChaptersAfterRead(novelPreferences, removable, { downloadManager }),
                 mockk(relaxed = true),
                 mockk(relaxed = true),
             ),
@@ -245,7 +245,7 @@ class NovelReaderViewModelHarness private constructor(
             pageFetcher = mockk { every { chapterSaved } returns pageSaves },
             deleteChaptersBehindReader = DeleteNovelChaptersBehindReader(
                 novelPreferences,
-                categories,
+                removable,
                 { downloadManager },
                 chapterRepo,
                 mockk(relaxed = true),

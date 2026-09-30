@@ -8,6 +8,7 @@ import android.net.Uri
 import androidx.core.app.NotificationManagerCompat // RK
 import androidx.core.net.toUri
 import dev.zacsweers.metro.Inject
+import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
@@ -22,24 +23,17 @@ import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import reikai.data.novel.update.NovelUpdateJob
-import reikai.domain.entry.EntryId // RK
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
-import reikai.domain.track.source.ChapterWrite // RK
-import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.chapter.interactor.GetChapter
-import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
-import tachiyomi.domain.chapter.model.ChapterUpdate
-import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import eu.kanade.tachiyomi.BuildConfig.APPLICATION_ID as ID
 
@@ -54,13 +48,9 @@ class NotificationReceiver : BroadcastReceiver() {
 
     @Inject private lateinit var getChapter: GetChapter
 
-    @Inject private lateinit var updateChapter: UpdateChapter
+    // RK: updateChapter, downloadPreferences and sourceManager went with markAsRead's own delete; setReadStatus below
 
     @Inject private lateinit var downloadManager: DownloadManager
-
-    @Inject private lateinit var downloadPreferences: DownloadPreferences
-
-    @Inject private lateinit var sourceManager: SourceManager
 
     // RK: the novel downloader's own manager, so its notification actions clear the queue rather than
     // only stopping the worker, which left a cancelled queue to restart on the next app open.
@@ -73,8 +63,8 @@ class NotificationReceiver : BroadcastReceiver() {
 
     @Inject private lateinit var setNovelReadStatus: SetNovelReadStatus
 
-    // RK: marking a manga chapter read here writes the row itself, so the source's own tracker is told here.
-    @Inject private lateinit var sourceTracker: SourceTrackerDispatcher
+    // RK: marking a manga chapter read goes through the interactor every other screen marks with.
+    @Inject private lateinit var setReadStatus: SetReadStatus
 
     override fun onReceive(context: Context, intent: Intent) {
         context.appGraph.inject(this)
@@ -266,23 +256,12 @@ class NotificationReceiver : BroadcastReceiver() {
      */
     private fun markAsRead(chapterUrls: Array<String>, mangaId: Long) {
         launchIO {
-            val chapters = chapterUrls.mapNotNull { getChapter.await(it, mangaId) } // RK: kept for the tracker
-            val toUpdate = chapters
-                .map {
-                    if (downloadPreferences.removeAfterMarkedAsRead.get()) {
-                        val manga = getManga.await(mangaId)
-                        if (manga != null) {
-                            val source = sourceManager.get(manga.source)
-                            if (source != null) {
-                                downloadManager.deleteChapters(listOf(it), manga, source)
-                            }
-                        }
-                    }
-                    ChapterUpdate(it.id) { read = true }
-                }
-            updateChapter.awaitAll(toUpdate)
-            // RK: marking read here writes the rows itself, so the source's own tracker is told here
-            sourceTracker.readStateWritten(true, chapters.map { ChapterWrite(EntryId.Manga(mangaId), it.id, it.read) })
+            // RK -->
+            // SetReadStatus deletes the rows as written, so a category kept from removal keeps them, and
+            // tells the source's own tracker.
+            val chapters = chapterUrls.mapNotNull { getChapter.await(it, mangaId) }
+            setReadStatus.await(true, *chapters.toTypedArray())
+            // RK <--
         }
     }
 

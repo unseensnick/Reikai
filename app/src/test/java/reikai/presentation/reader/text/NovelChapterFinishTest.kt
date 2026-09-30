@@ -133,7 +133,7 @@ class NovelChapterFinishTest {
     fun `finishing a chapter in the reader does not delete it as if marked read by hand`() = runTest {
         subject().finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) {}
 
-        coVerify(exactly = 0) { deleteAfterRead.await(any(), any()) }
+        coVerify(exactly = 0) { deleteAfterRead.await(any()) }
     }
 
     @Test

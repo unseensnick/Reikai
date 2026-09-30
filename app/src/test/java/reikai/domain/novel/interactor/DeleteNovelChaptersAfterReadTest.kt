@@ -1,16 +1,13 @@
 package reikai.domain.novel.interactor
 
 import io.kotest.matchers.shouldBe
-import io.mockk.coEvery
-import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.novel.NovelPreferences
-import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -27,21 +24,18 @@ class DeleteNovelChaptersAfterReadTest {
     private val preferences = NovelPreferences(EmittingPreferenceStore())
 
     private var managerBuilds = 0
-    private val manager = mockk<NovelDownloadManager>(relaxed = true) {
-        every { isChapterDownloaded(any(), any()) } returns true
-    }
-    private val repository = mockk<NovelRepository> {
-        coEvery { getById(any()) } returns mockk<Novel>(relaxed = true)
-    }
+    private val manager = mockk<NovelDownloadManager>(relaxed = true)
+
+    // The categories mock answers none, so the novel sits in Default.
+    private val removable = NovelRemovableDownloads(preferences, mockk<GetNovelCategories>(relaxed = true))
 
     private val interactor = DeleteNovelChaptersAfterRead(
         novelPreferences = preferences,
-        getNovelCategories = mockk(relaxed = true),
+        removableDownloads = removable,
         downloadManager = {
             managerBuilds++
             manager
         },
-        novelRepository = repository,
     )
 
     private fun chapter(id: Long) = NovelChapter(
@@ -54,12 +48,11 @@ class DeleteNovelChaptersAfterReadTest {
     fun `constructing the interactor never builds the download manager`() {
         DeleteNovelChaptersAfterRead(
             novelPreferences = preferences,
-            getNovelCategories = mockk<GetNovelCategories>(relaxed = true),
+            removableDownloads = removable,
             downloadManager = {
                 managerBuilds++
                 manager
             },
-            novelRepository = repository,
         )
 
         managerBuilds shouldBe 0
@@ -69,7 +62,7 @@ class DeleteNovelChaptersAfterReadTest {
     fun `marking read with delete-after-read off never builds the download manager`() = runTest {
         preferences.removeAfterMarkedAsRead().set(false)
 
-        interactor.await(novelId = 1L, chapters = listOf(chapter(1)))
+        interactor.await(listOf(chapter(1)))
 
         managerBuilds shouldBe 0
     }
@@ -78,19 +71,18 @@ class DeleteNovelChaptersAfterReadTest {
     fun `marking read with delete-after-read on builds the manager and deletes`() = runTest {
         preferences.removeAfterMarkedAsRead().set(true)
 
-        interactor.await(novelId = 1L, chapters = listOf(chapter(1)))
+        interactor.await(listOf(chapter(1)))
 
         managerBuilds shouldBe 1
         verify { manager.deleteChapters(any()) }
     }
 
-    // The categories mock answers none, so this novel sits in Default.
     @Test
     fun `an uncategorized novel keeps its downloads when Default is excluded`() = runTest {
         preferences.removeAfterMarkedAsRead().set(true)
         preferences.removeExcludeCategories().set(setOf("0"))
 
-        interactor.await(novelId = 1L, chapters = listOf(chapter(1)))
+        interactor.await(listOf(chapter(1)))
 
         verify(exactly = 0) { manager.deleteChapters(any()) }
     }

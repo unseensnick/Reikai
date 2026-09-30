@@ -1,42 +1,31 @@
 package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
-import reikai.domain.category.GetNovelCategories
-import reikai.domain.download.isExcludedFromRemoval
+import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.novel.NovelPreferences
-import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
 
 /**
- * Delete the downloaded copies of chapters just marked read on a novel, when "delete after marked as
- * read" is on. The novel twin of how manga's [eu.kanade.domain.chapter.interactor.SetReadStatus] honors
- * `removeAfterMarkedAsRead`: [SetNovelReadStatus] calls it for a mark made by hand, never for finishing a
- * chapter in the reader. Honors the same don't-delete-bookmarked and excluded-category guards as the
- * reader's keep-last-N buffer.
+ * Delete the downloads of chapters just marked read, when "delete after marked as read" is on:
+ * [SetNovelReadStatus] calls it for a mark made by hand, never for finishing a chapter in the reader.
+ * A queued chapter leaves the queue too, as manga's delete dequeues it.
  */
 @Inject
 class DeleteNovelChaptersAfterRead(
     private val novelPreferences: NovelPreferences,
-    private val getNovelCategories: GetNovelCategories,
+    private val removableDownloads: NovelRemovableDownloads,
     // Deferred on purpose: building the manager restores the persisted queue and resumes the drain, so
     // taking it directly would resume downloads from every screen that can mark a chapter read. This is
     // the choke point, since the library, details, updates and the notification receiver all reach the
     // manager only through here. See docs/dev/plans/metro-di-migration.md.
     private val downloadManager: () -> NovelDownloadManager,
-    private val novelRepository: NovelRepository,
 ) {
 
-    suspend fun await(novelId: Long, chapters: List<NovelChapter>) {
+    /** [chapters] as written, read; filtered here too so a mark that deletes nothing builds no manager. */
+    suspend fun await(chapters: List<NovelChapter>) {
         if (chapters.isEmpty() || !novelPreferences.removeAfterMarkedAsRead().get()) return
-        val excluded = novelPreferences.removeExcludeCategories().get()
-        if (isExcludedFromRemoval(excluded) { getNovelCategories.awaitByNovelId(novelId).map { it.id } }) return
-        val novel = novelRepository.getById(novelId) ?: return
-        val allowBookmarked = novelPreferences.removeBookmarkedChapters().get()
-        val manager = downloadManager()
-        val toDelete = chapters.filter {
-            manager.isChapterDownloaded(novel, it) && (allowBookmarked || !it.bookmark)
-        }
-        if (toDelete.isNotEmpty()) manager.deleteChapters(toDelete)
+        val removable = removableDownloads(chapters)
+        if (removable.isNotEmpty()) downloadManager().deleteChapters(removable)
     }
 }

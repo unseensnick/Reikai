@@ -12,11 +12,11 @@ import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
 
 /**
- * Central "mark novel chapters read/unread" interactor, the novel twin of
- * [eu.kanade.domain.chapter.interactor.SetReadStatus]. Marking read also deletes the downloaded copies
- * when "delete after marked as read" is on, through [DeleteNovelChaptersAfterRead] (which owns its
- * guards), except from the reader, which marks through [awaitFinishedInReader]. Trackers other than a
- * source's own sync a read from the screens; an unread reaches [PushNovelUnread] here.
+ * Central "mark novel chapters read/unread" interactor, twin of
+ * [eu.kanade.domain.chapter.interactor.SetReadStatus], pinned by MarkReadDeleteConformanceTest. Marking
+ * read also deletes the downloaded copies when "delete after marked as read" is on, through
+ * [DeleteNovelChaptersAfterRead], except from the reader, which marks through [awaitFinishedInReader].
+ * Trackers other than a source's own sync a read from the screens; an unread reaches [PushNovelUnread].
  */
 @Inject
 class SetNovelReadStatus(
@@ -28,9 +28,8 @@ class SetNovelReadStatus(
 
     suspend fun await(read: Boolean, chapters: List<NovelChapter>): Result = write(read, chapters) { written ->
         if (read) {
-            written.groupBy { it.novelId }.forEach { (novelId, chs) ->
-                deleteAfterRead.await(novelId, chs)
-            }
+            // As written, so a category kept from removal keeps them.
+            deleteAfterRead.await(written.map { it.copy(read = true) })
         } else {
             // A chapter merely started was never marked on a site, so only one that was read moves it back.
             pushNovelUnread.launch(written.filter { it.read })

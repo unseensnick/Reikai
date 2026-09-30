@@ -578,6 +578,7 @@ every stable release now also ships a foss build with neither in it.
 - **An extension now installs and updates only from a repo whose signing key it carries, and a download signed with any other key is refused (synced from Mihon).** A repo with no key, such as a third-party IReader repo, still updates the extensions no keyed repo signs.
 - **An installed extension or extension app that fails to load now gets its updates too, under Updates with an update button, which is often what gets it working again (synced from Mihon).**
 - **Browse -> Extensions now names the repo each extension and plugin comes from, and an install that fails says why and offers a retry (synced from Mihon, mihonapp/mihon#3955).** When repos with different keys list the same extension, each one is shown so either can be installed.
+- **Marking a novel chapter read with delete-after-read on now also cancels its queued download.**
 
 #### Fixed
 
@@ -620,6 +621,7 @@ every stable release now also ships a foss build with neither in it.
 - **A novel plugin that fails to load now names the real cause, as a failed extension does.**
 - **Crash logs now list novel extensions that failed to load or are out of date.**
 - **A queued novel whose plugin was removed now shows the plugin's name instead of its id.**
+- **Marking a manga chapter read no longer deletes its download in a category excluded from removal.**
 
 ### Backup & restore
 

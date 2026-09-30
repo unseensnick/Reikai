@@ -61,6 +61,7 @@ class SetReadStatus(
 
         if (read && downloadPreferences.removeAfterMarkedAsRead.get()) {
             chaptersToUpdate
+                .map { it.copy(read = true) } // RK: as written, so a category kept from removal keeps them
                 .groupBy { it.mangaId }
                 .forEach { (mangaId, chapters) ->
                     deleteDownload.awaitAll(

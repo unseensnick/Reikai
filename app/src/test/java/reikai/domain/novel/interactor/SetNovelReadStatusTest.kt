@@ -65,15 +65,14 @@ class SetNovelReadStatusTest {
     }
 
     @Test
-    fun `marking read deletes finished downloads grouped per novel`() = runTest {
+    fun `marking read hands the delete the chapters as written`() = runTest {
         val deleteAfterRead = mockk<DeleteNovelChaptersAfterRead>(relaxed = true)
         val chA = chapter(1, novelId = 10L)
         val chB = chapter(2, novelId = 20L)
 
         interactor(deleteAfterRead = deleteAfterRead).await(read = true, chapters = listOf(chA, chB))
 
-        coVerify { deleteAfterRead.await(10L, listOf(chA)) }
-        coVerify { deleteAfterRead.await(20L, listOf(chB)) }
+        coVerify { deleteAfterRead.await(listOf(chA.copy(read = true), chB.copy(read = true))) }
     }
 
     @Test
@@ -83,6 +82,6 @@ class SetNovelReadStatusTest {
         interactor(deleteAfterRead = deleteAfterRead)
             .await(read = false, chapters = listOf(chapter(1, read = true)))
 
-        coVerify(exactly = 0) { deleteAfterRead.await(any(), any()) }
+        coVerify(exactly = 0) { deleteAfterRead.await(any()) }
     }
 }

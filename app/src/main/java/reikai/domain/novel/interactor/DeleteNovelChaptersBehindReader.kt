@@ -1,8 +1,7 @@
 package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
-import reikai.domain.category.GetNovelCategories
-import reikai.domain.download.isExcludedFromRemoval
+import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.reader.chapterToDeleteBehind
@@ -19,7 +18,7 @@ import reikai.novel.download.NovelDownloadPendingDeleter
 @Inject
 class DeleteNovelChaptersBehindReader(
     private val novelPreferences: NovelPreferences,
-    private val getNovelCategories: GetNovelCategories,
+    private val removableDownloads: NovelRemovableDownloads,
     // Deferred for the same reason as in [DeleteNovelChaptersAfterRead]: building the manager resumes
     // the persisted download queue, and a reader open must not do that.
     private val downloadManager: () -> NovelDownloadManager,
@@ -29,14 +28,11 @@ class DeleteNovelChaptersBehindReader(
 
     /** [orderedIds] is the session's reading order, so the slots count positions the user actually
      *  moves through rather than raw chapter numbers. */
-    suspend fun await(novelId: Long, orderedIds: List<Long>, readChapterId: Long) {
+    suspend fun await(orderedIds: List<Long>, readChapterId: Long) {
         val slots = novelPreferences.removeAfterReadSlots().get()
         val targetId = orderedIds.chapterToDeleteBehind(readChapterId, slots) { it } ?: return
         val target = chapterRepository.getById(targetId) ?: return
-        if (!target.read) return
-        if (target.bookmark && !novelPreferences.removeBookmarkedChapters().get()) return
-        val excluded = novelPreferences.removeExcludeCategories().get()
-        if (isExcludedFromRemoval(excluded) { getNovelCategories.awaitByNovelId(novelId).map { it.id } }) return
+        if (!target.read || removableDownloads(listOf(target)).isEmpty()) return
         pendingDeleter.addChapters(listOf(target))
     }
 

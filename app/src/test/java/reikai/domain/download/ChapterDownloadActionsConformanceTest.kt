@@ -226,7 +226,7 @@ class NovelDownloadActionsHalf : DownloadActionsHalf {
             saver = mockk(),
             securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
-            getNovelCategories = mockk(),
+            removableDownloads = mockk(),
         ),
     ).also { spy ->
         every { spy.deleteChapters(any()) } answers { deleted += firstArg<List<NovelChapter>>().map { it.id } }
