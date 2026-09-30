@@ -229,6 +229,7 @@ every stable release now also ships a foss build with neither in it.
 - **Refresh now in Settings -> Recommendations now starts at once and keeps pulling your tracker libraries after you leave the screen.**
 - **The full related-manga grid now picks up a change to the library's Items per row without being reopened.**
 - **The related-manga row no longer favours a title that lists the same genre twice.**
+- **Sharing a novel now opens the same titled share sheet as manga.**
 
 ### Reader
 

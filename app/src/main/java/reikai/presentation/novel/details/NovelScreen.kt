@@ -1,6 +1,5 @@
 package reikai.presentation.novel.details
 
-import android.content.Intent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -9,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -27,6 +27,8 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import eu.kanade.tachiyomi.util.system.toShareIntent
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.data.novel.expectedNextUpdate
@@ -119,15 +121,11 @@ class NovelScreen(
                 }
                 val onShare: () -> Unit = {
                     s.novelWebUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                        context.startActivity(
-                            Intent.createChooser(
-                                Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, url)
-                                },
-                                null,
-                            ),
-                        )
+                        try {
+                            context.startActivity(url.toUri().toShareIntent(context, type = "text/plain"))
+                        } catch (e: Exception) {
+                            context.toast(e.message)
+                        }
                     }
                 }
 
