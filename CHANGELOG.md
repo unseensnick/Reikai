@@ -309,6 +309,7 @@ every stable release now also ships a foss build with neither in it.
 - **A chapter step in the manga reader that fails to load, or has no chapter to go to, no longer sends you back to page 1.**
 - **With Mark chapter read when skipping ahead on (Settings -> Manga reader or Novel reader), a Next that fails to load no longer marks the chapter you are still on as read.**
 - **Tapping retry on a failed manga chapter in the reader's chapter list now downloads it again.**
+- **In two-page mode with the high quality renderer, a page no longer draws too wide while the page beside it is still loading or has failed.**
 
 ### Light novels
 

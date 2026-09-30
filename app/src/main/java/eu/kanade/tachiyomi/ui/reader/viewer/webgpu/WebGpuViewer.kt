@@ -68,6 +68,7 @@ import mihon.app.di.appGraph
 import reikai.presentation.reader.cancelPageJobs
 import reikai.presentation.reader.chapterToRetry
 import reikai.presentation.reader.isCachedPageCurrent
+import reikai.presentation.reader.placeholderSideWidth
 import reikai.presentation.reader.previewAfterError
 import reikai.presentation.reader.requeueForRetry
 import reikai.presentation.reader.shouldAutoPreload
@@ -592,14 +593,29 @@ open class WebGpuViewer(
     private fun releaseFailedChapterPreloads() {
         synchronized(lock) { failedChapterPreloads.clear() }
     }
+
+    /** A loading or failed page, which as a spread side is shaped like the decoded page beside it. */
+    internal interface SpreadPlaceholder {
+        /** The page [buildSpreadPage] last drew this one beside, or null for none. */
+        var spreadPartner: ViewerReaderPage?
+    }
+
+    private fun placeholderWidth(isSpreadSide: Boolean, partner: ViewerReaderPage?): Int =
+        placeholderSideWidth(isSpreadSide, partner?.aspectRatio, viewportPageWidth(isSpreadSide), pager.state.height)
     // RK <--
 
     inner class ErrorPage internal constructor(
         message: String,
         private val spreadPosition: SpreadPosition = SpreadPosition.SINGLE,
-    ) : ImagePage.Render(0, 0) {
+        // RK
+    ) : ImagePage.Render(0, 0), SpreadPlaceholder {
+        // RK -->
+        @Volatile
+        override var spreadPartner: ViewerReaderPage? = null
+
+        // RK <--
         override val width: Int
-            get() = viewportPageWidth(spreadPosition != SpreadPosition.SINGLE)
+            get() = placeholderWidth(spreadPosition != SpreadPosition.SINGLE, spreadPartner) // RK
         override val height: Int
             get() = pager.state.height
 
@@ -641,9 +657,17 @@ open class WebGpuViewer(
         }
     }
 
-    inner class ProgressPage(foregroundColor: Int = readerOnBackgroundColor()) : ImagePage.Render(0, 0) {
+    // RK
+    inner class ProgressPage(foregroundColor: Int = readerOnBackgroundColor()) :
+        ImagePage.Render(0, 0),
+        SpreadPlaceholder {
+        // RK -->
+        @Volatile
+        override var spreadPartner: ViewerReaderPage? = null
+
+        // RK <--
         override val width: Int
-            get() = viewportPageWidth(isDualPageMode())
+            get() = placeholderWidth(isDualPageMode(), spreadPartner) // RK
         override val height: Int
             get() = pager.state.height
 
@@ -1021,12 +1045,19 @@ open class WebGpuViewer(
 
         if (page.spreadPosition == SpreadPosition.SINGLE) {
             page.spreadPage = null
+            // RK
+            (imagePage as? SpreadPlaceholder)?.spreadPartner = null
             return imagePage
         }
 
         // Null for a partner reaching here directly, which means no anchor before it - a lone
         // RIGHT at a chapter boundary - so it draws alone on its own side.
-        val partnerImagePage = spreadPartner(page)?.imagePage
+        // RK --> each placeholder side learns who it is drawn beside, for its width.
+        val partner = spreadPartner(page)
+        val partnerImagePage = partner?.imagePage
+        (imagePage as? SpreadPlaceholder)?.spreadPartner = partner
+        (partnerImagePage as? SpreadPlaceholder)?.spreadPartner = page
+        // RK <--
 
         // LEFT/RIGHT map directly to the spread's left/right slot - independent of reading
         // direction, which only decides which side is the anchor for pairing purposes above.
