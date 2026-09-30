@@ -40,7 +40,6 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
-import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
@@ -106,7 +105,10 @@ import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.localIdOf
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
-import reikai.domain.track.supportingContent
+import reikai.domain.track.EntryTrackPorts
+import reikai.domain.track.autobind.AutoBindTrackers
+import reikai.domain.track.autobind.offerTrackers
+import reikai.domain.track.autobind.trackingButtonState
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.addEntry
@@ -220,6 +222,8 @@ class MangaViewModel(
     private val setCustomMangaInfo: SetCustomMangaInfo,
     private val sourceManager: SourceManager,
     private val exhPreferences: ExhPreferences,
+    private val trackPorts: EntryTrackPorts,
+    private val autoBindTrackers: AutoBindTrackers,
     // RK <--
 ) : ViewModel() {
 
@@ -1568,31 +1572,26 @@ class MangaViewModel(
 
     private fun observeTrackers() {
         val manga = successState?.manga ?: return
+        // RK --> counted by the tracking sheet's own offer rule, the one the novel details screen runs too;
+        // the port's read spans the merge group
+        val port = trackPorts.of(EntryId.Manga(manga.id))
 
         viewModelScope.launchIO {
             combine(
-                getTracksInGroup.subscribe(manga.id).catch { logcat(LogPriority.ERROR, it) }, // RK: group-wide trackers
+                port.tracks().catch { logcat(LogPriority.ERROR, it) },
                 trackerManager.loggedInTrackersFlow(),
             ) { mangaTracks, loggedInTrackers ->
-                // Show only if the service supports this manga's source
-                // RK: and catalogues manga at all, through the same kernel the sheet filters with.
-                val supportedTrackers = loggedInTrackers
-                    .supportingContent(isNovel = false)
-                    .filter { (it as? EnhancedTracker)?.accept(source!!) ?: true }
-                val supportedTrackerIds = supportedTrackers.map { it.id }.toHashSet()
-                val supportedTrackerTracks = mangaTracks.filter { it.trackerId in supportedTrackerIds }
-                supportedTrackerTracks.size to supportedTrackers.isNotEmpty()
+                val offered = offerTrackers(port, loggedInTrackers, autoBindTrackers).offered
+                trackingButtonState(mangaTracks.map { it.trackerId }, offered)
             }
                 .distinctUntilChanged()
-                .collectLatest { (trackingCount, hasLoggedInTrackers) ->
+                .collectLatest { button ->
                     updateSuccessState {
-                        it.copy(
-                            trackingCount = trackingCount,
-                            hasLoggedInTrackers = hasLoggedInTrackers,
-                        )
+                        it.copy(trackingCount = button.count, hasLoggedInTrackers = button.hasTrackers)
                     }
                 }
         }
+        // RK <--
     }
 
     // Track sheet - end

@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.source.Source
 import logcat.LogPriority
+import reikai.domain.track.EntryTrackPort
 import reikai.novel.source.NovelSource
 import tachiyomi.core.common.util.system.logcat
 import reikai.domain.novel.model.Novel as NovelEntry
@@ -79,6 +80,25 @@ fun offerTrackers(trackers: List<Tracker>, entry: AutoBindEntry?, of: (Tracker) 
         auto == null || !auto.offeredOnlyWhenAccepted || entry == null || tracker in matched
     }
     return TrackerOffer(offered, matched.mapTo(HashSet()) { it.id })
+}
+
+/**
+ * What the tracking sheet offers for the entry behind [port], from the logged-in [trackers]: those whose
+ * catalogue holds its type, filtered by the rule above. The entry is resolved only when an auto-binding
+ * tracker asks, since resolving a novel's loads the plugins.
+ */
+suspend fun offerTrackers(port: EntryTrackPort, trackers: List<Tracker>, autoBind: AutoBindTrackers): TrackerOffer {
+    val supported = trackers.filter(port::supports)
+    val entry = if (supported.any { autoBind.of(it) != null }) port.autoBindEntry() else null
+    return offerTrackers(supported, entry, autoBind::of)
+}
+
+/** The details Tracking button: how many bound tracks sit on trackers the sheet offers, and whether it offers any. */
+data class TrackingButtonState(val count: Int, val hasTrackers: Boolean)
+
+fun trackingButtonState(boundTrackerIds: List<Long>, offered: List<Tracker>): TrackingButtonState {
+    val offeredIds = offered.mapTo(HashSet()) { it.id }
+    return TrackingButtonState(count = boundTrackerIds.count { it in offeredIds }, hasTrackers = offered.isNotEmpty())
 }
 
 /**

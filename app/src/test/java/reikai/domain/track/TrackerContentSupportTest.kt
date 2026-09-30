@@ -15,20 +15,17 @@ import org.junit.jupiter.params.provider.ValueSource
  */
 class TrackerContentSupportTest {
 
-    private val bothTypes = DummyTracker(id = 1L, name = "Both", supportsNovels = true, supportsManga = true)
     private val novelsOnly = DummyTracker(id = 2L, name = "Novels", supportsNovels = true, supportsManga = false)
     private val mangaOnly = DummyTracker(id = 3L, name = "Manga", supportsNovels = false, supportsManga = true)
 
-    private val all = listOf(bothTypes, novelsOnly, mangaOnly)
-
     @Test
-    fun `offers a novel only the trackers that catalogue novels`() {
-        all.supportingContent(isNovel = true) shouldBe listOf(bothTypes, novelsOnly)
+    fun `a novels-only tracker supports novels`() {
+        novelsOnly.supportsContent(isNovel = true) shouldBe true
     }
 
     @Test
-    fun `offers a manga only the trackers that catalogue manga`() {
-        all.supportingContent(isNovel = false) shouldBe listOf(bothTypes, mangaOnly)
+    fun `a novels-only tracker does not support manga`() {
+        novelsOnly.supportsContent(isNovel = false) shouldBe false
     }
 
     @Test
@@ -46,6 +43,6 @@ class TrackerContentSupportTest {
     fun `never offers a tracker that catalogues neither type`(isNovel: Boolean) {
         val neither = DummyTracker(id = 4L, name = "Neither", supportsNovels = false, supportsManga = false)
 
-        listOf(neither).supportingContent(isNovel) shouldBe emptyList()
+        neither.supportsContent(isNovel) shouldBe false
     }
 }

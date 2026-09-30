@@ -181,7 +181,7 @@ class NovelScreen(
                             },
                             onCopyTag = { context.copyToClipboard(it, it) },
                             onTracking = {
-                                if (viewModel.hasLoggedInTrackers()) {
+                                if (s.hasLoggedInTrackers) {
                                     viewModel.showTrackDialog()
                                 } else {
                                     navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))

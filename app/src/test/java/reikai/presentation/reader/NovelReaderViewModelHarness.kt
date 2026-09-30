@@ -316,6 +316,8 @@ class NovelReaderViewModelHarness private constructor(
                 every { downloadedOnly } returns this@NovelReaderViewModelHarness.downloadedOnly
             },
             removeNovelsFromLibrary = mockk(relaxed = true),
+            trackPorts = mockk(relaxed = true),
+            autoBindTrackers = mockk(relaxed = true),
         ).also { viewModels.put("details-$novelId-${viewModels.keys().size}", it) }
     }
 

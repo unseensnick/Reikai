@@ -209,8 +209,8 @@ existing notes untouched.
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/novellist/`: the NovelList client, `NovelListApi`
   over the documented routes plus its bearer interceptor and `dto/`.
 - `app/src/main/java/reikai/domain/track/TrackerContentSupport.kt`: the per-type capability kernel
-  (`supportingContent`, `supportsContent`) the tracking sheet, both details screens' Tracking button
-  and count, and the novel add-time bind filter through.
+  (`supportsContent`) the tracking sheet and both details screens' Tracking button reach through
+  `EntryTrackPort.supports`, and the novel add-time bind calls directly.
 - `data/src/main/sqldelight/tachiyomi/data/novel_tracks.sq`: `remote_id INTEGER`, `remote_url TEXT`.
 
 ## Status
@@ -348,10 +348,11 @@ selectors and private endpoints rot, which is why they are sequenced last and ma
 from manga.** `Tracker` gained `supportsManga` beside `supportsNovels`, defaulting true in
 `BaseTracker` because every service inherited from upstream catalogues manga. The tracking sheet,
 both details screens' Tracking button and count, and the novel add-time bind filter through one
-kernel, `supportingContent(isNovel)` and its per-tracker form `supportsContent(isNovel)` in
-`reikai/domain/track/TrackerContentSupport.kt`, so the rule is pinned once rather than restated per
-surface, and one `@ParameterizedTest` covers both types. The two novel details call sites have no
-test harness and rest on review; the kernel itself is unit-tested.
+kernel, `supportsContent(isNovel)` in `reikai/domain/track/TrackerContentSupport.kt`, so the rule is
+pinned once rather than restated per surface, and one `@ParameterizedTest` covers both types. The
+sheet and both Tracking buttons reach it through their type's `EntryTrackPort` and count by the
+sheet's own offer rule (`offerTrackers` over the port, then `trackingButtonState`), pinned by
+`EntryTrackPortConformanceTest` and `TrackingButtonConformanceTest`.
 
 This is the write-once exit the content-layer rule asks for, and the named mechanism is the remote
 catalogue. RanobeDB lists light novels only. NovelList markets itself as a "Novel and Manhwa

@@ -100,8 +100,12 @@ import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
 import reikai.domain.source.healedCover
 import reikai.domain.source.keptCover
+import reikai.domain.track.EntryTrackPorts
+import reikai.domain.track.autobind.AutoBindTrackers
+import reikai.domain.track.autobind.TrackingButtonState
+import reikai.domain.track.autobind.offerTrackers
+import reikai.domain.track.autobind.trackingButtonState
 import reikai.domain.track.source.SourceTrackerDispatcher
-import reikai.domain.track.supportingContent
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -185,6 +189,8 @@ class NovelDetailsViewModel(
     private val trackPreferences: TrackPreferences,
     private val basePreferences: BasePreferences,
     private val removeNovelsFromLibrary: RemoveNovelsFromLibrary,
+    private val trackPorts: EntryTrackPorts,
+    private val autoBindTrackers: AutoBindTrackers,
 ) : ViewModel() {
 
     // Building the manager restores the persisted queue and can start the download worker, so it is
@@ -268,13 +274,13 @@ class NovelDetailsViewModel(
     // Source of truth for the chapter multi-select; `Loaded.selection` mirrors it for the UI.
     private var chapterSelection = SelectionState<Long>()
 
-    /** Latest observed bound-tracker count, held outside state so the first [NovelDetailsState.Loaded]
+    /** Latest Tracking button, held outside state so the first [NovelDetailsState.Loaded]
      *  built picks it up even when the observer emitted while the screen was still loading. */
     @Volatile
-    private var currentTrackingCount = 0
+    private var currentTrackingButton = TrackingButtonState(count = 0, hasTrackers = false)
 
     /** Latest custom-info overlay for the anchor novel, held outside state so the first
-     *  [NovelDetailsState.Loaded] built picks it up (mirrors [currentTrackingCount]). */
+     *  [NovelDetailsState.Loaded] built picks it up (mirrors [currentTrackingButton]). */
     @Volatile
     private var currentCustomInfo: CustomNovelInfo? = null
 
@@ -286,7 +292,7 @@ class NovelDetailsViewModel(
         mergeGroup.observe(viewModelScope)
         observeChapters()
         observeDownloadQueue()
-        observeTrackingCount()
+        observeTrackingButton()
         observeCustomInfo()
         resolveSource()
         healPlaceholderCover()
@@ -306,32 +312,34 @@ class NovelDetailsViewModel(
         }
     }
 
-    /** Mirror the bound-tracker count (on logged-in services that catalogue novels) into
-     *  [NovelDetailsState.Loaded.trackingCount], so the action-row Tracking button shows the count + flips
-     *  its icon, like the manga header. */
+    /** Mirror the action-row Tracking button into [NovelDetailsState.Loaded], counted by the tracking
+     *  sheet's own offer rule, the one the manga details screen runs too. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    private fun observeTrackingCount() {
+    private fun observeTrackingButton() {
         viewModelScope.launchIO {
             novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
                 .map { it?.id }
                 .distinctUntilChanged()
                 .flatMapLatest { novelId ->
                     if (novelId == null) {
-                        flowOf(0)
+                        flowOf(TrackingButtonState(count = 0, hasTrackers = false))
                     } else {
-                        // subscribeGroup spans the merge group, so a track bound on a sibling source counts.
-                        combine(
-                            getNovelTracks.subscribeGroup(novelId),
-                            trackerManager.loggedInTrackersFlow(),
-                        ) { tracks, loggedIn ->
-                            val loggedInIds = loggedIn.supportingContent(isNovel = true).mapTo(HashSet()) { it.id }
-                            tracks.count { it.trackerId in loggedInIds }
+                        // The port's read spans the merge group, so a track bound on a sibling source counts.
+                        val port = trackPorts.of(EntryId.Novel(novelId))
+                        combine(port.tracks(), trackerManager.loggedInTrackersFlow()) { tracks, loggedIn ->
+                            val offered = offerTrackers(port, loggedIn, autoBindTrackers).offered
+                            trackingButtonState(tracks.map { it.trackerId }, offered)
                         }
                     }
                 }
-                .collectLatest { count ->
-                    currentTrackingCount = count
-                    state.update { (it as? NovelDetailsState.Loaded)?.copy(trackingCount = count) ?: it }
+                .distinctUntilChanged()
+                .collectLatest { button ->
+                    currentTrackingButton = button
+                    state.update {
+                        (it as? NovelDetailsState.Loaded)
+                            ?.copy(trackingCount = button.count, hasLoggedInTrackers = button.hasTrackers)
+                            ?: it
+                    }
                 }
         }
     }
@@ -630,7 +638,8 @@ class NovelDetailsViewModel(
                 downloadFolderOwner = downloadFolderOwner,
                 readInOtherSources = readInOtherSources,
                 bookmarkedInOtherSources = bookmarkedInOtherSources,
-                trackingCount = currentTrackingCount,
+                trackingCount = currentTrackingButton.count,
+                hasLoggedInTrackers = currentTrackingButton.hasTrackers,
                 customInfo = currentCustomInfo,
                 dialog = loaded?.dialog,
                 selection = retainChapterSelection(display),
@@ -1255,10 +1264,6 @@ class NovelDetailsViewModel(
     private suspend fun groupChaptersIn(ids: Set<Long>): List<NovelChapter> =
         mergeGroup.relatedIds.flatMap { chapterRepo.getByNovelId(it) }.filter { it.id in ids }
 
-    /** True if a logged-in tracker catalogues novels; gates the Tracking button (sheet vs Settings > Tracking). */
-    fun hasLoggedInTrackers(): Boolean =
-        trackerManager.loggedInTrackers().supportingContent(isNovel = true).isNotEmpty()
-
     fun showTrackDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.TrackSheet) }
 
     /**
@@ -1471,8 +1476,10 @@ sealed interface NovelDetailsState {
          *  where the copies were never in sync: a bookmark set before the sources were merged, or one a
          *  backup restored onto a copy the stitch does not show. */
         val bookmarkedInOtherSources: Set<Long> = emptySet(),
-        /** Bound trackers on a logged-in service; drives the details action-row Tracking button. */
+        /** Bound tracks on trackers the sheet offers; drives the details action-row Tracking button. */
         val trackingCount: Int = 0,
+        /** Whether the sheet offers any tracker; without one the Tracking button opens tracker settings. */
+        val hasLoggedInTrackers: Boolean = false,
         /** Non-destructive edit-info overlay; the display applies it over [displayNovel] (the raw novel
          *  stays source-accurate). Null when the novel has no edits. */
         val customInfo: CustomNovelInfo? = null,

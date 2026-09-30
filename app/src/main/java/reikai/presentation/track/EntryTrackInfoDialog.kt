@@ -255,11 +255,7 @@ data class EntryTrackInfoDialogHomeScreen(
         }
 
         private suspend fun List<Track>.toState(): State {
-            // Only trackers whose catalogue holds this type; the rest would silently bind the other's hit.
-            val loggedInTrackers = trackerManager.loggedInTrackers().filter(port::supports)
-            // Resolved only when a tracker asks: for a novel it loads the plugins.
-            val bindEntry = if (loggedInTrackers.any { autoBindTrackers.of(it) != null }) port.autoBindEntry() else null
-            val offer = offerTrackers(loggedInTrackers, bindEntry, autoBindTrackers::of)
+            val offer = offerTrackers(port, trackerManager.loggedInTrackers(), autoBindTrackers)
             return State(
                 trackItems = offer.offered.map { service -> TrackItem(find { it.trackerId == service.id }, service) },
                 autoMatchTrackerIds = offer.matchedByTap,
