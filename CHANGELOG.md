@@ -747,6 +747,7 @@ every stable release now also ships a foss build with neither in it.
 - Novel covers load through the same code as manga covers.
 - The tracking sheet reaches manga and novel tracking through one typed port per content type.
 - The details Tracking button counts trackers by the same rule the tracking sheet offers them.
+- Removed an unused source icon and stray imports.
 
 ## [0.3.2]
 
