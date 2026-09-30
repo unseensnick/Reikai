@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.data.backup.models.LegacyCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.customInfo
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -99,6 +100,12 @@ class BackupCustomInfoConformanceTest {
 
         listOf(backup.backupManga.single().customInfo, backup.backupNovels.single().customInfo) shouldBe
             listOf(null, null)
+    }
+
+    @Test
+    fun `a backup written now marks its merge groups as stored whole`() = runTest {
+        // Without the marker a restore takes it for a 0.3.x backup and groups same-title series by itself.
+        writeBackup().backupMergeGroupsStored.shouldNotBeNull()
     }
 
     @Test

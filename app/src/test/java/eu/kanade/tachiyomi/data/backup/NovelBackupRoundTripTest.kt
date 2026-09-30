@@ -81,7 +81,7 @@ class NovelBackupRoundTripTest {
             coEvery { getByUrlAndSource("b", "s2") } returns novel(20, "b", "s2")
         }
 
-        restorer(restoreRepo, restoreMergeRepo).restoreMerges(merges)
+        restorer(restoreRepo, restoreMergeRepo).restoreMerges(merges, prefEra = null)
 
         // The group is materialized against the restored ids via the repository.
         coVerify { restoreMergeRepo.materializeGroup(ContentType.NOVELS, listOf(10L, 20L), false) }
@@ -99,7 +99,7 @@ class NovelBackupRoundTripTest {
             refs = listOf(BackupNovelSourceRef("a", "s1"), BackupNovelSourceRef("b", "s2")),
         )
 
-        restorer(restoreRepo, restoreMergeRepo).restoreMerges(listOf(group))
+        restorer(restoreRepo, restoreMergeRepo).restoreMerges(listOf(group), prefEra = null)
 
         // Only one member resolved, so no group is created.
         coVerify(exactly = 0) { restoreMergeRepo.materializeGroup(any(), any(), any()) }

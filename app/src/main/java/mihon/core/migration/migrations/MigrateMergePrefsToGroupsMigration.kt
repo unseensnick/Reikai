@@ -12,6 +12,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergeGroupReconstruction
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelRepository
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.interactor.GetFavorites
@@ -22,9 +23,9 @@ import tachiyomi.domain.manga.interactor.GetFavorites
  * deliberate unmerges) as real rows so grouping survives the move off the derive-on-read pref system,
  * with nothing un-grouping.
  *
- * The old prefs are frozen input: this is their only reader, for an install upgrading past 189, and
- * restore skips them. Best-effort per content type, so a failure on one side does not block startup or
- * the other side.
+ * The old prefs are frozen input: this is their only reader, for an install upgrading past 189. Restore
+ * skips them and rebuilds a 0.3.x backup's groups from the backup itself, through the same kernel.
+ * Best-effort per content type, so a failure on one side does not block startup or the other side.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)
@@ -44,34 +45,35 @@ class MigrateMergePrefsToGroupsMigration(
         if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing to migrate
 
         runCatching {
-            val groups = MergeGroupReconstruction.reconstruct(
-                candidates = getFavorites.await().map {
-                    MergeGroupReconstruction.Candidate(it.id, it.title, it.author)
-                },
-                manualMerges = prefs.mangaManualMerges.get(),
-                unmerges = prefs.mangaManualUnmerges.get(),
-                autoMergeByTitle = prefs.autoMergeSameTitle.get(),
-                requireAuthor = false,
-                survivors = survivorsOf(ContentType.MANGA),
-            )
+            val candidates = getFavorites.await().map { MergeGroupReconstruction.Candidate(it.id, it.title, it.author) }
+            val groups = reconstruct(ContentType.MANGA, candidates, prefs.mangaManualMerges, prefs.mangaManualUnmerges)
             materialize(repo, ContentType.MANGA, groups)
         }.onFailure { logcat(LogPriority.ERROR, it) { "Merge-group migration failed for manga" } }
 
         runCatching {
-            val groups = MergeGroupReconstruction.reconstruct(
-                candidates = novelRepo.getFavorites().map {
-                    MergeGroupReconstruction.Candidate(it.id, it.title, it.author)
-                },
-                manualMerges = prefs.novelManualMerges.get(),
-                unmerges = prefs.novelManualUnmerges.get(),
-                autoMergeByTitle = prefs.novelAutoMergeSameTitle.get(),
-                requireAuthor = prefs.novelAutoMergeRequireAuthor.get(),
-                survivors = survivorsOf(ContentType.NOVELS),
-            )
+            val candidates = novelRepo.getFavorites().map {
+                MergeGroupReconstruction.Candidate(it.id, it.title, it.author)
+            }
+            val groups = reconstruct(ContentType.NOVELS, candidates, prefs.novelManualMerges, prefs.novelManualUnmerges)
             materialize(repo, ContentType.NOVELS, groups)
         }.onFailure { logcat(LogPriority.ERROR, it) { "Merge-group migration failed for novels" } }
 
         true
+    }
+
+    private suspend fun reconstruct(
+        contentType: ContentType,
+        candidates: List<MergeGroupReconstruction.Candidate>,
+        merges: Preference<Set<String>>,
+        unmerges: Preference<Set<String>>,
+    ): List<List<Long>> {
+        val survivors = survivorsOf(contentType)
+        return MergeGroupReconstruction.reconstruct(
+            candidates = candidates,
+            manualMerges = MergeGroupReconstruction.parsePrefGroups(merges.get(), survivors),
+            unmerges = MergeGroupReconstruction.parsePrefGroups(unmerges.get(), survivors),
+            switches = MergeGroupReconstruction.titleSwitches(contentType, prefs) { it.get() },
+        )
     }
 
     // The upgrade's dedupe (50.sqm, 51.sqm) runs before this, so the prefs can name a copy it merged away.

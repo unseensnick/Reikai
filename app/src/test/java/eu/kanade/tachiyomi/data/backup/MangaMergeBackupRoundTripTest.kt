@@ -47,7 +47,7 @@ class MangaMergeBackupRoundTripTest {
         }
         val repository = mockk<MergeGroupRepository>(relaxed = true)
 
-        restorer(getByUrlSource, repository).restoreMerges(listOf(group))
+        restorer(getByUrlSource, repository).restoreMerges(listOf(group), prefEra = null)
 
         // Materialized against the new ids via the repository.
         coVerify { repository.materializeGroup(ContentType.MANGA, listOf(10L, 20L), false) }
@@ -65,7 +65,7 @@ class MangaMergeBackupRoundTripTest {
             refs = listOf(BackupMangaSourceRef("a", 1L), BackupMangaSourceRef("b", 2L)),
         )
 
-        restorer(getByUrlSource, repository).restoreMerges(listOf(group))
+        restorer(getByUrlSource, repository).restoreMerges(listOf(group), prefEra = null)
 
         // Only one member resolved, so no group is created.
         coVerify(exactly = 0) { repository.materializeGroup(any(), any(), any()) }

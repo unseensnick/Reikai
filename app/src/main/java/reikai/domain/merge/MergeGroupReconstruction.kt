@@ -1,32 +1,58 @@
 package reikai.domain.merge
 
+import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
+import tachiyomi.core.common.preference.Preference
+
 /**
- * Pure reconstruction of the old pref-based grouping into a clean partition, for the one-time
- * migration ([mihon.core.migration.migrations.MigrateMergePrefsToGroupsMigration]).
- * Connected components over the manual-merge entries (which always group, overriding unmerges) plus,
- * when auto-merge-by-title is on, the same-title candidates (novels also matching author under the
- * author guard), with explicit unmerge pairs excluded. Each entry lands in exactly one group. Where
- * the old library-collapse and details definitions disagreed this levels up.
+ * Pure reconstruction of the 0.3.x pref-based grouping into a clean partition, for an install upgrading
+ * past it ([mihon.core.migration.migrations.MigrateMergePrefsToGroupsMigration]) and for a restored
+ * backup made then ([RestoreMergeGroups.fromBackup]). Connected components over the manual merges
+ * (which always group, overriding unmerges) plus, when auto-merge-by-title is on, the same-title
+ * candidates (novels also matching author under the author guard), with explicit unmerge pairs
+ * excluded. Each entry lands in exactly one group.
  */
 object MergeGroupReconstruction {
 
     data class Candidate(val id: Long, val title: String, val author: String?)
 
+    data class TitleSwitches(val autoMergeByTitle: Boolean, val requireAuthor: Boolean)
+
     /**
-     * Disjoint groups of 2+ ids, each sorted ascending; single entries are dropped. [survivors] maps an id
-     * the upgrade's dedupe merged away to the entry it merged into, since the prefs still name the old id.
+     * [contentType]'s same-title switches, each read through [read]: the live value on an upgrade, the
+     * backup's own on a restore. Manga never had the author guard.
+     */
+    fun titleSwitches(
+        contentType: ContentType,
+        prefs: ReikaiLibraryPreferences,
+        read: (Preference<Boolean>) -> Boolean,
+    ): TitleSwitches = when (contentType) {
+        ContentType.MANGA -> TitleSwitches(read(prefs.autoMergeSameTitle), requireAuthor = false)
+        ContentType.NOVELS ->
+            TitleSwitches(read(prefs.novelAutoMergeSameTitle), read(prefs.novelAutoMergeRequireAuthor))
+        ContentType.ALL -> error("A merge group belongs to one content type")
+    }
+
+    /**
+     * A retired merge pref's comma-joined id groups as ids. [survivors] maps an id the upgrade's dedupe
+     * merged away to the entry it merged into, since the prefs still name the old id.
+     */
+    fun parsePrefGroups(entries: Set<String>, survivors: Map<Long, Long>): List<List<Long>> =
+        entries.map { entry ->
+            entry.split(",").mapNotNull { raw -> raw.trim().toLongOrNull()?.let { survivors[it] ?: it } }
+        }
+
+    /**
+     * Disjoint groups of 2+ ids, each sorted ascending; single entries are dropped. An unmerge is a pair,
+     * so any other size is ignored.
      */
     fun reconstruct(
         candidates: List<Candidate>,
-        manualMerges: Set<String>,
-        unmerges: Set<String>,
-        autoMergeByTitle: Boolean,
-        requireAuthor: Boolean,
-        survivors: Map<Long, Long>,
+        manualMerges: List<List<Long>>,
+        unmerges: List<List<Long>>,
+        switches: TitleSwitches,
     ): List<List<Long>> {
         if (candidates.isEmpty()) return emptyList()
-
-        fun parseId(raw: String): Long? = raw.trim().toLongOrNull()?.let { survivors[it] ?: it }
 
         val present = candidates.mapTo(HashSet()) { it.id }
         val parent = HashMap<Long, Long>(present.size).apply { present.forEach { put(it, it) } }
@@ -49,17 +75,19 @@ object MergeGroupReconstruction {
         }
 
         // Manual merges always group; they override unmerges by construction.
-        for (entry in manualMerges) {
-            val members = entry.split(",").mapNotNull(::parseId).filter { it in present }
+        for (group in manualMerges) {
+            val members = group.filter { it in present }
             for (i in 1 until members.size) union(members[0], members[i])
         }
 
         // Same-title auto-grouping, honoring the author guard and the unmerge exclusions.
-        if (autoMergeByTitle) {
-            val unmergedPairs = parseUnmergedPairs(unmerges, ::parseId)
+        if (switches.autoMergeByTitle) {
+            val unmergedPairs = unmerges.mapNotNullTo(HashSet()) { pair ->
+                pair.takeIf { it.size == 2 }?.let { (a, b) -> if (a < b) a to b else b to a }
+            }
             val buckets = HashMap<String, MutableList<Long>>()
             for (candidate in candidates) {
-                val key = autoKey(candidate, requireAuthor) ?: continue
+                val key = autoKey(candidate, switches.requireAuthor) ?: continue
                 buckets.getOrPut(key) { mutableListOf() }.add(candidate.id)
             }
             for (bucket in buckets.values) {
@@ -81,18 +109,6 @@ object MergeGroupReconstruction {
             .filter { it.size >= 2 }
             .map { it.sorted() }
             .sortedBy { it.first() }
-    }
-
-    // Normalized "min,max" unmerge pairs parsed from the pref set; malformed entries are dropped.
-    private fun parseUnmergedPairs(unmerges: Set<String>, parseId: (String) -> Long?): Set<Pair<Long, Long>> {
-        if (unmerges.isEmpty()) return emptySet()
-        return unmerges.mapNotNullTo(HashSet()) { entry ->
-            val parts = entry.split(",")
-            if (parts.size != 2) return@mapNotNullTo null
-            val a = parseId(parts[0]) ?: return@mapNotNullTo null
-            val b = parseId(parts[1]) ?: return@mapNotNullTo null
-            if (a < b) a to b else b to a
-        }
     }
 
     // Mirrors the live same-title key: title alone, or title + author when the guard is on and the

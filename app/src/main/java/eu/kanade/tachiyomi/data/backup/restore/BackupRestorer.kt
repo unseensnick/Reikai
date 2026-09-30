@@ -14,13 +14,16 @@ import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
+import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
+import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.LegacyCustomInfo
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionRestorer
@@ -42,7 +45,11 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import reikai.data.backup.restoreBatch
 import reikai.domain.db.Transactions
+import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.AdultContentChecker
+import reikai.domain.merge.MergeGroupReconstruction
+import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.novel.download.NovelDownloadCache
 import tachiyomi.core.common.i18n.stringResource
@@ -78,6 +85,7 @@ class BackupRestorer(
     private val novelDownloadCache: NovelDownloadCache,
     private val adultContentChecker: AdultContentChecker,
     private val transactions: Transactions,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     // RK <--
 ) {
 
@@ -181,8 +189,7 @@ class BackupRestorer(
                 restoreMangaStream(
                     uri,
                     if (options.categories) summary.backupCategories else emptyList(),
-                    summary.backupMangaMerges,
-                    summary.legacyCustomInfo,
+                    summary, // RK: the merge groups, older custom info and pref-era grouping inputs
                 )
             }
             if (options.extensionStores) {
@@ -239,6 +246,9 @@ class BackupRestorer(
         val backupSavedSearches = mutableListOf<BackupSavedSearch>()
         val backupFeedRows = mutableListOf<BackupFeedRow>()
         val novelSourceNames = mutableMapOf<String, String>()
+        val backupMangaUnmerges = mutableListOf<BackupMangaMergeGroup>()
+        val backupNovelUnmerges = mutableListOf<BackupNovelMergeGroup>()
+        var mergeGroupsStored = false
         var mangaCount = 0
         var novelCount = 0
 
@@ -264,6 +274,9 @@ class BackupRestorer(
                 717 -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
                     novelSourceNames[it.sourceId] = it.name
                 }
+                712 -> backupMangaUnmerges.add(parser.decodeFromByteArray(BackupMangaMergeGroup.serializer(), data))
+                703 -> backupNovelUnmerges.add(parser.decodeFromByteArray(BackupNovelMergeGroup.serializer(), data))
+                718 -> mergeGroupsStored = true
             }
         }
 
@@ -283,6 +296,9 @@ class BackupRestorer(
             backupSavedSearches = backupSavedSearches,
             backupFeedRows = backupFeedRows,
             novelSourceNames = novelSourceNames,
+            mergeGroupsStored = mergeGroupsStored,
+            backupMangaUnmerges = backupMangaUnmerges,
+            backupNovelUnmerges = backupNovelUnmerges,
         )
     }
 
@@ -304,7 +320,29 @@ class BackupRestorer(
         val backupFeedRows: List<BackupFeedRow>,
         // Absent from a backup made before novels recorded their source names.
         val novelSourceNames: Map<String, String>,
-    )
+        // False for a 0.3.x backup, whose same-title groups were never stored; the unmerges are its own.
+        val mergeGroupsStored: Boolean,
+        val backupMangaUnmerges: List<BackupMangaMergeGroup>,
+        val backupNovelUnmerges: List<BackupNovelMergeGroup>,
+    ) {
+        /**
+         * The pref-era grouping inputs for [contentType], or null when this backup stores every group.
+         * A switch the backup does not carry (no app settings in it) reads as its 0.3.x default.
+         */
+        fun <R> prefEra(
+            contentType: ContentType,
+            prefs: ReikaiLibraryPreferences,
+            favorites: List<PrefEraGrouping.Favorite<R>>,
+            unmerges: List<List<R>>,
+        ): PrefEraGrouping<R>? {
+            if (mergeGroupsStored) return null
+            val switches = MergeGroupReconstruction.titleSwitches(contentType, prefs) { pref ->
+                (backupPreferences.find { it.key == pref.key() }?.value as? BooleanPreferenceValue)?.value
+                    ?: pref.defaultValue()
+            }
+            return PrefEraGrouping(favorites, unmerges, switches)
+        }
+    }
 
     // RK: restore the light-novel library, streamed: each novel in bounded batches, then the merge
     // groups (re-keyed from {url,source}). Its categories restored with the manga ones, up front.
@@ -317,10 +355,21 @@ class BackupRestorer(
         // same-named pre-existing categories either.
         val membershipCategories = if (options.categories) summary.backupNovelCategories else emptyList()
         if (options.libraryEntries) {
+            val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupNovelSourceRef>>()
             restoreEntryStream(
                 uri,
                 fieldNumber = 700,
-                decode = { summary.legacyCustomInfo.decodeNovel(parser, it) },
+                decode = {
+                    summary.legacyCustomInfo.decodeNovel(parser, it).also { novel ->
+                        if (!summary.mergeGroupsStored && novel.favorite) {
+                            favorites += PrefEraGrouping.Favorite(
+                                BackupNovelSourceRef(novel.url, novel.source),
+                                novel.title,
+                                novel.author,
+                            )
+                        }
+                    }
+                },
                 restore = { novelRestorer.restore(it, membershipCategories) },
                 title = { it.title },
                 sourceName = { summary.novelSourceNames[it.source]?.ifBlank { null } ?: it.source },
@@ -334,7 +383,17 @@ class BackupRestorer(
 
             // Isolated for the same reason as the manga twin: a failure here used to cancel the
             // sibling stream and escape before the error log was written.
-            restoreIsolated("novel merges") { novelRestorer.restoreMerges(summary.backupNovelMerges) }
+            restoreIsolated("novel merges") {
+                novelRestorer.restoreMerges(
+                    summary.backupNovelMerges,
+                    summary.prefEra(
+                        ContentType.NOVELS,
+                        reikaiLibraryPreferences,
+                        favorites,
+                        summary.backupNovelUnmerges.map { it.refs },
+                    ),
+                )
+            }
         }
     }
 
@@ -364,13 +423,24 @@ class BackupRestorer(
     private fun CoroutineScope.restoreMangaStream(
         uri: Uri,
         backupCategories: List<BackupCategory>,
-        backupMangaMerges: List<BackupMangaMergeGroup>,
-        legacyCustomInfo: LegacyCustomInfo,
+        summary: BackupSummary,
     ) = launch {
+        val legacyCustomInfo = summary.legacyCustomInfo
+        val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupMangaSourceRef>>()
         restoreEntryStream(
             uri,
             fieldNumber = 1,
-            decode = { legacyCustomInfo.decodeManga(parser, it) },
+            decode = {
+                legacyCustomInfo.decodeManga(parser, it).also { manga ->
+                    if (!summary.mergeGroupsStored && manga.favorite) {
+                        favorites += PrefEraGrouping.Favorite(
+                            BackupMangaSourceRef(manga.url, manga.source),
+                            manga.title,
+                            manga.author,
+                        )
+                    }
+                }
+            },
             restore = { mangaRestorer.restore(listOf(it), backupCategories) },
             title = { it.title },
             sourceName = { sourceMapping[it.source] ?: it.source.toString() },
@@ -387,7 +457,17 @@ class BackupRestorer(
         // mid-batch and escaped before the error log was written, leaving the user a half-restored
         // library and no report.
         ensureActive()
-        restoreIsolated("merges") { mangaRestorer.restoreMerges(backupMangaMerges) }
+        restoreIsolated("merges") {
+            mangaRestorer.restoreMerges(
+                summary.backupMangaMerges,
+                summary.prefEra(
+                    ContentType.MANGA,
+                    reikaiLibraryPreferences,
+                    favorites,
+                    summary.backupMangaUnmerges.map { it.refs },
+                ),
+            )
+        }
     }
 
     // RK: the streamed restore loop both content types run: [fieldNumber]'s entries are decoded one at a

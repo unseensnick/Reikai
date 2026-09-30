@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
+import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
 import eu.kanade.tachiyomi.data.backup.models.customInfo
 import exh.metadata.metadata.base.FlatMetadata
@@ -16,6 +17,7 @@ import kotlinx.datetime.toLocalDateTime
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
 import reikai.domain.library.ContentType
+import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.RestoreMergeGroups
 import tachiyomi.domain.backup.model.RestoredHistory
 import tachiyomi.domain.backup.model.RestoredManga
@@ -89,13 +91,13 @@ class MangaRestorer(
      * {url, source} refs; the shared [RestoreMergeGroups] decides the rest. Call this AFTER the manga
      * loop completes.
      */
-    suspend fun restoreMerges(merges: List<BackupMangaMergeGroup>) {
-        restoreMergeGroups(
-            ContentType.MANGA,
-            merges.map { group ->
-                group.refs.mapNotNull { getMangaByUrlAndSourceId.await(it.url, it.source)?.id }
-            },
-        )
+    suspend fun restoreMerges(
+        merges: List<BackupMangaMergeGroup>,
+        prefEra: PrefEraGrouping<BackupMangaSourceRef>?,
+    ) {
+        restoreMergeGroups.fromBackup(ContentType.MANGA, merges.map { it.refs }, prefEra) {
+            getMangaByUrlAndSourceId.await(it.url, it.source)?.id
+        }
     }
 
     // RK: an older root-list row for a series the backup does not list, applied when the device has it

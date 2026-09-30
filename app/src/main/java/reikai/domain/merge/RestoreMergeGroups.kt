@@ -19,6 +19,26 @@ class RestoreMergeGroups(
 ) {
 
     /**
+     * Restore a backup's groups from their refs, each resolved to a local id through [resolve]. [prefEra]
+     * is null for a backup that stores every group; a 0.3.x one never wrote its same-title groups, so
+     * they are rebuilt here by the upgrade migration's rule.
+     */
+    suspend fun <R> fromBackup(
+        contentType: ContentType,
+        groups: List<List<R>>,
+        prefEra: PrefEraGrouping<R>?,
+        resolve: suspend (R) -> Long?,
+    ) {
+        val manual = groups.map { refs -> refs.mapNotNull { resolve(it) } }
+        if (prefEra == null) return invoke(contentType, manual)
+        val candidates = prefEra.favorites.mapNotNull { favorite ->
+            resolve(favorite.ref)?.let { MergeGroupReconstruction.Candidate(it, favorite.title, favorite.author) }
+        }
+        val unmerges = prefEra.unmerges.map { refs -> refs.mapNotNull { resolve(it) } }
+        invoke(contentType, MergeGroupReconstruction.reconstruct(candidates, manual, unmerges, prefEra.switches))
+    }
+
+    /**
      * [groups] is one list of already-resolved local ids per backed-up group, in ref order. Groups
      * with fewer than two resolvable members are dropped by the caller or here; either way they
      * cannot form a group.
@@ -86,4 +106,16 @@ class RestoreMergeGroups(
             }
         }
     }
+}
+
+/**
+ * What a backup without the stored-groups marker (Reikai 0.3.x, which derived same-title groups live)
+ * says about grouping beyond its manual merges: its favourites, its unmerge pairs and its own switches.
+ */
+class PrefEraGrouping<R>(
+    val favorites: List<Favorite<R>>,
+    val unmerges: List<List<R>>,
+    val switches: MergeGroupReconstruction.TitleSwitches,
+) {
+    class Favorite<R>(val ref: R, val title: String, val author: String?)
 }

@@ -18,11 +18,9 @@ class MergeGroupReconstructionTest {
         survivors: Map<Long, Long> = emptyMap(),
     ) = MergeGroupReconstruction.reconstruct(
         candidates,
-        manualMerges,
-        unmerges,
-        autoMergeByTitle,
-        requireAuthor,
-        survivors,
+        MergeGroupReconstruction.parsePrefGroups(manualMerges, survivors),
+        MergeGroupReconstruction.parsePrefGroups(unmerges, survivors),
+        MergeGroupReconstruction.TitleSwitches(autoMergeByTitle, requireAuthor),
     )
 
     @Test

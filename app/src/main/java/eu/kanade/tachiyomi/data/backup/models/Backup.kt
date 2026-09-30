@@ -14,7 +14,8 @@ data class Backup(
     @ProtoNumber(106) var backupExtensionStores: List<BackupExtensionStore> = emptyList(),
     // RK: light-novel library. Proto numbers in the 700 range stay clear of Mihon's
     // (1-106) and Komikku's fork additions (600/610). Merge groups carry stable {url,source} refs
-    // (see BackupNovelMerge), since novel ids change on restore. 703 is no longer written or read.
+    // (see BackupNovelMerge), since novel ids change on restore. 703 is no longer written, and is read only
+    // from a backup without field 718.
     @ProtoNumber(700) var backupNovels: List<BackupNovel> = emptyList(),
     @ProtoNumber(701) var backupNovelCategories: List<BackupNovelCategory> = emptyList(),
     @ProtoNumber(702) var backupNovelMerges: List<BackupNovelMergeGroup> = emptyList(),
@@ -23,7 +24,8 @@ data class Backup(
     // field here: their install state already rides the preference backup (ln_installed_plugin_urls).
     @ProtoNumber(710) var backupExtensions: List<BackupExtension> = emptyList(),
     // RK: manga merge groups as stable {url,source} refs (see BackupMangaMerge), since manga ids change on
-    // restore, as backupNovelMerges at 702 does for novels. 712 is no longer written or read.
+    // restore, as backupNovelMerges at 702 does for novels. 712 is no longer written, and is read only from a
+    // backup without field 718.
     @ProtoNumber(711) var backupMangaMerges: List<BackupMangaMergeGroup> = emptyList(),
     @ProtoNumber(712) var backupMangaUnmerges: List<BackupMangaMergeGroup> = emptyList(),
     // RK: custom info as Reikai 0.3.x wrote it, read only. Custom info now rides on each entry
@@ -36,4 +38,7 @@ data class Backup(
     @ProtoNumber(716) var backupFeedRows: List<BackupFeedRow> = emptyList(),
     // RK: the name of each novel source the backup's novels use, the twin of backupSources at 101.
     @ProtoNumber(717) var backupNovelSources: List<BackupNovelSource> = emptyList(),
+    // RK: present when 711 and 702 hold every merge group; without it the backup is 0.3.x's, whose
+    // same-title groups restore rebuilds from its favourites, 712 / 703 and its auto-merge settings.
+    @ProtoNumber(718) var backupMergeGroupsStored: BackupMergeGroupsStored? = null,
 )

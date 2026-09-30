@@ -23,6 +23,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
+import eu.kanade.tachiyomi.data.backup.models.BackupMergeGroupsStored
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
@@ -175,6 +176,12 @@ class BackupCreator(
                     writeEach(out, 715, BackupSavedSearch.serializer(), feedBackupCreator.savedSearches())
                     writeEach(out, 716, BackupFeedRow.serializer(), feedBackupCreator.feedRows())
                 }
+                // Not through writeEach: the marker alone is not content, so the empty-backup guard ignores it.
+                BackupProtoWriter.writeField(
+                    out,
+                    718,
+                    parser.encodeToByteArray(BackupMergeGroupsStored.serializer(), BackupMergeGroupsStored()),
+                )
 
                 gzipOut.flush()
             } finally {

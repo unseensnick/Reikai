@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.customInfo
 import reikai.data.novel.updateNovelFetchInterval
@@ -26,6 +27,7 @@ import reikai.domain.backup.restoredFavoriteAt
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
 import reikai.domain.library.ContentType
+import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
@@ -203,13 +205,13 @@ class NovelRestorer(
      * the restored novel's fresh id; the shared [RestoreMergeGroups] decides the rest, so both content
      * types restore grouping the same way.
      */
-    suspend fun restoreMerges(merges: List<BackupNovelMergeGroup>) {
-        restoreMergeGroups(
-            ContentType.NOVELS,
-            merges.map { group ->
-                group.refs.mapNotNull { novelRepository.getByUrlAndSource(it.url, it.source)?.id }
-            },
-        )
+    suspend fun restoreMerges(
+        merges: List<BackupNovelMergeGroup>,
+        prefEra: PrefEraGrouping<BackupNovelSourceRef>?,
+    ) {
+        restoreMergeGroups.fromBackup(ContentType.NOVELS, merges.map { it.refs }, prefEra) {
+            novelRepository.getByUrlAndSource(it.url, it.source)?.id
+        }
     }
 
     /** An older root-list row for a novel the backup does not list, applied when the device has it. */
