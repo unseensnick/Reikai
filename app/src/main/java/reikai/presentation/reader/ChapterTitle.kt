@@ -50,11 +50,14 @@ fun ChapterTitleFormat.chapterTitle(name: String, number: Double, words: Chapter
 /**
  * The name with the chapter number it opens with taken off, so "Chapter 3: The Duel" does not read
  * "Ch. 3: Chapter 3: The Duel". Sources often repeat the number ("Chapter 3 3: The Duel"), hence twice.
+ * A bare number counts only before a separator or the end, so the title's own 3 in "Chapter 3: 3 Days
+ * Later" stays, and so does the number of an ambiguous "3 The Duel".
  */
 private fun String.withoutLeadingNumber(number: String): String {
+    val shown = """0*${Regex.escape(number)}(?!\d|\.\d)"""
     val prefix =
         Regex(
-            """^\s*(?:ch(?:apter)?\.?\s*)?#?0*${Regex.escape(number)}(?!\d|\.\d)\s*[:.\-–—]?\s*""",
+            """^\s*(?:(?:ch(?:apter)?\.?\s*#?|#)$shown\s*[:.\-–—]?|$shown\s*(?:[:.\-–—]|$))\s*""",
             RegexOption.IGNORE_CASE,
         )
     return replaceFirst(prefix, "").replaceFirst(prefix, "")

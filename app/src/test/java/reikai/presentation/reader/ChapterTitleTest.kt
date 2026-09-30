@@ -101,4 +101,21 @@ class ChapterTitleTest {
     fun `a chapter the source did not number keeps its name`() {
         ChapterTitleFormat.NUMBER.of("Prologue", -1.0) shouldBe "Prologue"
     }
+
+    /** Once "Chapter 3:" comes off, the 3 that opens "3 Days Later" is the title's own, not a repeat. */
+    @Test
+    fun `a title that opens with the chapter's own number keeps it`() {
+        ChapterTitleFormat.NUMBER_AND_NAME.of("Chapter 3: 3 Days Later", 3.0) shouldBe "Ch. 3: 3 Days Later"
+    }
+
+    @Test
+    fun `a title after a dash that opens with the chapter's number keeps it`() {
+        ChapterTitleFormat.NUMBER_AND_NAME.of("Chapter 1 - 1 Year Later", 1.0) shouldBe "Ch. 1: 1 Year Later"
+    }
+
+    /** With no label word, a separator is what says the number is the chapter's. */
+    @Test
+    fun `a bare number closed by a separator comes off`() {
+        ChapterTitleFormat.NUMBER_AND_NAME.of("3. The Duel", 3.0) shouldBe "Ch. 3: The Duel"
+    }
 }
