@@ -785,7 +785,6 @@
     <string name="pref_download_new_unread_chapters_only">Brinca s\'iscarrigamentu de capìtulos lèghidos duplicados</string>
     <string name="confirm_tracker_update">Atualizare sos arrastadores a su capìtulu %d?</string>
     <string name="pref_auto_update_manga_on_mark_read">Agiorna su progressu cando est marcadu comente lèghidu</string>
-    <string name="trackers_updated_summary">Arrastadores atualizados a su capìtulu %d</string>
     <string name="pref_incognito_mode_extension_summary">Pone in pàusa sa cronologia de letura pro s\'estensione</string>
     <string name="label_auto">Automàticu</string>
     <string name="library_list">Lista de sa biblioteca</string>

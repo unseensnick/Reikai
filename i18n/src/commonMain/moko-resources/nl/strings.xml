@@ -758,7 +758,6 @@
     <string name="theme_nord">Nord</string>
     <string name="manga_interval_expected_update_null">Deze manga is voltooid of er is geen voorspelde uitkomstdatum.</string>
     <string name="pref_auto_update_manga_on_mark_read">Voortgang bijwerken wanneer gemarkeerd als gelezen</string>
-    <string name="trackers_updated_summary">Trackers bijgewerkt naar hoofdstuk %d</string>
     <string name="upcoming_calendar_next">Volgende Maand</string>
     <string name="action_create">Aanmaken</string>
     <string name="label_upcoming">Toekomstige Updates</string>

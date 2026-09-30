@@ -661,7 +661,6 @@
     <string name="exclude_scanlators">Выключыць сканлэйтараў</string>
     <string name="no_scanlators_found">Сканлэйтары не знойдзены</string>
     <string name="confirm_tracker_update">Аднавіць трэкеры да раздзела %d?</string>
-    <string name="trackers_updated_summary">Трэкеры адноўлены да раздзела %d</string>
     <string name="manga_tracking_tab">Адсочванне</string>
     <string name="add_tracking">Дадаць адсочванне</string>
     <string name="unread">Непрачытанае</string>

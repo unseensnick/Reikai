@@ -781,7 +781,6 @@
     <string name="firebase_summary">Slanje zapisa o prekidima rada aplikacije i analitike omogućit će nam identificirati i riješiti probleme, poboljšati performancu i prilagoditi buduća aktualiziranja kako bi što bolje odgovarala tvojim potrebama</string>
     <string name="pref_auto_update_manga_on_mark_read">Aktualiziraj napredak kada je označen kao pročitan</string>
     <string name="confirm_tracker_update">Aktualizirati praćenja na poglavlje %d?</string>
-    <string name="trackers_updated_summary">Praćenja aktualizirana na poglavlje %d</string>
     <string name="pref_security">Sigurnost</string>
     <string name="ext_remove">Ukloni</string>
     <string name="ext_confirm_remove">Ukloniti proširenje?</string>

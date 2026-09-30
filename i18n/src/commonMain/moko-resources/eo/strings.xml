@@ -730,7 +730,6 @@
     <string name="exclude_scanlators">Ekskluzivi skantradukistojn</string>
     <string name="no_scanlators_found">Neniu skantradukisto trovita</string>
     <string name="confirm_tracker_update">Ĝisdatigi ŝanĝospurilojn al ĉapitro %d?</string>
-    <string name="trackers_updated_summary">Ŝanĝospuriloj ĝisdatigitaj al ĉapitro %d</string>
     <string name="reading_list">Listo de legataj</string>
     <string name="wish_list">Dezirlisto</string>
     <string name="complete_list">Listo de finitaj</string>

@@ -803,7 +803,6 @@
     <string name="possible_duplicates_summary">라이브러리에 유사한 이름의 항목이 있습니다.\n\n이동하거나 추가할 항목을 선택하십시오.</string>
     <string name="manga_interval_expected_update_null">이 만화는 완결되었거나 예상 출시일이 없습니다.</string>
     <string name="confirm_tracker_update">트래커를 %d 챕터에 업데이트하시겠습니까?</string>
-    <string name="trackers_updated_summary">트래커가 %d 챕터에 업데이트</string>
     <string name="action_view_upcoming">업데이트 예정 표시</string>
     <string name="upcoming_guide">예정일 안내</string>
     <string name="upcoming_calendar_next">다음 달</string>

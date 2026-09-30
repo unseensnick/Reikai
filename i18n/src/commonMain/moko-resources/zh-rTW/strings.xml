@@ -785,7 +785,6 @@
     <string name="remove_private_extension_message">您真的要解除安裝「%s」擴充套件嗎？</string>
     <string name="non_library_settings">所有已閱讀的作品</string>
     <string name="pref_auto_update_manga_on_mark_read">標記為已讀時更新章節進度</string>
-    <string name="trackers_updated_summary">已更新歷程到第%d章</string>
     <string name="pref_incognito_mode_extension_summary">停止紀錄擴充的閱讀歷史</string>
     <string name="label_auto">自動</string>
     <string name="theme_monochrome">單色</string>

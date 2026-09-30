@@ -779,7 +779,6 @@
     <string name="pref_mark_duplicate_read_chapter_read_new">Új fejezet lekérése után</string>
     <string name="pref_flash_style_white">Fehér</string>
     <string name="library_list">Könyvtár lista</string>
-    <string name="trackers_updated_summary">Nyilvántartók frissítve a(z) %d. fejezetre</string>
     <string name="pref_mark_duplicate_read_chapter_read">Jelölje meg a duplikált olvasott fejezetet olvasottként</string>
     <string name="action_edit_notes">Jegyzetek szerkesztése</string>
     <string name="action_notes">Jegyzetek</string>

@@ -785,7 +785,6 @@
     <string name="ext_confirm_remove">एक्सटेन्शन हटाउने हो?</string>
     <string name="remove_private_extension_message">के तपाई साँच्चै \"%s\" एक्सटेन्शन हटाउन चाहनुहुन्छ?</string>
     <string name="pref_auto_update_manga_on_mark_read">पढिएको भनी चिन्ह लगाउँदा प्रगति अपडेट गर्नुहोस्</string>
-    <string name="trackers_updated_summary">ट्र्याकरहरू अध्याय %d मा अपडेट गरियो</string>
     <string name="pref_incognito_mode_extension_summary">एक्सटेन्शनमा पढिएको इतिहास रोक्नुहोस्</string>
     <string name="label_auto">अटो</string>
     <string name="pref_mark_duplicate_read_chapter_read">पढिएको अध्यायको डुप्लिकेटलाई पढिएको रूपमा चिन्ह लगाउनुहोस्</string>

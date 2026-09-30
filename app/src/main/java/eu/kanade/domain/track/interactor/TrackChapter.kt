@@ -27,7 +27,7 @@ class TrackChapter(
     private val delayedTrackingStore: DelayedTrackingStore,
 ) {
 
-    // RK: returns what the push did per tracker, so the mark-read toast says "updated" only when it was
+    // RK: returns the trackers the push failed at, so the mark-read toast can name them
     suspend fun await(
         context: Context,
         mangaId: Long,

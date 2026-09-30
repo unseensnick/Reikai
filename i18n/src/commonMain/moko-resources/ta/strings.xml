@@ -641,7 +641,6 @@
     <string name="paused">இடைநிறுத்தப்பட்டது</string>
     <string name="plan_to_read">படிக்க திட்டமிடுங்கள்</string>
     <string name="confirm_tracker_update">அத்தியாயம் %d க்கு டிராக்கர்களைப் புதுப்பிக்கவா?</string>
-    <string name="trackers_updated_summary">டிராக்கர்கள் அத்தியாயம் %d க்கு புதுப்பிக்கப்பட்டன</string>
     <string name="manga_tracking_tab">கண்காணிப்பு</string>
     <string name="add_tracking">கண்காணிப்பைச் சேர்க்கவும்</string>
     <string name="unread">படிக்காதது</string>

@@ -783,7 +783,6 @@
     <string name="firebase_summary">Si envieu registres d’errors i analítiques, ens permetreu identificar i solucionar problemes, millorar el rendiment i fer que les futures actualitzacions siguin més adequades a les vostres necessitats</string>
     <string name="label_auto">Automàtic</string>
     <string name="pref_incognito_mode_extension_summary">Pausa l’historial de lectura per a aquesta extensió</string>
-    <string name="trackers_updated_summary">Els serveis de seguiment s’han actualitzat al capítol %d</string>
     <string name="pref_auto_update_manga_on_mark_read">Actualitza el progrés en marcar com a llegit</string>
     <string name="ext_remove">Elimina</string>
     <string name="ext_confirm_remove">Voleu eliminar l’extensió?</string>

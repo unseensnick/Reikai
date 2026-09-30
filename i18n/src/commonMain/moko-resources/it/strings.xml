@@ -785,7 +785,6 @@
     <string name="invalid_backup_file_unknown">Il file di backup è corrotto</string>
     <string name="manga_interval_expected_update_null">Questo manga è completato o non c\'è data di rilascio prevista.</string>
     <string name="pref_auto_update_manga_on_mark_read">Aggiorna il progresso quando segnato come letto</string>
-    <string name="trackers_updated_summary">Tracker aggiornati al capitolo %d</string>
     <string name="label_auto">Automatico</string>
     <string name="theme_monochrome">Monocromatico</string>
     <string name="export">Esporta</string>

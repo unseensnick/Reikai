@@ -642,7 +642,6 @@
     <string name="information_cloudflare_help">برای دریافت کمک در مورد کلادفلر اینجا ضربه بزنید</string>
     <string name="library_exported">کتابخانه صادر شد</string>
     <string name="information_no_entries_found">هیچ موردی در این دسته‌بندی یافت نشد</string>
-    <string name="trackers_updated_summary">ردیاب‌ها به چپتر %d به‌روزرسانی شدند</string>
     <string name="remove_private_extension_message">آیا واقعاً می‌خواهید افزونه «%s» را حذف کنید؟</string>
     <string name="tracked_privately">درحال ردیابی خصوصی</string>
     <string name="track_remove_start_date_conf_text">این کار تاریخ شروعی را که قبلاً انتخاب کرده‌اید، از %s حذف خواهد کرد</string>

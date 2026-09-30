@@ -768,7 +768,6 @@
     <string name="pref_firebase">Estatíscas e Logs de Crash</string>
     <string name="pref_auto_update_manga_on_mark_read">Atualizar progresso quando for marcado como lido</string>
     <string name="manga_interval_expected_update_null">Este mangá ou está completo ou ainda não tem uma data de lançamento prevista.</string>
-    <string name="trackers_updated_summary">Rastreadores atualizados para o capítulo %d</string>
     <string name="file_picker_uri_permission_unsupported">Erro ao adquirir o acesso persistente à pasta. A aplicação pode comportar-se inesperadamente.</string>
     <string name="onboarding_permission_crashlytics">Enviar logs de crash</string>
     <string name="onboarding_permission_crashlytics_description">Enviar logs de crash anónimos para os desenvolvedores.</string>

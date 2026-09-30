@@ -770,7 +770,6 @@
     <string name="action_copy_link">リンクをコピーする</string>
     <string name="invalid_backup_file_json">JSON バックアップはサポートされていません</string>
     <string name="invalid_backup_file_unknown">バックアップファイルが破損しています</string>
-    <string name="trackers_updated_summary">トラッカーが章 %d に更新されました</string>
     <string name="action_sort_random">ランダム</string>
     <string name="onboarding_permission_crashlytics_description">匿名化されたクラッシュログを開発者に送信します。</string>
     <string name="onboarding_permission_analytics">分析を許可</string>

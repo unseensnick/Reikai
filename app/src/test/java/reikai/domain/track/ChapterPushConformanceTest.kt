@@ -20,7 +20,7 @@ import tachiyomi.domain.track.model.Track
 import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 
 /**
- * Both chapter interactors report what the push did per tracker, which the details mark-read toast
+ * Both chapter interactors report the trackers a push failed at, which the details mark-read toast
  * reads, and a refused push still queues its retry. One case per rule over both types.
  */
 class ChapterPushConformanceTest {
@@ -79,7 +79,7 @@ class ChapterPushConformanceTest {
     fun `a push the tracker refuses comes back failed`(type: Type) = runTest {
         val h = Harness(RATE_LIMITED)
 
-        type.push(h)() shouldBe ChapterPushOutcome(updated = emptyList(), failed = listOf(h.tracker to RATE_LIMITED))
+        type.push(h)() shouldBe ChapterPushOutcome(failed = listOf(h.tracker to RATE_LIMITED))
     }
 
     @ParameterizedTest
@@ -94,10 +94,10 @@ class ChapterPushConformanceTest {
 
     @ParameterizedTest
     @EnumSource(Type::class)
-    fun `a push that lands comes back updated`(type: Type) = runTest {
+    fun `a push that lands comes back with no failure`(type: Type) = runTest {
         val h = Harness(failure = null)
 
-        type.push(h)() shouldBe ChapterPushOutcome(updated = listOf(h.tracker), failed = emptyList())
+        type.push(h)() shouldBe ChapterPushOutcome(failed = emptyList())
     }
 
     private companion object {

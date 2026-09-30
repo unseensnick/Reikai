@@ -781,7 +781,6 @@
     <string name="ext_remove">Retirer</string>
     <string name="ext_confirm_remove">Retirer l\'Extension ?</string>
     <string name="onboarding_permission_analytics_description">Envoyer des données d\'utilisation anonymes pour améliorer les fonctionnalités de l\'application.</string>
-    <string name="trackers_updated_summary">Trackers mis à jour au chapitre %d</string>
     <string name="manga_interval_expected_update_null">Cette série est soit terminée, soit il n\'y a pas de date de sortie prévue.</string>
     <string name="file_picker_uri_permission_unsupported">L\'application n\'a pas obtenu l\'accès au dossier. Il se peut qu\'elle ne fonctionne pas comme prévu.</string>
     <string name="invalid_backup_file_unknown">Le fichier de sauvegarde est corrompu</string>

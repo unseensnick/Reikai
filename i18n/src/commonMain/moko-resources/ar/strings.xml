@@ -798,7 +798,6 @@
     <string name="pref_update_library_manga_titles_summary">تحذير: إذا تمت إعادة تسمية المانجا، فسيتم إزالتها من قائمة التنزيل (إن وجدت).</string>
     <string name="action_toggle_private_on">التتبع الخاص</string>
     <string name="notes_placeholder">استمتعت بالجزء حين …</string>
-    <string name="trackers_updated_summary">تحديث المتابعات إلى الفصل %d</string>
     <string name="pref_mark_duplicate_read_chapter_read">اعتبر الفصل المقروء المكرر مقروء</string>
     <string name="remove_private_extension_message">هل فعلا تريد حدف الإضافة \"%s\"؟</string>
     <string name="library_list">قائمة المكتبات</string>

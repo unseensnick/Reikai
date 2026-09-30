@@ -777,7 +777,6 @@
     <string name="pref_security">Securitate</string>
     <string name="pref_firebase">Jurnale de analiză și de erori</string>
     <string name="pref_auto_update_manga_on_mark_read">Actualizare progres atunci când este marcat ca citit</string>
-    <string name="trackers_updated_summary">Servicii de urmărire actualizate la capitolul %d</string>
     <string name="onboarding_permission_crashlytics_description">Trimiteți anonim jurnalele de blocare către dezvoltatorilor.</string>
     <string name="onboarding_permission_analytics">Permiteți analizele</string>
     <string name="onboarding_permission_crashlytics">Trimiteți jurnalele de eroare</string>

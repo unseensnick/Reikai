@@ -785,7 +785,6 @@
     <string name="ext_confirm_remove">এক্সটেনশ্বন আঁতৰাওক?</string>
     <string name="remove_private_extension_message">আপুনি সঁচাকৈয়ে \"%s\" এক্সটেনশ্বন আঁতৰাব বিচাৰে নেকি?</string>
     <string name="pref_auto_update_manga_on_mark_read">পঢ়া বুলি চিহ্নিত কৰিলে অগ্ৰগতি আপডেট কৰক</string>
-    <string name="trackers_updated_summary">ট্ৰেকাৰসমূহ অধ্যায় %d লৈ আপডেট কৰা হৈছে</string>
     <string name="pref_incognito_mode_extension_summary">এক্সটেনশ্বনৰ বাবে পঢ়াৰ ইতিহাস বিৰাম দিয়ে</string>
     <string name="label_auto">স্বয়ংক্ৰিয়</string>
     <string name="theme_monochrome">মোন\'ক্ৰম</string>

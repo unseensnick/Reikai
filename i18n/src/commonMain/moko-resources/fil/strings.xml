@@ -785,7 +785,6 @@
     <string name="ext_confirm_remove">Alisin ang Extension?</string>
     <string name="remove_private_extension_message">Gusto mo ba talagang tanggalin ang \"%s\" na extension?</string>
     <string name="pref_auto_update_manga_on_mark_read">I-update ang progress kapag namarka bilang nabasa na</string>
-    <string name="trackers_updated_summary">Na-update ang mga tracker sa kabanata %d</string>
     <string name="pref_incognito_mode_extension_summary">Pinapa-pause ang kasaysayan ng pagbabasa para sa extension</string>
     <string name="label_auto">Awto</string>
     <string name="action_toggle_private_off">Publikong I-track</string>

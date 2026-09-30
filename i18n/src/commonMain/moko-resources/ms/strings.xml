@@ -812,7 +812,6 @@
     <string name="possible_duplicates_summary">Anda mempunyai entri dalam pustaka anda dengan nama yang serupa.\n\nPilih entri untuk berhijrah atau tambah juga.</string>
     <string name="manga_interval_expected_update_null">Manga ini sudahpun selesai, atau tiada tarikh pelepasan yang diramalkan.</string>
     <string name="confirm_tracker_update">Kemas kini pelacak ke bab %d?</string>
-    <string name="trackers_updated_summary">Penjejak dikemas kini ke bab %d</string>
     <string name="tracked_privately">Dijejaki secara peribadi</string>
     <string name="action_toggle_private_on">Jejak secara peribadi</string>
     <string name="action_toggle_private_off">Jejak secara terbuka</string>

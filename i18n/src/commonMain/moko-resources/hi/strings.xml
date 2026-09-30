@@ -770,7 +770,6 @@
     <string name="exclude_scanlators">स्कैनलेटर को बाहर करें</string>
     <string name="no_scanlators_found">कोई स्कैनलेटर नहीं मिला</string>
     <string name="confirm_tracker_update">ट्रैकर्स को अध्याय %d तक अपडेट करें?</string>
-    <string name="trackers_updated_summary">ट्रैकर्स को अध्याय %d तक अपडेट किया गया</string>
     <string name="tracked_privately">निजी तौर पर ट्रैक किया गया</string>
     <string name="action_toggle_private_on">निजी रूप से ट्रैक करें</string>
     <string name="action_toggle_private_off">सार्वजनिक रूप से ट्रैक करें</string>

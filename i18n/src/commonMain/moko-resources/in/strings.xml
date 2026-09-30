@@ -785,7 +785,6 @@
     <string name="ext_remove">Hapus</string>
     <string name="ext_confirm_remove">Hapus Ekstensi?</string>
     <string name="pref_auto_update_manga_on_mark_read">Kemajuan pembaruan saat ditandai sebagai telah dibaca</string>
-    <string name="trackers_updated_summary">Pelacak diperbarui ke bab %d</string>
     <string name="pref_incognito_mode_extension_summary">Jeda riwayat membaca untuk ekstensi</string>
     <string name="label_auto">Otomatis</string>
     <string name="pref_mark_duplicate_read_chapter_read">Tandai bab duplikat yang telah dibaca sebagai telah dibaca</string>

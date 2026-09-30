@@ -790,7 +790,6 @@
     <string name="remove_private_extension_message">Você realmente deseja remover a extensão \"%s\"?</string>
     <string name="export">Exportar</string>
     <string name="pref_incognito_mode_extension_summary">Pausar histórico de leitura para extensão</string>
-    <string name="trackers_updated_summary">Rastreadores atualizados para o capítulo %d</string>
     <string name="tracked_privately">Rastreado de forma privada</string>
     <string name="action_toggle_private_on">Rastrear privadamente</string>
     <string name="action_toggle_private_off">Rastrear publicamente</string>

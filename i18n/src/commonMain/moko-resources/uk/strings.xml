@@ -790,7 +790,6 @@
     <string name="pref_flash_style_black">Чорний</string>
     <string name="invalid_backup_file_json">Резервне копіювання JSON не підтримується</string>
     <string name="invalid_backup_file_unknown">Файл резервної копії пошкоджено</string>
-    <string name="trackers_updated_summary">Трекери оновлено до розділу %d</string>
     <string name="confirm_tracker_update">Оновити трекери до розділу %d?</string>
     <string name="library_exported">Бібліотеку експортовано</string>
     <string name="possible_duplicates_title">Можливі копії</string>

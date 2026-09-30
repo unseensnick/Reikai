@@ -776,7 +776,6 @@
     <string name="invalid_backup_file_json">Copia de seguridade JSON non compatible</string>
     <string name="invalid_backup_file_unknown">O arquivo da copia de seguridade está corrupto</string>
     <string name="confirm_tracker_update">Marcar o capítulo %d como lido nos servizos de seguimento?</string>
-    <string name="trackers_updated_summary">Servizos de seguimento actualizados ao capítulo %d</string>
     <string name="onboarding_permission_analytics_description">Enviar estatísticas de uso anónimas para mellorar as funcións da aplicación.</string>
     <string name="pref_security">Seguridade</string>
     <string name="pref_firebase">Analíticas e rexistros de erros</string>

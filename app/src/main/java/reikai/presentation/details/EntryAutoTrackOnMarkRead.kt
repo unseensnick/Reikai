@@ -45,48 +45,39 @@ class EntryAutoTrackOnMarkRead<C>(
      */
     suspend fun setRead(entryId: Long, chapters: List<C>, read: Boolean) {
         writeRead(expandToGroup(chapters), read)
-        if (read) push(entryId, chapters.map(chapterNumber))
+        if (read) reportFailures(push(entryId, chapters.map(chapterNumber)))
     }
 
-    private suspend fun push(entryId: Long, chapterNumbers: List<Double>) {
-        if (chapterNumbers.isEmpty() || trackerManager.loggedInTrackers().isEmpty()) return
+    /** Every tracker that failed along the way, at the refresh or at the push. */
+    private suspend fun push(entryId: Long, chapterNumbers: List<Double>): List<Pair<Tracker, Throwable>> {
+        if (chapterNumbers.isEmpty() || trackerManager.loggedInTrackers().isEmpty()) return emptyList()
         val autoTrackState = trackPreferences.autoUpdateTrackOnMarkRead.get()
-        if (autoTrackState == AutoTrackState.NEVER) return
+        if (autoTrackState == AutoTrackState.NEVER) return emptyList()
 
-        reportFailures(entryId, refresh(entryId))
+        val refreshFailed = refresh(entryId).mapNotNull { (tracker, e) -> tracker?.let { it to e } }
+        refreshFailed.forEach { (tracker, e) ->
+            logcat(LogPriority.ERROR, e) { "Failed to refresh track data entryId=$entryId for ${tracker.id}" }
+        }
 
         val furthestRead = chapterNumbers.max()
-        if (lastReadPerTracker(entryId).none { furthestRead > it }) return
+        if (lastReadPerTracker(entryId).none { furthestRead > it }) return refreshFailed
 
-        if (autoTrackState == AutoTrackState.ALWAYS) {
-            reportPush(pushProgress(entryId, furthestRead), furthestRead)
-            return
+        if (autoTrackState == AutoTrackState.ASK) {
+            val result = snackbarHostState.showSnackbar(
+                message = context.stringResource(MR.strings.confirm_tracker_update, furthestRead.toInt()),
+                actionLabel = context.stringResource(MR.strings.action_ok),
+                duration = SnackbarDuration.Short,
+                withDismissAction = true,
+            )
+            if (result != SnackbarResult.ActionPerformed) return refreshFailed
         }
-
-        val result = snackbarHostState.showSnackbar(
-            message = context.stringResource(MR.strings.confirm_tracker_update, furthestRead.toInt()),
-            actionLabel = context.stringResource(MR.strings.action_ok),
-            duration = SnackbarDuration.Short,
-            withDismissAction = true,
-        )
-        if (result == SnackbarResult.ActionPerformed) reportPush(pushProgress(entryId, furthestRead), furthestRead)
+        return refreshFailed + pushProgress(entryId, furthestRead).failed
     }
 
-    // Upstream toasts "updated" whatever the push did, and a failure only reached the log.
-    private suspend fun reportPush(outcome: ChapterPushOutcome, chapterNumber: Double) {
-        val lines = outcome.report(
-            updatedLine = { context.stringResource(MR.strings.trackers_updated_summary, chapterNumber.toInt()) },
-            failedLine = { tracker, error -> context.trackerErrorMessage(tracker, error) },
-        ).distinct()
+    // Upstream toasts "updated" after an Always push and each refresh failure on its own. Here a push that
+    // lands says nothing, and one mark shows at most one toast, a tracker failing twice named once.
+    private suspend fun reportFailures(failed: List<Pair<Tracker, Throwable>>) {
+        val lines = failed.map { (tracker, error) -> context.trackerErrorMessage(tracker, error) }.distinct()
         if (lines.isNotEmpty()) withUIContext { context.toast(lines.joinToString("\n")) }
-    }
-
-    private suspend fun reportFailures(entryId: Long, results: List<Pair<Tracker?, Throwable>>) {
-        results.filter { it.first != null }.forEach { (tracker, e) ->
-            logcat(LogPriority.ERROR, e) { "Failed to refresh track data entryId=$entryId for ${tracker!!.id}" }
-            withUIContext {
-                context.toast(context.stringResource(MR.strings.track_error, tracker!!.name, e.message ?: ""))
-            }
-        }
     }
 }
