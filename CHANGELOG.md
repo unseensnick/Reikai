@@ -568,6 +568,8 @@ every stable release now also ships a foss build with neither in it.
 - **Tapping Tracking on a novel when none of your signed-in trackers cover novels now opens Settings -> Tracking, as it does for manga, instead of an empty sheet.**
 - **A tracker's start date is now filled in when the first chapter you read is not chapter 1.** A date already on the tracker is never replaced.
 - **The Tracking button on a series' page now counts the group's trackers right after you add it to an existing group.** Before, it showed no trackers until the page was reopened.
+- **Removing a tracker with "Also remove from" now keeps it bound when the service refuses, so you can retry.** Previously the entry was left on the tracker's list with nothing in the app pointing at it.
+- **Marking chapters read now says trackers were updated only when the update went through, and names any tracker that failed.** A failed update is still retried in the background.
 
 ### Downloads & extensions
 
