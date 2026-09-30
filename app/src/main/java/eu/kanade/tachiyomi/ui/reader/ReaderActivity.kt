@@ -646,9 +646,10 @@ class ReaderActivity : BaseActivity() {
                         currentChapterId = current,
                         chapterSwipeStartAction = viewModel.chapterSwipeStartAction,
                         chapterSwipeEndAction = viewModel.chapterSwipeEndAction,
+                        // Closed first: the engine raises the pick's loading dialog only over an empty slot.
                         onClickChapter = {
-                            chapterList.open(it)
                             onDismissRequest()
+                            chapterList.open(it)
                         },
                         onMarkRead = chapterList::setRead,
                         onBookmark = chapterList::setBookmark,

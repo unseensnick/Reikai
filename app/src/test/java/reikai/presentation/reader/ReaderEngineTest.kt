@@ -28,6 +28,8 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.tts.SleepTimer
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
@@ -147,15 +149,45 @@ class ReaderEngineTest {
         engine.dialog.value shouldBe ReaderDialog.Loading
     }
 
-    @Test
-    fun `a load started from the settings sheet leaves the sheet open`() {
+    /**
+     * A setting changed in a sheet reloads the chapter in place, and read aloud steps chapters on its
+     * own, so a load can start under any sheet the reader opened. Replacing it would close it mid-use.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sheets")
+    fun `a load under a sheet the reader opened leaves the sheet open`(sheet: ReaderDialog) {
         val provider = FakeReaderProvider()
         val engine = engine(provider)
-        engine.openDialog(ReaderDialog.Settings)
+        engine.openDialog(sheet)
 
         provider.loadState.value = ReaderLoadState.Loading
 
-        engine.dialog.value shouldBe ReaderDialog.Settings
+        engine.dialog.value shouldBe sheet
+    }
+
+    @Test
+    fun `a sheet open through a load stays open once the chapter arrives`() {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        val sleepTimer = ReaderDialog.SleepTimerSelect(FakeReadAloud())
+        engine.openDialog(sleepTimer)
+        provider.loadState.value = ReaderLoadState.Loading
+
+        provider.loadState.value = ReaderLoadState.Idle
+
+        engine.dialog.value shouldBe sleepTimer
+    }
+
+    /** Retrying from the failure starts a load, which shows its progress in the failure's place. */
+    @Test
+    fun `a load after a failure replaces it with the loading dialog`() {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = null)
+
+        provider.loadState.value = ReaderLoadState.Loading
+
+        engine.dialog.value shouldBe ReaderDialog.Loading
     }
 
     @Test
@@ -883,6 +915,16 @@ class ReaderEngineTest {
         engine.seek(ChapterProgress.Percent(hundredths = 5000))
 
         viewport.sought shouldBe ChapterProgress.Percent(hundredths = 5000)
+    }
+
+    companion object {
+        @JvmStatic
+        fun sheets(): List<ReaderDialog> = listOf(
+            ReaderDialog.Settings,
+            ReaderDialog.ChapterList,
+            ReaderDialog.SleepTimerSelect(FakeReadAloud()),
+            ReaderDialog.BottomButtons(ReaderBottomButton.Scope.Novel),
+        )
     }
 }
 

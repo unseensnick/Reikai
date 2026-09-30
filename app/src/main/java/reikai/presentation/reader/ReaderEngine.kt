@@ -281,9 +281,10 @@ class ReaderEngine(
         viewModelScope.launch {
             loadState.collect { state ->
                 when (state) {
-                    // Not over the settings sheet: a setting changed there reloads the chapter in place, and
-                    // replacing the sheet would close it under the reader mid-change.
-                    ReaderLoadState.Loading -> if (mutableDialog.value != ReaderDialog.Settings) {
+                    // Never over a sheet the reader opened: a setting changed in one reloads the chapter in
+                    // place, and read aloud steps chapters by itself, so replacing it would close it mid-use.
+                    // A pick from the chapter list closes that sheet before it loads.
+                    ReaderLoadState.Loading -> if (mutableDialog.value.let { it == null || it.isLoadSurface }) {
                         openDialog(ReaderDialog.Loading)
                     }
                     is ReaderLoadState.Failed -> {
@@ -304,9 +305,12 @@ class ReaderEngine(
     }
 
     private fun dismissLoadDialog() {
-        val raised = mutableDialog.value
-        if (raised is ReaderDialog.Loading || raised is ReaderDialog.LoadFailed) dismissDialog()
+        if (mutableDialog.value?.isLoadSurface == true) dismissDialog()
     }
+
+    /** What this raises for a load, as against a sheet the reader opened. */
+    private val ReaderDialog.isLoadSurface: Boolean
+        get() = this is ReaderDialog.Loading || this is ReaderDialog.LoadFailed
 
     // Viewport: what is currently rendering the entry, whatever content type it is.
 
