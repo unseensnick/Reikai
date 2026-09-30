@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.DownloadUnitRow
@@ -76,7 +77,6 @@ import reikai.presentation.library.novelSourceBadge
 import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.library.withCustomInfo
-import reikai.presentation.novel.selectChaptersForDownloadAction
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -474,16 +474,13 @@ class NovelLibraryViewModel(
                     { it.bookmark },
                 ) { novelDownloadCache.downloadedChapterIds(group.pooledChapters, novelsById) }
                 val queuedIds = downloadManager.queueState.value.mapTo(HashSet()) { it.chapterId }
-                val targets = selectChaptersForDownloadAction(
+                // The interactor already hands them over in reading order.
+                val targets = DownloadCandidates.forGroup(
                     group.chapters,
-                    // The interactor already hands them over in reading order.
-                    sortDescending = false,
                     action,
-                    flags.downloadedIds + queuedIds,
-                    flags.readElsewhere,
-                    flags.bookmarkedElsewhere,
+                    flags,
                     getNextNovelChapter.hiddenAmong(group.pooledChapters),
-                )
+                ) { it.id in queuedIds }
                 if (targets.isNotEmpty()) downloadManager.downloadChapters(targets)
             }
         }

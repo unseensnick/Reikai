@@ -45,6 +45,26 @@ class GroupChapterFlagsTest {
     }
 
     @Test
+    fun `the downloaded set names a shown row whose other copy is on disk`() {
+        flags(Row(2L), onDisk = setOf(2L)).downloadedIds shouldBe setOf(1L)
+    }
+
+    @Test
+    fun `the read-elsewhere set leaves out a row read on its own copy`() {
+        val flags = GroupChapterFlags(
+            scope = MergeScope.Group,
+            pooled = listOf(Row(1L, read = true), Row(2L, read = true)),
+            shown = listOf(Row(1L, read = true)),
+            stitch = stitch,
+            id = { it.id },
+            read = { it.read },
+            bookmark = { it.bookmark },
+        ) { emptySet() }
+
+        flags.readElsewhere shouldBe emptySet()
+    }
+
+    @Test
     fun `in source scope a chapter whose only copy on disk is another source's is not downloaded`() {
         flags(Row(2L), onDisk = setOf(2L), scope = MergeScope.Source).isDownloaded(Row(1L)) shouldBe false
     }

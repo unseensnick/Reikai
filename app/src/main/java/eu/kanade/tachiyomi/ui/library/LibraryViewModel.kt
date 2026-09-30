@@ -570,12 +570,12 @@ class LibraryViewModel(
         memberIds.mapNotNull { getManga.await(it) }
     // RK <--
 
+    // RK -->
+
     /** The resolved merge group, or null when the entry stands alone. Resolving one loads every
      *  member's chapters, which an entry with no members has no use for. */
     private suspend fun mergedGroupOf(manga: Manga): MergedChapterProvider.Group? =
         if (mergeManager.computeRelatedIds(manga.id).size > 1) mergedChapterProvider.load(manga) else null
-
-    // RK -->
 
     /** Queue what [action] picks from [chapters], each from the source it came from, skipping what the
      *  group already holds: a chapter downloaded on any member is on disk, whichever copy the stitch
@@ -598,13 +598,12 @@ class LibraryViewModel(
             { it.read },
             { it.bookmark },
         ) { downloadManager.downloadedChapterIds(pooled, ownerOf) }
-        DownloadCandidates.forAction(
+        DownloadCandidates.forGroup(
             chapters,
             action,
-            isRead = flags::isRead,
-            isBookmarked = flags::isBookmarked,
+            flags,
             isHidden = { it.hiddenKey(ownerOf(it)) in hidden },
-            isExcluded = { downloadManager.getQueuedDownloadOrNull(it.id) != null || flags.isDownloaded(it) },
+            isQueued = { downloadManager.getQueuedDownloadOrNull(it.id) != null },
         )
             .groupBy { it.mangaId }
             .forEach { (mangaId, owned) ->

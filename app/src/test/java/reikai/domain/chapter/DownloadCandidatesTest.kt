@@ -5,6 +5,9 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.MergeScope
 
 class DownloadCandidatesTest {
 
@@ -59,5 +62,49 @@ class DownloadCandidatesTest {
             isHidden = { false },
             isExcluded = { it == 2 },
         ) shouldBe listOf(1)
+    }
+
+    private data class Row(val id: Long, val read: Boolean = false, val bookmark: Boolean = false)
+
+    /** Rows 1 and 2 are two sources' copies of one merged chapter, shown as 1; row 3 stands alone. */
+    private fun groupDownload(
+        sibling: Row = Row(2L),
+        onDisk: Set<Long> = emptySet(),
+        queued: Set<Long> = emptySet(),
+        action: DownloadAction = DownloadAction.UNREAD_CHAPTERS,
+    ): List<Long> {
+        val shown = listOf(Row(1L), Row(3L))
+        val flags = GroupChapterFlags(
+            MergeScope.Group,
+            pooled = shown + sibling,
+            shown = shown,
+            stitch = listOf(ChapterUnit(1L, 0, 0), ChapterUnit(2L, 0, 1), ChapterUnit(3L, 1, 0)),
+            id = { it.id },
+            read = { it.read },
+            bookmark = { it.bookmark },
+        ) { onDisk }
+        return DownloadCandidates.forGroup(shown, action, flags, isHidden = { false }) { it.id in queued }
+            .map { it.id }
+    }
+
+    @Test
+    fun `a group download skips a chapter another source holds on disk`() {
+        groupDownload(onDisk = setOf(2L)) shouldBe listOf(3L)
+    }
+
+    @Test
+    fun `a group download skips a queued chapter`() {
+        groupDownload(queued = setOf(1L)) shouldBe listOf(3L)
+    }
+
+    @Test
+    fun `a group download counts a chapter another source read as read`() {
+        groupDownload(sibling = Row(2L, read = true), action = DownloadAction.NEXT_1_CHAPTER) shouldBe listOf(3L)
+    }
+
+    @Test
+    fun `a group download takes a chapter another source bookmarked as bookmarked`() {
+        groupDownload(sibling = Row(2L, bookmark = true), action = DownloadAction.BOOKMARKED_CHAPTERS) shouldBe
+            listOf(1L)
     }
 }

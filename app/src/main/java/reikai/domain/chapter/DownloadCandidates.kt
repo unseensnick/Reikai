@@ -1,6 +1,7 @@
 package reikai.domain.chapter
 
 import eu.kanade.presentation.manga.DownloadAction
+import reikai.domain.merge.GroupChapterFlags
 
 /**
  * The rows a bulk download picks from, and which of them an action queues: one rule for manga and
@@ -38,5 +39,20 @@ object DownloadCandidates {
             DownloadAction.UNREAD_CHAPTERS -> unread
             DownloadAction.BOOKMARKED_CHAPTERS -> candidates.filter(isBookmarked)
         }
+    }
+
+    /**
+     * [forAction] as a merge group answers it, for the library's multi-select on both content types:
+     * read and bookmarked are the group's, and a chapter is skipped when the copy it opens is on disk,
+     * whichever source holds it, or [isQueued] already holds it.
+     */
+    fun <T> forGroup(
+        inReadingOrder: List<T>,
+        action: DownloadAction,
+        flags: GroupChapterFlags<T>,
+        isHidden: (T) -> Boolean,
+        isQueued: (T) -> Boolean,
+    ): List<T> = forAction(inReadingOrder, action, flags::isRead, flags::isBookmarked, isHidden) {
+        isQueued(it) || flags.isDownloaded(it)
     }
 }
