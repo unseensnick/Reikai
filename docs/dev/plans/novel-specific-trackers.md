@@ -409,6 +409,14 @@ It is very likely a defect on their side rather than a deliberate contract, sinc
 chapter count for anyone changing status through the website too. Worth reporting to the maintainer,
 and worth coding around regardless: a fix would not reach the deployed backend on any known schedule.
 
+**A refresh re-reads NovelList's chapter total from the catalogue.** The total was set only at
+search time, so an ongoing web novel bound at 300 chapters and read to 450 kept 300, and choosing
+Completed ran the shared `TrackFieldMutations.applyStatus`, which sets progress to the total, and
+pushed 300. `refresh` now also reads the public `GET /novels/{id}` and takes its `chapter_count`
+through `refreshTrack`; a null count keeps the old total. The shared `applyStatus` stays upstream's
+shape, since clamping it to the higher of the two would change every tracker. Pinned by
+`NovelListRefreshTest`.
+
 **`rating` is a float constrained to 1..10**, so an unset score cannot be pushed as 0, which is what
 tsundoku's 422 comment refers to. Clearing a score has no representation and is recorded as a gap.
 

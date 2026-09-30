@@ -572,6 +572,7 @@ every stable release now also ships a foss build with neither in it.
 - **Removing a tracker with "Also remove from" now keeps it bound when the service refuses, so you can retry.** Previously the entry was left on the tracker's list with nothing in the app pointing at it.
 - **Marking chapters read now stays quiet when trackers update, and shows one message naming any tracker that failed.** A failed update is still retried in the background.
 - **An expired AniList login now asks you to sign in again instead of showing an HTTP error.**
+- **Marking a NovelList novel Completed no longer lowers its chapter progress.**
 
 ### Downloads & extensions
 

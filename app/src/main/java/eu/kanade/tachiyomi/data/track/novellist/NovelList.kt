@@ -126,7 +126,7 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
     }
 
     override suspend fun refresh(track: Track): Track {
-        api.getReadingListEntry(track.uuid).copyInto(track)
+        refreshTrack(track, api.getReadingListEntry(track.uuid), api.getNovel(track.uuid).chapterCount)
         return track
     }
 
@@ -238,21 +238,8 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
         null
     }
 
-    private fun NLReadingListEntry.copyInto(track: Track) {
-        track.status = status.toLocalStatus()
-        track.last_chapter_read = chapterCount.toDouble()
-        track.score = rating ?: 0.0
-    }
-
     private val NLNovel.displayTitle: String
         get() = englishTitle?.ifBlank { null } ?: rawTitle?.ifBlank { null } ?: slug
-
-    private fun String.toLocalStatus(): Long = when (this) {
-        "COMPLETED" -> COMPLETED
-        "DROPPED" -> DROPPED
-        "PLANNED" -> PLAN_TO_READ
-        else -> READING
-    }
 
     private fun Long.toRemoteStatus(): String = when (this) {
         COMPLETED -> "COMPLETED"
@@ -271,4 +258,26 @@ internal fun statusOnBind(siteStatus: Long?, hasReadChapters: Boolean): Long = w
     siteStatus == null -> if (hasReadChapters) NovelList.READING else NovelList.PLAN_TO_READ
     hasReadChapters && siteStatus != NovelList.COMPLETED -> NovelList.READING
     else -> siteStatus
+}
+
+/**
+ * The total follows the catalogue on every refresh, because an ongoing novel keeps growing: a total
+ * frozen at bind let Completed (TrackFieldMutations.applyStatus) push progress back down to it.
+ */
+internal fun refreshTrack(track: Track, entry: NLReadingListEntry, catalogueCount: Long?) {
+    entry.copyInto(track)
+    catalogueCount?.let { track.total_chapters = it }
+}
+
+private fun NLReadingListEntry.copyInto(track: Track) {
+    track.status = status.toLocalStatus()
+    track.last_chapter_read = chapterCount.toDouble()
+    track.score = rating ?: 0.0
+}
+
+private fun String.toLocalStatus(): Long = when (this) {
+    "COMPLETED" -> NovelList.COMPLETED
+    "DROPPED" -> NovelList.DROPPED
+    "PLANNED" -> NovelList.PLAN_TO_READ
+    else -> NovelList.READING
 }
