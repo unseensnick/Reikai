@@ -95,6 +95,13 @@ both sides, unchanged.
   only the published one, so after Undo a long press ranged from the deleted rows' stale anchor and lit
   them up again. Every verb now writes both through the store, as the library and recents engines do.
   Pinned by `CategoryViewModelTest`.
+- **Each armed category delete is its own batch.** The screen shows one undo snackbar per delete and
+  resolves them one after another, so a single shared pending set let the first snackbar's Undo restore
+  a second delete too (whose own Undo then did nothing), or its timeout commit the second before its
+  snackbar appeared. Pending rows are now keyed by a batch token the `ShowUndoSnackbar` event carries,
+  and Undo and commit act on that batch alone. The two flush sites still commit every batch, since both
+  need the table and the visible list to agree: a drag reorder and leaving the screen.
+  Pinned by `CategoryViewModelTest`, both orders.
 
 ## Key files
 

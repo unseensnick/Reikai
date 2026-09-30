@@ -109,6 +109,7 @@ every stable release now also ships a foss build with neither in it.
 - **Settings -> Library -> Preferred sources lists the local source again, so it can be ranked.**
 - **The library no longer opens on a list missing one content type while the other is still loading.** Under All, the header and category counts could come up short for a moment at startup.
 - **A light novel whose source you uninstalled keeps its language badge, language search and language group in the library.**
+- **Undo in Settings -> Library -> Edit categories now restores only the categories that delete removed.** A second delete made while the first Undo was showing used to follow the first snackbar's result.
 
 ### Merged series
 

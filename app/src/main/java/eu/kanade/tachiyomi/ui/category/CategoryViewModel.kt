@@ -55,8 +55,10 @@ class CategoryViewModel(
     private val selectionStore = SelectionStore<Long>()
 
     // Holds the rows, not just their ids: a delete has to know the category's content type to clean the
-    // right side's preferences, and by commit time the row is gone from the live list.
-    private val pendingDelete = MutableStateFlow<Set<Category>>(emptySet())
+    // right side's preferences, and by commit time the row is gone from the live list. Keyed by the delete
+    // that armed them: the screen shows one undo snackbar per delete, and each resolves only its own rows.
+    private val pendingDelete = MutableStateFlow<Map<Long, Set<Category>>>(emptyMap())
+    private var nextDeleteBatch = 0L
 
     // RK: which library's categories the list is narrowed to. Per visit, not persisted: this is a
     // settings destination rather than somewhere the user lives.
@@ -75,7 +77,7 @@ class CategoryViewModel(
         pendingDelete,
         chipContentType,
     ) { categories, sortOrder, selected, pending, contentType ->
-        val pendingIds = pending.mapTo(HashSet()) { it.id }
+        val pendingIds = pending.values.flatten().mapTo(HashSet()) { it.id }
         val visible = categories
             .filterNot(Category::isSystemCategory)
             .filterNot { it.id in pendingIds }
@@ -113,8 +115,7 @@ class CategoryViewModel(
 
     // RK: a single row delete defers like the bulk path so it's undoable too; commit is shared.
     fun deleteCategory(category: Category) {
-        pendingDelete.update { it + category }
-        viewModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(1)) }
+        armDelete(setOf(category))
     }
 
     // RK --> multi-select + deferred bulk delete, over the shared selection kernel
@@ -154,41 +155,52 @@ class CategoryViewModel(
             ?.filter { it.id in ids }
             .orEmpty()
         if (categories.isEmpty()) return
-        pendingDelete.update { it + categories }
+        armDelete(categories.toSet())
         clearSelection()
-        viewModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(categories.size)) }
     }
 
-    /** Undo a pending bulk delete: the rows return and the DB was never touched. */
-    fun undoPendingDelete() {
-        pendingDelete.value = emptySet()
+    private fun armDelete(categories: Set<Category>) {
+        val batch = nextDeleteBatch++
+        pendingDelete.update { it + (batch to categories) }
+        viewModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(batch, categories.size)) }
     }
 
-    /** Commit a pending bulk delete to the DB. Per-row so each delete keeps its reorder + preference cleanup. */
-    fun commitPendingDelete() {
+    /** Undo one armed delete: its rows return and the DB was never touched. */
+    fun undoPendingDelete(batch: Long) {
+        pendingDelete.update { it - batch }
+    }
+
+    /** Commit one armed delete to the DB. Per-row so each delete keeps its reorder + preference cleanup. */
+    fun commitPendingDelete(batch: Long) {
+        if (batch !in pendingDelete.value) return
+        viewModelScope.launch { commitPendingDeletes(setOf(batch)) }
+    }
+
+    /** Commit every armed delete, for leaving the screen, where no snackbar is left to resolve them. */
+    fun commitAllPendingDeletes() {
         if (pendingDelete.value.isEmpty()) return
-        viewModelScope.launch { commitPendingDeleteNow() }
+        viewModelScope.launch { commitPendingDeletes(pendingDelete.value.keys) }
     }
 
-    private suspend fun commitPendingDeleteNow() {
-        val categories = pendingDelete.value
+    private suspend fun commitPendingDeletes(batches: Set<Long>) {
+        val categories = pendingDelete.value.filterKeys { it in batches }.values.flatten()
         if (categories.isEmpty()) return
         // RK: non-cancellable so leaving the screen still finishes the delete
         withNonCancellableContext {
             categories.forEach { category ->
                 if (!actions.delete(category)) _events.tryEmit(CategoryEvent.InternalError)
             }
-            pendingDelete.value = emptySet()
+            pendingDelete.update { it - batches }
         }
     }
     // RK <--
 
     fun changeOrder(category: Category, newIndex: Int) {
         viewModelScope.launch {
-            // The drag index comes from the visible list, which hides rows pending delete, while
+            // RK: the drag index comes from the visible list, which hides rows pending delete, while
             // the reorder renumbers the full table; flush the pending delete first so the two lists
             // agree (dragging while the undo snackbar is up also reads as moving on from the undo).
-            commitPendingDeleteNow()
+            commitPendingDeletes(pendingDelete.value.keys)
             if (!actions.reorder(category, newIndex)) _events.emit(CategoryEvent.InternalError)
         }
     }
@@ -226,8 +238,8 @@ sealed interface CategoryEvent {
     sealed class LocalizedMessage(val stringRes: StringResource) : CategoryEvent
     data object InternalError : LocalizedMessage(MR.strings.internal_error)
 
-    // RK: a bulk delete was armed; the screen shows the undo snackbar and resolves commit/undo.
-    data class ShowUndoSnackbar(val count: Int) : CategoryEvent
+    // RK: a delete was armed; the screen shows the undo snackbar and resolves this batch's commit/undo.
+    data class ShowUndoSnackbar(val batch: Long, val count: Int) : CategoryEvent
 }
 
 sealed interface CategoryScreenState {

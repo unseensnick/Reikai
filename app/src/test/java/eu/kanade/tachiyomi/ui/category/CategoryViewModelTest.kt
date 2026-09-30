@@ -81,14 +81,46 @@ class CategoryViewModelTest {
      *  shows left the deleted rows to come back with it. */
     @Test
     fun `a long press after undoing a bulk delete selects only the pressed row`() = runTest {
-        val model = model()
+        val events = mutableListOf<CategoryEvent>()
+        val model = model(events)
         model.toggleSelection(a.id)
         model.toggleRangeSelection(b.id)
         model.deleteSelected()
-        model.undoPendingDelete()
+        model.undoPendingDelete(events.undoBatches().single())
 
         model.toggleRangeSelection(c.id)
 
         model.selection shouldBe setOf(c.id)
     }
+
+    /** The screen shows one snackbar per delete, one after another, so each must resolve only its own rows. */
+    @Test
+    fun `undoing the first delete leaves the second to its own snackbar`() = runTest {
+        val events = mutableListOf<CategoryEvent>()
+        val model = model(events)
+        model.deleteCategory(a)
+        model.deleteCategory(b)
+        val (first, second) = events.undoBatches()
+
+        model.undoPendingDelete(first)
+        model.commitPendingDelete(second)
+
+        table.value shouldBe listOf(a, c)
+    }
+
+    @Test
+    fun `committing the first delete leaves the second undoable`() = runTest {
+        val events = mutableListOf<CategoryEvent>()
+        val model = model(events)
+        model.deleteCategory(a)
+        model.deleteCategory(b)
+        val (first, second) = events.undoBatches()
+
+        model.commitPendingDelete(first)
+        model.undoPendingDelete(second)
+
+        table.value shouldBe listOf(b, c)
+    }
+
+    private fun List<CategoryEvent>.undoBatches() = filterIsInstance<CategoryEvent.ShowUndoSnackbar>().map { it.batch }
 }

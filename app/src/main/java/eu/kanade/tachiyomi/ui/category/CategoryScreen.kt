@@ -62,6 +62,7 @@ class CategoryScreen : Screen() {
             onDeleteSelected = viewModel::deleteSelected,
             onUndoDelete = viewModel::undoPendingDelete,
             onCommitDelete = viewModel::commitPendingDelete,
+            onCommitAllDeletes = viewModel::commitAllPendingDeletes,
         )
     }
 }
@@ -87,8 +88,9 @@ private fun CategoryManager(
     onInvertSelection: () -> Unit,
     onClearSelection: () -> Unit,
     onDeleteSelected: () -> Unit,
-    onUndoDelete: () -> Unit,
-    onCommitDelete: () -> Unit,
+    onUndoDelete: (batch: Long) -> Unit,
+    onCommitDelete: (batch: Long) -> Unit,
+    onCommitAllDeletes: () -> Unit,
     // RK <--
 ) {
     val context = LocalContext.current
@@ -158,7 +160,7 @@ private fun CategoryManager(
     // RK: leaving the surface commits any still-pending delete,
     // so it isn't silently dropped when the undo snackbar's coroutine is cancelled.
     DisposableEffect(Unit) {
-        onDispose { onCommitDelete() }
+        onDispose { onCommitAllDeletes() }
     }
 
     LaunchedEffect(events) {
@@ -173,7 +175,13 @@ private fun CategoryManager(
                         duration = SnackbarDuration.Short,
                         withDismissAction = true,
                     )
-                    if (result == SnackbarResult.ActionPerformed) onUndoDelete() else onCommitDelete()
+                    if (result ==
+                        SnackbarResult.ActionPerformed
+                    ) {
+                        onUndoDelete(event.batch)
+                    } else {
+                        onCommitDelete(event.batch)
+                    }
                 }
             }
         }
