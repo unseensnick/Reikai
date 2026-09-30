@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
+import reikai.domain.download.deletableDownloads // RK
 import reikai.domain.download.removableDownloads // RK
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.extension
@@ -260,7 +261,14 @@ class DownloadManager(
      */
     fun deleteChapters(chapters: List<Chapter>, manga: Manga, source: Source) {
         launchIO {
-            val filteredChapters = getChaptersToDelete(chapters, manga)
+            // RK --> a Delete the user asked for is not held back by the categories kept from removal,
+            // which govern automatic removal only (deleteRemovableChapters); upstream filters both alike
+            val filteredChapters = deletableDownloads(
+                chapters,
+                allowBookmarked = downloadPreferences.removeBookmarkedChapters.get(),
+                isBookmarked = Chapter::bookmark,
+            )
+            // RK <--
             if (filteredChapters.isEmpty()) {
                 return@launchIO
             }
@@ -277,6 +285,14 @@ class DownloadManager(
             }
         }
     }
+
+    // RK --> automatic removal, which leaves what the categories kept from removal protect;
+    // deleteChapters is the manual delete and does not ask them. The reader's pending delete filtered
+    // when it queued (enqueueChaptersToDelete), and its saved rows carry no read state to ask again
+    suspend fun deleteRemovableChapters(chapters: List<Chapter>, manga: Manga, source: Source) {
+        deleteChapters(getChaptersToDelete(chapters, manga), manga, source)
+    }
+    // RK <--
 
     /**
      * Deletes the directory of a downloaded manga.
@@ -438,7 +454,7 @@ class DownloadManager(
     }
 
     private suspend fun getChaptersToDelete(chapters: List<Chapter>, manga: Manga): List<Chapter> {
-        // RK: through the delete filter novels share, so both types keep the same chapters
+        // RK: through the removal filter novels share, so both types keep the same chapters
         return removableDownloads(
             chapters,
             excluded = downloadPreferences.removeExcludeCategories.get(),

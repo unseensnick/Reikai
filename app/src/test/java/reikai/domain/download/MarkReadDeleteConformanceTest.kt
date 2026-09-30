@@ -7,6 +7,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -24,10 +25,10 @@ import tachiyomi.domain.manga.model.Manga
 
 /**
  * Marking a chapter read by hand with "delete after marked as read" on, through both content types'
- * real mark-read interactors. Each engine's delete filters what it is handed through
- * [removableDownloads] (DownloadManager.getChaptersToDelete, NovelDownloadManager.deleteChapters), so
- * each fake runs that same filter over what reaches it. Nothing is on disk: a chapter that is only
- * queued reaches the delete too, which dequeues it.
+ * real mark-read interactors. That is automatic removal, so each side filters through
+ * [removableDownloads] before its manager's delete (DownloadManager.deleteRemovableChapters,
+ * DeleteNovelChaptersAfterRead), and the halves record what reaches that delete. Nothing is on disk:
+ * a chapter that is only queued reaches the delete too, which dequeues it.
  */
 class MarkReadDeleteConformanceTest {
 
@@ -72,8 +73,24 @@ class MangaMarkReadHalf : MarkReadHalf {
         preferences.removeExcludeCategories.set(excluded)
         val manga = Manga.create().copy(id = MarkReadDeleteConformanceTest.ENTRY, source = 1L)
         val handed = mutableListOf<Chapter>()
-        val downloadManager = mockk<DownloadManager> {
-            every { deleteChapters(any(), any(), any()) } answers { handed += firstArg<List<Chapter>>() }
+        val downloadManager = spyk(
+            DownloadManager(
+                context = mockk(relaxed = true),
+                provider = mockk(),
+                cache = mockk(),
+                getCategories = mockk {
+                    coEvery { await(manga.id) } returns
+                        categoryIds.map { Category(id = it, name = "c$it", order = it, flags = 0L) }
+                },
+                sourceManager = mockk(),
+                downloadPreferences = preferences,
+                getManga = mockk(),
+                getChapter = mockk(),
+                downloader = mockk(),
+                pendingDeleter = mockk(),
+            ),
+        ).also { spy ->
+            every { spy.deleteChapters(any(), any(), any()) } answers { handed += firstArg<List<Chapter>>() }
         }
         val setReadStatus = SetReadStatus(
             downloadPreferences = preferences,
@@ -92,13 +109,7 @@ class MangaMarkReadHalf : MarkReadHalf {
             ),
         )
 
-        return removableDownloads(
-            handed,
-            excluded,
-            allowBookmarked = preferences.removeBookmarkedChapters.get(),
-            isRead = Chapter::read,
-            isBookmarked = Chapter::bookmark,
-        ) { categoryIds }.mapTo(HashSet()) { it.id }
+        return handed.mapTo(HashSet()) { it.id }
     }
 }
 
@@ -127,7 +138,7 @@ class NovelMarkReadHalf : MarkReadHalf {
 
         setNovelReadStatus.await(true, listOf(chapter(bookmarked)))
 
-        return removable(handed).mapTo(HashSet()) { it.id }
+        return handed.mapTo(HashSet()) { it.id }
     }
 
     private fun chapter(bookmarked: Boolean) = NovelChapter(

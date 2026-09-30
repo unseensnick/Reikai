@@ -22,8 +22,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
-import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.download.SeriesCompletions
+import reikai.domain.download.deletableDownloads
 import reikai.domain.download.hasRoomToDownload
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.novel.NovelChapterRepository
@@ -68,7 +68,6 @@ class NovelDownloadManager(
     private val saver: NovelChapterSaver,
     private val securityPreferences: SecurityPreferences,
     private val adultChecker: AdultContentChecker,
-    private val removableDownloads: NovelRemovableDownloads,
 ) {
 
     private val store = NovelDownloadStore(context, chapterRepo)
@@ -244,16 +243,21 @@ class NovelDownloadManager(
     }
 
     /**
-     * Delete [chapters]' downloads, keeping the ones [removableDownloads] says stay (bookmarked, or read
-     * in a category kept from removal), as manga's delete does. Each novel's categories are its own.
+     * The Delete a user asked for: [chapters]' downloads go, but for what [deletableDownloads] keeps, as
+     * manga's `DownloadManager.deleteChapters` does. Automatic removal filters through
+     * NovelRemovableDownloads before it calls this, which is where the kept categories are asked.
      */
     fun deleteChapters(chapters: List<NovelChapter>) {
         if (chapters.isEmpty()) return
         scope.launch {
-            val removable = removableDownloads(chapters)
-            if (removable.isEmpty()) return@launch
-            dequeueChapters(removable)
-            deleteChapterFiles(removable)
+            val deletable = deletableDownloads(
+                chapters,
+                allowBookmarked = novelPreferences.removeBookmarkedChapters().get(),
+                isBookmarked = NovelChapter::bookmark,
+            )
+            if (deletable.isEmpty()) return@launch
+            dequeueChapters(deletable)
+            deleteChapterFiles(deletable)
         }
     }
 

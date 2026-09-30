@@ -12,9 +12,9 @@ private suspend fun isExcludedFromRemoval(excluded: Set<String>, categoryIds: su
 }
 
 /**
- * The downloaded [chapters] a delete may remove, the rule both content types' deletes honour: in a
- * category kept from removal only unread chapters go, and a bookmarked chapter stays unless
- * [allowBookmarked]. Mihon's manga delete filters the same way before touching a file.
+ * The downloaded [chapters] automatic removal may take (delete after read, delete after marked read),
+ * the rule both content types honour: in a category kept from removal only unread chapters go, then
+ * whatever [deletableDownloads] leaves.
  */
 internal suspend fun <T> removableDownloads(
     chapters: List<T>,
@@ -25,5 +25,16 @@ internal suspend fun <T> removableDownloads(
     categoryIds: suspend () -> List<Long>,
 ): List<T> {
     val kept = if (isExcludedFromRemoval(excluded, categoryIds)) chapters.filterNot(isRead) else chapters
-    return if (allowBookmarked) kept else kept.filterNot(isBookmarked)
+    return deletableDownloads(kept, allowBookmarked, isBookmarked)
 }
+
+/**
+ * The downloaded [chapters] a Delete the user asked for takes, in both content types' managers: all
+ * of them, but a bookmarked one only when [allowBookmarked]. The categories kept from removal are not
+ * asked, since they govern automatic removal only; Mihon applies them to a manual delete too.
+ */
+internal fun <T> deletableDownloads(
+    chapters: List<T>,
+    allowBookmarked: Boolean,
+    isBookmarked: (T) -> Boolean,
+): List<T> = if (allowBookmarked) chapters else chapters.filterNot(isBookmarked)

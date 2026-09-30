@@ -8,8 +8,8 @@ import reikai.domain.novel.model.NovelChapter
 import tachiyomi.domain.chapter.model.Chapter
 
 /**
- * The downloads a delete may remove, pinned once over both chapter models: a manual delete of either
- * type runs this, so a bookmarked chapter or one in a kept category survives on both or on neither.
+ * The downloads automatic removal may take, pinned once over both chapter models: either type's runs
+ * this, so a bookmarked chapter or one in a kept category survives on both or on neither.
  */
 class RemovableDownloadsTest {
 

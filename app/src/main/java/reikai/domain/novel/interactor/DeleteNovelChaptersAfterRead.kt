@@ -22,7 +22,8 @@ class DeleteNovelChaptersAfterRead(
     private val downloadManager: () -> NovelDownloadManager,
 ) {
 
-    /** [chapters] as written, read; filtered here too so a mark that deletes nothing builds no manager. */
+    /** [chapters] as written, read. Filtered here: the manager's own delete is the manual one, which
+     *  does not ask the kept categories, and a mark that deletes nothing builds no manager. */
     suspend fun await(chapters: List<NovelChapter>) {
         if (chapters.isEmpty() || !novelPreferences.removeAfterMarkedAsRead().get()) return
         val removable = removableDownloads(chapters)

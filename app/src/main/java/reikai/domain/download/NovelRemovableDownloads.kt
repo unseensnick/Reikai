@@ -7,8 +7,8 @@ import reikai.domain.novel.model.NovelChapter
 
 /**
  * [removableDownloads] over novels' own settings, each novel's chapters judged by that novel's
- * categories. The download manager's delete, delete-after-read and the reader's trim all ask this, as
- * manga's delete filters inside DownloadManager.
+ * categories. Novels' automatic removal asks this, delete-after-read and the reader's trim, as manga's
+ * filters in DownloadManager before it deletes; a Delete by hand does not.
  */
 @Inject
 class NovelRemovableDownloads(

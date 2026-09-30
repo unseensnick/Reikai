@@ -15,7 +15,8 @@ class DeleteDownload(
 
     suspend fun awaitAll(manga: Manga, vararg chapters: Chapter) = withNonCancellableContext {
         sourceManager.get(manga.source)?.let { source ->
-            downloadManager.deleteChapters(chapters.toList(), manga, source)
+            // RK: the mark-read delete is automatic removal, which the kept categories still hold back
+            downloadManager.deleteRemovableChapters(chapters.toList(), manga, source)
         }
     }
 }

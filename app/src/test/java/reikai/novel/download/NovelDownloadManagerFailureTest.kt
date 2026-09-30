@@ -83,7 +83,6 @@ class NovelDownloadManagerFailureTest {
         saver = mockk(),
         securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
         adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
-        removableDownloads = mockk(),
     )
 
     @BeforeEach
