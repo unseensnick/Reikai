@@ -37,9 +37,6 @@ app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/mai
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	d92b8f5bd3136d86
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	e56c3ed579b89440
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	efd92a29b7840909
-app/src/main/java/reikai/presentation/recents/RecentsRows.kt	app/src/main/java/reikai/presentation/updates/EntryUpdatesRow.kt	8e72a6eb54c9e5ff
-app/src/main/java/reikai/presentation/recents/RecentsRows.kt	app/src/main/java/reikai/presentation/updates/EntryUpdatesRow.kt	cc4a0243023213d4
-app/src/main/java/reikai/presentation/recents/RecentsRows.kt	app/src/main/java/reikai/presentation/updates/EntryUpdatesRow.kt	ddd3440e560f2908
 data/src/main/java/reikai/data/library/updateerror/LibraryUpdateErrorRepositoryImpl.kt	data/src/main/java/reikai/data/novel/updateerror/NovelUpdateErrorRepositoryImpl.kt	2167c4310ae02d35
 data/src/main/java/reikai/data/novel/NovelChapterRepositoryImpl.kt	data/src/main/java/reikai/data/novel/NovelRepositoryImpl.kt	23c6836c0279643d
 data/src/main/java/reikai/data/novel/NovelChapterRepositoryImpl.kt	data/src/main/java/reikai/data/novel/NovelRepositoryImpl.kt	f7177e7395e3dafe

@@ -529,47 +529,19 @@ private fun RecentsMixedLaneRow(
                 // Always drawn, even where the engine behind it cannot report a state: every update
                 // row carrying the same control is the point, and one row silently missing it is the
                 // raggedness this row shape exists to remove.
-                is RecentsLane.Updated -> ChapterDownloadIndicator(
+                is RecentsLane.Updated -> RowDownloadIndicator(
+                    download = download,
                     enabled = actingRef != null && !selectionActive,
-                    modifier = Modifier.padding(start = 4.dp),
-                    downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
-                    downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
                     onClick = { action -> actingRef?.let { engine.download(setOf(it), action, item.lane) } },
                 )
-                // Both go quiet during a sweep, like every other control on this row: the read lane
-                // is not favorite-gated, so a row here may be an entry the library does not hold.
-                is RecentsLane.Read -> {
-                    if (!ui.isFavorite) {
-                        IconButton(
-                            onClick = { engine.addToLibrary(item.entryId) },
-                            enabled = !selectionActive,
-                        ) {
-                            Icon(
-                                imageVector = MaterialSymbols.Rounded.Favorite,
-                                contentDescription = stringResource(MR.strings.add_to_library),
-                            )
-                        }
-                    }
-                    // A read row names a real chapter, so it can download exactly like an update row,
-                    // and the selection menu has always offered it. Withholding the row control while
-                    // the same action sat two taps away was an asymmetry, not a capability limit.
-                    ChapterDownloadIndicator(
-                        enabled = actingRef != null && !selectionActive,
-                        modifier = Modifier.padding(start = 4.dp),
-                        downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
-                        downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
-                        onClick = { action -> actingRef?.let { engine.download(setOf(it), action, item.lane) } },
-                    )
-                    IconButton(
-                        onClick = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
-                        enabled = !selectionActive,
-                    ) {
-                        Icon(
-                            imageVector = MaterialSymbols.Rounded.Delete,
-                            contentDescription = stringResource(MR.strings.action_delete),
-                        )
-                    }
-                }
+                is RecentsLane.Read -> ReadRowTrailing(
+                    item = item,
+                    engine = engine,
+                    isFavorite = ui.isFavorite,
+                    download = download,
+                    downloadRef = actingRef,
+                    selectionActive = selectionActive,
+                )
                 RecentsLane.Added -> Unit
             }
         },
@@ -840,7 +812,7 @@ private fun RecentsEntryRow(
                     ?.let { { action: ChapterDownloadAction -> engine.download(setOf(it), action, item.lane) } }
                     ?.takeIf { !selectionActive },
                 downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
-                downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
+                downloadProgressProvider = download?.progress?.asProvider() ?: NO_PROGRESS,
                 chapterSwipeStartAction = swipeActions.start,
                 chapterSwipeEndAction = swipeActions.end,
                 // Every provider answers these verbs, whichever surface drew the row.
@@ -882,44 +854,75 @@ private fun RecentsEntryRow(
                 downloadState = Download.State.NOT_DOWNLOADED,
                 modifier = modifier,
                 trailing = {
-                    // The read lane is not favorite-gated, so a row here may be an entry the library
-                    // does not hold. Every control goes quiet during a sweep.
-                    if (!ui.isFavorite) {
-                        IconButton(
-                            onClick = { engine.addToLibrary(item.entryId) },
-                            enabled = !selectionActive,
-                        ) {
-                            Icon(
-                                imageVector = MaterialSymbols.Rounded.Favorite,
-                                contentDescription = stringResource(MR.strings.add_to_library),
-                            )
-                        }
-                    }
-                    // Always drawn, like every other row on this surface: the selection menu has
-                    // always offered this on a read row, so withholding the row control was an
-                    // asymmetry rather than a capability limit, and a control that comes and goes
-                    // encodes a state the dot and the dimming already say.
-                    val download = engine.downloadUi(item)
-                    ChapterDownloadIndicator(
-                        enabled = ref != null && !selectionActive,
-                        modifier = Modifier.padding(start = 4.dp),
-                        downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
-                        downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
-                        onClick = { action -> ref?.let { engine.download(setOf(it), action, item.lane) } },
+                    ReadRowTrailing(
+                        item = item,
+                        engine = engine,
+                        isFavorite = ui.isFavorite,
+                        download = engine.downloadUi(item),
+                        downloadRef = ref,
+                        selectionActive = selectionActive,
                     )
-                    IconButton(
-                        onClick = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
-                        enabled = !selectionActive,
-                    ) {
-                        Icon(
-                            imageVector = MaterialSymbols.Rounded.Delete,
-                            contentDescription = stringResource(MR.strings.action_delete),
-                        )
-                    }
                 },
             )
         }
     }
+}
+
+/**
+ * A read row's trailing controls, the same in History and in the combined modes. The read lane is not
+ * favorite-gated, so a row may be an entry the library does not hold, and a read row names a real
+ * chapter, so it downloads exactly like an update row. Every control goes quiet during a sweep.
+ */
+@Composable
+private fun ReadRowTrailing(
+    item: RecentsItem,
+    engine: RecentsEngine,
+    isFavorite: Boolean,
+    download: RecentsDownloadUi?,
+    downloadRef: ChapterRef?,
+    selectionActive: Boolean,
+) {
+    if (!isFavorite) {
+        IconButton(
+            onClick = { engine.addToLibrary(item.entryId) },
+            enabled = !selectionActive,
+        ) {
+            Icon(
+                imageVector = MaterialSymbols.Rounded.Favorite,
+                contentDescription = stringResource(MR.strings.add_to_library),
+            )
+        }
+    }
+    RowDownloadIndicator(
+        download = download,
+        enabled = downloadRef != null && !selectionActive,
+        onClick = { action -> downloadRef?.let { engine.download(setOf(it), action, item.lane) } },
+    )
+    IconButton(
+        onClick = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
+        enabled = !selectionActive,
+    ) {
+        Icon(
+            imageVector = MaterialSymbols.Rounded.Delete,
+            contentDescription = stringResource(MR.strings.action_delete),
+        )
+    }
+}
+
+/** A row's own download control, drawn even where the engine behind it cannot report a state. */
+@Composable
+private fun RowDownloadIndicator(
+    download: RecentsDownloadUi?,
+    enabled: Boolean,
+    onClick: (ChapterDownloadAction) -> Unit,
+) {
+    ChapterDownloadIndicator(
+        enabled = enabled,
+        modifier = Modifier.padding(start = 4.dp),
+        downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
+        downloadProgressProvider = download?.progress?.asProvider() ?: NO_PROGRESS,
+        onClick = onClick,
+    )
 }
 
 /**
@@ -1060,5 +1063,3 @@ private fun RecentsItem.key(): String =
     "${entryId.contentType}-${entryId.rawId}-${lane.kind}-${lane.chapterRef?.chapterId ?: 0L}"
 
 private val NOT_DOWNLOADED: () -> Download.State = { Download.State.NOT_DOWNLOADED }
-
-private val NO_DOWNLOAD_PROGRESS: () -> Int = { 0 }

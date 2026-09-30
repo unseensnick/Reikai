@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,6 +30,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,8 +87,58 @@ fun RecentsGroupRow(
     onClickCover: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val haptic = LocalHapticFeedback.current
     val textAlpha = if (anyUnread) 1f else DISABLED_ALPHA
+    UpdatesRowShell(
+        cover = cover,
+        title = title,
+        dimmed = !anyUnread,
+        selected = selected,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        onClickCover = onClickCover,
+        modifier = modifier,
+        subtitle = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (anyUnread) {
+                    UnreadDot()
+                }
+                Text(
+                    text = stringResource(MR.strings.updates_group_chapter_count, count),
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LocalContentColor.current.copy(alpha = textAlpha),
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        },
+        trailing = {
+            Icon(
+                imageVector = if (expanded) MaterialSymbols.Rounded.ExpandLess else MaterialSymbols.Rounded.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        },
+    )
+}
+
+/**
+ * The Updates mode's square-cover row, drawn by the flat row and by the collapsed group alike, so the
+ * two cannot drift to different heights. [dimmed] greys the title, as a read chapter does.
+ */
+@Composable
+internal fun UpdatesRowShell(
+    cover: Any?,
+    title: String,
+    dimmed: Boolean,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onClickCover: (() -> Unit)?,
+    modifier: Modifier,
+    subtitle: @Composable () -> Unit,
+    trailing: @Composable () -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
     Row(
         modifier = modifier
             .selectedBackground(selected)
@@ -117,27 +169,12 @@ fun RecentsGroupRow(
                 text = title,
                 maxLines = 1,
                 style = MaterialTheme.typography.bodyMedium,
-                color = LocalContentColor.current.copy(alpha = textAlpha),
+                color = LocalContentColor.current.copy(alpha = if (dimmed) DISABLED_ALPHA else 1f),
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (anyUnread) {
-                    UnreadDot()
-                }
-                Text(
-                    text = stringResource(MR.strings.updates_group_chapter_count, count),
-                    maxLines = 1,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LocalContentColor.current.copy(alpha = textAlpha),
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            subtitle()
         }
-        Icon(
-            imageVector = if (expanded) MaterialSymbols.Rounded.ExpandLess else MaterialSymbols.Rounded.ExpandMore,
-            contentDescription = null,
-            modifier = Modifier.padding(start = 4.dp),
-        )
+        trailing()
     }
 }
 
@@ -160,33 +197,13 @@ fun RecentsGroupChildRow(
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
-    val textAlpha = if (state.read) DISABLED_ALPHA else 1f
-    val progress = readProgressLabel(state.progress)
-    val downloadState = download?.state?.invoke() ?: Download.State.NOT_DOWNLOADED
-    SwipeableActionsBox(
-        modifier = Modifier.clipToBounds(),
-        startActions = listOfNotNull(
-            getSwipeAction(
-                action = chapterSwipeStartAction,
-                read = state.read,
-                bookmark = state.bookmark,
-                downloadState = downloadState,
-                background = MaterialTheme.colorScheme.primaryContainer,
-                onSwipe = { onChapterSwipe(chapterSwipeStartAction) },
-            ),
-        ),
-        endActions = listOfNotNull(
-            getSwipeAction(
-                action = chapterSwipeEndAction,
-                read = state.read,
-                bookmark = state.bookmark,
-                downloadState = downloadState,
-                background = MaterialTheme.colorScheme.primaryContainer,
-                onSwipe = { onChapterSwipe(chapterSwipeEndAction) },
-            ),
-        ),
-        swipeThreshold = swipeActionThreshold,
-        backgroundUntilSwipeThreshold = MaterialTheme.colorScheme.surfaceContainerLowest,
+    ChapterSwipeBox(
+        read = state.read,
+        bookmark = state.bookmark,
+        downloadState = download?.state?.invoke() ?: Download.State.NOT_DOWNLOADED,
+        startAction = chapterSwipeStartAction,
+        endAction = chapterSwipeEndAction,
+        onSwipe = onChapterSwipe,
     ) {
         Row(
             modifier = modifier
@@ -203,40 +220,14 @@ fun RecentsGroupChildRow(
                 .padding(start = 72.dp, end = MaterialTheme.padding.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!state.read) {
-                UnreadDot()
-            }
-            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                var textHeight by remember { mutableIntStateOf(0) }
-                if (state.bookmark) {
-                    Icon(
-                        imageVector = MaterialSymbols.RoundedFilled.Bookmark,
-                        contentDescription = stringResource(MR.strings.action_filter_bookmarked),
-                        modifier = Modifier
-                            .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() - 2.dp }),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(modifier = Modifier.width(2.dp))
-                }
-                Text(
-                    text = chapter.name,
-                    maxLines = 1,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = LocalContentColor.current.copy(alpha = textAlpha),
-                    overflow = TextOverflow.Ellipsis,
-                    onTextLayout = { textHeight = it.size.height },
-                    modifier = Modifier.weight(weight = 1f, fill = false),
-                )
-                if (progress != null) {
-                    DotSeparatorText()
-                    Text(
-                        text = progress,
-                        maxLines = 1,
-                        color = LocalContentColor.current.copy(alpha = DISABLED_ALPHA),
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+            ChapterStateLine(
+                name = chapter.name,
+                read = state.read,
+                bookmark = state.bookmark,
+                progress = readProgressLabel(state.progress),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
             if (download != null) {
                 ChapterDownloadIndicator(
                     enabled = onDownloadClick != null,
@@ -282,30 +273,13 @@ fun RecentsCombinedRow(
 ) {
     val haptic = LocalHapticFeedback.current
     val textAlpha = if (read) DISABLED_ALPHA else 1f
-    SwipeableActionsBox(
-        modifier = Modifier.clipToBounds(),
-        startActions = listOfNotNull(
-            getSwipeAction(
-                action = chapterSwipeStartAction,
-                read = read,
-                bookmark = bookmark,
-                downloadState = downloadState,
-                background = MaterialTheme.colorScheme.primaryContainer,
-                onSwipe = { onChapterSwipe(chapterSwipeStartAction) },
-            ),
-        ),
-        endActions = listOfNotNull(
-            getSwipeAction(
-                action = chapterSwipeEndAction,
-                read = read,
-                bookmark = bookmark,
-                downloadState = downloadState,
-                background = MaterialTheme.colorScheme.primaryContainer,
-                onSwipe = { onChapterSwipe(chapterSwipeEndAction) },
-            ),
-        ),
-        swipeThreshold = swipeActionThreshold,
-        backgroundUntilSwipeThreshold = MaterialTheme.colorScheme.surfaceContainerLowest,
+    ChapterSwipeBox(
+        read = read,
+        bookmark = bookmark,
+        downloadState = downloadState,
+        startAction = chapterSwipeStartAction,
+        endAction = chapterSwipeEndAction,
+        onSwipe = onChapterSwipe,
     ) {
         Row(
             modifier = modifier
@@ -340,30 +314,13 @@ fun RecentsCombinedRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (chapterLine != null) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        var textHeight by remember { mutableIntStateOf(0) }
-                        if (!read) {
-                            UnreadDot()
-                        }
-                        if (bookmark) {
-                            Icon(
-                                imageVector = MaterialSymbols.RoundedFilled.Bookmark,
-                                contentDescription = stringResource(MR.strings.action_filter_bookmarked),
-                                modifier = Modifier
-                                    .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() - 2.dp }),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                        }
-                        Text(
-                            text = chapterLine,
-                            maxLines = 1,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = LocalContentColor.current.copy(alpha = textAlpha),
-                            overflow = TextOverflow.Ellipsis,
-                            onTextLayout = { textHeight = it.size.height },
-                        )
-                    }
+                    ChapterStateLine(
+                        name = chapterLine,
+                        read = read,
+                        bookmark = bookmark,
+                        progress = null,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
                 Text(
                     text = timeLine,
@@ -426,11 +383,85 @@ fun readProgressLabel(progress: ChapterProgress?): String? = when (progress) {
     is ChapterProgress.Percent -> percentProgressLabel(progress.hundredths)
 }
 
+/**
+ * The swipe every chapter row on this surface takes: Mihon's details-row actions, so a chapter behind
+ * a group, a flat row and a feed row answer one gesture the same way.
+ */
 @Composable
-private fun UnreadDot() {
+internal fun ChapterSwipeBox(
+    read: Boolean,
+    bookmark: Boolean,
+    downloadState: Download.State,
+    startAction: ChapterSwipeAction,
+    endAction: ChapterSwipeAction,
+    onSwipe: (ChapterSwipeAction) -> Unit,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val background = MaterialTheme.colorScheme.primaryContainer
+    fun swipe(action: ChapterSwipeAction) =
+        getSwipeAction(action, read, bookmark, downloadState, background, onSwipe = { onSwipe(action) })
+    SwipeableActionsBox(
+        modifier = Modifier.clipToBounds(),
+        startActions = listOfNotNull(swipe(startAction)),
+        endActions = listOfNotNull(swipe(endAction)),
+        swipeThreshold = swipeActionThreshold,
+        backgroundUntilSwipeThreshold = MaterialTheme.colorScheme.surfaceContainerLowest,
+        content = content,
+    )
+}
+
+/** A chapter's name behind its unread dot and bookmark, with how far reading got where [progress] says. */
+@Composable
+internal fun ChapterStateLine(
+    name: String,
+    read: Boolean,
+    bookmark: Boolean,
+    progress: String?,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        var textHeight by remember { mutableIntStateOf(0) }
+        if (!read) {
+            UnreadDot()
+        }
+        if (bookmark) {
+            Icon(
+                imageVector = MaterialSymbols.RoundedFilled.Bookmark,
+                contentDescription = stringResource(MR.strings.action_filter_bookmarked),
+                modifier = Modifier
+                    .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() - 2.dp }),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(modifier = Modifier.width(2.dp))
+        }
+        Text(
+            text = name,
+            maxLines = 1,
+            style = style,
+            color = LocalContentColor.current.copy(alpha = if (read) DISABLED_ALPHA else 1f),
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { textHeight = it.size.height },
+            modifier = Modifier.weight(weight = 1f, fill = false),
+        )
+        if (progress != null) {
+            DotSeparatorText()
+            Text(
+                text = progress,
+                maxLines = 1,
+                color = LocalContentColor.current.copy(alpha = DISABLED_ALPHA),
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** Announced as unread, as upstream's updates row does, since the dot is the only unread marker. */
+@Composable
+internal fun UnreadDot() {
     Icon(
         imageVector = MaterialSymbols.RoundedFilled.Circle,
-        contentDescription = null,
+        contentDescription = stringResource(MR.strings.unread),
         modifier = Modifier
             .height(8.dp)
             .padding(end = 4.dp),
@@ -469,4 +500,4 @@ internal fun LazyListScope.lastUpdatedItem(lastUpdated: Long) {
     }
 }
 
-private val NO_PROGRESS: () -> Int = { 0 }
+internal val NO_PROGRESS: () -> Int = { 0 }
