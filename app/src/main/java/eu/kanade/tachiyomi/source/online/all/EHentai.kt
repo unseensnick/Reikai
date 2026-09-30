@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import eu.kanade.tachiyomi.source.PagePreviewPage
 import eu.kanade.tachiyomi.source.PagePreviewSource
+import eu.kanade.tachiyomi.source.SourceTracker
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
@@ -105,7 +106,8 @@ class EHentai(
     MetadataSource<EHentaiSearchMetadata, Document>,
     UrlImportableSource,
     NamespaceSource,
-    PagePreviewSource {
+    PagePreviewSource,
+    SourceTracker {
     override val metaClass = EHentaiSearchMetadata::class
 
     private val domain: String
@@ -609,6 +611,21 @@ class EHentai(
             .add("update", "1")
             .build()
         retryFavoritesRequest { client.newCall(POST(url, headers, body)).awaitSuccess().close() }
+    }
+
+    // Every add path reaches the account backup through the source-tracker hook. A removal stays with
+    // the details page, whose confirm lets the user keep the gallery on the account.
+    override val supportsChapterTracking = false
+
+    override val supportsFavoritesTracking: Boolean
+        get() = exhPreferences.isFavoritesBackupOn()
+
+    override suspend fun onFavorited(manga: SManga, categories: List<String>) {
+        addFavorite(
+            EHentaiSearchMetadata.galleryId(manga.url),
+            EHentaiSearchMetadata.galleryToken(manga.url),
+            exhPreferences.exhFavoritesBackupSlot().get(),
+        )
     }
 
     suspend fun removeFavorites(gids: List<String>) {

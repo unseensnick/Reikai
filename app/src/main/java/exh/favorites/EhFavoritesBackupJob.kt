@@ -30,8 +30,9 @@ import tachiyomi.domain.source.service.SourceManager
 
 /**
  * One-time backfill that pushes every E-Hentai gallery in the library to the account's
- * favorites (one-way add). Used by the "Back up all favorites now" settings action; steady-state
- * capture happens on favorite via MangaViewModel. Never removes anything from the account.
+ * favorites (one-way add). Used by the "Back up all favorites now" settings action; a gallery added
+ * later is pushed by [EHentai.onFavorited], which every add path reaches. Never removes anything
+ * from the account.
  */
 class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {

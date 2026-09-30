@@ -710,10 +710,11 @@ class MangaViewModel(
                 // favorite, file, and abandon the whole add if the favorite write fails.
                 val outcome = addEntry(
                     resolveCategories = { mangaLibraryAdder.resolveDefaultCategories() },
-                    favorite = { favoriteForAdd(manga) },
+                    favorite = { mangaLibraryAdder.favoriteForAdd(manga.id) },
                     fileCategories = { _, categoryIds -> mangaLibraryAdder.moveToCategories(manga, categoryIds) },
                 )
-                // RK: tracker matching and the account backup moved into the favorite step, see favoriteForAdd
+                // RK: the favorite step binds the trackers and, through the source-tracker hook, backs an
+                //     E-Hentai gallery up to the account, so a picker's dismiss binds and pushes nothing.
                 if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog()
             }
         }
@@ -727,33 +728,17 @@ class MangaViewModel(
         viewModelScope.launchIO {
             val outcome = addEntry(
                 resolveCategories = { mangaLibraryAdder.groupOrDefaultCategories(selectedIds) },
-                favorite = { joinGroup(manga, selectedIds) },
+                favorite = { mangaLibraryAdder.joinGroup(manga, selectedIds) },
                 fileCategories = { _, categoryIds -> mangaLibraryAdder.moveToCategories(manga, categoryIds) },
             )
             if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog(joinGroup = selectedIds)
         }
     }
 
-    // RK: the favorite-and-merge pair, why it is atomic, and the tracker bind live in MangaLibraryAdder.joinGroup.
-    private suspend fun joinGroup(manga: Manga, selectedIds: List<Long>): Long? =
-        mangaLibraryAdder.joinGroup(manga, selectedIds)?.also {
-            viewModelScope.launchIO { maybeBackupFavoriteToAccount(manga) }
-        }
-
-    // RK: an add's favorite write, which binds the server trackers, then for an E-Hentai gallery the
-    // account backup. Both happen only once it is in the library, so a picker the add raised runs them
-    // only on its confirm and a dismissed one binds and pushes nothing.
-    private suspend fun favoriteForAdd(manga: Manga): Long? =
-        mangaLibraryAdder.favoriteForAdd(manga.id)?.also {
-            viewModelScope.launchIO { maybeBackupFavoriteToAccount(manga) }
-        }
-
     // RK -->
 
     private fun shouldConfirmEhRemoveFromAccount(manga: Manga): Boolean {
-        return manga.isEhBasedManga() &&
-            exhPreferences.enableExhentai().get() &&
-            exhPreferences.exhBackupFavoritesToAccount().get()
+        return manga.isEhBasedManga() && exhPreferences.isFavoritesBackupOn()
     }
 
     fun confirmEhRemoveFromLibrary(removeFromAccount: Boolean) {
@@ -771,23 +756,6 @@ class MangaViewModel(
         runCatching {
             source.removeFavorites(listOf(EHentaiSearchMetadata.galleryId(manga.url)))
         }.onFailure { logcat(LogPriority.ERROR, it) { "Failed to remove E-Hentai favorite remotely" } }
-    }
-
-    private suspend fun maybeBackupFavoriteToAccount(manga: Manga) {
-        if (!manga.isEhBasedManga() ||
-            !exhPreferences.enableExhentai().get() ||
-            !exhPreferences.exhBackupFavoritesToAccount().get()
-        ) {
-            return
-        }
-        val source = sourceManager.get(manga.source) as? EHentai ?: return
-        runCatching {
-            source.addFavorite(
-                EHentaiSearchMetadata.galleryId(manga.url),
-                EHentaiSearchMetadata.galleryToken(manga.url),
-                exhPreferences.exhFavoritesBackupSlot().get(),
-            )
-        }.onFailure { logcat(LogPriority.ERROR, it) { "Failed to back up E-Hentai favorite to account" } }
     }
     // RK <--
 
@@ -896,9 +864,9 @@ class MangaViewModel(
                 categoryIds = categories,
                 favorite = {
                     if (joinGroup.isNotEmpty()) {
-                        joinGroup(manga, joinGroup)
+                        mangaLibraryAdder.joinGroup(manga, joinGroup)
                     } else {
-                        if (manga.favorite) manga.id else favoriteForAdd(manga)
+                        if (manga.favorite) manga.id else mangaLibraryAdder.favoriteForAdd(manga.id)
                     }
                 },
                 fileCategories = { _, categoryIds -> mangaLibraryAdder.moveToCategories(manga, categoryIds) },

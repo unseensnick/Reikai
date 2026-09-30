@@ -55,6 +55,9 @@ class ExhPreferences(
 
     fun exhFavoritesBackupSlot() = preferenceStore.getInt("eh_favorites_backup_slot", 0)
 
+    /** The one gate for pushing library adds to the account: signed in, with the backup switched on. */
+    fun isFavoritesBackupOn() = enableExhentai().get() && exhBackupFavoritesToAccount().get()
+
     fun exhWatchedListDefaultState() = preferenceStore.getBoolean("eh_watched_list_default_state", false)
 
     fun exhSettingsLanguages() = preferenceStore.getString(
