@@ -130,8 +130,9 @@ class GetNextNovelChapter(
         return { chapter -> chapter.hiddenKey(sourceOf) in hidden }
     }
 
-    /** Falls back to source order for a novel that is no longer stored, which only a stale id reaches. */
-    private suspend fun readingOrder(novelId: Long): Comparator<NovelChapter> {
+    /** [novelId]'s own chapter sort, ascending, the order its reader pages in. Falls back to source order
+     *  for a novel that is no longer stored, which only a stale id reaches. */
+    suspend fun readingOrder(novelId: Long): Comparator<NovelChapter> {
         val novel = novelRepository.getById(novelId) ?: return compareBy { it.sourceOrder }
         return readingOrderComparator(novel, novelPreferences)
     }

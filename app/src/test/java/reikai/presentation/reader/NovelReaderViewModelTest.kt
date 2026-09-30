@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.hiddenChapterKey
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippets
 
@@ -72,6 +73,20 @@ class NovelReaderViewModelTest {
         harness.download(opened, "one")
         harness.download(third, "three")
         harness.downloadedOnly.set(true)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        model.chapterRows.first().map { it.id } shouldBe listOf(opened.id, third.id)
+    }
+
+    /** Hidden on the details list, so the reader pages past it as the resume does. */
+    @Test
+    fun `the reader steps over a chapter the user hid`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val hidden = harness.chapter(novel, 2.0)
+        val third = harness.chapter(novel, 3.0)
+        harness.novelPreferences.hiddenChapters().set(setOf(hiddenChapterKey("src", hidden.url)))
         val model = harness.open(novel, opened.id)
         advanceUntilIdle()
 
@@ -327,6 +342,23 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
 
         model.webUrlFor(earlier) shouldBe "https://alpha.example" + opened.url
+    }
+
+    /** Asked by id, as the failed-chapter actions do, so the row names the source and not the session. */
+    @Test
+    fun `a chapter asked for by id gets its own source's web address`() = readerTest { harness ->
+        val first = harness.novel(harness.source("alpha"))
+        val second = harness.novel(harness.source("beta"))
+        val opened = harness.chapter(first, 1.0)
+        val other = harness.chapter(second, 2.0)
+        harness.merge(first, second)
+        val model = harness.open(first, opened.id)
+        advanceUntilIdle()
+
+        model.open(other.id)
+        advanceUntilIdle()
+
+        model.webUrlOf(other.id) shouldBe "https://beta.example" + other.url
     }
 
     /** Read before anything is advanced, so it is the seed value a first render would be built with. */

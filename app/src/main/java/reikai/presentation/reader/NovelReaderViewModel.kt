@@ -57,8 +57,8 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.downloadedChapterIds
-import reikai.domain.novel.hiddenKey
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
+import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
@@ -68,7 +68,6 @@ import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.readerOrientation
-import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.tts.TtsHighlightStyle
@@ -149,6 +148,7 @@ class NovelReaderViewModel(
     private val context: Context,
     private val pageFetcher: NovelPageFetcher,
     private val adultChecker: AdultContentChecker,
+    private val getNextNovelChapter: GetNextNovelChapter,
     // Dispatchers.IO, which is what launchIO would have used. Passed in so a JVM test can run the
     // whole session on its own scheduler.
     @Assisted private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -1253,17 +1253,17 @@ class NovelReaderViewModel(
     suspend fun sourceIdOf(novelId: Long): String? = novelRepo.getById(novelId)?.source
 
     /** [chapterId]'s page on the source site, by its row, so a chapter that failed to open has one too. */
-    suspend fun webUrlOf(chapterId: Long): String? {
-        val chapter = chapterRepo.getById(chapterId) ?: return null
-        return textLoader.cachedSource(chapter.novelId)?.webUrl(chapter.url, isNovel = false)
-    }
+    suspend fun webUrlOf(chapterId: Long): String? =
+        chapterRepo.getById(chapterId)?.let { webUrl(it.novelId, it.url) }
 
     /**
      * [chapter]'s page on the source site, or null for one read from disk whose source this session
      * never resolved, which is the case the web actions have to hide rather than open empty.
      */
-    suspend fun webUrlFor(chapter: LoadedChapter): String? =
-        textLoader.cachedSource(chapter.novelId)?.webUrl(chapter.url, isNovel = false)
+    suspend fun webUrlFor(chapter: LoadedChapter): String? = webUrl(chapter.novelId, chapter.url)
+
+    private suspend fun webUrl(novelId: Long, chapterUrl: String): String? =
+        textLoader.cachedSource(novelId)?.webUrl(chapterUrl, isNovel = false)
 
     /** Start, cancel or delete a chapter download from the sheet, mirroring the details model. */
     fun downloadChapter(chapterId: Long, action: ChapterDownloadAction) {
@@ -1330,7 +1330,7 @@ class NovelReaderViewModel(
                 restamp = { chapter, order -> chapter.copy(sourceOrder = order) },
             )
         }
-        val inOrder = navigable(chapters.sortedWith(readingOrder()))
+        val inOrder = navigable(chapters.sortedWith(getNextNovelChapter.readingOrder(novelId)))
         aheadIds = inOrder.map { it.id }
         val current = inOrder.find { it.id == currentChapterId }
         val visible = if (basePreferences.downloadedOnly.get() && current != null) {
@@ -1345,29 +1345,13 @@ class NovelReaderViewModel(
         forwardEligibleIds = resolveForwardEligible(visible, groupFlags(members, visible, novelRepo.ownersOf(members)))
     }
 
-    /** The opened novel's own chapter sort, always ascending, so paging follows the order the user chose
-     *  on its chapter list. The manga reader resolves the same way. */
-    private suspend fun readingOrder(): Comparator<NovelChapter> {
-        val novel = novelRepo.getById(novelId)
-        return if (novel == null) compareBy { it.chapterNumber } else readingOrderComparator(novel, novelPreferences)
-    }
-
     /**
      * The chapters paging steps through, by the rule the manga reader runs ([navigableChapters]). A novel
-     * has no origin to break a duplicate tie with: every chapter of one has the same source. The hidden
-     * key mirrors the details screen.
+     * has no origin to break a duplicate tie with: every chapter of one has the same source. Hidden is
+     * the details screen's and the resume's rule.
      */
     private suspend fun navigable(chapters: List<NovelChapter>): List<NovelChapter> {
-        val hidden = novelPreferences.hiddenChapters().get()
-        val sourceIdByNovel = HashMap<Long, String?>()
-        if (hidden.isNotEmpty()) {
-            chapters.forEach { chapter ->
-                sourceIdByNovel.getOrPut(chapter.novelId) { novelRepo.getById(chapter.novelId)?.source }
-            }
-        }
-        val isHidden = { chapter: NovelChapter ->
-            chapter.hiddenKey(sourceIdByNovel) in hidden
-        }
+        val isHidden = getNextNovelChapter.hiddenAmong(chapters)
         val current = chapters.find { it.id == currentChapterId } ?: return chapters.filterNot(isHidden)
         return chapters.navigableChapters(
             current,

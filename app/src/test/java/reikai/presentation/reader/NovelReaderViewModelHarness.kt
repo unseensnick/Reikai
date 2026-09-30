@@ -35,6 +35,7 @@ import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
+import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
@@ -200,6 +201,11 @@ class NovelReaderViewModelHarness private constructor(
         val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences) {}
         val categories = GetNovelCategories(CategoryRepositoryImpl(database))
         val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
+        val mergedChapterProvider = NovelMergedChapterProvider(
+            mergeManager,
+            units,
+            ReconcileMergedChapters(units, setOf(stitcher)),
+        )
         return NovelReaderViewModel(
             novelId = novelId,
             initialChapterId = chapterId,
@@ -219,11 +225,7 @@ class NovelReaderViewModelHarness private constructor(
                 mockk(relaxed = true),
             ),
             mergeManager = mergeManager,
-            mergedChapterProvider = NovelMergedChapterProvider(
-                mergeManager,
-                units,
-                ReconcileMergedChapters(units, setOf(stitcher)),
-            ),
+            mergedChapterProvider = mergedChapterProvider,
             libraryPreferences = LibraryPreferences(store),
             // The tracker network.
             trackNovelChapter = mockk(relaxed = true),
@@ -254,6 +256,13 @@ class NovelReaderViewModelHarness private constructor(
             },
             context = context,
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
+            getNextNovelChapter = GetNextNovelChapter(
+                chapterRepo,
+                novelRepo,
+                novelPreferences,
+                mergeManager,
+                mergedChapterProvider,
+            ),
             io = dispatcher,
         ).also { viewModels.put("novel-$novelId-$chapterId-${viewModels.keys().size}", it) }
     }
