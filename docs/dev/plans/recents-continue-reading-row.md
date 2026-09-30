@@ -116,6 +116,15 @@ target was read. A keystroke leaves the memo alone, and a write re-sends the sam
 distinct check drops so it costs no assembly pass. A mode switch empties it too, so a memo filled in
 Grouped cannot answer for a History row, which is about its record.
 
+Both clears go through one helper, `clearTargets`, which bumps a generation before emptying the map. A
+resolve reads the whole chapter list, so it can start before a change and answer after that change's
+clear; storing the answer would pin the old target, and nothing would ask again, because the row's
+target reads null to the screen both before and after and its resolve is keyed on that value. So
+`targetRow` stores a result only when the generation it started under is still current, and otherwise
+resolves again until one resolve completes inside a single generation (deep-audit lead U83,
+2026-09-30). The loop runs no more resolves than the clears already cause, since every clear sends each
+drawn row's resolve round again anyway. Pinned in `RecentsEngineTest`.
+
 ### The row and the bar read it
 
 The read-lane branch of `RecentsMixedLaneRow` draws the target's name, read flag, bookmark, progress,

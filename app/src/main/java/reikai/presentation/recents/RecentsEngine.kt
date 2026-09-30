@@ -53,6 +53,7 @@ import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -128,7 +129,7 @@ class RecentsEngine(
         clearSelection()
         // Only the combined modes name a target, so a memo carried into History would let a row there
         // act on a chapter it does not name.
-        mutableTargets.value = emptyMap()
+        clearTargets()
         mutableMode.value = mode
         sourcePreferences.recentsMode.set(mode)
     }
@@ -176,7 +177,7 @@ class RecentsEngine(
             combine(
                 combine(providers.map(::collectedLanes)) { it.toList() },
                 merge(*providers.map { it.targetInputs }.toTypedArray())
-                    .onEach { mutableTargets.value = emptyMap() },
+                    .onEach { clearTargets() },
             ) { lanes, _ -> lanes }
                 .distinctUntilChanged(),
             // Every provider's, not just the active ones': the keys are EntryIds and group ids are
@@ -643,6 +644,15 @@ class RecentsEngine(
     private val mutableTargets = MutableStateFlow<Map<RecentsLane, RecentsTargetRow>>(emptyMap())
     val targets: StateFlow<Map<RecentsLane, RecentsTargetRow>> = mutableTargets.asStateFlow()
 
+    /** Bumped by every [clearTargets], so a resolve can tell that the memo was cleared under it. */
+    private val targetsGeneration = AtomicLong()
+
+    /** The one way the memo is emptied. The bump comes first, so a store racing the clear is dropped. */
+    private fun clearTargets() {
+        targetsGeneration.incrementAndGet()
+        mutableTargets.value = emptyMap()
+    }
+
     /**
      * Whether [item]'s label moves onto the chapter its tap opens, which only a combined mode's read row
      * does: History names the record it logs, and an updated row opens the chapter it names. Paid only
@@ -655,13 +665,25 @@ class RecentsEngine(
             item.lane is RecentsLane.Read &&
             (rowUi(item).state?.read == true || item.entryId in membership)
 
-    /** The resolved row for [item], from the memo where it is warm and by resolving where it is not. */
+    /**
+     * The resolved row for [item], from the memo where it is warm and by resolving where it is not. A
+     * resolve the memo was cleared during may have read the chapters before the change, so it is
+     * resolved again rather than stored: the screen would not ask twice, its target being null both times.
+     */
     suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
         val recorded = item.lane.takeIf { it.chapterRef != null } ?: return null
-        mutableTargets.value[recorded]?.let { return it }
-        val resolved = providersByType[item.entryId.contentType]?.targetRow(item) ?: return null
-        mutableTargets.update { it + (recorded to resolved) }
-        return resolved
+        val provider = providersByType[item.entryId.contentType] ?: return null
+        while (true) {
+            mutableTargets.value[recorded]?.let { return it }
+            val generation = targetsGeneration.get()
+            val resolved = provider.targetRow(item)
+            var isCurrent = false
+            mutableTargets.update { memo ->
+                isCurrent = targetsGeneration.get() == generation
+                if (isCurrent && resolved != null) memo + (recorded to resolved) else memo
+            }
+            if (isCurrent) return resolved
+        }
     }
 
     /**

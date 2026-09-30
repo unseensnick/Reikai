@@ -10,8 +10,10 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +27,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
@@ -1388,6 +1391,36 @@ class RecentsEngineTest {
         engine.targets.first { it.isEmpty() } shouldBe emptyMap()
     }
 
+    /**
+     * A resolve reads the chapters before the change that cleared the memo, and answers after it. Storing
+     * that answer would pin a stale target, and nothing asks again: the row's target is still null to
+     * the screen, which is the value its resolve was already launched on.
+     */
+    @Test
+    fun `a resolve a target input change overtook is resolved again rather than stored`() = runTest {
+        val warm = readRow(manga1, chapterId = 5)
+        val held = readRow(manga2, chapterId = 7)
+        val fresh = targetRow(ref(manga2, 8), readState(read = false))
+        val fake = provider(
+            ContentType.MANGA,
+            read = rows(warm, held),
+            targetRows = mapOf(ref(manga1, 5) to targetRow(ref(manga1, 6), readState()), ref(manga2, 7) to fresh),
+        )
+        val engine = resolvedFeed(fake, warm)
+        fake.awaitTargetInputWatcher()
+        val stale = CompletableDeferred<RecentsTargetRow?>()
+        fake.heldResolves.addLast(stale)
+        val resolving = async { engine.targetRow(held) }
+        runCurrent()
+
+        fake.changeTargetInput()
+        engine.targets.first { it.isEmpty() }
+        stale.complete(targetRow(ref(manga2, 7), readState()))
+        resolving.await()
+
+        engine.targets.value shouldBe mapOf(held.lane to fresh)
+    }
+
     @Test
     fun `switching to History drops the resolved rows`() = runTest {
         val row = readRow(manga1, chapterId = 5)
@@ -1675,8 +1708,12 @@ private class FakeRecentsProvider(
     var targetRowResolutions = 0
         private set
 
+    /** Each resolve takes the next of these and answers with it once completed, the way a slow read does. */
+    val heldResolves = ArrayDeque<CompletableDeferred<RecentsTargetRow?>>()
+
     override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
         targetRowResolutions++
+        heldResolves.removeFirstOrNull()?.let { return it.await() }
         return targetRows[item.lane.chapterRef]
     }
 
