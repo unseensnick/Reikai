@@ -7,6 +7,8 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import reikai.domain.manga.ChapterAggregation
 import reikai.domain.merge.MergedGroupCounts
@@ -101,9 +103,10 @@ class MergedCountConformanceTest {
         novelBadgeCount(rows) shouldBe novelListCount(rows)
     }
 
-    @Test
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
     @DisplayName("a stitched group that is fully read reports zero, not nothing")
-    fun fullyReadGroupReportsZero() = runTest {
+    fun fullyReadGroupReportsZero(type: ContentType) = runTest {
         // The distinction the library depends on: absent means NOT STITCHED YET, so the row falls back
         // to its leading source's own count. Reading absent as zero badged a freshly stitched library
         // as finished until something else made the list rebuild.
@@ -112,19 +115,19 @@ class MergedCountConformanceTest {
             Row(id = 20, owner = 2, name = "Chapter 8: Anchor", number = 8.0, read = true),
         )
 
-        novelBadgeCount(rows) shouldBe 0
-        units.getGroupCounts(ContentType.NOVELS).size shouldBe 1
+        groupCounts(type, rows)?.unread shouldBe 0L
     }
 
-    @Test
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
     @DisplayName("a group nothing has stitched is absent, so a caller can tell it apart")
-    fun unstitchedGroupIsAbsent() = runTest {
-        insertNovel(1)
-        insertNovel(2)
-        groups.createGroup(ContentType.NOVELS, listOf(1, 2))!!
-        insertNovelChapter(Row(id = 10, owner = 1, name = "Chapter 1: Anchor", number = 1.0))
+    fun unstitchedGroupIsAbsent(type: ContentType) = runTest {
+        insertEntry(type, 1)
+        insertEntry(type, 2)
+        groups.createGroup(type, listOf(1, 2))!!
+        insertEntryChapter(type, Row(id = 10, owner = 1, name = "Chapter 1: Anchor", number = 1.0))
 
-        units.getGroupCounts(ContentType.NOVELS).isEmpty() shouldBe true
+        units.getGroupCounts(type).isEmpty() shouldBe true
     }
 
     @Test
@@ -227,6 +230,11 @@ class MergedCountConformanceTest {
 
     private suspend fun mangaBadgeCount(rows: List<Row>): Int = mangaGroupCounts(rows)?.unread?.toInt() ?: 0
 
+    private suspend fun groupCounts(type: ContentType, rows: List<Row>): MergedGroupCounts? = when (type) {
+        ContentType.NOVELS -> novelGroupCounts(rows)
+        else -> mangaGroupCounts(rows)
+    }
+
     private suspend fun novelGroupCounts(rows: List<Row>): MergedGroupCounts? {
         val owners = rows.map { it.owner }.distinct()
         owners.forEach { insertNovel(it) }
@@ -283,6 +291,16 @@ class MergedCountConformanceTest {
         chapterNumber = number,
         sourceOrder = id,
     )
+
+    private suspend fun insertEntry(type: ContentType, id: Long) = when (type) {
+        ContentType.NOVELS -> insertNovel(id)
+        else -> insertManga(id)
+    }
+
+    private suspend fun insertEntryChapter(type: ContentType, row: Row) = when (type) {
+        ContentType.NOVELS -> insertNovelChapter(row)
+        else -> insertChapter(row)
+    }
 
     private suspend fun insertManga(id: Long) {
         driver.execute(
