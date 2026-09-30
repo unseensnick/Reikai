@@ -13,7 +13,8 @@ import tachiyomi.core.common.util.system.logcat
 
 /**
  * Central "mark novel chapters read/unread" interactor, twin of
- * [eu.kanade.domain.chapter.interactor.SetReadStatus], pinned by MarkReadDeleteConformanceTest. Marking
+ * [eu.kanade.domain.chapter.interactor.SetReadStatus], pinned by MarkReadDeleteConformanceTest (the delete
+ * after read) and ReadStatusHandOffConformanceTest (what a source's own tracker is handed). Marking
  * read also deletes the downloaded copies when "delete after marked as read" is on, through
  * [DeleteNovelChaptersAfterRead], except from the reader, which marks through [awaitFinishedInReader].
  * Trackers other than a source's own sync a read from the screens; an unread reaches [PushNovelUnread].
