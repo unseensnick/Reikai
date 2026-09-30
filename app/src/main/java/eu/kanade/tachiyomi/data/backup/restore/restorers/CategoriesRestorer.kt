@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
+import reikai.domain.category.CategoryContentType
 import reikai.domain.category.preferring
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.repository.CategoryRepository
@@ -29,7 +30,25 @@ class CategoriesRestorer(
             // duplicate beside it. Each new row keeps the backup's content type.
             .filter { dbCategoriesByName[it.name].orEmpty().preferring(it.contentType) == null }
             .sortedBy { it.order }
-        categoryRepository.insertAll(newCategories.map { it.toNewCategory() }) // RK: keeps the hidden bit
+        // RK --> a category spanning both libraries whose name a novel-only row already holds brings only
+        // its manga half: a universal row beside it would list the name twice in the novel library, and
+        // the novel restore matches the existing novel row instead.
+        val novelOnlyNames = categoryRepository.getAll(CategoryContentType.NOVEL)
+            .filter { it.contentType == CategoryContentType.NOVEL }
+            .mapTo(HashSet()) { it.name }
+        categoryRepository.insertAll(
+            newCategories.map { backup ->
+                backup.toNewCategory().let {
+                    // keeps the hidden bit
+                    if (it.contentType == CategoryContentType.UNIVERSAL && it.name in novelOnlyNames) {
+                        it.copy(contentType = CategoryContentType.MANGA)
+                    } else {
+                        it
+                    }
+                }
+            },
+        )
+        // RK <--
 
         val flags = buildSet {
             dbCategories.mapTo(this) { it.flags }

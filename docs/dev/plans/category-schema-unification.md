@@ -206,6 +206,13 @@ both sides, unchanged.
   to any row with that name. The fallback is what keeps a pre-field backup (every entry reads as manga)
   matching a category the user has since made universal, rather than inserting a duplicate beside it.
 
+  **A universal backup category over a novel-only one of the same name restores only its manga half.** The
+  manga-list restore sees only manga and universal rows, so it found no match and inserted a universal row,
+  and the novel library then listed the name twice. It now inserts the missing half as manga-only and the
+  novel restore matches the existing novel row, the mirror of the direction that already worked (a manga-only
+  row on the device gets a novel-only half from the novel list). No row is retyped in place, since no write
+  query changes a category's content type. `CategoriesRestorerTest` pins it.
+
   One consequence accepted: the category inserts are no longer wrapped in a single transaction, since
   `CategoryRepositoryImpl.insert` opens its own and nesting them is not worth it. A failure mid-restore can
   leave some categories created. The novel side already behaved this way and restore is not atomic overall.

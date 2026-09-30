@@ -36,7 +36,11 @@ class CategoriesRestorerTest {
 
     /** Restores [backup] over [device] and returns the rows the restorer inserted. */
     private suspend fun inserted(device: List<Category>, backup: List<BackupCategory>): List<NewCategory> {
-        coEvery { repository.getAll(any()) } returns device
+        // Each library's read sees its own rows plus the universal ones, as category.sq filters them.
+        coEvery { repository.getAll(CategoryContentType.MANGA) } returns
+            device.filter { it.contentType != CategoryContentType.NOVEL }
+        coEvery { repository.getAll(CategoryContentType.NOVEL) } returns
+            device.filter { it.contentType != CategoryContentType.MANGA }
         val inserted = slot<List<NewCategory>>()
         coEvery { repository.insertAll(capture(inserted)) } just Runs
         restorer(backup)
@@ -79,6 +83,24 @@ class CategoriesRestorerTest {
             listOf(category(id = 3, name = "Reading", contentType = CategoryContentType.UNIVERSAL)),
             listOf(BackupCategory(name = "Finished", contentType = CategoryContentType.MANGA)),
         ).map { it.name to it.contentType } shouldBe listOf("Finished" to CategoryContentType.MANGA)
+    }
+
+    @Test
+    fun `a category spanning both libraries brings only its manga half over a novel-only one`() = runTest {
+        // A universal row beside the novel-only one would list the name twice in the novel library; the
+        // novel restore matches the existing novel row instead.
+        inserted(
+            listOf(category(id = 3, name = "Fantasy", contentType = CategoryContentType.NOVEL)),
+            listOf(BackupCategory(name = "Fantasy", contentType = CategoryContentType.UNIVERSAL)),
+        ).single().contentType shouldBe CategoryContentType.MANGA
+    }
+
+    @Test
+    fun `a manga-only category keeps its type over a novel-only one of the same name`() = runTest {
+        inserted(
+            listOf(category(id = 3, name = "Fantasy", contentType = CategoryContentType.NOVEL)),
+            listOf(BackupCategory(name = "Fantasy", contentType = CategoryContentType.MANGA)),
+        ).single().contentType shouldBe CategoryContentType.MANGA
     }
 
     private fun category(id: Long, name: String, contentType: Long) = Category(
