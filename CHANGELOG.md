@@ -184,6 +184,7 @@ every stable release now also ships a foss build with neither in it.
 - **An Updates row you expanded to see its new chapters now stays open when the screen rotates.**
 - **History and Updates now show new rows at the top when you were already at the top.** History opened on Yesterday, with what you had just read above the screen.
 - **The combined Updates widget now drops a novel once you have read its new chapters.**
+- **Deleting a manga chapter's download from Updates or History now works after its extension is uninstalled.**
 
 ### Details
 
@@ -303,6 +304,7 @@ every stable release now also ships a foss build with neither in it.
 - **Retrying a manga page that failed to load now always fetches it again (from mihonapp/mihon#3770).**
 - **A chapter step in the manga reader that fails to load, or has no chapter to go to, no longer sends you back to page 1.**
 - **With Mark chapter read when skipping ahead on (Settings -> Manga reader or Novel reader), a Next that fails to load no longer marks the chapter you are still on as read.**
+- **Tapping retry on a failed manga chapter in the reader's chapter list now downloads it again.**
 
 ### Light novels
 

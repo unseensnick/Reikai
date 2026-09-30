@@ -2,6 +2,7 @@ package reikai.presentation.recents
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import reikai.domain.download.runChapterAction
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.MergeScope
 import reikai.domain.novel.NovelChapterRepository
@@ -31,18 +32,10 @@ class NovelRecentsChapterActions(
         withIOContext { chapterRepository.setBookmarkBulk(chapters.groupIds(MergeScope.Group), bookmarked) }
     }
 
-    // Mirroring the novel details download-action mapping.
     override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, deleteScope: MergeScope) {
         withIOContext {
-            val named = chaptersOf(chapters.ownChapterIds<EntryId.Novel>())
-            when (action) {
-                ChapterDownloadAction.START -> downloadManager().downloadChapters(named)
-                ChapterDownloadAction.START_NOW -> named.forEach { chapter ->
-                    downloadManager().downloadChapters(listOf(chapter))
-                    downloadManager().startDownloadNow(chapter.id)
-                }
-                ChapterDownloadAction.CANCEL -> downloadManager().cancelDownloads(named.map { it.id })
-                ChapterDownloadAction.DELETE -> deleteDownloads(chapters, deleteScope)
+            downloadManager().runChapterAction(action, chaptersOf(chapters.ownChapterIds<EntryId.Novel>())) {
+                chaptersOf(chapters.groupIds(deleteScope))
             }
         }
     }

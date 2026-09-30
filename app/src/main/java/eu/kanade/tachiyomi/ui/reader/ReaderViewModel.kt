@@ -73,6 +73,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -168,6 +169,7 @@ class ReaderViewModel(
     private val mangaPreferences: MangaPreferences,
     private val setReadStatus: SetReadStatus,
     private val getChapter: GetChapter,
+    private val chapterDownloadActions: MangaChapterDownloadActions,
     // RK <--
 ) : ViewModel() {
 
@@ -1321,6 +1323,8 @@ class ReaderViewModel(
             .associate { it.id to it.pageCount }
     // RK <--
 
+    // RK -->
+
     /** Set the read state of an arbitrary chapter from the chapter dialog. Uses SetReadStatus so tracker
      *  sync + delete-after-read fire like the details "mark as read", not just a raw read-flag write. */
     fun setChapterReadStatus(chapter: Chapter, read: Boolean) {
@@ -1333,32 +1337,15 @@ class ReaderViewModel(
         }
     }
 
-    /** Start/cancel/delete a chapter download from the chapter dialog. */
+    /** Start/cancel/delete a chapter download from the chapter dialog, each from its own source's folder. */
     fun handleChapterDownload(chapter: Chapter, action: ChapterDownloadAction) {
         manga ?: return
         viewModelScope.launchIO {
-            // RK: act on the chapter's own source so download/delete hit the right folder for a
-            // merged chapter.
-            val chapterManga = mangaForChapterId(chapter.mangaId)
-            when (action) {
-                ChapterDownloadAction.START -> downloadManager.downloadChapters(chapterManga, listOf(chapter))
-                ChapterDownloadAction.START_NOW -> downloadManager.startDownloadNow(chapter.id)
-                ChapterDownloadAction.CANCEL -> {
-                    val download = downloadManager.getQueuedDownloadOrNull(chapter.id) ?: return@launchIO
-                    downloadManager.cancelQueuedDownloads(listOf(download))
-                }
-                ChapterDownloadAction.DELETE -> {
-                    // The copies this session's rows count as downloaded: every source's in group scope,
-                    // the chapter's own in source scope. Each goes from its own source's folder.
-                    val copies = mergeScope.copiesOf(setOf(chapter.id), mergedGroup?.stitch.orEmpty())
-                    unfilteredChapterList.filter { it.id in copies }
-                        .ifEmpty { listOf(chapter) }
-                        .groupBy { it.mangaId }
-                        .forEach { (ownerId, owned) ->
-                            val owner = mangaForChapterId(ownerId)
-                            downloadManager.deleteChapters(owned, owner, sourceManager.getOrStub(owner.source))
-                        }
-                }
+            chapterDownloadActions.run(action, listOf(chapter)) {
+                // The copies this session's rows count as downloaded: every source's in group scope,
+                // the chapter's own in source scope.
+                val copies = mergeScope.copiesOf(setOf(chapter.id), mergedGroup?.stitch.orEmpty())
+                unfilteredChapterList.filter { it.id in copies }.ifEmpty { listOf(chapter) }
             }
         }
     }

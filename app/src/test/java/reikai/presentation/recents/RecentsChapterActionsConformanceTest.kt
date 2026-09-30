@@ -10,6 +10,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.entry.EntryId
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
@@ -162,7 +163,7 @@ class MangaActionsHarness : ActionsHarness {
         coEvery { await(any<Long>()) } answers { Manga.create().copy(id = firstArg(), source = 1L) }
     }
     private val sourceManager = mockk<SourceManager> {
-        coEvery { get(any<Long>()) } returns mockk()
+        coEvery { getOrStub(any()) } returns mockk()
     }
     private val mergedChapterProvider = mockk<MergedChapterProvider> {
         coEvery { stitchOf(RecentsChapterActionsConformanceTest.ENTRY) } returns
@@ -171,12 +172,10 @@ class MangaActionsHarness : ActionsHarness {
 
     override val actions: RecentsChapterActions = MangaRecentsChapterActions(
         getChapter = getChapter,
-        getManga = getManga,
         setReadStatus = setReadStatus,
         updateChapter = updateChapter,
-        downloadManager = downloadManager,
-        sourceManager = sourceManager,
         mergedChapterProvider = mergedChapterProvider,
+        downloadActions = MangaChapterDownloadActions(downloadManager, getManga, sourceManager),
     )
 
     override fun ref(chapterId: Long) = ChapterRef(EntryId.Manga(RecentsChapterActionsConformanceTest.ENTRY), chapterId)

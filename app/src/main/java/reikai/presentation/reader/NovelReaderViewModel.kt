@@ -43,6 +43,7 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.download.downloadStateOf
+import reikai.domain.download.runChapterAction
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.CopyToOpen
@@ -1265,21 +1266,13 @@ class NovelReaderViewModel(
     private suspend fun webUrl(novelId: Long, chapterUrl: String): String? =
         textLoader.cachedSource(novelId)?.webUrl(chapterUrl, isNovel = false)
 
-    /** Start, cancel or delete a chapter download from the sheet, mirroring the details model. */
+    /** Start, cancel or delete a chapter download from the sheet. */
     fun downloadChapter(chapterId: Long, action: ChapterDownloadAction) {
         viewModelScope.launchIO {
             val chapter = chapterRepo.getById(chapterId) ?: return@launchIO
-            when (action) {
-                ChapterDownloadAction.START -> downloadManager.downloadChapters(listOf(chapter))
-                ChapterDownloadAction.START_NOW -> {
-                    downloadManager.downloadChapters(listOf(chapter))
-                    downloadManager.startDownloadNow(chapter.id)
-                }
-                ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
-                // The copies the row counts as downloaded, which follow this session's scope.
-                ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(
-                    mergeScope.copiesOf(setOf(chapterId), groupStitch).mapNotNull { chapterRepo.getById(it) },
-                )
+            // The copies the row counts as downloaded, which follow this session's scope.
+            downloadManager.runChapterAction(action, listOf(chapter)) {
+                mergeScope.copiesOf(setOf(chapterId), groupStitch).mapNotNull { chapterRepo.getById(it) }
             }
         }
     }

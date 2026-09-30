@@ -40,6 +40,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
@@ -49,7 +50,9 @@ import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.source.service.SourceManager
 
 /**
  * Which copy of a merged chapter the reader reads, pinned once over both readers. Each group has two
@@ -118,6 +121,12 @@ class MergedCopyToOpenConformanceTest {
     @org.junit.jupiter.api.Test
     fun `manga download-ahead walks on from a next chapter that is another source's copy`() = runTest {
         MangaCopyProbe().downloadAheadQueues(onDisk = setOf(22L, 23L, 24L)) shouldBe setOf(23L, 24L)
+    }
+
+    // Manga only: the novel manager re-queues a failed chapter on enqueue (ChapterDownloadActionsConformanceTest).
+    @org.junit.jupiter.api.Test
+    fun `manga retry from the sheet starts the stopped downloads again`() = runTest {
+        MangaCopyProbe().sheetRetryRestartsDownloads() shouldBe true
     }
 
     companion object {
@@ -230,6 +239,24 @@ class MangaCopyProbe : MergedCopyProbe {
         }
     }
 
+    /** Chapter 6's download failed; tapping its indicator on the sheet raises START. */
+    suspend fun sheetRetryRestartsDownloads(): Boolean {
+        val restarted = java.util.concurrent.atomic.AtomicBoolean(false)
+        return open(
+            onDisk = emptySet(),
+            downloadedOnly = false,
+            sourceScoped = false,
+            failed = setOf(12L),
+            onRestart = { restarted.set(true) },
+        ) { model, _ ->
+            model.handleChapterDownload(leadingChapters.first { it.id == 12L }, ChapterDownloadAction.START)
+            withContext(Dispatchers.Default) {
+                withTimeoutOrNull(3_000) { while (!restarted.get()) delay(20) }
+            }
+            restarted.get()
+        }
+    }
+
     override suspend fun sheetDeleteReachesSibling(scope: TestScope, sourceScoped: Boolean): Boolean {
         val deleted = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
         return open(
@@ -258,6 +285,8 @@ class MangaCopyProbe : MergedCopyProbe {
         downloadAhead: Int = 0,
         onDownload: (List<Chapter>) -> Unit = {},
         onDelete: (List<Chapter>) -> Unit = {},
+        failed: Set<Long> = emptySet(),
+        onRestart: () -> Unit = {},
         probe: suspend (ReaderViewModel, ReaderViewModel.State) -> T,
     ): T {
         // The model starts loading from its init block, which a main dispatcher nothing advances never runs.
@@ -284,7 +313,17 @@ class MangaCopyProbe : MergedCopyProbe {
                 }
                 coEvery { downloadChapters(any(), any(), any()) } answers { onDownload(secondArg()) }
                 every { deleteChapters(any(), any(), any()) } answers { onDelete(firstArg()) }
+                every { getQueuedDownloadOrNull(any()) } answers {
+                    pooled.find { it.id == firstArg<Long>() && it.id in failed }
+                        ?.let { Download(mockk(), leading, it).apply { status = Download.State.ERROR } }
+                }
+                every { startDownloads() } answers { onRestart() }
             }
+            val getManga = mockk<GetManga> {
+                coEvery { await(leading.id) } returns leading
+                coEvery { await(other.id) } returns other
+            }
+            val sourceManager = mockk<SourceManager>(relaxed = true)
             val preferences = InMemoryPreferenceStore(
                 sequenceOf(
                     InMemoryPreferenceStore.InMemoryPreference("auto_download_while_reading", downloadAhead, 0),
@@ -295,7 +334,7 @@ class MangaCopyProbe : MergedCopyProbe {
                     mapOf("manga" to leading.id, "chapter" to 12L, "source_scoped" to sourceScoped),
                 ),
                 context = mockk<Context>(relaxed = true),
-                sourceManager = mockk(relaxed = true),
+                sourceManager = sourceManager,
                 downloadManager = downloadManager,
                 downloadProvider = mockk(relaxed = true),
                 imageSaver = mockk(relaxed = true),
@@ -309,7 +348,7 @@ class MangaCopyProbe : MergedCopyProbe {
                 trackPreferences = TrackPreferences(preferences),
                 trackChapter = mockk(relaxed = true),
                 sourceTracker = mockk(relaxed = true),
-                getManga = mockk { coEvery { await(leading.id) } returns leading },
+                getManga = getManga,
                 getCustomMangaInfo = mockk { every { subscribe(any()) } returns flowOf(null) },
                 getChaptersByMangaId = mockk {
                     coEvery { await(leading.id, any()) } returns leadingChapters
@@ -335,6 +374,7 @@ class MangaCopyProbe : MergedCopyProbe {
                 mangaPreferences = MangaPreferences(preferences),
                 setReadStatus = mockk(relaxed = true),
                 getChapter = mockk(relaxed = true),
+                chapterDownloadActions = MangaChapterDownloadActions(downloadManager, getManga, sourceManager),
             ).also { store.put("reader", it) }
             // The model loads on the IO dispatcher, which virtual time does not reach.
             val state = withContext(Dispatchers.Default) {

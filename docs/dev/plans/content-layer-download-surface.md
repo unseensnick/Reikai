@@ -40,6 +40,8 @@ The queue screen stacks two separately owned lists. In the All view a manga card
 
 **Which chapters are on disk.** A merged list pools several entries' chapters, and each copy is probed under its own entry's folder: manga through `reikai.domain.manga.downloadedChapterIds`, novels through `reikai.domain.novel.downloadedChapterIds` over `NovelRepository.ownersOf`, which every novel caller (details, reader, library, recents and the download manager) goes through.
 
+**A row's download control.** Every Reikai row (both readers' chapter sheets, the novel details list and Recents) runs one kernel per engine, `MangaChapterDownloadActions` and `runChapterAction` in `reikai/domain/download/ChapterDownloadActions.kt`, pinned by `ChapterDownloadActionsConformanceTest`; each caller passes the copies its own view deletes. A manga retry starts the downloader again, as upstream's details list does, because the downloader stops once only failures are left and queueing an already-queued chapter adds nothing; the novel manager re-queues a failed chapter on enqueue. A manga delete resolves the source through `getOrStub`, so Recents deletes a chapter whose extension is uninstalled, as the reader and details list already did (owner ruling 1, 2026-09-29). Mihon's details list keeps upstream's `MangaViewModel.runChapterDownloadActions`.
+
 **Pacing.** Settings, Downloads, Pacing sets the shortest wait between two chapters from one novel source, globally and per source, with `NovelDownloadPacing`'s back-off on top. Novels only: manga extensions rate-limit their own clients through `RateLimitInterceptor`, which LN plugins have no equivalent of.
 
 ## Key files

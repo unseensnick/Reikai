@@ -55,6 +55,7 @@ import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.download.downloadStateOf
+import reikai.domain.download.runChapterAction
 import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -1312,20 +1313,10 @@ class NovelDetailsViewModel(
     }
 
     fun onChapterDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
-        when (action) {
-            ChapterDownloadAction.START -> viewModelScope.launchIO {
-                downloadManager.downloadChapters(listOf(chapter))
+        viewModelScope.launchIO {
+            downloadManager.runChapterAction(action, listOf(chapter)) { expandForDelete(listOf(chapter)) }
+            if (action == ChapterDownloadAction.START || action == ChapterDownloadAction.START_NOW) {
                 promptAddToLibraryOnFirstDownload()
-            }
-            ChapterDownloadAction.START_NOW -> viewModelScope.launchIO {
-                downloadManager.downloadChapters(listOf(chapter))
-                downloadManager.startDownloadNow(chapter.id)
-                promptAddToLibraryOnFirstDownload()
-            }
-            ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
-            // Every copy: the row shows downloaded when any of them holds the file.
-            ChapterDownloadAction.DELETE -> viewModelScope.launchIO {
-                downloadManager.deleteChapters(expandForDelete(listOf(chapter)))
             }
         }
     }
