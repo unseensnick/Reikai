@@ -59,9 +59,9 @@ manga restore repository and `NovelRestorer` both call rather than restating.
 
 ## Status
 
-Complete on `feat/0.4.0`, and the synced base is `2d1d2e4ca`. The preparation (`81e4d65d4`, `cf8245ca9`,
-`80dd087cf`, `cb089a37d`, `800c694ea`) and the fixes ported ahead of the chain (`02cb0ff90` to `9c8ef9a09`)
-came first; the chain is `71f4cb8dc` to `97690516f`, the novel dedupe `25710ad7f`. Simulated over three
+Complete on `feat/0.4.0`, and the synced base is `2d1d2e4ca`. The preparation (`2440433c8`, `4c0cc3dcb`,
+`657a27fd0`, `04fad40a5`, `50a161ca6`) and the fixes ported ahead of the chain (`cef825ca6` to `32b3e613a`)
+came first; the chain is `4c4e32843` to `6ea65e71a`, the novel dedupe `e10be31fb`. Simulated over three
 databases (the emulator copy, the seeded snapshot, and a crafted one with duplicates of every kind): no
 foreign-key violation, every row delta a merged duplicate, 36 precedence checks and 24 migration mutants
 red. On the emulator copy no merge group changes, so none restitches after the upgrade. Not yet run on a
