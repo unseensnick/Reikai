@@ -73,7 +73,7 @@ class NovelMissingChaptersTest {
             sortDescending = true,
         )
 
-        entries.last() shouldBe NovelChapterListEntry.Missing(id = "null-2", count = 2)
+        entries.last() shouldBe NovelChapterListEntry.Missing(id = "2-null", count = 2)
     }
 
     @Test

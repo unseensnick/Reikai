@@ -118,4 +118,29 @@ class ChapterGapTest {
     fun seamCountsASkip() {
         ChapterGap.atSeam(at(5.0), at(3.0)) shouldBe 1
     }
+
+    @ParameterizedTest(name = "before {0}, after {1}, descending {2}: {3}")
+    @CsvSource(
+        "4.0, 6.0, false, 1",
+        "6.0, 4.0, true, 1",
+        "6.0, 4.0, false, 0",
+        ", 4.0, false, 3",
+        "4.0, , true, 3",
+        "4.0, , false, 0",
+        ", 4.0, true, 0",
+    )
+    @DisplayName("a marker between two displayed rows counts from whichever the sort puts higher")
+    fun betweenRowsFollowsTheSort(before: Double?, after: Double?, descending: Boolean, expected: Int) {
+        ChapterGap.betweenRows(before?.let { at(it) }, after?.let { at(it) }, descending) shouldBe expected
+    }
+
+    @ParameterizedTest(name = "descending {0}")
+    @CsvSource("false", "true")
+    @DisplayName("the header total adds the inline markers and the oldest end in either order")
+    fun totalMatchesTheMarkers(descending: Boolean) {
+        val ascending = listOf(at(3.0), at(4.0), at(7.0))
+        val displayed = if (descending) ascending.reversed() else ascending
+
+        ChapterGap.total(displayed, descending) shouldBe 4
+    }
 }

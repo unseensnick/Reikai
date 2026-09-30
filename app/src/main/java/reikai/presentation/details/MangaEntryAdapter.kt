@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.merge.ChapterGap
+import reikai.domain.merge.toGapNeighbour
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
 import reikai.presentation.selection.EntrySelection
@@ -84,9 +85,7 @@ class MangaEntryAdapter(
                 // The same rule the inline markers use, so the two cannot disagree, and unchanged when
                 // the "hide missing" pref drops the separators from the rows.
                 missingChapterCount = ChapterGap.total(
-                    processedChapters.map {
-                        ChapterGap.Neighbour(it.chapter.chapterNumber, it.chapter.name, it.chapter.mangaId)
-                    },
+                    processedChapters.map { it.chapter.toGapNeighbour() },
                     descending = manga.sortDescending(),
                 ),
                 showHidden = showHidden,

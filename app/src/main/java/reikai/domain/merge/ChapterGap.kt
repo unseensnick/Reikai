@@ -38,18 +38,19 @@ object ChapterGap {
         if (higher == null || lower == null) 0 else between(higher, lower)
 
     /**
-     * Every gap the list would mark, added up, for the header that summarises them. Shares [between]
-     * so the total and the inline markers cannot disagree. [ordered] is the list as displayed.
+     * The marker a chapter list draws between two displayed rows, [before] above [after], with null
+     * past either end. The sort decides which side is the higher chapter, so the edge below the
+     * oldest chapter is marked at the top of an ascending list and at the bottom of a descending one.
      */
-    fun total(ordered: List<Neighbour>, descending: Boolean): Int {
-        val betweenRows = ordered.zipWithNext { first, second ->
-            if (descending) between(first, second) else between(second, first)
-        }.sum()
-        // The list's own edge counts too, or the header would omit a marker the list draws: whatever
-        // sits below the oldest chapter is missing, and the oldest is at whichever end the sort put it.
-        val oldest = if (descending) ordered.lastOrNull() else ordered.firstOrNull()
-        return betweenRows + between(oldest, null)
-    }
+    fun betweenRows(before: Neighbour?, after: Neighbour?, descending: Boolean): Int =
+        if (descending) between(before, after) else between(after, before)
+
+    /**
+     * Every marker the list would draw, added up, for the header that summarises them, so the total
+     * and the inline markers cannot disagree. [ordered] is the list as displayed.
+     */
+    fun total(ordered: List<Neighbour>, descending: Boolean): Int =
+        (0..ordered.size).sumOf { betweenRows(ordered.getOrNull(it - 1), ordered.getOrNull(it), descending) }
 
     /**
      * Whether the recognized number can be believed, which it can only be when the name labels the

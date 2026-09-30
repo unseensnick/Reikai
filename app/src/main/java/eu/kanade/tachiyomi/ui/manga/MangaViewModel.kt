@@ -1944,24 +1944,24 @@ class MangaViewModel(
                 }
 
                 processedChapters.insertSeparators { before, after ->
-                    val (lowerChapter, higherChapter) = if (manga.sortDescending()) {
-                        after to before
-                    } else {
-                        before to after
-                    }
-                    if (higherChapter == null) return@insertSeparators null
-
-                    // RK: through the shared rule, which declines a gap whose two sides come from
-                    // different sources of a group, or whose number the name does not support.
+                    // RK -->
+                    // The shared rule places the marker for novels too, and declines a gap whose two
+                    // sides come from different sources of a group or whose number the name does not
+                    // support.
                     ChapterGap
-                        .between(higherChapter.chapter.toGapNeighbour(), lowerChapter?.chapter?.toGapNeighbour())
+                        .betweenRows(
+                            before?.chapter?.toGapNeighbour(),
+                            after?.chapter?.toGapNeighbour(),
+                            manga.sortDescending(),
+                        )
                         .takeIf { it > 0 }
                         ?.let { missingCount ->
                             ChapterList.MissingCount(
-                                id = "${lowerChapter?.id}-${higherChapter.id}",
+                                id = "${before?.id}-${after?.id}",
                                 count = missingCount,
                             )
                         }
+                    // RK <--
                 }
             }
 
