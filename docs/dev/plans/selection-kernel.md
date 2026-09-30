@@ -58,6 +58,8 @@ leave half of it unselected. A fully selected block is dropped instead.
 - `app/src/main/java/reikai/presentation/selection/EntrySelection.kt`: the kernel and `SelectionState`.
 - `app/src/test/java/reikai/presentation/selection/EntrySelectionTest.kt`: the rules, pinned. Two
   clauses verified by mutation; the device-observed scenarios are pinned as their own cases.
+- `app/src/main/java/reikai/presentation/selection/SelectionStore.kt`: the state and the published set
+  under one lock, for the two engines whose prune runs off the main thread.
 - `eu/kanade/tachiyomi/ui/manga/MangaViewModel.kt` (`chapterSelection`): the RK island.
 - `reikai/presentation/novel/details/NovelDetailsViewModel.kt` (`chapterSelection`,
   `retainChapterSelection`): the novel half, plus the prune that drops a vanished anchor.
@@ -101,6 +103,12 @@ slice, and identical where it is not, so it won.
 
 **`selectAll` clears the anchor everywhere.** Three of four surfaces already did. After a bulk verb,
 no row on screen is one the user pressed, so a range measured from the old anchor would be arbitrary.
+
+**The engines keep their selection in a `SelectionStore`.** Both pruned only the set the screen
+collects and left the state the next verb reads untouched, so selecting another row after a prune
+brought the pruned rows back, anchor included. The store writes both under one lock, because the prune
+runs on `Dispatchers.Default` while taps land on the main thread. The two details models are left as
+they are: their prune already writes `chapterSelection` itself, as part of the list rebuild. `SelectionStoreTest` and one case in each engine suite pin it, each seen red on the old prune.
 
 **No unit test covers the details models themselves.** Neither can be constructed in a JVM test, which
 is why the logic moved into a kernel that can. The models are thin calls into it now, and the device

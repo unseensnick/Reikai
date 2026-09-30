@@ -142,6 +142,24 @@ class LibraryEngineTest {
     }
 
     @Test
+    fun `a pruned entry stays out when another is picked`() = runTest {
+        val hidden = Category(id = 10, name = "Hidden", order = 0, flags = CATEGORY_HIDDEN_MASK)
+        val shown = Category(id = 11, name = "Reading", order = 1, flags = 0)
+        val provider = provider(
+            ContentType.MANGA,
+            rows = listOf(row(1, categories = listOf(10)), row(2, categories = listOf(11)), row(3, listOf(11))),
+        )
+        val engine = engineOver(listOf(provider), categories = listOf(hidden, shown))
+        engine.toggleSelection(bucketKey = "10", entry = m1)
+        engine.toggleSelection(bucketKey = "11", entry = m2)
+        engine.assembled.filterNotNull().first()
+
+        engine.toggleSelection(bucketKey = "11", entry = m3)
+
+        engine.selection.value shouldContainExactlyInAnyOrder listOf(m2, m3)
+    }
+
+    @Test
     fun `a novel-only category is no section under the Manga chip`() = runTest {
         val novelOnly =
             Category(id = 12, name = "Novels", order = 0, flags = 0, contentType = CategoryContentType.NOVEL)

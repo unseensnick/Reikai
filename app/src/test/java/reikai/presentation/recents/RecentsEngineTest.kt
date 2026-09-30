@@ -465,6 +465,28 @@ class RecentsEngineTest {
     }
 
     @Test
+    fun `a row a section cap dropped stays out when another is picked`() = runTest {
+        val items = (1..12).map { n ->
+            val entry = EntryId.Manga(n.toLong())
+            item(entry, at = 100L - n, lane = RecentsLane.Read(ChapterRef(entry, chapterId = n.toLong())))
+        }
+        val engine = engine(
+            listOf(provider(ContentType.MANGA, read = rows(*items.toTypedArray()))),
+            modes = setOf(RecentsMode.DIGEST),
+        )
+        val drawn = ref(items.first().entryId, chapterId = 1)
+        val capped = ref(items.last().entryId, chapterId = 12)
+        val next = ref(items[1].entryId, chapterId = 2)
+        engine.toggleSelection(drawn)
+        engine.toggleSelection(capped)
+        engine.firstRendered()
+
+        engine.toggleSelection(next)
+
+        engine.selection.value shouldContainExactlyInAnyOrder listOf(drawn, next)
+    }
+
+    @Test
     fun `a selected row the chapter filter hides leaves the selection`() = runTest {
         emittingUpdatesPreferences.filterBookmarked.set(TriState.ENABLED_IS)
         val kept = EntryId.Manga(1)

@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import reikai.domain.category.categoriesForContentType
 import reikai.domain.category.categoryDiff
 import reikai.domain.entry.EntryId
@@ -39,6 +38,7 @@ import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
+import reikai.presentation.selection.SelectionStore
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
@@ -318,8 +318,8 @@ class LibraryEngine(
         (if (isLandscape) libraryPreferences.landscapeColumns else libraryPreferences.portraitColumns)
             .asState(viewModelScope)
 
-    private val mutableSelection = MutableStateFlow<Set<EntryId>>(emptySet())
-    val selection: StateFlow<Set<EntryId>> = mutableSelection.asStateFlow()
+    private val selectionStore = SelectionStore<EntryId>()
+    val selection: StateFlow<Set<EntryId>> = selectionStore.selection
 
     /**
      * Drop selected ids the assembly no longer holds. What the assembly excluded is gone from this
@@ -327,13 +327,7 @@ class LibraryEngine(
      * category and an off-screen pager page are one gesture from being back and their entries are
      * still the library's.
      */
-    private fun pruneSelection(present: Set<EntryId>) {
-        mutableSelection.update { selection ->
-            if (selection.isEmpty()) return@update selection
-            val pruned = selection.filterTo(HashSet()) { it in present }
-            if (pruned.size == selection.size) selection else pruned
-        }
-    }
+    private fun pruneSelection(present: Set<EntryId>) = selectionStore.retain(present)
 
     private val mutableDialog = MutableStateFlow<LibraryDialog?>(null)
     val dialog: StateFlow<LibraryDialog?> = mutableDialog.asStateFlow()
@@ -506,48 +500,38 @@ class LibraryEngine(
     // Selection. Every op that needs to know what is on screen takes the category's entries in display
     // order, so the engine never has to resolve rows itself and stays free of per-type lookups.
 
-    /** Selection plus its range anchor. `mutableSelection` mirrors the set for the screen to collect. */
-    private var selectionState = SelectionState<EntryId>()
-
-    private fun apply(next: SelectionState<EntryId>, bucketKey: String? = null) {
-        selectionState = next
-        lastSelectionBucket = bucketKey
-        mutableSelection.value = next.selection
+    /** Runs [verb] on the selection and records which bucket, if any, the next range measures in. */
+    private fun select(bucketKey: String? = null, verb: (SelectionState<EntryId>) -> SelectionState<EntryId>) {
+        val next = selectionStore.update(verb)
+        lastSelectionBucket = bucketKey.takeIf { next.selection.isNotEmpty() }
     }
 
-    fun clearSelection() = apply(EntrySelection.clear())
+    fun clearSelection() = select { EntrySelection.clear() }
 
-    fun toggleSelection(bucketKey: String, entry: EntryId) {
-        val next = EntrySelection.toggle(selectionState, entry)
-        apply(next, bucketKey.takeIf { next.selection.isNotEmpty() })
-    }
+    fun toggleSelection(bucketKey: String, entry: EntryId) = select(bucketKey) { EntrySelection.toggle(it, entry) }
 
     /**
      * Select every entry between [entry] and the last selected one, within one bucket. A long press in
      * a different bucket has no usable anchor, because a range that spanned two categories would pick
      * up rows the user never saw between them, so it selects [entry] alone.
      */
-    fun toggleRangeSelection(bucketKey: String, entry: EntryId, ordered: List<EntryId>) {
-        val from =
-            selectionState.takeIf { lastSelectionBucket == bucketKey } ?: SelectionState(selectionState.selection)
-        apply(EntrySelection.rangeOrToggle(from, entry, ordered), bucketKey)
+    fun toggleRangeSelection(bucketKey: String, entry: EntryId, ordered: List<EntryId>) = select(bucketKey) {
+        val from = it.takeIf { lastSelectionBucket == bucketKey } ?: SelectionState(it.selection)
+        EntrySelection.rangeOrToggle(from, entry, ordered)
     }
 
-    fun selectAll(ordered: List<EntryId>) = apply(EntrySelection.selectAll(selectionState, ordered))
+    fun selectAll(ordered: List<EntryId>) = select { EntrySelection.selectAll(it, ordered) }
 
     /** Select every entry in one category, or deselect them when all are already selected. */
-    fun selectAllInCategory(ordered: List<EntryId>) {
-        val allPicked = ordered.isNotEmpty() && ordered.all { it in selectionState }
-        apply(
-            if (allPicked) {
-                SelectionState(selectionState.selection - ordered.toSet())
-            } else {
-                EntrySelection.selectAll(selectionState, ordered)
-            },
-        )
+    fun selectAllInCategory(ordered: List<EntryId>) = select { current ->
+        if (ordered.isNotEmpty() && ordered.all { it in current }) {
+            SelectionState(current.selection - ordered.toSet())
+        } else {
+            EntrySelection.selectAll(current, ordered)
+        }
     }
 
-    fun invertSelection(ordered: List<EntryId>) = apply(EntrySelection.invert(selectionState, ordered))
+    fun invertSelection(ordered: List<EntryId>) = select { EntrySelection.invert(it, ordered) }
 
     // Bulk actions. Each is handed to every provider in the view, which narrows it to its own entries,
     // so one call covers a selection spanning both content types.

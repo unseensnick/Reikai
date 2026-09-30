@@ -47,7 +47,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.selection.EntrySelection
-import reikai.presentation.selection.SelectionState
+import reikai.presentation.selection.SelectionStore
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
@@ -363,36 +363,38 @@ class RecentsEngine(
     // Selection. A chapter, not an entry: two chapters of one series are independently selectable, and
     // the raw chapter ids of the two content types overlap.
 
-    private val mutableSelection = MutableStateFlow<Set<ChapterRef>>(emptySet())
-    val selection: StateFlow<Set<ChapterRef>> = mutableSelection.asStateFlow()
+    private val selectionStore = SelectionStore<ChapterRef>()
+    val selection: StateFlow<Set<ChapterRef>> = selectionStore.selection
 
-    /** Selection plus its range anchor. `mutableSelection` mirrors the set for the screen to collect. */
-    private var selectionState = SelectionState<ChapterRef>()
-
-    private fun apply(next: SelectionState<ChapterRef>) {
-        selectionState = next
-        mutableSelection.value = next.selection
+    fun clearSelection() {
+        selectionStore.update { EntrySelection.clear() }
     }
 
-    fun clearSelection() = apply(EntrySelection.clear())
-
-    fun toggleSelection(chapter: ChapterRef) = apply(EntrySelection.toggle(selectionState, chapter))
+    fun toggleSelection(chapter: ChapterRef) {
+        selectionStore.update { EntrySelection.toggle(it, chapter) }
+    }
 
     /**
      * [ordered] is the rendered order, which only the caller knows: it interleaves both content types,
      * and grouping and collapsing change it again. The replaced screen ranged over one model's own
      * list instead, so a sweep under the All chip skipped every row of the other type.
      */
-    fun toggleRangeSelection(chapter: ChapterRef, ordered: List<ChapterRef>) =
-        apply(EntrySelection.rangeOrToggle(selectionState, chapter, ordered))
+    fun toggleRangeSelection(chapter: ChapterRef, ordered: List<ChapterRef>) {
+        selectionStore.update { EntrySelection.rangeOrToggle(it, chapter, ordered) }
+    }
 
     /** A collapsed group is one press over a block of rows, so it sweeps to the block's far edge. */
-    fun toggleGroupSelection(group: List<ChapterRef>, ordered: List<ChapterRef>) =
-        apply(EntrySelection.rangeOrToggleBlock(selectionState, group, ordered))
+    fun toggleGroupSelection(group: List<ChapterRef>, ordered: List<ChapterRef>) {
+        selectionStore.update { EntrySelection.rangeOrToggleBlock(it, group, ordered) }
+    }
 
-    fun selectAll(ordered: List<ChapterRef>) = apply(EntrySelection.selectAll(selectionState, ordered))
+    fun selectAll(ordered: List<ChapterRef>) {
+        selectionStore.update { EntrySelection.selectAll(it, ordered) }
+    }
 
-    fun invertSelection(ordered: List<ChapterRef>) = apply(EntrySelection.invert(selectionState, ordered))
+    fun invertSelection(ordered: List<ChapterRef>) {
+        selectionStore.update { EntrySelection.invert(it, ordered) }
+    }
 
     /**
      * Drop selected chapters the surface no longer draws, so the toolbar count cannot promise more
@@ -401,14 +403,7 @@ class RecentsEngine(
      * could see. What navigation hides is not pruned, because a collapsed group's members are still
      * drawn as far as this list is concerned.
      */
-    private fun pruneSelection(present: List<ChapterRef>) {
-        mutableSelection.update { selection ->
-            if (selection.isEmpty()) return@update selection
-            val drawn = present.toHashSet()
-            val pruned = selection.filterTo(HashSet()) { it in drawn }
-            if (pruned.size == selection.size) selection else pruned
-        }
-    }
+    private fun pruneSelection(present: List<ChapterRef>) = selectionStore.retain(present)
 
     // Dialogs: one slot, so a prompt about a mixed selection is asked once.
 

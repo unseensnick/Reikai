@@ -113,8 +113,8 @@ object EntrySelection {
      * anchor is pruned with the selection: a range measured from a row that is gone would silently
      * fall back to selecting one row, which reads as a broken long press rather than a stale anchor.
      */
-    fun <T> retain(state: SelectionState<T>, visible: List<T>): SelectionState<T> {
-        val keep = visible.toSet()
+    fun <T> retain(state: SelectionState<T>, visible: Collection<T>): SelectionState<T> {
+        val keep = visible as? Set<T> ?: visible.toHashSet()
         return SelectionState(
             selection = state.selection.filterTo(LinkedHashSet()) { it in keep },
             anchor = state.anchor?.takeIf { it in keep },
