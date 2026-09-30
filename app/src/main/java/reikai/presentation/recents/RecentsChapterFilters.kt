@@ -61,7 +61,7 @@ data class RecentsRowGate(
      * Updates and History are a record of what happened rather than a list of what to read next.
      */
     fun keeps(item: RecentsItem, mode: RecentsMode): Boolean {
-        if (showRead || !mode.isCombined) return true
+        if (!needsUnread(showRead, mode)) return true
         return when (item.lane) {
             is RecentsLane.Read, is RecentsLane.Updated -> item.entryId in unread
             RecentsLane.Added -> true
@@ -70,6 +70,9 @@ data class RecentsRowGate(
 
     companion object {
         val NONE = RecentsRowGate(RecentsChapterFilters.NONE, showRead = true, unread = emptySet())
+
+        /** Whether [keeps] reads the unread set at all, so the engine holds its queries open only then. */
+        fun needsUnread(showRead: Boolean, mode: RecentsMode): Boolean = !showRead && mode.isCombined
     }
 }
 

@@ -26,7 +26,9 @@ import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -747,17 +749,28 @@ class RecentsEngine(
     /**
      * Seeded open, like [chapterFilters] beside it: until the unread set has actually been answered,
      * an unseeded gate would either stall the render or hide every row on an empty set. Hiding on
-     * incomplete data is the wrong way to be wrong here, so the seed shows everything.
+     * incomplete data is the wrong way to be wrong here, so the seed shows everything. The set is two
+     * whole-table queries re-run on every chapter write, so it is held open only while the rule reads
+     * it ([RecentsRowGate.needsUnread]); a null set below is the open gate, there and until it answers.
      */
     private val rowGate: StateFlow<RecentsRowGate> by lazy {
-        combine(
-            chapterFilters,
-            sourcePreferences.recentsShowRead.changes(),
-            unreadEntries,
-        ) { filters, showRead, unread ->
-            RecentsRowGate(filters = filters, showRead = showRead, unread = unread)
+        val showRead = sourcePreferences.recentsShowRead.changes()
+        val unread = combine(showRead, mode, RecentsRowGate::needsUnread)
+            .distinctUntilChanged()
+            .flatMapLatest { needed ->
+                if (needed) {
+                    flow<Set<EntryId>?> {
+                        emit(null)
+                        emitAll(unreadEntries)
+                    }
+                } else {
+                    flowOf(null)
+                }
+            }
+        combine(chapterFilters, showRead, unread) { filters, showRead, unread ->
+            RecentsRowGate(filters = filters, showRead = showRead || unread == null, unread = unread.orEmpty())
         }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, RecentsRowGate.NONE)
+            .stateIn(viewModelScope, OVER_PROVIDERS, RecentsRowGate.NONE)
     }
 
     /** The verbs are suspend because a merged row's action has to read the group's stitch first; the

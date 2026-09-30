@@ -1268,6 +1268,46 @@ class RecentsEngineTest {
     }
 
     @Test
+    fun `a caught-up series leaves Feed once the unread set arrives`() = runTest {
+        val engine = emittingEngine(
+            provider(ContentType.MANGA, read = rows(readRow(manga1, chapterId = 5)), unreadEntries = emptySet()),
+            setOf(RecentsMode.FEED),
+        )
+        backgroundScope.launch { engine.rendered.collect { } }
+
+        engine.rendered.filterNotNull().first { it.rows.isEmpty() }.rows shouldBe emptyList()
+    }
+
+    // The unread set is two whole-table queries re-run on every chapter write, and the engine outlives
+    // a tab switch, so it is held open only while the show-read rule can read it. Each case opens it
+    // first, so the close it waits for is the rule's doing and not a subscription that never happened.
+
+    @Test
+    fun `turning show read on closes the unread query`() = runTest {
+        val fake = provider(ContentType.MANGA, read = rows(readRow(manga1, chapterId = 5)))
+        val engine = emittingEngine(fake, setOf(RecentsMode.FEED))
+        backgroundScope.launch { engine.rendered.collect { } }
+        fake.unreadQuery.subscriptionCount.first { it > 0 }
+
+        ReikaiSourcePreferences(emittingStore).recentsShowRead.set(true)
+
+        fake.unreadQuery.subscriptionCount.first { it == 0 } shouldBe 0
+    }
+
+    @Test
+    fun `a single-lane mode closes the unread query`() = runTest {
+        val fake = provider(ContentType.MANGA, read = rows(readRow(manga1, chapterId = 5)))
+        val engine = emittingEngine(fake, setOf(RecentsMode.FEED, RecentsMode.UPDATES))
+        engine.setMode(RecentsMode.FEED)
+        backgroundScope.launch { engine.rendered.collect { } }
+        fake.unreadQuery.subscriptionCount.first { it > 0 }
+
+        engine.setMode(RecentsMode.UPDATES)
+
+        fake.unreadQuery.subscriptionCount.first { it == 0 } shouldBe 0
+    }
+
+    @Test
     fun `a read record still unread resolves nothing, since it resumes itself`() = runTest {
         val row = readRow(manga1, chapterId = 5)
         val engine = feedEngine(
@@ -1677,7 +1717,9 @@ private class FakeRecentsProvider(
 
     // Named apart from the property on purpose: a same-named constructor parameter reads back as the
     // property here, which is null while the object is still being built.
-    override val unreadEntries: Flow<Set<EntryId>> = flowOf(unread)
+    // A state flow rather than flowOf, so a test can see whether the engine holds the query open.
+    val unreadQuery = MutableStateFlow(unread)
+    override val unreadEntries: Flow<Set<EntryId>> = unreadQuery
 
     private val targetInputSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
     override val targetInputs: Flow<Unit> = targetInputSignal.onStart { emit(Unit) }
