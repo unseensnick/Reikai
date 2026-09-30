@@ -10,6 +10,8 @@ import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
 import logcat.LogPriority
+import reikai.domain.track.ChapterPushOutcome
+import reikai.presentation.track.trackerErrorMessage
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -33,7 +35,7 @@ class EntryAutoTrackOnMarkRead<C>(
     private val chapterNumber: (C) -> Double,
     private val refresh: suspend (entryId: Long) -> List<Pair<Tracker?, Throwable>>,
     private val lastReadPerTracker: suspend (entryId: Long) -> List<Double>,
-    private val pushProgress: suspend (entryId: Long, chapterNumber: Double) -> Unit,
+    private val pushProgress: suspend (entryId: Long, chapterNumber: Double) -> ChapterPushOutcome,
 ) {
 
     /**
@@ -57,10 +59,7 @@ class EntryAutoTrackOnMarkRead<C>(
         if (lastReadPerTracker(entryId).none { furthestRead > it }) return
 
         if (autoTrackState == AutoTrackState.ALWAYS) {
-            pushProgress(entryId, furthestRead)
-            withUIContext {
-                context.toast(context.stringResource(MR.strings.trackers_updated_summary, furthestRead.toInt()))
-            }
+            reportPush(pushProgress(entryId, furthestRead), furthestRead)
             return
         }
 
@@ -70,7 +69,16 @@ class EntryAutoTrackOnMarkRead<C>(
             duration = SnackbarDuration.Short,
             withDismissAction = true,
         )
-        if (result == SnackbarResult.ActionPerformed) pushProgress(entryId, furthestRead)
+        if (result == SnackbarResult.ActionPerformed) reportPush(pushProgress(entryId, furthestRead), furthestRead)
+    }
+
+    // Upstream toasts "updated" whatever the push did, and a failure only reached the log.
+    private suspend fun reportPush(outcome: ChapterPushOutcome, chapterNumber: Double) {
+        val lines = outcome.report(
+            updatedLine = { context.stringResource(MR.strings.trackers_updated_summary, chapterNumber.toInt()) },
+            failedLine = { tracker, error -> context.trackerErrorMessage(tracker, error) },
+        ).distinct()
+        if (lines.isNotEmpty()) withUIContext { context.toast(lines.joinToString("\n")) }
     }
 
     private suspend fun reportFailures(entryId: Long, results: List<Pair<Tracker?, Throwable>>) {

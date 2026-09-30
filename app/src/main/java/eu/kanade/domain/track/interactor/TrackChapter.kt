@@ -9,11 +9,10 @@ import eu.kanade.domain.track.store.DelayedTrackingStore
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import logcat.LogPriority
 import reikai.domain.manga.GetTracksInGroup
+import reikai.domain.track.ChapterPushOutcome
 import reikai.domain.track.pushChapterProgress
 import tachiyomi.core.common.util.lang.withNonCancellableContext
-import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.interactor.UpsertTrack
 
 @Inject
@@ -28,10 +27,15 @@ class TrackChapter(
     private val delayedTrackingStore: DelayedTrackingStore,
 ) {
 
-    suspend fun await(context: Context, mangaId: Long, chapterNumber: Double, setupJobOnFailure: Boolean = true) {
-        withNonCancellableContext {
+    // RK: returns what the push did per tracker, so the mark-read toast says "updated" only when it was
+    suspend fun await(
+        context: Context,
+        mangaId: Long,
+        chapterNumber: Double,
+        setupJobOnFailure: Boolean = true,
+    ): ChapterPushOutcome {
+        return withNonCancellableContext {
             val tracks = getTracks.await(mangaId)
-            if (tracks.isEmpty()) return@withNonCancellableContext
 
             tracks.mapNotNull { track ->
                 val service = trackerManager.get(track.trackerId)
@@ -39,8 +43,9 @@ class TrackChapter(
                     return@mapNotNull null
                 }
 
+                // RK: each result keyed by its tracker, for ChapterPushOutcome
                 async {
-                    runCatching {
+                    service to runCatching {
                         try {
                             // RK --> pushed through the shared pushChapterProgress kernel, which keeps the
                             // status and start date the tracker's update wrote, where upstream saved the row it
@@ -64,8 +69,7 @@ class TrackChapter(
                 }
             }
                 .awaitAll()
-                .mapNotNull { it.exceptionOrNull() }
-                .forEach { logcat(LogPriority.WARN, it) }
+                .let(ChapterPushOutcome::of) // RK: logs the failures as upstream's forEach did
         }
     }
 }

@@ -1,7 +1,33 @@
 package reikai.domain.track
 
 import eu.kanade.tachiyomi.data.track.Tracker
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
 import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
+
+/**
+ * What one chapter push did at each tracker it tried. Both chapter interactors return it, so a caller
+ * that tells the user can say "updated" only when a tracker took the push, and name the ones that did not.
+ */
+data class ChapterPushOutcome(val updated: List<Tracker>, val failed: List<Pair<Tracker, Throwable>>) {
+
+    /** One line per thing to tell: "updated" only when a tracker took the push, then each failure. */
+    fun <T> report(updatedLine: () -> T, failedLine: (Tracker, Throwable) -> T): List<T> =
+        listOfNotNull(updatedLine().takeIf { updated.isNotEmpty() }) +
+            failed.map { (tracker, error) -> failedLine(tracker, error) }
+
+    companion object {
+        /** Folds each tracker's result; failures are logged here, as both interactors did before. */
+        fun of(results: List<Pair<Tracker, Result<*>>>): ChapterPushOutcome {
+            val failed = results.mapNotNull { (tracker, result) -> result.exceptionOrNull()?.let { tracker to it } }
+            failed.forEach { (_, error) -> logcat(LogPriority.WARN, error) }
+            return ChapterPushOutcome(
+                updated = results.filter { it.second.isSuccess }.map { it.first },
+                failed = failed,
+            )
+        }
+    }
+}
 
 /**
  * Push read progress to a tracker and return the row to persist.

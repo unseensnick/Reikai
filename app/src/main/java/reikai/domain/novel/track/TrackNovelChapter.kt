@@ -5,12 +5,11 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import logcat.LogPriority
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.UpsertNovelTrack
+import reikai.domain.track.ChapterPushOutcome
 import reikai.domain.track.pushChapterProgress
 import tachiyomi.core.common.util.lang.withNonCancellableContext
-import tachiyomi.core.common.util.system.logcat
 
 /**
  * Novel twin of [eu.kanade.domain.track.interactor.TrackChapter], pinned by the [pushChapterProgress]
@@ -28,10 +27,14 @@ class TrackNovelChapter(
     private val delayedTrackingStore: NovelDelayedTrackingStore,
 ) {
 
-    suspend fun await(context: Context, novelId: Long, chapterNumber: Double, setupJobOnFailure: Boolean = true) {
-        withNonCancellableContext {
+    suspend fun await(
+        context: Context,
+        novelId: Long,
+        chapterNumber: Double,
+        setupJobOnFailure: Boolean = true,
+    ): ChapterPushOutcome {
+        return withNonCancellableContext {
             val tracks = getNovelTracks.awaitGroup(novelId)
-            if (tracks.isEmpty()) return@withNonCancellableContext
 
             tracks.mapNotNull { track ->
                 val service = trackerManager.get(track.trackerId)
@@ -40,7 +43,7 @@ class TrackNovelChapter(
                 }
 
                 async {
-                    runCatching {
+                    service to runCatching {
                         try {
                             val refreshed = service.refresh(track.toDbTrack()).toNovelTrack(idRequired = true)!!
                             val pushed = service.pushChapterProgress(
@@ -60,8 +63,7 @@ class TrackNovelChapter(
                 }
             }
                 .awaitAll()
-                .mapNotNull { it.exceptionOrNull() }
-                .forEach { logcat(LogPriority.WARN, it) }
+                .let(ChapterPushOutcome::of)
         }
     }
 }

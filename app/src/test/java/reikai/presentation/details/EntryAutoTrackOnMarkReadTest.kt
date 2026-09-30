@@ -12,6 +12,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.track.ChapterPushOutcome
 
 /**
  * The details mark-read step both content types run. It writes the read across a merged series' copies
@@ -43,7 +44,10 @@ class EntryAutoTrackOnMarkReadTest {
         chapterNumber = Copy::number,
         refresh = { emptyList() },
         lastReadPerTracker = { listOf(0.0) },
-        pushProgress = { _, number -> pushed += number },
+        pushProgress = { _, number ->
+            pushed += number
+            ChapterPushOutcome(updated = emptyList(), failed = emptyList())
+        },
     )
 
     @Test
