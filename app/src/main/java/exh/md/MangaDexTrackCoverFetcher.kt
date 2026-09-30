@@ -12,7 +12,6 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.source.online.HttpSource
 import exh.md.utils.MdUtil
-import kotlinx.coroutines.runBlocking
 import okhttp3.Call
 import okhttp3.Request
 import okio.FileSystem
@@ -34,12 +33,12 @@ data class MangaDexTrackCover(val url: String)
  */
 class MangaDexTrackCoverFetcher(
     private val url: String,
-    private val sourceLazy: Lazy<HttpSource?>,
+    private val getSource: suspend () -> HttpSource?,
     private val callFactoryLazy: Lazy<Call.Factory>,
 ) : Fetcher {
 
     override suspend fun fetch(): FetchResult {
-        val source = sourceLazy.value
+        val source = getSource()
         val client = source?.client ?: callFactoryLazy.value
         val request = Request.Builder()
             .url(url)
@@ -69,9 +68,7 @@ class MangaDexTrackCoverFetcher(
         override fun create(data: MangaDexTrackCover, options: Options, imageLoader: ImageLoader): Fetcher =
             MangaDexTrackCoverFetcher(
                 url = data.url,
-                sourceLazy = lazy {
-                    runBlocking { MdUtil.getEnabledMangaDex(sourcePreferences, reikaiSourcePreferences, sourceManager) }
-                },
+                getSource = { MdUtil.getEnabledMangaDex(sourcePreferences, reikaiSourcePreferences, sourceManager) },
                 callFactoryLazy = callFactoryLazy,
             )
     }

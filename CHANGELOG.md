@@ -748,6 +748,7 @@ every stable release now also ships a foss build with neither in it.
 - The tracking sheet reaches manga and novel tracking through one typed port per content type.
 - The details Tracking button counts trackers by the same rule the tracking sheet offers them.
 - Removed an unused source icon and stray imports.
+- MDList search covers no longer block an image-loading thread while finding their source.
 
 ## [0.3.2]
 
