@@ -10,8 +10,6 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import eu.kanade.core.preference.PreferenceMutableState
-import eu.kanade.core.preference.asState
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.manga.interactor.UpdateManga
@@ -83,12 +81,10 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
-import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.interactor.GetBookmarkedChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.interactor.GetNextChapters
-import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -158,12 +154,8 @@ class LibraryViewModel(
     // RK: the active page moved to LibraryEngine, which persists it per chip and seeds each pager
     //     through initialPageFor
 
-    private val displayPreferences = combine(
-        libraryPreferences.categoryTabs.changes(),
-        libraryPreferences.categoryNumberOfItems.changes(),
-        libraryPreferences.showContinueReadingButton.changes(),
-        ::DisplayPreferences,
-    )
+    // RK: category tabs and item counts moved to LibraryEngine.display, which is library-wide
+    private val showContinueButton = libraryPreferences.showContinueReadingButton.changes()
 
     // RK --> the filter preferences and the active-filter rule live in LibraryFilterSettings, which the
     //     novel library reads too; manga supplies only its own release-period restriction.
@@ -188,19 +180,18 @@ class LibraryViewModel(
             //     lookup runs once per query change rather than on every favorites tick.
             searchQuery.debounce(0.25.seconds)
                 .map { query -> query to resolveChapterMatches(query) },
-            getCategories.subscribe(),
-            // RK: the custom-info overlay rides with favorites (combine caps at 5 sources) but is
+            // RK: no category-table input: grouping, its only reader, moved to LibraryEngine, and a
+            //     rename re-ran this whole filter pass for nothing.
+            // RK: the custom-info overlay rides with favorites but is
             //     NOT applied here: search/filter/sort below all read the raw favorites. It is
             //     carried into LibraryData and applied only at the display read (see State).
             combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
             combine(getTracksPerManga.subscribe(), filterSettings, ::Pair), // RK: filterSettings
         ) {
                 (searchQuery, chapterMatches),
-                categories,
                 (favorites, customInfo),
                 (tracksMap, filters),
             ->
-            val showSystemCategory = favorites.any { it.libraryManga.categories.contains(0) }
             val filteredFavorites = favorites
                 .applyFilters(tracksMap, filters.resolve()) // RK
                 // RK: parse once, then filter through the shared query kernel, the same one the novel
@@ -233,9 +224,6 @@ class LibraryViewModel(
                 }
 
             LibraryData(
-                isInitialized = true,
-                showSystemCategory = showSystemCategory,
-                categories = categories,
                 favorites = filteredFavorites,
                 tracksMap = tracksMap,
                 loggedInTrackerIds = filters.trackers.keys, // RK
@@ -254,27 +242,19 @@ class LibraryViewModel(
     val state: StateFlow<State> = combine(
         libraryData,
         searchQuery,
-        displayPreferences,
+        showContinueButton,
         hasActiveFilters,
-    ) { libraryData, searchQuery, display, hasActiveFilters ->
+    ) { libraryData, searchQuery, showContinueButton, hasActiveFilters ->
         State(
             isLoading = libraryData == null,
             searchQuery = searchQuery,
             hasActiveFilters = hasActiveFilters,
-            showCategoryTabs = display.showCategoryTabs,
-            showMangaCount = display.showMangaCount,
-            showMangaContinueButton = display.showMangaContinueButton,
+            showMangaContinueButton = showContinueButton,
             libraryData = libraryData ?: LibraryData(),
         )
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
     // RK <--
-
-    private data class DisplayPreferences(
-        val showCategoryTabs: Boolean,
-        val showMangaCount: Boolean,
-        val showMangaContinueButton: Boolean,
-    )
 
     // RK -->
     init {
@@ -299,10 +279,6 @@ class LibraryViewModel(
     // RK -->
     fun setHopperGravity(value: Int) {
         reikaiLibraryPreferences.hopperGravity.set(value)
-    }
-
-    fun setCategorySortOrder(value: Int) {
-        reikaiLibraryPreferences.categorySortOrder.set(value)
     }
 
     // RK: category collapse moved to LibraryEngine, which writes the same preferences. It is library-wide
@@ -708,14 +684,8 @@ class LibraryViewModel(
         }
     }
 
-    fun getDisplayMode(): PreferenceMutableState<LibraryDisplayMode> {
-        return libraryPreferences.displayMode.asState(viewModelScope)
-    }
-
-    fun getColumnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> {
-        return (if (isLandscape) libraryPreferences.landscapeColumns else libraryPreferences.portraitColumns)
-            .asState(viewModelScope)
-    }
+    // RK: getDisplayMode and getColumnsForOrientation moved to LibraryEngine, since the grid shape is
+    // library-wide.
 
     // RK: picking a random entry moved to LibraryEngine, which reads the assembled list and so can pick
     // from a dynamic group and from either content type. Upstream's version is gone with the list it read.
@@ -755,9 +725,6 @@ class LibraryViewModel(
 
     @Immutable
     data class LibraryData(
-        val isInitialized: Boolean = false,
-        val showSystemCategory: Boolean = false,
-        val categories: List<Category> = emptyList(),
         val favorites: List<LibraryItem> = emptyList(),
         val tracksMap: Map</* Manga */ Long, List<Track>> = emptyMap(),
         val loggedInTrackerIds: Set<Long> = emptySet(),
@@ -771,13 +738,11 @@ class LibraryViewModel(
 
     @Immutable
     data class State(
-        val isInitialized: Boolean = false,
         val isLoading: Boolean = true,
         val searchQuery: String? = null,
         // RK: selection moved to LibraryEngine, which selects across both content types
         val hasActiveFilters: Boolean = false,
-        val showCategoryTabs: Boolean = false,
-        val showMangaCount: Boolean = false,
+        // RK: showCategoryTabs and showMangaCount moved to LibraryEngine.display
         val showMangaContinueButton: Boolean = false,
         val libraryData: LibraryData = LibraryData(),
         // RK: the active page is LibraryEngine's (initialPageFor), and so is the list: upstream's

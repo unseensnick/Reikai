@@ -86,7 +86,7 @@ import tachiyomi.domain.track.model.Track
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Drives the novel half of the Library tab: reads favorited novels and categories reactively, shapes
+ * Drives the novel half of the Library tab: reads favorited novels reactively, shapes
  * each into the shared [LibraryItem], filters them (LibraryEngine buckets and sorts), and exposes the same
  * accessor surface the manga model does so `LibraryTab` can feed either. Mihon's library core is
  * untouched. Selection lives in the shared LibraryEngine, which hands this model the novel ids to act
@@ -129,7 +129,8 @@ class NovelLibraryViewModel(
     /** Null until the first build answers, which the derived state reads as still loading. */
     private val built: StateFlow<State?> =
         combine(
-            getNovelCategories.subscribe(),
+            // No category-table input: grouping, its only reader, is LibraryEngine's, which reads the
+            // table itself. Membership still reaches the filter through each row's own categories.
             // Re-emit when sources (un)register so `sourceManager.get(...)` resolves once loaded.
             // The custom-info overlay rides with the library so a title/cover edit re-emits too.
             combine(
@@ -139,7 +140,7 @@ class NovelLibraryViewModel(
                     .combine(novelDownloadCache.changes) { library, _ -> library },
                 getCustomNovelInfo.subscribeAll(),
                 // Whole-library novel tracks (novelId -> tracks) ride with the library so a bind/unbind
-                // re-sinks the tracker filter/sort/group; folded here to keep the main combine at 5 args.
+                // re-sinks the tracker filter/sort/group.
                 getNovelTracks.subscribeAll(),
                 ::Triple,
             ),
@@ -152,8 +153,8 @@ class NovelLibraryViewModel(
             // which LibraryEngine owns now, and leaving them in meant every collapse tap rebuilt the
             // whole filtered novel list (merge collapse, tracker scores, filtering) for nothing.
             settingsFlow(),
-        ) { categories, (library, customInfo, tracks), search, settings ->
-            buildState(categories, library, customInfo, tracks, search, settings)
+        ) { (library, customInfo, tracks), search, settings ->
+            buildState(library, customInfo, tracks, search, settings)
         }
             .flowOn(Dispatchers.IO)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
@@ -257,7 +258,6 @@ class NovelLibraryViewModel(
     }
 
     private suspend fun buildState(
-        categories: List<Category>,
         library: List<LibraryNovel>,
         customInfo: List<CustomNovelInfo>,
         tracks: Map<Long, List<NovelTrack>>,
