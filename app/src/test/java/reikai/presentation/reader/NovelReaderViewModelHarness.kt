@@ -126,9 +126,6 @@ class NovelReaderViewModelHarness private constructor(
         every { downloadedChapterIds(any<Novel>(), any()) } answers {
             secondArg<List<NovelChapter>>().mapTo(HashSet()) { it.id }.filterTo(HashSet()) { it in downloaded }
         }
-        every { downloadedChapterIds(any<List<NovelChapter>>(), any()) } answers {
-            firstArg<List<NovelChapter>>().mapTo(HashSet()) { it.id }.filterTo(HashSet()) { it in downloaded }
-        }
     }
 
     private val viewModels = ViewModelStore()

@@ -35,6 +35,7 @@ import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
+import reikai.domain.novel.ownersOf
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.recents.RECENTS_FEED_LIMIT
 import reikai.domain.recents.RecentlyAddedNovel
@@ -186,8 +187,7 @@ class NovelRecentsAdapter(
         val owner = novelRepository.getById(chapter.novelId) ?: return null
         val sameChapter = recentsRowCopies(chapter, resolved.stitch, resolved.pooled) { it.id }
         // Resolved here, off the draw path, so the state below only asks the in-memory index.
-        val ownerOf = sameChapter.map { it.novelId }.distinct().mapNotNull { novelRepository.getById(it) }
-            .associateBy { it.id }
+        val ownerOf = novelRepository.ownersOf(sameChapter)
         val unitOf = resolved.stitch.associateBy { it.chapterId }
         val copies = sameChapter.mapNotNull { copy ->
             val copyOwner = ownerOf[copy.novelId] ?: return@mapNotNull null

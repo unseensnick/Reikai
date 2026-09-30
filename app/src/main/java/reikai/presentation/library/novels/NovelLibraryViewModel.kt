@@ -41,6 +41,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelTracks
@@ -53,6 +54,7 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.withCustomInfo
+import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.toUiTrack
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -461,9 +463,7 @@ class NovelLibraryViewModel(
                 val downloadManager = novelDownloadManager()
                 // Probed over every member's chapters: a chapter downloaded on any of them is on disk,
                 // whichever copy the stitch shows.
-                val novelsById = group.pooledChapters.map { it.novelId }.distinct()
-                    .mapNotNull { novelId -> novelRepository.getById(novelId) }
-                    .associateBy { it.id }
+                val novelsById = novelRepository.ownersOf(group.pooledChapters)
                 val flags = GroupChapterFlags(
                     MergeScope.Group,
                     group.pooledChapters,

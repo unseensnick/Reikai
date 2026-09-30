@@ -56,6 +56,7 @@ import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.hiddenKey
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.SetNovelReadStatus
@@ -68,6 +69,7 @@ import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.model.readingOrderComparator
+import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterIncognito
@@ -1195,7 +1197,7 @@ class NovelReaderViewModel(
         val byId = pooled.associateBy { it.id }
         val chapters = orderedIds.mapNotNull { id -> byId[id] ?: chapterRepo.getById(id) }
         val sourceNames = chapterSourceNames()
-        val novels = novelsOf(pooled + chapters)
+        val novels = novelRepo.ownersOf(pooled + chapters)
         emitAll(
             combine(downloadManager.queueState, loadedChapter) { queue, _ ->
                 val flags = groupFlags(pooled, chapters, novels)
@@ -1309,7 +1311,7 @@ class NovelReaderViewModel(
                 val copies =
                     CopyToOpen(mergeScope, pooled, stitch, {
                         it.id
-                    }, novelDownloadCache.downloadedChapterIds(pooled, novelsOf(pooled)))
+                    }, novelDownloadCache.downloadedChapterIds(pooled, novelRepo.ownersOf(pooled)))
                 copiesToOpen = copies
                 currentChapterId = copies.idOf(currentChapterId)
                 copies.inPlaceOf(mergedChapterProvider.merged(pooled, stitch)) { copy, row ->
@@ -1334,13 +1336,13 @@ class NovelReaderViewModel(
         val visible = if (basePreferences.downloadedOnly.get() && current != null) {
             inOrder.downloadedOrCurrent(current, {
                 it.id
-            }, novelDownloadCache.downloadedChapterIds(inOrder, novelsOf(inOrder)))
+            }, novelDownloadCache.downloadedChapterIds(inOrder, novelRepo.ownersOf(inOrder)))
         } else {
             inOrder
         }
         orderedIds = visible.map { it.id }
         val members = pooled.ifEmpty { visible }
-        forwardEligibleIds = resolveForwardEligible(visible, groupFlags(members, visible, novelsOf(members)))
+        forwardEligibleIds = resolveForwardEligible(visible, groupFlags(members, visible, novelRepo.ownersOf(members)))
     }
 
     /** The opened novel's own chapter sort, always ascending, so paging follows the order the user chose
@@ -1402,9 +1404,6 @@ class NovelReaderViewModel(
     ) = GroupChapterFlags(mergeScope, pooled, shown, groupStitch, { it.id }, { it.read }, { it.bookmark }) {
         novelDownloadCache.downloadedChapterIds(pooled, novels)
     }
-
-    private suspend fun novelsOf(chapters: List<NovelChapter>): Map<Long, Novel> =
-        chapters.map { it.novelId }.distinct().mapNotNull { novelRepo.getById(it) }.associateBy { it.id }
 
     /** Both chapters a step from [chapterId] lands on; a forward one honours the skip settings. */
     private fun neighboursOf(chapterId: Long): Neighbours {
@@ -1556,10 +1555,9 @@ class NovelReaderViewModel(
         val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
         val byId = pooled.associateBy { it.id }
         val candidates = aheadIds.drop(index + 1).mapNotNull { byId[it] ?: chapterRepo.getById(it) }
-        val novels = novelsOf(pooled + candidates)
-        val flags = groupFlags(pooled, candidates, novels)
+        val flags = groupFlags(pooled, candidates, novelRepo.ownersOf(pooled + candidates))
+        // Already on disk is left to downloadChapters, which drops it, as manga's queue does.
         val toDownload = chaptersToDownloadAhead(candidates, from = 0, count = ahead, isRead = flags::isRead)
-            .filterNot { ch -> novels[ch.novelId]?.let { downloadManager.isChapterDownloaded(it, ch) } == true }
         if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
     }
 

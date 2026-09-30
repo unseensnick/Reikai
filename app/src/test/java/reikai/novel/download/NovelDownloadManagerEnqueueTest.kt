@@ -33,8 +33,9 @@ class NovelDownloadManagerEnqueueTest {
     private val missing = chapter(11L)
 
     private val cache = mockk<NovelDownloadCache> {
-        every { isChapterDownloaded(novel, onDisk) } returns true
-        every { isChapterDownloaded(novel, missing) } returns false
+        every { downloadedChapterIds(novel, any()) } answers {
+            secondArg<List<NovelChapter>>().filter { it == onDisk }.mapTo(HashSet()) { it.id }
+        }
     }
     private val novelRepository = mockk<NovelRepository> { coEvery { getById(1L) } returns novel }
     private val context = mockk<Context>(relaxed = true) {

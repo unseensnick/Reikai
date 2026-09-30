@@ -66,6 +66,7 @@ import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.buildNovelChapterListEntries
+import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.hiddenKey
 import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
 import reikai.domain.novel.interactor.GetCustomNovelInfo
@@ -93,6 +94,7 @@ import reikai.domain.novel.model.effectiveSorting
 import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.model.sortedAndFiltered
 import reikai.domain.novel.novelMissingChapterCount
+import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
 import reikai.domain.source.healedCover
@@ -497,15 +499,9 @@ class NovelDetailsViewModel(
         }
     }
 
-    /** Disk-download membership (from NovelDownloadCache) for [chapters], resolving each chapter's
-     *  owning novel (a unified merged list spans several sources). Replaces the old is_downloaded flag. */
-    private suspend fun downloadedIdsFor(chapters: List<NovelChapter>): Set<Long> {
-        if (chapters.isEmpty()) return emptySet()
-        val novelsById = chapters.map { it.novelId }.distinct()
-            .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
-            .toMap()
-        return novelDownloadCache.downloadedChapterIds(chapters, novelsById)
-    }
+    /** Which of [chapters] are on disk, each under its own novel: a unified merged list spans several. */
+    private suspend fun downloadedIdsFor(chapters: List<NovelChapter>): Set<Long> =
+        novelDownloadCache.downloadedChapterIds(chapters, novelRepo.ownersOf(chapters))
 
     /** Single-source view: the anchor (non-merged or its own chip) or a selected sibling, with that
      *  novel's own per-page lazy list. Auto-fetch only runs for the anchor (its [source] is resolved);

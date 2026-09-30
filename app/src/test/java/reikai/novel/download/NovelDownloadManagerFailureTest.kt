@@ -72,7 +72,7 @@ class NovelDownloadManagerFailureTest {
     private val manager = NovelDownloadManager(
         context = context,
         provider = mockk { every { availableSpace() } returns -1L },
-        cache = mockk { every { isChapterDownloaded(novel, chapter) } returns false },
+        cache = mockk { every { downloadedChapterIds(novel, any()) } returns emptySet() },
         chapterRepo = chapterRepo,
         novelRepo = mockk<NovelRepository> { coEvery { getById(1L) } returns novel },
         sourceManager = sourceManager,

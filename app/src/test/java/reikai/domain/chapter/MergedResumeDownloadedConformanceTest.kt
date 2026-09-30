@@ -22,9 +22,11 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.novel.download.NovelDownloadCache
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.chapter.model.Chapter
@@ -116,6 +118,14 @@ class MergedResumeDownloadedConformanceTest {
                 coEvery { computeRelatedIds(any()) } returns
                     longArrayOf(1L, 2L)
             }
+            // A copy is on disk only under its own novel's folder, as the index answers it.
+            val cache = mockk<NovelDownloadCache> {
+                every { downloadedChapterIds(any<Novel>(), any()) } answers {
+                    val owner = firstArg<Novel>()
+                    secondArg<List<NovelChapter>>().filter { it.novelId == owner.id && it.id in onDisk }
+                        .mapTo(HashSet()) { it.id }
+                }
+            }
             val render = NovelMergedChapterProvider(mockk(), mockk(), mockk())
             val mergedChapterProvider = mockk<NovelMergedChapterProvider> {
                 coEvery { stitchOf(any()) } returns stitch
@@ -127,9 +137,7 @@ class MergedResumeDownloadedConformanceTest {
                 NovelPreferences(InMemoryPreferenceStore(sequenceOf())),
                 mergeManager,
                 mergedChapterProvider,
-            ).awaitFirstUnreadInGroup(1L, downloadedOnly = true) { chapters, _ ->
-                chapters.mapNotNullTo(HashSet()) { chapter -> chapter.id.takeIf { it in onDisk } }
-            }?.id
+            ).awaitFirstUnreadInGroup(1L, downloadedOnly = true, downloadedIds = cache::downloadedChapterIds)?.id
         }
 
         @JvmStatic

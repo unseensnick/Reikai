@@ -30,8 +30,10 @@ import reikai.domain.manga.AdultContentChecker
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.ownersOf
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.EmptyChapterException
@@ -126,9 +128,9 @@ class NovelDownloadManager(
     /** Queue [chapters], dropping any already on disk, as Mihon's Downloader.queueChapters does, so no
      *  caller can fetch a downloaded chapter again. Suspends to look up each chapter's own novel. */
     suspend fun downloadChapters(chapters: List<NovelChapter>) {
-        val novels = novelsOf(chapters)
+        val onDisk = cache.downloadedChapterIds(chapters, novelRepo.ownersOf(chapters))
         val targets = chapters
-            .filterNot { ch -> novels[ch.novelId]?.let { cache.isChapterDownloaded(it, ch) } == true }
+            .filterNot { it.id in onDisk }
             .map { ch -> NovelDownload(novelId = ch.novelId, chapterId = ch.id, url = ch.url) }
         if (targets.isEmpty()) return
         _queueState.update { current ->
@@ -301,13 +303,8 @@ class NovelDownloadManager(
         completions.retainOnly(_queueState.value.mapTo(HashSet()) { it.novelId })
     }
 
-    private suspend fun novelsOf(chapters: List<NovelChapter>): Map<Long, Novel> =
-        chapters.map { it.novelId }.distinct()
-            .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
-            .toMap()
-
     private suspend fun deleteChapterFiles(chapters: List<NovelChapter>) {
-        val novelsById = novelsOf(chapters)
+        val novelsById = novelRepo.ownersOf(chapters)
         chapters.forEach { ch ->
             store.remove(ch.id)
             val novel = novelsById[ch.novelId] ?: return@forEach

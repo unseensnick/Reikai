@@ -16,6 +16,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.model.sortedAndFiltered
+import reikai.domain.novel.ownersOf
 
 /** A merged novel's chapters in reading order, and the ids another source of the group already read. */
 data class NovelGroupChapters(
@@ -100,8 +101,7 @@ class GetNextNovelChapter(
     ): List<NovelChapter> {
         val novel = novelRepository.getById(novelId) ?: return group.chapters
         val pooled = group.pooledChapters
-        val novels = pooled.mapTo(HashSet()) { it.novelId }.mapNotNull { novelRepository.getById(it) }
-            .associateBy { it.id }
+        val novels = novelRepository.ownersOf(pooled)
         val flags = GroupChapterFlags(
             MergeScope.Group,
             pooled,
@@ -126,7 +126,7 @@ class GetNextNovelChapter(
     suspend fun hiddenAmong(chapters: List<NovelChapter>): (NovelChapter) -> Boolean {
         val hidden = novelPreferences.hiddenChapters().get()
         if (hidden.isEmpty()) return { false }
-        val sourceOf = chapters.mapTo(HashSet()) { it.novelId }.associateWith { novelRepository.getById(it)?.source }
+        val sourceOf = novelRepository.ownersOf(chapters).mapValues { it.value.source }
         return { chapter -> chapter.hiddenKey(sourceOf) in hidden }
     }
 
