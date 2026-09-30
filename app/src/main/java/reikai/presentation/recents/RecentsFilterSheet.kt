@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -19,7 +18,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
@@ -32,7 +30,6 @@ import tachiyomi.domain.updates.service.UpdatesPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.TriStateItem
-import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState as collectAsPrefState
 
@@ -217,10 +214,10 @@ private fun ColumnScope.GroupBySeriesSwitch(viewModel: UpdatesSettingsViewModel)
 }
 
 @Composable
-private fun SwitchRow(label: String, checked: Boolean, onToggle: () -> Unit, enabled: Boolean = true) {
+private fun SwitchRow(label: String, checked: Boolean, onToggle: () -> Unit) {
     Row(
         modifier = Modifier
-            .clickable(enabled = enabled) { onToggle() }
+            .clickable { onToggle() }
             .fillMaxWidth()
             .padding(horizontal = SettingsItemsPaddings.Horizontal),
         verticalAlignment = Alignment.CenterVertically,
@@ -231,6 +228,6 @@ private fun SwitchRow(label: String, checked: Boolean, onToggle: () -> Unit, ena
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodyMedium,
         )
-        Switch(checked = checked, enabled = enabled, onCheckedChange = { onToggle() })
+        Switch(checked = checked, onCheckedChange = { onToggle() })
     }
 }

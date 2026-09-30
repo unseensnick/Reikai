@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -19,7 +18,6 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,7 +49,6 @@ import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
 import eu.kanade.presentation.util.formatChapterNumber
-import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.util.lang.toLocalDate
@@ -60,9 +57,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import mihon.feature.upcoming.UpcomingScreen
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.CalendarMonth
 import mihon.icons.materialsymbols.rounded.Delete
-import mihon.icons.materialsymbols.rounded.DeleteSweep
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.FlipToBack
@@ -222,7 +217,6 @@ fun Screen.RecentsScreen(
                 onRefresh = ::refresh,
                 showsClearHistory = showsRead,
                 onClearHistory = { engine.openDialog(RecentsDialog.ClearHistory) },
-                scrollBehavior = null,
             )
         },
         bottomBar = {
@@ -327,7 +321,6 @@ fun Screen.RecentsScreen(
  * Search and selection cannot share one bar: [SearchToolbar] has no action mode, and [AppBar] hides
  * its normal actions the moment the counter rises. So the bar swaps rather than growing a branch.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RecentsToolbar(
     title: String,
@@ -345,7 +338,6 @@ private fun RecentsToolbar(
     onRefresh: () -> Unit,
     showsClearHistory: Boolean,
     onClearHistory: () -> Unit,
-    scrollBehavior: TopAppBarScrollBehavior?,
 ) {
     if (selectionCount > 0) {
         AppBar(
@@ -368,7 +360,6 @@ private fun RecentsToolbar(
                     ),
                 )
             },
-            scrollBehavior = scrollBehavior,
         )
         return
     }
@@ -424,7 +415,6 @@ private fun RecentsToolbar(
                 },
             )
         },
-        scrollBehavior = scrollBehavior,
     )
 }
 
@@ -434,7 +424,7 @@ private fun RecentsEmptyState(
     mode: RecentsMode,
     query: String?,
     filterActive: Boolean,
-    onFilterClicked: (() -> Unit)?,
+    onFilterClicked: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     EmptyScreen(
@@ -444,9 +434,10 @@ private fun RecentsEmptyState(
             else -> mode.emptyRes
         },
         modifier = modifier,
-        actions = onFilterClicked
-            ?.takeIf { filterActive }
-            ?.let { listOf(EmptyScreenAction(MR.strings.action_filter, MaterialSymbols.Rounded.FilterList, it)) },
+        actions = listOf(
+            EmptyScreenAction(MR.strings.action_filter, MaterialSymbols.Rounded.FilterList, onFilterClicked),
+        )
+            .takeIf { filterActive },
     )
 }
 

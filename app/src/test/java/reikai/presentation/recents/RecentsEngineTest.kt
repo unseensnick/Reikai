@@ -680,12 +680,6 @@ class RecentsEngineTest {
     }
 
     @Test
-    fun `the grouping toggle belongs to the Updates mode alone`() {
-        RecentsMode.entries.filter { it.can(RecentsCapability.GROUPING) } shouldContainExactly
-            listOf(RecentsMode.UPDATES)
-    }
-
-    @Test
     fun `a refresh that starts one library reports a start, not an already-running`() {
         val manga = provider(ContentType.MANGA, refreshStarts = false)
         val novel = provider(ContentType.NOVELS, refreshStarts = true)

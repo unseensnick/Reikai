@@ -39,15 +39,14 @@ enum class RecentsMode {
      */
     val capabilities: Set<RecentsCapability>
         get() = when (this) {
-            // A history feed has no burst to group, so no GROUPING. It does take a selection: the
-            // combined modes already give a read row one, and every verb behind it acts on the
-            // chapter that row names rather than on an update burst. Withholding it here made the
-            // same row answer differently depending on which tab drew it. It could also answer the
+            // History takes a selection: the combined modes already give a read row one, and every
+            // verb behind it acts on the chapter that row names rather than on an update burst.
+            // Withholding it here made the same row answer differently depending on which tab drew
+            // it. It could also answer the
             // chapter-state filters (its rows carry that state), but the four preferences behind them
             // are the Updates view's, and obeying them unprompted would narrow this feed silently.
             HISTORY -> setOf(RecentsCapability.SELECTION)
-            UPDATES -> setOf(RecentsCapability.SELECTION, RecentsCapability.CHAPTER_FILTER, RecentsCapability.GROUPING)
-            FEED, DIGEST -> setOf(RecentsCapability.SELECTION, RecentsCapability.CHAPTER_FILTER)
+            UPDATES, FEED, DIGEST -> setOf(RecentsCapability.SELECTION, RecentsCapability.CHAPTER_FILTER)
         }
 
     fun can(capability: RecentsCapability): Boolean = capability in capabilities
@@ -92,8 +91,7 @@ val RECENTS_MODE_ORDER = listOf(
 )
 
 /**
- * An affordance a mode either has or does not. [CHAPTER_FILTER] and [GROUPING] are what the filter
- * sheet asks about before drawing its chapter-state block and its grouping switch; [GROUPING] is the
- * Updates mode's own, since the combined modes have no ungrouped reading to switch to.
+ * An affordance a mode either has or does not. [CHAPTER_FILTER] decides whether the chapter-state
+ * filters judge a mode's rows and count toward its filtered state.
  */
-enum class RecentsCapability { SELECTION, CHAPTER_FILTER, GROUPING }
+enum class RecentsCapability { SELECTION, CHAPTER_FILTER }
