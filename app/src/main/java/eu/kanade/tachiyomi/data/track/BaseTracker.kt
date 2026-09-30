@@ -21,9 +21,8 @@ import mihon.app.di.appGraph
 import okhttp3.OkHttpClient
 import reikai.data.track.MetadataAccess
 import reikai.domain.track.TrackFieldMutations
-import reikai.domain.track.sendsProgressTo
+import reikai.domain.track.pushTrackEdit
 import reikai.presentation.track.trackerErrorMessage
-import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.interactor.UpsertTrack
@@ -191,21 +190,14 @@ abstract class BaseTracker(
     }
     // RK <--
 
-    private suspend fun updateRemote(track: Track): Unit = withIOContext {
-        try {
-            // RK --> a status or date change on a server binding nobody has started must not push its 0
-            if (sendsProgressTo(this@BaseTracker, track.last_chapter_read)) update(track)
-            // RK <--
-            track.toDomainTrack(idRequired = false)?.let {
-                upsertTrack.await(it)
-            }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to update remote track data id=$id" }
-            // RK --> the tracker-worded message both content types' updates share
-            withUIContext { context.toast(context.trackerErrorMessage(this@BaseTracker, e)) }
-            // RK <--
+    // RK --> the push both content types' edits share (pushTrackEdit): it keeps a server binding nobody has
+    // started from its 0 and toasts a failure in the tracker's words; this side persists to manga_track
+    private suspend fun updateRemote(track: Track) = pushTrackEdit(context, track) { pushed ->
+        pushed.toDomainTrack(idRequired = false)?.let {
+            upsertTrack.await(it)
         }
     }
+    // RK <--
 }
 
 // RK: the prefix every tracker's id search is spelled with.

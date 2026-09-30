@@ -1,6 +1,7 @@
 package reikai.domain.novel.track
 
 import eu.kanade.tachiyomi.data.database.models.TrackImpl
+import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -68,5 +69,17 @@ class NovelTrackUpdaterTest {
     fun `setting completed status snaps last chapter to the total`() = runTest {
         updater.setRemoteStatus(tracker, dbTrack(lastRead = 4.0, total = 10), completed)
         inserted.single().lastChapterRead shouldBe 10.0
+    }
+
+    @Test
+    fun `a server tracker is not sent an update for a status change on nothing read`() = runTest {
+        val sent = mutableListOf<DbTrack>()
+        val server = mockk<Tracker>(relaxed = true, moreInterfaces = arrayOf(EnhancedTracker::class)) {
+            coEvery { update(any(), any()) } answers { firstArg<DbTrack>().also(sent::add) }
+        }
+
+        updater.setRemoteStatus(server, dbTrack(lastRead = 0.0), reading)
+
+        sent shouldBe emptyList()
     }
 }
