@@ -263,29 +263,31 @@ class RecentsEngine(
     }
 
     /**
-     * Whether the chip shows a manga provider. Scanlator exclusion reaches nothing else, since a novel
-     * chapter has no scanlator, so the filter sheet hides its switch off this and [filterActive] ignores it.
+     * What the providers behind the chip offer between them. Under All one provider answering is
+     * enough, since the affordance then reaches that provider's rows. The toolbar, the filter sheet and
+     * [filterActive] all ask this rather than the content type.
      */
-    val chipShowsManga: StateFlow<Boolean> by lazy {
-        contentType.map(::showsManga).stateIn(viewModelScope, SharingStarted.Eagerly, showsManga(contentType.value))
+    val chipCapabilities: StateFlow<Set<RecentsTypeCapability>> by lazy {
+        contentType.map(::capabilitiesFor)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, capabilitiesFor(contentType.value))
     }
 
     /**
      * Whether a filter is narrowing this surface, so an empty feed can say why. Asked of the mode on
      * screen rather than of every mode the surface renders: a surface drawing several of them always
      * has the updated lane somewhere, which would report a history feed as filtered by a filter that
-     * cannot reach it. The chip is asked for the same reason, since scanlator exclusion reaches
-     * nothing on a novel feed.
+     * cannot reach it. The chip is asked for the same reason, since scanlator exclusion reaches only
+     * a provider that answers for it.
      */
     val filterActive: StateFlow<Boolean> by lazy {
         combine(
             sourcePreferences.recentsCategoryFilterFlow(surface).map { it.active },
             rawChapterFilters.map { it.isActive },
             updatesPreferences.filterExcludedScanlators.changes(),
-            chipShowsManga,
+            chipCapabilities,
             mode,
-        ) { byCategory, byChapterState, byScanlator, chipShowsManga, mode ->
-            recentsFilterActive(byCategory, byChapterState, byScanlator, chipShowsManga, mode)
+        ) { byCategory, byChapterState, byScanlator, chipCapabilities, mode ->
+            recentsFilterActive(byCategory, byChapterState, byScanlator, chipCapabilities, mode)
         }
             .distinctUntilChanged()
             .stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -769,8 +771,8 @@ class RecentsEngine(
     private fun activeIndices(chip: ContentType): List<Int> =
         providers.indices.filter { chip.includes(providers[it].contentType) }
 
-    private fun showsManga(chip: ContentType): Boolean =
-        activeIndices(chip).any { providers[it].contentType == ContentType.MANGA }
+    private fun capabilitiesFor(chip: ContentType): Set<RecentsTypeCapability> =
+        activeIndices(chip).flatMapTo(HashSet()) { providers[it].typeCapabilities }
 }
 
 /**
@@ -778,16 +780,19 @@ class RecentsEngine(
  * [RecentsEngine.showsRow] is judged under: asking it a second way (whether the updated lane renders)
  * gives the same four answers today and would drift the moment a view's lanes and its controls stop
  * lining up. Without the gate, History reports itself filtered by a filter set on Updates.
- * Scanlator exclusion takes a second gate: a novel chapter has no scanlator to exclude.
+ * Scanlator exclusion takes a second gate: a provider behind the chip must answer for it.
  */
 internal fun recentsFilterActive(
     byCategory: Boolean,
     byChapterState: Boolean,
     byScanlator: Boolean,
-    chipShowsManga: Boolean,
+    chipCapabilities: Set<RecentsTypeCapability>,
     mode: RecentsMode,
 ): Boolean = byCategory ||
-    ((byChapterState || (byScanlator && chipShowsManga)) && mode.can(RecentsCapability.CHAPTER_FILTER))
+    (
+        (byChapterState || (byScanlator && RecentsTypeCapability.SCANLATOR_FILTER in chipCapabilities)) &&
+            mode.can(RecentsCapability.CHAPTER_FILTER)
+        )
 
 /**
  * One assembly pass: the ordered rows and what the surface can say about them. [chip] is what the rows

@@ -41,8 +41,8 @@ import tachiyomi.presentation.core.util.collectAsState as collectAsPrefState
  * it acts on, so a setting is never somewhere you must switch section to reach. Each tab states the
  * sections it reaches, which is the scope the old sheet stated by hiding things. The selection it
  * edits belongs to [surface], so two separate tabs cannot move each other's filters. The one control
- * hidden is the scanlator switch when the chip shows no manga ([showsScanlatorFilter]): that is a
- * content type lacking the capability, not a mode, and a novel chapter has no scanlator.
+ * hidden is the scanlator switch ([showsScanlatorFilter]) when no provider behind the chip answers
+ * [RecentsTypeCapability.SCANLATOR_FILTER]: that is a content type lacking it, not a mode.
  */
 @Composable
 fun RecentsFilterSheet(

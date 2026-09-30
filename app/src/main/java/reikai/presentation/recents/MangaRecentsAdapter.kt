@@ -115,6 +115,8 @@ class MangaRecentsAdapter(
 
     override val contentType = ContentType.MANGA
 
+    override val typeCapabilities = setOf(RecentsTypeCapability.UPCOMING, RecentsTypeCapability.SCANLATOR_FILTER)
+
     // A null list is this model's "no emission yet", where the updates model carries a loading flag.
     // Lazy so a surface that renders neither lane never touches the model it was not given.
     override val readLane: Flow<RecentsLaneRows> by lazy {

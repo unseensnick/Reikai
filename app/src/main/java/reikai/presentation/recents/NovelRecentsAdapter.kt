@@ -107,6 +107,8 @@ class NovelRecentsAdapter(
 
     override val contentType = ContentType.NOVELS
 
+    override val typeCapabilities = emptySet<RecentsTypeCapability>()
+
     // Lazy so a surface that renders neither lane never touches the model it was not given.
     override val readLane: Flow<RecentsLaneRows> by lazy {
         val rows = historyRows().state.map { state ->

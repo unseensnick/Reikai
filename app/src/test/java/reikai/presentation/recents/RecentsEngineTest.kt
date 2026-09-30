@@ -136,6 +136,7 @@ class RecentsEngineTest {
     private val manga2 = EntryId.Manga(2)
     private val novel1 = EntryId.Novel(1)
     private val category = Category(id = 3L, name = "Reading", order = 0L, flags = 0L)
+    private val scanlatorFilter = setOf(RecentsTypeCapability.SCANLATOR_FILTER)
 
     private fun duplicates(entry: EntryId) = RecentsDuplicates(
         duplicates = listOf(
@@ -857,7 +858,7 @@ class RecentsEngineTest {
             byCategory = false,
             byChapterState = true,
             byScanlator = false,
-            chipShowsManga = true,
+            chipCapabilities = scanlatorFilter,
             mode = RecentsMode.UPDATES,
         ) shouldBe true
     }
@@ -868,7 +869,7 @@ class RecentsEngineTest {
             byCategory = false,
             byChapterState = true,
             byScanlator = false,
-            chipShowsManga = true,
+            chipCapabilities = scanlatorFilter,
             mode = RecentsMode.HISTORY,
         ) shouldBe false
     }
@@ -879,51 +880,71 @@ class RecentsEngineTest {
             byCategory = true,
             byChapterState = false,
             byScanlator = false,
-            chipShowsManga = true,
+            chipCapabilities = scanlatorFilter,
             mode = RecentsMode.HISTORY,
         ) shouldBe true
     }
 
     @Test
-    fun `excluded scanlators mark a manga feed that offers the chapter filters`() {
+    fun `excluded scanlators mark a feed that answers for them and offers the chapter filters`() {
         recentsFilterActive(
             byCategory = false,
             byChapterState = false,
             byScanlator = true,
-            chipShowsManga = true,
+            chipCapabilities = scanlatorFilter,
             mode = RecentsMode.UPDATES,
         ) shouldBe true
     }
 
     @Test
-    fun `excluded scanlators do not mark a feed with no manga behind it`() {
+    fun `excluded scanlators do not mark a feed nothing behind it answers for`() {
         recentsFilterActive(
             byCategory = false,
             byChapterState = false,
             byScanlator = true,
-            chipShowsManga = false,
+            chipCapabilities = emptySet(),
             mode = RecentsMode.UPDATES,
         ) shouldBe false
     }
 
-    // The filter sheet draws the scanlator switch off this, so it is hidden exactly where the rule
-    // above says the switch reaches nothing.
+    // The toolbar and the filter sheet draw Upcoming and the scanlator switch off this, so each is
+    // hidden exactly where no provider behind the chip answers for it.
 
     @Test
-    fun `a novels-only chip shows no manga`() = runTest {
+    fun `a chip offers only what the providers behind it answer`() = runTest {
         val engine = engine(
-            listOf(provider(ContentType.MANGA), provider(ContentType.NOVELS)),
+            listOf(
+                provider(ContentType.MANGA, typeCapabilities = RecentsTypeCapability.entries.toSet()),
+                provider(ContentType.NOVELS),
+            ),
             chip = ContentType.NOVELS,
         )
 
-        settled(engine.chipShowsManga) shouldBe false
+        settled(engine.chipCapabilities) shouldBe emptySet()
     }
 
     @Test
-    fun `the All chip shows manga`() = runTest {
-        val engine = engine(listOf(provider(ContentType.MANGA), provider(ContentType.NOVELS)))
+    fun `the All chip offers the union of both providers`() = runTest {
+        val engine = engine(
+            listOf(
+                provider(ContentType.MANGA, typeCapabilities = setOf(RecentsTypeCapability.UPCOMING)),
+                provider(ContentType.NOVELS, typeCapabilities = scanlatorFilter),
+            ),
+        )
 
-        settled(engine.chipShowsManga) shouldBe true
+        settled(engine.chipCapabilities) shouldBe RecentsTypeCapability.entries.toSet()
+    }
+
+    @Test
+    fun `a manga provider without the scanlator filter leaves All without it`() = runTest {
+        val engine = engine(
+            listOf(
+                provider(ContentType.MANGA, typeCapabilities = setOf(RecentsTypeCapability.UPCOMING)),
+                provider(ContentType.NOVELS),
+            ),
+        )
+
+        settled(engine.chipCapabilities) shouldBe setOf(RecentsTypeCapability.UPCOMING)
     }
 
     /**
@@ -938,7 +959,7 @@ class RecentsEngineTest {
                 byCategory = false,
                 byChapterState = true,
                 byScanlator = false,
-                chipShowsManga = true,
+                chipCapabilities = scanlatorFilter,
                 mode = it,
             )
         } shouldContainExactly RecentsMode.entries.map { it.can(RecentsCapability.CHAPTER_FILTER) }
@@ -1505,6 +1526,7 @@ private fun provider(
     unreadEntries: Set<EntryId> = emptySet(),
     targetRows: Map<ChapterRef, RecentsTargetRow> = emptyMap(),
     membership: Map<EntryId, Long> = emptyMap(),
+    typeCapabilities: Set<RecentsTypeCapability> = emptySet(),
 ) = FakeRecentsProvider(
     type,
     read,
@@ -1523,6 +1545,7 @@ private fun provider(
     unreadEntries,
     targetRows,
     membership,
+    typeCapabilities,
 )
 
 /** A resolved target row, carrying only what the engine and the bar read off one. */
@@ -1560,6 +1583,7 @@ private class FakeRecentsProvider(
     unread: Set<EntryId>,
     private val targetRows: Map<ChapterRef, RecentsTargetRow>,
     memberships: Map<EntryId, Long>,
+    override val typeCapabilities: Set<RecentsTypeCapability>,
 ) : RecentsProvider {
 
     var historyCleared = false

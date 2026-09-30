@@ -120,7 +120,7 @@ fun Screen.RecentsScreen(
     // Collected, never read as `value`: shared while subscribed, it answers its seed to nobody.
     val lastUpdated by engine.lastUpdated.collectAsStateWithLifecycle()
     val filterActive by engine.filterActive.collectAsState()
-    val chipShowsManga by engine.chipShowsManga.collectAsState()
+    val chipCapabilities by engine.chipCapabilities.collectAsState()
     val selection by engine.selection.collectAsState()
     val swipeActions by engine.swipeActions.collectAsState()
     // Null until the assembly catches up with the chip, which is drawn as loading.
@@ -214,7 +214,7 @@ fun Screen.RecentsScreen(
                 onInvertSelection = { engine.invertSelection(orderedRefs) },
                 filterActive = filterActive,
                 onFilterClicked = { filterSheetOpen = true },
-                showsCalendar = contentType != ContentType.NOVELS && showsUpdated,
+                showsCalendar = RecentsTypeCapability.UPCOMING in chipCapabilities && showsUpdated,
                 onCalendarClicked = { navigator.push(UpcomingScreen()) },
                 // Both are the updated lane's: History has never offered either, and a takeover that
                 // added them would be inventing an affordance rather than carrying one across.
@@ -310,7 +310,7 @@ fun Screen.RecentsScreen(
     if (filterSheetOpen) {
         RecentsFilterSheet(
             surface = engine.surface,
-            showsScanlatorFilter = chipShowsManga,
+            showsScanlatorFilter = RecentsTypeCapability.SCANLATOR_FILTER in chipCapabilities,
             onDismissRequest = { filterSheetOpen = false },
         )
     }

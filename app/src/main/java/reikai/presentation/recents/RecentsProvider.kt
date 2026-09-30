@@ -47,6 +47,9 @@ internal fun Flow<List<RecentsItem>>.asLane(): Flow<RecentsLaneRows> =
 interface RecentsProvider : RecentsBehavior {
     val contentType: ContentType
 
+    /** What this type's half of the surface offers beyond the rows; see [RecentsTypeCapability]. */
+    val typeCapabilities: Set<RecentsTypeCapability>
+
     /** Entries with reading history, newest read first, one row per entry. */
     val readLane: Flow<RecentsLaneRows>
 
@@ -168,3 +171,11 @@ interface RecentsProvider : RecentsBehavior {
      */
     fun open(item: RecentsItem, chapter: ChapterRef): Intent
 }
+
+/**
+ * An affordance one content type's half of the surface either has or does not, asked of the providers
+ * behind the chip so shared code never names a type. [UPCOMING] is Mihon's release calendar, which
+ * reads the manga library alone; [SCANLATOR_FILTER] is the excluded-scanlators switch, and a novel
+ * chapter has no scanlator. What no provider behind the chip answers is hidden, never drawn inert.
+ */
+enum class RecentsTypeCapability { UPCOMING, SCANLATOR_FILTER }
