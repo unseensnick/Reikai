@@ -85,7 +85,6 @@ class LibraryEngineTest {
         isLibraryEmpty = false,
         searchQuery = null,
         hasActiveFilters = false,
-        activeCategoryIndex = 0,
         showContinueButton = false,
         overlayKey = null,
     )
@@ -297,6 +296,16 @@ class LibraryEngineTest {
         engine.setCategories(entries = setOf(m1, m2), addCategories = listOf(3L), removeCategories = emptyList())
 
         verify { manga.setCategories(setOf(m1), listOf(3L), emptyList()) }
+    }
+
+    /** Each chip's pager indexes its own category list, so a swipe under All must not move Manga's restore page. */
+    @Test
+    fun `a swipe under All leaves the Manga chip's restore page`() {
+        engine.updateActiveCategoryIndex(ContentType.MANGA, 2)
+
+        engine.updateActiveCategoryIndex(ContentType.ALL, 3)
+
+        engine.initialPageFor(ContentType.MANGA) shouldBe 2
     }
 
     @Test

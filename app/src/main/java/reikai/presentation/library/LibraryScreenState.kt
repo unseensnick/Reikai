@@ -15,11 +15,6 @@ data class LibraryScreenState(
     val isLibraryEmpty: Boolean,
     val searchQuery: String?,
     val hasActiveFilters: Boolean,
-    /**
-     * The raw page index, uncoerced. Each model coerces against its own category list, which under the
-     * All chip is not the list on screen, so the tab coerces against what it actually renders.
-     */
-    val activeCategoryIndex: Int,
     /** The resume ("continue reading") button is shown on covers. */
     val showContinueButton: Boolean,
     /**

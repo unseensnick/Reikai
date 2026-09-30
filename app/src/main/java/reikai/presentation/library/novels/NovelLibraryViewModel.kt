@@ -126,8 +126,6 @@ class NovelLibraryViewModel(
 
     private val searchQuery = MutableStateFlow<String?>(null)
 
-    private val activeCategoryIndex = MutableStateFlow(0)
-
     /** Null until the first build answers, which the derived state reads as still loading. */
     private val built: StateFlow<State?> =
         combine(
@@ -160,18 +158,11 @@ class NovelLibraryViewModel(
             .flowOn(Dispatchers.IO)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 
-    val state: StateFlow<State> = combine(
-        built,
-        searchQuery,
-        activeCategoryIndex,
-    ) { built, searchQuery, activeCategoryIndex ->
-        // The query and the active page come from their own holders, never from [built]: that lags the
-        // user by a debounce plus a query, so taking its copy resets the search field to a stale value
-        // mid-input and scrambles fast keystrokes. The selection is not here at all; the engine owns it.
-        (built ?: State()).copy(
-            searchQuery = searchQuery,
-            activeCategoryIndex = activeCategoryIndex,
-        )
+    val state: StateFlow<State> = combine(built, searchQuery) { built, searchQuery ->
+        // The query comes from its own holder, never from [built]: that lags the user by a debounce plus
+        // a query, so taking its copy resets the search field to a stale value mid-input and scrambles
+        // fast keystrokes. The selection is not here at all; the engine owns it.
+        (built ?: State()).copy(searchQuery = searchQuery)
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
@@ -411,14 +402,10 @@ class NovelLibraryViewModel(
         )
     }
 
-    // --- search and the active page (read by LibraryTab) ---
+    // --- search ---
 
     fun search(query: String?) {
         searchQuery.value = query
-    }
-
-    fun updateActiveCategoryIndex(index: Int) {
-        activeCategoryIndex.value = index
     }
 
     // --- multi-select actions ---
@@ -581,7 +568,6 @@ class NovelLibraryViewModel(
     data class State(
         val isLoading: Boolean = true,
         val searchQuery: String? = null,
-        val activeCategoryIndex: Int = 0,
         val hasActiveFilters: Boolean = false,
         val showContinueButton: Boolean = false,
         /** The filtered, merge-collapsed rows before bucketing and sort, in pipeline order; the novel

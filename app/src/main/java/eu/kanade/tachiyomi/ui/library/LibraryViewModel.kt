@@ -155,7 +155,8 @@ class LibraryViewModel(
 
     private val searchQuery = MutableStateFlow<String?>(null)
 
-    private val activeCategoryIndex = MutableStateFlow(libraryPreferences.lastUsedCategory.get())
+    // RK: the active page moved to LibraryEngine, which persists it per chip and seeds each pager
+    //     through initialPageFor
 
     private val displayPreferences = combine(
         libraryPreferences.categoryTabs.changes(),
@@ -253,10 +254,9 @@ class LibraryViewModel(
     val state: StateFlow<State> = combine(
         libraryData,
         searchQuery,
-        activeCategoryIndex,
         displayPreferences,
         hasActiveFilters,
-    ) { libraryData, searchQuery, activeCategoryIndex, display, hasActiveFilters ->
+    ) { libraryData, searchQuery, display, hasActiveFilters ->
         State(
             isLoading = libraryData == null,
             searchQuery = searchQuery,
@@ -265,7 +265,6 @@ class LibraryViewModel(
             showMangaCount = display.showMangaCount,
             showMangaContinueButton = display.showMangaContinueButton,
             libraryData = libraryData ?: LibraryData(),
-            activeCategoryIndex = activeCategoryIndex,
         )
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
@@ -741,12 +740,7 @@ class LibraryViewModel(
         searchQuery.update { query }
     }
 
-    fun updateActiveCategoryIndex(index: Int) {
-        activeCategoryIndex.update { index }
-        // RK: upstream persisted lastUsedCategory here, coercing the index it read back off the derived
-        // state; LibraryEngine owns that now, per chip, so a swipe under All can no longer overwrite the
-        // Manga chip's restore point, and there is nothing to read back.
-    }
+    // RK: updateActiveCategoryIndex moved to LibraryEngine, which persists the settled page per chip
 
     @Immutable
     private data class ItemPreferences(
@@ -786,12 +780,9 @@ class LibraryViewModel(
         val showMangaCount: Boolean = false,
         val showMangaContinueButton: Boolean = false,
         val libraryData: LibraryData = LibraryData(),
-        // RK: exposed (upstream keeps it private) so the adapter can hand the tab the RAW index. The
-        // coercion below is against this model's own category list, which is the wrong list under the
-        // All chip; the tab coerces against the list it actually renders instead.
-        val activeCategoryIndex: Int = 0,
-        // RK: upstream's groupedFavorites (the bucketed, sorted list) and everything derived from it are
-        // gone. LibraryEngine.assembled owns the list; this State carries rows and per-type status only.
+        // RK: the active page is LibraryEngine's (initialPageFor), and so is the list: upstream's
+        // groupedFavorites and everything derived from it are gone, since LibraryEngine.assembled owns it.
+        // This State carries rows and per-type status only.
     ) {
         val isLibraryEmpty = libraryData.favorites.isEmpty()
 

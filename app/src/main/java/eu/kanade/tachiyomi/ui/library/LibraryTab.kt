@@ -173,7 +173,6 @@ data object LibraryTab : Tab {
                 // The engine fans a search out to both models, so the two queries mirror each other.
                 searchQuery = mangaLibState.searchQuery,
                 hasActiveFilters = mangaLibState.hasActiveFilters || novelLibState.hasActiveFilters,
-                activeCategoryIndex = mangaLibState.activeCategoryIndex,
                 showContinueButton = mangaLibState.showContinueButton,
                 // Either type's overlay edit must reach the screen, so both identities are carried.
                 overlayKey = mangaLibState.overlayKey to novelLibState.overlayKey,
@@ -247,11 +246,10 @@ data object LibraryTab : Tab {
             ContentType.NOVELS -> novelPageCount.intValue = activeBuckets.size
             ContentType.ALL -> allPageCount.intValue = activeBuckets.size
         }
-        val mangaPagerState = rememberPagerState(initialPage = mangaLibState.activeCategoryIndex) {
-            mangaPageCount.intValue
-        }
+        val mangaInitialPage = remember { engine.initialPageFor(ContentType.MANGA) }
         val novelInitialPage = remember { engine.initialPageFor(ContentType.NOVELS) }
         val allInitialPage = remember { engine.initialPageFor(ContentType.ALL) }
+        val mangaPagerState = rememberPagerState(initialPage = mangaInitialPage) { mangaPageCount.intValue }
         val novelPagerState = rememberPagerState(initialPage = novelInitialPage) { novelPageCount.intValue }
         val allPagerState = rememberPagerState(initialPage = allInitialPage) { allPageCount.intValue }
         val pagerState = when (libraryContentType) {

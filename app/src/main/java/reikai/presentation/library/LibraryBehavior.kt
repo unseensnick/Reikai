@@ -82,6 +82,4 @@ interface LibraryBehavior {
      * instead of being silently dropped by the write that follows.
      */
     suspend fun categoryIdsFor(entries: Set<EntryId>): List<Set<Long>>
-
-    fun updateActiveCategoryIndex(index: Int)
 }

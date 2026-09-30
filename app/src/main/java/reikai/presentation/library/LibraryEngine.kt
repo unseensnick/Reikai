@@ -366,11 +366,12 @@ class LibraryEngine(
         providersFor(contentType).forEach { it.search(query) }
     }
 
-    /** The active category page, fanned out so each model's own coercion stays consistent. */
+    /**
+     * Persist a chip's settled page, which [initialPageFor] seeds that chip's pager from. Per chip: the
+     * three pagers index different category lists, so one shared key meant a swipe under All rewrote
+     * the Manga chip's restore point with a foreign index.
+     */
     fun updateActiveCategoryIndex(contentType: ContentType, index: Int) {
-        providersFor(contentType).forEach { it.updateActiveCategoryIndex(index) }
-        // Persisted per chip: the three pagers index different category lists, so one shared key
-        // meant a swipe under All rewrote the Manga chip's restore point with a foreign index.
         when (contentType) {
             ContentType.MANGA -> libraryPreferences.lastUsedCategory.set(index)
             ContentType.NOVELS -> reikaiLibraryPreferences.lastUsedNovelCategory.set(index)

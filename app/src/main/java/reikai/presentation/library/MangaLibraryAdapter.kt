@@ -123,7 +123,6 @@ class MangaLibraryAdapter(
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,
         hasActiveFilters = hasActiveFilters,
-        activeCategoryIndex = activeCategoryIndex,
         showContinueButton = showMangaContinueButton,
         overlayKey = libraryData.customInfo,
     )
@@ -197,8 +196,4 @@ class MangaLibraryAdapter(
     override suspend fun categoryIdsFor(entries: Set<EntryId>): List<Set<Long>> =
         model.state.value.memberIdsFor(entries.ownIds())
             .map { id -> getCategories.await(id).mapTo(mutableSetOf()) { it.id } }
-
-    override fun updateActiveCategoryIndex(index: Int) {
-        model.updateActiveCategoryIndex(index)
-    }
 }

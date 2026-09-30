@@ -117,7 +117,6 @@ class NovelLibraryAdapter(
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,
         hasActiveFilters = hasActiveFilters,
-        activeCategoryIndex = activeCategoryIndex,
         overlayKey = overlayKey,
         showContinueButton = showContinueButton,
     )
@@ -187,8 +186,4 @@ class NovelLibraryAdapter(
     override suspend fun categoryIdsFor(entries: Set<EntryId>): List<Set<Long>> =
         model.state.value.memberIdsFor(entries.ownIds())
             .map { id -> getNovelCategories.awaitByNovelId(id).mapTo(mutableSetOf()) { it.id } }
-
-    override fun updateActiveCategoryIndex(index: Int) {
-        model.updateActiveCategoryIndex(index)
-    }
 }
