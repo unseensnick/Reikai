@@ -21,7 +21,8 @@ interface MergedGroupStitcher {
 
 /**
  * Every chapter that went into a stitch, as a row to store. A chapter the stitch dropped is stored
- * with no unit rather than left out, so it counts nowhere while staleness can still see it.
+ * with no unit rather than left out, so it counts nowhere while staleness can still see it. [chapters]
+ * are the rows as loaded, since [order] must read each source's own order, not the merged restamp.
  */
 fun <T> storedUnitsOf(
     chapters: List<T>,
@@ -29,6 +30,7 @@ fun <T> storedUnitsOf(
     id: (T) -> Long,
     name: (T) -> String,
     number: (T) -> Double,
+    order: (T) -> Long,
 ): List<MergedChapterUnitRepository.StoredUnit> {
     val placed = merged.units.associateBy { it.chapterId }
     return chapters.map { chapter ->
@@ -39,6 +41,7 @@ fun <T> storedUnitsOf(
             copyOrder = unit?.copyOrder ?: 0,
             chapterName = name(chapter),
             chapterNumber = number(chapter),
+            sourceOrder = order(chapter),
         )
     }
 }

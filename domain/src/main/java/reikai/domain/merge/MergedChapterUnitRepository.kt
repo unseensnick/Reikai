@@ -70,9 +70,9 @@ interface MergedChapterUnitRepository {
 
     /**
      * One chapter's place in its group's stitch. [unit] is its position in the merged list, null when
-     * the stitch dropped it. The derived values are the identity's inputs, stored so a changed chapter
-     * reads as stale; which of them matter is per content type, and the other is written anyway so one
-     * shape serves both tables.
+     * the stitch dropped it. The derived values are the stitch's inputs, stored so a changed chapter
+     * reads as stale: the identity's (which of name and number matter is per content type, and the
+     * other is written anyway so one shape serves both tables) and [sourceOrder], its place in the walk.
      */
     data class StoredUnit(
         val chapterId: Long,
@@ -80,5 +80,6 @@ interface MergedChapterUnitRepository {
         val copyOrder: Int,
         val chapterName: String,
         val chapterNumber: Double,
+        val sourceOrder: Long,
     )
 }

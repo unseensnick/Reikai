@@ -237,7 +237,7 @@ class MergedCountConformanceTest {
         units.replaceGroup(
             ContentType.NOVELS,
             group,
-            storedUnitsOf(chapters, merged, { it.id }, { it.name }, { it.chapterNumber }),
+            storedUnitsOf(chapters, merged, { it.id }, { it.name }, { it.chapterNumber }, { it.sourceOrder }),
             ranking = null,
         )
         return units.getGroupCounts(ContentType.NOVELS)[group]
@@ -253,7 +253,7 @@ class MergedCountConformanceTest {
         units.replaceGroup(
             ContentType.MANGA,
             group,
-            storedUnitsOf(chapters, merged, { it.id }, { it.name }, { it.chapterNumber }),
+            storedUnitsOf(chapters, merged, { it.id }, { it.name }, { it.chapterNumber }, { it.sourceOrder }),
             ranking = null,
         )
         return units.getGroupCounts(ContentType.MANGA)[group]

@@ -206,6 +206,23 @@ class MergedStitchReconcileTest {
 
     @ParameterizedTest
     @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a pass that only reorders a source's chapters restitches the group`(type: ContentType) = runTest {
+        val fixture = fixture(type)
+        val group = fixture.twoSourceGroup()
+        val reconcile = fixture.reconcile()
+        reconcile.await()
+        val (alpha, bravo) = fixture.chapterIdsOf(fixture.membersOf(group).first())
+
+        reconcile.afterPass {
+            fixture.reorder(chapterId = alpha, order = 20)
+            fixture.reorder(chapterId = bravo, order = 10)
+        }
+
+        units.getStitch(type, group).first().chapterId shouldBe bravo
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
     fun `a pass that fails after writing still restitches what it wrote`(type: ContentType) = runTest {
         val fixture = fixture(type)
         val group = fixture.twoSourceGroup()
@@ -363,6 +380,16 @@ class MergedStitchReconcileTest {
             renumberLoaded(chapterId, number)
         }
 
+        /** What a source sync writes when the source lists a chapter at another place: only its order changes. */
+        suspend fun reorder(chapterId: Long, order: Long) {
+            driver.execute(
+                null,
+                "UPDATE $chapterTable SET $orderColumn = $order WHERE $idColumn = $chapterId",
+                0,
+            ).await()
+            reorderLoaded(chapterId, order)
+        }
+
         /** What a source sync does when the source stops listing a chapter: the row goes. */
         suspend fun deleteChapter(chapterId: Long) {
             driver.execute(null, "DELETE FROM $chapterTable WHERE $idColumn = $chapterId", 0).await()
@@ -375,11 +402,15 @@ class MergedStitchReconcileTest {
 
         abstract val numberColumn: String
 
+        abstract val orderColumn: String
+
         abstract fun chapterIdsOf(owner: Long): List<Long>
 
         abstract fun forgetLoaded(chapterId: Long)
 
         abstract fun renumberLoaded(chapterId: Long, number: Double)
+
+        abstract fun reorderLoaded(chapterId: Long, order: Long)
 
         /** Which member's copy the stored stitch shows for the group's first chapter, as its position. */
         suspend fun ownerOfFirstChapter(group: Long): Long {
@@ -457,6 +488,8 @@ class MergedStitchReconcileTest {
 
         override val numberColumn = "remote_chapter_number"
 
+        override val orderColumn = "remote_order"
+
         override fun chapterIdsOf(owner: Long) = chapters.filter { it.mangaId == owner }.map { it.id }
 
         override fun forgetLoaded(chapterId: Long) {
@@ -465,6 +498,10 @@ class MergedStitchReconcileTest {
 
         override fun renumberLoaded(chapterId: Long, number: Double) {
             chapters.replaceAll { if (it.id == chapterId) it.copy(chapterNumber = number) else it }
+        }
+
+        override fun reorderLoaded(chapterId: Long, order: Long) {
+            chapters.replaceAll { if (it.id == chapterId) it.copy(sourceOrder = order) else it }
         }
     }
 
@@ -515,8 +552,11 @@ class MergedStitchReconcileTest {
             val novelRepository = mockk<NovelRepository> {
                 coEvery { getById(any()) } answers { novels[firstArg()] }
             }
+            // Ordered as the real query orders them (novel_chapters.sq), since the stitch walks that order.
             val chapterRepository = mockk<NovelChapterRepository> {
-                coEvery { getByNovelId(any()) } answers { chapters.filter { it.novelId == firstArg<Long>() } }
+                coEvery { getByNovelId(any()) } answers {
+                    chapters.filter { it.novelId == firstArg<Long>() }.sortedBy { it.sourceOrder }
+                }
             }
             return NovelGroupStitcher(
                 groups,
@@ -535,6 +575,8 @@ class MergedStitchReconcileTest {
 
         override val numberColumn = "chapter_number"
 
+        override val orderColumn = "source_order"
+
         override fun chapterIdsOf(owner: Long) = chapters.filter { it.novelId == owner }.map { it.id }
 
         override fun forgetLoaded(chapterId: Long) {
@@ -543,6 +585,10 @@ class MergedStitchReconcileTest {
 
         override fun renumberLoaded(chapterId: Long, number: Double) {
             chapters.replaceAll { if (it.id == chapterId) it.copy(chapterNumber = number) else it }
+        }
+
+        override fun reorderLoaded(chapterId: Long, order: Long) {
+            chapters.replaceAll { if (it.id == chapterId) it.copy(sourceOrder = order) else it }
         }
     }
 

@@ -1,0 +1,78 @@
+-- Each stored unit records its chapter's place in its own source's list, since the stitch walks each
+-- source in that order, plus the staleness views rebuilt to compare it. See data/merged_chapter_unit.sq
+-- for the full rationale. These statements mirror that file exactly: fresh installs build from the .sq
+-- via Schema.create(), existing installs reach the same schema here.
+--
+-- Every existing row takes -1, which no chapter's order is, so every group reads as stale and is
+-- restitched once on the next reconciliation. That also applies this version's other stitch rule
+-- change: a source matching nothing already placed goes at the end of the walk (MergedChapterOrder).
+-- The units stay until then, so counts keep showing meanwhile.
+ALTER TABLE merged_chapter_unit ADD COLUMN derived_order INTEGER NOT NULL DEFAULT -1;
+
+ALTER TABLE merged_novel_chapter_unit ADD COLUMN derived_order INTEGER NOT NULL DEFAULT -1;
+
+DROP VIEW IF EXISTS mergedChapterStaleView;
+
+DROP VIEW IF EXISTS mergedNovelChapterStaleView;
+
+CREATE VIEW mergedChapterStaleView AS
+SELECT MGM.group_id AS groupId
+FROM merge_group_manga MGM
+JOIN manga M
+ON M.id = MGM.manga_id
+AND M.user_favorite_at IS NOT NULL
+JOIN chapter C
+ON C.manga_id = MGM.manga_id
+LEFT JOIN merged_chapter_unit U
+ON U.chapter_id = C.id
+AND U.group_id = MGM.group_id
+WHERE U.chapter_id IS NULL OR U.derived_number != C.remote_chapter_number
+OR U.derived_order != C.remote_order
+UNION ALL
+SELECT U.group_id AS groupId
+FROM merged_chapter_unit U
+LEFT JOIN chapter C
+ON C.id = U.chapter_id
+LEFT JOIN merge_group_manga MGM
+ON MGM.manga_id = C.manga_id
+AND MGM.group_id = U.group_id
+LEFT JOIN manga M
+ON M.id = MGM.manga_id
+AND M.user_favorite_at IS NOT NULL
+WHERE M.id IS NULL
+UNION ALL
+SELECT R.group_id AS groupId
+FROM merged_group_ranking R
+WHERE EXISTS (SELECT 1 FROM merge_group_manga MGM WHERE MGM.group_id = R.group_id)
+AND R.chapter_count != (SELECT count(*) FROM merged_chapter_unit U WHERE U.group_id = R.group_id);
+
+CREATE VIEW mergedNovelChapterStaleView AS
+SELECT MGN.group_id AS groupId
+FROM merge_group_novel MGN
+JOIN novels N
+ON N._id = MGN.novel_id
+AND N.favorite_at IS NOT NULL
+JOIN novel_chapters C
+ON C.novel_id = MGN.novel_id
+LEFT JOIN merged_novel_chapter_unit U
+ON U.chapter_id = C._id
+AND U.group_id = MGN.group_id
+WHERE U.chapter_id IS NULL OR U.derived_name != C.name OR U.derived_number != C.chapter_number
+OR U.derived_order != C.source_order
+UNION ALL
+SELECT U.group_id AS groupId
+FROM merged_novel_chapter_unit U
+LEFT JOIN novel_chapters C
+ON C._id = U.chapter_id
+LEFT JOIN merge_group_novel MGN
+ON MGN.novel_id = C.novel_id
+AND MGN.group_id = U.group_id
+LEFT JOIN novels N
+ON N._id = MGN.novel_id
+AND N.favorite_at IS NOT NULL
+WHERE N._id IS NULL
+UNION ALL
+SELECT R.group_id AS groupId
+FROM merged_group_ranking R
+WHERE EXISTS (SELECT 1 FROM merge_group_novel MGN WHERE MGN.group_id = R.group_id)
+AND R.chapter_count != (SELECT count(*) FROM merged_novel_chapter_unit U WHERE U.group_id = R.group_id);

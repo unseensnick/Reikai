@@ -149,19 +149,21 @@ class SchemaChainMigrationTest {
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a merge group the dedupe did not touch keeps its stitch`(type: Type) = runTest {
-        exec(type.entry(id = 1, url = "/a", favorite = true))
-        exec(type.entry(id = 2, url = "/b", favorite = true))
-        exec(type.chapter(id = 10, entryId = 1, url = "/c/1", read = false))
-        exec("INSERT INTO merge_group(_id, content_type) VALUES (1, ${type.contentType})")
-        exec("INSERT INTO ${type.memberTable}(group_id, ${type.ownerColumn}) VALUES (1, 1), (1, 2)")
-        exec(
-            "INSERT INTO ${type.unitTable}(chapter_id, group_id, unit, copy_order, ${type.unitColumns}) " +
-                "VALUES (10, 1, 0, 0, ${type.unitValues})",
-        )
+        stitchedGroup(type)
 
         migrate()
 
         longs("SELECT chapter_id FROM ${type.unitTable}") shouldBe listOf(10L)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a stitch stored before the walk order was recorded reads as stale`(type: Type) = runTest {
+        stitchedGroup(type)
+
+        migrate()
+
+        longs("SELECT DISTINCT groupId FROM ${type.staleView}") shouldBe listOf(1L)
     }
 
     @ParameterizedTest
@@ -196,6 +198,7 @@ class SchemaChainMigrationTest {
         val unitTable: String,
         val unitColumns: String,
         val unitValues: String,
+        val staleView: String,
         val entryIds: String,
         val readOfEntry2: String,
         val historyOwners: String,
@@ -212,6 +215,7 @@ class SchemaChainMigrationTest {
             unitTable = "merged_chapter_unit",
             unitColumns = "derived_number",
             unitValues = "1",
+            staleView = "mergedChapterStaleView",
             entryIds = "SELECT id FROM manga ORDER BY id",
             readOfEntry2 = "SELECT user_read FROM chapter WHERE manga_id = 2",
             historyOwners = "SELECT manga_id FROM history",
@@ -242,6 +246,7 @@ class SchemaChainMigrationTest {
             unitTable = "merged_novel_chapter_unit",
             unitColumns = "derived_name, derived_number",
             unitValues = "'c', 1",
+            staleView = "mergedNovelChapterStaleView",
             entryIds = "SELECT _id FROM novels ORDER BY _id",
             readOfEntry2 = "SELECT read FROM novel_chapters WHERE novel_id = 2",
             historyOwners = "SELECT C.novel_id FROM novel_history H JOIN novel_chapters C ON C._id = H.chapter_id",
@@ -268,6 +273,19 @@ class SchemaChainMigrationTest {
         abstract fun chapter(id: Long, entryId: Long, url: String, read: Boolean): String
 
         protected val Boolean.sql get() = if (this) 1 else 0
+    }
+
+    /** Group 1 of two library entries, stitched over the first one's only chapter, 10. */
+    private suspend fun stitchedGroup(type: Type) {
+        exec(type.entry(id = 1, url = "/a", favorite = true))
+        exec(type.entry(id = 2, url = "/b", favorite = true))
+        exec(type.chapter(id = 10, entryId = 1, url = "/c/1", read = false))
+        exec("INSERT INTO merge_group(_id, content_type) VALUES (1, ${type.contentType})")
+        exec("INSERT INTO ${type.memberTable}(group_id, ${type.ownerColumn}) VALUES (1, 1), (1, 2)")
+        exec(
+            "INSERT INTO ${type.unitTable}(chapter_id, group_id, unit, copy_order, ${type.unitColumns}) " +
+                "VALUES (10, 1, 0, 0, ${type.unitValues})",
+        )
     }
 
     /**

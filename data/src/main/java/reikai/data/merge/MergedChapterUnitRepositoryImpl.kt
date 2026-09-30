@@ -147,9 +147,17 @@ class MergedChapterUnitRepositoryImpl(
                 val unit = it.unit?.toLong()
                 val copyOrder = it.copyOrder.toLong()
                 if (novels) {
-                    queries.insertNovel(it.chapterId, groupId, unit, copyOrder, it.chapterName, it.chapterNumber)
+                    queries.insertNovel(
+                        it.chapterId,
+                        groupId,
+                        unit,
+                        copyOrder,
+                        it.chapterName,
+                        it.chapterNumber,
+                        it.sourceOrder,
+                    )
                 } else {
-                    queries.insert(it.chapterId, groupId, unit, copyOrder, it.chapterNumber)
+                    queries.insert(it.chapterId, groupId, unit, copyOrder, it.chapterNumber, it.sourceOrder)
                 }
             }
             when {

@@ -12,6 +12,10 @@
 -- Each row records the values its unit was derived from, and the queries below find every group whose
 -- chapters no longer match what was stitched. That covers write paths that do not exist yet.
 --
+-- derived_order is the chapter's place in its own source's list, which the stitch walks each source
+-- in, so a source reordering chapters it already listed restitches like a renumber. It defaults to -1,
+-- which no chapter carries, so a row written before it existed reads as stale once.
+--
 -- Only MERGED entries are maintained: an unmerged entry uses its own per-source count, so a row for it
 -- would never be read.
 --
@@ -28,6 +32,7 @@ CREATE TABLE merged_chapter_unit (
     unit INTEGER,
     copy_order INTEGER NOT NULL,
     derived_number REAL NOT NULL,
+    derived_order INTEGER NOT NULL DEFAULT -1,
     FOREIGN KEY(chapter_id) REFERENCES chapter (id)
     ON DELETE CASCADE,
     FOREIGN KEY(group_id) REFERENCES merge_group (_id)
@@ -45,6 +50,7 @@ CREATE TABLE merged_novel_chapter_unit (
     copy_order INTEGER NOT NULL,
     derived_name TEXT NOT NULL,
     derived_number REAL NOT NULL,
+    derived_order INTEGER NOT NULL DEFAULT -1,
     FOREIGN KEY(chapter_id) REFERENCES novel_chapters (_id)
     ON DELETE CASCADE,
     FOREIGN KEY(group_id) REFERENCES merge_group (_id)
@@ -90,6 +96,7 @@ LEFT JOIN merged_chapter_unit U
 ON U.chapter_id = C.id
 AND U.group_id = MGM.group_id
 WHERE U.chapter_id IS NULL OR U.derived_number != C.remote_chapter_number
+OR U.derived_order != C.remote_order
 UNION ALL
 SELECT U.group_id AS groupId
 FROM merged_chapter_unit U
@@ -120,6 +127,7 @@ LEFT JOIN merged_novel_chapter_unit U
 ON U.chapter_id = C._id
 AND U.group_id = MGN.group_id
 WHERE U.chapter_id IS NULL OR U.derived_name != C.name OR U.derived_number != C.chapter_number
+OR U.derived_order != C.source_order
 UNION ALL
 SELECT U.group_id AS groupId
 FROM merged_novel_chapter_unit U
@@ -195,15 +203,15 @@ OR chapter_id IN (
 -- id is the common case) would otherwise get a unit written to an id that no longer exists, which the
 -- driver's foreign-key verification later refuses to open the database with.
 insert:
-INSERT OR REPLACE INTO merged_chapter_unit(chapter_id, group_id, unit, copy_order, derived_number)
-SELECT :chapterId, :groupId, :unit, :copyOrder, :derivedNumber
+INSERT OR REPLACE INTO merged_chapter_unit(chapter_id, group_id, unit, copy_order, derived_number, derived_order)
+SELECT :chapterId, :groupId, :unit, :copyOrder, :derivedNumber, :derivedOrder
 WHERE EXISTS (SELECT 1 FROM chapter WHERE id = :chapterId);
 
 insertNovel:
 INSERT OR REPLACE INTO merged_novel_chapter_unit(
-    chapter_id, group_id, unit, copy_order, derived_name, derived_number
+    chapter_id, group_id, unit, copy_order, derived_name, derived_number, derived_order
 )
-SELECT :chapterId, :groupId, :unit, :copyOrder, :derivedName, :derivedNumber
+SELECT :chapterId, :groupId, :unit, :copyOrder, :derivedName, :derivedNumber, :derivedOrder
 WHERE EXISTS (SELECT 1 FROM novel_chapters WHERE _id = :chapterId);
 
 -- One group's stored stitch, for a screen about to render it. Ordered so the caller can walk it

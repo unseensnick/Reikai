@@ -59,6 +59,7 @@ class MangaGroupStitcher(
             id = { it.id },
             name = { it.name },
             number = { it.chapterNumber },
+            order = { it.sourceOrder },
         )
     }
 
