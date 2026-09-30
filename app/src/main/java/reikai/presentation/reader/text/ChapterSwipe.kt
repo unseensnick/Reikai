@@ -20,7 +20,8 @@ internal fun hasTravelled(dx: Float, dy: Float, slop: Int): Boolean = abs(dx) > 
  * Which way a swipe steps chapters: true forward, false back, null for no step. It must be mostly
  * sideways, travel past [minimum], and start on the half it moves away from, so it crosses the middle
  * rather than flicking in a corner. LNReader's rule (core.js), strict comparisons included; reader.js
- * runs the same rule on the page, so the gesture matches in both renderers.
+ * runs the same rule on the page, so the gesture matches in both renderers. Neither renderer asks it,
+ * nor takes a tap, for a touch that ever had a second finger down (TextViewportContractTest pins it).
  */
 internal fun chapterSwipeStep(dx: Float, dy: Float, startX: Float, width: Float, minimum: Float): Boolean? {
     if (abs(dx) <= minimum || abs(dx) <= abs(dy) * 2) return null

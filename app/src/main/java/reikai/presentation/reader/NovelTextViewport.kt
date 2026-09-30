@@ -214,6 +214,9 @@ class NovelTextViewport(
 
     /** Whether the touch on screen has left where it went down ([hasTravelled]). */
     private var dragging = false
+
+    /** Whether the touch on screen has had a second finger down ([chapterSwipeStep]). */
+    private var multiTouch = false
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
     /**
@@ -255,10 +258,17 @@ class NovelTextViewport(
                     touchDownX = e.x
                     touchDownY = e.y
                     dragging = false
+                    multiTouch = false
                 }
                 // Before the child under the finger is handed the same move, so its press ends on it.
                 MotionEvent.ACTION_MOVE ->
                     if (hasTravelled(e.x - touchDownX, e.y - touchDownY, touchSlop)) dragging = true
+                // Ends the child's press as a drag does, so no click follows when the last finger lifts.
+                // selectableTaps needs nothing: GestureDetector drops a tap once a second finger lands.
+                MotionEvent.ACTION_POINTER_DOWN -> {
+                    multiTouch = true
+                    dragging = true
+                }
                 MotionEvent.ACTION_UP -> onPointerUp(e.x, e.y)
             }
             if (textSelectable) selectableTaps.onTouchEvent(e)
@@ -1024,7 +1034,7 @@ class NovelTextViewport(
 
     /** A swipe between chapters, by the rule both renderers take from `ChapterSwipe.kt`. */
     private fun onPointerUp(x: Float, y: Float) {
-        if (settings?.swipeGestures != true) return
+        if (settings?.swipeGestures != true || multiTouch) return
         chapterSwipeStep(
             dx = x - touchDownX,
             dy = y - touchDownY,

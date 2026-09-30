@@ -441,6 +441,23 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(0, menuToggles.get())
     }
 
+    @Test
+    fun aTwoFingerTapDoesNotToggleTheMenu() {
+        open(chapter(FIRST, long("first")))
+        twoFingerTouch(view.width / 2f, view.width / 2f + dp(SHORT_SWIPE_DP), liftFirstFirst = false)
+        Thread.sleep(QUIET_MS)
+        assertEquals(0, menuToggles.get())
+    }
+
+    /** Lifted in the order that measures the second finger from the first finger's start as a swipe. */
+    @Test
+    fun aSecondFingerBesideTheFirstDoesNotStepChapters() {
+        open(chapter(FIRST, long("first")))
+        twoFingerTouch(view.width - EDGE_PX, view.width - EDGE_PX - dp(SWIPE_DP), liftFirstFirst = true)
+        Thread.sleep(QUIET_MS)
+        assertEquals(emptyList<Boolean>(), steps.toList())
+    }
+
     // endregion
 
     // region read-aloud
@@ -3006,6 +3023,58 @@ class TextViewportContractTest(private val renderer: Renderer) {
     private fun touch(action: Int, x: Float, y: Float, downAt: Long, at: Long) {
         val event = MotionEvent.obtain(downAt, at, action, x, y, 0)
         event.source = InputDevice.SOURCE_TOUCHSCREEN
+        view.dispatchTouchEvent(event)
+        event.recycle()
+    }
+
+    /** Two fingers set down at [firstX] and [secondX] mid-height, neither moving, then lifted. */
+    private fun twoFingerTouch(firstX: Float, secondX: Float, liftFirstFirst: Boolean) {
+        val y = view.height / 2f
+        instrumentation.runOnMainSync {
+            val down = SystemClock.uptimeMillis()
+            touch(MotionEvent.ACTION_DOWN, listOf(firstX), y, down, down)
+            touch(
+                pointerAction(MotionEvent.ACTION_POINTER_DOWN, 1),
+                listOf(firstX, secondX),
+                y,
+                down,
+                down + DRAG_STEP_MS,
+            )
+            val lifted = if (liftFirstFirst) 0 else 1
+            touch(
+                pointerAction(MotionEvent.ACTION_POINTER_UP, lifted),
+                listOf(firstX, secondX),
+                y,
+                down,
+                down + DRAG_STEP_MS * 2,
+            )
+            val left = if (liftFirstFirst) secondX else firstX
+            touch(MotionEvent.ACTION_UP, listOf(left), y, down, down + DRAG_STEP_MS * 3, firstId = 1 - lifted)
+        }
+    }
+
+    private fun pointerAction(action: Int, index: Int) = action or (index shl MotionEvent.ACTION_POINTER_INDEX_SHIFT)
+
+    /** A touch event carrying one pointer per x in [xs], with ids counting up from [firstId]. */
+    private fun touch(action: Int, xs: List<Float>, y: Float, downAt: Long, at: Long, firstId: Int = 0) {
+        val properties = xs.indices.map { i ->
+            MotionEvent.PointerProperties().apply {
+                id = firstId + i
+                toolType = MotionEvent.TOOL_TYPE_FINGER
+            }
+        }
+        val coords = xs.map { x ->
+            MotionEvent.PointerCoords().apply {
+                this.x = x
+                this.y = y
+                pressure = 1f
+                size = 1f
+            }
+        }
+        val event = MotionEvent.obtain(
+            downAt, at, action, xs.size, properties.toTypedArray(), coords.toTypedArray(),
+            0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0,
+        )
         view.dispatchTouchEvent(event)
         event.recycle()
     }

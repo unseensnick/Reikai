@@ -619,18 +619,23 @@
   }
 
   function installGestures() {
-    var startX = 0, startY = 0, startAt = 0, moved = false;
+    // `multi`: the touch has had a second finger down, so it is neither a tap nor a swipe (ChapterSwipe.kt).
+    var startX = 0, startY = 0, startAt = 0, moved = false, multi = false;
     // Only a finger counts. A chapter's own script can build touch events, and the token it cannot
     // read would not stop it: these listeners would send the call for it, stepping the chapter.
     document.addEventListener('touchstart', function (e) {
       if (!e.isTrusted) return;
       // A finger on the page takes the scroll over, as it stops a fling.
       glide.stop();
-      if (e.touches.length !== 1) return;
+      if (e.touches.length !== 1) {
+        multi = true;
+        return;
+      }
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       startAt = Date.now();
       moved = false;
+      multi = false;
     }, { passive: true });
 
     document.addEventListener('touchmove', function (e) {
@@ -665,7 +670,8 @@
     });
 
     document.addEventListener('touchend', function (e) {
-      if (!e.isTrusted) return;
+      // Only the last finger's lift ends the touch.
+      if (!e.isTrusted || e.touches.length !== 0 || multi) return;
       var touch = e.changedTouches && e.changedTouches[0];
       if (!touch) return;
       var dx = touch.clientX - startX;
