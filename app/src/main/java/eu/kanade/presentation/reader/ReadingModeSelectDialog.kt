@@ -21,6 +21,7 @@ import eu.kanade.presentation.reader.components.ModeSelectionDialog
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import reikai.presentation.reader.ReadingModeApply
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SettingsIconGrid
 import tachiyomi.presentation.core.components.material.IconToggleButton
@@ -64,20 +65,22 @@ private fun DialogContent(
     onChangeReadingMode: (ReadingMode) -> Unit,
     onDismissRequest: () -> Unit, // RK
 ) {
-    var selected by remember { mutableStateOf(resolvedReadingMode) } // RK: seeded from the resolved mode
+    // RK: the reader's own tap, kept apart from the highlighted mode in use, see ReadingModeApply
+    var picked by remember { mutableStateOf<ReadingMode?>(null) }
 
     ModeSelectionDialog(
         onUseDefault = { onChangeReadingMode(ReadingMode.DEFAULT) }.takeIf { readingMode != ReadingMode.DEFAULT },
-        // RK: applying an inherited mode nobody touched would pin it to this series, turning a look
-        // into a choice. Only a real change writes; otherwise Apply just closes.
-        onApply = { if (selected != readingMode) onChangeReadingMode(selected) else onDismissRequest() },
+        // RK: an untouched Apply writes nothing and just closes
+        onApply = {
+            ReadingModeApply.modeToApply(picked, readingMode)?.let(onChangeReadingMode) ?: onDismissRequest()
+        },
     ) {
         SettingsIconGrid(MR.strings.pref_category_reading_mode) {
             items(ReadingModesWithoutDefault) { mode ->
                 IconToggleButton(
-                    checked = mode == selected,
+                    checked = mode == (picked ?: resolvedReadingMode), // RK
                     onCheckedChange = {
-                        selected = mode
+                        picked = mode // RK
                     },
                     modifier = Modifier.fillMaxWidth(),
                     imageVector = ImageVector.vectorResource(mode.iconRes),
