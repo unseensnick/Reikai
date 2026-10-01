@@ -41,8 +41,23 @@ class RecommendationAssemblyTest {
         malTrackerId = 200L,
     )
 
-    private fun assembly(hideFilter: RecommendationHideFilter = hiding(), taste: TasteProfile = TasteProfile.EMPTY) =
-        RecommendationAssembly(hideFilter, RecommendationRanker(), taste)
+    private fun injected(url: String, origin: RecommendationOrigin) = RelatedMangaCandidate(
+        sourceId = 1L,
+        manga = SManga.create().apply {
+            this.url = url
+            title = url
+        },
+        origin = origin,
+    )
+
+    private fun streams(trackerIds: Set<Long> = setOf(1L, 2L), crossRecs: Boolean = true, tagSearch: Boolean = true) =
+        EnabledRecommendationStreams(trackerIds, crossRecs, tagSearch)
+
+    private fun assembly(
+        hideFilter: RecommendationHideFilter = hiding(),
+        taste: TasteProfile = TasteProfile.EMPTY,
+        streams: EnabledRecommendationStreams = streams(),
+    ) = RecommendationAssembly(hideFilter, RecommendationRanker(), taste, streams)
 
     private fun pool(candidates: List<RelatedMangaCandidate>) = RelatedPool(candidates, emptyMap())
 
@@ -82,5 +97,56 @@ class RecommendationAssemblyTest {
         val carousel = assembly(hideFilter = hiding("s1", "s2"), taste = taste).assemble(pool(candidates), cap = 30)
 
         carousel.take(2).map { it.manga.url } shouldBe listOf("s3", "s4")
+    }
+
+    @Test
+    fun `turning tracker recommendations off drops them from a pool already gathered`() {
+        val candidates = listOf(source("s1"), tracker("t1", trackerId = 1L))
+
+        val carousel = assembly(streams = streams(emptySet(), crossRecs = false, tagSearch = false))
+            .assemble(pool(candidates), cap = 30)
+
+        carousel.map { it.manga.url } shouldBe listOf("s1")
+    }
+
+    @Test
+    fun `a tracker switched off drops only its own recommendations`() {
+        val candidates = listOf(tracker("a1", trackerId = 1L), tracker("m1", trackerId = 2L))
+
+        val carousel = assembly(streams = streams(trackerIds = setOf(2L))).assemble(pool(candidates), cap = 30)
+
+        carousel.map { it.manga.url } shouldBe listOf("m1")
+    }
+
+    @Test
+    fun `cross-recommendations switched off drop their candidates`() {
+        val candidates = listOf(injected("c1", RecommendationOrigin.CrossRec("seed")), source("s1"))
+
+        val carousel = assembly(streams = streams(crossRecs = false)).assemble(pool(candidates), cap = 30)
+
+        carousel.map { it.manga.url } shouldBe listOf("s1")
+    }
+
+    @Test
+    fun `tag search switched off drops its candidates`() {
+        val candidates = listOf(injected("g1", RecommendationOrigin.TagSearch("tag")), source("s1"))
+
+        val carousel = assembly(streams = streams(tagSearch = false)).assemble(pool(candidates), cap = 30)
+
+        carousel.map { it.manga.url } shouldBe listOf("s1")
+    }
+
+    /** The carousel's "See all" count reads this, so it has to follow the switches too. */
+    @Test
+    fun `a candidate from a stream switched off does not show`() {
+        assembly(streams = streams(trackerIds = emptySet())).shows(tracker("t1", trackerId = 1L)) shouldBe false
+    }
+
+    @Test
+    fun `what the filters hide from a stream switched off is not listed behind the eye toggle`() {
+        val candidates = listOf(tracker("t1", trackerId = 1L), source("s1"))
+
+        assembly(hideFilter = hiding("t1", "s1"), streams = streams(trackerIds = emptySet()))
+            .hidden(pool(candidates)).map { it.manga.url } shouldBe listOf("s1")
     }
 }

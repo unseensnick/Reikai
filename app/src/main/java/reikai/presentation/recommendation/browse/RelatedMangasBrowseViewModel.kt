@@ -100,7 +100,7 @@ class RelatedMangasBrowseViewModel(
             }.collect { (related, isComplete, libraryKeys) ->
                 val candidates = related.candidates
                 // The carousel's assembly without its cap, then what the filters hide, behind the eye toggle.
-                val shown = assembly.assemble(related) + candidates.filter(assembly.hideFilter::shouldHide)
+                val shown = assembly.assemble(related) + assembly.hidden(related)
                 val items = shown.map {
                     BrowseItem(
                         it,

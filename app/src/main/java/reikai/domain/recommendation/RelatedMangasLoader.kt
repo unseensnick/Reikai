@@ -80,14 +80,15 @@ class RelatedMangasLoader(
                 // only filter the direct recs below.
                 if (!preferences.includeTrackerRecommendations.get()) return@launch
                 val contexts = fetchMediaContexts(tracks)
-                val enabledTrackerIds = preferences.enabledRecommendationTrackerIds(trackerManager)
+                val streams = preferences.enabledStreams(trackerManager)
                 contexts.forEach { (trackerId, ctx) ->
-                    if (trackerId in enabledTrackerIds) accumulator.add(ctx.recommendations)?.let { onUpdate(it) }
+                    if (trackerId in streams.trackerIds) accumulator.add(ctx.recommendations)?.let { onUpdate(it) }
                 }
                 tasteCandidateFetcher.fetch(
                     source = source,
                     mediaContexts = contexts,
                     sourceGenres = currentGenres,
+                    streams = streams,
                     pushResults = { candidates -> accumulator.add(candidates)?.let { onUpdate(it) } },
                 )
             }

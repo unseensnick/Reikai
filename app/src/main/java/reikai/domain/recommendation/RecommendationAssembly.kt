@@ -1,6 +1,7 @@
 package reikai.domain.recommendation
 
 import dev.zacsweers.metro.Inject
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.TasteProfile
 
@@ -15,21 +16,47 @@ data class RelatedPool(
 }
 
 /**
+ * The recommendation streams switched on, read on assembly so turning one off also empties it from a
+ * pool cached before the change; the loader skips fetching the same streams.
+ */
+data class EnabledRecommendationStreams(
+    val trackerIds: Set<Long>,
+    val crossRecs: Boolean,
+    val tagSearch: Boolean,
+) {
+    fun allows(candidate: RelatedMangaCandidate): Boolean = when (candidate.origin) {
+        is RecommendationOrigin.SourceNative -> true
+        is RecommendationOrigin.Tracker -> candidate.trackerId in trackerIds
+        is RecommendationOrigin.CrossRec -> crossRecs
+        is RecommendationOrigin.TagSearch -> tagSearch
+    }
+}
+
+/**
  * The one read-time assembly of a related pool, for the details carousel and the See-all grid alike:
- * drop what the hide filter hides, rank the rest, and for a capped list keep up to [TRACKER_RESERVE]
- * slots for tracker recommendations, round-robin across trackers. Filtering first sizes the ranker's
- * popularity picks against what will show; the reserve stops a source that fills the cap alone from
- * starving the trackers, and either side cedes room it cannot fill. Running on read keeps a filter
- * change out of the cached pool.
+ * drop what a switched-off stream or the hide filter leaves out, rank the rest, and for a capped list
+ * keep up to [TRACKER_RESERVE] slots for tracker recommendations, round-robin across trackers.
+ * Filtering first sizes the ranker's popularity picks against what will show; the reserve stops a
+ * source that fills the cap alone from starving the trackers, and either side cedes room it cannot
+ * fill. Running on read keeps a settings change out of the cached pool.
  */
 class RecommendationAssembly(
     val hideFilter: RecommendationHideFilter,
     private val ranker: RecommendationRanker,
     private val taste: TasteProfile,
+    private val streams: EnabledRecommendationStreams,
 ) {
 
+    /** Whether [candidate] is in what [assemble] returns uncapped, which the carousel's count reports. */
+    fun shows(candidate: RelatedMangaCandidate): Boolean =
+        streams.allows(candidate) && !hideFilter.shouldHide(candidate)
+
+    /** What the hide filter keeps out of [pool], which See all lists behind its eye toggle. */
+    fun hidden(pool: RelatedPool): List<RelatedMangaCandidate> =
+        pool.candidates.filter { streams.allows(it) && hideFilter.shouldHide(it) }
+
     fun assemble(pool: RelatedPool, cap: Int? = null): List<RelatedMangaCandidate> {
-        val ranked = ranker.rank(pool.candidates.filterNot(hideFilter::shouldHide), taste, pool.agreementByUrl)
+        val ranked = ranker.rank(pool.candidates.filter(::shows), taste, pool.agreementByUrl)
         if (cap == null) return ranked
         val (tracker, source) = ranked.partition { it.sourceId == RECOMMENDS_SOURCE }
         val sourceTake = minOf(source.size, cap - minOf(tracker.size, TRACKER_RESERVE))
@@ -60,11 +87,13 @@ class PrepareRecommendationAssembly(
     private val preferences: ReikaiRecommendationPreferences,
     private val getTasteProfile: GetTasteProfile,
     private val buildHideFilter: BuildRecommendationHideFilter,
+    private val trackerManager: TrackerManager,
 ) {
     suspend fun await() = RecommendationAssembly(
         hideFilter = buildHideFilter.await(),
         ranker = preferences.buildRanker(),
         // Rerank off gives an empty profile, which collapses the ranker to popularity order.
         taste = if (preferences.enableRecommendationRerank.get()) getTasteProfile.await() else TasteProfile.EMPTY,
+        streams = preferences.enabledStreams(trackerManager),
     )
 }

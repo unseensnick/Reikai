@@ -160,6 +160,16 @@ class ReikaiRecommendationPreferences(
         if (!includeTrackerRecommendations.get()) return emptySet()
         return recommendationToggles(trackerManager).filter { it.preference.get() }.map { it.tracker.id }.toSet()
     }
+
+    /** The master toggle gates the taste injections too, which ride on the trackers' recommendation graph. */
+    fun enabledStreams(trackerManager: TrackerManager): EnabledRecommendationStreams {
+        val trackerDerived = includeTrackerRecommendations.get()
+        return EnabledRecommendationStreams(
+            trackerIds = enabledRecommendationTrackerIds(trackerManager),
+            crossRecs = trackerDerived && injectCrossRecommendationCandidates.get(),
+            tagSearch = trackerDerived && injectTagSearchCandidates.get(),
+        )
+    }
 }
 
 /** A tracker and the switch that gates its recommendations. */

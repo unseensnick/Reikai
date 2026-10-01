@@ -1,5 +1,6 @@
 package reikai.presentation.recommendation.browse
 
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.model.SManga
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.recommendation.BuildRecommendationHideFilter
+import reikai.domain.recommendation.EnabledRecommendationStreams
 import reikai.domain.recommendation.PrepareRecommendationAssembly
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RecommendationAssembly
@@ -58,7 +60,15 @@ class RelatedMangasBrowseViewModelTest {
             this.title = title
         },
         origin = RecommendationOrigin.Tracker("tracker"),
+        trackerId = ANILIST_ID,
     )
+
+    private val trackerManager: TrackerManager = mockk {
+        every { aniList.id } returns ANILIST_ID
+        every { myAnimeList.id } returns 2L
+        every { mangaUpdates.id } returns 3L
+        every { shikimori.id } returns 4L
+    }
 
     /** The library, as a live table: a favourite write lands here and every read sees it. */
     private val library = FakeMangaLibrary()
@@ -78,11 +88,12 @@ class RelatedMangasBrowseViewModelTest {
                 RecommendationHideFilter.Index.EMPTY,
                 hidesInLibrary = false,
                 RecommendationHideFilter.Index(emptySet(), emptySet(), emptySet(), emptySet(), titles),
-                anilistTrackerId = 1L,
+                anilistTrackerId = ANILIST_ID,
                 malTrackerId = 2L,
             ),
             RecommendationRanker(),
             TasteProfile.EMPTY,
+            EnabledRecommendationStreams(setOf(ANILIST_ID), crossRecs = true, tagSearch = true),
         )
     }
 
@@ -98,11 +109,9 @@ class RelatedMangasBrowseViewModelTest {
                 repository = mockk { coEvery { getAll() } returns emptyList() },
                 preferences = preferences,
                 localTrackStatusMapper = mockk(),
-                trackerManager = mockk {
-                    every { aniList.id } returns 1L
-                    every { myAnimeList.id } returns 2L
-                },
+                trackerManager = trackerManager,
             ),
+            trackerManager = trackerManager,
         )
     }
 
@@ -242,5 +251,6 @@ class RelatedMangasBrowseViewModelTest {
     private companion object {
         const val MANGA_ID = 1L
         const val SOURCE_ID = 5L
+        const val ANILIST_ID = 1L
     }
 }

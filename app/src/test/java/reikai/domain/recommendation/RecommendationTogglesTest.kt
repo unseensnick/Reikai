@@ -41,6 +41,14 @@ class RecommendationTogglesTest {
     }
 
     @Test
+    fun `with the tracker master switch off neither taste injection is enabled`() {
+        preferences.includeTrackerRecommendations.set(false)
+
+        preferences.enabledStreams(trackerManager) shouldBe
+            EnabledRecommendationStreams(trackerIds = emptySet(), crossRecs = false, tagSearch = false)
+    }
+
+    @Test
     fun `a tracker switched off leaves the others enabled`() {
         preferences.shikimoriRecommendations.set(false)
 

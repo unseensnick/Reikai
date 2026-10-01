@@ -11,9 +11,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import logcat.LogPriority
+import reikai.domain.recommendation.EnabledRecommendationStreams
 import reikai.domain.recommendation.RecommendationOrigin
 import reikai.domain.recommendation.RecommendationProviders
-import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.TrackerRecommendations
 import tachiyomi.core.common.util.system.logcat
@@ -31,7 +31,6 @@ import kotlin.time.Duration.Companion.seconds
 class TasteCandidateFetcher(
     private val repository: TasteLibraryRepository,
     private val computeTasteProfile: ComputeTasteProfile,
-    private val preferences: ReikaiRecommendationPreferences,
     private val providers: RecommendationProviders,
 ) {
 
@@ -39,10 +38,11 @@ class TasteCandidateFetcher(
         source: CatalogueSource,
         mediaContexts: Map<Long, TrackerRecommendations.MediaContext>,
         sourceGenres: List<String>,
+        streams: EnabledRecommendationStreams,
         pushResults: suspend (List<RelatedMangaCandidate>) -> Unit,
     ) {
-        val tagSearchEnabled = preferences.injectTagSearchCandidates.get()
-        val crossRecEnabled = preferences.injectCrossRecommendationCandidates.get()
+        val tagSearchEnabled = streams.tagSearch
+        val crossRecEnabled = streams.crossRecs
         if (!tagSearchEnabled && !crossRecEnabled) return
         // Gate: M is tracked on a recs-capable tracker (the loader passes its context).
         if (mediaContexts.isEmpty()) return

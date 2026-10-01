@@ -1785,7 +1785,8 @@ class MangaViewModel(
         // the profile read below uses whatever is already cached, the pull lands for the next open.
         viewModelScope.launchIO { refreshTrackerLibrary.refreshIfStale() }
         viewModelScope.launchIO {
-            // Hide filter, ranker and taste, applied on read so a settings change is never baked into the cache.
+            // Stream switches, hide filter, ranker and taste, applied on read so a settings change is never
+            // baked into the cache.
             val assembly = prepareRecommendationAssembly.await()
             if (cached != null) {
                 applyRelated(cached.pool, assembly)
@@ -1820,7 +1821,7 @@ class MangaViewModel(
         val items = assembly.assemble(pool, cap = CAROUSEL_CAP)
             .map { RelatedMangaItem(it, assembly.hideFilter.isInLibrary(it)) }
         // The count is of everything "See all" shows, which is the same assembly without the cap.
-        val total = pool.candidates.count { !assembly.hideFilter.shouldHide(it) }
+        val total = pool.candidates.count(assembly::shows)
         updateSuccessState { it.copy(relatedItems = items, relatedTotalCount = total) }
     }
 
