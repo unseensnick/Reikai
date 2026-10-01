@@ -22,7 +22,8 @@ import tachiyomi.domain.manga.interactor.GetFavorites
  * One-time migration of the pref-based merge grouping into the persisted merge_group tables (part of
  * the merge-system rebuild). Freezes today's groups (manual merges plus same-title auto-groups, honoring
  * deliberate unmerges) as real rows so grouping survives the move off the derive-on-read pref system,
- * with nothing un-grouping.
+ * with nothing in the library un-grouping. Favorites only: a manually merged source already out of the
+ * library is dropped, deliberately, since a reused id would otherwise be captured (merge-system-rebuild.md).
  *
  * The old prefs are frozen input: this is their only reader, for an install upgrading past 189. Restore
  * skips them and rebuilds a 0.3.x backup's groups from the backup itself, through the same kernel.
