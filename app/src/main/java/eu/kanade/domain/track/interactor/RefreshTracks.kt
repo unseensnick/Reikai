@@ -35,7 +35,9 @@ class RefreshTracks(
                         return@async try {
                             val updatedTrack = service!!.refresh(track.toDbTrack()).toDomainTrack()!!
                             upsertTrack.await(updatedTrack)
-                            syncChapterProgressWithTrack.await(mangaId, updatedTrack, service)
+                            // RK: the row's own manga, since a group row may sit on a sibling source and a
+                            // server's chapter numbers belong to the source it serves
+                            syncChapterProgressWithTrack.await(updatedTrack.mangaId, updatedTrack, service)
                             null
                         } catch (e: Throwable) {
                             service to e
