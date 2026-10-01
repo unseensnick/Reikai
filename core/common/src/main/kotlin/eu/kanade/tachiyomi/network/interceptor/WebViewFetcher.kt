@@ -16,6 +16,7 @@ import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
+import eu.kanade.tachiyomi.util.system.setUserAgent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -247,7 +248,7 @@ class WebViewFetcher(private val context: Context) {
         pages[origin]?.takeUnless { it.dead }?.let { page ->
             main.removeCallbacksAndMessages(page)
             if (userAgent != null && page.webView.settings.userAgentString != userAgent) {
-                page.webView.settings.userAgentString = userAgent
+                page.webView.setUserAgent(userAgent)
             }
             return page
         }
@@ -259,7 +260,7 @@ class WebViewFetcher(private val context: Context) {
         }
         val webView = WebView(context).apply {
             setDefaultSettings()
-            if (!userAgent.isNullOrBlank()) settings.userAgentString = userAgent
+            if (!userAgent.isNullOrBlank()) setUserAgent(userAgent)
         }
         val page = Page(origin, webView)
         return try {
@@ -309,7 +310,7 @@ class WebViewFetcher(private val context: Context) {
         main.post {
             val webView = WebView(context).apply {
                 setDefaultSettings()
-                request.header("User-Agent")?.takeIf { it.isNotBlank() }?.let { settings.userAgentString = it }
+                request.header("User-Agent")?.takeIf { it.isNotBlank() }?.let { setUserAgent(it) }
                 webViewClient = object : WebViewClient() {
                     var challenged = false
 

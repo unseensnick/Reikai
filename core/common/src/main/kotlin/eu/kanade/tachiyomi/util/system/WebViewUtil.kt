@@ -120,7 +120,7 @@ fun WebView.setUserAgent(userAgent: String) {
         val metadata = WebSettingsCompat.getUserAgentMetadata(settings)
         val brandVersionList = metadata.brandVersionList.map { brandVersion ->
             val brand = when (brandVersion.brand) {
-                WEBVIEW_BRAND -> CHROME_BRAND
+                WEBVIEW_BRAND, CHROME_BRAND -> CHROME_BRAND // RK: a second call on one WebView updates it too
                 CHROMIUM_BRAND -> CHROMIUM_BRAND
                 else -> return@map brandVersion
             }
