@@ -93,6 +93,20 @@ internal fun mangaListingQuery(startLatest: Boolean, initialQuery: String?): Str
 }
 
 /**
+ * The saved search a catalogue opened on a feed row still owes: none before the state has loaded,
+ * since a model with no source yet drops the search and the once-only guard would then never retry.
+ */
+internal fun savedSearchToOpen(
+    state: EntryBrowseScreenState,
+    savedSearchId: Long?,
+    searches: List<SavedSearch>,
+    alreadyOpened: Boolean,
+): SavedSearch? {
+    if (alreadyOpened || state !is EntryBrowseScreenState.Loaded) return null
+    return savedSearchId?.let { id -> searches.firstOrNull { it.id == id } }
+}
+
+/**
  * One source's catalogue, for a manga source and a light-novel source alike. [sourceKey] fixes the
  * content type before the screen opens, so this is the details surface's shape rather than the All-
  * first lists': a neutral state and behaviour with two adapters, and one chrome over both.
@@ -280,9 +294,10 @@ class EntryCatalogueScreen(
 
         // Applied once the screen is up rather than before the model is built, which costs one
         // discarded page of the default listing and keeps the models free of a saved-search read.
-        LaunchedEffect(savedSearches) {
-            if (openedWithSearch) return@LaunchedEffect
-            val search = savedSearchId?.let { id -> savedSearches.firstOrNull { it.id == id } } ?: return@LaunchedEffect
+        val isLoaded = state is EntryBrowseScreenState.Loaded
+        LaunchedEffect(savedSearches, isLoaded) {
+            val search = savedSearchToOpen(state, savedSearchId, savedSearches, openedWithSearch)
+                ?: return@LaunchedEffect
             openedWithSearch = true
             appliedSavedSearchId = search.id
             behavior.applySearch(search.query, search.filtersJson)

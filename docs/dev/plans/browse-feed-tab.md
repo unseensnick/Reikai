@@ -113,7 +113,10 @@ through the adapter's `applySearch`, so neither model needs a saved-search read 
 `// RK` fence. The cost is one discarded page of the default listing.
 
 That effect is keyed on the saved-search list rather than on the id, because the search is not there on
-the first pass, and it holds its own "already applied" flag in `rememberSaveable`. Both matter: keyed
+the first pass, and it holds its own "already applied" flag in `rememberSaveable`. It also waits for the
+neutral state to read Loaded (`savedSearchToOpen`, pinned by `SavedSearchToOpenTest`): a novel model
+whose plugin is still resolving drops the search, and the flag would then never let it retry, so the
+chip read applied over the default listing (deep-audit lead U60, 2026-10-01). Both matter: keyed
 on the chip state instead, saving a new search on that screen re-emits the list and the old search
 lands back on top of what the reader was looking at, and held in a plain `remember`, any config change
 (a rotation, a fold) does the same.
