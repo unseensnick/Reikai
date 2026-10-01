@@ -17,7 +17,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toLocalDateTime
 import reikai.novel.install.LnPluginInstaller
-import reikai.novel.install.LnPluginLoadFailure
+import reikai.novel.install.novelPluginCrashLogEntries
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.lang.withUIContext
 import kotlin.time.Clock
@@ -109,24 +109,8 @@ class CrashLogUtil(
                 }
             }
 
-        // RK --> a plugin that failed carries the same stack trace a manga extension's does.
-        val novelNotLoadedInfoList = lnPluginInstaller.failures.value.values
-            .sortedBy { it.name }
-            .map { plugin ->
-                buildString {
-                    appendLine("- ${plugin.name} (novel plugin)")
-                    appendLine("  Installed: ${plugin.version ?: "?"}")
-                    when (val reason = plugin.reason) {
-                        is LnPluginLoadFailure.Reason.Missing ->
-                            append("  Not loaded: Script missing (${reason.message})")
-                        LnPluginLoadFailure.Reason.Malformed -> append("  Not loaded: Malformed")
-                        is LnPluginLoadFailure.Reason.Failed -> {
-                            appendLine("  Not loaded: Failed (${reason.message})")
-                            append(reason.stackTrace.trimEnd().prependIndent("  "))
-                        }
-                    }
-                }
-            }
+        // RK --> the novel plugins that did not load, after a first load the crash process has not run yet
+        val novelNotLoadedInfoList = novelPluginCrashLogEntries(lnPluginInstaller)
 
         val extensionInfoList = outdatedInfoList + notLoadedInfoList + novelNotLoadedInfoList
         // RK <--
