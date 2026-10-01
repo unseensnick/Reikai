@@ -37,7 +37,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
-if (-not $RefsRoot) { $RefsRoot = Join-Path (Split-Path $repoRoot -Parent) 'refs' }
+# refs/ sits beside the main worktree, and a linked worktree's own root is somewhere else.
+if (-not $RefsRoot) {
+    $mainWorktree = Split-Path (git -C $repoRoot rev-parse --path-format=absolute --git-common-dir) -Parent
+    $RefsRoot = Join-Path (Split-Path $mainWorktree -Parent) 'refs'
+}
+$mihon = Join-Path $RefsRoot 'mihon'
+if (-not (Test-Path $mihon)) { throw "no Mihon clone at $mihon" }
 $manifestPath = Join-Path $repoRoot 'docs/dev/off-path-manifest.md'
 
 if (-not (Test-Path $manifestPath)) { throw "manifest not found: $manifestPath" }
@@ -100,9 +106,10 @@ if ($changed.Count -gt 0) {
 # Stamp the run so the commit-msg hook can tell a sync commit that the check actually ran, and how far
 # up the upstream history it reached. Without this the check is opt-in and a forgotten step is
 # indistinguishable from a clean one.
-$stampDir = Join-Path $repoRoot '.git'
-$mihonThroughSha = (git -C (Join-Path $RefsRoot 'mihon') rev-parse $MihonThrough 2>$null)
-if ((Test-Path $stampDir) -and $LASTEXITCODE -eq 0 -and $mihonThroughSha) {
+# The stamp goes where the hook reads it, the git dir, which in a linked worktree is not $repoRoot/.git.
+$stampDir = git -C $repoRoot rev-parse --path-format=absolute --git-dir
+$mihonThroughSha = (git -C $mihon rev-parse $MihonThrough 2>$null)
+if ($LASTEXITCODE -eq 0 -and $mihonThroughSha) {
     Set-Content -Path (Join-Path $stampDir 'off-path-checked') -Value $mihonThroughSha.Trim() -NoNewline
 }
 

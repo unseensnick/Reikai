@@ -1,0 +1,16 @@
+{
+  "name": "block a push to main after a cd the hook cannot follow",
+  "stdin": {
+    "cwd": "@FX@/reikai-claude-memories",
+    "tool_input": {
+      "command": "cd - && git push origin main"
+    }
+  },
+  "env": {
+    "CLAUDE_UNPROTECTED_REPOS": "reikai-claude-memories"
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "protected branch 'main'"
+  ]
+}

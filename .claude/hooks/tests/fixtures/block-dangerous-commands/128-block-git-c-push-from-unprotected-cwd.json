@@ -1,0 +1,16 @@
+{
+  "name": "block a git -C push into a repo on main from a session in the unprotected repo",
+  "stdin": {
+    "cwd": "@FX@/reikai-claude-memories",
+    "tool_input": {
+      "command": "git -C ../app push origin HEAD"
+    }
+  },
+  "env": {
+    "CLAUDE_UNPROTECTED_REPOS": "reikai-claude-memories"
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "you are on 'main'"
+  ]
+}

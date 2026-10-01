@@ -1,0 +1,16 @@
+{
+  "name": "block a push to main that only names the unprotected repo in a later command",
+  "stdin": {
+    "cwd": "@FX@/app",
+    "tool_input": {
+      "command": "git push origin main && ls ../reikai-claude-memories"
+    }
+  },
+  "env": {
+    "CLAUDE_UNPROTECTED_REPOS": "reikai-claude-memories"
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "protected branch 'main'"
+  ]
+}

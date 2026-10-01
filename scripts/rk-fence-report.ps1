@@ -35,7 +35,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
-if (-not $RefsRoot) { $RefsRoot = Join-Path (Split-Path $repoRoot -Parent) 'refs' }
+# refs/ sits beside the main worktree, and a linked worktree's own root is somewhere else.
+if (-not $RefsRoot) {
+    $mainWorktree = Split-Path (git -C $repoRoot rev-parse --path-format=absolute --git-common-dir) -Parent
+    $RefsRoot = Join-Path (Split-Path $mainWorktree -Parent) 'refs'
+}
 $mihon = Join-Path $RefsRoot 'mihon'
 if (-not (Test-Path $mihon)) { throw "no Mihon clone at $mihon" }
 

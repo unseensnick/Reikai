@@ -1,0 +1,12 @@
+{
+  "name": "block moving a hook script away",
+  "stdin": {
+    "tool_input": {
+      "command": "mv .claude/hooks/protect-files.sh /tmp/x"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

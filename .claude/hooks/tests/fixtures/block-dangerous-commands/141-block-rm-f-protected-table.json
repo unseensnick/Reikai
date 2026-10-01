@@ -1,0 +1,12 @@
+{
+  "name": "block rm -f of the protected-paths table",
+  "stdin": {
+    "tool_input": {
+      "command": "rm -f ./.claude/hooks/protected-paths.tsv"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

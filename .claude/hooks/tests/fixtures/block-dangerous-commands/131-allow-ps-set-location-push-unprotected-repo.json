@@ -1,0 +1,13 @@
+{
+  "name": "allow a push to main after Set-Location into the unprotected repo",
+  "stdin": {
+    "cwd": "@FX@/app",
+    "tool_input": {
+      "command": "Set-Location ..\\reikai-claude-memories; git push origin main"
+    }
+  },
+  "env": {
+    "CLAUDE_UNPROTECTED_REPOS": "reikai-claude-memories"
+  },
+  "expect_exit": 0
+}

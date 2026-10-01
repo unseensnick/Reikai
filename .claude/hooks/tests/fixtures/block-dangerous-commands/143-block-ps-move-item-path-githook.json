@@ -1,0 +1,12 @@
+{
+  "name": "block Move-Item -Path on a git hook source",
+  "stdin": {
+    "tool_input": {
+      "command": "Move-Item -Path .githooks/pre-commit -Destination /tmp/x"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

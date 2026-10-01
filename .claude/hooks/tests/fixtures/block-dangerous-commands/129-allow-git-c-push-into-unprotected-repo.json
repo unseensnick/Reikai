@@ -1,0 +1,13 @@
+{
+  "name": "allow a git -C push to main of the unprotected repo",
+  "stdin": {
+    "cwd": "@FX@/app",
+    "tool_input": {
+      "command": "git -C ../reikai-claude-memories push origin main"
+    }
+  },
+  "env": {
+    "CLAUDE_UNPROTECTED_REPOS": "reikai-claude-memories"
+  },
+  "expect_exit": 0
+}

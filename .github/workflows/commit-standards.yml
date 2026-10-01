@@ -2,10 +2,12 @@ name: Commit standards
 
 # Runs .githooks/commit-msg over every commit a PR adds, so the standard in .claude/rules/workflow.md
 # holds for clones that never installed the hook and for commits made with --no-verify. The hook stays
-# the single definition; this only feeds it each message. PR-only on purpose: a squash merge made on
-# GitHub appends " (#N)" to the subject, which the hook would reject on a push to main.
+# the single definition; this only feeds it each message, and through REIKAI_COMMIT the commit's own
+# diff, since a fresh checkout stages nothing for the Reuse check to read. PR-only on purpose: a squash
+# merge made on GitHub appends " (#N)" to the subject, which the hook would reject on a push to main.
 #
-# Also runs the Claude Code hook fixtures, because a guard regex that stops matching fails silently.
+# Also runs the Claude Code hook fixtures and scripts/commit-msg-test.sh, because a guard regex that
+# stops matching fails silently.
 
 on:
   pull_request:
@@ -32,12 +34,18 @@ jobs:
           failed=0
           for sha in $(git rev-list --no-merges "$BASE..$HEAD_SHA"); do
             git log -1 --format=%B "$sha" > "$RUNNER_TEMP/commit-msg.txt"
-            if ! bash .githooks/commit-msg "$RUNNER_TEMP/commit-msg.txt"; then
+            # The Reuse receipt dates from afc58aeeb, so a commit made before the hook asked for it owes none.
+            commit=""
+            git merge-base --is-ancestor afc58aeeb "$sha" && commit="$sha"
+            if ! REIKAI_COMMIT="$commit" bash .githooks/commit-msg "$RUNNER_TEMP/commit-msg.txt"; then
               echo "    ^ in commit $(git log -1 --format='%h %s' "$sha")"
               failed=1
             fi
           done
           exit "$failed"
+
+      - name: Check the commit-msg hook reads a made commit
+        run: bash scripts/commit-msg-test.sh
 
       - name: Check the Claude Code hook guards
         run: bash .claude/hooks/tests/run-all.sh

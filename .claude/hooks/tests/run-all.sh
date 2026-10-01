@@ -13,6 +13,9 @@
 #     "expect_stderr_contains": ["substring", ...]    // optional
 #   }
 #
+# @FX@ anywhere in stdin becomes a scratch directory holding two empty git repos on main, app and
+# reikai-claude-memories, so a push fixture can run in a real repository on any machine.
+#
 # Exit 0 on all pass, 1 on any fail.
 
 set -uo pipefail
@@ -24,6 +27,10 @@ if ! command -v jq >/dev/null 2>&1; then
   echo "FATAL: jq required" >&2
   exit 2
 fi
+
+FX=$(mktemp -d)
+trap 'rm -rf "$FX"' EXIT
+for repo in app reikai-claude-memories; do git init -q -b main "$FX/$repo"; done
 
 PASS=0
 FAIL=0
@@ -37,7 +44,7 @@ run_case() {
 
   local name stdin expect_exit
   name=$(jq -r '.name' "$fixture")
-  stdin=$(jq -c '.stdin' "$fixture")
+  stdin=$(jq -c --arg fx "$FX" '.stdin | walk(if type == "string" then gsub("@FX@"; $fx) else . end)' "$fixture")
   expect_exit=$(jq -r '.expect_exit' "$fixture")
 
   local out_file err_file actual_exit

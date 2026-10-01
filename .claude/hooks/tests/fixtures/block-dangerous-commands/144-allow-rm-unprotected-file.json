@@ -1,0 +1,12 @@
+{
+  "name": "allow deleting a file outside the protected paths",
+  "stdin": {
+    "tool_input": {
+      "command": "rm build/tmp.txt"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "permissionDecision"
+  ]
+}

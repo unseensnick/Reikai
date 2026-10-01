@@ -37,14 +37,18 @@ echo "$stripped" | grep -qE '#[0-9]+([^0-9A-Za-z]|$)' \
 # 6) A new non-private top-level fun, class or object under reikai/ or exh/ owes a Reuse: footer, the
 #    receipt for the DRY rule in code-quality.md. Tests are exempt, and a declaration the diff also
 #    removes (an edited signature, a moved file) is not new; scripts/kotlin-decls.sh decides both.
+#    The diff is the staged index, or with REIKAI_COMMIT set the commit's own, which is how CI checks a
+#    commit already made: its checkout stages nothing.
+diff_src=(--cached)
+[ -n "${REIKAI_COMMIT:-}" ] && diff_src=("$REIKAI_COMMIT^" "$REIKAI_COMMIT")
 if [ -f scripts/kotlin-decls.sh ]; then
-  reuse_files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.kt' \
+  reuse_files=$(git diff "${diff_src[@]}" --name-only --diff-filter=ACMR -- '*.kt' \
     | grep -E '(^|/)(reikai|exh)/' | grep -vE '/src/(test|androidTest)/' || true)
   if [ -n "$reuse_files" ]; then
     # Added lines from the Reikai-owned files, removed lines from any .kt, so a move out of a deleted
     # or Mihon file still reads as a move. Rename detection is off, or a moved file shows no lines.
-    new_decls=$({ git diff --cached --no-renames -U0 -- $reuse_files | grep -E '^\+'
-                  git diff --cached --no-renames -U0 -- '*.kt' | grep -E '^-'; } \
+    new_decls=$({ git diff "${diff_src[@]}" --no-renames -U0 -- $reuse_files | grep -E '^\+'
+                  git diff "${diff_src[@]}" --no-renames -U0 -- '*.kt' | grep -E '^-'; } \
       | bash scripts/kotlin-decls.sh added | grep -E '^(fun|class|object) ' || true)
     if [ -n "$new_decls" ] && ! echo "$msg" | grep -qE '^Reuse: *[^ ]'; then
       errors+=("adds $(echo "$new_decls" | paste -sd, - | sed 's/,/, /g') under reikai/ or exh/ with no 'Reuse:' footer; name what was reused (file:line) or 'Reuse: none (searched: <terms>)'")
@@ -57,7 +61,8 @@ fi
 case "$subject" in
   "chore: sync Mihon"*)
     stamp="$(git rev-parse --git-dir)/off-path-checked"
-    mihon_clone="../refs/mihon"
+    # refs/ sits beside the main worktree, and a linked worktree's own root is somewhere else.
+    mihon_clone="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/../refs/mihon"
     if [ -d "$mihon_clone" ]; then
       head=$(git -C "$mihon_clone" rev-parse HEAD 2>/dev/null || echo "")
       if [ ! -f "$stamp" ]; then

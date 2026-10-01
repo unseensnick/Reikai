@@ -62,8 +62,8 @@ BEGIN {
   DELETES = "^(rm|rmdir|rd|del|erase|ri|remove-item|remove-itemproperty)$"
   PS_ONLY = "^(rmdir|rd|del|erase|ri|remove-item|remove-itemproperty)$"
   split("force path literalpath include exclude filter confirm whatif credential stream erroraction verbose", PSP, " ")
-  WRITERS = "^(tee|tee-object|set-content|sc|add-content|ac|out-file|new-item|ni)$"
-  COPIERS = "^(cp|copy|cpi|copy-item|mv|move|mi|move-item|install)$"
+  WRITERS = "^(tee|tee-object|set-content|sc|add-content|ac|out-file|new-item|ni|mv|move|mi|move-item|rename-item|ren|rni|unlink|shred|truncate)$"
+  COPIERS = "^(cp|copy|cpi|copy-item|install)$"
   KNOWN = "^(git|gh|perl|tee|tee-object|set-content|sc|add-content|ac|out-file|new-item|ni|install|" substr(READERS, 3)
 }
 function base(x) { sub(/^.*\//, "", x); return x }
@@ -89,26 +89,28 @@ function gh_sub(k,    x) {
   }
   return k
 }
-# First token after git and its global options, recording a -C directory.
+# First token after git and its global options, recording its -C directories in gitc.
 function git_sub(j,    x) {
-  j++
+  j++; gitc = ""
   while (j <= nt) {
     x = t[j]
-    if (x == "-c") { if (t[j + 1] !~ /=/) print "GITC " t[j + 1]; j += 2; continue }
+    if (x == "-c") { if (t[j + 1] !~ /=/) gitc = gitc " " t[j + 1]; j += 2; continue }
     if (x ~ /^--(git-dir|work-tree|namespace|super-prefix)$/) { j += 2; continue }
     if (x ~ /^--(git-dir|work-tree|namespace|exec-path|super-prefix)=/ || x ~ /^--(no-pager|paginate|bare|no-replace-objects|literal-pathspecs)$/ || x == "-p") { j++; continue }
     break
   }
   return j
 }
-function check_push(k,    m, x, force, nonflag, refs, probe, r, d) {
-  force = 0; nonflag = 0; refs = 0; probe = 0
+# One PUSH line per push: the first protected branch it names, whether it needs a branch probe, and the
+# directories it runs in (every cd before it, then its git -C), which the shell half resolves.
+function check_push(k,    m, x, force, nonflag, refs, probe, r, d, blocked) {
+  force = 0; nonflag = 0; refs = 0; probe = 0; blocked = ""
   for (m = k + 1; m <= nt; m++) {
     x = t[m]
     if (x == "") continue
     if (x == "--force") force = 1
     else if (x ~ /^--force-(with-lease|if-includes)/) continue
-    else if (x == "--all" || x == "--mirror") print "PUSH_PROTECTED every branch"
+    else if (x == "--all" || x == "--mirror") { if (blocked == "") blocked = "every branch" }
     else if (x ~ /^--(repo|push-option|receive-pack|exec)$/) m++
     else if (x ~ /^--/) continue
     else if (x ~ /^-[a-z]+$/) { if (x ~ /f/) force = 1; if (x == "-o") m++ }
@@ -119,11 +121,18 @@ function check_push(k,    m, x, force, nonflag, refs, probe, r, d) {
       if (substr(r, 1, 1) == "+") { force = 1; r = substr(r, 2) }
       d = r; sub(/^.*:/, "", d); sub(/^refs\/heads\//, "", d)
       if (d == "head" || d == "") probe = 1
-      else if (d in PROT) print "PUSH_PROTECTED " d
+      else if (d in PROT && blocked == "") blocked = d
     }
   }
   if (force) print "FORCE"
-  if (refs == 0 || probe) print "PUSH_PROBE"
+  print "PUSH|" blocked "|" (refs == 0 || probe) "|" cdchain gitc
+}
+# Where a cd-style verb moves to. A bare cd or popd gives ?, and like a target git cannot enter (-, ~, a
+# $variable) it leaves the directory of a later push unknown, so no exemption applies. A cd inside a
+# ( ) subshell is not undone at its close.
+function cd_target(i,    m) {
+  for (m = i + 1; m <= nt; m++) if (t[m] != "" && t[m] !~ /^-(path|literalpath|lp)$/) return t[m]
+  return "?"
 }
 function is_ps_param(y,    i) {
   if (length(y) < 2) return 0
@@ -161,9 +170,10 @@ function has_secret(j,    m, x) {
   }
   return 0
 }
-# Where a write verb writes: every operand of a content writer, the last operand (or -destination / -t)
-# of a copy or move. sed and perl count only with -i. Each target is printed as WRITE, and the shell
-# half checks it against protected-paths.tsv. Text matching, so an interpreter script still gets past.
+# Where a write verb writes: every operand of a content writer, a move or a delete (git mv and git rm
+# too), since moving or removing a file changes it as much as writing it does; the last operand (or
+# -destination / -t) of a copy. sed and perl count only with -i. Each target is printed as WRITE, and the
+# shell half checks it against protected-paths.tsv. Text matching, so an interpreter script still gets past.
 function write_targets(i,    v, m, x, n, last, copier) {
   v = vname(t[i])
   if (v ~ /^(sed|perl)$/) {
@@ -204,11 +214,11 @@ function redirect_targets(    m, x) {
   if (i > nt) next
   i = resolve(i)
   verb = vname(t[i])
-  if (verb == "git") { k = git_sub(i); if (t[k] == "push") check_push(k) }
+  if (verb == "git") { k = git_sub(i); if (t[k] == "push") check_push(k); if (t[k] ~ /^(rm|mv)$/) write_targets(k) }
   if (verb == "gh" && t[i + 1] == "pr" && t[gh_sub(i + 1)] == "merge") print "MERGE"
   if (verb == "gh" && t[i + 1] == "api") { print "GH_API"; if ($0 ~ /pulls\/[0-9]+\/merge/) print "MERGE_API" }
   if (verb ~ READERS && has_secret(i)) print "SECRET"
-  if (verb ~ WRITERS || verb ~ COPIERS || verb ~ /^(sed|perl)$/) write_targets(i)
+  if (verb ~ WRITERS || verb ~ COPIERS || verb ~ DELETES || verb ~ /^(sed|perl)$/) write_targets(i)
   for (j = i; j <= nt; j++) {
     if (base(t[j]) ~ DELETES) check_delete(j)
     if (base(t[j]) ~ /^git(\.exe)?$/) {
@@ -217,46 +227,45 @@ function redirect_targets(    m, x) {
       if (t[k] == "reset") for (m = k + 1; m <= nt; m++) if (t[m] == "--hard") { print "RESET"; break }
     }
   }
+  if (verb ~ /^(cd|chdir|pushd|popd|set-location|sl|push-location|pop-location)$/) cdchain = cdchain " " cd_target(i)
 }')
 
 found() { printf '%s\n' "$FINDINGS" | grep -q "^$1\( \|$\)"; }
-found_arg() { printf '%s\n' "$FINDINGS" | grep "^$1 " | head -1 | cut -d' ' -f2-; }
 
 # ── Git push protections ────────────────────────────────────────────────
 # Repos whose main IS the working branch (the memories store), so protecting it only produces
-# a prompt the operator always answers yes to. Matched on the command text, because the hook's
-# own cwd is always the project dir and cannot see a `Set-Location` or `git -C` elsewhere: the
-# branch probe below would otherwise read THIS repo's branch and gate a push to a different one.
+# a prompt the operator always answers yes to. Each push is judged in the repository it runs in:
+# the session's cwd, then every cd and git -C before it, resolved to its toplevel. The hook's own
+# cwd is always the project dir, and a match on the command text exempted any push naming the repo.
 UNPROTECTED_REPOS="${CLAUDE_UNPROTECTED_REPOS:-reikai-claude-memories}"
-# The session's cwd, which is where the command actually runs. The hook's own cwd is always the
-# project dir, so it can see neither a worktree nor a session working in a sibling repo.
 SESSION_CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
-targets_unprotected_repo() {
+is_unprotected_repo() {
   local repo
+  [ -z "$1" ] && return 1
   # `|| [ -n "$repo" ]` because the last entry has no trailing newline and read would drop it.
   while IFS= read -r repo || [ -n "$repo" ]; do
     [ -z "$repo" ] && continue
-    printf '%s' "$COMMAND" | grep -qiF -- "$repo" && return 0
-    # Also when the session is already sitting in that repo, so a bare `git push` there still passes.
-    [ -n "$SESSION_CWD" ] && printf '%s' "$SESSION_CWD" | grep -qiF -- "$repo" && return 0
+    printf '%s' "$1" | grep -qiF -- "$repo" && return 0
   done < <(printf '%s' "$UNPROTECTED_REPOS" | tr ',' '\n')
   return 1
 }
 
-if ! targets_unprotected_repo; then
-  if found PUSH_PROTECTED; then
-    emit_deny "Blocked: push to protected branch '$(found_arg PUSH_PROTECTED)'. Use a feature branch and open a PR."
+while IFS='|' read -r _ blocked probe chain; do
+  read -ra dirs <<< "$chain"
+  git_at=(git -C "${SESSION_CWD:-.}")
+  for d in "${dirs[@]}"; do git_at+=(-C "$d"); done
+  is_unprotected_repo "$("${git_at[@]}" rev-parse --show-toplevel 2>/dev/null)" && continue
+  if [ -n "$blocked" ]; then
+    emit_deny "Blocked: push to protected branch '$blocked'. Use a feature branch and open a PR."
   fi
-  # A push naming no branch pushes the current one. Probe the session's cwd (and any git -C
-  # directory), not the hook's, so a push from a worktree is judged against its own branch.
-  if found PUSH_PROBE; then
-    GIT_C=$(found_arg GITC)
-    CURRENT=$(git -C "${SESSION_CWD:-.}" ${GIT_C:+-C "$GIT_C"} branch --show-current 2>/dev/null || true)
+  # A push naming no branch pushes the current one, so probe the directory the push runs in.
+  if [ "$probe" = 1 ]; then
+    CURRENT=$("${git_at[@]}" branch --show-current 2>/dev/null || true)
     if [ -n "$CURRENT" ] && printf '%s' ",$PROTECTED_BRANCHES," | grep -q ",$CURRENT,"; then
       emit_deny "Blocked: you are on '$CURRENT' (a protected branch). Switch to a feature branch."
     fi
   fi
-fi
+done < <(printf '%s\n' "$FINDINGS" | grep '^PUSH|')
 
 # Force push is blocked everywhere, including the unprotected repos above: the reason to exempt
 # them is that main is their working branch, not that overwriting their history is fine. A `+`

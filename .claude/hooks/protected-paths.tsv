@@ -1,5 +1,6 @@
 # The protected paths, read by protect-files.sh (Edit and Write) and block-dangerous-commands.sh (a
-# shell write: a write verb's destination or a > redirect target). One row per rule, tab-separated:
+# shell write: a write verb's destination, a moved or deleted path, or a > redirect target). One row
+# per rule, tab-separated:
 #   decision  deny or ask
 #   scope     edit (the Edit/Write tools only), shell (shell writes only) or both
 #   glob      lower-case, / separated, matched against the whole path and against any */ suffix of it

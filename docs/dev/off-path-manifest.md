@@ -20,8 +20,8 @@ silent and left no trace.
   the manifest is invisible" hole. Renames count because git records one as `R`, not `D`, and a file moved
   off its upstream path is just as unwatched as a deleted one. Without the clone it warns instead of
   blocking, so a fresh clone is never stuck.
-- **`commit-msg`, on sync commits.** `scripts/off-path-check.ps1` writes `.git/off-path-checked` recording the
-  upstream HEAD it ran against, and a `chore: sync Mihon...` subject is rejected unless that stamp exists and
+- **`commit-msg`, on sync commits.** `scripts/off-path-check.ps1` writes `off-path-checked` into the git dir (a
+  linked worktree has its own) recording the upstream HEAD it ran against, and a `chore: sync Mihon...` subject is rejected unless that stamp exists and
   matches the current `refs/mihon` HEAD. Running the check stops being optional.
 - **`docs-lint` CI** mirrors the first of these. CI has no `refs/` clones, so it cannot diff against upstream.
 

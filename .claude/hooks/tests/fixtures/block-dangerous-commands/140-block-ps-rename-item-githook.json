@@ -1,0 +1,12 @@
+{
+  "name": "block Rename-Item on a git hook source",
+  "stdin": {
+    "tool_input": {
+      "command": "Rename-Item .githooks/pre-commit x"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

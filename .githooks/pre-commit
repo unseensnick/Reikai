@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
-# Reikai docs enforcement (see .claude/rules/workflow.md: "After completing any code change",
-# "Public-facing naming", and "Roadmap & plans"). Lints staged CHANGELOG.md and ROADMAP.md:
+# Reikai pre-commit checks; .claude/rules/workflow.md "Commit message standard" lists each one.
+# Most read only staged content:
 #   CHANGELOG.md - no content-source names in newly added lines; every new [Unreleased] entry under
 #     Added / Changed / Fixed leads with a self-contained bold headline ending in . ! or ?
 #     (Other is exempt), under a length cap.
-#   ROADMAP.md - forward-only backlog stays name-clean: no content-source names, no em dash, no
-#     bare #N (use "Roadmap N" or owner/repo#N). Shipped detail lives in docs/dev/shipped.md.
-#   .kt comments - no plan/roadmap codename markers (Phase N, P5 S5, Y3, R3, Active #N, plan-style
-#     Step N) in newly added lines; they rot. State the durable fact instead (R8 and M3 are spared).
-#   .kt comment blocks under reikai/ or exh/ - a run of consecutive comment lines is capped at 8; a
-#     9th is rejected. See .claude/rules/code-quality.md "Comments".
+#   ROADMAP.md, upstream-sync.md, feature-ports.md - no em dash, no bare #N (ROADMAP.md also no
+#     content-source names; the two sync records may name them).
+#   Plan records - every path a staged record's Key files section names exists (working tree).
+#   DI ownership - scripts/di-interop-check.ps1 when a .kt is staged (needs pwsh).
+#   Code comments - no plan/roadmap codename markers and no calendar dates in added lines; an added
+#     twin/mirrors comment names its pin; under reikai/ or exh/ a comment block is capped at 8 lines.
+#   Reuse - no new cross-file clone touches a staged file under reikai/ or exh/; a new top-level
+#     name that already exists elsewhere is listed (warn only).
+#   Off-path manifest - read whether staged or not: no manifested path exists, every Replacement
+#     does, and a staged deletion of a Mihon file carries its row.
 #   RK markers - an added RK marker in a file refs/mihon does not have (a Reikai-owned file).
-#   Reuse (code-quality.md DRY) - an added twin/mirrors comment names its pin; no new cross-file
-#     clone touches a staged file under reikai/ or exh/; a new top-level name that already exists
-#     elsewhere is listed (warn only).
 # Tracked here as the source of truth; activate on a clone with:
 #   cp .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/pre-commit
 set -u
@@ -140,6 +141,8 @@ fi
 # The manifest only works if every row is real and no listed file comes back. Both failures used to be
 # silent: a resurrected file gives two implementations of one surface, and a reroute with no row means
 # the next sync never learns upstream touched it.
+# refs/ sits beside the main worktree, and a linked worktree's own root is somewhere else.
+mihon_clone="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/../refs/mihon"
 manifest="docs/dev/off-path-manifest.md"
 if [ -f "$manifest" ]; then
   # Every row still describes reality: the file stays deleted and the replacement exists. Shared
@@ -148,7 +151,6 @@ if [ -f "$manifest" ]; then
 
   # A staged deletion of a file Mihon still has needs a manifest row in the SAME commit, or the reroute
   # is invisible to every future sync. Needs the refs clone; warn (never block) when it is absent.
-  mihon_clone="../refs/mihon"
   if [ -d "$mihon_clone" ]; then
     # Renames as well as deletions: a file moved off its upstream path is just as unwatched by the
     # sync check as a deleted one. It needs --name-status, because --name-only reports a rename's
@@ -176,12 +178,11 @@ fi
 # scripts/rk-fence-report.ps1, which lists those, so its known strays do not block unrelated commits. A
 # backtick before the marker is prose naming the convention. Needs the refs clone; warns when absent.
 rk_marker='(^|[^`])(//|/\*|\*|#|--)[[:space:]]*RK\b'
-rk_clone="../refs/mihon"
 rk_files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.kt' '*.kts' '*.sq' '*.sqm')
-if [ -n "$rk_files" ] && [ -d "$rk_clone" ]; then
+if [ -n "$rk_files" ] && [ -d "$mihon_clone" ]; then
   rk_strays=""
   for f in $rk_files; do
-    git -C "$rk_clone" cat-file -e "HEAD:$f" 2>/dev/null && continue
+    git -C "$mihon_clone" cat-file -e "HEAD:$f" 2>/dev/null && continue
     git show "HEAD:$f" 2>/dev/null | grep -qE "$rk_marker" && continue
     hits=$(git diff --cached -U0 -- "$f" | grep -E '^\+' | grep -vE '^\+\+\+' | grep -E "$rk_marker" || true)
     [ -n "$hits" ] && rk_strays="$rk_strays$f"$'\n'"$hits"$'\n'

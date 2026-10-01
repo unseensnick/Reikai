@@ -1,0 +1,12 @@
+{
+  "name": "block git rm of a git hook source",
+  "stdin": {
+    "tool_input": {
+      "command": "git rm .githooks/pre-commit"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

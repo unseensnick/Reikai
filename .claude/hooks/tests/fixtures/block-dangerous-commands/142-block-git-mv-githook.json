@@ -1,0 +1,12 @@
+{
+  "name": "block git mv of a git hook source",
+  "stdin": {
+    "tool_input": {
+      "command": "git mv .githooks/commit-msg .githooks/x"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}
