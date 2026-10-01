@@ -17,10 +17,10 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.model.Novel
-import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.hasCustomCover
+import reikai.domain.novel.model.novelResultCover
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
@@ -215,7 +215,7 @@ class NovelMigrationFlowAdapter(
 
     /**
      * A search hit has no stored row, so being in the library is a lookup, not a field. It is read
-     * for the marker only and deliberately does NOT populate the handle's `stored`: that field is
+     * for the marker and the cover only, and deliberately does NOT populate the handle's `stored`: that field is
      * what decides whether a commit still owes this candidate a materialising [resolve].
      */
     private suspend fun NovelItem.toCandidate(sourceKey: String): MigrationCandidate {
@@ -225,13 +225,7 @@ class NovelMigrationFlowAdapter(
             title = name,
             chapterCount = null,
             key = "$sourceKey:$path",
-            // Built from the stored row when there is one, so a candidate already in the library
-            // renders the cover the library renders: the custom-cover override is keyed on the id
-            // and the cache on the favorite flag, so a search-shaped cover showed the source's stock
-            // image instead, and no refresh could ever bust its Coil key. Manga candidates are stored
-            // rows by the time they reach here, which is why only this side was wrong.
-            cover = stored?.asNovelCover()
-                ?: NovelCover(url = cover, sourceId = sourceKey, isNovelFavorite = false, lastModified = 0L),
+            cover = novelResultCover(stored, cover, sourceKey),
             inLibrary = stored?.favorite == true,
             handle = NovelCandidateHandle(this),
         )

@@ -6,7 +6,9 @@ import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.library.components.MangaComfortableGridItem
 import eu.kanade.presentation.library.components.MangaCompactGridItem
 import eu.kanade.presentation.library.components.MangaListItem
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCover
+import reikai.domain.novel.model.novelResultCover
 import reikai.novel.host.NovelItem
 import reikai.presentation.library.ReikaiComfortableGridPanoramaItem
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -31,11 +33,11 @@ fun Manga.toEntryBrowseUi() = EntryBrowseItemUi(
     favorite = favorite,
 )
 
-/** [NovelItem] carries no favorite/source, so the caller supplies whether it's [inLibrary] and its [sourceId]. */
-fun NovelItem.toEntryBrowseUi(inLibrary: Boolean, sourceId: String) = EntryBrowseItemUi(
+/** [NovelItem] carries no library state or source, so the caller supplies its [stored] library row and [sourceId]. */
+fun NovelItem.toEntryBrowseUi(stored: Novel?, sourceId: String) = EntryBrowseItemUi(
     title = name,
-    cover = NovelCover(url = cover, sourceId = sourceId, isNovelFavorite = inLibrary, lastModified = 0L),
-    favorite = inLibrary,
+    cover = novelResultCover(stored, cover, sourceId),
+    favorite = stored?.favorite == true,
 )
 
 /**

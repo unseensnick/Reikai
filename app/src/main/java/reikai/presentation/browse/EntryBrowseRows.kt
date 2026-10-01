@@ -51,7 +51,7 @@ fun novelBrowseRow(item: NovelItem, sourceId: String, favorited: StateFlow<Favor
     EntryBrowseRow(
         key = novelRowKey(sourceId, item.path),
         content = favorited.mapState { keys ->
-            EntryBrowseRowContent(item.toEntryBrowseUi(keys.contains(sourceId, item.path), sourceId), item)
+            EntryBrowseRowContent(item.toEntryBrowseUi(keys.stored(sourceId, item.path), sourceId), item)
         },
     )
 

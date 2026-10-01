@@ -28,4 +28,19 @@ class NovelCoverTest {
     fun `a url override replaces the stored thumbnail`() {
         novel.asNovelCover(url = "https://typed").url shouldBe "https://typed"
     }
+
+    @Test
+    fun `a result with a stored row draws that row's cover`() {
+        novelResultCover(novel, url = "https://listed", sourceId = "plugin") shouldBe novel.asNovelCover()
+    }
+
+    @Test
+    fun `a result with no stored row draws the listed image`() {
+        novelResultCover(null, url = "https://listed", sourceId = "plugin") shouldBe NovelCover(
+            url = "https://listed",
+            sourceId = "plugin",
+            isNovelFavorite = false,
+            lastModified = 0L,
+        )
+    }
 }

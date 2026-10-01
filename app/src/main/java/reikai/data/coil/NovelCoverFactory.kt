@@ -28,7 +28,7 @@ class NovelCoverFactory(
             mangaCover = null,
             options = options,
             coverFileLazy = lazy { coverCache.getCoverFile(data.url) },
-            // Browse passes novelId 0, whose custom-cover file never exists.
+            // A source result with no stored row passes novelId 0, whose custom-cover file never exists.
             customCoverFileLazy = lazy { coverCache.getCustomCoverFile(EntryId.Novel(data.novelId)) },
             diskCacheKeyLazy = lazy { imageLoader.components.key(data, options)!! },
             getClient = {

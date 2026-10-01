@@ -21,6 +21,13 @@ class FavoritedNovelsTest {
     }
 
     @Test
+    fun `a favorite's library row is found by its source and url`() {
+        val row = novel("a", "/n", favorite = true)
+
+        FavoritedNovels.of(listOf(row)).stored("a", "/n") shouldBe row
+    }
+
+    @Test
     fun `a stored row outside the library is not`() {
         FavoritedNovels.of(listOf(novel("a", "/n", favorite = false))).contains("a", "/n") shouldBe false
     }

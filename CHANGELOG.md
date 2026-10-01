@@ -439,6 +439,7 @@ every stable release now also ships a foss build with neither in it.
 - **Opening an adult-source gallery whose older version is already in your library now opens that library copy.**
 
 #### Fixed
+- **Browse, global search and the feed now show your custom cover on a novel in your library, as they do for manga.**
 - **Adding a manga no longer flags an unrelated library manga as a duplicate because both are tracked on a tracker that gives no entry id (synced from Mihon, mihonapp/mihon#4008).**
 - **Tapping "Back up all favorites now" again while an adult source's favorites backup runs no longer starts a second one.** Two at once pushed every favorite twice.
 - **When an adult gallery source replaces a gallery with a newer version, chapters the new version already had now keep the old version's read state, bookmark and progress.** Only chapters new to it carried them over, while History still showed them as read.

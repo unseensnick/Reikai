@@ -8,14 +8,17 @@ import reikai.domain.novel.model.Novel
  * novel under the same path.
  */
 @JvmInline
-value class FavoritedNovels private constructor(private val keys: Set<Pair<String, String>>) {
+value class FavoritedNovels private constructor(private val rows: Map<Pair<String, String>, Novel>) {
 
-    fun contains(sourceId: String, url: String): Boolean = (sourceId to url) in keys
+    fun contains(sourceId: String, url: String): Boolean = (sourceId to url) in rows
+
+    /** The library row behind a listed novel, whose id and cover state a result draws its cover from. */
+    fun stored(sourceId: String, url: String): Novel? = rows[sourceId to url]
 
     companion object {
-        val None = FavoritedNovels(emptySet())
+        val None = FavoritedNovels(emptyMap())
 
         fun of(novels: List<Novel>): FavoritedNovels =
-            FavoritedNovels(novels.asSequence().filter { it.favorite }.mapTo(HashSet()) { it.source to it.url })
+            FavoritedNovels(novels.asSequence().filter { it.favorite }.associateBy { it.source to it.url })
     }
 }

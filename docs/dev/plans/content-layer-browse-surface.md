@@ -571,6 +571,13 @@ them off the neutral row style, so no composable reads the preference.
   long-press ask it, so no site can compare the url alone or build the pair the wrong way round.
   `FavoritedNovelsTest` pins both halves of the key and the favorite filter. Manga needs no twin: a
   browsed manga is a stored row that carries its own favorite flag.
+- **An in-library novel result draws its library row's cover** (deep-audit lead U109, 2026-10-01).
+  `FavoritedNovels` keeps the favorite rows, so `stored(sourceId, url)` hands the row to
+  `novelResultCover` (`reikai/domain/novel/model/NovelCover.kt`), the one rule for the cover a source
+  result draws, which migrate's candidates call too. A manga result already drew its stored row's
+  cover, so a novel's custom cover showed in its library but never in a catalogue, global search or
+  the feed. `SearchResultRowsConformanceTest` pins that both types' in-library rows draw the cover the
+  library draws.
 - **One result row for the catalogue, global search and the feed** (cleanup plan P25, 2026-09-29).
   A search or feed result is the catalogue's own `EntryBrowseRow`, built by the kernels in
   `reikai/presentation/browse/EntryBrowseRows.kt`: `mangaBrowseRow` (which the catalogue pager uses
