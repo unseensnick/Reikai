@@ -13,9 +13,9 @@ interface ExtensionStoreRepository {
 
     suspend fun refreshAll()
 
-    suspend fun fetchExtensions(): List<Extension.Available>
+    // RK: fetchExtensions removed, ExtensionManager reads fetchExtensionsByStore
 
-    // RK --> each store's own outcome, keyed by index URL, which fetchExtensions flattens away
+    // RK --> each store's own outcome, keyed by index URL, so a failed store is told apart from an empty one
     suspend fun fetchExtensionsByStore(): Map<String, Result<List<Extension.Available>>>
     // RK <--
 

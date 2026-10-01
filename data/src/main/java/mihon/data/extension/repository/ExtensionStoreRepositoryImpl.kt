@@ -84,15 +84,7 @@ class ExtensionStoreRepositoryImpl(
         )
     }
 
-    override suspend fun fetchExtensions(): List<Extension.Available> {
-        return try {
-            // RK: the per-store fetch below, flattened as before
-            fetchExtensionsByStore().values.flatMap { it.getOrDefault(emptyList()) }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
-            emptyList()
-        }
-    }
+    // RK: fetchExtensions removed, ExtensionManager reads fetchExtensionsByStore
 
     // RK -->
     override suspend fun fetchExtensionsByStore(): Map<String, Result<List<Extension.Available>>> {
