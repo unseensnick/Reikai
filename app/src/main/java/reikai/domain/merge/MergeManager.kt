@@ -29,8 +29,9 @@ interface MergeManager {
     /** Put a group captured by [captureGroup] back as it was. */
     suspend fun restoreGroup(snapshot: GroupSnapshot)
 
-    /** Emits on every membership change for this content type (add / remove / split / dissolve), so a
-     *  details screen can refresh its group live. Backed by the group-member table, not the retired prefs. */
+    /** Emits on every membership change for this content type (add / remove / split / dissolve). Backed by
+     *  the group-member table, so it misses an entry leaving or rejoining the library; a screen holding a
+     *  resolved group follows [reikai.domain.merge.EntryMergeManager.relatedIdsChanges] instead. */
     fun membershipChanges(): Flow<Map<Long, Long>>
 }
 

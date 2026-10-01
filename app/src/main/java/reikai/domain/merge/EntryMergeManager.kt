@@ -1,6 +1,9 @@
 package reikai.domain.merge
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.preference.Preference
@@ -34,6 +37,21 @@ open class EntryMergeManager(
         val groupId = repository.getGroupId(contentType, targetId) ?: return longArrayOf(targetId)
         val members = repository.getFavoriteMembers(contentType, groupId)
         return if (targetId in members) members.toLongArray() else longArrayOf(targetId)
+    }
+
+    /**
+     * Emits whenever [computeRelatedIds] could answer differently, first on collection: a library
+     * member joining or leaving a group, or the merging switch flipping. A removed entry keeps its
+     * membership row, so [membershipChanges] misses a re-add or a removal. What a screen holding a
+     * resolved group re-resolves on.
+     */
+    fun relatedIdsChanges(): Flow<Unit> {
+        val libraryMemberships = repository.getLibraryMembershipsAsFlow(contentType)
+        return combine(libraryMemberships, preferences.seriesMergingEnabled.changes()) { memberships, enabled ->
+            memberships to enabled
+        }
+            .distinctUntilChanged()
+            .map { }
     }
 
     /** [computeRelatedIds] as a `List` for callers (the novel reader / tracking path) that want one. */

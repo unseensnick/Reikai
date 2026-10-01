@@ -46,7 +46,7 @@ Domain layer (net-new, under `reikai.*`), in `app/src/main/java/reikai/domain/no
 - `track/TrackNovelChapter.kt`: read-progress push entry point.
 - `track/NovelDelayedTrackingStore.kt`, `track/NovelDelayedTrackingUpdateJob.kt`: the offline retry queue + job, over `reikai/domain/track/DelayedTrackingDrain.kt` (`drainDelayedTracking`), which Mihon's manga job runs too.
 - `track/PropagateNovelTrackerLinks.kt`: copies trackers per source at unmerge.
-- `app/src/main/java/reikai/domain/track/GroupTrackReader.kt`: the group-aware read both content types share; `GetNovelTracks` and `GetTracksInGroup` feed it their merge manager's `relatedIdsList` and `membershipChanges`, and `subscribe` looks the group up again on each change, so a details page left open across a merge counts the group's trackers. Pinned over both by `GroupTrackSubscriptionConformanceTest`.
+- `app/src/main/java/reikai/domain/track/GroupTrackReader.kt`: the group-aware read both content types share; `GetNovelTracks` and `GetTracksInGroup` feed it their merge manager's `relatedIdsList` and `relatedIdsChanges`, and `subscribe` looks the group up again on each change, so a details page left open across a merge, a re-add to the library, a member's removal or a flip of the merging switch counts the group's trackers. `relatedIdsChanges` follows the library memberships, not the membership table, since a removed entry keeps its membership row. Pinned over both by `GroupTrackSubscriptionConformanceTest`.
 
 Persistence:
 

@@ -23,7 +23,7 @@ class GetNovelTracks(
     private val groupReader = GroupTrackReader(
         sharingEnabled = { preferences.syncTrackerLinksGrouped.get() },
         relatedIds = { mergeManager.relatedIdsList(it) },
-        groupChanges = mergeManager.membershipChanges(),
+        groupChanges = mergeManager.relatedIdsChanges(),
         readOne = { await(it) },
         observeOne = { subscribe(it) },
         trackerId = NovelTrack::trackerId,

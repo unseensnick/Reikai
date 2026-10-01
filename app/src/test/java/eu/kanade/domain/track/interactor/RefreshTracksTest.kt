@@ -42,7 +42,7 @@ class RefreshTracksTest {
             coEvery { await(SERVER_COPY) } returns listOf(serverRow())
         },
         mergeManager = mockk<MangaMergeManager> {
-            every { membershipChanges() } returns flowOf(emptyMap())
+            every { relatedIdsChanges() } returns flowOf(Unit)
             coEvery { relatedIdsList(any()) } returns listOf(VIEWED, SERVER_COPY)
         },
     )

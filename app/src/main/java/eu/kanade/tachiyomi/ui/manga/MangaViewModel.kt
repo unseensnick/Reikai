@@ -285,12 +285,12 @@ class MangaViewModel(
     // RK --> shared merge read/observe wiring: the group ids (just this manga when ungrouped), the selected
     // source chip, the membership observer, and the switcher chips. Written once in EntryMergeGroupHost so a
     // manga/novel drift like the old missing-refresh bug can't recur; the novel model composes the same host.
-    // Manga's anchor is constant, so anchorChanges is just membershipChanges re-emitting mangaId; source
-    // resolution is the synchronous getOrStub in buildMergeSources.
+    // Manga's anchor is constant, so anchorChanges is mangaId alone and the host re-resolves on group
+    // changes; source resolution is the synchronous getOrStub in buildMergeSources.
     private val mergeGroup = EntryMergeGroupHost(
         mergeManager = mergeManager,
         initialIds = longArrayOf(mangaId),
-        anchorChanges = mergeManager.membershipChanges().map { mangaId },
+        anchorChanges = flowOf(mangaId),
         resolveSources = { ids -> buildMergeSources(ids) },
     )
 

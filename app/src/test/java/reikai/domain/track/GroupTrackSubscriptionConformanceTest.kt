@@ -7,6 +7,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -15,10 +16,11 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
-import reikai.domain.merge.EntryMergeManager
+import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.interactor.GetNovelTracks
@@ -27,24 +29,39 @@ import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.model.Track
 
 /**
- * A details page stays open across a merge, so its tracks subscription has to follow the group as it
- * forms: the Tracking button counts what this read emits. Run over each type's group read, which hand
- * [GroupTrackReader] their own merge manager.
+ * A details page stays open across a merge, a re-add and a removal, so its tracks subscription has to
+ * follow the group the way the merge manager resolves it: the Tracking button counts what this read
+ * emits. Run over each type's group read, each over its real merge manager and a stored group.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class GroupTrackSubscriptionConformanceTest {
 
-    enum class Type { MANGA, NOVEL }
+    enum class Type(val contentType: ContentType) { MANGA(ContentType.MANGA), NOVEL(ContentType.NOVELS) }
 
+    /** The membership table: entry id to group id. */
     private val memberships = MutableStateFlow(emptyMap<Long, Long>())
 
-    private val preferences = mockk<ReikaiLibraryPreferences> {
+    /** The entries in the library. */
+    private val library = MutableStateFlow(setOf(OPEN, SIBLING))
+
+    private val mergingEnabled = MutableStateFlow(true)
+
+    private val preferences = mockk<ReikaiLibraryPreferences>(relaxed = true) {
         every { syncTrackerLinksGrouped } returns mockk { every { get() } returns true }
+        every { seriesMergingEnabled } returns mockk {
+            every { get() } answers { mergingEnabled.value }
+            every { changes() } returns mergingEnabled
+        }
     }
 
-    private fun <M : EntryMergeManager> M.followingMemberships(): M = apply {
-        every { membershipChanges() } returns memberships
-        coEvery { relatedIdsList(OPEN) } answers { memberships.value.keys.toList().ifEmpty { listOf(OPEN) } }
+    private fun repository(type: ContentType) = mockk<MergeGroupRepository> {
+        every { getAllMembershipsAsFlow(type) } returns memberships
+        every { getLibraryMembershipsAsFlow(type) } returns
+            combine(memberships, library) { groups, inLibrary -> groups.filterKeys { it in inLibrary } }
+        coEvery { getGroupId(type, any()) } answers { memberships.value[secondArg<Long>()] }
+        coEvery { getFavoriteMembers(type, any()) } answers {
+            memberships.value.filter { (id, group) -> group == secondArg<Long>() && id in library.value }.keys.toList()
+        }
     }
 
     /** The tracker ids [OPEN]'s group read emits; only [SIBLING] has a track. */
@@ -55,14 +72,14 @@ class GroupTrackSubscriptionConformanceTest {
                 every { subscribe(OPEN) } returns flowOf(emptyList())
                 every { subscribe(SIBLING) } returns flowOf(listOf(mangaTrack()))
             },
-            mockk<MangaMergeManager>().followingMemberships(),
+            MangaMergeManager(repository(type.contentType), preferences) {},
         ).subscribe(OPEN).map { it.map(Track::trackerId) }
         Type.NOVEL -> GetNovelTracks(
             mockk<NovelTrackRepository> {
                 every { getTracksByNovelIdAsFlow(OPEN) } returns flowOf(emptyList())
                 every { getTracksByNovelIdAsFlow(SIBLING) } returns flowOf(listOf(novelTrack()))
             },
-            mockk<NovelMergeManager>().followingMemberships(),
+            NovelMergeManager(repository(type.contentType), preferences) {},
             preferences,
         ).subscribeGroup(OPEN).map { it.map(NovelTrack::trackerId) }
     }
@@ -76,6 +93,46 @@ class GroupTrackSubscriptionConformanceTest {
         memberships.value = mapOf(OPEN to GROUP, SIBLING to GROUP)
 
         seen.last() shouldContainExactly listOf(TRACKER)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `an open subscription picks up the group's tracker once its entry is added back to the library`(
+        type: Type,
+    ) = runTest {
+        // A removed entry keeps its membership row, so the re-add touches only the library.
+        memberships.value = mapOf(OPEN to GROUP, SIBLING to GROUP)
+        library.value = setOf(SIBLING)
+        val seen = mutableListOf<List<Long>>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { trackerIds(type).toList(seen) }
+
+        library.value = setOf(OPEN, SIBLING)
+
+        seen.last() shouldContainExactly listOf(TRACKER)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `an open subscription drops a sibling's tracker once the sibling leaves the library`(type: Type) = runTest {
+        memberships.value = mapOf(OPEN to GROUP, SIBLING to GROUP)
+        val seen = mutableListOf<List<Long>>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { trackerIds(type).toList(seen) }
+
+        library.value = setOf(OPEN)
+
+        seen.last() shouldContainExactly emptyList()
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `an open subscription drops a sibling's tracker once merging is switched off`(type: Type) = runTest {
+        memberships.value = mapOf(OPEN to GROUP, SIBLING to GROUP)
+        val seen = mutableListOf<List<Long>>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { trackerIds(type).toList(seen) }
+
+        mergingEnabled.value = false
+
+        seen.last() shouldContainExactly emptyList()
     }
 
     private companion object {

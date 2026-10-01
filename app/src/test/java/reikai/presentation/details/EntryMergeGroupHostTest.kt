@@ -2,15 +2,22 @@ package reikai.presentation.details
 
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.EntryMergeManager
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The host is the shared merge read wiring both details models compose. Its own responsibility is small:
@@ -148,7 +155,7 @@ class EntryMergeGroupHostTest {
 
     /** A host whose live group has resolved to three sources, each with its chip. */
     private suspend fun TestScope.threeSourceHost(): EntryMergeGroupHost {
-        val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L, 3L) }
+        val manager = threeSourceManager()
         val host = host(
             manager = manager,
             anchorChanges = MutableStateFlow(1L),
@@ -157,6 +164,11 @@ class EntryMergeGroupHostTest {
         host.observe(backgroundScope)
         host.chips.first { it.size == 3 }
         return host
+    }
+
+    private fun threeSourceManager() = mockk<EntryMergeManager> {
+        every { relatedIdsChanges() } returns flowOf(Unit)
+        coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L, 3L)
     }
 
     private fun group(vararg ids: Long) = EntryMergeGroupHost.GroupState(ids, selected = null)
@@ -180,9 +192,8 @@ class EntryMergeGroupHostTest {
 
     @Test
     fun `observe recomputes the group and chips from the anchor`() = runTest {
-        val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L, 3L) }
         val host = host(
-            manager = manager,
+            manager = threeSourceManager(),
             anchorChanges = MutableStateFlow(1L),
             resolveSources = { ids -> ids.map { EntryMergeSource(it, "src$it") } },
         )
@@ -194,5 +205,27 @@ class EntryMergeGroupHostTest {
             EntryMergeSource(2L, "src2"),
             EntryMergeSource(3L, "src3"),
         )
+    }
+
+    @Test
+    fun `observe reads the group again when the manager says it could answer differently`() = runTest {
+        // A re-add to the library changes the group with the anchor and the membership table untouched.
+        val changes = MutableStateFlow(0)
+        val reads = MutableStateFlow(0)
+        var group = longArrayOf(1L)
+        val manager = mockk<EntryMergeManager> {
+            every { relatedIdsChanges() } returns changes.map { }
+            coEvery { computeRelatedIds(1L) } answers { group.also { reads.value++ } }
+        }
+        val host = host(manager, anchorChanges = MutableStateFlow(1L))
+        host.observe(backgroundScope)
+        reads.first { it == 1 }
+
+        group = longArrayOf(1L, 2L)
+        changes.value = 1
+
+        withContext(Dispatchers.Default) {
+            withTimeout(5.seconds) { host.state.first { it.ids.size == 2 } }
+        }.ids.toList() shouldBe listOf(1L, 2L)
     }
 }

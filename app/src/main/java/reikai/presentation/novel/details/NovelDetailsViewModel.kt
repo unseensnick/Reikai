@@ -251,10 +251,7 @@ class NovelDetailsViewModel(
     private val mergeGroup = EntryMergeGroupHost(
         mergeManager = mergeManager,
         initialIds = longArrayOf(),
-        anchorChanges = combine(
-            novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
-            mergeManager.membershipChanges(),
-        ) { anchor, _ -> anchor }
+        anchorChanges = novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
             .filterNotNull()
             .onEach { anchorNovelId = it.id }
             .map { it.id },

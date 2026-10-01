@@ -26,7 +26,7 @@ class GetTracksInGroupTest {
     }
     private val getTracks = mockk<GetTracks>()
     private val mergeManager = mockk<MangaMergeManager> {
-        every { membershipChanges() } returns flowOf(emptyMap())
+        every { relatedIdsChanges() } returns flowOf(Unit)
     }
     private val interactor = GetTracksInGroup(preferences, getTracks, mergeManager)
 

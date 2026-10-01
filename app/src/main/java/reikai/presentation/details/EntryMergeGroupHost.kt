@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -19,7 +20,7 @@ import tachiyomi.core.common.util.lang.launchIO
  * The shared read side of a merged entry's details screen: the group ids, the selected-source chip,
  * the membership observer keeping them live, and the source-switcher chips. Mirrors the write-side
  * [EntryMergeActionHost]. Two per-type differences are injected: [anchorChanges] emits the anchor id
- * whenever the anchor or membership changes, and [resolveSources] maps the grouped ids to chips,
+ * whenever the anchor changes, and [resolveSources] maps the grouped ids to chips,
  * owning the not-merged case so the novel side can clear its sibling map. [observe] is called from
  * each model's init once its fields are set, never here, since the closures capture model state.
  */
@@ -82,12 +83,13 @@ class EntryMergeGroupHost(
         _chips.value.filter { it.id in group.ids }.takeIf { it.size > 1 }.orEmpty()
 
     /**
-     * Start the two collectors: recompute the group when the anchor or group membership changes, and
-     * rebuild [chips] whenever the membership changes.
+     * Start the two collectors: recompute the group when the anchor changes or the manager says the
+     * group could resolve differently, and rebuild [chips] whenever the membership changes.
      */
     fun observe(scope: CoroutineScope) {
         scope.launchIO {
-            anchorChanges.collectLatest { setRelated(mergeManager.computeRelatedIds(it)) }
+            combine(anchorChanges, mergeManager.relatedIdsChanges()) { anchor, _ -> anchor }
+                .collectLatest { setRelated(mergeManager.computeRelatedIds(it)) }
         }
         scope.launchIO {
             _state.map { it.ids }.distinctUntilChanged().collectLatest { _chips.value = resolveSources(it) }
