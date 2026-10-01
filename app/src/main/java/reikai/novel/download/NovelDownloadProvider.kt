@@ -87,7 +87,7 @@ class NovelDownloadProvider(
     fun findNovelDir(novel: Novel): UniFile? =
         downloadsDir?.findFile(sourceDirName(novel))?.findFile(novelDirName(novel))
 
-    private fun findChapterFile(novel: Novel, chapter: NovelChapter): UniFile? {
+    fun findChapterFile(novel: Novel, chapter: NovelChapter): UniFile? {
         val dir = findNovelDir(novel) ?: return null
         return validChapterFileNames(chapter).firstNotNullOfOrNull { dir.findFile(it) }
     }

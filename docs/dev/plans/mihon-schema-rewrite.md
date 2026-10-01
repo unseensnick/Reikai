@@ -87,7 +87,14 @@ device: an upgrade from a 196 or 197 build with real data is the owner's check.
 - **State outside the database follows the merge through a record.** `50.sqm` and `51.sqm` write each
   merged-away id, its survivor and its title to `dedupe_merged_ids`, and each merged-away chapter row
   and the kept row with the same url to `dedupe_merged_chapter_ids`, before deleting them, since a
-  migration cannot touch files or preferences. Two readers use it, both before it is emptied:
+  migration cannot touch files or preferences. Three readers use it, all before it is emptied:
+  - `NovelDownloadRekeyMigration` (182) moves old-scheme novel downloads (`<novel id>/<chapter id>.html`)
+    to the title-named scheme. On an upgrade from 0.2.1 or earlier it runs after `51.sqm`, so a
+    merged-away novel's folder and a merged-away chapter's file name ids that no longer resolve; the
+    record maps each to its survivor, and those files are written there. They go after every file that
+    resolves directly, and one whose chapter the survivor already holds is left in place, so nothing is
+    overwritten, as in the folder merge below. The re-key is file I/O inside the migrations
+    `MainActivity` blocks on, but each file is one chapter's HTML, so it stays there.
   - `MergedDuplicateCarryMigration` (198) moves a copy's custom cover to the survivor when the survivor
     has none; when both have one the survivor's stays. The copy's file is deleted either way, because
     neither entry table uses AUTOINCREMENT and a new entry could be given the freed id and inherit it. A

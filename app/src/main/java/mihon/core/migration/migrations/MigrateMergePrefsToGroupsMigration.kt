@@ -7,6 +7,7 @@ import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
 import reikai.domain.dedupe.MergedDuplicateRepository
+import reikai.domain.dedupe.survivorIds
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergeGroupReconstruction
@@ -67,7 +68,9 @@ class MigrateMergePrefsToGroupsMigration(
         merges: Preference<Set<String>>,
         unmerges: Preference<Set<String>>,
     ): List<List<Long>> {
-        val survivors = survivorsOf(contentType)
+        // The upgrade's dedupe (50.sqm, 51.sqm) runs before this, so the prefs can name a copy it merged away.
+        // The record is emptied only after the migrations, by MergedDuplicateCarryMigration.
+        val survivors = mergedDuplicates.getAll().survivorIds(contentType)
         return MergeGroupReconstruction.reconstruct(
             candidates = candidates,
             manualMerges = MergeGroupReconstruction.parsePrefGroups(merges.get(), survivors),
@@ -75,13 +78,6 @@ class MigrateMergePrefsToGroupsMigration(
             switches = MergeGroupReconstruction.titleSwitches(contentType, prefs) { it.get() },
         )
     }
-
-    // The upgrade's dedupe (50.sqm, 51.sqm) runs before this, so the prefs can name a copy it merged away.
-    // MergedDuplicateCarryMigration empties the record, and runs after this by its higher version.
-    private suspend fun survivorsOf(contentType: ContentType): Map<Long, Long> =
-        mergedDuplicates.getAll()
-            .filter { it.contentType == contentType }
-            .associate { it.discardedId to it.survivorId }
 
     // Idempotent: skip a group whose members are already grouped, so a re-run (or a partial prior run)
     // does not hit the one-group-per-entry constraint.

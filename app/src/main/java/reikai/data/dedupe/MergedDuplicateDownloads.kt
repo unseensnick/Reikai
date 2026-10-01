@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.download.Downloader
 import logcat.LogPriority
 import reikai.domain.dedupe.MergedDuplicate
 import reikai.domain.dedupe.MergedDuplicateChapter
+import reikai.domain.dedupe.survivorIds
 import reikai.domain.download.QueuedChapter
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
@@ -138,11 +139,8 @@ class MergedDuplicateDownloads(
         chapters: List<MergedDuplicateChapter>,
         chapterExists: suspend (Long) -> Boolean,
     ): List<QueuedChapter> {
-        val survivors = duplicates.filter {
-            it.contentType == contentType
-        }.associate { it.discardedId to it.survivorId }
-        val chapterSurvivors = chapters.filter { it.contentType == contentType }
-            .associate { it.discardedId to it.survivorId }
+        val survivors = duplicates.survivorIds(contentType)
+        val chapterSurvivors = chapters.survivorIds(contentType)
         return queue.sortedBy { it.order }
             .map { row ->
                 QueuedChapter(
