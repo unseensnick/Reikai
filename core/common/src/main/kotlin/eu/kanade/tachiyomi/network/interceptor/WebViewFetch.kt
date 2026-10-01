@@ -128,6 +128,14 @@ internal fun isWebViewFetchChallenged(status: Int, headers: List<Pair<String, St
     status == 403 && headers.any { (name, value) -> name.equals("cf-mitigated", true) && value == "challenge" }
 
 /**
+ * The request to solve and retry when a served answer is still a Cloudflare challenge, or null to pass
+ * it on. A hop to another site is fetched by OkHttp past the interceptor, so a challenge there comes
+ * back served; it is solved on the site OkHttp finally reached, as on OkHttp's own redirect.
+ */
+internal fun webViewFetchChallengedHop(response: Response): Request? =
+    response.request.takeIf { isCloudflareChallenge(response) }
+
+/**
  * The request that follows a redirect to [target], built the way OkHttp builds its own: http(s) only,
  * no scheme change unless the client allows it, and no credentials carried to another origin. Only a
  * GET or HEAD is followed; a redirected write is not replayed on another server's say-so.

@@ -6,8 +6,10 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MultipartBody
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import okio.Buffer
 import okio.BufferedSink
 import org.junit.jupiter.api.Test
@@ -119,6 +121,33 @@ class WebViewFetchTest {
     @Test
     fun `a plain 403 is an answer, not a challenge`() {
         isWebViewFetchChallenged(403, listOf("server" to "cloudflare")) shouldBe false
+    }
+
+    @Test
+    fun `a served hop that Cloudflare challenges is solved on the hop's own site`() {
+        val challenge = Response.Builder()
+            .request(get("https://target.example.net/chapter").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(403)
+            .message("Forbidden")
+            .header("cf-mitigated", "challenge")
+            .header("Server", "cloudflare")
+            .build()
+
+        webViewFetchChallengedHop(challenge)!!.url.host shouldBe "target.example.net"
+    }
+
+    @Test
+    fun `a served answer that is no challenge is passed on`() {
+        val answer = Response.Builder()
+            .request(get("https://target.example.net/chapter").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .header("Server", "cloudflare")
+            .build()
+
+        webViewFetchChallengedHop(answer).shouldBeNull()
     }
 
     @Test

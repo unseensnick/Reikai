@@ -46,7 +46,7 @@ class CloudflareInterceptor(
         // Check if Cloudflare anti-bot is on
         // Checking the cf-mitigated header is the official way to detect a Cloudflare challenge:
         // https://developers.cloudflare.com/cloudflare-challenges/challenge-types/challenge-pages/detect-response/
-        return response.header("cf-mitigated") == "challenge" && response.header("Server") in SERVER_CHECK
+        return isCloudflareChallenge(response) // RK: the rule moved below, shared with the WebView fetch
     }
 
     // RK --> the per-host solve lock (mihonapp/mihon#3858): the nonce and the nullable retry signal.
@@ -88,7 +88,7 @@ class CloudflareInterceptor(
             } else {
                 if (!fsActive && webViewFetcher.serves(fetchRequest)) {
                     when (val outcome = webViewFetcher.fetch(chain, fetchRequest)) {
-                        is WebViewFetcher.Outcome.Served -> return outcome.response
+                        is WebViewFetcher.Outcome.Served -> return served(chain, outcome.response)
                         // As a failed solve, so the caller can still offer the blocked page to open.
                         is WebViewFetcher.Outcome.Failed -> {
                             logcat(LogPriority.WARN, outcome.error) { "WebView fetch failed for $host" }
@@ -112,7 +112,7 @@ class CloudflareInterceptor(
                         }
                         if (outcome !is WebViewFetcher.Outcome.Served) throw e
                         webViewFetcher.markServed(fetchRequest)
-                        return outcome.response
+                        return served(chain, outcome.response)
                     }
                     // Don't re-pay the 30s WebView timeout on later requests to a host the WebView
                     // can't clear: mark it so subsequent requests go straight to FlareSolverr.
@@ -135,13 +135,30 @@ class CloudflareInterceptor(
             //     site root often is not challenged at all, which leaves nothing to clear.
             throw CloudflareBypassIOException(
                 context.stringResource(MR.strings.information_cloudflare_bypass_failure),
-                request.url.toString(),
+                (e.blockedUrl ?: request.url).toString(),
                 e,
             )
         } catch (e: Exception) {
             throw IOException(e)
         }
     }
+
+    // RK --> a WebView fetch hands a redirect to another site to OkHttp past this interceptor, so a
+    //     challenge there is solved on that site and the hop retried, as on OkHttp's own redirect.
+    private fun served(chain: Interceptor.Chain, response: Response): Response {
+        val hop = webViewFetchChallengedHop(response) ?: return response
+        response.close()
+        clearClearance(hop.url)
+        val oldCookie = cookieManager.get(hop.url).firstOrNull { it.name == "cf_clearance" }
+        try {
+            resolveWithWebView(hop, hop.url, oldCookie)
+        } catch (_: CloudflareBypassException) {
+            // Open in WebView then opens the page that is challenged, not the site that sent it there.
+            throw CloudflareBypassException(hop.url)
+        }
+        return chain.proceed(hop)
+    }
+    // RK <--
 
     // RK: a redirect can put the challenge on a different host than the one asked for, so both are
     //     cleared. Removal expands to the parent domains, which is where Cloudflare stores this.
@@ -399,7 +416,13 @@ class CloudflareInterceptor(
 private val SERVER_CHECK = arrayOf("cloudflare-nginx", "cloudflare")
 private val COOKIE_NAMES = listOf("cf_clearance")
 
-private class CloudflareBypassException : Exception()
+// RK: shouldIntercept's rule, read by the WebView fetch too, whose hop to another site comes back
+//     through OkHttp past this interceptor.
+internal fun isCloudflareChallenge(response: Response): Boolean =
+    response.header("cf-mitigated") == "challenge" && response.header("Server") in SERVER_CHECK
+
+// RK: blockedUrl, for a solve on another page than the request's own.
+private class CloudflareBypassException(val blockedUrl: HttpUrl? = null) : Exception()
 
 // RK: thrown when the bypass gives up, carrying the URL the challenge blocked.
 class CloudflareBypassIOException(
