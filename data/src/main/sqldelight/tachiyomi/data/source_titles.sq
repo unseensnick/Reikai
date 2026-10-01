@@ -1,0 +1,14 @@
+-- The stored titles of every other entry on one source, which name the download folders there
+-- (SourceTitlesRepository). Each reads its table's unique (source, url) index for the source.
+
+otherMangaTitles:
+SELECT remote_title
+FROM manga
+WHERE source_id = :sourceId
+AND id != :mangaId;
+
+otherNovelTitles:
+SELECT title
+FROM novels
+WHERE source = :source
+AND _id != :novelId;

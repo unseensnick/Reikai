@@ -175,10 +175,14 @@ class NovelRepositoryImpl(
             source = source,
             url = url,
             title = title,
+            authorSet = isSet(::author),
             author = author,
+            artistSet = isSet(::artist),
             artist = artist,
+            descriptionSet = isSet(::description),
             description = description,
             status = status,
+            thumbnailUrlSet = isSet(::thumbnailUrl),
             thumbnailUrl = thumbnailUrl,
             favoriteAtSet = isSet(::favoriteAt),
             favoriteAt = favoriteAt,
@@ -193,6 +197,6 @@ class NovelRepositoryImpl(
             calculateInterval = fetchInterval?.toLong(),
             id = id,
         )
-        genre?.let { database.novelsQueries.setGenre(genre = it, id = id) }
+        if (isSet(::genre)) database.novelsQueries.setGenre(genre = genre, id = id)
     }
 }

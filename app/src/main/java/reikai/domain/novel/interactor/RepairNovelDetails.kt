@@ -3,6 +3,7 @@ package reikai.domain.novel.interactor
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import logcat.LogPriority
+import reikai.data.novel.StoredDetails
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.NovelChapterRepository
@@ -54,9 +55,10 @@ class RepairNovelDetails(
                         libraryPreferences,
                         coverCache,
                         novelDownloadManager = downloadManager(),
-                        // The title is the field the mix-up corrupted, so the library-titles setting
-                        // cannot keep it; a user's own rename lives in custom_novel_info and survives.
-                        updateTitles = true,
+                        // Every stored detail is the neighbour's, the title too, so the library-titles setting
+                        // cannot keep it and a field the source leaves out is cleared rather than kept. A user's
+                        // own edits live in custom_novel_info and survive.
+                        details = StoredDetails.REPLACED,
                     )
                 }
                     .onSuccess { repaired++ }

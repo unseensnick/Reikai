@@ -152,6 +152,7 @@ class NovelDownloadManagerEnqueueTest {
             saver = mockk(),
             securityPreferences = mockk(),
             adultChecker = mockk(),
+            sourceTitles = mockk(),
         )
     }
 

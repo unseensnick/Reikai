@@ -19,7 +19,9 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import reikai.domain.download.deletableDownloads // RK
+import reikai.domain.download.movesDownloadFolder // RK
 import reikai.domain.download.removableDownloads // RK
+import reikai.domain.source.SourceTitlesRepository // RK
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.extension
 import tachiyomi.core.common.util.lang.launchIO
@@ -54,6 +56,7 @@ class DownloadManager(
     // RK <--
     private val downloader: Downloader,
     private val pendingDeleter: DownloadPendingDeleter,
+    private val sourceTitles: SourceTitlesRepository, // RK
 ) {
 
     val isRunning: Boolean
@@ -406,6 +409,10 @@ class DownloadManager(
         val newName = provider.getMangaDirName(newTitle)
 
         if (oldFolder.name == newName) return
+        // RK --> a folder another manga on the source shares, or a name another folder holds, stays put
+        val otherFolders = sourceTitles.otherMangaTitles(manga.source, manga.id).map { provider.getMangaDirName(it) }
+        if (!movesDownloadFolder(oldFolder, newName, otherFolders)) return
+        // RK <--
 
         // just to be safe, don't allow downloads for this manga while renaming it
         removeQueuedManga(manga) // RK

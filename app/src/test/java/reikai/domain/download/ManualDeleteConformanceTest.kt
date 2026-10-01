@@ -116,6 +116,7 @@ class MangaManualDeleteHalf : ManualDeleteHalf {
                 every { queueState } returns MutableStateFlow(emptyList<Download>())
             },
             pendingDeleter = mockk(),
+            sourceTitles = mockk(),
         )
 
         manager.deleteChapters(
@@ -168,6 +169,7 @@ class NovelManualDeleteHalf : ManualDeleteHalf {
             saver = mockk(),
             securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
             adultChecker = mockk(),
+            sourceTitles = mockk(),
         )
 
         manager.deleteChapters(targets.map { chapter(it, novel.id) })

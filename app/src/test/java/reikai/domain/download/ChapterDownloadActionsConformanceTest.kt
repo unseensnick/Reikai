@@ -307,6 +307,7 @@ class MangaDownloadActionsHalf : DownloadActionsHalf {
                 getChapter = mockk(),
                 downloader = downloader,
                 pendingDeleter = mockk(),
+                sourceTitles = mockk(),
             ),
         ).also { spy ->
             every { spy.deleteChapters(any(), any(), any()) } answers
@@ -415,6 +416,7 @@ class NovelDownloadActionsHalf : DownloadActionsHalf {
             saver = mockk(),
             securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
+            sourceTitles = mockk(),
         ),
     ).also { spy ->
         every { spy.deleteChapters(any()) } answers { deleted += firstArg<List<NovelChapter>>().map { it.id } }

@@ -97,6 +97,20 @@ class RepairNovelDetailsTest {
      */
     @Test
     fun `a library novel wearing a neighbour's title gets its own back`() = runTest {
+        repairedVictim().title shouldBe "Victim"
+    }
+
+    /**
+     * The source sends no author, as a plugin whose selector misses the page's tag does. An ordinary refresh
+     * keeps the stored one then, but here that is the neighbour's, so it goes.
+     */
+    @Test
+    fun `a repaired novel keeps none of its neighbour's details its source leaves out`() = runTest {
+        repairedVictim().author shouldBe null
+    }
+
+    /** A library novel wearing a neighbour's details, repaired against a source that parses it as "Victim". */
+    private suspend fun repairedVictim(): Novel {
         Database.Schema.create(driver).await()
         val database = DatabaseBindings.providesDatabase(driver)
         val novels = NovelRepositoryImpl(database)
@@ -122,7 +136,6 @@ class RepairNovelDetailsTest {
         )
 
         repair.await()
-
-        novels.getById(victimId)!!.title shouldBe "Victim"
+        return novels.getById(victimId)!!
     }
 }

@@ -122,7 +122,10 @@ class MangaEmptiedQueueHalf : EmptiedQueueHalf {
         val manager = DownloadManager(
             context = mockk(relaxed = true),
             provider = mockk(relaxed = true) {
-                every { findMangaDir(any(), any()) } returns mockk(relaxed = true) { every { name } returns "Old" }
+                every { findMangaDir(any(), any()) } returns mockk(relaxed = true) {
+                    every { name } returns "Old"
+                    every { parentFile } returns null
+                }
                 every { getMangaDirName(any()) } returns "New"
             },
             cache = mockk(relaxed = true),
@@ -133,6 +136,7 @@ class MangaEmptiedQueueHalf : EmptiedQueueHalf {
             getChapter = mockk(),
             downloader = downloader,
             pendingDeleter = mockk(),
+            sourceTitles = mockk { coEvery { otherMangaTitles(any(), any()) } returns emptyList() },
         )
 
         when (emptying) {
@@ -191,7 +195,10 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
             val manager = NovelDownloadManager(
                 context = context,
                 provider = mockk(relaxed = true) {
-                    every { findNovelDir(novel) } returns mockk(relaxed = true) { every { name } returns "Old" }
+                    every { findNovelDir(novel) } returns mockk(relaxed = true) {
+                        every { name } returns "Old"
+                        every { parentFile } returns null
+                    }
                     every { novelDirName("New") } returns "New"
                 },
                 cache = mockk(relaxed = true) { every { downloadedChapterIds(novel, any()) } returns emptySet() },
@@ -205,6 +212,7 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
                 saver = mockk(),
                 securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
                 adultChecker = mockk(),
+                sourceTitles = mockk { coEvery { otherNovelTitles(any(), any()) } returns emptyList() },
             )
             manager.downloadChapters(listOf(chapter))
             val drain = test.backgroundScope.launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }

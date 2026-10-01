@@ -25,6 +25,7 @@ import logcat.LogPriority
 import reikai.domain.download.SeriesCompletions
 import reikai.domain.download.deletableDownloads
 import reikai.domain.download.hasRoomToDownload
+import reikai.domain.download.movesDownloadFolder
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
@@ -34,6 +35,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.ownersOf
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.source.SourceTitlesRepository
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelSourceManager
@@ -69,6 +71,7 @@ class NovelDownloadManager(
     private val saver: NovelChapterSaver,
     private val securityPreferences: SecurityPreferences,
     private val adultChecker: AdultContentChecker,
+    private val sourceTitles: SourceTitlesRepository,
 ) {
 
     private val store = NovelDownloadStore(context, chapterRepo)
@@ -261,12 +264,16 @@ class NovelDownloadManager(
     }
 
     /**
-     * Moves the novel's downloads to [newTitle]'s folder, the twin of `DownloadManager.renameManga`. As there,
-     * the novel's queued chapters are dropped first, so none is written into the folder being moved.
+     * Moves the novel's downloads to [newTitle]'s folder, the twin of `DownloadManager.renameManga`, pinned by
+     * [movesDownloadFolder]. As there, the novel's queued chapters are dropped first, so none is written into the
+     * folder being moved.
      */
     suspend fun renameNovel(novel: Novel, newTitle: String) {
         val dir = provider.findNovelDir(novel) ?: return
-        if (dir.name == provider.novelDirName(newTitle)) return
+        val newName = provider.novelDirName(newTitle)
+        if (dir.name == newName) return
+        val otherFolders = sourceTitles.otherNovelTitles(novel.source, novel.id).map { provider.novelDirName(it) }
+        if (!movesDownloadFolder(dir, newName, otherFolders)) return
         cancelDownloads(_queueState.value.filter { it.novelId == novel.id }.map { it.chapterId })
         if (withIOContext { provider.renameNovel(novel, newTitle) }) {
             cache.renameNovel(novel, newTitle)

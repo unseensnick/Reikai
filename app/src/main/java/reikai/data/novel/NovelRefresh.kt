@@ -17,27 +17,40 @@ import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
 import kotlin.time.Clock
 
+/** What a refresh makes of the details already stored for a novel. */
+enum class StoredDetails {
+    /** The novel's own: a field the parse leaves out keeps its stored value, and the title follows [refreshedTitle]. */
+    KEPT,
+
+    /** Another novel's, which the repair undoes: every source-owned field, title included, takes the parse's. */
+    REPLACED,
+}
+
 /**
  * Overlay freshly [parsed] source metadata onto the stored [existing] novel. User edits live in the
  * non-destructive `custom_novel_info` overlay, applied on read, so every source-owned field takes the
- * source value (a null or blank parsed value never wipes existing data on a partial parse). The title
- * follows the one rule manga follows, [refreshedTitle]. Identity and library state stay [existing]'s.
+ * source value; a null or blank parsed value falls back to the stored one under [StoredDetails.KEPT], so a
+ * partial parse never wipes data, and to none under [StoredDetails.REPLACED]. Identity and library state stay
+ * [existing]'s.
  */
-private fun mergeRefreshedNovel(existing: Novel, parsed: Novel, updateTitles: Boolean): Novel = existing.copy(
-    // toNovel's placeholder for a nameless parse is not a title.
-    title = refreshedTitle(parsed.title.takeIf { it != "Untitled" }, existing.favorite, updateTitles)
-        ?: existing.title,
-    author = parsed.author?.takeIf { it.isNotBlank() } ?: existing.author,
-    artist = parsed.artist?.takeIf { it.isNotBlank() } ?: existing.artist,
-    description = parsed.description?.takeIf { it.isNotBlank() } ?: existing.description,
-    genre = parsed.genre?.takeIf { it.isNotEmpty() } ?: existing.genre,
-    // Source UNKNOWN (0) doesn't clobber a known stored status.
-    status = parsed.status.takeIf { it != NovelStatusCode.UNKNOWN.toLong() } ?: existing.status,
-    thumbnailUrl = keptCover(existing.thumbnailUrl, parsed.thumbnailUrl),
-    // A partial parse reporting 0 never shrinks a known page count.
-    totalPages = parsed.totalPages.takeIf { it > 0L } ?: existing.totalPages,
-    initialized = true,
-)
+private fun mergeRefreshedNovel(existing: Novel, parsed: Novel, updateTitles: Boolean, details: StoredDetails): Novel {
+    val fallback = if (details == StoredDetails.KEPT) existing else Novel.create()
+    return existing.copy(
+        // toNovel's placeholder for a nameless parse is not a title, and a title cannot be cleared.
+        title = refreshedTitle(parsed.title.takeIf { it != "Untitled" }, existing.favorite, updateTitles)
+            ?: existing.title,
+        author = parsed.author?.takeIf { it.isNotBlank() } ?: fallback.author,
+        artist = parsed.artist?.takeIf { it.isNotBlank() } ?: fallback.artist,
+        description = parsed.description?.takeIf { it.isNotBlank() } ?: fallback.description,
+        genre = parsed.genre?.takeIf { it.isNotEmpty() } ?: fallback.genre,
+        // Source UNKNOWN (0) doesn't clobber a known stored status.
+        status = parsed.status.takeIf { it != NovelStatusCode.UNKNOWN.toLong() } ?: fallback.status,
+        thumbnailUrl = keptCover(fallback.thumbnailUrl, parsed.thumbnailUrl),
+        // A partial parse reporting 0 never shrinks a known page count.
+        totalPages = parsed.totalPages.takeIf { it > 0L } ?: fallback.totalPages,
+        initialized = true,
+    )
+}
 
 /**
  * Stores [parsed] over [existing] and returns the novel as merged: the one write every novel refresh
@@ -53,9 +66,10 @@ suspend fun storeRefreshedNovel(
     novelDownloadManager: NovelDownloadManager?,
     coverCache: CoverCache,
     manualFetch: Boolean = false,
-    updateTitles: Boolean = libraryPreferences.updateMangaTitles.get(),
+    details: StoredDetails = StoredDetails.KEPT,
 ): Novel {
-    val merged = mergeRefreshedNovel(existing, parsed, updateTitles)
+    val updateTitles = details == StoredDetails.REPLACED || libraryPreferences.updateMangaTitles.get()
+    val merged = mergeRefreshedNovel(existing, parsed, updateTitles, details)
     // Novels have no local source, so a cover is never only stamped.
     val refreshedUrl = keptCover(null, parsed.thumbnailUrl)
     val cover = refreshedCover(existing.thumbnailUrl, refreshedUrl, manualFetch, isLocal = false) {
@@ -103,7 +117,7 @@ suspend fun refreshNovelFromSource(
     novelDownloadManager: NovelDownloadManager? = null,
     manualFetch: Boolean = false,
     fetchWindow: Pair<Long, Long> = Pair(0, 0),
-    updateTitles: Boolean = libraryPreferences.updateMangaTitles.get(),
+    details: StoredDetails = StoredDetails.KEPT,
 ): NovelRefreshResult {
     val sourceNovel = source.parseNovel(novel.url)
     val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = novel.favorite)
@@ -115,7 +129,7 @@ suspend fun refreshNovelFromSource(
         novelDownloadManager,
         coverCache,
         manualFetch,
-        updateTitles,
+        details,
     )
 
     val firstChapters = sourceNovel.chapters.orEmpty()

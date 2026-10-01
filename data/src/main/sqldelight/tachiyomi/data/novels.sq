@@ -177,6 +177,8 @@ WHERE _id = :novelId;
 -- Partial update (the novel twin of manga.sq's coalesce update): each column `coalesce(:x, x)`s, so a
 -- NovelUpdate patch writes only the fields it sets (null = leave unchanged). Used for surgical edits
 -- (e.g. notes); the full-row `update` above stays for restore / edit-info, which need to write nulls.
+-- The source-owned text columns and favorite_at are the exception: a null set there is written, since a
+-- repair clears a detail the source no longer gives (RepairNovelDetails).
 -- NOTE: `genre` (List<String>) and `update_strategy` (UpdateStrategy) are omitted: SQLDelight does not
 -- preserve those custom column adapters through `coalesce` for this table (it emits raw String/Long).
 -- `genre` is patched through `setGenre` below; `update_strategy` through the full-row `update`.
@@ -185,11 +187,11 @@ UPDATE novels SET
     source = coalesce(:source, source),
     url = coalesce(:url, url),
     title = coalesce(:title, title),
-    author = coalesce(:author, author),
-    artist = coalesce(:artist, artist),
-    description = coalesce(:description, description),
+    author = CASE WHEN :authorSet THEN :author ELSE author END,
+    artist = CASE WHEN :artistSet THEN :artist ELSE artist END,
+    description = CASE WHEN :descriptionSet THEN :description ELSE description END,
     status = coalesce(:status, status),
-    thumbnail_url = coalesce(:thumbnailUrl, thumbnail_url),
+    thumbnail_url = CASE WHEN :thumbnailUrlSet THEN :thumbnailUrl ELSE thumbnail_url END,
     -- NULL is a real value here (not in the library), which coalesce cannot write
     favorite_at = CASE WHEN :favoriteAtSet THEN :favoriteAt ELSE favorite_at END,
     last_update = coalesce(:lastUpdate, last_update),
