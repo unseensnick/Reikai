@@ -119,6 +119,16 @@ open class EntryMergeManager(
     }
 
     /**
+     * [items] in the buckets a surface counting merged series once reads (Stats, the library export):
+     * a group's members together, ordered by id so its lowest-id member leads whatever the caller's
+     * sort. Grouped only while merging is on, since [groupIdsFor] is empty otherwise.
+     */
+    suspend fun <T> seriesBuckets(items: List<T>, id: (T) -> Long): List<MergeBucket<T>> {
+        val sorted = items.distinctBy(id).sortedBy(id)
+        return sorted.bucketByMergeGroup(groupIdsFor(sorted.map(id)), mergingEnabled = true, id)
+    }
+
+    /**
      * The group of [anchorId] in its own priority order when the group overrides the global source
      * ranking, else empty (aggregation then falls back to the global list). This is the per-group
      * override channel: aggregation ranks members by this order directly, so two members sharing a

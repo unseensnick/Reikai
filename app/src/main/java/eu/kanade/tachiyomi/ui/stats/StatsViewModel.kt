@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.ui.stats
 
-import androidx.compose.ui.util.fastDistinctBy
 import androidx.compose.ui.util.fastFilter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,9 +26,9 @@ import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
 import reikai.domain.library.smartUpdateFacts
 import reikai.domain.library.smartUpdateProgressSkip
-import reikai.domain.merge.MergeGroupRepository
-import reikai.domain.merge.dedupeByMergeGroup
+import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelHistoryRepository
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
@@ -37,6 +36,8 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.track.toUiTrack
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
+import reikai.presentation.stats.StatsSeries
+import reikai.presentation.stats.statsSeries
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.history.interactor.GetTotalReadDuration
 import tachiyomi.domain.library.model.LibraryManga
@@ -63,7 +64,8 @@ class StatsViewModel(
     private val novelPreferences: NovelPreferences,
     private val sourcePreferences: ReikaiSourcePreferences,
     private val novelDownloadManager: () -> NovelDownloadManager,
-    private val mergeGroupRepository: MergeGroupRepository,
+    private val mangaMergeManager: MangaMergeManager,
+    private val novelMergeManager: NovelMergeManager,
     // RK <--
 ) : ViewModel() {
 
@@ -82,35 +84,27 @@ class StatsViewModel(
     init {
         viewModelScope.launchIO {
             val libraryManga = getLibraryManga.await()
-            // RK: two dedup passes, not one. getLibraryManga repeats an entry per category, so the id
-            //     pass is upstream's. The group pass is ours: a series favorited from three sources is
-            //     three rows here and one card in the library, so every per-title stat read high.
-            //     Sorted by id first so which member represents the group is deterministic rather than
-            //     whatever the library sort left; see the note on the ingredients below.
-            val distinctLibraryManga = libraryManga.fastDistinctBy { it.id }
-                .sortedBy { it.id }
-                .dedupeByMergeGroup(mergeGroupRepository.getAllMemberships(ContentType.MANGA)) { it.id }
+            // RK: replaces upstream's id-distinct list. A series favorited from three sources is three
+            //     rows here and one card in the library, so StatsSeries counts it once.
+            val manga = mangaMergeManager.statsSeries(libraryManga) { it.id }
 
             // RK --> compute manga + novel ingredients once, then fold per selected type on chip change.
-            // Novels are already one row per title (categories are aggregated), so no distinct pass.
-            val distinctLibraryNovels = novelRepository.getLibraryNovelAsFlow().first()
-                .distinctBy { it.id }
-                .sortedBy { it.novel.id }
-                .dedupeByMergeGroup(mergeGroupRepository.getAllMemberships(ContentType.NOVELS)) { it.novel.id }
+            val novels = novelMergeManager.statsSeries(novelRepository.getLibraryNovelAsFlow().first()) { it.id }
 
             val ingredients = StatsIngredients(
                 mangaListRaw = libraryManga,
-                mangaList = distinctLibraryManga,
-                novelList = distinctLibraryNovels,
-                mangaTrackMap = getMangaTrackMap(distinctLibraryManga),
-                novelTrackMap = getNovelTrackMap(distinctLibraryNovels),
+                manga = manga,
+                novels = novels,
+                // Every member's tracks, so a tracker bound on any source of a merged series counts.
+                mangaTrackMap = getMangaTrackMap(manga.members),
+                novelTrackMap = getNovelTrackMap(novels.members),
                 mangaReadDuration = getTotalReadDuration.await(),
                 novelReadDuration = novelHistoryRepository.getTotalReadDuration(),
                 mangaDownloadCount = downloadManager.getDownloadCount(),
                 // RK: asked of the download cache, as manga asks its own manager. The library-view row
                 //     carries a hardcoded 0 (NovelMapper), filled in only by the library screen's own
                 //     overlay, so reading it here reported no novel downloads at all.
-                novelDownloadCount = distinctLibraryNovels.sumOf {
+                novelDownloadCount = novels.members.sumOf {
                     novelDownloadManager().getDownloadCount(it.novel)
                 },
             )
@@ -130,18 +124,18 @@ class StatsViewModel(
 
         val overview = StatsData.Overview(
             libraryMangaCount =
-            (if (mangaPart) i.mangaList.size else 0) + (if (novelPart) i.novelList.size else 0),
+            (if (mangaPart) i.manga.titles.size else 0) + (if (novelPart) i.novels.titles.size else 0),
             completedMangaCount =
             (
                 if (mangaPart) {
-                    i.mangaList.count { it.manga.status.toInt() == SManga.COMPLETED && it.unreadCount == 0L }
+                    i.manga.titles.count { it.manga.status.toInt() == SManga.COMPLETED && it.unreadCount == 0L }
                 } else {
                     0
                 }
                 ) +
                 (
                     if (novelPart) {
-                        i.novelList.count {
+                        i.novels.titles.count {
                             it.novel.status.toInt() == NovelStatusCode.COMPLETED && it.unreadCount == 0L
                         }
                     } else {
@@ -155,40 +149,37 @@ class StatsViewModel(
         val titles = StatsData.Titles(
             globalUpdateItemCount =
             (if (mangaPart) getGlobalUpdateItemCount(i.mangaListRaw) else 0) +
-                (if (novelPart) getNovelGlobalUpdateItemCount(i.novelList) else 0),
+                (if (novelPart) getNovelGlobalUpdateItemCount(i.novels.titles) else 0),
             startedMangaCount =
-            (if (mangaPart) i.mangaList.count { it.hasStarted } else 0) +
-                (if (novelPart) i.novelList.count { it.hasStarted } else 0),
+            (if (mangaPart) i.manga.titles.count { it.hasStarted } else 0) +
+                (if (novelPart) i.novels.titles.count { it.hasStarted } else 0),
             // Novels have no local source, so local titles stays a manga-only stat.
-            localMangaCount = if (mangaPart) i.mangaList.count { it.manga.isLocal() } else 0,
+            localMangaCount = if (mangaPart) i.manga.titles.count { it.manga.isLocal() } else 0,
         )
 
         val chapters = StatsData.Chapters(
             totalChapterCount =
-            (if (mangaPart) i.mangaList.sumOf { it.totalChapters } else 0L).toInt() +
-                (if (novelPart) i.novelList.sumOf { it.totalChapters } else 0L).toInt(),
+            (if (mangaPart) i.manga.members.sumOf { it.totalChapters } else 0L).toInt() +
+                (if (novelPart) i.novels.members.sumOf { it.totalChapters } else 0L).toInt(),
             readChapterCount =
-            (if (mangaPart) i.mangaList.sumOf { it.readCount } else 0L).toInt() +
-                (if (novelPart) i.novelList.sumOf { it.readCount } else 0L).toInt(),
+            (if (mangaPart) i.manga.members.sumOf { it.readCount } else 0L).toInt() +
+                (if (novelPart) i.novels.members.sumOf { it.readCount } else 0L).toInt(),
             downloadCount =
             (if (mangaPart) i.mangaDownloadCount else 0) + (if (novelPart) i.novelDownloadCount else 0),
         )
 
         // Per-title mean scores from both types' scored tracks. Keys are per-table ids (a manga id and a
         // novel id can coincide), so combine the value lists, not the maps.
+        val scoringTrackers = loggedInTrackers.associateBy { it.id }
         val perTitleMeanScores = buildList {
-            if (mangaPart) {
-                addAll(getScoredMangaTrackMap(i.mangaTrackMap).values.map { it.map(::get10PointScore).average() })
-            }
-            if (novelPart) {
-                addAll(getScoredMangaTrackMap(i.novelTrackMap).values.map { it.map(::get10PointScore).average() })
-            }
+            if (mangaPart) addAll(i.manga.meanScores(i.mangaTrackMap, scoringTrackers))
+            if (novelPart) addAll(i.novels.meanScores(i.novelTrackMap, scoringTrackers))
         }
         val trackers = StatsData.Trackers(
             trackedTitleCount =
-            (if (mangaPart) i.mangaTrackMap.count { it.value.isNotEmpty() } else 0) +
-                (if (novelPart) i.novelTrackMap.count { it.value.isNotEmpty() } else 0),
-            meanScore = perTitleMeanScores.filterNot { it.isNaN() }.average(),
+            (if (mangaPart) i.manga.trackedCount(i.mangaTrackMap) else 0) +
+                (if (novelPart) i.novels.trackedCount(i.novelTrackMap) else 0),
+            meanScore = perTitleMeanScores.average(),
             trackerCount = loggedInTrackers.size,
         )
 
@@ -237,8 +228,8 @@ class StatsViewModel(
         }
     }
 
-    // RK --> novel track map: convert each novel track to a manga Track (toUiTrack) so the scored-map +
-    // score helpers below are shared with the manga side. Per-novel, matching the manga side's per-id count.
+    // RK --> novel track map: convert each novel track to a manga Track (toUiTrack) so the scoring kernels
+    // are shared with the manga side. Per-novel, matching the manga side's per-id map.
     private suspend fun getNovelTrackMap(libraryNovels: List<LibraryNovel>): Map<Long, List<Track>> {
         val loggedInTrackerIds = loggedInTrackers.map { it.id }.toHashSet()
         return libraryNovels.associate { novel ->
@@ -251,36 +242,21 @@ class StatsViewModel(
     }
     // RK <--
 
-    private fun getScoredMangaTrackMap(mangaTrackMap: Map<Long, List<Track>>): Map<Long, List<Track>> {
-        return mangaTrackMap.mapNotNull { (mangaId, tracks) ->
-            val trackList = tracks.mapNotNull { track ->
-                track.takeIf { it.score > 0.0 }
-            }
-            if (trackList.isEmpty()) return@mapNotNull null
-            mangaId to trackList
-        }.toMap()
-    }
-
-    // RK: getTrackMeanScore is inlined into buildSuccess, which averages both types' scored tracks
-
-    private fun get10PointScore(track: Track): Double {
-        val service = trackerManager.get(track.trackerId)!!
-        return service.get10PointScore(track)
-    }
+    // RK: getScoredMangaTrackMap, getTrackMeanScore and get10PointScore are replaced by
+    // StatsSeries.meanScores, the library's per-series mean (libraryTrackerMeans)
 
     // RK --> precomputed manga + novel stat ingredients, folded per content-type chip selection.
-    // mangaListRaw keeps category-membership duplicates (the global-update count matches upstream over it);
-    // mangaList is deduped by id AND by merge group for every other stat.
+    // mangaListRaw keeps category-membership duplicates (the global-update count matches upstream over it).
     //
-    // A merged series is one item here, represented by its lowest-id member. That member's own status,
+    // A merged series is one title, represented by its lowest-id member. That member's own status,
     // started state and local-ness are what the status stats read, so they can differ from the library
     // card, which leads on the ranked trunk. Re-deriving that ranking here would be a third copy of it.
-    // The chapter totals still sum every source's rows, so a merged series counts its shared chapters
-    // once per source there; deduplicating those needs the match-key identities, not a group count.
+    // The chapter totals sum every member's rows, so a merged series counts its shared chapters once
+    // per source there; deduplicating those needs the match-key identities, not a group count.
     private data class StatsIngredients(
         val mangaListRaw: List<LibraryManga>,
-        val mangaList: List<LibraryManga>,
-        val novelList: List<LibraryNovel>,
+        val manga: StatsSeries<LibraryManga>,
+        val novels: StatsSeries<LibraryNovel>,
         val mangaTrackMap: Map<Long, List<Track>>,
         val novelTrackMap: Map<Long, List<Track>>,
         val mangaReadDuration: Long,
