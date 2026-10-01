@@ -129,12 +129,31 @@ class LnPluginHost(
     // Read from assets once and evaluated into every engine, in order.
     private val runtimeScripts: List<String> by lazy { RUNTIME_ASSETS.map(::asset) }
 
-    /** Create the slot's engine, load the runtime, and replay the plugin load if the slot has one.
-     *  Caller must hold the slot's mutex and be inside [EngineSlot.onThread]. */
+    /** Create the slot's engine, load the runtime, and replay the plugin load if the slot has one. The
+     *  engine is kept only once all of that succeeded: a half-built one answered "plugin not loaded" to
+     *  every call until it idled out. Caller must hold the slot's mutex and be inside [EngineSlot.onThread]. */
     private suspend fun EngineSlot.engine(): QuickJs {
         qjs?.let { return it }
         val scripts = runtimeScripts
         val q = engineCreationMutex.withLock { QuickJs.create(checkNotNull(dispatcher)) }
+        try {
+            setUp(q, scripts)
+        } catch (e: Throwable) {
+            // On the slot's thread already, so this retires the engine as closeLocked does.
+            runCatching { q.close() }
+            executor?.shutdown()
+            executor = null
+            dispatcher = null
+            if (e is CancellationException) throw e
+            throw LnPluginException("could not start $label: ${e.message}", e)
+        }
+        qjs = q
+        lastUsedMs = System.currentTimeMillis()
+        ensureSweeper()
+        return q
+    }
+
+    private suspend fun EngineSlot.setUp(q: QuickJs, scripts: List<String>) {
         q.function("__lnLog") { args ->
             bridge.log(args.getOrNull(0) as? String ?: "info", args.getOrNull(1) as? String ?: "")
             null
@@ -162,7 +181,6 @@ class LnPluginHost(
         // marshal the self-referential global back to Kotlin: "circular reference").
         q.evaluate<Any?>("(function(){globalThis.self=globalThis;globalThis.window=globalThis;})()")
         scripts.forEach { q.evaluate<Any?>(it) }
-        qjs = q
         loadArgs?.let { args ->
             // void: the returned info object was already decoded at loadPlugin time; marshalling it
             // back through dokar here would be wasted work (and objects don't cross the bridge).
@@ -172,9 +190,6 @@ class LnPluginHost(
                     "${jsStr(args.iconUrl ?: "")}, ${jsStr(args.lang ?: "")})",
             )
         }
-        lastUsedMs = System.currentTimeMillis()
-        ensureSweeper()
-        return q
     }
 
     private fun asset(path: String): String =

@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonPrimitive
 import mihon.app.di.appGraph
 import okhttp3.Request
 import org.junit.Assert.assertEquals
@@ -356,6 +357,31 @@ class HeadlessJsIntegrationTest {
         host.storeWebStorage("web-storage-test", WebStorageSnapshot(local = """{"auth":"signed-in"}""", session = "{}"))
 
         assertEquals("signed-in", host.parseChapter("web-storage-test", "/c"))
+    }
+
+    /**
+     * A plugin whose constructor throws in its own engine is built again on the next call, so it
+     * recovers once the cause is gone. A half-built engine used to be kept, answering "plugin not
+     * loaded" until it idled out. Inline plugin: no network.
+     */
+    @Test
+    fun aPluginWhoseReplayFailedLoadsAgainOnTheNextCall() = runBlocking {
+        val host = LnPluginHost(context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        val plugin = """
+            var storage = require('@libs/storage').storage;
+            if (storage.get('fail')) throw new Error('constructor failed');
+            module.exports.default = {
+              id: 'replay-failure-test', name: 'T', site: 'https://example.org', version: '1.0.0',
+              parseChapter: async function () { return 'ok'; },
+            };
+        """.trimIndent()
+        host.loadPlugin("replay-failure-test", plugin)
+        host.setSetting("replay-failure-test", "fail", JsonPrimitive(true))
+        runCatching { host.parseChapter("replay-failure-test", "/c") }
+
+        host.setSetting("replay-failure-test", "fail", null)
+
+        assertEquals("ok", host.parseChapter("replay-failure-test", "/c"))
     }
 
     /**
