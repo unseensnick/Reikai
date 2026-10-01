@@ -42,14 +42,21 @@ class PushChapterProgressTest {
             }
         }
 
-        tracker.pushChapterProgress(localRow(), progressBefore = 4.0).status shouldBe READING
+        tracker.pushChapterProgress(localRow(), chapterNumber = 6.0).status shouldBe READING
+    }
+
+    @Test
+    fun `hands the tracker the pushed chapter`() = runTest {
+        upstreamStampsOnlyChapterOne()
+
+        tracker.pushChapterProgress(unstartedRow(), chapterNumber = 72.0).last_chapter_read shouldBe 72.0
     }
 
     @Test
     fun `takes the status from a tracker that answers with a different row`() = runTest {
         coEvery { tracker.update(any(), any()) } returns remoteAnswer()
 
-        tracker.pushChapterProgress(localRow(), progressBefore = 4.0).status shouldBe READING
+        tracker.pushChapterProgress(localRow(), chapterNumber = 6.0).status shouldBe READING
     }
 
     @Test
@@ -58,21 +65,21 @@ class PushChapterProgressTest {
         // Losing it here would make the row unpersistable.
         coEvery { tracker.update(any(), any()) } returns remoteAnswer()
 
-        tracker.pushChapterProgress(localRow(), progressBefore = 4.0).id shouldBe LOCAL_ID
+        tracker.pushChapterProgress(localRow(), chapterNumber = 6.0).id shouldBe LOCAL_ID
     }
 
     @Test
     fun `takes the start date a tracker stamps on a different row`() = runTest {
         coEvery { tracker.update(any(), any()) } returns remoteAnswer()
 
-        tracker.pushChapterProgress(localRow(), progressBefore = 4.0).started_reading_date shouldBe STARTED_AT
+        tracker.pushChapterProgress(localRow(), chapterNumber = 6.0).started_reading_date shouldBe STARTED_AT
     }
 
     @Test
     fun `stamps a start date on a first push that is not chapter one`() = runTest {
         upstreamStampsOnlyChapterOne()
 
-        tracker.pushChapterProgress(unstartedRow(), progressBefore = 0.0).started_reading_date shouldNotBe 0L
+        tracker.pushChapterProgress(unstartedRow(), chapterNumber = 72.0).started_reading_date shouldNotBe 0L
     }
 
     @Test
@@ -80,7 +87,7 @@ class PushChapterProgressTest {
         upstreamStampsOnlyChapterOne()
         val row = unstartedRow().apply { started_reading_date = STARTED_AT }
 
-        tracker.pushChapterProgress(row, progressBefore = 0.0).started_reading_date shouldBe STARTED_AT
+        tracker.pushChapterProgress(row, chapterNumber = 72.0).started_reading_date shouldBe STARTED_AT
     }
 
     @Test
@@ -89,7 +96,7 @@ class PushChapterProgressTest {
         // the user: today would be wrong for the first and unwanted for the second.
         upstreamStampsOnlyChapterOne()
 
-        tracker.pushChapterProgress(unstartedRow(), progressBefore = 71.0).started_reading_date shouldBe 0L
+        tracker.pushChapterProgress(startedRow(), chapterNumber = 72.0).started_reading_date shouldBe 0L
     }
 
     @Test
@@ -97,7 +104,7 @@ class PushChapterProgressTest {
         upstreamStampsOnlyChapterOne()
         every { tracker.supportsReadingDates } returns false
 
-        tracker.pushChapterProgress(unstartedRow(), progressBefore = 0.0).started_reading_date shouldBe 0L
+        tracker.pushChapterProgress(unstartedRow(), chapterNumber = 72.0).started_reading_date shouldBe 0L
     }
 
     /** The clause every dated tracker's `update` carries upstream: only chapter 1 starts the series. */
@@ -110,7 +117,10 @@ class PushChapterProgressTest {
         }
     }
 
-    private fun unstartedRow() = localRow().apply { last_chapter_read = 72.0 }
+    /** A refreshed row as the service holds it, before this push. */
+    private fun unstartedRow() = localRow().apply { last_chapter_read = 0.0 }
+
+    private fun startedRow() = localRow().apply { last_chapter_read = 71.0 }
 
     private fun remoteAnswer(): TrackSearch = TrackSearch.create(TRACKER_ID).apply {
         title = "A novel"
