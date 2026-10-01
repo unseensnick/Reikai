@@ -55,8 +55,6 @@ class InterceptActivity : BaseActivity() {
 
     private val galleryAdder by lazy { appGraph.galleryAdder }
 
-    private val sourceManager get() = appGraph.sourceManager
-
     init {
         registerSecureActivity(this)
     }
