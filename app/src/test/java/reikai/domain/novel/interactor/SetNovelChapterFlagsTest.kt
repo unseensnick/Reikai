@@ -1,11 +1,14 @@
 package reikai.domain.novel.interactor
 
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -15,6 +18,8 @@ import reikai.domain.novel.model.effectiveHideChapterTitles
 import reikai.domain.novel.model.effectiveSortDescending
 import reikai.domain.novel.model.effectiveSorting
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.data.Database
+import tachiyomi.data.DatabaseBindings
 
 /**
  * Title display and chapter sort each have their own local-override bit, so changing one on a novel
@@ -101,18 +106,50 @@ class SetNovelChapterFlagsTest {
         displayed.copy(chapterFlags = sent.captured.chapterFlags!!).effectiveHideChapterTitles(prefs) shouldBe true
     }
 
+    private val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+
+    @AfterEach
+    fun tearDown() {
+        driver.close()
+    }
+
+    /** Three library novels with their own sort, and one outside the library, over the real SQL. */
+    private suspend fun sortedLibrary(): Pair<Database, NovelRepositoryImpl> {
+        Database.Schema.create(driver).await()
+        val database = DatabaseBindings.providesDatabase(driver)
+        val novels = NovelRepositoryImpl(database)
+        val sorted = NovelChapterFlags.SORT_LOCAL or NovelChapterFlags.SORTING_ALPHABET
+        (1..4).forEach {
+            novels.insert(
+                Novel.create().copy(url = "/$it", favoriteAt = if (it < 4) 0L else null, chapterFlags = sorted),
+            )
+        }
+        return database to novels
+    }
+
     @Test
     fun `applying the defaults to the library returns every library novel to them`() = runTest {
-        val sorted = NovelChapterFlags.SORT_LOCAL or NovelChapterFlags.SORTING_ALPHABET
-        val library = listOf(1L, 2L).map { Novel.create().copy(id = it, favoriteAt = 0L, chapterFlags = sorted) }
-        val sent = mutableListOf<NovelUpdate>()
-        val repository = mockk<NovelRepository> {
-            coEvery { getFavorites() } returns library
-            coEvery { update(capture(sent)) } returns true
-        }
-        SetNovelChapterFlags(repository, prefs).awaitClearLibraryLocalOverrides()
-        sent.map { update -> library.first { it.id == update.id }.copy(chapterFlags = update.chapterFlags!!) }
-            .map { it.effectiveSorting(prefs) } shouldBe
-            listOf(NovelChapterFlags.SORTING_NUMBER, NovelChapterFlags.SORTING_NUMBER)
+        val (_, novels) = sortedLibrary()
+
+        SetNovelChapterFlags(novels, prefs).awaitClearLibraryLocalOverrides()
+
+        novels.getAll().sortedBy { it.url }.map { it.effectiveSorting(prefs) } shouldBe listOf(
+            NovelChapterFlags.SORTING_NUMBER,
+            NovelChapterFlags.SORTING_NUMBER,
+            NovelChapterFlags.SORTING_NUMBER,
+            NovelChapterFlags.SORTING_ALPHABET,
+        )
+    }
+
+    /** One write for the whole library, as manga's apply-to-library makes, so the library list redraws once. */
+    @Test
+    fun `applying the defaults to the library notifies the novel list once`() = runTest {
+        val (database, novels) = sortedLibrary()
+        var notifications = 0
+        database.novelsQueries.findAll().addListener { notifications++ }
+
+        SetNovelChapterFlags(novels, prefs).awaitClearLibraryLocalOverrides()
+
+        notifications shouldBe 1
     }
 }

@@ -55,15 +55,21 @@ class SetNovelChapterFlags(
     }
 
     /** Drop this novel's local sort, filter and display overrides so the global defaults apply again. */
-    suspend fun awaitClearLocalOverrides(novel: Novel): Boolean {
+    suspend fun awaitClearLocalOverrides(novel: Novel): Boolean =
+        novelRepository.update(clearedOverrides(novel))
+
+    /**
+     * Return every library novel to the global defaults in one write, as manga's apply-to-library
+     * does for favorites, so the library redraws once rather than once per novel.
+     */
+    suspend fun awaitClearLibraryLocalOverrides() {
+        novelRepository.updateAll(novelRepository.getFavorites().map(::clearedOverrides))
+    }
+
+    private fun clearedOverrides(novel: Novel): NovelUpdate {
         var flags = setNovelFlag(novel.chapterFlags, 0L, NovelChapterFlags.SORT_LOCAL_MASK)
         flags = setNovelFlag(flags, 0L, NovelChapterFlags.FILTER_LOCAL_MASK)
         flags = setNovelFlag(flags, 0L, NovelChapterFlags.DISPLAY_LOCAL_MASK)
-        return novelRepository.update(NovelUpdate(novel.id) { chapterFlags = flags })
-    }
-
-    /** Return every library novel to the global defaults, as manga's apply-to-library does for favorites. */
-    suspend fun awaitClearLibraryLocalOverrides() {
-        novelRepository.getFavorites().forEach { awaitClearLocalOverrides(it) }
+        return NovelUpdate(novel.id) { chapterFlags = flags }
     }
 }
