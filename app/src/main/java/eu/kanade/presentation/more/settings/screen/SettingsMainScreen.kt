@@ -106,12 +106,6 @@ object SettingsMainScreen : Screen() {
             containerColor = containerColor,
             content = { contentPadding ->
                 val state = rememberLazyListState()
-                // RK: hide screens that opt out. Nothing on this list gates itself today, since the two
-                //     that do (E-Hentai, MangaDex) are reached from Browse and sources now, but the
-                //     filter stays so a future gated entry does not have to remember to add it.
-                val items = remember {
-                    items.filter { it.screen !is SearchableSettings || it.screen.isEnabled() }
-                }
                 val indexSelected = if (twoPane) {
                     items.indexOfFirst { it.screen::class == navigator.items.first()::class }
                         .also {

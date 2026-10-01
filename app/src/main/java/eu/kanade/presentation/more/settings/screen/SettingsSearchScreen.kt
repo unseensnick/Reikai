@@ -164,11 +164,16 @@ private fun SearchResult(
     contentPadding: PaddingValues = PaddingValues(),
     onItemClick: (SearchResultItem) -> Unit,
 ) {
+    // RK: a gate may await the extension scan, so it suspends here instead of blocking composition.
+    val enabledScreens by produceState<List<SearchableSettings>?>(initialValue = null) {
+        value = settingScreens.filter { it.isEnabled() }
+    }
     if (searchKey.isEmpty()) return
+    val screens = enabledScreens ?: return // RK
 
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
 
-    val index = getIndex()
+    val index = getIndex(screens) // RK
     val result by produceState<List<SearchResultItem>?>(initialValue = null, searchKey) {
         value = index.asSequence()
             .flatMap { settingsData ->
@@ -271,9 +276,7 @@ private fun SearchResult(
 
 @Composable
 @NonRestartableComposable
-private fun getIndex() = settingScreens
-    // RK: skip screens that opt out (E-Hentai while adult sources are disabled).
-    .filter(SearchableSettings::isEnabled)
+private fun getIndex(screens: List<SearchableSettings>) = screens // RK: only the enabled ones
     .map { screen ->
         SettingsData(
             title = stringResource(screen.getTitleRes()),
@@ -318,7 +321,7 @@ private val settingScreens = listOf(
     SettingsDataScreen,
     SettingsSecurityScreen,
     SettingsEhScreen,
-    // RK: MangaDex enhanced-source hub (gated by isEnabled, filtered in getIndex).
+    // RK: MangaDex enhanced-source hub (gated by isEnabled, filtered in SearchResult).
     SettingsMangaDexScreen,
     // RK: recommendations settings, previously unreachable from settings search.
     SettingsRecommendationsScreen,

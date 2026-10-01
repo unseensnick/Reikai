@@ -15,11 +15,11 @@ interface SearchableSettings : Screen {
     @ReadOnlyComposable
     fun getTitleRes(): StringResource
 
-    // RK: lets a screen hide itself from the main list and the search index when its feature is off
+    // RK: lets a screen hide itself from the search index when its feature is off
 
-    /** Whether this screen is currently reachable; a hidden screen is filtered out of the main list
-     *  and the settings search index. Defaults to always-on. */
-    fun isEnabled(): Boolean = true
+    /** Whether this screen is currently reachable; a hidden screen is left out of the settings search
+     *  index. Suspends because a gate may await the extension scan. Defaults to always-on. */
+    suspend fun isEnabled(): Boolean = true
 
     @Composable
     fun getPreferences(): List<Preference>

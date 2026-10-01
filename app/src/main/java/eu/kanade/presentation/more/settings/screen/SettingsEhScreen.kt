@@ -90,7 +90,7 @@ object SettingsEhScreen : SearchableSettings {
     // top-level category, hidden until adult sources are enabled (the gate lives in Advanced).
     // Not a composable, so there is no LocalContext to read: Injekt survives here purely as a
     // Context locator, which is the shape upstream kept for the same case.
-    override fun isEnabled(): Boolean = Injekt.get<Context>().appGraph.exhPreferences.isHentaiEnabled().get()
+    override suspend fun isEnabled(): Boolean = Injekt.get<Context>().appGraph.exhPreferences.isHentaiEnabled().get()
 
     /**
      * Re-uploads the server profile whenever a setting that feeds it changes.

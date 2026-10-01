@@ -13,7 +13,6 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
-import exh.md.utils.MdUtil
 import mihon.app.di.appGraph
 import mihon.domain.extension.model.ContentWarning
 import reikai.presentation.browse.repos.RepositoriesScreen
@@ -49,10 +48,9 @@ object SettingsBrowseScreen : SearchableSettings {
         val adultSourcesEnabled by exhPreferences.isHentaiEnabled().changes()
             .collectAsState(exhPreferences.isHentaiEnabled().get())
 
-        // RK: resolved once rather than through isEnabled(), which blocks on a suspending source
-        // lookup and would run it again on every recomposition of this screen.
+        // RK: resolved once, since the gate awaits the extension scan.
         val mangaDexEnabled by produceState(initialValue = false) {
-            value = MdUtil.getEnabledMangaDex(context) != null
+            value = SettingsMangaDexScreen.isEnabled()
         }
 
         // RK: page previews are a source capability (four sources implement PagePreviewSource), so the
@@ -192,10 +190,9 @@ object SettingsBrowseScreen : SearchableSettings {
         mangaDexEnabled: Boolean,
     ): Preference.PreferenceGroup? {
         val rows = listOfNotNull(
-            // Both gates are passed in as observed state rather than read through isEnabled(), which is
-            // a plain pref read for one and a blocking source lookup for the other: without a snapshot
-            // dependency the first row would not appear until the screen was recreated, even though the
-            // switch that reveals it is right above, and the second would block on every recomposition.
+            // Both gates are passed in as observed state: isEnabled() is a one-shot read, so the first
+            // row would not appear until the screen was recreated, even though the switch that reveals
+            // it is right above.
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_category_eh),
                 subtitle = stringResource(MR.strings.pref_ehentai_summary),

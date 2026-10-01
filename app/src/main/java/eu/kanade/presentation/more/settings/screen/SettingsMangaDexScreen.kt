@@ -14,7 +14,6 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.MangaDexSyncJob
 import exh.md.utils.MdUtil
-import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -33,11 +32,10 @@ object SettingsMangaDexScreen : SearchableSettings {
     @Composable
     override fun getTitleRes() = MR.strings.pref_category_mangadex
 
-    // Top-level category, hidden until a MangaDex language source is enabled. Not a composable, so
-    // Injekt survives here purely as a Context locator, the same shape as SettingsEhScreen.
-    // Blocking: the settings index builds off the main thread and the source lookup now awaits the
-    // extension scan rather than reading a half-built map.
-    override fun isEnabled(): Boolean = runBlocking { MdUtil.getEnabledMangaDex(Injekt.get<Context>()) } != null
+    // Hidden until a MangaDex language source is enabled. The lookup awaits the extension scan, so
+    // this suspends rather than blocking whoever asks. Not a composable, so Injekt survives here
+    // purely as a Context locator, the same shape as SettingsEhScreen.
+    override suspend fun isEnabled(): Boolean = MdUtil.getEnabledMangaDex(Injekt.get<Context>()) != null
 
     @Composable
     override fun getPreferences(): List<Preference> {
