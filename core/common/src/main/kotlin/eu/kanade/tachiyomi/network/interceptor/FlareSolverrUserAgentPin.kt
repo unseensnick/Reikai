@@ -5,7 +5,8 @@ import okhttp3.OkHttpClient
 
 /**
  * Sends every request to a host FlareSolverr has solved with the User-Agent its clearance is bound
- * to, whatever User-Agent the request carries. A network interceptor, because a request retried
+ * to, whatever User-Agent the request carries, for as long as [pinnedUserAgentFor] answers one (only
+ * while FlareSolverr is in use). A network interceptor, because a request retried
  * from inside [CloudflareInterceptor] never passes the application interceptors ahead of it again.
  */
 fun OkHttpClient.Builder.pinFlareSolverrUserAgents(pinnedUserAgentFor: (String) -> String?) =

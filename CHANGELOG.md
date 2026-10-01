@@ -489,6 +489,7 @@ every stable release now also ships a foss build with neither in it.
 - **Adult-source galleries show the same star rating in Browse and on their details page.**
 - **The adult-source favorites backup now shows its own progress notification instead of saying the library is updating.**
 - **Favorites backup now reaches your account for adult-source galleries added from Browse, search, batch add or a shared link.**
+- **Sites FlareSolverr once unblocked load again after turning FlareSolverr off, without restarting the app.**
 
 ### Migration
 

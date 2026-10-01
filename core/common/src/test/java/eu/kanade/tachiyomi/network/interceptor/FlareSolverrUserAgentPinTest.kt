@@ -1,11 +1,16 @@
 package eu.kanade.tachiyomi.network.interceptor
 
+import eu.kanade.tachiyomi.network.NetworkPreferences
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import io.mockk.mockk
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.ConcurrentHashMap
@@ -55,5 +60,46 @@ class FlareSolverrUserAgentPinTest {
         client.newCall(request).execute().close()
 
         sentUserAgents.last() shouldBe "Pinned"
+    }
+
+    // A WebView solve earns its clearance under the request's own User-Agent, so a pin left
+    // standing once FlareSolverr is off sends the retry under another one and Cloudflare refuses it.
+    @Test
+    fun `a solved host is not pinned once FlareSolverr is turned off`() {
+        val client = solver(enabled = false, url = SOLVER_URL).apply { pin("a.example", "FS-UA") }
+
+        client.pinnedUserAgentFor("a.example").shouldBeNull()
+    }
+
+    @Test
+    fun `a solved host is not pinned once the solver's address is cleared`() {
+        val client = solver(enabled = true, url = " ").apply { pin("a.example", "FS-UA") }
+
+        client.pinnedUserAgentFor("a.example").shouldBeNull()
+    }
+
+    @Test
+    fun `a solved host keeps its pin while FlareSolverr is in use`() {
+        val client = solver(enabled = true, url = SOLVER_URL).apply { pin("a.example", "FS-UA") }
+
+        client.pinnedUserAgentFor("a.example") shouldBe "FS-UA"
+    }
+
+    // Seeded through the constructor: an in-memory preference cannot be written afterwards.
+    private fun solver(enabled: Boolean, url: String) = FlareSolverrClient(
+        mockk(relaxed = true),
+        NetworkPreferences(
+            InMemoryPreferenceStore(
+                sequenceOf(
+                    InMemoryPreference("enable_flaresolverr", enabled, false),
+                    InMemoryPreference(FLARESOLVERR_URL_KEY, url, ""),
+                ),
+            ),
+            false,
+        ),
+    )
+
+    private companion object {
+        const val SOLVER_URL = "http://solver.example:8191"
     }
 }

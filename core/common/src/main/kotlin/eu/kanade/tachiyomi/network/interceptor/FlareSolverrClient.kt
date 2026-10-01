@@ -117,7 +117,17 @@ class FlareSolverrClient(
         networkPreferences.flareSolverrPassword.get(),
     ).orEmpty()
 
-    fun pinnedUserAgentFor(host: String): String? = fsPinByHost[host]
+    /** Whether challenges go to FlareSolverr at all: switched on, with an address to send them to. */
+    fun isActive(): Boolean =
+        networkPreferences.enableFlareSolverr.get() && networkPreferences.flareSolverrUrl.get().isNotBlank()
+
+    // Answered only while FlareSolverr is in use: otherwise the WebView solves under the request's own
+    // User-Agent, and a retry sent under the pin would carry a clearance Cloudflare bound to another.
+    fun pinnedUserAgentFor(host: String): String? = fsPinByHost[host]?.takeIf { isActive() }
+
+    internal fun pin(host: String, userAgent: String) {
+        if (userAgent.isNotBlank()) fsPinByHost[host] = userAgent
+    }
 
     fun shouldSkipWebView(host: String): Boolean = fsRequiredHosts.contains(host)
 
@@ -351,9 +361,7 @@ class FlareSolverrClient(
         cookiesToKeep(solution.cookies, forwarded).forEach { fsCookie ->
             cookieManager.saveCookieString(request.url, fsCookie.toRawCookieString(request.url.host))
         }
-        if (solution.userAgent.isNotBlank()) {
-            fsPinByHost[request.url.host] = solution.userAgent
-        }
+        pin(request.url.host, solution.userAgent)
 
         // Mark this host as known-FS so the next request skips the WebView pre-attempt.
         fsRequiredHosts.add(request.url.host)
