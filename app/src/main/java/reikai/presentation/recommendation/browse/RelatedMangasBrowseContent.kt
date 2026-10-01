@@ -20,16 +20,15 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.util.plus
 
 /**
- * Cover grid for the "See all" browse screen. Flat taste-ranked by default; when [grouped] is on it
- * inserts full-width section headers per candidate origin (data already on each
- * candidate, no new fetching). Selection rendering rides on [RecommendationGridItem]'s `isSelected`.
+ * Cover grid for the "See all" browse screen, drawing the model's sections in order: a section with an
+ * origin gets a full-width header (the grouped view), one without is the flat taste-ranked grid.
+ * Selection rendering rides on [RecommendationGridItem]'s `isSelected`.
  */
 @Composable
 fun RelatedMangasBrowseContent(
-    items: List<RelatedMangasBrowseViewModel.BrowseItem>,
+    sections: List<RelatedMangasBrowseViewModel.Section>,
     columns: GridCells,
     selectedUrls: Set<String>,
-    grouped: Boolean,
     contentPadding: PaddingValues,
     onItemClick: (RelatedMangasBrowseViewModel.BrowseItem) -> Unit,
     onItemLongClick: (RelatedMangasBrowseViewModel.BrowseItem) -> Unit,
@@ -42,27 +41,17 @@ fun RelatedMangasBrowseContent(
         verticalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridVerticalSpacer),
         horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
     ) {
-        if (grouped) {
-            items.groupBy { it.candidate.origin }.forEach { (origin, groupItems) ->
+        sections.forEach { section ->
+            section.origin?.let { origin ->
                 item(span = { GridItemSpan(maxLineSpan) }, key = "header-$origin") {
                     GroupHeader(originLabel(origin))
                 }
-                items(groupItems, key = { it.candidate.manga.url }) { item ->
-                    BrowseGridItem(
-                        item,
-                        item.candidate.manga.url in selectedUrls,
-                        showOrigin = false,
-                        onItemClick,
-                        onItemLongClick,
-                    )
-                }
             }
-        } else {
-            items(items, key = { it.candidate.manga.url }) { item ->
+            items(section.items, key = { it.candidate.manga.url }) { item ->
                 BrowseGridItem(
                     item,
                     item.candidate.manga.url in selectedUrls,
-                    showOrigin = true,
+                    showOrigin = section.origin == null,
                     onItemClick,
                     onItemLongClick,
                 )

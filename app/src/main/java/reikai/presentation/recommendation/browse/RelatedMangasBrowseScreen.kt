@@ -133,12 +133,11 @@ class RelatedMangasBrowseScreen(
                     EmptyScreen(stringRes = MR.strings.recs_browse_empty, modifier = Modifier.padding(contentPadding))
                 }
                 is RelatedMangasBrowseViewModel.Content.Items -> RelatedMangasBrowseContent(
-                    items = content.items,
+                    sections = content.sections,
                     columns = state.columns.gridCells(
                         isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
                     ),
                     selectedUrls = state.selectedUrls,
-                    grouped = state.grouped,
                     contentPadding = contentPadding,
                     onItemClick = { item ->
                         if (state.selectionMode) {

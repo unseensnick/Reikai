@@ -53,13 +53,18 @@ class RelatedMangasBrowseViewModelTest {
     }
 
     /** Tracker-origin, so an add skips it without resolving anything and goes straight to finishing. */
-    private fun candidate(url: String, sourceId: Long = RECOMMENDS_SOURCE, title: String = url) = RelatedMangaCandidate(
+    private fun candidate(
+        url: String,
+        sourceId: Long = RECOMMENDS_SOURCE,
+        title: String = url,
+        origin: RecommendationOrigin = RecommendationOrigin.Tracker("tracker"),
+    ) = RelatedMangaCandidate(
         sourceId = sourceId,
         manga = SManga.create().apply {
             this.url = url
             this.title = title
         },
-        origin = RecommendationOrigin.Tracker("tracker"),
+        origin = origin,
         trackerId = ANILIST_ID,
     )
 
@@ -237,6 +242,35 @@ class RelatedMangasBrowseViewModelTest {
 
         settle { viewModel.state.first { it.items.isNotEmpty() } }.content shouldBe
             RelatedMangasBrowseViewModel.Content.Empty(hiddenCount = 1)
+    }
+
+    /** Grouped, the grid draws a1 a2 under one header and b1 b2 under the next, though the rank interleaves them. */
+    @Test
+    fun `range select in the grouped grid follows the order on screen`() = runTest {
+        val first = RecommendationOrigin.Tracker("first")
+        val second = RecommendationOrigin.Tracker("second")
+        val cache = RelatedMangaCache().apply {
+            put(
+                MANGA_ID,
+                RelatedPool(
+                    listOf(
+                        candidate("a1", origin = first),
+                        candidate("b1", origin = second),
+                        candidate("a2", origin = first),
+                        candidate("b2", origin = second),
+                    ),
+                    emptyMap(),
+                ),
+            )
+        }
+        val viewModel = viewModel(cache = cache)
+        settle { viewModel.state.first { it.items.size == 4 } }
+        viewModel.toggleGrouping()
+
+        viewModel.toggleSelection("a1")
+        viewModel.toggleRangeSelection("a2")
+
+        viewModel.state.value.selectedUrls shouldBe setOf("a1", "a2")
     }
 
     @Test

@@ -24,6 +24,7 @@ import mihon.domain.manga.model.toDomainManga
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.recommendation.PrepareRecommendationAssembly
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
+import reikai.domain.recommendation.RecommendationOrigin
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedPool
@@ -156,7 +157,7 @@ class RelatedMangasBrowseViewModel(
         state.update { it.copy(selectedUrls = next.selection) }
     }
 
-    private fun visibleUrls() = state.value.visibleItems().map { it.candidate.manga.url }
+    private fun visibleUrls() = state.value.sections.flatMap { section -> section.items.map { it.candidate.manga.url } }
 
     fun dismissDialog() = state.update { it.copy(dialog = null) }
 
@@ -249,23 +250,35 @@ class RelatedMangasBrowseViewModel(
         /** Grouping only makes sense with more than one origin (else it's a single "From this source"). */
         val hasMultipleOrigins: Boolean get() = items.mapTo(HashSet()) { it.candidate.origin }.size > 1
 
-        /** Items shown given the show-hidden toggle (hidden = already in library / tracked as filtered). */
-        fun visibleItems(): List<BrowseItem> = if (showHidden) items else items.filterNot { it.hidden }
+        /**
+         * The items shown given the show-hidden toggle, in the order the grid draws them: one section per
+         * origin in first-appearance order when grouped, else one section with no header. Range select
+         * reads this too, so it spans what lies between two covers on screen.
+         */
+        val sections: List<Section>
+            get() {
+                val visible = if (showHidden) items else items.filterNot { it.hidden }
+                if (!grouped) return listOf(Section(origin = null, visible))
+                return visible.groupBy { it.candidate.origin }.map { (origin, group) -> Section(origin, group) }
+            }
 
         /** What the grid shows, derived once so the empty state and the grid read the same list. */
         val content: Content
             get() {
                 if (loading) return Content.Loading
-                val visible = visibleItems()
-                if (visible.isNotEmpty()) return Content.Items(visible)
+                val sections = sections
+                if (sections.any { it.items.isNotEmpty() }) return Content.Items(sections)
                 return Content.Empty(hiddenCount = items.count { it.hidden })
             }
     }
 
+    /** One run of the grid; [origin] is the header above it, null in the flat view, which has none. */
+    data class Section(val origin: RecommendationOrigin?, val items: List<BrowseItem>)
+
     sealed interface Content {
         data object Loading : Content
         data class Empty(val hiddenCount: Int) : Content
-        data class Items(val items: List<BrowseItem>) : Content
+        data class Items(val sections: List<Section>) : Content
     }
 
     sealed interface Dialog {
