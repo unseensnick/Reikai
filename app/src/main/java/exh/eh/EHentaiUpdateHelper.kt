@@ -119,14 +119,18 @@ class EHentaiUpdateHelper(
                 }
             }
 
-            val newAccepted = ChapterChain(accepted.manga, newChapters, emptyList())
-            val rootsToMutate = toDiscard + newAccepted
-
             // Apply changes to all manga
             updateManga.awaitAll(mangaUpdates)
-            // Insert new chapters for accepted manga
             chapterRepository.updateAll(chapterUpdates)
-            chapterRepository.updateFromRemote(removedIds = emptyList(), added = newChapters, updated = chapterRenames)
+            // The stored rows, not newChapters (still id -1), go back to the caller: the update
+            // notification opens, marks read and downloads them by id.
+            val inserted = chapterRepository.updateFromRemote(
+                removedIds = emptyList(),
+                added = newChapters,
+                updated = chapterRenames,
+            )
+            val newAccepted = ChapterChain(accepted.manga, inserted, emptyList())
+            val rootsToMutate = toDiscard + newAccepted
 
             val (newHistory, deleteHistory) = getHistory(
                 getChaptersByMangaId.await(accepted.manga.id),
@@ -155,7 +159,7 @@ class EHentaiUpdateHelper(
                 setMangaCategories.await(it.manga.id, newCategories)
             }
 
-            Triple(newAccepted, toDiscard, newChapters)
+            Triple(newAccepted, toDiscard, inserted)
         } else {
             Triple(accepted, emptyList(), emptyList())
         }

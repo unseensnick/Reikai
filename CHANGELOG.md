@@ -189,6 +189,7 @@ every stable release now also ships a foss build with neither in it.
 - **History and Updates now show new rows at the top when you were already at the top.** History opened on Yesterday, with what you had just read above the screen.
 - **The combined Updates widget now drops a novel once you have read its new chapters.**
 - **Deleting a manga chapter's download from Updates or History now works after its extension is uninstalled.**
+- **Tapping the new-chapter notification for a gallery that gained a new version now opens that chapter.** Mark as read and Download in that notification work too.
 
 ### Details
 
