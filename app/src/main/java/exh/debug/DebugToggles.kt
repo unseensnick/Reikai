@@ -1,8 +1,6 @@
 package exh.debug
 
 import android.content.Context
-import eu.kanade.core.preference.PreferenceMutableState
-import kotlinx.coroutines.CoroutineScope
 import mihon.app.di.appGraph
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -38,13 +36,8 @@ enum class DebugToggles(val default: Boolean) {
 
     fun preference(store: PreferenceStore): Preference<Boolean> = store.getBoolean(prefKey, default)
 
-    var enabled: Boolean
+    val enabled: Boolean
         get() = preference(preferenceStore).get()
-        set(value) {
-            preference(preferenceStore).set(value)
-        }
-
-    fun asPref(scope: CoroutineScope) = PreferenceMutableState(preference(preferenceStore), scope)
 
     companion object {
         private val preferenceStore: PreferenceStore
