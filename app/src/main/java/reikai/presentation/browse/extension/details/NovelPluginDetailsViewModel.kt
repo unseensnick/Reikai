@@ -14,8 +14,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -49,10 +47,9 @@ class NovelPluginDetailsViewModel(
     }
 
     val state: StateFlow<State> = combine(
-        flow {
-            installer.ensureLoaded()
-            emitAll(sourceManager.sources)
-        }.map { sources -> sources.firstOrNull { it is LnPluginSource && it.id == pluginId } },
+        sourceManager.loadedSources().map { sources ->
+            sources.firstOrNull { it is LnPluginSource && it.id == pluginId }
+        },
         prefs.installedPluginMetadata().changes(),
         // The page does not wait on a repo that is slow to answer; the repo line fills in when it does.
         registries.results.onStart { emit(emptyMap()) },

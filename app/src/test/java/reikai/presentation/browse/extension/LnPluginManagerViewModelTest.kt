@@ -43,7 +43,7 @@ class LnPluginManagerViewModelTest {
         coEvery { fetchRepo(REPO) } returns listOf(ENTRY)
         coEvery { fetchRepo(OTHER_REPO) } returns emptyList()
     }
-    private val manager = mockk<NovelSourceManager> { every { sources } returns flowOf(emptyList()) }
+    private val manager = mockk<NovelSourceManager> { every { loadedSources() } returns flowOf(emptyList()) }
     private val registries = LnRepoRegistries(installer, prefs)
 
     private fun model() = LnPluginManagerViewModel(manager, installer, registries, prefs, mockk(relaxed = true))

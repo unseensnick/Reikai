@@ -14,6 +14,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -25,6 +27,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.ireader.IReaderNovelSource
 import reikai.novel.source.ireader.IReaderSourceHolder
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.model.SourceNotInstalledException
 
@@ -51,6 +54,15 @@ class NovelSourceManager(
     private val sourcesFlow = MutableStateFlow<Map<String, NovelSource>>(emptyMap())
 
     val sources: Flow<List<NovelSource>> = sourcesFlow.map { it.values.toList() }
+
+    /**
+     * [sources] from after a first [ensureLoaded], for a screen that shows whether a source is installed:
+     * the registry starts empty, which reads as every plugin missing. A failed load still emits what loaded.
+     */
+    fun loadedSources(): Flow<List<NovelSource>> = flow {
+        runCatchingCancellable { ensureLoaded() }
+        emitAll(sources)
+    }
 
     /** Completes once the installed apps have been registered for the first time. */
     private val appsRegistered = CompletableDeferred<Unit>()

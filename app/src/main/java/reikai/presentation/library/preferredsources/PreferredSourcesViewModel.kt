@@ -7,12 +7,9 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.novel.source.NovelSourceManager
-import reikai.util.runCatchingCancellable
 import tachiyomi.domain.source.service.SourceManager
 
 /**
@@ -40,13 +37,8 @@ class PreferredSourcesViewModel(
 
     val novels = SourceRankingEditor(
         scope = viewModelScope,
-        sources = flow {
-            runCatchingCancellable { novelSourceManager.ensureLoaded() }
-            emitAll(
-                novelSourceManager.sources.map { sources ->
-                    sources.map { PreferredSourceItem(it.id, it.name, it.lang) }
-                },
-            )
+        sources = novelSourceManager.loadedSources().map { sources ->
+            sources.map { PreferredSourceItem(it.id, it.name, it.lang) }
         },
         ranking = preferences.preferredNovelSources,
         parseKey = { it },

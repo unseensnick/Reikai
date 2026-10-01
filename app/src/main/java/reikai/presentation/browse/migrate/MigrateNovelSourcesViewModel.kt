@@ -40,7 +40,7 @@ class MigrateNovelSourcesViewModel(
     /** Sources holding favourites, unsorted: the shared migrate list orders both types at once. */
     val sources: StateFlow<List<NovelMigrateSource>?> = combine(
         novelRepository.getLibraryNovelAsFlow(),
-        sourceManager.sources,
+        sourceManager.loadedSources(),
         novelPreferences.seenNovelSources().changes(),
     ) { libraryNovels, installedSources, cached ->
         val installed = installedSources.associate {

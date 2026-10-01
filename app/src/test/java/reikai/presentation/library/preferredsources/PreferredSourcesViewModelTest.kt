@@ -43,7 +43,7 @@ class PreferredSourcesViewModelTest {
         }
         val model = PreferredSourcesViewModel(
             sourceManager = mockk { every { sources } returns flowOf(listOf(local)) },
-            novelSourceManager = mockk(relaxed = true) { every { sources } returns flowOf(emptyList()) },
+            novelSourceManager = mockk { every { loadedSources() } returns flowOf(emptyList()) },
             preferences = ReikaiLibraryPreferences(EmittingPreferenceStore()),
         )
 

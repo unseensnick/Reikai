@@ -35,7 +35,6 @@ import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.novel.browse.NovelAddFlow
 import reikai.presentation.novel.browse.NovelLibraryAdder
-import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -85,14 +84,12 @@ class FeedViewModel(
 
     init {
         viewModelScope.launchIO {
-            // Before the first read, never after: the plugin registry answers "missing" for every
-            // source until this returns, so a feed built earlier resolves none of its novel rows.
-            // Then follow the registry, because a plugin installed or removed later changes which
-            // rows can be shown and the feed table itself does not emit for that.
-            runCatchingCancellable { novelSourceManager.ensureLoaded() }
+            // The loaded sources, since a feed built before the plugins load resolves none of its
+            // novel rows. Then follow the registry, because a plugin installed or removed later
+            // changes which rows can be shown and the feed table itself does not emit for that.
             combine(
                 feedRepository.subscribeGlobal(),
-                novelSourceManager.sources,
+                novelSourceManager.loadedSources(),
             ) { feeds, _ -> feeds }
                 .collectLatest(::onFeedChanged)
         }

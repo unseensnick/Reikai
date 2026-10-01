@@ -15,8 +15,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -63,10 +61,8 @@ class LnPluginManagerViewModel(
     private val installs = MutableStateFlow(Installs())
 
     // The registry holds the extension apps' catalogues too, which are installed and removed as apps.
-    private val installed: Flow<List<NovelSource>> = flow {
-        installer.ensureLoaded()
-        emitAll(manager.sources.map { sources -> sources.filterIsInstance<LnPluginSource>() })
-    }
+    private val installed: Flow<List<NovelSource>> =
+        manager.loadedSources().map { sources -> sources.filterIsInstance<LnPluginSource>() }
 
     /** Null until the registries first load. */
     private val fetched: Flow<RepoFetch?> = combine(
