@@ -609,6 +609,7 @@ every stable release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **Extension update badges no longer disappear when a store cannot be reached.**
 - **The light-novel plugin update notice now leaves out plugin names under Settings -> Security and privacy -> Hide notification content, and goes away once no plugin needs updating, as the extension notice does.**
 - **Installing an extension through Shizuku works again.**
 - **An extension repo you remove while the repos are refreshing no longer comes back (synced from Mihon).**

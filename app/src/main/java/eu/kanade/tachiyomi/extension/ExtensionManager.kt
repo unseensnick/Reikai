@@ -38,8 +38,10 @@ import logcat.LogPriority
 import mihon.domain.extension.interactor.UpdateExtensionStores
 import mihon.domain.extension.model.ExtensionStore
 import mihon.domain.extension.repository.ExtensionStoreRepository
+import reikai.domain.extension.KindListing
 import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.hasSigningKey
+import reikai.domain.extension.kindListing
 import reikai.domain.extension.toRepoStatus
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ContentWarningScan
@@ -365,13 +367,6 @@ class ExtensionManager(
                 extension.sources.map { it.baseUrl to extension.iconUrl }
             },
         )
-        // A fetch listing no novel apk leaves nothing to update the installed ones from
-        if (novelExtensions.isEmpty()) {
-            loadedNovelExtensionMapFlow.value =
-                loadedNovelExtensionMapFlow.value.mapValues { it.value.copy(hasUpdate = false) }
-            notLoadedNovelExtensionMapFlow.value =
-                notLoadedNovelExtensionMapFlow.value.mapValues { it.value.copy(hasUpdate = false) }
-        }
         // RK <--
 
         enableAdditionalSubLanguages(extensions)
@@ -549,23 +544,39 @@ class ExtensionManager(
      * listing there's nothing to derive from, so they're left as they are rather than marked obsolete.
      */
     private fun refreshStatuses() {
-        // RK: each apk kind against its own listings, over the same derivation
-        deriveStatuses(availableExtensionListFlow.value, loadedExtensionMapFlow, notLoadedExtensionMapFlow)
+        // RK --> each apk kind against its own listings, over the same derivation
+        val statuses = storeStatuses.value
         deriveStatuses(
-            availableNovelExtensionListFlow.value,
+            kindListing(availableExtensionListFlow.value, statuses),
+            loadedExtensionMapFlow,
+            notLoadedExtensionMapFlow,
+        )
+        deriveStatuses(
+            kindListing(availableNovelExtensionListFlow.value, statuses),
             loadedNovelExtensionMapFlow,
             notLoadedNovelExtensionMapFlow,
         )
+        // RK <--
         updatePendingUpdatesCount()
     }
 
-    // RK --> upstream's refreshStatuses body, over one kind's maps; the store fill is the keyless one
+    // RK --> upstream's refreshStatuses body, over one kind's maps; the store fill is the keyless one.
+    // Where upstream leaves an empty listing alone, a kind no store lists once every store answered
+    // clears its update flags (KindListing), for manga as for novels.
     private fun deriveStatuses(
-        available: List<Extension.Available>,
+        listings: KindListing,
         loaded: MutableStateFlow<Map<String, Extension.Loaded>>,
         notLoaded: MutableStateFlow<Map<String, Extension.NotLoaded>>,
     ) {
-        if (available.isEmpty()) return
+        val available = when (listings) {
+            KindListing.Unknown -> return
+            KindListing.Unlisted -> {
+                loaded.value = loaded.value.mapValues { it.value.copy(hasUpdate = false) }
+                notLoaded.value = notLoaded.value.mapValues { it.value.copy(hasUpdate = false) }
+                return
+            }
+            is KindListing.Listed -> listings.available
+        }
         loaded.value = loaded.value.mapValues { (_, extension) ->
             val listing = extension.findListing(available, storeKeys)
             extension.copy(
