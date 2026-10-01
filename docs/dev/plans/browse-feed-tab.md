@@ -143,10 +143,15 @@ place and renders as `EntrySearchState.Unavailable`, a state the row fill never 
 long-pressable and removable. Dropping it instead hides a row that still counts against the cap, which
 leaves the reader unable to remove it and unable to add another.
 
-The novel half needs more than that, because "not there yet" is the common case rather than the rare
-one: the model loads the plugins before its first read of the table, then follows
-`NovelSourceManager.sources`, so a plugin that arrives (or leaves) later rebuilds the list. The manga
-registry fills itself, so it needs neither.
+So the feed follows each type's registry as well as the table, through `FeedProvider.sourceChanges`, a
+capability both providers must answer, which the engine combines with the table; a source installed,
+reinstalled or removed later rebuilds the list without leaving Browse. Each answers with the set of
+installed source keys, so a registry pass that changes no source (the extension update check rewrites
+the manga registry) refetches nothing. The novel half reads its registry after a first plugin load,
+since "not there yet" is the common case for it: the registry starts empty. Before this the manga
+registry was not followed at all, so a row whose extension arrived after the feed was built stayed
+unavailable until the process died (deep-audit lead U63, 2026-10-01; pinned by `FeedViewModelTest`
+over both types). A plugin updated in place keeps its key, so it is not rebuilt for that.
 
 ### The preferences
 

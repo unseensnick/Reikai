@@ -84,12 +84,11 @@ class FeedViewModel(
 
     init {
         viewModelScope.launchIO {
-            // The loaded sources, since a feed built before the plugins load resolves none of its
-            // novel rows. Then follow the registry, because a plugin installed or removed later
-            // changes which rows can be shown and the feed table itself does not emit for that.
+            // Every type's registry as well as the table, since a source installed or removed later
+            // changes which rows can be shown and the table does not emit for that.
             combine(
                 feedRepository.subscribeGlobal(),
-                novelSourceManager.loadedSources(),
+                combine(providers.map { it.sourceChanges }) {},
             ) { feeds, _ -> feeds }
                 .collectLatest(::onFeedChanged)
         }

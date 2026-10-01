@@ -2,8 +2,11 @@ package reikai.presentation.browse.feed
 
 import eu.kanade.domain.source.interactor.GetEnabledSources
 import eu.kanade.tachiyomi.source.Source
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import mihon.domain.manga.model.toDomainManga
 import reikai.domain.library.ContentType
 import reikai.domain.novel.FavoritedNovels
@@ -34,6 +37,14 @@ interface FeedProvider {
 
     val contentType: ContentType
 
+    /**
+     * The installed sources' keys, emitted again when one arrives or leaves: the feed table does not
+     * emit for that, so a row built while its source was missing would read unavailable for good.
+     * Keys rather than sources, so a registry pass that changes no source (an extension update check)
+     * does not refetch every row.
+     */
+    val sourceChanges: Flow<Set<SourceKey>>
+
     /** Sources a feed row can be added for, the ones a reader has left enabled. */
     suspend fun sources(): List<BrowseSearchRow>
 
@@ -61,6 +72,8 @@ class MangaFeedProvider(
     private val filters = MangaSavedSearchFilters()
 
     override val contentType = ContentType.MANGA
+
+    override val sourceChanges get() = sourceManager.sources.keys { SourceKey.Manga(it.id) }
 
     // The Sources tab's list, without the duplicate row it adds for the last-used source. Typed as the
     // base Source, which carries every listing: the local source is no CatalogueSource.
@@ -118,6 +131,9 @@ class NovelFeedProvider(
 
     override val contentType = ContentType.NOVELS
 
+    // After a first load: the registry starts empty, and the plugins only load when something asks.
+    override val sourceChanges get() = sourceManager.loadedSources().keys { SourceKey.Novel(it.id) }
+
     override suspend fun sources(): List<BrowseSearchRow> = getEnabledSources.get().map(::toRow)
 
     override suspend fun source(key: SourceKey): BrowseSearchRow? =
@@ -156,3 +172,6 @@ class NovelFeedProvider(
         format = source.format,
     )
 }
+
+private fun <S> Flow<List<S>>.keys(key: (S) -> SourceKey): Flow<Set<SourceKey>> =
+    map { sources -> sources.mapTo(HashSet(), key) }.distinctUntilChanged()
