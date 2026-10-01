@@ -626,6 +626,7 @@ every stable release now also ships a foss build with neither in it.
 - **A downloaded novel chapter with pictures now keeps the line breaks the source draws.** Saving it folded them into spaces, so a chapter laid out with its own breaks read as one run-on block offline.
 - **A downloaded novel chapter's pictures now show offline even when the source offers them in several sizes.** Both rendering modes went back to the source for the larger ones.
 - **Tapping install, update or reinstall twice on a light-novel plugin no longer shows a false install error.**
+- **Updating, reinstalling or removing a light-novel plugin while the plugin list reloads now sticks.**
 - **Download queue counts no longer reset when you reopen the queue, or count a cancelled chapter as downloaded.**
 - **Manga downloads queued without a connection now start on their own once it returns, as novel downloads do.**
 - **With Downloaded only on, a novel's chapter list and reader now show only downloaded chapters, as manga's do.**

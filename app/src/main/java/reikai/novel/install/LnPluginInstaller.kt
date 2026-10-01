@@ -54,10 +54,15 @@ class LnPluginInstaller(
 
     // Serializes the bulk load so two ensureLoaded calls don't double-load. Deliberately NOT held by
     // install/uninstall, so a tap-to-install never blocks behind an in-progress (possibly slow, e.g. a
-    // down repo) ensureLoaded; those serialize their own writes on registryMutex instead.
+    // down repo) ensureLoaded; those meet a pass only on the one plugin's lock in [urlLocks].
     // ExtensionManager.loadMutex holds the app scans the same way, so a reload cannot be overwritten by
     // an in-flight load on either side (content-layer-browse-surface.md).
     private val loadMutex = Mutex()
+
+    // One lock per canonical plugin URL, held by a pass's load of it and by an install or uninstall of
+    // it, so neither publishes over the other while different plugins never wait. Always taken before
+    // [registryMutex], and by uninstall in sorted order.
+    private val urlLocks = ConcurrentHashMap<String, Mutex>()
 
     // Guards every read-modify-write of the two persisted registries (installed urls, installed
     // metadata); the seen sources are the manager's, which both kinds write. Update-all fans installs
@@ -158,17 +163,20 @@ class LnPluginInstaller(
         metadata: LnInstalledPluginMetadata? = null,
     ): LnPluginSource {
         val canonical = canonicalizePluginUrl(pluginJsUrl)
+        return withUrlLocks(listOf(canonical)) { installLocked(canonical, metadata) }
+    }
+
+    private suspend fun installLocked(canonical: String, metadata: LnInstalledPluginMetadata?): LnPluginSource {
         val src = loader.download(canonical)
         val info = host.loadPlugin(scopeIdFromUrl(canonical), src, metadata?.iconUrl, metadata?.lang)
         // Stored only once it loads, so a broken new version leaves the installed one in place.
         loader.store(canonical, src)
         val source = LnPluginSource(host, info, refreshStylesheet(canonical, metadata?.customCssUrl))
-        manager.register(source)
-        rememberSeenSources(listOf(source))
 
         // A plugin's identity is [info.id], not its URL. Drop any prior install of the same plugin (the
         // same plugin from a different/old repo, or a URL carried in by a restore) so installing
-        // REPLACES it instead of leaving a duplicate URL that reloads on the next launch.
+        // REPLACES it instead of leaving a duplicate URL that reloads on the next launch. Registered in
+        // the same lock as the stale URLs leave, which a pass loading one of them checks before it publishes.
         val staleUrls = registryMutex.withLock {
             val currentMetadata = prefs.installedPluginMetadata().get()
             val stale = currentMetadata.filterValues { it.pluginId == info.id }.keys - canonical
@@ -176,12 +184,14 @@ class LnPluginInstaller(
                 .copy(pluginId = info.id, version = info.version ?: metadata?.version)
             prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - stale + canonical)
             prefs.installedPluginMetadata().set(currentMetadata - stale + (canonical to record))
+            manager.register(source)
+            loadedUrls.removeAll(stale)
+            loadedUrls.add(canonical)
+            failures.update { it - stale - canonical }
             stale
         }
+        rememberSeenSources(listOf(source))
         staleUrls.forEach { loader.delete(it) }
-        loadedUrls.removeAll(staleUrls)
-        loadedUrls.add(canonical)
-        failures.update { it - staleUrls - canonical }
 
         logcat(LogPriority.INFO) { "installed plugin ${info.id} from $canonical" }
         return source
@@ -220,53 +230,69 @@ class LnPluginInstaller(
     private suspend fun loadUrlsLocked(urls: Set<String>): List<LnPluginSource> {
         if (urls.isEmpty()) return emptyList()
         val metadata = backfillMetadata(urls)
-        val results = coroutineScope {
-            urls.map { url ->
-                async {
-                    try {
-                        val stored = loader.installed(url)
-                        val src = stored ?: downloadMissingScript(url)
-                        val info = host.loadPlugin(
-                            scopeIdFromUrl(url),
-                            src,
-                            metadata[url]?.iconUrl,
-                            metadata[url]?.lang,
-                        )
-                        if (stored == null) loader.store(url, src)
-                        // A missing script means the stylesheet went with it, so it is fetched again with it.
-                        val stylesheet = if (stored == null) {
-                            refreshStylesheet(url, metadata[url]?.customCssUrl)
-                        } else {
-                            loader.installedStylesheet(url)?.let(::NovelChapterStylesheet)
-                        }
-                        val source = LnPluginSource(host, info, stylesheet)
-                        manager.register(source)
-                        LoadResult.Loaded(url, source, info.version)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Throwable) {
-                        logcat(LogPriority.ERROR, e) { "loadInstalled: failed for $url" }
-                        LoadResult.Failed(url, e)
-                    }
-                }
-            }.awaitAll()
-        }
-        val ok = results.filterIsInstance<LoadResult.Loaded>()
-        // Record the outcomes on the single (mutex-holding) coroutine, after awaitAll, to avoid racing
-        // on loadedUrls from the parallel children.
-        loadedUrls += ok.map { it.url }
-        val seen = prefs.seenNovelSources().get()
+        val loaded = coroutineScope {
+            urls.map { url -> async { withUrlLocks(listOf(url)) { loadUrl(url, metadata[url]) } } }.awaitAll()
+        }.filterNotNull()
+        // Restore revalidation may have dropped installed URLs this pass never loaded.
         val installed = prefs.installedPluginUrls().get()
-        failures.update { current ->
-            (current - ok.map { it.url }.toSet()).filterKeys { it in installed } +
-                results.filterIsInstance<LoadResult.Failed>().associate { failed ->
-                    val record = metadata[failed.url]
-                    failed.url to LnPluginLoadFailure.of(failed.url, failed.error, record, seen[record?.pluginId])
-                }
+        failures.update { current -> current.filterKeys { it in installed } }
+        rememberSeenSources(loaded)
+        return loaded
+    }
+
+    /**
+     * Loads one installed plugin from its stored script and publishes the outcome for [url]: the source,
+     * its version, or its failure. Caller holds [url]'s lock, so an install or uninstall of it that ran
+     * while this pass waited is seen here; one that removed [url] as another URL's stale copy is seen at
+     * publishing. Null when it failed or is no longer installed.
+     */
+    private suspend fun loadUrl(url: String, metadata: LnInstalledPluginMetadata?): LnPluginSource? {
+        if (url !in prefs.installedPluginUrls().get()) return null
+        val loaded = try {
+            val stored = loader.installed(url)
+            val src = stored ?: downloadMissingScript(url)
+            val info = host.loadPlugin(scopeIdFromUrl(url), src, metadata?.iconUrl, metadata?.lang)
+            if (stored == null) loader.store(url, src)
+            // A missing script means the stylesheet went with it, so it is fetched again with it.
+            val stylesheet = if (stored == null) {
+                refreshStylesheet(url, metadata?.customCssUrl)
+            } else {
+                loader.installedStylesheet(url)?.let(::NovelChapterStylesheet)
+            }
+            Result.success(LnPluginSource(host, info, stylesheet))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logcat(LogPriority.ERROR, e) { "loadInstalled: failed for $url" }
+            Result.failure(e)
         }
-        rememberSeenSources(ok.map { it.source })
-        recordLoadedVersions(ok)
-        return ok.map { it.source }
+        return registryMutex.withLock {
+            if (url !in prefs.installedPluginUrls().get()) return@withLock null
+            loaded.onSuccess { source ->
+                manager.register(source)
+                loadedUrls += url
+                failures.update { it - url }
+                recordLoadedVersion(url, source)
+            }.onFailure { error ->
+                val seen = prefs.seenNovelSources().get()[metadata?.pluginId]
+                failures.update { it + (url to LnPluginLoadFailure.of(url, error, metadata, seen)) }
+            }.getOrNull()
+        }
+    }
+
+    /** Takes [urls]' locks in sorted order, so two callers locking overlapping sets cannot deadlock. */
+    private suspend fun <T> withUrlLocks(urls: Collection<String>, block: suspend () -> T): T {
+        val held = ArrayList<Mutex>()
+        try {
+            urls.toSortedSet().forEach { url ->
+                val lock = urlLocks.getOrPut(url) { Mutex() }
+                lock.lock()
+                held += lock
+            }
+            return block()
+        } finally {
+            held.asReversed().forEach { it.unlock() }
+        }
     }
 
     /**
@@ -305,19 +331,16 @@ class LnPluginInstaller(
     }
 
     /**
-     * Records the version each plugin reports for itself, which is the one actually running. The repo's
+     * Records the version a plugin reports for itself, which is the one actually running. The repo's
      * version is not: a record written from it, or a URL pasted without one, would hide an update.
+     * Caller holds [registryMutex] and has checked [url] is still installed.
      */
-    private suspend fun recordLoadedVersions(loaded: List<LoadResult.Loaded>) {
-        registryMutex.withLock {
-            val current = prefs.installedPluginMetadata().get()
-            val updated = current + loaded.mapNotNull { result ->
-                val version = result.version ?: return@mapNotNull null
-                val record = current[result.url] ?: LnInstalledPluginMetadata(pluginId = result.source.id)
-                if (record.version == version) null else result.url to record.copy(version = version)
-            }
-            if (updated != current) prefs.installedPluginMetadata().set(updated)
-        }
+    private fun recordLoadedVersion(url: String, source: LnPluginSource) {
+        val version = source.version.ifEmpty { return }
+        val current = prefs.installedPluginMetadata().get()
+        val record = current[url] ?: LnInstalledPluginMetadata(pluginId = source.id)
+        if (record.version == version) return
+        prefs.installedPluginMetadata().set(current + (url to record.copy(version = version)))
     }
 
     /**
@@ -385,22 +408,28 @@ class LnPluginInstaller(
      */
     suspend fun uninstall(pluginId: String, pluginJsUrl: String? = null) {
         // Resolve the URL(s) to drop from the plugin id against FRESH metadata, not a caller-cached
-        // snapshot: [installFromUrl] registers the source before persisting its metadata, so a UI map
-        // built off manager.sources lags a same-session install and would strand the plugin.
-        val urlsToRemove = registryMutex.withLock {
-            val metadata = prefs.installedPluginMetadata().get()
-            val remove = metadata.filterValues { it.pluginId == pluginId }.keys +
-                (pluginJsUrl?.let { setOf(canonicalizePluginUrl(it)) } ?: emptySet())
-            prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - remove)
-            prefs.installedPluginMetadata().set(metadata - remove)
+        // snapshot: a UI map built off manager.sources can lag a same-session install and would strand
+        // the plugin. Resolved again under the locks, for an install that landed while this waited.
+        val explicit = pluginJsUrl?.let { setOf(canonicalizePluginUrl(it)) }.orEmpty()
+        val locked = registryMutex.withLock { urlsOf(pluginId) } + explicit
+        val urlsToRemove = withUrlLocks(locked) {
+            val remove = registryMutex.withLock {
+                val remove = urlsOf(pluginId) + explicit
+                prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - remove)
+                prefs.installedPluginMetadata().set(prefs.installedPluginMetadata().get() - remove)
+                loadedUrls.removeAll(remove)
+                failures.update { it - remove }
+                manager.unregister(pluginId)
+                remove
+            }
+            remove.forEach { loader.delete(it) }
             remove
         }
-        urlsToRemove.forEach { loader.delete(it) }
-        loadedUrls.removeAll(urlsToRemove)
-        failures.update { it - urlsToRemove }
-        manager.unregister(pluginId)
         logcat(LogPriority.INFO) { "uninstalled plugin $pluginId (${urlsToRemove.size} url(s))" }
     }
+
+    private fun urlsOf(pluginId: String): Set<String> =
+        prefs.installedPluginMetadata().get().filterValues { it.pluginId == pluginId }.keys
 
     /**
      * Fetch + parse an lnreader plugin registry's JSON index. Caller decides what to do with the
@@ -423,14 +452,6 @@ class LnPluginInstaller(
      */
     private fun scopeIdFromUrl(url: String): String =
         url.substringAfterLast('/').substringBeforeLast('.')
-
-    private sealed interface LoadResult {
-        val url: String
-
-        data class Loaded(override val url: String, val source: LnPluginSource, val version: String?) : LoadResult
-
-        data class Failed(override val url: String, val error: Throwable) : LoadResult
-    }
 }
 
 /**
