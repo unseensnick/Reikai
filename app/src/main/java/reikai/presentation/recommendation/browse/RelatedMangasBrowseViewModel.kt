@@ -29,6 +29,7 @@ import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.localIdOf
+import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.catalogue.BrowseColumns
 import reikai.presentation.browse.catalogue.trackBrowseColumns
@@ -185,8 +186,7 @@ class RelatedMangasBrowseViewModel(
             val categories = getCategories.await().filterNot { it.isSystemCategory }
             val directIds = resolveDefaultCategoryIds(categories, libraryPreferences.defaultCategory.get())
             if (directIds != null) {
-                applyAdd(resolved, directIds)
-                finishAdd(resolved.size, trackerOrigin.size)
+                addAndReport(resolved, directIds, skipped = trackerOrigin.size)
             } else {
                 state.update {
                     // Freshly-added manga have no categories yet, so every checkbox starts unchecked.
@@ -205,15 +205,13 @@ class RelatedMangasBrowseViewModel(
     }
 
     fun confirmCategories(target: List<Manga>, include: List<Long>, skipped: Int) {
-        viewModelScope.launchIO {
-            applyAdd(target, include)
-            finishAdd(target.size, skipped)
-        }
+        viewModelScope.launchIO { addAndReport(target, include, skipped) }
     }
 
-    private suspend fun applyAdd(mangas: List<Manga>, categoryIds: List<Long>) {
-        // Per entry, so one failing favorite write skips only that entry's categories.
-        mangas.forEach { libraryAdder.confirmAddCategories(it.id, categoryIds) }
+    private suspend fun addAndReport(mangas: List<Manga>, categoryIds: List<Long>, skipped: Int) {
+        // Per entry, so one failing favorite write skips only that entry, and it reports as skipped.
+        val added = mangas.count { libraryAdder.confirmAddCategories(it.id, categoryIds) == AddOutcome.Added }
+        finishAdd(added, skipped + mangas.size - added)
     }
 
     private suspend fun finishAdd(added: Int, skipped: Int) {

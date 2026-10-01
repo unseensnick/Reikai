@@ -47,6 +47,9 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
     /** The rows the duplicate lookup lists, while they are in the library. */
     val duplicateIds = mutableSetOf<Long>()
 
+    /** Rows whose favorite write the database refuses, answering false as a failed update does. */
+    val refusedFavoriteWrites = mutableSetOf<Long>()
+
     /** Stores [id] in or out of the library, filed under [categories], and answers the stored row. */
     fun put(id: Long, favorite: Boolean, categories: List<Long> = emptyList()): Manga {
         filed[id] = categories
@@ -73,6 +76,7 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
         coEvery { update(any()) } answers {
             val update = firstArg<MangaUpdate>()
             val row = rows[update.id] ?: return@answers false
+            if (update.isSet(MangaUpdate::favoriteAt) && update.id in refusedFavoriteWrites) return@answers false
             updates += update
             if (update.isSet(MangaUpdate::favoriteAt)) {
                 favoriteWrites += update.id

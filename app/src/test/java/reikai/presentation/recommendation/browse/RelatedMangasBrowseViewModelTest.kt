@@ -1,11 +1,15 @@
 package reikai.presentation.recommendation.browse
 
+import android.content.Context
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.model.SManga
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -35,9 +39,11 @@ import reikai.domain.recommendation.TitleNormalizer
 import reikai.domain.recommendation.taste.TasteProfile
 import reikai.presentation.browse.FakeMangaLibrary
 import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.i18n.MR
 import kotlin.time.Duration.Companion.seconds
 
 class RelatedMangasBrowseViewModelTest {
@@ -45,10 +51,13 @@ class RelatedMangasBrowseViewModelTest {
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
+        // Spied, not stubbed: unstubbed lookups run as before, and a case can check the message it asked for.
+        mockkStatic(LOCALIZE)
     }
 
     @AfterEach
     fun tearDown() {
+        unmockkStatic(LOCALIZE)
         Dispatchers.resetMain()
     }
 
@@ -77,6 +86,9 @@ class RelatedMangasBrowseViewModelTest {
 
     /** The library, as a live table: a favourite write lands here and every read sees it. */
     private val library = FakeMangaLibrary()
+
+    // One stored row per url, numbered from 10 in the order the grid resolves them.
+    private val localIds = mutableMapOf<String, Long>()
 
     // Emitting, so a preference written while the grid is open reaches a model that follows it.
     private val store = EmittingPreferenceStore()
@@ -133,7 +145,10 @@ class RelatedMangasBrowseViewModelTest {
         getCategories = library.getCategories,
         libraryAdder = library.adder,
         networkToLocalManga = mockk {
-            coEvery { this@mockk.invoke(any<Manga>()) } answers { library.insert(firstArg<Manga>().copy(id = 10L)) }
+            coEvery { this@mockk.invoke(any<Manga>()) } answers {
+                val manga = firstArg<Manga>()
+                library.insert(manga.copy(id = localIds.getOrPut(manga.url) { 10L + localIds.size }))
+            }
         },
         libraryPreferences = LibraryPreferences(store),
         prepareRecommendationAssembly = assembly,
@@ -244,6 +259,23 @@ class RelatedMangasBrowseViewModelTest {
             RelatedMangasBrowseViewModel.Content.Empty(hiddenCount = 1)
     }
 
+    /** b resolves second, to row 11, whose favorite write the library refuses. */
+    @Test
+    fun `a title whose library write fails is not counted as added`() = runTest {
+        library.refusedFavoriteWrites += 11L
+        val cache = RelatedMangaCache().apply {
+            put(MANGA_ID, RelatedPool(listOf(candidate("a", SOURCE_ID), candidate("b", SOURCE_ID)), emptyMap()))
+        }
+        val viewModel = viewModel(cache = cache)
+        settle { viewModel.state.first { it.items.size == 2 } }
+        viewModel.toggleSelection("a")
+        viewModel.toggleSelection("b")
+
+        viewModel.addSelectedToLibrary()
+
+        verify(timeout = 5_000) { any<Context>().stringResource(MR.strings.bulk_added_with_skipped, 1, 1) }
+    }
+
     /** Grouped, the grid draws a1 a2 under one header and b1 b2 under the next, though the rank interleaves them. */
     @Test
     fun `range select in the grouped grid follows the order on screen`() = runTest {
@@ -286,5 +318,6 @@ class RelatedMangasBrowseViewModelTest {
         const val MANGA_ID = 1L
         const val SOURCE_ID = 5L
         const val ANILIST_ID = 1L
+        const val LOCALIZE = "tachiyomi.core.common.i18n.LocalizeKt"
     }
 }

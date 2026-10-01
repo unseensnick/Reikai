@@ -254,8 +254,8 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
                     // only carries followStatus and would blank the rating until a manual refresh.
                     local = updateMangaFromRemote(local, fetchDetails = true, fetchChapters = true)
                         .getOrThrow().manga
-                    libraryAdder.addWithoutAsking(local.id)
-                    imported++
+                    // A refused favorite write leaves the follow out of the library, so it reports as failed.
+                    if (libraryAdder.addWithoutAsking(local.id) != null) imported++ else failed += name
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: NoChaptersException) {
