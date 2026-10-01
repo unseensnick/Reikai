@@ -112,6 +112,11 @@ and resolves it in the model. Reikai takes a nullable saved-search id on `EntryC
 through the adapter's `applySearch`, so neither model needs a saved-search read and neither needed a
 `// RK` fence. The cost is one discarded page of the default listing.
 
+An applied search is also what the filter sheet holds. Mihon's `search()` writes only the listing, so
+the manga adapter sets the sheet's list too, as `searchGenre` and Komikku's `onSavedSearch` do; without
+it the sheet showed the filters from before and its next Filter tap threw the saved ones away (deep-audit
+lead U59, 2026-10-01). `SavedSearchConformanceTest` runs both adapters through apply, then capture.
+
 That effect is keyed on the saved-search list rather than on the id, because the search is not there on
 the first pass, and it holds its own "already applied" flag in `rememberSaveable`. It also waits for the
 neutral state to read Loaded (`savedSearchToOpen`, pinned by `SavedSearchToOpenTest`): a novel model

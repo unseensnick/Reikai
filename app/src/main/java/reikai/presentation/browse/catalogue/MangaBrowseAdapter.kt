@@ -170,6 +170,9 @@ class MangaBrowseAdapter(
         // Empty rather than null for a search that carries none: Mihon's search() reads null as "keep
         // what is there", so a filters-only search would otherwise run against whatever the reader had
         // typed and show results the saved search never described. The novel half clears it in applySavedSearch.
+        // search() leaves the sheet's list alone, so it is set too, as searchGenre does, or the sheet's
+        // next Filter tap would replace the saved filters with the ones from before.
+        model.setFilters(filters)
         model.search(query = query.orEmpty(), filters = filters)
     }
 
