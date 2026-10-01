@@ -99,7 +99,5 @@ interface EntryDetailsBehavior {
     fun removeSourcesFromLibrary(targetIds: List<Long>)
     fun removeAllSourcesFromLibrary()
 
-    // Refresh and dialog dismiss.
     fun refresh()
-    fun dismissDialog()
 }

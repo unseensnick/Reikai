@@ -118,7 +118,6 @@ class NovelEntryAdapter(
                 bookmark = chapter.bookmark || chapter.id in loaded.bookmarkedInOtherSources,
                 dateUpload = chapter.dateUpload,
                 chapterNumber = chapter.chapterNumber,
-                sourceOrder = chapter.sourceOrder,
                 readProgress = percentProgressLabel(chapter.lastTextProgress).takeIf { !chapter.read },
                 downloadState = loaded.downloadStateOf(chapter.id),
                 downloadProgress = 0,
@@ -260,8 +259,5 @@ class NovelEntryAdapter(
     }
     override fun refresh() {
         model.refresh()
-    }
-    override fun dismissDialog() {
-        model.dismissDialog()
     }
 }

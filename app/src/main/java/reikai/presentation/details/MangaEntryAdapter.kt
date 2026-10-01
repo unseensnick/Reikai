@@ -139,7 +139,6 @@ class MangaEntryAdapter(
             bookmark = isBookmarked,
             dateUpload = chapter.dateUpload,
             chapterNumber = chapter.chapterNumber,
-            sourceOrder = chapter.sourceOrder,
             readProgress = model.readProgressLabel(chapter),
             downloadState = downloadState,
             downloadProgress = downloadProgress,
@@ -309,9 +308,6 @@ class MangaEntryAdapter(
 
     override fun refresh() {
         model.fetchAllFromSource()
-    }
-    override fun dismissDialog() {
-        model.dismissDialog()
     }
 }
 

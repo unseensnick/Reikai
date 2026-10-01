@@ -104,7 +104,6 @@ sealed interface EntryChapterListItem {
         val bookmark: Boolean,
         val dateUpload: Long,
         val chapterNumber: Double,
-        val sourceOrder: Long,
         /** Pre-formatted resume hint ("42%" for novels, "Page 3" for manga); null when read or unstarted.
          *  Each adapter formats its own, so the neutral layer never sees page index vs scroll percent. */
         val readProgress: String?,
