@@ -158,6 +158,7 @@ every stable release now also ships a foss build with neither in it.
 - **On a merged novel, the reader's chapter list now shows a chapter as downloaded when the copy it would open is, and names each chapter's source.** Opened from a source chip or Updates, only that source's copy counts, and a delete removes only that copy.
 - **Opening a chapter of a merged series now reads a downloaded copy from any of its sources instead of going online, on manga and novels.** Stepping between chapters, the Downloaded only filter, download-ahead and the library's Continue button follow the same copy.
 - **Incognito on one source of a merged series now covers that source's chapters alone, in both readers, whichever source you opened the series from.** Before, the source you opened it from decided for every chapter, so a private source's chapters could reach History and your trackers.
+- **A merged novel's source switcher now names a source you uninstalled by its name instead of its id.**
 
 ### Updates & History
 

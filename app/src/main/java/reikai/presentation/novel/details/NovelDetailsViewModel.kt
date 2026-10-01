@@ -473,7 +473,7 @@ class NovelDetailsViewModel(
             val id = novel.id
             val src = sourceManager.get(novel.source)
             if (src != null) resolved[id] = src
-            chips += EntryMergeSource(id, src?.name ?: novel.source)
+            chips += EntryMergeSource(id, sourceManager.nameOf(novel.source))
         }
         siblingSources.value = resolved
         return chips

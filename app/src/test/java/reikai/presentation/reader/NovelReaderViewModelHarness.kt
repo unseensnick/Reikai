@@ -115,7 +115,7 @@ class NovelReaderViewModelHarness private constructor(
     private val sourceManager = NovelSourceManager(
         installer = { installer },
         extensionManager = mockk { every { loadedNovelExtensionsFlow } returns flowOf(emptyList()) },
-        prefs = mockk(relaxed = true),
+        prefs = novelPreferences,
     )
 
     /** Chapter id to the text its downloaded copy holds. */

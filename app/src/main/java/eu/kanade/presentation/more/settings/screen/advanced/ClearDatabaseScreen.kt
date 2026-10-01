@@ -327,11 +327,10 @@ class ClearDatabaseViewModel(
                 .collectLatest { (list, novelList) ->
                     val novelItems = novelList
                         .map { (sourceId, count) ->
-                            val source = novelSourceManager.get(sourceId)
                             NovelSourceWithCount(
                                 id = sourceId,
-                                name = source?.name ?: sourceId,
-                                iconUrl = source?.iconUrl,
+                                name = novelSourceManager.nameOf(sourceId),
+                                iconUrl = novelSourceManager.get(sourceId)?.iconUrl,
                                 count = count,
                             )
                         }
@@ -451,7 +450,7 @@ class ClearDatabaseViewModel(
     }
 
     // RK --> display row for a novel source with its non-favorite count; name/icon resolved from
-    // the source manager at map time, falling back to the raw plugin id for uninstalled sources
+    // the source manager at map time, an uninstalled source keeping the name it was last seen with
     @Immutable
     data class NovelSourceWithCount(
         val id: String,
