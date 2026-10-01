@@ -169,7 +169,7 @@ class NovelExtensionsProvider(private val model: LnPluginManagerViewModel) : Ext
     override fun refresh() = model.refresh()
 
     override fun updateAll(rows: List<BrowseExtensionRow>) {
-        rows.mapNotNull { it.payload as? LnPluginUpdate }.forEach(model::update)
+        rows.mapNotNull { (it.payload as? NovelPluginUpdateRow)?.update }.forEach(model::update)
     }
 }
 
@@ -193,7 +193,8 @@ fun novelExtensionRows(
     // same name its own section header does.
     return updates.mapNotNull {
         val lang = it.entry.lang.toLangCode()
-        novelRow(claimed, it.entry.site, it.entry.id, it.entry.name, lang, ExtensionSection.Updates, it)
+        val payload = NovelPluginUpdateRow(it, notLoaded.firstOrNull { failed -> failed.pluginId == it.entry.id })
+        novelRow(claimed, it.entry.site, it.entry.id, it.entry.name, lang, ExtensionSection.Updates, payload)
             ?.copy(updateVersion = it.entry.version)
     } + notLoaded.mapNotNull {
         // Keyed by URL when the install never recorded a plugin id, which is still one row per plugin.
@@ -206,6 +207,12 @@ fun novelExtensionRows(
         novelRow(claimed, it.site, it.id, it.name, lang, ExtensionSection.Available(lang), it)
     }
 }
+
+/**
+ * An Updates row, with why the installed plugin did not load when it did not: the row is the only one
+ * the plugin gets, so its tap and menu open that instead of a details page with no source to show.
+ */
+data class NovelPluginUpdateRow(val update: LnPluginUpdate, val failure: LnPluginLoadFailure?)
 
 private fun novelRow(
     claimed: MutableSet<String>,

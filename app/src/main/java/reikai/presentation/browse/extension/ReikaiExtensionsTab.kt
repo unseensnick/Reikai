@@ -63,7 +63,6 @@ import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.source.NovelSource
-import reikai.novel.update.LnPluginUpdate
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.BrowseSectionHeader
@@ -534,30 +533,50 @@ private fun NovelExtensionRow(
                 },
             )
         }
-        is LnPluginUpdate -> {
-            val key = canonicalizePluginUrl(payload.entry.url)
-            val settings = stringResource(MR.strings.action_settings) to {
-                navigator.push(NovelPluginDetailsScreen(payload.entry.id))
+        is NovelPluginUpdateRow -> {
+            val update = payload.update
+            val key = canonicalizePluginUrl(update.entry.url)
+            // As a manga row: a loaded plugin opens its page and asks to be removed, while one that
+            // failed opens why, which also offers reinstall and uninstall.
+            val failure = payload.failure
+            // The dialog reinstalls from the recorded URL, which a repo may have moved the update from.
+            val installing = listOfNotNull(key, failure?.url?.let(::canonicalizePluginUrl)).any {
+                it in state.inProgress
+            }
+            val open = if (failure != null) {
+                stringResource(MR.strings.ext_not_loaded_details) to { onNotLoaded(failure) }
+            } else {
+                stringResource(MR.strings.action_settings) to {
+                    navigator.push(NovelPluginDetailsScreen(update.entry.id))
+                }
             }
             NovelSourceRow(
                 modifier = modifier,
-                name = payload.entry.name,
+                name = update.entry.name,
                 lang = lang,
-                iconUrl = payload.entry.iconUrl,
-                version = versionLabel(payload.installedVersion, row.updateVersion),
+                iconUrl = update.entry.iconUrl,
+                version = versionLabel(update.installedVersion, row.updateVersion),
                 repoName = state.repoNames[key],
+                onClickItem = { if (!installing) open.second() },
+                onLongClickItem = {
+                    when {
+                        installing -> Unit
+                        failure != null -> onNotLoaded(failure)
+                        else -> state.installed.firstOrNull { it.id == update.entry.id }?.let(onConfirmUninstall)
+                    }
+                },
                 badge = badge,
                 action = {
-                    NovelRowAction(inProgress = key in state.inProgress) {
+                    NovelRowAction(inProgress = installing) {
                         val error = state.errors[key]
                         if (error != null) {
-                            PluginRetryButton(error, onInstallError, listOf(settings)) { model.update(payload) }
+                            PluginRetryButton(error, onInstallError, listOf(open)) { model.update(update) }
                         } else {
                             ExtensionSplitButton(
                                 icon = MaterialSymbols.Rounded.Download,
                                 contentDescription = stringResource(MR.strings.ext_update),
-                                onClick = { model.update(payload) },
-                                menuItems = listOf(settings),
+                                onClick = { model.update(update) },
+                                menuItems = listOf(open),
                             )
                         }
                     }
@@ -596,6 +615,9 @@ private fun NovelExtensionRow(
                 iconUrl = payload.iconUrl,
                 version = payload.version,
                 repoName = state.repoNames[key],
+                // As an available manga extension's row: a tap or a long press installs it.
+                onClickItem = { model.install(payload) },
+                onLongClickItem = { model.install(payload) },
                 badge = badge,
                 action = {
                     // The apk rows' own buttons, so one list reads as one list. They go while an

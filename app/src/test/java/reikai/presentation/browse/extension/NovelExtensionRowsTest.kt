@@ -4,6 +4,8 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.jupiter.api.Test
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.registry.LnRegistryEntry
@@ -69,6 +71,43 @@ class NovelExtensionRowsTest {
         )
 
         rows.sectionsById() shouldContainExactly listOf("novelbin" to ExtensionSection.Updates)
+    }
+
+    /** Its tap and menu then open why it did not load, since its details page has no source to show. */
+    @Test
+    fun `a plugin that failed to load with an update pending carries the failure to its Updates row`() {
+        val rows = novelExtensionRows(
+            updates = listOf(update("novelbin")),
+            notLoaded = listOf(failure("novelbin")),
+            installed = emptyList(),
+            available = emptyList(),
+        )
+
+        rows.single().payload shouldBe NovelPluginUpdateRow(update("novelbin"), failure("novelbin"))
+    }
+
+    @Test
+    fun `a loaded plugin with an update pending carries no failure`() {
+        val rows = novelExtensionRows(
+            updates = listOf(update("novelbin")),
+            notLoaded = listOf(failure("royalroad")),
+            installed = listOf(source("novelbin")),
+            available = emptyList(),
+        )
+
+        rows.first().payload shouldBe NovelPluginUpdateRow(update("novelbin"), failure = null)
+    }
+
+    @Test
+    fun `Update all updates a plugin that failed to load too`() {
+        val model = mockk<LnPluginManagerViewModel>(relaxUnitFun = true) {
+            every { state } returns MutableStateFlow(LnPluginManagerViewModel.State())
+        }
+        val rows = novelExtensionRows(listOf(update("novelbin")), listOf(failure("novelbin")), emptyList(), emptyList())
+
+        NovelExtensionsProvider(model).updateAll(rows)
+
+        verify { model.update(update("novelbin")) }
     }
 
     @Test

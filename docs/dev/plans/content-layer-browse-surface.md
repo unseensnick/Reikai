@@ -545,6 +545,15 @@ them off the neutral row style, so no composable reads the preference.
   four are the same shape: a capability that exists on one side of a leaf that dispatches by
   content type, where nothing forces the other side to answer. None is visible from the neutral
   contract, because each is decided below it.
+- **Every plugin row answers a tap and a long press as the matching manga row does (deep-audit
+  leads U61 and U62, 2026-10-01).** The long-press fix above reached only installed rows, so rows
+  under Updates and Available ignored both gestures. Available now installs on either; an Updates
+  row opens the plugin's page and asks to remove it. A plugin that failed to load and has an update
+  shows only under Updates, so `novelExtensionRows` attaches its `LnPluginLoadFailure` to the row
+  (`NovelPluginUpdateRow`), and its tap, long press and menu entry open the not-loaded dialog, as a
+  manga Updates row for a not-loaded extension does; its details page has no source to show and
+  closed itself. Pinned by `NovelExtensionRowsTest`; the gestures themselves are checked on device,
+  since the repo has no Compose UI tests.
 - **The sources filter is one screen with a Manga / Novels chip (owner, 2026-08-28).** The Browse
   filter action routed All and Manga to Mihon's manga screen and only Novels to the plugin one, so
   from the default chip no plugin could be enabled, disabled or language-filtered at all. Both

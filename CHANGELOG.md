@@ -327,7 +327,7 @@ every stable release now also ships a foss build with neither in it.
 - **Clear database now also removes novels that aren't in your library.** Novel sources get their own rows on the screen, and the keep-read toggle protects novels with reading progress, like manga.
 - **A novel's update notification now names the chapters it found and offers Mark as read and Download.** It only ever said how many there were, and gave you nothing to do about them.
 - **Updating your novel library now shows how far along it is, as a percentage.** Manga already did.
-- **Long-pressing an installed light-novel plugin in Browse -> Extensions now offers to remove it.** It asks first, since Android has no uninstall prompt of its own for a plugin.
+- **Light-novel plugins in Browse -> Extensions now answer a tap and a long press like manga extensions, and a long press on an installed one offers to remove it.** Under Available both gestures install, and a plugin under Updates that failed to load opens why instead of an empty page.
 - **A novel's chapter list can now be sorted alphabetically, the fourth sort manga already had.**
 - **Settings -> Novel reader can now tidy up a chapter before you read it.** Hide a heading that just repeats the chapter name, block images and video, split walls of text into paragraphs every 20 to 2000 words, force lowercase, and choose whether a chapter's own styling runs.
 - **Novels now open in the same reader manga uses, drawn as real text, or as a web page under Settings -> Novel reader -> Rendering mode.** The previous novel reader is gone; a mode change applies the next time you open a chapter.
