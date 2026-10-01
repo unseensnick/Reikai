@@ -3,6 +3,8 @@ package reikai.novel.content
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 /**
  * The compile kernel both the reading pipeline and the rule editor's preview run through, so a rule
@@ -73,5 +75,23 @@ class NovelRegexReplacementsTest {
     @Test
     fun `an unparseable pattern throws rather than compiling to nothing`() {
         assertThrows<Exception> { NovelRegexReplacements.compile(rule("[unclosed")) }
+    }
+
+    /**
+     * The runtime reads a replacement only once something matches, so without this check a rule
+     * tested on an empty sample saved cleanly and was then skipped on the first chapter it touched.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = ["$5", "trailing \\", "\${missing}"])
+    fun `a regex replacement the runtime cannot read throws at compile`(replacement: String) {
+        assertThrows<NovelRegexReplacements.InvalidReplacementException> {
+            NovelRegexReplacements.compile(rule("(?<w>a)", replacement))
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["$1", "\${w}", "\\$1", "plain"])
+    fun `a regex replacement naming a group the pattern has compiles`(replacement: String) {
+        run(rule("(?<w>a)", replacement), "b") shouldBe "b"
     }
 }

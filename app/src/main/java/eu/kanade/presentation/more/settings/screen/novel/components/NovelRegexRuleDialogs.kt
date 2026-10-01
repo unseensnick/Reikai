@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import reikai.novel.content.NovelRegexReplacement
+import reikai.novel.content.NovelRegexReplacements
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -63,7 +64,9 @@ fun NovelRegexRuleEditDialog(
     val preview = remember(pattern, replacement, isRegex, matchWholeWord, caseSensitive, sample) {
         if (pattern.isBlank()) null else onPreview(edited, sample)
     }
-    val patternError = preview?.exceptionOrNull()
+    val error = preview?.exceptionOrNull()
+    val replacementError = error as? NovelRegexReplacements.InvalidReplacementException
+    val patternError = error.takeIf { replacementError == null }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -71,7 +74,7 @@ fun NovelRegexRuleEditDialog(
             TextButton(
                 // Blank rather than empty: the pipeline skips a rule whose pattern is only whitespace,
                 // so accepting one here would save a rule the reader silently never applies.
-                enabled = title.isNotBlank() && pattern.isNotBlank() && patternError == null,
+                enabled = title.isNotBlank() && pattern.isNotBlank() && error == null,
                 onClick = {
                     onSave(edited)
                     onDismissRequest()
@@ -116,6 +119,8 @@ fun NovelRegexRuleEditDialog(
                     value = replacement,
                     onValueChange = { replacement = it },
                     label = { Text(stringResource(MR.strings.novel_regex_replace_with)) },
+                    isError = replacementError != null,
+                    supportingText = replacementError?.let { { Text(it.message.orEmpty()) } },
                     maxLines = 3,
                     modifier = Modifier
                         .fillMaxWidth()
