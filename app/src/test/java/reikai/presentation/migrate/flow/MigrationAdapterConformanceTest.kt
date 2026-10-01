@@ -29,8 +29,10 @@ import reikai.novel.host.SourceNovel
 import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
@@ -281,7 +283,8 @@ object NovelProbe : Probe {
                     List(if (synced) sourceChapters.size else chapters) { storedChapter(firstArg(), it + 1.0) }
                 }
             },
-            libraryPreferences = mockk(relaxed = true),
+            // Real, not relaxed: a relaxed Preference cannot answer get() with a Boolean.
+            libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
             coverCache = mockk(relaxed = true),
             downloadManagerProvider = { mockk(relaxed = true) },
             migrateNovel = mockk(),

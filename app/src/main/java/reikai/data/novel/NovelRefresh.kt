@@ -53,8 +53,9 @@ suspend fun storeRefreshedNovel(
     novelDownloadManager: NovelDownloadManager?,
     coverCache: CoverCache,
     manualFetch: Boolean = false,
+    updateTitles: Boolean = libraryPreferences.updateMangaTitles.get(),
 ): Novel {
-    val merged = mergeRefreshedNovel(existing, parsed, libraryPreferences.updateMangaTitles.get())
+    val merged = mergeRefreshedNovel(existing, parsed, updateTitles)
     // Novels have no local source, so a cover is never only stamped.
     val refreshedUrl = keptCover(null, parsed.thumbnailUrl)
     val cover = refreshedCover(existing.thumbnailUrl, refreshedUrl, manualFetch, isLocal = false) {
@@ -102,6 +103,7 @@ suspend fun refreshNovelFromSource(
     novelDownloadManager: NovelDownloadManager? = null,
     manualFetch: Boolean = false,
     fetchWindow: Pair<Long, Long> = Pair(0, 0),
+    updateTitles: Boolean = libraryPreferences.updateMangaTitles.get(),
 ): NovelRefreshResult {
     val sourceNovel = source.parseNovel(novel.url)
     val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = novel.favorite)
@@ -113,6 +115,7 @@ suspend fun refreshNovelFromSource(
         novelDownloadManager,
         coverCache,
         manualFetch,
+        updateTitles,
     )
 
     val firstChapters = sourceNovel.chapters.orEmpty()

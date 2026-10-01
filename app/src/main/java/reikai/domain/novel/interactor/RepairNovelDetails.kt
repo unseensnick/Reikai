@@ -54,6 +54,9 @@ class RepairNovelDetails(
                         libraryPreferences,
                         coverCache,
                         novelDownloadManager = downloadManager(),
+                        // The title is the field the mix-up corrupted, so the library-titles setting
+                        // cannot keep it; a user's own rename lives in custom_novel_info and survives.
+                        updateTitles = true,
                     )
                 }
                     .onSuccess { repaired++ }
