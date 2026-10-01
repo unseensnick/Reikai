@@ -156,7 +156,11 @@ class MangaScreen(
                             }
                         },
                         onGlobalSearch = { scope.launch { performSearch(navigator, it, global = true) } },
-                        onTagSearch = { scope.launch { performGenreSearch(navigator, it, viewModel.source!!) } },
+                        // The viewed source, since the tags on screen are the selected chip's.
+                        onTagSearch = { genre ->
+                            val viewedSource = successState.mergeDisplaySource ?: successState.source
+                            scope.launch { performGenreSearch(navigator, genre, viewedSource) }
+                        },
                         onCopyTag = { if (it.isNotEmpty()) context.copyToClipboard(it, it) },
                         onTracking = {
                             if (!successState.hasLoggedInTrackers) {
