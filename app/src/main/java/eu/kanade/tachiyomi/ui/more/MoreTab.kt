@@ -17,7 +17,6 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.core.preference.asState
@@ -89,8 +88,7 @@ data object MoreTab : Tab {
 
 @Inject
 @ViewModelKey
-// RK: Reikai's own graph conversion spells the binding out
-@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+@ContributesIntoMap(AppScope::class)
 class MoreViewModel(
     private val downloadManager: DownloadManager,
     preferences: BasePreferences,

@@ -75,10 +75,7 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
      */
     private var currentPage: Any? = null
 
-    // RK: reflowed onto three lines, no behaviour change
-    private val threshold: Int by lazy {
-        readerPreferences.readerHideThreshold.get().threshold
-    }
+    private val threshold: Int by lazy { readerPreferences.readerHideThreshold.get().threshold }
 
     init {
         recycler.setItemViewCacheSize(RECYCLER_VIEW_CACHE_SIZE)

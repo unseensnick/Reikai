@@ -362,8 +362,9 @@ object SettingsLibraryScreen : SearchableSettings {
                     enabled = autoUpdateInterval > 0,
                     onValueChanged = {
                         // Post to event looper to allow the preference to be updated.
-                        // RK: formatting only, upstream wraps the same call over three lines
-                        ContextCompat.getMainExecutor(context).execute { LibraryUpdateJob.setupTask(context) }
+                        ContextCompat.getMainExecutor(context).execute {
+                            LibraryUpdateJob.setupTask(context)
+                        }
                         true
                     },
                 ),

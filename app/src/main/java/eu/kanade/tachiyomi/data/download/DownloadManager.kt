@@ -48,12 +48,10 @@ class DownloadManager(
     private val provider: DownloadProvider,
     private val cache: DownloadCache,
     private val getCategories: GetCategories,
-    // RK --> getManga and getChapter follow the preferences, the order Reikai's own Metro migration gave
-    private val sourceManager: SourceManager,
-    private val downloadPreferences: DownloadPreferences,
     private val getManga: GetManga,
     private val getChapter: GetChapter,
-    // RK <--
+    private val sourceManager: SourceManager,
+    private val downloadPreferences: DownloadPreferences,
     private val downloader: Downloader,
     private val pendingDeleter: DownloadPendingDeleter,
     private val sourceTitles: SourceTitlesRepository, // RK
@@ -115,15 +113,6 @@ class DownloadManager(
         return queueState.value.find { it.chapter.id == chapterId }
     }
 
-    // RK: sits above startDownloadNow, where Reikai's own Metro migration placed it
-    private suspend fun downloadFromChapterId(chapterId: Long): Download? {
-        val chapter = getChapter.await(chapterId) ?: return null
-        val manga = getManga.await(chapter.mangaId) ?: return null
-        val source = sourceManager.get(manga.source) as? HttpSource ?: return null
-
-        return Download(source, manga, chapter)
-    }
-
     fun startDownloadNow(chapterId: Long) {
         val existingDownload = getQueuedDownloadOrNull(chapterId)
         // If not in queue try to start a new download
@@ -136,7 +125,13 @@ class DownloadManager(
         startDownloads()
     }
 
-    // RK: downloadFromChapterId moved above startDownloadNow
+    private suspend fun downloadFromChapterId(chapterId: Long): Download? {
+        val chapter = getChapter.await(chapterId) ?: return null
+        val manga = getManga.await(chapter.mangaId) ?: return null
+        val source = sourceManager.get(manga.source) as? HttpSource ?: return null
+
+        return Download(source, manga, chapter)
+    }
 
     /**
      * Reorders the download queue.

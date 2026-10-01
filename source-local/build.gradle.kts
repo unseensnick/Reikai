@@ -24,12 +24,11 @@ dependencies {
     implementation(projects.coreMetadata)
     implementation(projects.domain)
 
-    // RK: metro.runtime moved down beside injekt
+    implementation(libs.metro.runtime)
 
     implementation(libs.unifile)
     implementation(libs.bundles.serialization)
 
-    implementation(libs.metro.runtime) // RK: beside injekt, where Reikai's own Metro migration put it
     implementation(libs.injekt)
     implementation(libs.jsoup)
 
