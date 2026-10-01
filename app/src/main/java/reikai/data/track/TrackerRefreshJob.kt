@@ -30,6 +30,7 @@ import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
+import mihon.core.migration.Migrator
 import reikai.domain.library.ContentType
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.merge.MergeGroupRepository
@@ -92,6 +93,8 @@ class TrackerRefreshJob(
     )
 
     override suspend fun doWork(): Result {
+        // A WorkManager start has no MainActivity to wait for the migrations first
+        Migrator.await()
         return try {
             // Foreground like every other long worker: without this a backgrounded refresh dies
             // with the cached process and WorkManager silently reruns it from zero later,

@@ -33,6 +33,7 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
+import mihon.core.migration.Migrator
 import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
 import reikai.data.library.shouldDeferLibraryUpdate
@@ -143,6 +144,8 @@ class NovelUpdateJob(
     }
 
     override suspend fun doWork(): Result {
+        // A WorkManager start has no MainActivity to wait for the migrations first
+        Migrator.await()
         val restrictions = preferences.libraryUpdateDeviceRestrictions().get()
         if (shouldDeferLibraryUpdate(restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)) return Result.retry()
         setForegroundSafely()

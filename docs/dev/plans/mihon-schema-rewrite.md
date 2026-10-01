@@ -152,6 +152,19 @@ device: an upgrade from a 196 or 197 build with real data is the owner's check.
   before the migrations finish (`App` warms the manga one right after start), so both stores' restore
   waits for `Migrator` first; before this the manga queue dropped such a row and the novel queue kept
   it under the deleted entry id, which then failed.
+- **A background job that reads migrated state waits for the migrations first.** The preference
+  migrations run on `Migrator`'s own scope, and only `MainActivity` and the two download stores waited
+  for them. WorkManager starts a worker in a process with no Activity, and it keeps a pending request
+  across the app update, so even a job only a screen starts can run before them. Each worker below
+  calls `Migrator.await()` at the top of `doWork`, which returns at once after the chain has run:
+  `LibraryUpdateJob` and `NovelUpdateJob` (the category prefs 187 shifts and 188 scrubs, the merge
+  groups 189 builds), `TrackerRefreshJob`, `EHentaiUpdateWorker` and `MangaDexSyncJob` (merge groups,
+  and the default category for the follows import), `BackupCreateJob` (every pref and group) and
+  `BackupRestoreJob` (whose writes a later migration would rewrite). Left alone, since they read
+  nothing a migration rewrites: both delayed-tracking jobs (their queues and track rows),
+  `MetadataUpdateJob` (library rows and cover urls), `EhFavoritesBackupJob`, `LnPluginUpdateJob`
+  and `TrackerLibraryRefreshJob`; `DownloadJob` and `NovelDownloadJob` restore through the stores,
+  which already wait. A new migration that rewrites state one of the left ones reads adds it here.
 - **Other state keyed by an entry, checked for the same loss.** Not affected: hidden chapters
   (keyed by source and chapter url), page-list and page-preview caches (rebuilt on the next read), the
   cover colour cache (recomputed from the cover), per-entry reader settings (columns the SQL merges).

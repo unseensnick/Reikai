@@ -38,6 +38,7 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
+import mihon.core.migration.Migrator
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.library.libraryUpdateManualRequest
@@ -129,6 +130,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     private var mangaToUpdate: List<LibraryManga> = mutableListOf()
 
     override suspend fun doWork(): Result {
+        Migrator.await() // RK: a WorkManager start has no MainActivity to wait for the migrations first
         // RK: graph.inject moved to init
         // RK: the deferral rule is shared with the novel updater, in LibraryUpdateSchedule.kt
         val restrictions = libraryPreferences.autoUpdateDeviceRestrictions.get()

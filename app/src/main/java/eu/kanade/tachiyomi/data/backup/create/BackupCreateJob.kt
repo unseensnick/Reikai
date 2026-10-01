@@ -28,6 +28,7 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
+import mihon.core.migration.Migrator
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
 import java.util.concurrent.TimeUnit
@@ -46,6 +47,7 @@ class BackupCreateJob(private val context: Context, workerParams: WorkerParamete
     @Inject private lateinit var notifier: BackupNotifier
 
     override suspend fun doWork(): Result {
+        Migrator.await() // RK: a WorkManager start has no MainActivity to wait for the migrations first
         graph.inject(this)
 
         val isAutoBackup = inputData.getBoolean(IS_AUTO_BACKUP_KEY, true)

@@ -35,6 +35,7 @@ import kotlinx.coroutines.ensureActive
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
+import mihon.core.migration.Migrator
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.notification.hiddenEntryIds
@@ -103,6 +104,8 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
     }
 
     override suspend fun doWork(): Result {
+        // A WorkManager start has no MainActivity to wait for the migrations first
+        Migrator.await()
         val target = inputData.getString(KEY_TARGET)?.let { Target.valueOf(it) } ?: return Result.failure()
         return try {
             setForegroundSafely()
