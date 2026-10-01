@@ -461,6 +461,14 @@ point the next sign-in at its author's host. The host itself stays unrestricted,
 move is the reason the setting exists. No LAN exception: NovelList is a public service, unlike the
 self-hosted bypass server.
 
+**A reset row puts the built-in address back** (owner ruling R1, 2026-10-01). Mihon's
+`EditTextPreferenceWidget` keeps OK disabled on a blank value, so the "leave it empty" the summary
+used to promise could not be reached once an address was saved. Mihon's own answer for the user
+agent is a separate "Reset default user agent string" row, shown while the value differs from the
+default and calling `delete()`; the NovelList address and the bypass-server URL both take that row
+through `resetToDefaultPreference` (`reikai/presentation/settings/`), pinned by
+`ResetToDefaultPreferenceTest`. The widget itself stays Mihon's, unpatched.
+
 **MyNovelList's risk was who runs it, not whether it works, and that is what decided it.** The API is
 sound; the deployment behind it is a one-evening side project with an empty catalogue. The verdict
 and the evidence are in Status.

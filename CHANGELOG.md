@@ -445,6 +445,7 @@ agent under Settings -> Advanced.
 - **Light-novel source icons are no longer larger than manga ones in the same list, most noticeably on the Migrate tab.**
 - **Two languages whose codes share one name (such as "in" and "id") no longer lose a section in Browse's lists and source filter, on manga and novels.**
 - **Browse -> Extensions now shows its list and clears its search at once, without a short pause.**
+- **Settings -> Advanced -> FlareSolverr URL can now be cleared once an address is saved.**
 
 ### Migration
 
@@ -517,6 +518,7 @@ agent under Settings -> Advanced.
 - **Fill from tracker now says why it found nothing: "No entry found", or a prompt to log in when the tracker needs an account you are signed out of.** Trackers with public listings still fill while you are signed out.
 - **Fill from tracker no longer adds a genre the manga or novel already has as a tag in different capitals.** The existing tag keeps its spelling.
 - **A dropped connection while your MDList login refreshes no longer signs you out.**
+- **Settings -> Tracking -> NovelList server address can now be reset to the built-in address.**
 
 ### Downloads & extensions
 

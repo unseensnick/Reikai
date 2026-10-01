@@ -67,6 +67,7 @@ import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.settings.FlareSolverrLoginDialog
+import reikai.presentation.settings.resetToDefaultPreference
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
@@ -437,7 +438,6 @@ object SettingsAdvancedScreen : SearchableSettings {
                     enabled = flareSolverrEnabled,
                     onValueChanged = {
                         when {
-                            it.isBlank() -> true
                             it.trim().toHttpUrlOrNull() == null -> {
                                 context.toast(MR.strings.error_flaresolverr_invalid_url)
                                 false
@@ -451,6 +451,12 @@ object SettingsAdvancedScreen : SearchableSettings {
                             else -> true
                         }
                     },
+                ),
+                resetToDefaultPreference(
+                    preference = networkPreferences.flareSolverrUrl,
+                    current = flareSolverrUrl,
+                    title = stringResource(MR.strings.pref_clear_flaresolverr_url),
+                    enabled = flareSolverrEnabled,
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_flaresolverr_login),

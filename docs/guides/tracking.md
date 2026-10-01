@@ -51,7 +51,7 @@ Three of the services are built for novels rather than manga. They work like eve
 ==NovelList
 * **Signing in**: tap the row and sign in through the browser. There is no token to paste.
 * Statuses and a 1 to 10 score sync. There is **no On hold status** and there are **no reading dates**, because the service stores neither.
-* **NovelList server address** in <nav to="tracking"> exists only for the day NovelList moves its server. Leave it empty until then: a wrong address stops tracking.
+* **NovelList server address** in <nav to="tracking"> exists only for the day NovelList moves its server. Leave it alone until then: a wrong address stops tracking. **Reset NovelList server address** puts the built-in address back.
 ==NovelUpdates
 * **Signing in**: tap the row and sign in through the browser.
 * All five statuses sync. There is **no score and there are no reading dates**, because the site stores neither.

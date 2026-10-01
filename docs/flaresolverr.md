@@ -78,7 +78,7 @@ docker run -d --name=flaresolverr -p 8191:8191 -e LOG_LEVEL=info --restart unles
 FlareSolverr also ships a Windows `.exe` in its [releases](https://github.com/FlareSolverr/FlareSolverr/releases).
 Each project's own docs cover the rest: upstream proxies, captcha solvers and so on.
 
-Both the switch and a non-blank URL are needed for the proxy to run, so turning the switch off disables it without losing the URL.
+Both the switch and a non-blank URL are needed for the proxy to run, so turning the switch off disables it without losing the URL. **Clear FlareSolverr URL** removes the address itself.
 
 ## Reaching it away from home
 

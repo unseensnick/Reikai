@@ -1008,7 +1008,8 @@
     <string name="pref_novelupdates_lists_loaded">%1$d lists loaded</string>
     <string name="pref_novelupdates_lists_failed">Could not load your NovelUpdates lists</string>
     <string name="pref_novellist_api_url">NovelList server address</string>
-    <string name="pref_novellist_api_url_summary">Leave empty unless NovelList moves its server. A wrong address stops tracking.</string>
+    <string name="pref_novellist_api_url_summary">Only change this if NovelList moves its server. A wrong address stops tracking.</string>
+    <string name="pref_reset_novellist_api_url">Reset NovelList server address</string>
     <string name="enhanced_services">Enhanced trackers</string>
     <string name="enhanced_services_not_installed">Available but source not installed: %s</string>
     <string name="enhanced_tracking_info">Provides enhanced features for specific sources. Entries are automatically tracked when added to your library.</string>
@@ -1089,6 +1090,7 @@
     <string name="pref_enable_flaresolverr_summary">Route Cloudflare challenges through a FlareSolverr proxy instead of the in-app WebView</string>
     <string name="pref_flaresolverr_url">FlareSolverr URL</string>
     <string name="pref_flaresolverr_url_summary">Address of your FlareSolverr server, for example http://192.168.1.10:8191</string>
+    <string name="pref_clear_flaresolverr_url">Clear FlareSolverr URL</string>
     <string name="pref_flaresolverr_login">FlareSolverr sign-in</string>
     <string name="pref_flaresolverr_login_summary">Only needed if a proxy guards the server</string>
     <string name="pref_flaresolverr_login_password_only">Password only</string>

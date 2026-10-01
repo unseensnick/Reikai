@@ -72,6 +72,7 @@ import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.Visibility
 import mihon.icons.materialsymbols.rounded.VisibilityOff
+import reikai.presentation.settings.resetToDefaultPreference
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -452,7 +453,7 @@ object SettingsTrackingScreen : SearchableSettings {
 
     /**
      * NovelList answers on a generated hosting URL rather than a domain it owns, so the address is
-     * editable and a move does not need an app update. Blank restores the built-in default.
+     * editable and a move does not need an app update. The reset row restores the built-in default.
      */
     @Composable
     private fun novelListPreferences(
@@ -460,11 +461,17 @@ object SettingsTrackingScreen : SearchableSettings {
         isLoggedIn: Boolean,
     ): List<Preference.PreferenceItem<out Any, out Any>> {
         if (!isLoggedIn) return emptyList()
+        val apiUrl by trackPreferences.novelListApiUrl.collectPreferenceAsState()
         return listOf(
             Preference.PreferenceItem.EditTextPreference(
                 preference = trackPreferences.novelListApiUrl,
                 title = stringResource(MR.strings.pref_novellist_api_url),
                 subtitle = stringResource(MR.strings.pref_novellist_api_url_summary),
+            ),
+            resetToDefaultPreference(
+                preference = trackPreferences.novelListApiUrl,
+                current = apiUrl,
+                title = stringResource(MR.strings.pref_reset_novellist_api_url),
             ),
         )
     }
