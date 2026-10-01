@@ -1,18 +1,21 @@
 # Shared helpers for the CI scripts. Sourced, never run.
 
 # Turns a CHANGELOG section into a release body: each entry reduced to its bold headline (the full
-# sentences stay in CHANGELOG.md, linked from the body), under the "### Area" / "#### Added"
-# headings it sits in, one blank line between blocks. A heading prints only above something that
-# prints, so an empty Added or Changed never reaches a release. Both publishers use this, so the
-# shape is defined once. POSIX awk only: CI runs mawk.
+# sentences stay in CHANGELOG.md), under the "### Area" / "#### Added" headings it sits in, one
+# blank line between blocks. A heading prints only above something that prints, so an empty Added
+# or Changed never reaches a release. Both publishers use this, so the shape is defined once. POSIX
+# awk only: CI runs mawk.
 #
-#   release_notes <section>              stable: every entry, plus the Highlights prose, each
-#                                        paragraph joined onto one line so GitHub does not render
-#                                        the file's hard wraps as line breaks
-#   release_notes <section> <previous>   nightly: only entries whose headline <previous> lacks, so
-#                                        editing an entry's detail sentence does not republish it.
-#                                        An entry with no bold (Other) is known by its whole text.
-#                                        Prose is left out: it describes the release, not the build
+#   release_notes stable <section> <url>        the GitHub release, which the in-app update screen
+#       also shows. Highlights and Before you upgrade pass through whole, each paragraph joined onto
+#       one line so GitHub does not render the file's hard wraps as line breaks. Every other area
+#       lists its first ten headlines in file order, which authors keep in order of importance, then
+#       "+M more" linking <url>, the release's uncapped page. Other is left out: it has no
+#       user-facing effect, and that page carries it.
+#   release_notes nightly <section> <previous>  only entries whose headline <previous> lacks, so
+#       editing an entry's detail sentence does not republish it. An entry with no bold (Other) is
+#       known by its whole text. Nothing is capped. Prose is left out, and so are the two prose
+#       areas: they describe the release, not the build
 release_notes() {
   local program='
     function key(line) {
@@ -32,16 +35,36 @@ release_notes() {
     function flush() {
       if (para == "") return
       headings()
-      block(para)
+      if (item && last == "item") print para
+      else block(para)
+      if (item) last = "item"
       para = ""
+      item = 0
+    }
+    function more() {
+      if (hidden) block("+" hidden " more in the [full changelog](" url ").")
+      shown = 0
+      hidden = 0
     }
     has_prev && FILENAME == ARGV[1] { if ($0 ~ /^- /) seen[key($0)] = 1; next }
-    /^### / { flush(); area = $0; cat = ""; next }
+    /^### / {
+      flush()
+      more()
+      area = $0
+      cat = ""
+      whole = (area == "### Highlights" || area == "### Before you upgrade")
+      skip = has_prev ? whole : (area == "### Other")
+      next
+    }
+    skip { next }
     /^#### / { flush(); cat = $0; next }
+    whole && /^- / { flush(); para = $0; item = 1; next }
     /^- / {
       flush()
       k = key($0)
       if (k in seen) next
+      if (!has_prev && shown == 10) { hidden++; next }
+      shown++
       headings()
       if (last != "entry" && printed) print ""
       print "- " k
@@ -51,13 +74,32 @@ release_notes() {
     }
     /^[ \t]*$/ { flush(); next }
     !has_prev { sub(/^[ \t]+/, ""); sub(/[ \t]+$/, ""); para = (para == "" ? $0 : para " " $0) }
-    END { flush() }
+    END { flush(); more() }
   '
-  if [ $# -ge 2 ]; then
-    awk -v has_prev=1 "$program" "$2" "$1"
-  else
-    awk -v has_prev=0 "$program" "$1"
-  fi
+  case "$1" in
+    stable) awk -v has_prev=0 -v url="$3" "$program" "$2" ;;
+    nightly) awk -v has_prev=1 "$program" "$3" "$2" ;;
+    *) echo "release_notes: unknown mode '$1'" >&2; return 2 ;;
+  esac
+}
+
+# Entries a Markdown-only commit in <base>..<head> introduced into [Unreleased], as "- headline"
+# lines the nightly counts as already published. Such a commit ships no change, so what it adds is
+# an existing entry reworded or merged (the rewrite before a cut); without this the next nightly
+# would list every reworded headline as new. An entry added earlier in the same range and then
+# reworded by one is left out of that nightly too. Needs parse-changelog.
+reworded_entries() {
+  local c before after md
+  before=$(mktemp)
+  after=$(mktemp)
+  md=$(mktemp)
+  for c in $(git rev-list --no-merges "$1..$2" -- CHANGELOG.md); do
+    git diff-tree --root --no-commit-id --name-only -r "$c" | grep -qv '\.md$' && continue
+    { git show "$c:CHANGELOG.md" > "$md" && parse-changelog "$md" Unreleased > "$after"; } 2>/dev/null || : > "$after"
+    { git show "$c^:CHANGELOG.md" > "$md" && parse-changelog "$md" Unreleased > "$before"; } 2>/dev/null || : > "$before"
+    release_notes nightly "$after" "$before" | grep '^- ' || true
+  done
+  rm -f "$before" "$after" "$md"
 }
 
 # Reads back the Reikai commit a published nightly was built from. Every nightly tag points at a
