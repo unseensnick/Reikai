@@ -257,7 +257,7 @@ class ExtensionManager(
         try {
             // RK --> read before the loader reads them, so a write in between costs only a spare scan
             val contentWarnings = preferences.contentWarningScan()
-            storeKeys = readStoreKeys()
+            readStores()
             // RK <--
             // RK --> novel extensions go back in too, so a reload keeps their source instances
             val (extensions, novelExtensions) = ExtensionLoader.loadExtensions(
@@ -360,7 +360,7 @@ class ExtensionManager(
         // RK --> novel entries leave here, so languages and stub data below see manga only
         val (extensions, novelExtensions) = fetched.partition { it.kind == Extension.Kind.MANGA }
         availableNovelExtensionListFlow.value = novelExtensions
-        storeKeys = readStoreKeys()
+        readStores()
         novelPreferences.addIconHints(
             packages = novelExtensions.associate { it.pkgName to it.iconUrl },
             siteIcons = novelExtensions.flatMap { extension ->
@@ -545,14 +545,9 @@ class ExtensionManager(
      */
     private fun refreshStatuses() {
         // RK --> each apk kind against its own listings, over the same derivation
-        val statuses = storeStatuses.value
+        deriveStatuses(availableExtensionListFlow.value, loadedExtensionMapFlow, notLoadedExtensionMapFlow)
         deriveStatuses(
-            kindListing(availableExtensionListFlow.value, statuses),
-            loadedExtensionMapFlow,
-            notLoadedExtensionMapFlow,
-        )
-        deriveStatuses(
-            kindListing(availableNovelExtensionListFlow.value, statuses),
+            availableNovelExtensionListFlow.value,
             loadedNovelExtensionMapFlow,
             notLoadedNovelExtensionMapFlow,
         )
@@ -560,43 +555,50 @@ class ExtensionManager(
         updatePendingUpdatesCount()
     }
 
-    // RK --> upstream's refreshStatuses body, over one kind's maps; the store fill is the keyless one.
-    // Where upstream leaves an empty listing alone, a kind no store lists once every store answered
-    // clears its update flags (KindListing), for manga as for novels.
+    // RK --> upstream's refreshStatuses body, over one kind's maps and per apk; the store fill is the
+    // keyless one. Where upstream derives from whatever answered, an apk whose own store failed keeps
+    // its statuses, and one no store lists once its stores answered clears its update flag
+    // (KindListing), for manga as for novels.
     private fun deriveStatuses(
-        listings: KindListing,
+        available: List<Extension.Available>,
         loaded: MutableStateFlow<Map<String, Extension.Loaded>>,
         notLoaded: MutableStateFlow<Map<String, Extension.NotLoaded>>,
     ) {
-        val available = when (listings) {
-            KindListing.Unknown -> return
-            KindListing.Unlisted -> {
-                loaded.value = loaded.value.mapValues { it.value.copy(hasUpdate = false) }
-                notLoaded.value = notLoaded.value.mapValues { it.value.copy(hasUpdate = false) }
-                return
-            }
-            is KindListing.Listed -> listings.available
-        }
+        val statuses = storeStatuses.value
         loaded.value = loaded.value.mapValues { (_, extension) ->
-            val listing = extension.findListing(available, storeKeys)
-            extension.copy(
-                hasUpdate = extension.findUpdate(available, storeKeys) != null,
-                isObsolete = listing == null,
-                store = if (stores.isEmpty()) extension.store else extension.pickStore(available),
-            )
+            when (extension.kindListing(available, statuses, stores, storeKeys)) {
+                KindListing.Unknown -> extension
+                KindListing.Unlisted -> extension.copy(hasUpdate = false)
+                KindListing.Listed -> {
+                    val listing = extension.findListing(available, storeKeys)
+                    extension.copy(
+                        hasUpdate = extension.findUpdate(available, storeKeys) != null,
+                        isObsolete = listing == null,
+                        store = if (stores.isEmpty()) extension.store else extension.pickStore(available),
+                    )
+                }
+            }
         }
         notLoaded.value = notLoaded.value.mapValues { (_, extension) ->
-            extension.copy(
-                hasUpdate = extension.findUpdate(available, storeKeys) != null,
-                store = if (stores.isEmpty()) extension.store else extension.pickStore(available),
-            )
+            when (extension.kindListing(available, statuses, stores, storeKeys)) {
+                KindListing.Unknown -> extension
+                KindListing.Unlisted -> extension.copy(hasUpdate = false)
+                KindListing.Listed -> extension.copy(
+                    hasUpdate = extension.findUpdate(available, storeKeys) != null,
+                    store = if (stores.isEmpty()) extension.store else extension.pickStore(available),
+                )
+            }
         }
     }
     // RK <--
 
-    // RK: a keyless store's key is no key at all, so it never counts as one an apk could be signed with
-    private suspend fun readStoreKeys(): Set<String> =
-        extensionStoreRepository.getAll().filter { it.hasSigningKey }.mapTo(HashSet()) { it.signingKey }
+    // RK: read at each scan and listing fetch as well as on a change, since a status derived before
+    // the first change lands must still know which stores each apk can come from. A keyless store's key
+    // is no key at all, so it never counts as one an apk could be signed with.
+    private suspend fun readStores() {
+        stores = extensionStoreRepository.getAll()
+        storeKeys = stores.filter { it.hasSigningKey }.mapTo(HashSet()) { it.signingKey }
+    }
 
     /**
      * Several stores can share a signing key, so one that lists the extension names where it comes from better

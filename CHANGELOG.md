@@ -665,6 +665,7 @@ every stable release now also ships a foss build with neither in it.
 - **Clearing a download queue paused by a lost connection now stops the downloader and its notification.**
 - **A novel chapter that finishes downloading while the app rechecks its downloads now stays marked as downloaded.**
 - **A series retitled by a refresh no longer carries off the downloads of another series with the same name on its source.**
+- **Extensions from a store that cannot be reached no longer show as orphaned or lose their update badges while other stores still load.**
 
 ### Backup & restore
 

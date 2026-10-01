@@ -40,10 +40,10 @@ sealed interface Extension {
          */
         fun findListing(
             available: Collection<Available>,
-            storeKeys: Set<String>, // RK: see isFromItsStore
+            storeKeys: Set<String>, // RK: see canComeFrom
         ): Available? {
             return available
-                .filter { it.pkgName == pkgName && isFromItsStore(it, storeKeys) } // RK
+                .filter { it.pkgName == pkgName && canComeFrom(it.store, storeKeys) } // RK
                 .maxWithOrNull(compareBy<Available> { it.versionCode }.thenBy { it.libVersion })
         }
 
@@ -61,14 +61,14 @@ sealed interface Extension {
         // RK -->
 
         /**
-         * Upstream's rule: the listing's store key signs this apk. A keyless store (a third-party IReader
-         * repo, a store carried over from a preference) cannot pass it, so its listing counts only for an
-         * apk no added store's key signs. [storeKeys] are the stored keys, not the fetched ones, so a keyed
-         * store whose fetch failed still claims its apks. See content-layer-sources-surface.md.
+         * Upstream's rule: the store's key signs this apk. A keyless store (a third-party IReader repo, a
+         * store carried over from a preference) cannot pass it, so it counts only for an apk no added
+         * store's key signs. [storeKeys] are the stored keys, not the fetched ones, so a keyed store whose
+         * fetch failed still claims its apks. See content-layer-sources-surface.md.
          */
-        private fun isFromItsStore(listing: Available, storeKeys: Set<String>): Boolean =
-            if (listing.store.hasSigningKey) {
-                listing.store.signingKey in signatures
+        fun canComeFrom(store: ExtensionStore, storeKeys: Set<String>): Boolean =
+            if (store.hasSigningKey) {
+                store.signingKey in signatures
             } else {
                 signatures.none { it in storeKeys }
             }

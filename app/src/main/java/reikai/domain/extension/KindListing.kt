@@ -1,24 +1,35 @@
 package reikai.domain.extension
 
 import eu.kanade.tachiyomi.extension.model.Extension
+import mihon.domain.extension.model.ExtensionStore
 
 /**
- * What one apk kind's store listings can say about its installed apks, one rule for manga and novel
- * apks. With none of the kind listed there is nothing to derive from: once every store answered, no
- * store lists it, so nothing can update them; after a store failed, the outage says nothing, so they
- * keep what they had. Obsolete and store are only ever derived from a listing.
+ * What one apk kind's store listings can say about one installed apk, one rule for manga and novel
+ * apks. Only the stores the apk can come from count ([Extension.Installed.canComeFrom]): while any of
+ * them has not answered, an outage cannot be told from a store that dropped it, so it keeps what it
+ * had. With all of them answered and none of the kind listed, nothing can update it. Obsolete and
+ * store are only ever derived from a listing.
  */
 sealed interface KindListing {
-    data class Listed(val available: List<Extension.Available>) : KindListing
+    data object Listed : KindListing
 
     data object Unlisted : KindListing
 
     data object Unknown : KindListing
 }
 
-/** [statuses] is each store's outcome from the same fetch, null before the first one. */
-fun kindListing(available: List<Extension.Available>, statuses: Map<String, RepoStatus>?): KindListing = when {
-    available.isNotEmpty() -> KindListing.Listed(available)
-    statuses != null && statuses.values.all { it is RepoStatus.Reached } -> KindListing.Unlisted
-    else -> KindListing.Unknown
+/**
+ * [available] is the kind's listings and [statuses] each store's outcome from the same fetch, keyed by
+ * index URL, null before the first one; [stores] are the added stores and [storeKeys] their keys.
+ */
+fun Extension.Installed.kindListing(
+    available: List<Extension.Available>,
+    statuses: Map<String, RepoStatus>?,
+    stores: List<ExtensionStore>,
+    storeKeys: Set<String>,
+): KindListing = when {
+    statuses == null -> KindListing.Unknown
+    stores.any { canComeFrom(it, storeKeys) && statuses[it.indexUrl] !is RepoStatus.Reached } -> KindListing.Unknown
+    available.isNotEmpty() -> KindListing.Listed
+    else -> KindListing.Unlisted
 }
