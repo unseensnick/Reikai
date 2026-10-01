@@ -20,11 +20,11 @@ import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 
 /**
  * Carries what each duplicate the upgrade merged away (50.sqm, 51.sqm) kept outside the database to the entry it
- * merged into: its custom cover, named by entry id, and its downloads, named by title and queued by id. The
- * survivor's own cover wins, and the copy's file goes either way: neither entry table uses AUTOINCREMENT, so the
- * freed id can be handed to a new entry, which would inherit it. Best-effort per file, as the novel cover re-key
- * is. The one reader that empties the record, which it does only once every download folder is merged, here or
- * by [retryUnfinishedFolders] on a later launch. Rules and inventory: docs/dev/plans/mihon-schema-rewrite.md.
+ * merged into. Here, before anything reads them: its custom cover and its queued downloads, keyed by the freed id,
+ * which a new entry can be handed since neither entry table uses AUTOINCREMENT. The survivor's own cover wins, and
+ * the copy's file goes either way. Its download folders merge by copy, which here would hold the main thread that
+ * MainActivity blocks on the migrations, so [carryFolders] does them afterwards and then empties the record.
+ * Best-effort per file. Rules and inventory: docs/dev/plans/mihon-schema-rewrite.md.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)
@@ -44,25 +44,25 @@ class MergedDuplicateCarryMigration(
             ?: return@withIOContext false
 
         duplicates.forEach(::carryCustomCover)
-        val finished = runCatching { downloads().carry(duplicates, mergedDuplicates.getChapters()) }
-            .onFailure { logcat(LogPriority.ERROR, it) { "Merged-duplicate download carry failed" } }
-            .getOrDefault(false)
-        if (finished) mergedDuplicates.clear()
+        runCatching { downloads().remapQueues(duplicates, mergedDuplicates.getChapters()) }
+            .onFailure { logcat(LogPriority.ERROR, it) { "Merged-duplicate download queue carry failed" } }
+        // No merged entry means no folder to carry, and nothing after this migration reads the chapter rows
+        if (duplicates.isEmpty()) mergedDuplicates.clear()
         true
     }
 
     /**
-     * Tries again, on each later launch, the download folders the upgrade could not finish merging (no room, a failed
-     * copy), and empties the record once none is left. Folders only: a cover and a queued download are keyed by the
-     * freed id, which a new entry may hold by now.
+     * Merges the merged-away copies' download folders into the survivors', on every launch until none is left (no
+     * room, a failed copy), then empties the record. Folders only: a cover and a queued download are keyed by the
+     * freed id, which a new entry may hold once the migration has run.
      */
-    suspend fun retryUnfinishedFolders() = withIOContext {
+    suspend fun carryFolders() = withIOContext {
         val duplicates = runCatching { mergedDuplicates.getAll() }
             .onFailure { logcat(LogPriority.ERROR, it) { "Merged-duplicate carry could not read the record" } }
             .getOrNull()
         if (duplicates.isNullOrEmpty()) return@withIOContext
         val finished = runCatching { downloads().carryFolders(duplicates) }
-            .onFailure { logcat(LogPriority.ERROR, it) { "Merged-duplicate folder retry failed" } }
+            .onFailure { logcat(LogPriority.ERROR, it) { "Merged-duplicate folder carry failed" } }
             .getOrDefault(false)
         if (finished) mergedDuplicates.clear()
     }

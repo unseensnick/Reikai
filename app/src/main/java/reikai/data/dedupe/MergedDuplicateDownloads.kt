@@ -47,11 +47,9 @@ class MergedDuplicateDownloads(
 
     private val novelStore = NovelDownloadStore(context, novelChapterRepository)
 
-    /** False while a folder is left to merge, for [carryFolders] to try again on a later launch. */
-    suspend fun carry(duplicates: List<MergedDuplicate>, chapters: List<MergedDuplicateChapter>): Boolean {
+    suspend fun remapQueues(duplicates: List<MergedDuplicate>, chapters: List<MergedDuplicateChapter>) {
         // An upgrade that merged nothing leaves both queues untouched
-        if (duplicates.isEmpty() && chapters.isEmpty()) return true
-        val finished = carryFolders(duplicates)
+        if (duplicates.isEmpty() && chapters.isEmpty()) return
 
         val queue = downloadStore.persisted()
         downloadStore.replacePersisted(
@@ -66,10 +64,12 @@ class MergedDuplicateDownloads(
                     null
             },
         )
-        return finished
     }
 
-    /** Only the folders, which are named by title; the lowest id goes first, so it takes the survivor's name. */
+    /**
+     * The folders, named by title; the lowest id goes first, so it takes the survivor's name. False while a folder is
+     * left to merge, for a later launch to try again.
+     */
     suspend fun carryFolders(duplicates: List<MergedDuplicate>): Boolean {
         val carried = duplicates.sortedBy { it.discardedId }.map { duplicate ->
             duplicate to runCatchingCancellable { carryFolder(duplicate) }

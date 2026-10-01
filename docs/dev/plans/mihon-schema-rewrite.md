@@ -92,18 +92,22 @@ device: an upgrade from a 196 or 197 build with real data is the owner's check.
     has none; when both have one the survivor's stays. The copy's file is deleted either way, because
     neither entry table uses AUTOINCREMENT and a new entry could be given the freed id and inherit it. A
     novel's cover may still sit under its pre-186 name, since the 186 re-key sees only surviving rows.
-    It then carries the downloads (below) and empties both records, so a second run does nothing, but
-    only once every download folder is merged. A folder carry left unfinished (no room, a failed copy
-    or rename) keeps both records, and `App` retries it through `retryUnfinishedFolders` on every later launch,
-    after `Migrator`, emptying the records once none is left. The retry redoes only the folders, which
-    are keyed by title: a cover and a queued download are keyed by the freed id, which a new entry may
-    hold by then. A crash during 198 itself needs no retry path, since the version is stamped only after
-    the chain completes and the whole carry is safe to run again. Upstream loses these covers.
+    It then re-points both saved download queues (below). Those two are keyed by the freed id, so they
+    run here, before anything reads them. The download folders do not: merging one copies every
+    chapter, and `MainActivity` blocks the main thread on the migrations, so a large merged pair would
+    hold the splash for the length of the copy, and a kill restarted it on the next launch, again on
+    the main thread (owner ruling, 2026-09-30). The migration keeps the record for them and empties it
+    only when no entry was merged, since then nothing is left to carry. `App` runs `carryFolders` after
+    `Migrator`, off the main thread, on every launch while the record holds a row, and empties both
+    records once every folder is merged; a folder left unfinished (no room, a failed copy or rename)
+    is tried again on the next launch. That pass redoes only the folders, which are keyed by title. A
+    crash during 198 needs no retry path, since the version is stamped only after the chain completes
+    and the cover and queue carry are safe to run again. Upstream loses these covers.
   - `MigrateMergePrefsToGroupsMigration` (189) maps merged-away ids in the old merge and unmerge prefs
     to their survivors. Every 0.3.2 install runs it after the dedupe, and without the map it drops a
     manual merge naming a copy and lets a same-title group form against an unmerge naming one.
-- **Downloads follow the merge by one rule for both types** (`MergedDuplicateDownloads`, called by the
-  198 carry). A download folder is named by source and title, so a copy whose title differs from the
+- **Downloads follow the merge by one rule for both types** (`MergedDuplicateDownloads`: the queues
+  from the 198 carry, the folders from the pass after it). A download folder is named by source and title, so a copy whose title differs from the
   survivor's has its folder renamed in place to the survivor's title when the survivor has no folder of
   its own, through a temporary name for a change of letter case only, as both engines' title renames
   do; both download indexes are then rebuilt. Titles are compared as folder names before the manga
@@ -129,9 +133,9 @@ device: an upgrade from a 196 or 197 build with real data is the owner's check.
   skipped, as unfinished, unless the whole of what it would copy leaves the volume above the download
   floor (`hasRoomToCopy`). The survivor's name is looked up again just before the rename, and a rename
   that lands on another name (the document provider picks a free `name (1)` rather than replace) drops
-  the copy. The one gap is plain-file storage on a later-launch retry: if the survivor's downloader
-  writes the same chapter in the instant between that lookup and the rename, the rename replaces it with
-  the checked copy of the same chapter (same name and url).
+  the copy. The one gap is plain-file storage: the folder pass runs beside the downloaders, so if the
+  survivor's downloader writes the same chapter in the instant between that lookup and the rename, the
+  rename replaces it with the checked copy of the same chapter (same name and url).
 - **Queued downloads follow the merge by one rule for both types.** Both saved queues are rows of
   entry id, chapter id and order in their own preferences file (`active_downloads`,
   `active_novel_downloads`). The carry re-points a row of a merged-away entry to the survivor and a row

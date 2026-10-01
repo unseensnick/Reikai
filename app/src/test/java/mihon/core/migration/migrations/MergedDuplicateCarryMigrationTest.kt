@@ -89,21 +89,18 @@ class MergedDuplicateCarryMigrationTest {
         cover(EntryId.Manga(SURVIVOR)).readText() shouldBe "survivor"
     }
 
+    /** MainActivity blocks the main thread on the migrations, and a folder merge copies every chapter. */
     @Test
-    fun `the record is emptied once it has run`() = runTest {
-        val record = FakeRecord(MergedDuplicate(ContentType.MANGA, DISCARDED, SURVIVOR, TITLE))
-        coEvery { downloads.carry(any(), any()) } returns true
+    fun `the migration merges no download folder`() = runTest {
+        run(FakeRecord(MergedDuplicate(ContentType.MANGA, DISCARDED, SURVIVOR, TITLE)))
 
-        run(record)
-
-        record.getAll().shouldBeEmpty()
+        coVerify(exactly = 0) { downloads.carryFolders(any()) }
     }
 
     @Test
-    fun `the record is kept while a download folder merge is unfinished`() = runTest {
+    fun `the migration keeps the record for the folder pass`() = runTest {
         val duplicate = MergedDuplicate(ContentType.MANGA, DISCARDED, SURVIVOR, TITLE)
         val record = FakeRecord(duplicate)
-        coEvery { downloads.carry(any(), any()) } returns false
 
         run(record)
 
@@ -111,45 +108,54 @@ class MergedDuplicateCarryMigrationTest {
     }
 
     @Test
-    fun `a later launch empties the record once the folders are merged`() = runTest {
+    fun `a record of merged chapters alone is emptied by the migration`() = runTest {
+        val record = FakeRecord(chapters = listOf(MergedDuplicateChapter(ContentType.MANGA, 11L, 20L)))
+
+        run(record)
+
+        record.getChapters().shouldBeEmpty()
+    }
+
+    @Test
+    fun `the folder pass empties the record once the folders are merged`() = runTest {
         val record = FakeRecord(MergedDuplicate(ContentType.MANGA, DISCARDED, SURVIVOR, TITLE))
         coEvery { downloads.carryFolders(any()) } returns true
 
-        migration(record).retryUnfinishedFolders()
+        migration(record).carryFolders()
 
         record.getAll().shouldBeEmpty()
     }
 
     @Test
-    fun `a later launch keeps the record while a folder merge is still unfinished`() = runTest {
+    fun `the folder pass keeps the record while a folder merge is unfinished`() = runTest {
         val duplicate = MergedDuplicate(ContentType.NOVELS, DISCARDED, SURVIVOR, TITLE)
         val record = FakeRecord(duplicate)
         coEvery { downloads.carryFolders(any()) } returns false
 
-        migration(record).retryUnfinishedFolders()
+        migration(record).carryFolders()
 
         record.getAll() shouldBe listOf(duplicate)
     }
 
     /** Every launch reads the record, and building the carry starts a download index scan. */
     @Test
-    fun `a later launch with nothing left to merge does not build the download carry`() = runTest {
+    fun `the folder pass with nothing left to merge does not build the download carry`() = runTest {
         var built = false
 
         MergedDuplicateCarryMigration(FakeRecord(), coverCache) { downloads.also { built = true } }
-            .retryUnfinishedFolders()
+            .carryFolders()
 
         built shouldBe false
     }
 
-    /** By a later launch a new entry may hold the freed id, and the cover under it is that entry's. */
+    /** Once the migration has run a new entry may hold the freed id, and the cover under it is that entry's. */
     @ParameterizedTest
     @EnumSource(Type::class)
-    fun `a later launch leaves the covers alone`(type: Type) = runTest {
+    fun `the folder pass leaves the covers alone`(type: Type) = runTest {
         cover(type.entry(DISCARDED)).writeText("new entry")
         coEvery { downloads.carryFolders(any()) } returns true
 
-        migration(FakeRecord(MergedDuplicate(type.contentType, DISCARDED, SURVIVOR, TITLE))).retryUnfinishedFolders()
+        migration(FakeRecord(MergedDuplicate(type.contentType, DISCARDED, SURVIVOR, TITLE))).carryFolders()
 
         cover(type.entry(DISCARDED)).readText() shouldBe "new entry"
     }
@@ -166,15 +172,15 @@ class MergedDuplicateCarryMigrationTest {
         cover(type.entry(SURVIVOR)).readText() shouldBe "discarded"
     }
 
-    /** The record reaches the download carry before it is emptied; that carry is pinned in MergedDuplicateDownloadsTest. */
+    /** The queue carry itself is pinned in MergedDuplicateDownloadsTest. */
     @Test
-    fun `the downloads are carried from the record`() = runTest {
+    fun `the download queues are re-pointed from the record`() = runTest {
         val duplicate = MergedDuplicate(ContentType.NOVELS, DISCARDED, SURVIVOR, TITLE)
         val chapter = MergedDuplicateChapter(ContentType.NOVELS, 11L, 20L)
 
         run(FakeRecord(duplicate, chapters = listOf(chapter)))
 
-        coVerify { downloads.carry(listOf(duplicate), listOf(chapter)) }
+        coVerify { downloads.remapQueues(listOf(duplicate), listOf(chapter)) }
     }
 
     private suspend fun run(record: MergedDuplicateRepository) {

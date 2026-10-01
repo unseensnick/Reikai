@@ -120,7 +120,7 @@ class MergedDuplicateDownloadsTest {
         runTest {
             val chapter = sourceDir(type).dir(OLD).dir("Chapter 1")
 
-            downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+            downloads.carryFolders(listOf(duplicate(type, OLD)))
 
             sourceDir(type).child(KEPT)?.findFile("Chapter 1") shouldBeSameInstanceAs chapter.file
         }
@@ -130,7 +130,7 @@ class MergedDuplicateDownloadsTest {
     fun `copies that shared a title leave their one folder as it was`(type: Type) = runTest {
         sourceDir(type).dir(KEPT).dir("Chapter 1")
 
-        downloads.carry(listOf(duplicate(type, KEPT)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, KEPT)))
 
         sourceDir(type).names() shouldBe listOf(KEPT)
     }
@@ -141,7 +141,7 @@ class MergedDuplicateDownloadsTest {
         val kept = sourceDir(type).dir(KEPT).dir("Chapter 1")
         sourceDir(type).dir(OLD).dir("Chapter 1")
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         sourceDir(type).child(KEPT)?.findFile("Chapter 1") shouldBeSameInstanceAs kept.file
     }
@@ -152,7 +152,7 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         type.read(sourceDir(type).dir(KEPT), CH2) shouldBe "old"
     }
@@ -163,7 +163,7 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
         type.chapter(sourceDir(type).dir(OLD), CH1, "old")
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         type.read(sourceDir(type).dir(KEPT), CH1) shouldBe "kept"
     }
@@ -174,7 +174,7 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
         type.chapter(sourceDir(type).dir(OLD), CH1, "old")
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         type.read(sourceDir(type).dir(OLD), CH1) shouldBe "old"
     }
@@ -185,7 +185,7 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         sourceDir(type).names() shouldBe listOf(KEPT)
     }
@@ -197,7 +197,7 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(OLD), CH1, "old")
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         sourceDir(type).names() shouldContainExactlyInAnyOrder listOf(KEPT, OLD)
     }
@@ -209,7 +209,7 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
         writes = Writes.FAIL
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         type.read(sourceDir(type).dir(OLD), CH2) shouldBe "old"
     }
@@ -221,7 +221,7 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
         writes = Writes.SHORT
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         type.read(sourceDir(type).dir(OLD), CH2) shouldBe "old"
     }
@@ -233,7 +233,7 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
         writes = Writes.SHORT
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         sourceDir(type).dir(KEPT).names() shouldBe listOf(type.entryName(CH1))
     }
@@ -244,10 +244,10 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
         writes = Writes.FAIL
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
         writes = Writes.OK
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         type.read(sourceDir(type).dir(KEPT), CH2) shouldBe "old"
     }
@@ -260,7 +260,7 @@ class MergedDuplicateDownloadsTest {
         type.leftover(kept, CH2, "o")
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         kept.names() shouldContainExactlyInAnyOrder listOf(type.entryName(CH1), type.entryName(CH2))
     }
@@ -273,7 +273,7 @@ class MergedDuplicateDownloadsTest {
         type.leftover(kept, CH2, "o")
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         kept.names() shouldBe listOf(type.entryName(CH2))
     }
@@ -285,7 +285,7 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
         freeSpace(0L)
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         type.read(sourceDir(type).dir(OLD), CH2) shouldBe "old"
     }
@@ -297,7 +297,7 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
         writes = Writes.FAIL
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList()) shouldBe false
+        downloads.carryFolders(listOf(duplicate(type, OLD))) shouldBe false
     }
 
     @ParameterizedTest
@@ -306,7 +306,7 @@ class MergedDuplicateDownloadsTest {
         type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
         type.chapter(sourceDir(type).dir(OLD), CH1, "old")
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList()) shouldBe true
+        downloads.carryFolders(listOf(duplicate(type, OLD))) shouldBe true
     }
 
     @ParameterizedTest
@@ -328,7 +328,7 @@ class MergedDuplicateDownloadsTest {
     fun `the download index is rebuilt once a folder moved`(type: Type) = runTest {
         sourceDir(type).dir(OLD).dir("Chapter 1")
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.carryFolders(listOf(duplicate(type, OLD)))
 
         when (type) {
             Type.MANGA -> verify { downloadCache.invalidateCache() }
@@ -339,9 +339,20 @@ class MergedDuplicateDownloadsTest {
     /** Only manga looks its source up, and that waits for extensions to load, so it must not happen for nothing. */
     @Test
     fun `a manga whose copies shared a title does not wait for its source`() = runTest {
-        downloads.carry(listOf(duplicate(Type.MANGA, KEPT)), emptyList())
+        downloads.carryFolders(listOf(duplicate(Type.MANGA, KEPT)))
 
         coVerify(exactly = 0) { sourceManager.getOrStub(any()) }
+    }
+
+    /** The folders merge by copy on a background pass; the queues are re-pointed in the migration, before restore. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `re-pointing the queues moves no download folder`(type: Type) = runTest {
+        val chapter = sourceDir(type).dir(OLD).dir("Chapter 1")
+
+        downloads.remapQueues(listOf(duplicate(type, OLD)), emptyList())
+
+        sourceDir(type).child(OLD)?.findFile("Chapter 1") shouldBeSameInstanceAs chapter.file
     }
 
     @ParameterizedTest
@@ -350,7 +361,7 @@ class MergedDuplicateDownloadsTest {
         existingChapters += 10L
         saveQueue(type, QueuedChapter(DISCARDED, 10L, 0))
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.remapQueues(listOf(duplicate(type, OLD)), emptyList())
 
         savedQueue(type) shouldBe listOf(QueuedChapter(SURVIVOR, 10L, 0))
     }
@@ -361,7 +372,7 @@ class MergedDuplicateDownloadsTest {
         existingChapters += 20L
         saveQueue(type, QueuedChapter(DISCARDED, 11L, 0))
 
-        downloads.carry(listOf(duplicate(type, OLD)), listOf(MergedDuplicateChapter(type.contentType, 11L, 20L)))
+        downloads.remapQueues(listOf(duplicate(type, OLD)), listOf(MergedDuplicateChapter(type.contentType, 11L, 20L)))
 
         savedQueue(type) shouldBe listOf(QueuedChapter(SURVIVOR, 20L, 0))
     }
@@ -371,7 +382,7 @@ class MergedDuplicateDownloadsTest {
     fun `a queued chapter with no row left is dropped`(type: Type) = runTest {
         saveQueue(type, QueuedChapter(DISCARDED, 12L, 0))
 
-        downloads.carry(listOf(duplicate(type, OLD)), emptyList())
+        downloads.remapQueues(listOf(duplicate(type, OLD)), emptyList())
 
         savedQueue(type) shouldBe emptyList()
     }
@@ -382,7 +393,7 @@ class MergedDuplicateDownloadsTest {
         existingChapters += 20L
         saveQueue(type, QueuedChapter(SURVIVOR, 20L, 1), QueuedChapter(DISCARDED, 11L, 0))
 
-        downloads.carry(listOf(duplicate(type, OLD)), listOf(MergedDuplicateChapter(type.contentType, 11L, 20L)))
+        downloads.remapQueues(listOf(duplicate(type, OLD)), listOf(MergedDuplicateChapter(type.contentType, 11L, 20L)))
 
         savedQueue(type) shouldBe listOf(QueuedChapter(SURVIVOR, 20L, 0))
     }
@@ -393,7 +404,7 @@ class MergedDuplicateDownloadsTest {
         existingChapters += 10L
         saveQueue(type, QueuedChapter(DISCARDED, 10L, 0))
 
-        downloads.carry(listOf(duplicate(type.other, OLD)), emptyList())
+        downloads.remapQueues(listOf(duplicate(type.other, OLD)), emptyList())
 
         savedQueue(type) shouldBe listOf(QueuedChapter(DISCARDED, 10L, 0))
     }

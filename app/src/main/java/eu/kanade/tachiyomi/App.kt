@@ -248,10 +248,10 @@ class App :
         unifiedUpdatesWidgetManager.init(scope)
 
         initializeMigrator()
-        // RK: a download folder merge the upgrade's dedupe left unfinished is tried again once migrations are done
+        // RK: the upgrade's dedupe leaves download folders to merge by copy, done after migrations, off the main thread
         scope.launchIO {
             Migrator.await()
-            graph.mergedDuplicateCarryMigration.retryUnfinishedFolders()
+            graph.mergedDuplicateCarryMigration.carryFolders()
         }
     }
 
