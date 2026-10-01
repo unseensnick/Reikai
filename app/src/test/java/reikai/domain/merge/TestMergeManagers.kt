@@ -9,11 +9,18 @@ import reikai.domain.novel.NovelMergeManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 
-/** The real merge managers of both types over fixed [memberships] (entry id to group id per type). */
+/**
+ * The real merge managers of both types over fixed [memberships] (entry id to group id per type), every
+ * member in the library.
+ */
 class TestMergeManagers(memberships: Map<ContentType, Map<Long, Long>>, mergingOn: Boolean) {
 
     private val repository = mockk<MergeGroupRepository> {
         coEvery { getAllMemberships(any()) } answers { memberships[firstArg()].orEmpty() }
+        coEvery { getGroupId(any(), any()) } answers { memberships[firstArg()]?.get(secondArg()) }
+        coEvery { getFavoriteMembers(any(), any()) } answers {
+            memberships[firstArg()].orEmpty().filterValues { it == secondArg<Long>() }.keys.toList()
+        }
     }
 
     private val preferences = ReikaiLibraryPreferences(

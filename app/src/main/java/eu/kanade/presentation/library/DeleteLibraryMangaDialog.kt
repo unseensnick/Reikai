@@ -10,10 +10,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.icerock.moko.resources.StringResource
+import reikai.presentation.components.GroupedSourcesCheckbox
+import reikai.presentation.components.rememberGroupedSourcesChoice
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
-import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
@@ -35,12 +36,9 @@ fun DeleteLibraryMangaDialog(
             },
         )
     }
-    // RK: apply the removal to every source in a merged group, not just the primary cover. Defaults
-    //     on for a merged selection, since removing only the primary leaves the other sources
-    //     favorited but collapsed out of view, so the entry appears to half-vanish. Still a checkbox
-    //     rather than automatic, because the removal is destructive.
-    val showGroupedOption = groupedSourceCount > 0
-    var removeGrouped by remember { mutableStateOf(showGroupedOption) }
+    // RK: apply the removal to every source in a merged group, not just the primary cover; the choice
+    //     and its ticked default are shared with the details heart's remove.
+    val grouped = rememberGroupedSourcesChoice(groupedSourceCount)
     AlertDialog(
         onDismissRequest = onDismissRequest,
         dismissButton = {
@@ -56,7 +54,7 @@ fun DeleteLibraryMangaDialog(
                     onConfirm(
                         list[0].isChecked,
                         list.getOrElse(1) { CheckboxState.State.None(0) }.isChecked,
-                        showGroupedOption && removeGrouped, // RK: remove every grouped source too
+                        grouped.removesGrouped, // RK: remove every grouped source too
                     )
                 },
             ) {
@@ -82,19 +80,7 @@ fun DeleteLibraryMangaDialog(
                         },
                     )
                 }
-                // RK -->
-                if (showGroupedOption) {
-                    LabeledCheckbox(
-                        label = pluralStringResource(
-                            MR.plurals.action_remove_grouped_sources,
-                            groupedSourceCount,
-                            groupedSourceCount,
-                        ),
-                        checked = removeGrouped,
-                        onCheckedChange = { removeGrouped = it },
-                    )
-                }
-                // RK <--
+                GroupedSourcesCheckbox(grouped) // RK
             }
         },
     )

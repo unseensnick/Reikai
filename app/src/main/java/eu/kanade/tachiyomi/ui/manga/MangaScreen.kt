@@ -290,7 +290,7 @@ class MangaScreen(
                         duplicates = dialog.duplicates,
                         toUi = { it.toDuplicateCard(dialog.sourceLabels) },
                         onDismissRequest = onDismissRequest,
-                        onConfirm = { viewModel.toggleFavorite(onRemoved = {}, checkDuplicate = false) },
+                        onConfirm = { viewModel.toggleFavorite(checkDuplicate = false) },
                         onOpen = { navigator.push(MangaScreen(it.manga.id)) },
                         onMigrate = { viewModel.showMigrateDialog(it.manga) },
                         // RK: offer grouping when the same-title suggestion pref is on.
@@ -326,7 +326,7 @@ class MangaScreen(
                 is MangaViewModel.Dialog.EhRemoveFavorite -> {
                     EhRemoveFavoriteDialog(
                         onDismissRequest = onDismissRequest,
-                        onConfirm = viewModel::confirmEhRemoveFromLibrary,
+                        onConfirm = { viewModel.confirmEhRemoveFromLibrary(dialog.manga, it) },
                     )
                 }
                 // RK <--
@@ -486,5 +486,6 @@ private fun MangaViewModel.State.Success.toSharedDetailsDialog(isUpdateIntervalE
         MangaViewModel.Dialog.TrackSheet -> EntryDetailsDialog.TrackSheet(EntryId.Manga(manga.id), manga.title)
         is MangaViewModel.Dialog.DeleteChapters -> EntryDetailsDialog.DeleteChapters(d.chapters.map { it.id })
         is MangaViewModel.Dialog.ClearDownloads -> EntryDetailsDialog.ClearDownloads(d.sourceName)
+        is MangaViewModel.Dialog.RemoveFromLibrary -> EntryDetailsDialog.RemoveFromLibrary(d.removal)
         else -> null
     }

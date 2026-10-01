@@ -89,6 +89,10 @@ interface EntryDetailsBehavior {
     // Favorite.
     fun toggleFavorite()
 
+    /** Take [entryIds] out of the library once the heart's remove has settled them. Unlike
+     *  [removeSourcesFromLibrary], their group stays, so a re-add rejoins it. */
+    fun removeFromLibrary(entryIds: List<Long>)
+
     // Merge / multi-source. Keyed on Long entry ids on both sides, so no EntryId parameterization.
     // selectSource takes a nullable id: null selects the unified ("All") view, non-null a single source.
     fun selectSource(entryId: Long?)

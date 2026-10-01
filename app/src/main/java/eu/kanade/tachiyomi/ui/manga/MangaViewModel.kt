@@ -52,7 +52,6 @@ import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
-import eu.kanade.tachiyomi.util.removeCovers
 import exh.debug.DebugToggles
 import exh.eh.EHentaiUpdateHelper
 import exh.favorites.removeGallery
@@ -98,6 +97,7 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.ChapterGap
+import reikai.domain.merge.DetailsRemoval
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.toGapNeighbour
@@ -641,27 +641,39 @@ class MangaViewModel(
     // Manga info - start
 
     fun toggleFavorite() {
-        // RK: removing a favorited E-Hentai gallery with backup enabled goes through a confirm
-        //     dialog (DeletableTracker-style), so the user can opt to also remove it from the account.
-        val manga = successState?.manga
-        if (manga != null && isFavorited && shouldConfirmEhRemoveFromAccount(manga)) {
-            updateSuccessState { it.copy(dialog = Dialog.EhRemoveFavorite(manga)) }
-            return
-        }
-        toggleFavorite(onRemoved = ::promptDeleteDownloadsOnRemoved)
+        toggleFavorite(checkDuplicate = true) // RK: a remove reports itself, see removeFromLibrary
     }
 
-    // RK --> extracted so the E-Hentai "remove from account" confirm can reuse the same downloads prompt.
-    private fun promptDeleteDownloadsOnRemoved() {
+    // RK --> the heart's remove. Which entries leave is the details removal rule novels share
+    //        (DetailsRemoval); the E-Hentai account confirm and the downloads prompt see exactly those.
+    fun removeFromLibrary(mangaIds: List<Long>) {
+        viewModelScope.launchIO {
+            val targets = mangaIds.map { getMangaAndChapters.awaitManga(it) }
+            // The account confirm is per gallery, so only a remove of one gallery asks it.
+            val gallery = targets.singleOrNull()?.takeIf(::shouldConfirmEhRemoveFromAccount)
+            if (gallery != null) {
+                updateSuccessState { it.copy(dialog = Dialog.EhRemoveFavorite(gallery)) }
+                return@launchIO
+            }
+            removeNow(targets)
+        }
+    }
+
+    private suspend fun removeNow(targets: List<Manga>) {
+        val removed = targets.filter { mangaLibraryAdder.removeFromLibrary(it) }
+        if (removed.isNotEmpty()) withUIContext { promptDeleteDownloadsOnRemoved(removed) }
+    }
+
+    private fun promptDeleteDownloadsOnRemoved(removed: List<Manga>) {
         viewModelScope.launch {
-            if (!hasDownloads()) return@launch
+            if (removed.none { downloadManager.getDownloadCount(it) > 0 }) return@launch
             val result = snackbarHostState.showSnackbar(
                 message = context.stringResource(MR.strings.delete_downloads_for_manga),
                 actionLabel = context.stringResource(MR.strings.action_delete),
                 withDismissAction = true,
             )
             if (result == SnackbarResult.ActionPerformed) {
-                deleteDownloads()
+                removed.forEach { downloadManager.deleteManga(it, sourceManager.getOrStub(it.source)) }
             }
         }
     }
@@ -671,8 +683,8 @@ class MangaViewModel(
      * Update favorite status of manga, (removes / adds) manga (to / from) library.
      */
     fun toggleFavorite(
-        onRemoved: () -> Unit,
-        checkDuplicate: Boolean = true,
+        // RK: onRemoved dropped, the remove reporting the entries it actually took out instead
+        checkDuplicate: Boolean,
     ) {
         val state = successState ?: return
         viewModelScope.launchIO {
@@ -680,16 +692,14 @@ class MangaViewModel(
 
             if (isFavorited) {
                 // Remove from library
-                // RK: hand this entry its own copy of the group's shared tracker before it goes; the
-                //     hand-out skips non-favorites, so after the write it would miss exactly this one.
-                mergeManager.handOutTrackersBeforeRemoval(listOf(manga.id))
-                if (updateManga.awaitUpdateFavorite(manga.id, false)) {
-                    // Remove covers and update last modified in db
-                    if (manga.removeCovers(coverCache) != manga) {
-                        updateManga.awaitUpdateCoverLastModified(manga.id)
-                    }
-                    withUIContext { onRemoved() }
+                // RK --> asks first on a merged entry's All view, and takes a source chip's own entry
+                val removal = mergeGroup.removal(manga.id)
+                if (removal.asksForGroup) {
+                    updateSuccessState { it.copy(dialog = Dialog.RemoveFromLibrary(removal)) }
+                } else {
+                    removeFromLibrary(removal.targets(removeGrouped = false))
                 }
+                // RK <--
             } else {
                 // Add to library
                 // First, check if duplicate exists if callback is provided
@@ -777,13 +787,11 @@ class MangaViewModel(
 
     // A failed account removal keeps the gallery in the library. The removal runs on an app-wide scope
     // so leaving the page mid-request cannot drop the library half; the downloads prompt needs the page.
-    fun confirmEhRemoveFromLibrary(removeFromAccount: Boolean) {
-        val state = successState ?: return
+    fun confirmEhRemoveFromLibrary(gallery: Manga, removeFromAccount: Boolean) {
         dismissDialog()
-        val source = state.source as? EHentai
-        if (source == null) return toggleFavorite(onRemoved = ::promptDeleteDownloadsOnRemoved)
-        source.removeGallery(remoteFirstRemoval, state.manga, removeFromAccount) {
-            if (mangaLibraryAdder.removeFromLibrary(state.manga)) withUIContext { promptDeleteDownloadsOnRemoved() }
+        viewModelScope.launchIO {
+            val source = sourceManager.get(gallery.source) as? EHentai ?: return@launchIO removeNow(listOf(gallery))
+            source.removeGallery(remoteFirstRemoval, gallery, removeFromAccount) { removeNow(listOf(gallery)) }
         }
     }
     // RK <--
@@ -826,21 +834,7 @@ class MangaViewModel(
         }
     }
 
-    /**
-     * Returns true if the manga has any downloads.
-     */
-    private suspend fun hasDownloads(): Boolean {
-        // RK: every grouped source, since the screen offers one Delete downloads for the whole entry.
-        return groupManga().any { downloadManager.getDownloadCount(it) > 0 }
-    }
-
-    /**
-     * Deletes all the downloads for the manga.
-     */
-    private suspend fun deleteDownloads() {
-        // RK: as above, so the action clears what the merged entry actually holds.
-        groupManga().forEach { downloadManager.deleteManga(it, sourceManager.getOrStub(it.source)) }
-    }
+    // RK: hasDownloads / deleteDownloads moved into promptDeleteDownloadsOnRemoved, over the entries removed
 
     // RK --> The download directory the details overflow's Open folder opens.
     suspend fun viewedDownloadDir(): UniFile? {
@@ -854,8 +848,7 @@ class MangaViewModel(
     // RK <--
 
     // RK --> Clear downloads for what the screen shows: the selected chip alone, else the whole group.
-    //        Distinct from deleteDownloads above, which runs when the entry itself leaves the library
-    //        and so always takes the group.
+    //        Distinct from promptDeleteDownloadsOnRemoved, which covers the entries a remove took out.
     fun showClearDownloadsDialog() {
         val state = successState ?: return
         val chipName = state.mergeDisplayManga?.let { state.mergeDisplaySource?.name }
@@ -1625,6 +1618,9 @@ class MangaViewModel(
 
         // RK: confirm removing a favorited E-Hentai gallery, with an opt-in "also remove from account".
         data class EhRemoveFavorite(val manga: Manga) : Dialog
+
+        // RK: the heart's remove asking about every grouped source, rendered by the shared host.
+        data class RemoveFromLibrary(val removal: DetailsRemoval) : Dialog
 
         // RK: shared edit-info editor; carries the raw source manga (each field is saved only when it
         // differs from these).

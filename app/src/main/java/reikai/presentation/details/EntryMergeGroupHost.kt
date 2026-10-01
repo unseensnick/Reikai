@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.DetailsRemoval
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
@@ -110,6 +111,10 @@ class EntryMergeGroupHost(
     fun selectSource(entryId: Long?) {
         _state.update { it.copy(selected = entryId?.takeIf { id -> id in it.ids }) }
     }
+
+    /** The heart's remove for [openedId] over the group and chip in view, the one call both models make. */
+    fun removal(openedId: Long): DetailsRemoval =
+        _state.value.let { DetailsRemoval(openedId, it.ids.toList(), it.selected) }
 
     /**
      * Re-read [anchorId]'s group from storage and publish it: the one way a caller that just changed

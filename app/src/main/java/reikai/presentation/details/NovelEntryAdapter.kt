@@ -227,6 +227,9 @@ class NovelEntryAdapter(
     override fun toggleFavorite() {
         model.toggleFavorite()
     }
+    override fun removeFromLibrary(entryIds: List<Long>) {
+        model.removeFromLibrary(entryIds)
+    }
     override fun selectSource(entryId: Long?) {
         model.selectSource(entryId)
     }

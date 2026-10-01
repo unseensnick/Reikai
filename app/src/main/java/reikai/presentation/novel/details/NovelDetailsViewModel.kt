@@ -60,6 +60,7 @@ import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.DetailsRemoval
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterListEntry
@@ -996,16 +997,26 @@ class NovelDetailsViewModel(
                 }
                 addToLibrary(novel)
             } else {
-                // Read before the write: the group's related ids drop a member once it leaves the library.
-                val group = mergeGroup.relatedIds.toList().takeIf { it.size > 1 } ?: listOf(novel.id)
-                if (removeNovelsFromLibrary.await(listOf(novel.id)).isNotEmpty()) promptDeleteDownloadsOnRemoved(group)
+                val removal = mergeGroup.removal(novel.id)
+                if (removal.asksForGroup) {
+                    updateLoaded { it.copy(dialog = NovelDetailsDialog.RemoveFromLibrary(removal)) }
+                } else {
+                    removeFromLibrary(removal.targets(removeGrouped = false))
+                }
             }
         }
     }
 
-    /** Offers to delete the whole group's downloads once the novel has left the library, as manga does. */
-    private suspend fun promptDeleteDownloadsOnRemoved(groupIds: List<Long>) {
-        val withDownloads = groupIds.mapNotNull { novelRepo.getById(it) }
+    fun removeFromLibrary(novelIds: List<Long>) {
+        viewModelScope.launchIO {
+            val removed = removeNovelsFromLibrary.await(novelIds)
+            if (removed.isNotEmpty()) promptDeleteDownloadsOnRemoved(removed)
+        }
+    }
+
+    /** Offers to delete the removed novels' downloads once they have left the library. */
+    private suspend fun promptDeleteDownloadsOnRemoved(removedIds: List<Long>) {
+        val withDownloads = removedIds.mapNotNull { novelRepo.getById(it) }
             .filter { downloadManager.getDownloadCount(it) > 0 }
         if (withDownloads.isEmpty()) return
         val result = snackbarHostState.showSnackbar(
@@ -1591,6 +1602,7 @@ sealed interface NovelDetailsDialog {
 
     /** Confirm clearing downloads; sourceName is the chip being viewed, null in the unified view. */
     data class ClearDownloads(val sourceName: String?) : NovelDetailsDialog
+    data class RemoveFromLibrary(val removal: DetailsRemoval) : NovelDetailsDialog
     data object FullCover : NovelDetailsDialog
     data class ManageSources(
         val sources: List<EntryManageSourceInfo>,

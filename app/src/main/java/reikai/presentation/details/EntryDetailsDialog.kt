@@ -19,6 +19,7 @@ import eu.kanade.presentation.manga.components.DeleteChaptersDialog
 import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.util.Screen
 import reikai.domain.entry.EntryId
+import reikai.domain.merge.DetailsRemoval
 import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.ManageMergeSourcesDialog
@@ -64,6 +65,9 @@ sealed interface EntryDetailsDialog {
     /** Confirm clearing downloads. [sourceName] names the one source being cleared, or is null when
      *  the unified view is on and every grouped source goes. */
     data class ClearDownloads(val sourceName: String?) : EntryDetailsDialog
+
+    /** The heart's remove asking about every grouped source, [removal] captured when it opened. */
+    data class RemoveFromLibrary(val removal: DetailsRemoval) : EntryDetailsDialog
 }
 
 /** One merge source for the manage-sources dialog: id + name + chapter count (for the coverage subtitle). */
@@ -184,6 +188,11 @@ fun Screen.EntryDetailsDialogHost(
             sourceName = dialog.sourceName,
             onDismissRequest = onDismissRequest,
             onConfirm = behavior::clearDownloads,
+        )
+        is EntryDetailsDialog.RemoveFromLibrary -> RemoveFromLibraryDialog(
+            groupedSourceCount = dialog.removal.groupIds.size,
+            onDismissRequest = onDismissRequest,
+            onConfirm = { behavior.removeFromLibrary(dialog.removal.targets(it)) },
         )
     }
 }

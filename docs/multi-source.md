@@ -125,7 +125,7 @@ On the details screen, open <nav to="overflow"> and tap **Manage sources** to se
 - **Reset order** drops that override, so the group falls back to the global ranking again.
 - **Split** detaches a source, the same as long-pressing its chip.
 - **Remove from library** unfavorites a source outright, which deletes its downloaded chapters and covers.
-- **Remove all from library** unfavorites every source in the group, which is the only way to remove a whole group from the details screen.
+- **Remove all from library** unfavorites every source in the group.
 
 Long-press a row to select several sources and split or remove them together.
 
@@ -134,12 +134,15 @@ It decides which source leads a merged chapter list when a group has no order of
 
 ## Removing a grouped series
 
-The heart on the details screen only ever adds or removes the one source you are viewing.
+The heart on the details screen removes what the page is showing.
+Under a source chip it removes that one source, and the rest of the group stays in your library.
+Under **All** it asks first, with an **All grouped sources (N)** checkbox: keep it ticked to remove every source, or untick it to remove only the source you opened the page from.
+If the sources that left have downloads, it then offers to delete them.
 
-To remove more, select the entry in your library and delete it.
-When the selection includes a merged card, the Remove dialog gains an **All grouped sources (N)** checkbox.
+In the library, select the entry and delete it.
+When the selection includes a merged card, the Remove dialog has the same **All grouped sources (N)** checkbox.
 
 ::: warning That checkbox starts ticked
-Removing a merged card removes every source behind it unless you untick it first.
+Removing a merged series removes every source behind it unless you untick it first.
 The alternative was worse: removing only the leading source leaves the others in your library but collapsed out of sight, so the entry looks half-deleted.
 :::
