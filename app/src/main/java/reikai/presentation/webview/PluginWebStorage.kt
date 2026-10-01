@@ -13,10 +13,12 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.WEB_STORAGE_SCRIPT
 import reikai.novel.host.WebStorageSnapshot
 import reikai.novel.host.parseWebStorage
+import reikai.novel.network.isSameSite
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -35,7 +37,8 @@ fun rememberPluginStorageCapture(pluginId: String?, novelSourceId: String?): (We
     }
     return remember(model) {
         { webView: WebView ->
-            webView.evaluateJavascript(WEB_STORAGE_SCRIPT) { model.onPageStorage(parseWebStorage(it)) }
+            val pageUrl = webView.url
+            webView.evaluateJavascript(WEB_STORAGE_SCRIPT) { model.onPageStorage(pageUrl, parseWebStorage(it)) }
         }
     }
 }
@@ -57,25 +60,39 @@ class PluginWebStorageViewModel(
     }
 
     @Volatile
-    private var target: String? = null
-    private var latest: WebStorageSnapshot? = null
+    private var target: LnPluginSource? = null
+
+    // Each host's newest storage with the page it came from, newest host last. Which host is the
+    // plugin's site is known only once its source resolves, so the choice waits for the close.
+    private val storageByHost = LinkedHashMap<String, Pair<String, WebStorageSnapshot>>()
 
     init {
         // A plugin's source id is its plugin id, so both entries resolve the same way.
         val id = pluginId ?: novelSourceId
-        if (id != null) viewModelScope.launchIO { target = webStoragePlugin(sourceManager.get(id))?.id }
+        if (id != null) viewModelScope.launchIO { target = webStoragePlugin(sourceManager.get(id)) }
     }
 
-    fun onPageStorage(snapshot: WebStorageSnapshot?) {
-        if (snapshot != null) latest = snapshot
+    fun onPageStorage(pageUrl: String?, snapshot: WebStorageSnapshot?) {
+        val pageHost = pageUrl?.toHttpUrlOrNull()?.host ?: return
+        if (snapshot == null) return
+        storageByHost.remove(pageHost)
+        storageByHost[pageHost] = pageUrl to snapshot
     }
 
     // On clear rather than on dispose: a rotation disposes the browser but keeps this model.
     override fun onCleared() {
         val plugin = target ?: return
-        latest?.let { host.storeWebStorage(plugin, it) }
+        pluginSiteStorage(plugin.site, storageByHost.values)?.let { host.storeWebStorage(plugin.id, it) }
     }
 }
+
+/**
+ * The newest storage captured on [site] or a subdomain of it, from (page URL, storage) pairs oldest
+ * first. Another site's, such as a sign-in popup's or a link followed off the site, is never the
+ * plugin's, which LNReader does not check: it keeps whatever page loaded last.
+ */
+internal fun pluginSiteStorage(site: String, pages: Collection<Pair<String, WebStorageSnapshot>>): WebStorageSnapshot? =
+    pages.lastOrNull { (pageUrl, _) -> isSameSite(pageUrl, site) }?.second
 
 /**
  * The plugin a page's storage is kept for: [source] when it is an installed plugin that declares

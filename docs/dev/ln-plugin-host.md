@@ -103,7 +103,11 @@ envelope, so a value the settings UI writes is exactly what the plugin sees at r
   `webview:session`). The in-app browser captures it after each page load when opened for a plugin
   (a plugin row, a plugin's page, or a novel, chapter or catalogue whose source is a plugin), and
   `LnPluginHost.storeWebStorage` keeps it when the browser closes. As in LNReader, only an installed
-  plugin that declares `webStorageUtilized` gets it (`webStoragePlugin`); any other keeps nothing. That also rebuilds the plugin's
+  plugin that declares `webStorageUtilized` gets it (`webStoragePlugin`); any other keeps nothing.
+  Unlike LNReader, which keeps whatever page loaded last, only a page on the plugin's own site or a
+  subdomain of it counts (`pluginSiteStorage`, over `isSameSite`): the newest such page's storage is
+  kept, so a link followed off the site or a sign-in popup neither overwrites the site's login nor
+  hands another site's storage to the plugin. That also rebuilds the plugin's
   engine before its next call, because a plugin can read the storage once, while it is constructed.
   The captured storage holds the site's sign-in, so a backup treats it like a tracker token: Source
   settings carry it only with "Include sensitive settings" on (`isSensitivePluginKey`), and a restore
