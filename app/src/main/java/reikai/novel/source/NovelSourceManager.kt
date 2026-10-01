@@ -121,17 +121,21 @@ class NovelSourceManager(
     /** The novel twin of manga's `getOrStub`, whose stub throws this same exception from every call. */
     suspend fun getOrThrow(id: String): NovelSource = get(id) ?: throw SourceNotInstalledException()
 
-    /** A source's name: its own, else the one it had when last seen installed, else its id, as a manga
-     *  stub keeps the name it was stored with. */
+    /**
+     * A source's name: its own, else the one it had when last seen installed, else its id, as a manga
+     * stub keeps the name it was stored with. Never loads the plugins: every install and load records the
+     * name, so a caller wanting only that (a backup, a library search) does not evaluate them all.
+     */
     suspend fun nameOf(id: String): String =
-        get(id)?.name ?: prefs.seenNovelSources().get()[id]?.name ?: id
+        getWithoutPlugins(id)?.name ?: prefs.seenNovelSources().get()[id]?.name ?: id
 
     /** A source's language by the same rule, blank when neither it nor its seen record names one, as a
      *  manga stub keeps the language it was stored with. */
     suspend fun langOf(id: String): String =
-        get(id)?.lang ?: prefs.seenNovelSources().get()[id]?.lang.orEmpty()
+        getWithoutPlugins(id)?.lang ?: prefs.seenNovelSources().get()[id]?.lang.orEmpty()
 
-    /** A registered source without loading the plugins first: for a caller only an app's source serves. */
+    /** A registered source without loading the plugins first: for a caller only an app's source or an
+     *  already loaded plugin serves, as [nameOf] is. */
     suspend fun getWithoutPlugins(id: String): NovelSource? {
         appsRegistered.await()
         return sourcesFlow.value[id]

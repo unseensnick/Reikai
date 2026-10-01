@@ -13,6 +13,7 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.Test
@@ -34,6 +35,13 @@ class NovelSourceManagerTest {
     private val manager = NovelSourceManager(
         installer = { mockk<LnPluginInstaller>(relaxed = true) },
         extensionManager = mockk<ExtensionManager> { every { loadedNovelExtensionsFlow } returns loaded },
+        prefs = mockk<NovelPreferences> { every { seenNovelSources() } returns seen },
+    )
+
+    // Fails any call that would load the plugins.
+    private val withoutPlugins = NovelSourceManager(
+        installer = { error("loaded the plugins") },
+        extensionManager = mockk<ExtensionManager> { every { loadedNovelExtensionsFlow } returns flowOf(emptyList()) },
         prefs = mockk<NovelPreferences> { every { seenNovelSources() } returns seen },
     )
 
@@ -110,6 +118,21 @@ class NovelSourceManagerTest {
         every { seen.get() } returns mapOf("gone" to LnSourceIdentity(name = "Old Name"))
 
         manager.nameOf("gone") shouldBe "Old Name"
+    }
+
+    /** A backup, a library search and an error row want only the name, which every plugin load records. */
+    @Test
+    fun `naming a source never loads the plugins`() = runTest {
+        every { seen.get() } returns mapOf("plugin" to LnSourceIdentity(name = "Plugin"))
+
+        withoutPlugins.nameOf("plugin") shouldBe "Plugin"
+    }
+
+    @Test
+    fun `a source's language never loads the plugins`() = runTest {
+        every { seen.get() } returns mapOf("plugin" to LnSourceIdentity(name = "Plugin", lang = "ja"))
+
+        withoutPlugins.langOf("plugin") shouldBe "ja"
     }
 
     @Test

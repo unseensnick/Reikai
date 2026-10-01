@@ -32,11 +32,13 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.RestoreMergeGroups
+import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.repository.CustomNovelInfoRepository
+import reikai.novel.source.NovelSourceManager
 import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
@@ -109,7 +111,7 @@ class BackupCustomInfoConformanceTest {
     }
 
     @Test
-    fun `a backup names the source of each novel it carries`() = runTest {
+    fun `a backup names the source of each novel it carries without loading the plugins`() = runTest {
         writeBackup().backupNovelSources shouldBe listOf(BackupNovelSource(name = "Novel source", sourceId = "src"))
     }
 
@@ -167,7 +169,16 @@ class BackupCustomInfoConformanceTest {
                     mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                     customNovelInfoRepository = novelCustomInfo,
                     novelHistoryRepository = mockk(),
-                    novelSourceManager = mockk { coEvery { nameOf("src") } returns "Novel source" },
+                    // Its installer fails the backup if anything loads the plugins.
+                    novelSourceManager = NovelSourceManager(
+                        installer = { error("loaded the plugins") },
+                        extensionManager = mockk { every { loadedNovelExtensionsFlow } returns flowOf(emptyList()) },
+                        prefs = mockk {
+                            every { seenNovelSources() } returns mockk {
+                                every { get() } returns mapOf("src" to LnSourceIdentity(name = "Novel source"))
+                            }
+                        },
+                    ),
                 ),
                 extensionBackupCreator = mockk(relaxed = true),
                 feedBackupCreator = mockk(relaxed = true),
