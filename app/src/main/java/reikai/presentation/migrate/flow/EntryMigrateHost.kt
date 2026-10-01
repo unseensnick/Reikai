@@ -41,7 +41,6 @@ fun Screen.EntryMigrateFor(
     currentId: Long,
     targetId: Long,
     onDismissRequest: () -> Unit,
-    onFinished: ((replaced: Boolean) -> Unit)? = null,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     val context = LocalContext.current
@@ -80,7 +79,7 @@ fun Screen.EntryMigrateFor(
             onDismissRequest()
             entry.openDetails(navigator)
         },
-        onFinished = { replaced, _ -> onFinished?.invoke(replaced) ?: onDismissRequest() },
+        onFinished = { _, _ -> onDismissRequest() },
     )
 }
 
