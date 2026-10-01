@@ -202,11 +202,6 @@ object SettingsTrackingScreen : SearchableSettings {
                 title = stringResource(MR.strings.services),
                 preferenceItems = listOf(
                     Preference.PreferenceItem.TrackerPreference(
-                        tracker = trackerManager.mangaBaka,
-                        login = { context.openInBrowser(MangaBakaApi.authUrl(), forceDefaultBrowser = true) },
-                        logout = { dialog = LogoutDialog(trackerManager.mangaBaka) },
-                    ),
-                    Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.myAnimeList,
                         login = { context.openInBrowser(MyAnimeListApi.authUrl(), forceDefaultBrowser = true) },
                         logout = { dialog = LogoutDialog(trackerManager.myAnimeList) },
@@ -240,6 +235,12 @@ object SettingsTrackingScreen : SearchableSettings {
                         tracker = trackerManager.hikka,
                         login = { context.openInBrowser(HikkaApi.authUrl(), forceDefaultBrowser = true) },
                         logout = { dialog = LogoutDialog(trackerManager.hikka) },
+                    ),
+                    // RK: listed after Hikka by owner choice; upstream lists it first
+                    Preference.PreferenceItem.TrackerPreference(
+                        tracker = trackerManager.mangaBaka,
+                        login = { context.openInBrowser(MangaBakaApi.authUrl(), forceDefaultBrowser = true) },
+                        logout = { dialog = LogoutDialog(trackerManager.mangaBaka) },
                     ),
                     // RK: MangaDex MDList tracker. Browser OAuth (PKCE), callback lands in
                     // MangaDexLoginActivity; needs the MangaDex source installed + enabled to bind.
