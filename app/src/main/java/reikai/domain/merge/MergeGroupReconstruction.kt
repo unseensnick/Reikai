@@ -2,6 +2,7 @@ package reikai.domain.merge
 
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.util.DisjointSet
 import tachiyomi.core.common.preference.Preference
 
 /**
@@ -55,29 +56,12 @@ object MergeGroupReconstruction {
         if (candidates.isEmpty()) return emptyList()
 
         val present = candidates.mapTo(HashSet()) { it.id }
-        val parent = HashMap<Long, Long>(present.size).apply { present.forEach { put(it, it) } }
-
-        fun find(x: Long): Long {
-            var root = x
-            while (parent[root] != root) root = parent.getValue(root)
-            var node = x
-            while (parent[node] != node) {
-                val next = parent.getValue(node)
-                parent[node] = root
-                node = next
-            }
-            return root
-        }
-        fun union(a: Long, b: Long) {
-            val ra = find(a)
-            val rb = find(b)
-            if (ra != rb) parent[rb] = ra
-        }
+        val sets = DisjointSet<Long>()
 
         // Manual merges always group; they override unmerges by construction.
         for (group in manualMerges) {
             val members = group.filter { it in present }
-            for (i in 1 until members.size) union(members[0], members[i])
+            for (i in 1 until members.size) sets.union(members[0], members[i])
         }
 
         // Same-title auto-grouping, honoring the author guard and the unmerge exclusions.
@@ -96,7 +80,7 @@ object MergeGroupReconstruction {
                         val a = bucket[i]
                         val b = bucket[j]
                         val pair = if (a < b) a to b else b to a
-                        if (pair !in unmergedPairs) union(a, b)
+                        if (pair !in unmergedPairs) sets.union(a, b)
                     }
                 }
             }
@@ -104,7 +88,7 @@ object MergeGroupReconstruction {
 
         return candidates.asSequence()
             .map { it.id }
-            .groupBy(::find)
+            .groupBy(sets::find)
             .values
             .filter { it.size >= 2 }
             .map { it.sorted() }

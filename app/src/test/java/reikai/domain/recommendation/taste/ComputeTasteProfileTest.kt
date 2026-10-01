@@ -46,6 +46,17 @@ class ComputeTasteProfileTest {
         compute(listOf(kitsuRow, aniRow)) shouldBe compute(listOf(aniRow))
     }
 
+    /** Only the Kitsu row carries both ids, so it alone ties the AniList row to the MAL one. */
+    @Test
+    fun `a series bridged by a row carrying both ids counts once, as its AniList row`() {
+        val aniRow = tracked(2L, 40L, listOf("sports"), TrackStatus.COMPLETED, 1.0, anilistId = 40L)
+        val malRow = tracked(1L, 41L, listOf("sports", "school"), TrackStatus.DROPPED, -1.0, malId = 41L)
+        val kitsuRow =
+            tracked(3L, 42L, listOf("sports", "music"), TrackStatus.READING, 0.2, malId = 41L, anilistId = 40L)
+
+        compute(listOf(malRow, kitsuRow, aniRow)) shouldBe compute(listOf(aniRow))
+    }
+
     @Test
     fun `empty input yields the empty profile`() {
         compute(emptyList()) shouldBe TasteProfile.EMPTY

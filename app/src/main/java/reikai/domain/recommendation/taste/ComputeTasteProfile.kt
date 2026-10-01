@@ -1,6 +1,7 @@
 package reikai.domain.recommendation.taste
 
 import dev.zacsweers.metro.Inject
+import reikai.util.DisjointSet
 import kotlin.math.abs
 
 /**
@@ -52,15 +53,21 @@ class ComputeTasteProfile {
     }
 
     /**
-     * One series tracked on several services counts once: rows are joined by malId, then by anilistId,
-     * and the AniList row is kept over MAL's, MAL's over Kitsu's. Rows without the key pass through.
+     * One series tracked on several services counts once: rows sharing a malId or an anilistId are one
+     * series, transitively (a Kitsu row carrying both can tie an AniList row lacking idMal to a MAL row),
+     * and the AniList row is kept over MAL's, MAL's over Kitsu's. Rows with neither id stand alone.
      */
-    private fun List<TrackedEntry>.dedupedAcrossTrackers(): List<TrackedEntry> =
-        dedupBy { it.malId }.dedupBy { it.anilistId }
-
-    private fun List<TrackedEntry>.dedupBy(key: (TrackedEntry) -> Long?): List<TrackedEntry> {
-        val (keyed, unkeyed) = partition { key(it) != null }
-        return keyed.sortedBy { TRACKER_PRIORITY[it.trackerId] ?: Int.MAX_VALUE }.distinctBy(key) + unkeyed
+    private fun List<TrackedEntry>.dedupedAcrossTrackers(): List<TrackedEntry> {
+        val sets = DisjointSet<Int>()
+        val firstByMal = HashMap<Long, Int>()
+        val firstByAnilist = HashMap<Long, Int>()
+        forEachIndexed { index, entry ->
+            entry.malId?.let { sets.union(firstByMal.getOrPut(it) { index }, index) }
+            entry.anilistId?.let { sets.union(firstByAnilist.getOrPut(it) { index }, index) }
+        }
+        return indices.groupBy(sets::find).values.map { series ->
+            this[series.minBy { TRACKER_PRIORITY[this[it].trackerId] ?: Int.MAX_VALUE }]
+        }
     }
 
     companion object {
