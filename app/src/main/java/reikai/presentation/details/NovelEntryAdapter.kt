@@ -52,7 +52,10 @@ class NovelEntryAdapter(
     }
 
     private fun NovelDetailsState.Loaded.toNeutralLoaded(): EntryDetailsScreenState.Loaded {
-        val display = shownEntry(novel, displayNovel) { it.withCustomInfo(customInfo) }
+        val sibling = displayNovel.takeIf { it.id != novel.id }
+        val display = shownEntry(novel, sibling, { it.withCustomInfo(customInfo) }) { entry, own ->
+            entry.copy(thumbnailUrl = own.thumbnailUrl)
+        }
         return EntryDetailsScreenState.Loaded(
             entryId = EntryId.Novel(novel.id),
             details = EntryDetailsUiState(

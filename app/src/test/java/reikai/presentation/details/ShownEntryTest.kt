@@ -17,7 +17,7 @@ class ShownEntryTest {
         val chip = Manga.create().copy(id = 2L, description = "chip", genre = listOf("Romance"))
         val overlay = CustomMangaInfo(mangaId = 1L, title = "Custom")
 
-        val shown = shownEntry(anchor, chip) { it.withCustomInfo(overlay) }
+        val shown = shownMangaOf(anchor, chip, overlay)
 
         Triple(shown.title, shown.description, shown.genre) shouldBe Triple("Custom", "chip", listOf("Romance"))
     }
@@ -28,15 +28,45 @@ class ShownEntryTest {
         val chip = Novel.create().copy(id = 2L, description = "chip", genre = listOf("Romance"))
         val overlay = CustomNovelInfo(novelId = 1L, title = "Custom")
 
-        val shown = shownEntry(anchor, chip) { it.withCustomInfo(overlay) }
+        val shown = shownNovelOf(anchor, chip, overlay)
 
         Triple(shown.title, shown.description, shown.genre) shouldBe Triple("Custom", "chip", listOf("Romance"))
     }
 
     @Test
-    fun `with no chip selected the anchor is shown`() {
-        val anchor = Manga.create().copy(id = 1L, description = "anchor")
+    fun `a manga chip keeps its own cover under the anchor's custom cover url`() {
+        val anchor = Manga.create().copy(id = 1L, thumbnailUrl = "anchor")
+        val chip = Manga.create().copy(id = 2L, thumbnailUrl = "chip")
+        val overlay = CustomMangaInfo(mangaId = 1L, thumbnailUrl = "custom")
 
-        shownEntry(anchor, null) { it }.description shouldBe "anchor"
+        shownMangaOf(anchor, chip, overlay).thumbnailUrl shouldBe "chip"
     }
+
+    @Test
+    fun `a novel chip keeps its own cover under the anchor's custom cover url`() {
+        val anchor = Novel.create().copy(id = 1L, thumbnailUrl = "anchor")
+        val chip = Novel.create().copy(id = 2L, thumbnailUrl = "chip")
+        val overlay = CustomNovelInfo(novelId = 1L, thumbnailUrl = "custom")
+
+        shownNovelOf(anchor, chip, overlay).thumbnailUrl shouldBe "chip"
+    }
+
+    @Test
+    fun `with no chip selected the anchor shows its custom cover url`() {
+        val anchor = Manga.create().copy(id = 1L, thumbnailUrl = "anchor")
+        val overlay = CustomMangaInfo(mangaId = 1L, thumbnailUrl = "custom")
+
+        shownMangaOf(anchor, null, overlay).thumbnailUrl shouldBe "custom"
+    }
+
+    // The same cover rule the two adapters pass.
+    private fun shownMangaOf(anchor: Manga, chip: Manga?, overlay: CustomMangaInfo) =
+        shownEntry(anchor, chip, { it.withCustomInfo(overlay) }) { entry, own ->
+            entry.copy(thumbnailUrl = own.thumbnailUrl)
+        }
+
+    private fun shownNovelOf(anchor: Novel, chip: Novel?, overlay: CustomNovelInfo) =
+        shownEntry(anchor, chip, { it.withCustomInfo(overlay) }) { entry, own ->
+            entry.copy(thumbnailUrl = own.thumbnailUrl)
+        }
 }

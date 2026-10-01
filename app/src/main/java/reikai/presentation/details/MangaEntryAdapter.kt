@@ -58,7 +58,9 @@ class MangaEntryAdapter(
 
     private fun MangaViewModel.State.Success.toNeutralLoaded(): EntryDetailsScreenState.Loaded {
         // Header, description, tags and the gallery chips all read this one entry; actions keep the raw `manga`.
-        val shown = shownEntry(manga, mergeDisplayManga) { it.withCustomInfo(customInfo) }
+        val shown = shownEntry(manga, siblingChip(), { it.withCustomInfo(customInfo) }) { entry, own ->
+            entry.copy(thumbnailUrl = own.thumbnailUrl)
+        }
         val displaySource = mergeDisplaySource ?: source
         // The inline carousel shows only for inline placement; in-menu still loads the pool, just hides it.
         val showInlineRelated = !model.recommendationsInMenu && (relatedLoading || relatedItems.isNotEmpty())
@@ -246,8 +248,10 @@ class MangaEntryAdapter(
 
     override fun coverKey(): String = (shownCover()?.id ?: 0L).toString()
 
-    override fun isCoverAnchored(): Boolean =
-        successState()?.let { it.mergeDisplayManga == null || it.mergeDisplayManga?.id == it.manga.id } != false
+    override fun isCoverAnchored(): Boolean = successState()?.siblingChip() == null
+
+    /** The selected chip's entry when it is not the anchor's own; null on the unified view. */
+    private fun MangaViewModel.State.Success.siblingChip(): Manga? = mergeDisplayManga?.takeIf { it.id != manga.id }
 
     /** The entry whose cover the page is showing: the selected chip's, falling back to the group's. */
     private fun shownCover(): Manga? = successState()?.let { it.mergeDisplayManga ?: it.manga }
