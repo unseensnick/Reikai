@@ -971,6 +971,8 @@
         pluginSettings: plugin.pluginSettings || null,
         // Only the headers: the one plugin that sets a method sets GET, and none sends a body.
         imageHeaders: (plugin.imageRequestInit && plugin.imageRequestInit.headers) || null,
+        // LNReader's opt-in to the in-app browser's storage; a plugin without it is handed none.
+        webStorageUtilized: plugin.webStorageUtilized === true,
       };
     } catch (e) {
       log("error", "loadPlugin failed: " + (e && e.stack ? e.stack : e));

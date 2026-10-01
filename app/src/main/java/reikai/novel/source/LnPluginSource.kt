@@ -42,6 +42,9 @@ class LnPluginSource(
         )
     }
     override val supportsLatest: Boolean = info.supportsLatest
+
+    /** Whether the in-app browser keeps the site's storage for this plugin, as LNReader's does. */
+    val webStorageUtilized: Boolean = info.webStorageUtilized
     override val format = NovelExtensionFormat.JS
     override val extensionName: String = info.name
     override val contentWarning = ContentWarning.SAFE

@@ -359,6 +359,20 @@ class HeadlessJsIntegrationTest {
         assertEquals("signed-in", host.parseChapter("web-storage-test", "/c"))
     }
 
+    /** LNReader's opt-in to the browser's storage reaches the app, which keeps none for a plugin without it. */
+    @Test
+    fun aPluginAskingForTheSiteStorageSaysSo() = runBlocking {
+        val host = LnPluginHost(context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        val plugin = """
+            module.exports.default = {
+              id: 'web-storage-flag-test', name: 'T', site: 'https://example.org', version: '1.0.0',
+              webStorageUtilized: true,
+            };
+        """.trimIndent()
+
+        assertTrue(host.loadPlugin("web-storage-flag-test", plugin).webStorageUtilized)
+    }
+
     /**
      * A plugin whose constructor throws in its own engine is built again on the next call, so it
      * recovers once the cause is gone. A half-built engine used to be kept, answering "plugin not

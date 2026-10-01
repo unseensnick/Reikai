@@ -102,7 +102,8 @@ envelope, so a value the settings UI writes is exactly what the plugin sees at r
   site's own storage as a WebView last left it (`makeWebStorage`, keys `webview:local` /
   `webview:session`). The in-app browser captures it after each page load when opened for a plugin
   (a plugin row, a plugin's page, or a novel, chapter or catalogue whose source is a plugin), and
-  `LnPluginHost.storeWebStorage` keeps it when the browser closes. That also rebuilds the plugin's
+  `LnPluginHost.storeWebStorage` keeps it when the browser closes. As in LNReader, only an installed
+  plugin that declares `webStorageUtilized` gets it (`webStoragePlugin`); any other keeps nothing. That also rebuilds the plugin's
   engine before its next call, because a plugin can read the storage once, while it is constructed.
   The captured storage holds the site's sign-in, so a backup treats it like a tracker token: Source
   settings carry it only with "Include sensitive settings" on (`isSensitivePluginKey`), and a restore

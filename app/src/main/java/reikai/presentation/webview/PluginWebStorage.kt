@@ -25,7 +25,7 @@ import tachiyomi.core.common.util.lang.launchIO
 /**
  * What the in-app browser runs after each page load so a light-novel plugin can read the site's storage,
  * as LNReader's WebView does: the latest page's storage is kept for [pluginId], or for [novelSourceId]
- * when that is a plugin, once the browser closes. A no-op for any other page.
+ * when that is a plugin, once the browser closes, if the plugin asks for it. A no-op for any other page.
  */
 @Composable
 fun rememberPluginStorageCapture(pluginId: String?, novelSourceId: String?): (WebView) -> Unit {
@@ -57,15 +57,13 @@ class PluginWebStorageViewModel(
     }
 
     @Volatile
-    private var target: String? = pluginId
+    private var target: String? = null
     private var latest: WebStorageSnapshot? = null
 
     init {
-        if (pluginId == null && novelSourceId != null) {
-            viewModelScope.launchIO {
-                target = webStoragePluginId(null, novelSourceId, sourceManager.get(novelSourceId))
-            }
-        }
+        // A plugin's source id is its plugin id, so both entries resolve the same way.
+        val id = pluginId ?: novelSourceId
+        if (id != null) viewModelScope.launchIO { target = webStoragePlugin(sourceManager.get(id))?.id }
     }
 
     fun onPageStorage(snapshot: WebStorageSnapshot?) {
@@ -79,6 +77,9 @@ class PluginWebStorageViewModel(
     }
 }
 
-/** The plugin a page's storage belongs to: the one named, else the page's source if it is a plugin. */
-internal fun webStoragePluginId(pluginId: String?, novelSourceId: String?, source: NovelSource?): String? =
-    pluginId ?: novelSourceId?.takeIf { source is LnPluginSource }
+/**
+ * The plugin a page's storage is kept for: [source] when it is an installed plugin that declares
+ * `webStorageUtilized`, as LNReader keeps it only for such a plugin. Null for anything else.
+ */
+internal fun webStoragePlugin(source: NovelSource?): LnPluginSource? =
+    (source as? LnPluginSource)?.takeIf { it.webStorageUtilized }

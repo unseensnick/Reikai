@@ -31,6 +31,8 @@ data class LnPluginInfo(
      * and fills it in after decoding. Decoded as false, which is why the loader must set it.
      */
     val supportsLatest: Boolean = false,
+    /** The plugin declares lnreader's `webStorageUtilized`, asking for the site's browser storage. */
+    val webStorageUtilized: Boolean = false,
 )
 
 /**
