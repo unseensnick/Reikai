@@ -12,6 +12,7 @@ import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.domain.backup.mergedHistory // RK
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.manga.MangaMergeManager
@@ -31,6 +32,7 @@ import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.UpsertTrack
+import java.util.Date // RK
 import kotlin.time.Clock
 
 @Inject
@@ -105,7 +107,9 @@ class MigrateMangaUseCase(
 
                 // RK --> each matched chapter takes the source chapter's reading history, as
                 // Komikku's migration does, so the Last read sort and History follow the entry.
+                // Merged onto the target's own through mergedHistory, so a retry adds no time.
                 val prevHistory = getHistory.await(current.id).associateBy { it.chapterId }
+                val targetHistory = getHistory.await(target.id).associateBy { it.chapterId }
                 val historyUpdates = mutableListOf<HistoryUpdate>()
                 // RK <--
 
@@ -118,7 +122,14 @@ class MigrateMangaUseCase(
                         // RK --> each matched chapter takes the source chapter's reading history
                         prevChapter?.let { prevHistory[it.id] }?.let { history ->
                             val readAt = history.readAt ?: return@let
-                            historyUpdates += HistoryUpdate(mangaChapter.id, readAt, history.readDuration)
+                            val stored = targetHistory[mangaChapter.id]
+                            val (mergedReadAt, addedDuration) = mergedHistory(
+                                readAt.time,
+                                history.readDuration,
+                                stored?.readAt?.time,
+                                stored?.readDuration ?: 0L,
+                            )
+                            historyUpdates += HistoryUpdate(mangaChapter.id, Date(mergedReadAt), addedDuration)
                         }
                         // RK <--
 

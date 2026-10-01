@@ -62,3 +62,14 @@ fun List<RestoredChapterHistory>.foldHistoryCopies(): List<RestoredChapterHistor
     groupBy { it.chapterUrl }.map { (chapterUrl, copies) ->
         RestoredChapterHistory(chapterUrl, copies.maxOf { it.readAt }, copies.sumOf { it.readDuration })
     }
+
+/**
+ * The (read time, duration to add) that brings a stored history row to the later read and the longer
+ * duration of it and an incoming row; a caller with no stored row passes null and 0. Shaped for the
+ * additive `upsert` in history.sq and novel_history.sq, and it adds nothing once the row holds both, so
+ * a migration retry or a second restore adds no time. The longer duration, not the sum, so a chapter
+ * read on both copies counts once. novel_history.sq `restoreUpsert` states the same rule in SQL, pinned
+ * with this one by RestoreHistoryConformanceTest.
+ */
+fun mergedHistory(readAt: Long, readDuration: Long, storedReadAt: Long?, storedDuration: Long): Pair<Long, Long> =
+    max(readAt, storedReadAt ?: readAt) to max(readDuration, storedDuration) - storedDuration

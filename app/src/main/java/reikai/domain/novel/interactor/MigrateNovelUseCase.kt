@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
+import reikai.domain.backup.mergedHistory
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
@@ -113,6 +114,7 @@ class MigrateNovelUseCase(
                     currentChapters,
                     targetChapters,
                     novelHistoryRepository.getHistoryByNovelId(current.id),
+                    novelHistoryRepository.getHistoryByNovelId(target.id),
                 ).forEach { novelHistoryRepository.upsertNovelHistory(it) }
             }
 
@@ -238,19 +240,25 @@ internal fun computeChapterMigration(
 /**
  * Each target chapter with a recognized number takes the reading history of the source chapter with the
  * same number, as the manga engine's carry does (MigrateEngineConformanceTest pins the two). A row with
- * no read time carries nothing.
+ * no read time carries nothing, and one merges onto the target's own through [mergedHistory], so a retry
+ * adds no time and a later read on the target stays.
  */
 internal fun computeHistoryMigration(
     currentChapters: List<NovelChapter>,
     targetChapters: List<NovelChapter>,
     currentHistory: List<NovelHistory>,
+    targetHistory: List<NovelHistory>,
 ): List<NovelHistoryUpdate> {
     val historyByChapter = currentHistory.associateBy { it.chapterId }
+    val targetHistoryByChapter = targetHistory.associateBy { it.chapterId }
     return targetChapters.mapNotNull { target ->
         if (target.chapterNumber < 0.0) return@mapNotNull null
         val match = currentChapters.firstOrNull { it.chapterNumber >= 0.0 && it.chapterNumber == target.chapterNumber }
         val history = match?.let { historyByChapter[it.id] } ?: return@mapNotNull null
         val readAt = history.readAt ?: return@mapNotNull null
-        NovelHistoryUpdate(target.id, readAt, history.readDuration)
+        val stored = targetHistoryByChapter[target.id]
+        val (mergedReadAt, addedDuration) =
+            mergedHistory(readAt, history.readDuration, stored?.readAt, stored?.readDuration ?: 0L)
+        NovelHistoryUpdate(target.id, mergedReadAt, addedDuration)
     }
 }

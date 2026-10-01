@@ -18,6 +18,7 @@ import reikai.domain.backup.backupDetailsWin
 import reikai.domain.backup.foldBackup
 import reikai.domain.backup.foldChapterCopies
 import reikai.domain.backup.foldHistoryCopies
+import reikai.domain.backup.mergedHistory
 import reikai.domain.backup.restoredFavoriteAt
 import tachiyomi.data.Database
 import tachiyomi.domain.backup.model.RestoredHistory
@@ -33,7 +34,6 @@ import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.track.model.Track
 import tachiyomi.domain.track.repository.TrackRepository
 import java.util.Date
-import kotlin.math.max
 
 @Inject
 @SingleIn(AppScope::class)
@@ -253,22 +253,20 @@ class RestoreRepositoryImpl(
             // RK <--
             // Chapter doesn't exist; skip
             .filter { it.chapterUrl in chapterIdsByUrl }
+            // RK --> the later read and the longer time, by the kernel the migrate carries call too. 0 is
+            // kept rather than written as NULL, since it marks history the user removed.
             .map { history ->
                 val chapterId = chapterIdsByUrl.getValue(history.chapterUrl)
-                val readAt = history.readAt // RK
-                val readDuration = history.readDuration // RK
                 val dbHistory = dbHistoryByChapterId[chapterId]
-                    // New history entry
-                    ?: return@map Triple(chapterId, Date(readAt), readDuration)
-
-                // Update history entry. 0 is kept rather than written as NULL, since it marks history
-                // the user removed.
-                Triple(
-                    chapterId,
-                    Date(max(readAt, dbHistory.read_at?.time ?: 0L)),
-                    max(readDuration, dbHistory.read_duration) - dbHistory.read_duration,
+                val (readAt, readDuration) = mergedHistory(
+                    history.readAt,
+                    history.readDuration,
+                    dbHistory?.read_at?.time,
+                    dbHistory?.read_duration ?: 0L,
                 )
+                Triple(chapterId, Date(readAt), readDuration)
             }
+        // RK <--
 
         toUpdate.forEach { (chapterId, readAt, readDuration) ->
             database.historyQueries.upsert(chapterId = chapterId, readAt = readAt, readDuration = readDuration)

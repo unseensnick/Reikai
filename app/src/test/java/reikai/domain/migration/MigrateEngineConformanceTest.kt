@@ -284,10 +284,10 @@ class MigrateEngineConformanceTest {
         val setup = Setup(
             sourceChapters = listOf(Ch(1, 1.0, read = true), Ch(2, 2.0, read = true)),
             targetChapters = listOf(Ch(10, 1.0), Ch(11, 3.0)),
-            sourceHistory = listOf(Hist(1, readAt = 500, duration = 60), Hist(2, readAt = 700, duration = 5)),
+            history = listOf(Hist(1, readAt = 500, duration = 60), Hist(2, readAt = 700, duration = 5)),
         )
 
-        engine.migrate(setup, replace = true, flags = setOf(Flag.CHAPTER)).historyWritten shouldBe
+        engine.migrate(setup, replace = true, flags = setOf(Flag.CHAPTER)).targetHistory shouldBe
             listOf(Hist(10, readAt = 500, duration = 60))
     }
 
@@ -297,10 +297,37 @@ class MigrateEngineConformanceTest {
         val setup = Setup(
             sourceChapters = listOf(Ch(1, 1.0, read = true)),
             targetChapters = listOf(Ch(10, 1.0)),
-            sourceHistory = listOf(Hist(1, readAt = 500, duration = 60)),
+            history = listOf(Hist(1, readAt = 500, duration = 60)),
         )
 
-        engine.migrate(setup, replace = true).historyWritten shouldBe emptyList()
+        engine.migrate(setup, replace = true).targetHistory shouldBe emptyList()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a retried history carry adds no reading time`(engine: MigrateEngine) = runTest {
+        // What a retry finds after an earlier attempt carried the history and then failed a later step.
+        val setup = Setup(
+            sourceChapters = listOf(Ch(1, 1.0, read = true)),
+            targetChapters = listOf(Ch(10, 1.0)),
+            history = listOf(Hist(1, readAt = 500, duration = 60), Hist(10, readAt = 500, duration = 60)),
+        )
+
+        engine.migrate(setup, replace = true, flags = setOf(Flag.CHAPTER)).targetHistory shouldBe
+            listOf(Hist(10, readAt = 500, duration = 60))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a newer read on the target is kept and the longer time wins`(engine: MigrateEngine) = runTest {
+        val setup = Setup(
+            sourceChapters = listOf(Ch(1, 1.0, read = true)),
+            targetChapters = listOf(Ch(10, 1.0)),
+            history = listOf(Hist(1, readAt = 500, duration = 60), Hist(10, readAt = 900, duration = 20)),
+        )
+
+        engine.migrate(setup, replace = true, flags = setOf(Flag.CHAPTER)).targetHistory shouldBe
+            listOf(Hist(10, readAt = 900, duration = 60))
     }
 
     // Cover, downloads and trackers
@@ -388,7 +415,8 @@ data class Hist(val chapterId: Long, val readAt: Long, val duration: Long)
 data class Setup(
     val sourceChapters: List<Ch> = emptyList(),
     val targetChapters: List<Ch> = emptyList(),
-    val sourceHistory: List<Hist> = emptyList(),
+    /** Stored history rows, on either entry's chapters. */
+    val history: List<Hist> = emptyList(),
     val group: LongArray = longArrayOf(),
     val customCover: String? = null,
     val notes: String = "",
@@ -435,7 +463,8 @@ class Outcome(
     val downloadsQueued: Int,
     val tracksWritten: List<Pair<Long, Long>>,
     val sourceTrackerCalls: List<String>,
-    val historyWritten: List<Hist>,
+    /** The target's stored history after the migration, by chapter id. */
+    val targetHistory: List<Hist>,
 ) {
     val targetSwap: Swap? get() = swap?.singleOrNull { it.favorite == true }
 
@@ -460,7 +489,7 @@ private class Recorder : Transactions {
     var downloadsQueued = 0
     val tracksWritten = mutableListOf<Pair<Long, Long>>()
     val sourceTrackerCalls = mutableListOf<String>()
-    val historyWritten = mutableListOf<Hist>()
+    private val history = mutableMapOf<Long, Hist>()
     val coverDir: File = Files.createTempDirectory("migrate-covers").toFile().apply { deleteOnExit() }
 
     override suspend fun <T> run(block: suspend () -> T): T {
@@ -492,6 +521,15 @@ private class Recorder : Transactions {
         sourceTrackerCalls += "${from.rawId}->${to.rawId} replace=$replace chapters=$chapters"
     }
 
+    fun seedHistory(setup: Setup) = setup.history.forEach { history[it.chapterId] = it }
+
+    fun historyOf(chapterIds: Collection<Long>) = history.values.filter { it.chapterId in chapterIds }
+
+    /** Both engines' upsert: the read time is replaced and the duration added to what is stored. */
+    fun upsertHistory(chapterId: Long, readAt: Long, addedDuration: Long) {
+        history[chapterId] = Hist(chapterId, readAt, (history[chapterId]?.duration ?: 0L) + addedDuration)
+    }
+
     fun outcome(error: Throwable?, targetChapters: List<Ch>) = Outcome(
         error = error,
         swap = swap,
@@ -506,7 +544,7 @@ private class Recorder : Transactions {
         downloadsQueued = downloadsQueued,
         tracksWritten = tracksWritten,
         sourceTrackerCalls = sourceTrackerCalls,
-        historyWritten = historyWritten,
+        targetHistory = historyOf(targetChapters.map { it.id }).sortedBy { it.chapterId },
     )
 }
 
@@ -530,7 +568,10 @@ class MangaEngine : MigrateEngine {
         skipTargetRefresh: Boolean,
         targetId: Long,
     ): Outcome {
-        val rec = Recorder().apply { seedCover(setup) }
+        val rec = Recorder().apply {
+            seedCover(setup)
+            seedHistory(setup)
+        }
         val chapters = (
             setup.sourceChapters.map { it.toChapter(MigrateEngineConformanceTest.SOURCE) } +
                 setup.targetChapters.map { it.toChapter(MigrateEngineConformanceTest.TARGET) }
@@ -609,14 +650,13 @@ class MangaEngine : MigrateEngine {
         val getHistory = mockk<GetHistory> {
             coEvery { await(any<Long>()) } answers {
                 val ids = chapters.values.filter { it.mangaId == firstArg<Long>() }.map { it.id }
-                setup.sourceHistory.filter { it.chapterId in ids }
-                    .map { History(it.chapterId, it.chapterId, Date(it.readAt), it.duration) }
+                rec.historyOf(ids).map { History(it.chapterId, it.chapterId, Date(it.readAt), it.duration) }
             }
         }
         val upsertHistory = mockk<UpsertHistory> {
             coEvery { await(any()) } answers {
                 val u = firstArg<HistoryUpdate>()
-                rec.historyWritten += Hist(u.chapterId, u.readAt.time, u.sessionReadDuration)
+                rec.upsertHistory(u.chapterId, u.readAt.time, u.sessionReadDuration)
             }
         }
         val useCase = MigrateMangaUseCase(
@@ -703,7 +743,10 @@ class NovelEngine : MigrateEngine {
         skipTargetRefresh: Boolean,
         targetId: Long,
     ): Outcome {
-        val rec = Recorder().apply { seedCover(setup) }
+        val rec = Recorder().apply {
+            seedCover(setup)
+            seedHistory(setup)
+        }
         val chapters = (
             setup.sourceChapters.map { it.toChapter(MigrateEngineConformanceTest.SOURCE) } +
                 setup.targetChapters.map { it.toChapter(MigrateEngineConformanceTest.TARGET) }
@@ -775,12 +818,11 @@ class NovelEngine : MigrateEngine {
         val history = mockk<NovelHistoryRepository> {
             coEvery { getHistoryByNovelId(any()) } answers {
                 val ids = chapters.values.filter { it.novelId == firstArg<Long>() }.map { it.id }
-                setup.sourceHistory.filter { it.chapterId in ids }
-                    .map { NovelHistory(it.chapterId, it.readAt, it.duration) }
+                rec.historyOf(ids).map { NovelHistory(it.chapterId, it.readAt, it.duration) }
             }
             coEvery { upsertNovelHistory(any()) } answers {
                 val u = firstArg<NovelHistoryUpdate>()
-                rec.historyWritten += Hist(u.chapterId, u.readAt, u.sessionReadDuration)
+                rec.upsertHistory(u.chapterId, u.readAt, u.sessionReadDuration)
             }
         }
         val useCase = MigrateNovelUseCase(
