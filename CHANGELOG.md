@@ -585,6 +585,7 @@ every stable release now also ships a foss build with neither in it.
 - **RanobeDB updates now go to the account you signed in with.**
 - **Binding or reading a NovelUpdates novel no longer moves it off your own reading list.**
 - **Unreading a prologue or an earlier chapter no longer pulls NovelUpdates progress back.**
+- **A dropped connection while your MDList login refreshes no longer signs you out.**
 
 ### Downloads & extensions
 

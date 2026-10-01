@@ -7,8 +7,9 @@ import eu.kanade.tachiyomi.network.parseAs
 import exh.md.utils.MdUtil
 import exh.util.nullIfBlank
 import okhttp3.Interceptor
+import okhttp3.Request
 import okhttp3.Response
-import tachiyomi.core.common.util.system.logcat
+import reikai.data.track.TrackerSignedOutException
 import java.io.IOException
 
 class MangaDexAuthInterceptor(
@@ -16,8 +17,6 @@ class MangaDexAuthInterceptor(
     private val mdList: MdList,
 ) : Interceptor {
 
-    // Volatile so a refresh on one OkHttp thread is visible to others (avoids a stale-token read).
-    // A double refresh from two threads racing the expiry check is still possible but benign.
     @Volatile
     var token = trackPreferences.trackToken(mdList).get().nullIfBlank()
 
@@ -30,41 +29,20 @@ class MangaDexAuthInterceptor(
         if (token.isNullOrEmpty()) {
             return chain.proceed(originalRequest)
         }
-        if (oauth == null) {
-            oauth = MdUtil.loadOAuth(trackPreferences, mdList)
-        }
-        // Refresh access token if expired
-        if (oauth != null && oauth!!.isExpired()) {
-            setAuth(refreshToken(chain))
-        }
+        val loaded = oauth
+            ?: MdUtil.loadOAuth(trackPreferences, mdList)?.also { oauth = it }
+            ?: throw IOException("No authentication token")
+        val current = if (loaded.isExpired()) refreshToken(chain, loaded) else loaded
 
-        if (oauth == null) {
-            throw IOException("No authentication token")
-        }
-
-        // Add the authorization header to the original request
-        val authRequest = originalRequest.newBuilder()
-            .addHeader("Authorization", "Bearer ${oauth!!.accessToken}")
-            .build()
-
-        val response = chain.proceed(authRequest)
+        val response = chain.proceed(originalRequest.withBearer(current))
         val tokenIsExpired = response.headers["www-authenticate"]
             ?.contains("The access token expired") ?: false
 
         // Retry the request once with a new token in case it was not already refreshed
         // by the is expired check before.
         if (response.code == 401 && tokenIsExpired) {
-            val newToken = refreshToken(chain)
-            setAuth(newToken)
-
-            newToken ?: return response
             response.close()
-
-            val newRequest = originalRequest.newBuilder()
-                .addHeader("Authorization", "Bearer ${newToken.accessToken}")
-                .build()
-
-            return chain.proceed(newRequest)
+            return chain.proceed(originalRequest.withBearer(refreshToken(chain, current)))
         }
 
         return response
@@ -80,20 +58,33 @@ class MangaDexAuthInterceptor(
         MdUtil.saveOAuth(trackPreferences, mdList, oauth)
     }
 
-    private fun refreshToken(chain: Interceptor.Chain): MALOAuth? {
-        val newOauth = runCatching {
-            val oauthResponse = chain.proceed(MdUtil.refreshTokenRequest(oauth!!))
+    private fun Request.withBearer(oauth: MALOAuth) = newBuilder()
+        .addHeader("Authorization", "Bearer ${oauth.accessToken}")
+        .build()
 
-            if (oauthResponse.isSuccessful) {
-                with(MdUtil.jsonParser) { oauthResponse.parseAs<MALOAuth>() }
-            } else {
-                oauthResponse.close()
-                null
-            }
+    // One refresh at a time, and a thread that waited takes the token the first one fetched. Only
+    // MangaDex rejecting the refresh token (400 or 401) signs the user out; any other failure is an
+    // IOException that keeps the saved login for the next try.
+    private fun refreshToken(chain: Interceptor.Chain, stale: MALOAuth): MALOAuth = synchronized(this) {
+        val latest = oauth ?: throw TrackerSignedOutException(mdList.name)
+        if (latest.accessToken != stale.accessToken) return@synchronized latest
+
+        val response = chain.proceed(MdUtil.refreshTokenRequest(latest))
+        if (response.code == 400 || response.code == 401) {
+            response.close()
+            setAuth(null)
+            throw TrackerSignedOutException(mdList.name)
         }
-
-        logcat(throwable = newOauth.exceptionOrNull()) { "Fetched new mangadex oauth" }
-
-        return newOauth.getOrNull()
+        if (!response.isSuccessful) {
+            response.close()
+            throw IOException("MDList: failed to refresh account token (HTTP ${response.code})")
+        }
+        val refreshed = try {
+            with(MdUtil.jsonParser) { response.parseAs<MALOAuth>() }
+        } catch (e: Exception) {
+            throw IOException("MDList: unreadable token refresh", e)
+        }
+        setAuth(refreshed)
+        refreshed
     }
 }
