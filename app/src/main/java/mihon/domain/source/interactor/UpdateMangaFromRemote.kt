@@ -12,6 +12,9 @@ import eu.kanade.tachiyomi.source.model.SManga
 import logcat.LogPriority
 import mihon.domain.source.models.RemoteMangaUpdate
 import reikai.domain.source.keptCover
+import reikai.domain.source.keptDetail
+import reikai.domain.source.keptGenres
+import reikai.domain.source.keptStatus
 import reikai.domain.source.refreshedCover
 import reikai.domain.source.refreshedTitle
 import tachiyomi.core.common.util.lang.withIOContext
@@ -125,12 +128,14 @@ class UpdateMangaFromRemote(
                 id = localManga.id,
                 title = title,
                 coverLastModified = coverLastModified,
-                author = remoteManga.author,
-                artist = remoteManga.artist,
-                description = remoteManga.description,
-                genre = remoteManga.getGenres(),
+                // RK --> a blank detail or an unknown status keeps the stored one, the rule novels follow
+                author = keptDetail(null, remoteManga.author),
+                artist = keptDetail(null, remoteManga.artist),
+                description = keptDetail(null, remoteManga.description),
+                genre = keptGenres(null, remoteManga.getGenres()),
                 thumbnailUrl = thumbnailUrl,
-                status = remoteManga.status.toLong(),
+                status = keptStatus(localManga.status, remoteManga.status.toLong()),
+                // RK <--
                 updateStrategy = remoteManga.update_strategy,
                 initialized = true,
                 memo = remoteManga.memo,

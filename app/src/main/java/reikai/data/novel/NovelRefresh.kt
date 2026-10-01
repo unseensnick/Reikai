@@ -8,6 +8,9 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.source.keptCover
+import reikai.domain.source.keptDetail
+import reikai.domain.source.keptGenres
+import reikai.domain.source.keptStatus
 import reikai.domain.source.refreshedCover
 import reikai.domain.source.refreshedTitle
 import reikai.novel.download.NovelDownloadManager
@@ -22,34 +25,43 @@ enum class StoredDetails {
     /** The novel's own: a field the parse leaves out keeps its stored value, and the title follows [refreshedTitle]. */
     KEPT,
 
-    /** Another novel's, which the repair undoes: every source-owned field, title included, takes the parse's. */
-    REPLACED,
+    /**
+     * Perhaps another novel's, as the repair finds them: it cannot tell a victim from the neighbour it copied. A parse
+     * naming the novel by another title proves them another's, so every source-owned field, title included, takes the
+     * parse's and one it leaves out is cleared. Any other parse keeps them, as [KEPT] does.
+     */
+    SUSPECT,
 }
 
 /**
  * Overlay freshly [parsed] source metadata onto the stored [existing] novel. User edits live in the
  * non-destructive `custom_novel_info` overlay, applied on read, so every source-owned field takes the
- * source value; a null or blank parsed value falls back to the stored one under [StoredDetails.KEPT], so a
- * partial parse never wipes data, and to none under [StoredDetails.REPLACED]. Identity and library state stay
- * [existing]'s.
+ * source value; one the parse leaves out falls back to [kept]'s, which is [existing] unless its details
+ * are another novel's. Identity and library state stay [existing]'s.
  */
-private fun mergeRefreshedNovel(existing: Novel, parsed: Novel, updateTitles: Boolean, details: StoredDetails): Novel {
-    val fallback = if (details == StoredDetails.KEPT) existing else Novel.create()
-    return existing.copy(
-        // toNovel's placeholder for a nameless parse is not a title, and a title cannot be cleared.
-        title = refreshedTitle(parsed.title.takeIf { it != "Untitled" }, existing.favorite, updateTitles)
-            ?: existing.title,
-        author = parsed.author?.takeIf { it.isNotBlank() } ?: fallback.author,
-        artist = parsed.artist?.takeIf { it.isNotBlank() } ?: fallback.artist,
-        description = parsed.description?.takeIf { it.isNotBlank() } ?: fallback.description,
-        genre = parsed.genre?.takeIf { it.isNotEmpty() } ?: fallback.genre,
-        // Source UNKNOWN (0) doesn't clobber a known stored status.
-        status = parsed.status.takeIf { it != NovelStatusCode.UNKNOWN.toLong() } ?: fallback.status,
-        thumbnailUrl = keptCover(fallback.thumbnailUrl, parsed.thumbnailUrl),
+private fun mergeRefreshedNovel(existing: Novel, parsed: Novel, updateTitles: Boolean, kept: Novel): Novel =
+    existing.copy(
+        // A title cannot be cleared.
+        title = refreshedTitle(parsed.sentTitle, existing.favorite, updateTitles) ?: existing.title,
+        author = keptDetail(kept.author, parsed.author),
+        artist = keptDetail(kept.artist, parsed.artist),
+        description = keptDetail(kept.description, parsed.description),
+        genre = keptGenres(kept.genre, parsed.genre),
+        status = keptStatus(kept.status, parsed.status),
+        thumbnailUrl = keptCover(kept.thumbnailUrl, parsed.thumbnailUrl),
         // A partial parse reporting 0 never shrinks a known page count.
-        totalPages = parsed.totalPages.takeIf { it > 0L } ?: fallback.totalPages,
+        totalPages = parsed.totalPages.takeIf { it > 0L } ?: kept.totalPages,
         initialized = true,
     )
+
+// toNovel's placeholder for a nameless parse is not a title.
+private val Novel.sentTitle: String?
+    get() = title.takeIf { it != "Untitled" }
+
+/** Whether a [StoredDetails.SUSPECT] novel's [parsed] details prove its stored ones another novel's. */
+private fun wearsAnothersDetails(existing: Novel, parsed: Novel): Boolean {
+    val sent = parsed.sentTitle ?: return false
+    return !sent.trim().equals(existing.title.trim(), ignoreCase = true)
 }
 
 /**
@@ -68,8 +80,9 @@ suspend fun storeRefreshedNovel(
     manualFetch: Boolean = false,
     details: StoredDetails = StoredDetails.KEPT,
 ): Novel {
-    val updateTitles = details == StoredDetails.REPLACED || libraryPreferences.updateMangaTitles.get()
-    val merged = mergeRefreshedNovel(existing, parsed, updateTitles, details)
+    val replaced = details == StoredDetails.SUSPECT && wearsAnothersDetails(existing, parsed)
+    val updateTitles = replaced || libraryPreferences.updateMangaTitles.get()
+    val merged = mergeRefreshedNovel(existing, parsed, updateTitles, kept = if (replaced) Novel.create() else existing)
     // Novels have no local source, so a cover is never only stamped.
     val refreshedUrl = keptCover(null, parsed.thumbnailUrl)
     val cover = refreshedCover(existing.thumbnailUrl, refreshedUrl, manualFetch, isLocal = false) {

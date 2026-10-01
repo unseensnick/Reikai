@@ -244,6 +244,7 @@ every stable release now also ships a foss build with neither in it.
 - **Turning off tracker recommendations or the taste suggestions in Settings -> Recommendations now removes them from a related carousel you already opened.**
 - **Long-press range select in the grouped See all related-manga grid now picks only the covers between the two you pressed.**
 - **The See all related-manga grid's add count now leaves out titles that failed to reach the library.**
+- **Refreshing a manga no longer blanks its author, artist, description or status when its source sends none.**
 
 ### Reader
 

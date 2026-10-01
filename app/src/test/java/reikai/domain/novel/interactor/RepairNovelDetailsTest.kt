@@ -14,10 +14,11 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
-import reikai.data.novel.PagedSource
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.ChapterItem
+import reikai.novel.host.SourceNovel
+import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.data.Database
@@ -97,7 +98,7 @@ class RepairNovelDetailsTest {
      */
     @Test
     fun `a library novel wearing a neighbour's title gets its own back`() = runTest {
-        repairedVictim().title shouldBe "Victim"
+        repaired(VICTIM).title shouldBe "Victim"
     }
 
     /**
@@ -106,19 +107,52 @@ class RepairNovelDetailsTest {
      */
     @Test
     fun `a repaired novel keeps none of its neighbour's details its source leaves out`() = runTest {
-        repairedVictim().author shouldBe null
+        repaired(VICTIM).author shouldBe null
     }
 
-    /** A library novel wearing a neighbour's details, repaired against a source that parses it as "Victim". */
-    private suspend fun repairedVictim(): Novel {
+    /** The scan cannot tell the two apart, so the neighbour is refetched too, and its details are its own. */
+    @Test
+    fun `the neighbour whose details were copied keeps an author its source leaves out`() = runTest {
+        repaired(DONOR).author shouldBe "Donor author"
+    }
+
+    @Test
+    fun `the neighbour whose details were copied keeps a description its source leaves out`() = runTest {
+        repaired(DONOR).description shouldBe "Donor synopsis"
+    }
+
+    /** A source naming no title proves nothing either way, so nothing is cleared. */
+    @Test
+    fun `a novel its source names no title for keeps its details`() = runTest {
+        repaired(VICTIM, titles = mapOf(DONOR to "Donor")).author shouldBe "Donor author"
+    }
+
+    /**
+     * Two library novels on one source wearing the donor's details, repaired against a source that names each by
+     * [titles] and sends no author or description, as the plugin behind the reported case does. Returns the novel
+     * stored at [url] afterwards.
+     */
+    private suspend fun repaired(url: String, titles: Map<String, String> = TITLES): Novel {
         Database.Schema.create(driver).await()
         val database = DatabaseBindings.providesDatabase(driver)
         val novels = NovelRepositoryImpl(database)
-        val donor = Novel.create().copy(source = "src", url = "/donor", title = "Donor", author = "Donor author")
+        val donor = Novel.create().copy(
+            source = "src",
+            url = DONOR,
+            title = "Donor",
+            author = "Donor author",
+            description = "Donor synopsis",
+            favoriteAt = 0L,
+        )
         novels.insert(donor)
-        val victimId = novels.insert(donor.copy(url = "/victim", favoriteAt = 0L))!!
-        val source =
-            PagedSource(listOf(ChapterItem(name = "Chapter 1", path = "/c/1", chapterNumber = 1.0)), title = "Victim")
+        novels.insert(donor.copy(url = VICTIM))
+        val source = mockk<NovelSource> {
+            every { id } returns "src"
+            coEvery { parseNovel(any()) } answers {
+                val path = firstArg<String>()
+                SourceNovel(path = path, name = titles[path], chapters = listOf(ChapterItem("Chapter 1", "$path/1")))
+            }
+        }
         val context = mockk<Context> {
             every { getExternalFilesDir(any()) } answers { File(cacheRoot, firstArg<String>()).apply { mkdirs() } }
         }
@@ -136,6 +170,12 @@ class RepairNovelDetailsTest {
         )
 
         repair.await()
-        return novels.getById(victimId)!!
+        return novels.getByUrlAndSource(url, "src")!!
+    }
+
+    private companion object {
+        const val DONOR = "/donor"
+        const val VICTIM = "/victim"
+        val TITLES = mapOf(DONOR to "Donor", VICTIM to "Victim")
     }
 }

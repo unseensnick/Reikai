@@ -55,10 +55,9 @@ class RepairNovelDetails(
                         libraryPreferences,
                         coverCache,
                         novelDownloadManager = downloadManager(),
-                        // Every stored detail is the neighbour's, the title too, so the library-titles setting
-                        // cannot keep it and a field the source leaves out is cleared rather than kept. A user's
-                        // own edits live in custom_novel_info and survive.
-                        details = StoredDetails.REPLACED,
+                        // The parse tells the victim from its donor. A user's own edits live in
+                        // custom_novel_info and survive either way.
+                        details = StoredDetails.SUSPECT,
                     )
                 }
                     .onSuccess { repaired++ }
@@ -73,8 +72,8 @@ class RepairNovelDetails(
          * Two novels on the SAME source sharing a title and author but sitting at different urls: one is wearing the
          * other's details. Author is part of the key because title alone flags every same-titled work on a
          * user-generated source, and it costs no sensitivity: the mix-up copies the whole metadata block, so a
-         * victim carries its donor's author too. Both members are returned rather than a guess at the victim, since
-         * re-fetching resolves it either way for one wasted request.
+         * victim carries its donor's author too. Both members are returned rather than a guess at the victim: the
+         * refetch tells them apart, as only the victim's source names it by another title ([StoredDetails.SUSPECT]).
          */
         fun findSuspects(novels: List<Novel>): List<Novel> =
             novels
