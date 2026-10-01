@@ -95,6 +95,23 @@ class NovelMigrationFlowAdapterTest {
     }
 
     @Test
+    fun `a failed later page leaves prioritize-by-chapters unranked rather than undercounted`() = runTest {
+        // An undercount reads as known, and hide-without-updates drops a row on it for good.
+        coEvery { source.parsePage("/title", "2") } throws IOException("timeout")
+        val tuning = MigrationTuning(deepSearch = true, prioritizeByChapters = true)
+
+        adapter.suggest(entry, "plugin", tuning)?.let { it.chapterCount to it.latestChapter } shouldBe (null to null)
+    }
+
+    @Test
+    fun `a later page that answers nothing leaves prioritize-by-chapters unranked`() = runTest {
+        coEvery { source.parsePage("/title", "2") } returns null
+        val tuning = MigrationTuning(deepSearch = true, prioritizeByChapters = true)
+
+        adapter.suggest(entry, "plugin", tuning)?.let { it.chapterCount to it.latestChapter } shouldBe (null to null)
+    }
+
+    @Test
     fun `the count peek reads a hit's stored chapters before parsing the source`() = runTest {
         // The source's first page undercounts, so a parse-only peek has no count to give here.
         val stored = Novel.create().copy(id = 7L, source = "plugin", url = "/title")

@@ -182,10 +182,13 @@ class NovelMigrationFlowAdapter(
         // then: otherwise the count peek after the search fills the one suggestion that is kept.
         if (!tuning.prioritizeByChapters) return candidate
         // Best-effort, as manga's chapter fetch is: a failed count leaves the hit unranked, not errored.
+        // All pages or none, since a partial count reads as known and hide-without-updates drops a row
+        // on it for good; the same reason peekCounts gives up on a paged list.
         val chapters = runCatchingCancellable {
             val parsed = source.parseNovel(match.path)
             parsed.chapters.orEmpty() + (2..parsed.totalPages).flatMap { page ->
-                runCatchingCancellable { source.parsePage(match.path, page.toString())?.chapters }.getOrNull().orEmpty()
+                checkNotNull(source.parsePage(match.path, page.toString())) { "Page $page answered nothing" }
+                    .chapters.orEmpty()
             }
         }.getOrNull().orEmpty()
         return candidate.withCounts(match, chapters)
