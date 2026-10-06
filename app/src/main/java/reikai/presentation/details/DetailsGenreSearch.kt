@@ -1,7 +1,7 @@
 package reikai.presentation.details
 
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.Navigator
+import cafe.adriel.voyager.core.stack.Stack
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
@@ -13,21 +13,28 @@ import reikai.presentation.browse.catalogue.EntryCatalogueScreen
  * that source's catalogue qualifies, since another would search a genre name it may not offer.
  * [filterable] false searches the catalogue as text, for a source with no filters to match.
  */
-suspend fun Navigator.searchGenreFromDetails(
+suspend fun Stack<Screen>.searchGenreFromDetails(
     genre: String,
     source: SourceKey,
     contentType: ContentType,
     filterable: Boolean = true,
 ) {
-    if (size < 2) return
     val catalogue = items.catalogueOf(source)
     if (catalogue != null) {
         popUntil { it === catalogue }
         if (filterable) catalogue.searchGenre(genre) else catalogue.search(genre)
         return
     }
+    searchLibraryFromDetails(genre, contentType)
+}
+
+/**
+ * Walks back to the library before searching it for [contentType]: its search channel has no
+ * buffer, so a send while the library is off-screen never arrives.
+ */
+suspend fun Stack<Screen>.searchLibraryFromDetails(query: String, contentType: ContentType) {
     popUntil { it is HomeScreen }
-    (lastItem as? HomeScreen)?.search(genre, contentType)
+    (lastItemOrNull as? HomeScreen)?.search(query, contentType)
 }
 
 /** The nearest catalogue of [source] on the stack, never another source's. */

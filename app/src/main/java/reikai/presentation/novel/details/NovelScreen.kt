@@ -21,7 +21,6 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
@@ -53,6 +52,7 @@ import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
+import reikai.presentation.details.searchLibraryFromDetails
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
@@ -159,13 +159,7 @@ class NovelScreen(
                                 navigator.push(EntryGlobalSearchScreen(it, scopedContentType = ContentType.NOVELS))
                             },
                             onLibrarySearch = { query ->
-                                // Walk back to the library before asking it to search: its channel
-                                // has no buffer, so a send while it is off-screen never arrives.
-                                navigator.popUntil { it is HomeScreen }
-                                scope.launch {
-                                    (navigator.lastItem as? HomeScreen)
-                                        ?.search(query, ContentType.NOVELS)
-                                }
+                                scope.launch { navigator.searchLibraryFromDetails(query, ContentType.NOVELS) }
                             },
                             // Null for an uninstalled plugin, whose catalogue would open on nothing.
                             onBrowseSource = s.browsableSourceId?.let { id ->

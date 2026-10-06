@@ -32,7 +32,6 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
@@ -65,6 +64,7 @@ import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.MangaEntryAdapter
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
+import reikai.presentation.details.searchLibraryFromDetails
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
@@ -388,12 +388,7 @@ class MangaScreen(
             return
         }
 
-        if (navigator.size < 2) {
-            return
-        }
-
-        navigator.popUntil { it is HomeScreen }
-        (navigator.lastItem as? HomeScreen)?.search(query, ContentType.MANGA)
+        navigator.searchLibraryFromDetails(query, ContentType.MANGA)
     }
     // RK <--
 
