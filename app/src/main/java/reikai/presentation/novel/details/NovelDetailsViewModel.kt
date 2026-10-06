@@ -98,6 +98,7 @@ import reikai.domain.novel.model.effectiveSorting
 import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.novelMissingChapterCount
 import reikai.domain.novel.ownersOf
+import reikai.domain.novel.text.NovelWords
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
 import reikai.domain.source.healedCover
@@ -108,9 +109,11 @@ import reikai.domain.track.autobind.TrackingButtonState
 import reikai.domain.track.autobind.offerTrackers
 import reikai.domain.track.autobind.trackingButtonState
 import reikai.domain.track.source.SourceTrackerDispatcher
+import reikai.novel.content.NovelWordDensity
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.download.NovelDownloadedTexts
 import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -192,6 +195,7 @@ class NovelDetailsViewModel(
     private val removeNovelsFromLibrary: RemoveNovelsFromLibrary,
     private val trackPorts: EntryTrackPorts,
     private val autoBindTrackers: AutoBindTrackers,
+    private val downloadedTexts: NovelDownloadedTexts,
 ) : ViewModel() {
 
     // Building the manager restores the persisted queue and can start the download worker, so it is
@@ -1452,7 +1456,51 @@ class NovelDetailsViewModel(
         dismissDialog()
     }
 
-    fun dismissDialog() = updateLoaded { it.copy(dialog = null) }
+    fun dismissDialog() {
+        wordCountJob?.cancel()
+        updateLoaded { it.copy(dialog = null) }
+    }
+
+    private var wordCountJob: Job? = null
+
+    /**
+     * Counts the words of every downloaded chapter in the scope the reader opens (the chip's source, or
+     * the whole group), off the main thread, showing progress and then the result in the dialog.
+     */
+    fun showWordCountDialog() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        wordCountJob?.cancel()
+        updateLoaded { it.copy(dialog = NovelDetailsDialog.WordCount(checkedChapters = 0, chaptersToCount = null)) }
+        wordCountJob = viewModelScope.launchIO {
+            val scope = downloadedTexts.chaptersOf(
+                loaded.selectedSourceNovelId ?: loaded.novel.id,
+                sourceScoped = loaded.selectedSourceNovelId != null,
+            )
+            updateWordCount { it.copy(chaptersToCount = scope.onDisk.size) }
+            var totalWords = 0L
+            var counted = 0
+            var unreadable = 0
+            var checked = 0
+            downloadedTexts.readEach(scope.onDisk) { _, text ->
+                if (text != null) {
+                    totalWords += NovelWords.countSpaced(text)
+                    counted++
+                } else {
+                    unreadable++
+                }
+                checked++
+                updateWordCount { it.copy(checkedChapters = checked) }
+            }
+            val result = NovelWordDensity(totalWords, counted, scope.total, unreadable)
+            updateWordCount { it.copy(result = result) }
+        }
+    }
+
+    private inline fun updateWordCount(
+        crossinline transform: (NovelDetailsDialog.WordCount) -> NovelDetailsDialog.WordCount,
+    ) = updateLoaded { loaded ->
+        (loaded.dialog as? NovelDetailsDialog.WordCount)?.let { loaded.copy(dialog = transform(it)) } ?: loaded
+    }
 
     /** Raise the migrate dialog for the duplicate the user picked, onto this novel. Both rows already
      *  exist, so there is nothing to materialize first. */
@@ -1599,6 +1647,13 @@ sealed interface NovelDetailsDialog {
     data object SetFetchInterval : NovelDetailsDialog
     data object PageSelector : NovelDetailsDialog
     data class SourceSettings(val source: NovelSource) : NovelDetailsDialog
+
+    /** [chaptersToCount] is null until the chapters on disk are known, [result] until they are counted. */
+    data class WordCount(
+        val checkedChapters: Int,
+        val chaptersToCount: Int?,
+        val result: NovelWordDensity? = null,
+    ) : NovelDetailsDialog
 
     /** Confirm clearing downloads; sourceName is the chip being viewed, null in the unified view. */
     data class ClearDownloads(val sourceName: String?) : NovelDetailsDialog

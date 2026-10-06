@@ -39,19 +39,22 @@ object NovelRegexReplacements {
      * when read.
      */
     fun compile(rule: NovelRegexReplacement): Compiled {
-        val options = if (rule.caseSensitive) emptySet() else setOf(RegexOption.IGNORE_CASE)
-        if (rule.isRegex) {
-            val regex = Regex(rule.pattern, options)
-            checkReplacement(regex, rule.replacement)
-            return Compiled(regex, rule.replacement, literal = false)
-        }
-        val escaped = Regex.escape(rule.pattern)
-        val bounded = if (rule.matchWholeWord) {
-            "(?<![\\p{L}\\p{N}_])(?:$escaped)(?![\\p{L}\\p{N}_])"
-        } else {
-            escaped
-        }
-        return Compiled(Regex(bounded, options), rule.replacement, literal = true)
+        val regex = findRegex(rule.pattern, rule.isRegex, rule.matchWholeWord, rule.caseSensitive)
+        if (rule.isRegex) checkReplacement(regex, rule.replacement)
+        return Compiled(regex, rule.replacement, literal = !rule.isRegex)
+    }
+
+    /**
+     * What a find matches: [pattern] as a regex, or else literally and, with [wholeWord], only as a whole
+     * word. A regex says that itself, so [wholeWord] is ignored for one, as the rule editor hides it.
+     * Throws whatever an invalid regex fails with. The rules and the chapter text search both find here.
+     */
+    fun findRegex(pattern: String, isRegex: Boolean, wholeWord: Boolean, caseSensitive: Boolean): Regex {
+        val options = if (caseSensitive) emptySet() else setOf(RegexOption.IGNORE_CASE)
+        if (isRegex) return Regex(pattern, options)
+        val escaped = Regex.escape(pattern)
+        val bounded = if (wholeWord) "(?<![\\p{L}\\p{N}_])(?:$escaped)(?![\\p{L}\\p{N}_])" else escaped
+        return Regex(bounded, options)
     }
 
     fun apply(content: String, rulesJson: String): String {

@@ -325,6 +325,8 @@ agent under Settings -> Advanced.
 - **The novel reader has a new near-black theme, and its page background and text can each be set to any colour from the reader's Appearance tab.**
 - **Settings -> Novel reader can now tidy up a chapter before you read it.** Hide a heading that just repeats the chapter name, block images and video, split walls of text into paragraphs every 20 to 2000 words, force lowercase, and choose whether a chapter's own styling runs.
 - **Settings -> Novel reader can now skip chapters marked read and skip filtered chapters going forward, like manga, with Skip filtered chapters on by default.** The previous-chapter button still reaches the chapter you just finished.
+- **A novel's details page can now search the text of every downloaded chapter, from its overflow menu (from Tsundoku).** Matches show in context and open the chapter. Upstream: tsundoku-otaku/tsundoku#433.
+- **A novel's details page can now count the words in its downloaded chapters and rate how long they run (from Tsundoku).** Upstream: tsundoku-otaku/tsundoku#434.
 - **Novels now show their predicted next release on the details page, and Smart update under Settings -> Library -> Global update · Novels gains Predict next release time.** With it on, a library update skips novels outside their release period.
 - **Novel new-chapter notifications now work like manga's: they show the cover and the Reikai icon, name the new chapters with Mark as read and Download, and open the chapter when tapped.** The summary lists the novels that updated.
 - **Updating your novel library now shows how far along it is, as a percentage, as manga's does.**

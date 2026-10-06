@@ -258,8 +258,6 @@ class NovelReaderViewModelHarness private constructor(
             downloadManagerProvider = { downloadManager },
             upsertNovelHistory = UpsertNovelHistory(history),
             setNovelReadStatus = setNovelReadStatus(),
-            mergeManager = mergeManager,
-            mergedChapterProvider = mergedChapterProvider,
             libraryPreferences = LibraryPreferences(store),
             // The tracker network.
             trackNovelChapter = mockk(relaxed = true),
@@ -353,6 +351,7 @@ class NovelReaderViewModelHarness private constructor(
             removeNovelsFromLibrary = mockk(relaxed = true),
             trackPorts = mockk(relaxed = true),
             autoBindTrackers = mockk(relaxed = true),
+            downloadedTexts = mockk(relaxed = true),
         ).also(::track)
     }
 

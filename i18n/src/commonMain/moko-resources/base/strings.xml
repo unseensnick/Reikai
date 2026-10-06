@@ -1885,4 +1885,24 @@
     <string name="markdown_alert_important">Important</string>
     <string name="markdown_alert_warning">Warning</string>
     <string name="markdown_alert_caution">Caution</string>
+
+    <!-- RK: search and word count over a novel's downloaded chapters (from Tsundoku) -->
+    <string name="action_search_downloaded_text">Search downloaded chapters</string>
+    <string name="novel_text_search_hint">Find in downloaded chapters</string>
+    <string name="novel_text_search_progress">Searched %1$d of %2$d chapters</string>
+    <string name="novel_text_search_no_chapters">No downloaded chapters to search</string>
+    <string name="novel_text_search_empty">Search the text of every downloaded chapter</string>
+    <string name="action_word_count">Word count</string>
+    <string name="word_count_progress">Counting %1$d of %2$d chapters</string>
+    <string name="word_count_no_downloads">No downloaded chapters to count</string>
+    <string name="word_count_unreadable">None of the chapters could be read</string>
+    <string name="word_count_total_words">Total words</string>
+    <string name="word_count_average_words">Words per chapter</string>
+    <string name="word_count_chapters_counted">Chapters counted</string>
+    <string name="word_count_of_total">%1$s of %2$s</string>
+    <string name="word_count_not_downloaded">%1$s of %2$s chapters not downloaded</string>
+    <string name="word_count_unreadable_some">%1$s of %2$s chapters could not be read</string>
+    <string name="word_density_indicator">Word density %1$d</string>
+    <string name="word_density_range">Density %1$d of %2$d: %3$s to %4$s words a chapter</string>
+    <string name="word_density_range_top">Density %1$d of %2$d: over %3$s words a chapter</string>
 </resources>

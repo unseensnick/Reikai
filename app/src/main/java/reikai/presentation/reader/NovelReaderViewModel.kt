@@ -52,8 +52,6 @@ import reikai.domain.merge.MergeScope
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.withOpenedChapter
 import reikai.domain.novel.NovelChapterRepository
-import reikai.domain.novel.NovelMergeManager
-import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
@@ -133,10 +131,8 @@ class NovelReaderViewModel(
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val upsertNovelHistory: UpsertNovelHistory,
     private val setNovelReadStatus: SetNovelReadStatus,
-    // Merge-group resolution + the shared "mark duplicate read" pref, for marking a merged novel's
-    // copies of a finished chapter read (parity with the manga reader).
-    private val mergeManager: NovelMergeManager,
-    private val mergedChapterProvider: NovelMergedChapterProvider,
+    // The shared "mark duplicate read" pref, for marking a merged novel's copies of a finished chapter
+    // read (parity with the manga reader).
     private val libraryPreferences: LibraryPreferences,
     private val trackNovelChapter: TrackNovelChapter,
     private val trackPreferences: TrackPreferences,
@@ -1113,31 +1109,22 @@ class NovelReaderViewModel(
      * nowhere to step from.
      */
     private suspend fun resolveReadingOrder() {
-        // Both scopes need the group behind the opened novel: source scope shows one source's rows, but
-        // whether the story has been read is not a property of the row, so the flags are resolved here
-        // once and the two members are loaded once.
-        val ids = mergeManager.relatedIdsList(novelId)
-        val pooled = if (ids.size <= 1) emptyList() else ids.flatMap { chapterRepo.getByNovelId(it) }
-        val stitch = if (pooled.isEmpty()) emptyList() else mergedChapterProvider.stitchOf(novelId)
-        memberIds = ids.ifEmpty { listOf(novelId) }
+        val reading = getNextNovelChapter.readingRows(novelId, sourceScoped) { chapters, owners ->
+            novelDownloadCache.downloadedChapterIds(chapters, owners)
+        }
+        val pooled = reading.pooled
+        val stitch = reading.stitch
+        memberIds = reading.memberIds
         groupStitch = stitch
         // The chapters stay chapters through both filters. Reducing to ids here meant re-reading every
         // one of them back out of the database a row at a time, before the first page could be drawn.
         val chapters = if (sourceScoped) {
-            chapterRepo.getByNovelId(novelId)
+            reading.rows
         } else {
-            val listed = if (pooled.isEmpty()) {
-                chapterRepo.getByNovelId(novelId)
-            } else {
-                val copies =
-                    CopyToOpen(mergeScope, pooled, stitch, {
-                        it.id
-                    }, novelDownloadCache.downloadedChapterIds(pooled, novelRepo.ownersOf(pooled)))
+            val listed = reading.rows
+            reading.copies?.let { copies ->
                 copiesToOpen = copies
                 currentChapterId = copies.idOf(currentChapterId)
-                copies.inPlaceOf(mergedChapterProvider.merged(pooled, stitch)) { copy, row ->
-                    copy.copy(sourceOrder = row.sourceOrder)
-                }
             }
             withOpenedChapter(
                 unified = listed,

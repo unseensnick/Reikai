@@ -71,6 +71,10 @@ data class EntryDetailsNavigation(
     val onEditInterval: (() -> Unit)? = null,
     /** Opens the novel page/volume selector sheet; novel-only. */
     val onOpenPageSelector: (() -> Unit)? = null,
+    /** Search and word count over the downloaded chapters' text; novel-only, since a manga chapter on
+     *  disk is images. Offered only while what the screen shows has downloads. */
+    val onSearchText: (() -> Unit)? = null,
+    val onWordCount: (() -> Unit)? = null,
     // Manga capability taps.
     val onRelatedClick: (RelatedMangaCandidate) -> Unit = {},
     val onRelatedSeeAll: () -> Unit = {},
@@ -255,6 +259,8 @@ private fun EntryDetailsToolbar(
             state.chaptersDownloadable && state.hasViewedDownloads
         },
         onClickOpenFolder = nav.onOpenFolder?.takeIf { state.chaptersDownloadable && state.hasViewedDownloads },
+        onClickSearchText = nav.onSearchText?.takeIf { state.chaptersDownloadable && state.hasViewedDownloads },
+        onClickWordCount = nav.onWordCount?.takeIf { state.chaptersDownloadable && state.hasViewedDownloads },
         onClickRecommendations = nav.onRecommendations,
         onHide = behavior::hideSelected,
         onUnhide = behavior::unhideSelected,

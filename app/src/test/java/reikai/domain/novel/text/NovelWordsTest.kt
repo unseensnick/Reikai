@@ -19,4 +19,17 @@ class NovelWordsTest {
     fun `counts words the way a reader would`(text: String, words: Int) {
         NovelWords.count(text) shouldBe words
     }
+
+    /** The word-count dialog's figure: whatever runs between spaces, as Tsundoku counts it. */
+    @ParameterizedTest(name = "{0} is {1} spaced words")
+    @CsvSource(
+        "one two three, 3",
+        "我们今天去学校。, 1",
+        "'\"Well - fine,\" she said.', 5",
+        "'  ', 0",
+        "'one two', 2",
+    )
+    fun `counts what runs between spaces`(text: String, words: Int) {
+        NovelWords.countSpaced(text) shouldBe words
+    }
 }

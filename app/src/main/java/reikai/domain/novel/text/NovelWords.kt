@@ -29,6 +29,23 @@ object NovelWords {
         return words
     }
 
+    /**
+     * Whatever runs between spaces, a no-break space included, as Tsundoku's word-count dialog counts. The
+     * dialog's figure is theirs (an owner ruling), so a Chinese or Japanese chapter counts a few words here
+     * where [count], which the split and read-aloud need, counts every character.
+     */
+    fun countSpaced(text: String): Int {
+        var words = 0
+        var inWord = false
+        for (char in text) {
+            // Kotlin's isWhitespace also answers true for a no-break space, which Java's does not.
+            val isSpace = char.isWhitespace()
+            if (!isSpace && !inWord) words++
+            inWord = !isSpace
+        }
+        return words
+    }
+
     private fun isUnspacedScript(cp: Int): Boolean = when (Character.UnicodeScript.of(cp)) {
         Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA -> true
         else -> false

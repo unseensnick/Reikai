@@ -59,6 +59,9 @@ fun EntryToolbar(
     onClickClearDownloads: (() -> Unit)? = null,
     // Open the download folder, gated the same way: there is nothing to open until something is there.
     onClickOpenFolder: (() -> Unit)? = null,
+    // Search and word count over the downloaded text, novel-only and gated the same way.
+    onClickSearchText: (() -> Unit)? = null,
+    onClickWordCount: (() -> Unit)? = null,
 
     // For action mode
     actionModeCounter: Int,
@@ -160,8 +163,9 @@ fun EntryToolbar(
                         ),
                     )
                     // Overflow order (both types): Refresh, Edit categories, Edit info, Migrate, Manage
-                    // sources, Notes, Share, Gallery info, Open folder, Clear downloads, Source
-                    // settings, Show/Hide hidden. Each is gated on its callback.
+                    // sources, Notes, Share, Gallery info, Search downloaded chapters, Word count, Open
+                    // folder, Clear downloads, Source settings, Show/Hide hidden. Each is gated on its
+                    // callback.
                     add(
                         AppBar.OverflowAction(
                             title = stringResource(MR.strings.action_webview_refresh),
@@ -219,6 +223,22 @@ fun EntryToolbar(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_metadata_viewer),
                                 onClick = onClickMetadataViewer,
+                            ),
+                        )
+                    }
+                    if (onClickSearchText != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_search_downloaded_text),
+                                onClick = onClickSearchText,
+                            ),
+                        )
+                    }
+                    if (onClickWordCount != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_word_count),
+                                onClick = onClickWordCount,
                             ),
                         )
                     }

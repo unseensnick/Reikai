@@ -56,6 +56,7 @@ import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
 import reikai.presentation.novel.notes.NovelNotesScreen
+import reikai.presentation.novel.search.NovelChapterSearchScreen
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.EmptyScreen
 
@@ -210,6 +211,16 @@ class NovelScreen(
                                 null
                             },
                             onOpenPageSelector = viewModel::showPageSelectorDialog,
+                            // The scope a chapter tapped here opens in: the chip's source, else the group.
+                            onSearchText = {
+                                navigator.push(
+                                    NovelChapterSearchScreen(
+                                        novelId = s.selectedSourceNovelId ?: s.novel.id,
+                                        sourceScoped = s.selectedSourceNovelId != null,
+                                    ),
+                                )
+                            },
+                            onWordCount = viewModel::showWordCountDialog,
                             onOpenFolder = {
                                 openDownloadFolder(context, viewModel.viewedDownloadDir())
                             },
@@ -278,6 +289,7 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
             }
             null -> {}
         }
+        is NovelDetailsDialog.WordCount -> NovelWordCountDialog(dialog, onDismissRequest = viewModel::dismissDialog)
         NovelDetailsDialog.PageSelector -> NovelPageSelectorSheet(
             pages = state.pages,
             selectedIndex = state.pageIndex,
@@ -295,7 +307,8 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
 }
 
 // Map a novel dialog to the shared union for the dialogs both content types render (EntryDetailsDialogHost);
-// the per-type ones (change-category, duplicate, chapter-settings, source-settings, page-selector, migrate)
+// the per-type ones (change-category, duplicate, chapter-settings, source-settings, page-selector, word
+// count, migrate)
 // stay in NovelDetailsDialogs.
 private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabled: Boolean): EntryDetailsDialog? =
     when (val d = dialog) {

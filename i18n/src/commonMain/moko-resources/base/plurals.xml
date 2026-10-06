@@ -227,4 +227,18 @@
         <item quantity="one">Your filters hide the one suggestion</item>
         <item quantity="other">Your filters hide all %d suggestions</item>
     </plurals>
+
+    <!-- RK: search across a novel's downloaded chapters (from Tsundoku) -->
+    <plurals name="novel_text_search_matches">
+        <item quantity="one">%d match</item>
+        <item quantity="other">%d matches</item>
+    </plurals>
+    <plurals name="novel_text_search_matched_chapters">
+        <item quantity="one">in %d chapter</item>
+        <item quantity="other">in %d chapters</item>
+    </plurals>
+    <plurals name="novel_text_search_failed_chapters">
+        <item quantity="one">%d chapter could not be read</item>
+        <item quantity="other">%d chapters could not be read</item>
+    </plurals>
 </resources>
