@@ -613,6 +613,7 @@ class ReaderActivity : BaseActivity() {
                         ReaderThemeDialog(
                             followSystemTheme = it.followSystemTheme,
                             backgroundColor = it.backgroundColor,
+                            textColor = it.textColor,
                             onFollowSystem = dialog.settings::followSystemTheme,
                             onPreset = { preset ->
                                 dialog.settings.setThemeColors(preset.background, preset.textColor)

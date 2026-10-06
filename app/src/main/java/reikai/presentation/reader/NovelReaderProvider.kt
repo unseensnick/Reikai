@@ -174,9 +174,9 @@ class NovelReaderProvider(
 
     override val textSettings: ReaderTextSettings = object : ReaderTextSettings {
         override val state: Flow<ReaderTextState> = viewModel.settings.map {
-            // The stored colour, not the resolved one: the picker marks what was chosen, and "Auto"
+            // The stored colours, not the resolved ones: the picker marks what was chosen, and "Auto"
             // is a choice of its own rather than whichever preset it resolves to right now.
-            ReaderTextState(it.fontSize, it.followSystemTheme, it.backgroundColor)
+            ReaderTextState(it.fontSize, it.followSystemTheme, it.backgroundColor, it.textColor)
         }
 
         override fun setFontSize(size: Int) = viewModel.setFontSize(size)

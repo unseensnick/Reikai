@@ -9,8 +9,9 @@ import kotlinx.coroutines.flow.Flow
 data class ReaderTextState(
     val fontSize: Int,
     val followSystemTheme: Boolean,
-    /** The stored background colour, which is what the picker marks as chosen. */
+    /** The stored colours, which are what the picker marks as chosen. */
     val backgroundColor: String,
+    val textColor: String,
 )
 
 /**

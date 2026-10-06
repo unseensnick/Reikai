@@ -36,6 +36,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 fun ReaderThemeDialog(
     followSystemTheme: Boolean,
     backgroundColor: String,
+    textColor: String,
     onFollowSystem: () -> Unit,
     onPreset: (ReaderThemePreset) -> Unit,
     onDismiss: () -> Unit,
@@ -54,22 +55,39 @@ fun ReaderThemeDialog(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
-            FlowRow(
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                readerThemePresets.forEach { preset ->
-                    val selected = !followSystemTheme && backgroundColor.equals(preset.background, ignoreCase = true)
-                    PresetSwatch(preset, selected) { onPreset(preset) }
-                }
-            }
+            ReaderThemeSwatches(
+                followSystem = followSystemTheme,
+                background = backgroundColor,
+                textColor = textColor,
+                onPreset = onPreset,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+/** The preset swatches, as the theme button's sheet and the settings sheet's Appearance tab both show them. */
+@Composable
+fun ReaderThemeSwatches(
+    followSystem: Boolean,
+    background: String,
+    textColor: String,
+    onPreset: (ReaderThemePreset) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        readerThemePresets.forEach { preset ->
+            PresetSwatch(preset, preset.isPickedBy(followSystem, background, textColor)) { onPreset(preset) }
         }
     }
 }
 
 @Composable
-fun PresetSwatch(preset: ReaderThemePreset, selected: Boolean, onClick: () -> Unit) {
+private fun PresetSwatch(preset: ReaderThemePreset, selected: Boolean, onClick: () -> Unit) {
     val bg = remember(preset.background) { Color(readerBackgroundColorInt(preset.background)) }
     val fg = remember(preset.textColor) { Color(readerTextColorInt(preset.textColor)) }
     Box(

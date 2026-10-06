@@ -1,5 +1,9 @@
 package reikai.presentation.reader
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.toArgb
+
 /**
  * A reader background + text colour pairing. Choosing one writes both.
  *
@@ -7,7 +11,20 @@ package reikai.presentation.reader
  * own background now; an install still storing the old value draws it through [readerColorOrNull],
  * which reads eight digits as CSS does in both renderers.
  */
-data class ReaderThemePreset(val name: String, val background: String, val textColor: String)
+data class ReaderThemePreset(val name: String, val background: String, val textColor: String) {
+
+    /**
+     * Whether the page shows this preset: both stored colours compared as drawn, so a case or `#rgb`
+     * difference still matches, and so does Black's old translucent text over its own background.
+     */
+    fun isPickedBy(followSystem: Boolean, background: String, textColor: String): Boolean {
+        if (followSystem) return false
+        val page = readerColorOrNull(background) ?: return false
+        val text = readerColorOrNull(textColor) ?: return false
+        return page == readerColorOrNull(this.background) &&
+            Color(text).compositeOver(Color(page)).toArgb() == readerColorOrNull(this.textColor)
+    }
+}
 
 /** LNReader's five presets, its dark one named Grey as tsundoku names it, plus tsundoku's Dark. */
 val readerThemePresets = listOf(

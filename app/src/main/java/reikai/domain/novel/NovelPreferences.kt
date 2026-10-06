@@ -17,6 +17,7 @@ import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.domain.source.NovelIconHints
 import reikai.novel.content.NovelSnippetKind
+import reikai.presentation.reader.readerDarkPreset
 import reikai.util.getStringList
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -208,8 +209,8 @@ class NovelPreferences(
 
     /** When true the reader follows the system light/dark mode; otherwise the chosen preset wins. */
     fun readerFollowSystemTheme() = preferenceStore.getBoolean("ln_reader_follow_system_theme", true)
-    fun readerBackgroundColor() = preferenceStore.getString("ln_reader_bg_color", "#292832")
-    fun readerTextColor() = preferenceStore.getString("ln_reader_text_color", "#CCCCCC")
+    fun readerBackgroundColor() = preferenceStore.getString("ln_reader_bg_color", readerDarkPreset.background)
+    fun readerTextColor() = preferenceStore.getString("ln_reader_text_color", readerDarkPreset.textColor)
 
     // The page's brightness and colour treatment (ReaderDisplayFilters), the novel reader's own values.
     // The first five keys are the old novel reader's, so what a user set there carries over.

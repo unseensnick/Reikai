@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -62,15 +61,14 @@ import reikai.presentation.icons.FormatAlignRight
 import reikai.presentation.icons.ReikaiIcons
 import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
-import reikai.presentation.reader.PresetSwatch
 import reikai.presentation.reader.ReaderFont
 import reikai.presentation.reader.ReaderRanges
+import reikai.presentation.reader.ReaderThemeSwatches
 import reikai.presentation.reader.TtsOptions
 import reikai.presentation.reader.builtInReaderFonts
 import reikai.presentation.reader.readerBackgroundColorInt
 import reikai.presentation.reader.readerFontLabel
 import reikai.presentation.reader.readerTextColorInt
-import reikai.presentation.reader.readerThemePresets
 import reikai.presentation.reader.readerThemeShown
 import reikai.presentation.reader.rememberTtsOptions
 import reikai.presentation.reader.tenthsLabel
@@ -209,19 +207,16 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
         selected = followSystem,
         onClick = pages.textSettings::followSystemTheme,
     )
-    FlowRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = SettingsItemsPaddings.Vertical),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        readerThemePresets.forEach { preset ->
-            PresetSwatch(preset, selected = !followSystem && background.equals(preset.background, ignoreCase = true)) {
-                pages.textSettings.setThemeColors(preset.background, preset.textColor)
-            }
-        }
-    }
+    ReaderThemeSwatches(
+        followSystem = followSystem,
+        background = background,
+        textColor = text,
+        onPreset = { pages.textSettings.setThemeColors(it.background, it.textColor) },
+        modifier = Modifier.padding(
+            horizontal = SettingsItemsPaddings.Horizontal,
+            vertical = SettingsItemsPaddings.Vertical,
+        ),
+    )
     // Either colour picked by hand is the custom theme; the other keeps what the page shows now.
     PageColorRow(MR.strings.pref_novel_background_color, readerBackgroundColorInt(shown.background)) {
         pages.textSettings.setThemeColors(it, shown.textColor)
