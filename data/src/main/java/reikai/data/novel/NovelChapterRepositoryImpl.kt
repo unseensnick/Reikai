@@ -44,42 +44,14 @@ class NovelChapterRepositoryImpl(
         database.novel_chaptersQueries.getByUrlAndNovelId(url, novelId, ::mapNovelChapter).awaitAsOneOrNull()
 
     override suspend fun insert(chapter: NovelChapter): Long? = try {
-        database.transactionWithResult {
-            database.novel_chaptersQueries.insert(
-                novelId = chapter.novelId,
-                url = chapter.url,
-                name = chapter.name,
-                read = chapter.read,
-                bookmark = chapter.bookmark,
-                lastTextProgress = chapter.lastTextProgress,
-                chapterNumber = chapter.chapterNumber,
-                sourceOrder = chapter.sourceOrder,
-                dateFetch = chapter.dateFetch,
-                dateUpload = chapter.dateUpload,
-                page = chapter.page,
-            )
-            database.novel_chaptersQueries.selectLastInsertedRowId().awaitAsOne()
-        }
+        database.transactionWithResult { insertRow(chapter) }
     } catch (e: Exception) {
         logcat(LogPriority.ERROR, e) { "Failed to insert novel chapter '${chapter.url}' (novelId=${chapter.novelId})" }
         null
     }
 
     override suspend fun update(chapter: NovelChapter): Boolean = try {
-        database.novel_chaptersQueries.update(
-            novelId = chapter.novelId,
-            url = chapter.url,
-            name = chapter.name,
-            read = chapter.read,
-            bookmark = chapter.bookmark,
-            lastTextProgress = chapter.lastTextProgress,
-            chapterNumber = chapter.chapterNumber,
-            sourceOrder = chapter.sourceOrder,
-            dateFetch = chapter.dateFetch,
-            dateUpload = chapter.dateUpload,
-            page = chapter.page,
-            chapterId = chapter.id,
-        )
+        updateRow(chapter)
         true
     } catch (e: Exception) {
         logcat(LogPriority.ERROR, e) { "Failed to update novel chapter id=${chapter.id}" }
@@ -88,22 +60,7 @@ class NovelChapterRepositoryImpl(
 
     override suspend fun updateAll(chapters: List<NovelChapter>): Boolean = try {
         database.transaction {
-            chapters.forEach { chapter ->
-                database.novel_chaptersQueries.update(
-                    novelId = chapter.novelId,
-                    url = chapter.url,
-                    name = chapter.name,
-                    read = chapter.read,
-                    bookmark = chapter.bookmark,
-                    lastTextProgress = chapter.lastTextProgress,
-                    chapterNumber = chapter.chapterNumber,
-                    sourceOrder = chapter.sourceOrder,
-                    dateFetch = chapter.dateFetch,
-                    dateUpload = chapter.dateUpload,
-                    page = chapter.page,
-                    chapterId = chapter.id,
-                )
-            }
+            chapters.forEach { updateRow(it) }
         }
         true
     } catch (e: Exception) {
@@ -126,22 +83,7 @@ class NovelChapterRepositoryImpl(
                     .map { novelId to it.url }
             }
             .toMutableSet()
-        val stored = added.filter { existing.add(it.novelId to it.url) }.map { chapter ->
-            database.novel_chaptersQueries.insert(
-                novelId = chapter.novelId,
-                url = chapter.url,
-                name = chapter.name,
-                read = chapter.read,
-                bookmark = chapter.bookmark,
-                lastTextProgress = chapter.lastTextProgress,
-                chapterNumber = chapter.chapterNumber,
-                sourceOrder = chapter.sourceOrder,
-                dateFetch = chapter.dateFetch,
-                dateUpload = chapter.dateUpload,
-                page = chapter.page,
-            )
-            chapter.copy(id = database.novel_chaptersQueries.selectLastInsertedRowId().awaitAsOne())
-        }
+        val stored = added.filter { existing.add(it.novelId to it.url) }.map { it.copy(id = insertRow(it)) }
         updated.forEach { chapter ->
             database.novel_chaptersQueries.update(
                 novelId = null, url = null, name = chapter.name, read = null, bookmark = null,
@@ -197,5 +139,40 @@ class NovelChapterRepositoryImpl(
     } catch (e: Exception) {
         logcat(LogPriority.ERROR, e) { "Failed to bulk set read on ${ids.size} novel chapters" }
         false
+    }
+
+    /** Returns the new row's id, which `last_insert_rowid()` only gives back inside the caller's transaction. */
+    private suspend fun insertRow(chapter: NovelChapter): Long {
+        database.novel_chaptersQueries.insert(
+            novelId = chapter.novelId,
+            url = chapter.url,
+            name = chapter.name,
+            read = chapter.read,
+            bookmark = chapter.bookmark,
+            lastTextProgress = chapter.lastTextProgress,
+            chapterNumber = chapter.chapterNumber,
+            sourceOrder = chapter.sourceOrder,
+            dateFetch = chapter.dateFetch,
+            dateUpload = chapter.dateUpload,
+            page = chapter.page,
+        )
+        return database.novel_chaptersQueries.selectLastInsertedRowId().awaitAsOne()
+    }
+
+    private suspend fun updateRow(chapter: NovelChapter) {
+        database.novel_chaptersQueries.update(
+            novelId = chapter.novelId,
+            url = chapter.url,
+            name = chapter.name,
+            read = chapter.read,
+            bookmark = chapter.bookmark,
+            lastTextProgress = chapter.lastTextProgress,
+            chapterNumber = chapter.chapterNumber,
+            sourceOrder = chapter.sourceOrder,
+            dateFetch = chapter.dateFetch,
+            dateUpload = chapter.dateUpload,
+            page = chapter.page,
+            chapterId = chapter.id,
+        )
     }
 }
