@@ -1,8 +1,5 @@
 package reikai.domain.novel.model
 
-import dev.icerock.moko.resources.StringResource
-import tachiyomi.i18n.MR
-
 /**
  * Which parts of a novel's state a source migration copies, mirroring Mihon's
  * [mihon.domain.migration.models.MigrationFlag] and stored as a small bitmask in
@@ -10,12 +7,12 @@ import tachiyomi.i18n.MR
  * a migration (Mihon dropped its track flag). [REMOVE_DOWNLOAD] deletes the old source's downloaded
  * chapters on migrate, mirroring manga.
  */
-enum class NovelMigrationFlag(val bit: Int, val titleRes: StringResource) {
-    CHAPTER(0b00001, MR.strings.chapters),
-    CATEGORY(0b00010, MR.strings.categories),
-    COVER(0b00100, MR.strings.custom_cover),
-    NOTES(0b01000, MR.strings.action_notes),
-    REMOVE_DOWNLOAD(0b10000, MR.strings.migrationConfigScreen_removeDownloadsTitle),
+enum class NovelMigrationFlag(val bit: Int) {
+    CHAPTER(0b00001),
+    CATEGORY(0b00010),
+    COVER(0b00100),
+    NOTES(0b01000),
+    REMOVE_DOWNLOAD(0b10000),
     ;
 
     companion object {
