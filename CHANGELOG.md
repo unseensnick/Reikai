@@ -388,6 +388,7 @@ agent under Settings -> Advanced.
 - **A novel filter that matches nothing no longer says your library is empty.**
 - **Hiding chapter titles on a novel no longer changes its chapter order, and sorting its chapters no longer changes how their titles show.** Each follows your global default until you change it on that novel.
 - **Novel chapter dates now hold: a refresh keeps a date the source stops giving, an undated new chapter gets one as on manga, and a month-first date like 12/25/2024 reads correctly.** A date that is not a real day shows no date rather than a rolled-over one.
+- **A paged novel's page bar now names the same page as the page picker, and volumes list in the source's order.** Before, "Volume 10" sorted ahead of "Volume 2".
 - **Novel chapter names no longer repeat the novel's title in front.**
 - **Light novel names in Browse and search results no longer show raw codes like &amp;.** Before, these codes showed in result rows until the novel was opened.
 - **A light novel's title is no longer replaced by a source's "No Title Found" or "Untitled" placeholder.**

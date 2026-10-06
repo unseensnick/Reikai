@@ -48,12 +48,15 @@ WHERE novel_id = :novelId AND page = :page
 ORDER BY source_order;
 
 -- Distinct non-empty page labels, used to build the page selector for label-grouped sources
--- (whose chapters arrive in one parseNovel call rather than via parsePage).
+-- (whose chapters arrive in one parseNovel call rather than via parsePage). In the source's order, so
+-- "Volume 10" follows "Volume 2"; a label casts to 0, and a numbered page, whose source order may
+-- restart per page, runs by its number.
 getDistinctPages:
-SELECT DISTINCT page
+SELECT page
 FROM novel_chapters
 WHERE novel_id = :novelId AND page != ''
-ORDER BY page;
+GROUP BY page
+ORDER BY CAST(page AS INTEGER), min(source_order);
 
 -- The novel twin of chapter.sq's getMangaIdsWithChapterNameLike, backing the library's `chapter:` term.
 getNovelIdsWithChapterNameLike:

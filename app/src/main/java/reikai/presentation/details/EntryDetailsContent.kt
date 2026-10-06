@@ -38,6 +38,7 @@ import mihon.icons.materialsymbols.rounded.ExpandMore
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.MergeSourceChips
+import reikai.presentation.novel.details.novelPageText
 import reikai.presentation.recommendation.RelatedMangaCarousel
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
@@ -410,12 +411,11 @@ private fun LazyListScope.chapterHeaderItem(
                 missingChapterCount = state.chapters.missingChapterCount,
                 onClick = nav.onOpenFilterSettings,
             )
-            // A paged novel's "Page n / N" bar sits under the header, opening the page selector. The
+            // A paged novel's page bar sits under the header, opening the page selector. The
             // count above is the current page's, so the paged scope stays visible (sort/filter are paged).
             state.capabilities.novelPageSelector?.let { page ->
                 NovelPageBar(
-                    pageIndex = page.pageIndex,
-                    pageCount = page.pages.size,
+                    text = novelPageText(page.pages[page.pageIndex], page.pages.size),
                     isLoading = page.isPageLoading,
                     enabled = !state.selectionMode,
                     onClick = { nav.onOpenPageSelector?.invoke() },
@@ -493,11 +493,10 @@ private fun LazyListScope.entryChapterItems(
     }
 }
 
-/** Compact "Page n / N" row under the chapter header for a paged novel; opens the page selector sheet. */
+/** Compact row naming a paged novel's current page under the chapter header; opens the page selector sheet. */
 @Composable
 private fun NovelPageBar(
-    pageIndex: Int,
-    pageCount: Int,
+    text: String,
     isLoading: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
@@ -511,7 +510,7 @@ private fun NovelPageBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = stringResource(MR.strings.novel_chapter_list_page_of, pageIndex + 1, pageCount),
+            text = text,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.weight(1f),

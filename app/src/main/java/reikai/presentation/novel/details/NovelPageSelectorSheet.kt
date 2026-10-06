@@ -19,9 +19,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * Page / volume selector for a paged light-novel source. Lists each page key; tapping one switches
- * the chapter list to that page (fetched lazily on first visit). A purely numeric key reads as
- * "Page N"; a label-grouped source's key (e.g. "Volume 3") shows verbatim. Uses the same
- * [AdaptiveSheet] as the chapter-settings and source sheets for a consistent feel.
+ * the chapter list to that page (fetched lazily on first visit). Each key is named by [novelPageText].
+ * Uses the same [AdaptiveSheet] as the chapter-settings and source sheets for a consistent feel.
  */
 @Composable
 internal fun NovelPageSelectorSheet(
@@ -35,7 +34,7 @@ internal fun NovelPageSelectorSheet(
             itemsIndexed(pages) { index, key ->
                 val selected = index == selectedIndex
                 Text(
-                    text = key.toIntOrNull()?.let { stringResource(MR.strings.novel_chapter_list_page, it) } ?: key,
+                    text = novelPageText(key),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                     color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
@@ -47,5 +46,19 @@ internal fun NovelPageSelectorSheet(
                 )
             }
         }
+    }
+}
+
+/**
+ * A page key as the picker and the page bar both name it: a numeric key is "Page N", any other key (a
+ * label-grouped source's "Volume 3") shows as written. [pageCount] adds the "/ count" the bar shows.
+ */
+@Composable
+internal fun novelPageText(key: String, pageCount: Int? = null): String {
+    val number = key.toIntOrNull() ?: return key
+    return if (pageCount == null) {
+        stringResource(MR.strings.novel_chapter_list_page, number)
+    } else {
+        stringResource(MR.strings.novel_chapter_list_page_of, number, pageCount)
     }
 }
