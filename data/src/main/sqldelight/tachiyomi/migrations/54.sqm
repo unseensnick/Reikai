@@ -1,10 +1,7 @@
--- Novel twin of libraryView, pinned by LibraryViewQueryPlanTest. Favorited novels plus per-novel chapter
--- counts (total, read, latest upload, fetch date, last read, bookmarks) and the concatenated category ids.
--- Both subqueries are prefiltered to favourites, as libraryView's are, so they never aggregate the
--- chapters and categories of a novel outside the library. The download count is not here: downloaded
--- state now comes from NovelDownloadCache (disk), filled in the model. lastRead is derived from
--- novel_history exactly as libraryView derives it from history, so clearing a novel's history drops it
--- in the Last read sort. No excluded_scanlator join: novels offer no scanlator filter.
+-- novelLibraryView takes libraryView's favourites prefilters on both subqueries, so its aggregates
+-- skip the chapters and categories of novels outside the library. Results are unchanged.
+DROP VIEW novelLibraryView;
+
 CREATE VIEW novelLibraryView AS
 SELECT
     N.*,
@@ -40,7 +37,3 @@ LEFT JOIN (
 ) AS NC
 ON NC.novel_id = N._id
 WHERE N.favorite_at IS NOT NULL;
-
-novelLibrary:
-SELECT *
-FROM novelLibraryView;

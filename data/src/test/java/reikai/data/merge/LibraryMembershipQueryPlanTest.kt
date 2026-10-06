@@ -1,9 +1,6 @@
 package reikai.data.merge
 
-import app.cash.sqldelight.db.QueryResult
-import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
-import app.cash.sqldelight.db.SqlPreparedStatement
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.assertions.withClue
 import io.kotest.matchers.string.shouldStartWith
@@ -12,6 +9,8 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import reikai.data.RecordingDriver
+import reikai.data.queryPlan
 import reikai.domain.library.ContentType
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -38,35 +37,10 @@ class LibraryMembershipQueryPlanTest {
         val issued = mutableListOf<String>()
         MergeGroupRepositoryImpl(database(RecordingDriver(driver, issued))).getLibraryMembershipsAsFlow(type).first()
 
-        val plan = queryPlan(issued.single())
+        val plan = driver.queryPlan(issued.single())
 
         withClue(plan) {
             plan.first() shouldStartWith scan
-        }
-    }
-
-    private fun queryPlan(sql: String): List<String> =
-        driver.executeQuery(
-            identifier = null,
-            sql = "EXPLAIN QUERY PLAN $sql",
-            mapper = { cursor: SqlCursor ->
-                QueryResult.Value(buildList { while (cursor.next().value) add(cursor.getString(3)!!) })
-            },
-            parameters = 0,
-        ).value
-
-    /** Hands every query to [inner], keeping the SQL it was given. */
-    private class RecordingDriver(private val inner: SqlDriver, private val issued: MutableList<String>) :
-        SqlDriver by inner {
-        override fun <R> executeQuery(
-            identifier: Int?,
-            sql: String,
-            mapper: (SqlCursor) -> QueryResult<R>,
-            parameters: Int,
-            binders: (SqlPreparedStatement.() -> Unit)?,
-        ): QueryResult<R> {
-            issued += sql
-            return inner.executeQuery(identifier, sql, mapper, parameters, binders)
         }
     }
 
