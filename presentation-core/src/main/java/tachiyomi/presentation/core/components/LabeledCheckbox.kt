@@ -2,6 +2,7 @@ package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -23,6 +24,7 @@ fun LabeledCheckbox(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    subtitle: String? = null, // RK
 ) {
     Row(
         modifier = modifier
@@ -46,6 +48,17 @@ fun LabeledCheckbox(
             enabled = enabled,
         )
 
-        Text(text = label)
+        // RK --> a line under the label for an option that needs saying what it does
+        Column {
+            Text(text = label)
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        // RK <--
     }
 }

@@ -1,7 +1,6 @@
 package reikai.novel.content
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.util.UUID
 
 /**
@@ -11,21 +10,20 @@ import java.util.UUID
  */
 @Serializable
 data class NovelRegexReplacement(
-    val title: String,
+    override val title: String,
     val pattern: String,
     val replacement: String,
-    val enabled: Boolean = true,
+    override val enabled: Boolean = true,
     val isRegex: Boolean = true,
     val matchWholeWord: Boolean = false,
     val caseSensitive: Boolean = false,
-    val id: String = UUID.randomUUID().toString(),
-)
+    override val id: String = UUID.randomUUID().toString(),
+) : NovelStoredItem<NovelRegexReplacement> {
+    override fun toggled() = copy(enabled = !enabled)
+}
 
-/**
- * The one codec for the stored rule list, used by the editor and by the reader.
- *
- * Unknown keys are ignored so a list written by a newer build still reads on an older one. A strict
- * decode throws there, which surfaces as an empty list, and the next save writes that emptiness back
- * over every rule the user had.
- */
-val novelRegexRuleJson: Json = Json { ignoreUnknownKeys = true }
+/** The one codec for the stored rule list, used by the editor and by the reader. */
+object NovelRegexRules : NovelStoredListCodec<NovelRegexReplacement>(
+    NovelRegexReplacement.serializer(),
+    "regex replacements",
+)

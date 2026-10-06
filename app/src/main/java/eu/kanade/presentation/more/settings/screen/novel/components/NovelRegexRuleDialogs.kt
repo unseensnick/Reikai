@@ -1,13 +1,11 @@
 package eu.kanade.presentation.more.settings.screen.novel.components
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -18,11 +16,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import reikai.novel.content.NovelRegexReplacement
 import reikai.novel.content.NovelRegexReplacements
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import java.util.UUID
@@ -67,6 +65,7 @@ fun NovelRegexRuleEditDialog(
     val error = preview?.exceptionOrNull()
     val replacementError = error as? NovelRegexReplacements.InvalidReplacementException
     val patternError = error.takeIf { replacementError == null }
+    val checkboxRow = Modifier.padding(top = MaterialTheme.padding.small)
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -126,24 +125,27 @@ fun NovelRegexRuleEditDialog(
                         .fillMaxWidth()
                         .padding(top = MaterialTheme.padding.small),
                 )
-                CheckboxRow(
-                    checked = isRegex,
+                LabeledCheckbox(
                     label = stringResource(MR.strings.novel_regex_use_pattern),
+                    checked = isRegex,
                     onCheckedChange = { isRegex = it },
+                    modifier = checkboxRow,
                 )
                 // Whole words only has no meaning once the pattern can say so itself, so it is hidden
                 // rather than shown doing nothing.
                 if (!isRegex) {
-                    CheckboxRow(
-                        checked = matchWholeWord,
+                    LabeledCheckbox(
                         label = stringResource(MR.strings.novel_regex_whole_words),
+                        checked = matchWholeWord,
                         onCheckedChange = { matchWholeWord = it },
+                        modifier = checkboxRow,
                     )
                 }
-                CheckboxRow(
-                    checked = caseSensitive,
+                LabeledCheckbox(
                     label = stringResource(MR.strings.novel_regex_match_case),
+                    checked = caseSensitive,
                     onCheckedChange = { caseSensitive = it },
+                    modifier = checkboxRow,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = MaterialTheme.padding.small))
                 OutlinedTextField(
@@ -163,46 +165,5 @@ fun NovelRegexRuleEditDialog(
                 }
             }
         },
-    )
-}
-
-@Composable
-private fun CheckboxRow(checked: Boolean, label: String, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = MaterialTheme.padding.small),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
-        Text(text = label, modifier = Modifier.padding(start = MaterialTheme.padding.small))
-    }
-}
-
-@Composable
-fun NovelRegexRuleDeleteDialog(
-    ruleName: String,
-    onDismissRequest: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onDelete()
-                    onDismissRequest()
-                },
-            ) {
-                Text(text = stringResource(MR.strings.action_ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(MR.strings.action_cancel))
-            }
-        },
-        title = { Text(text = stringResource(MR.strings.action_delete)) },
-        text = { Text(text = stringResource(MR.strings.novel_regex_delete_confirmation, ruleName)) },
     )
 }

@@ -1,15 +1,12 @@
 package reikai.presentation.migrate.flow
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -17,8 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -72,14 +67,14 @@ fun MigrationTuningSheet(
         // one row makes, which is what gets a source to start refusing them. Light-novel plugins
         // have no client-side rate limit of their own, so it matters as much there.
         WarningLine(text = stringResource(MR.strings.migrationConfigScreen_enhancedOptionsWarning))
-        SubtitledCheckbox(
+        LabeledCheckbox(
             label = stringResource(MR.strings.migrationConfigScreen_deepSearchModeTitle),
             subtitle = stringResource(MR.strings.migrationConfigScreen_deepSearchModeSubtitle),
             checked = tuning.deepSearch,
             onCheckedChange = { onApply(tuning.copy(deepSearch = it)) },
             modifier = checkboxRow,
         )
-        SubtitledCheckbox(
+        LabeledCheckbox(
             label = stringResource(MR.strings.migrationConfigScreen_prioritizeByChaptersTitle),
             subtitle = stringResource(MR.strings.migrationConfigScreen_prioritizeByChaptersSubtitle),
             checked = tuning.prioritizeByChapters,
@@ -96,43 +91,13 @@ fun MigrationTuningSheet(
         // Offered for both content types: the counts it compares arrive at search time on manga and
         // from the count peek on novels, and a row whose count is still unknown stays visible, so
         // the toggle is never silently wrong where a source does not report one.
-        SubtitledCheckbox(
+        LabeledCheckbox(
             label = stringResource(MR.strings.migrationConfigScreen_hideWithoutUpdatesTitle),
             subtitle = stringResource(MR.strings.migrationConfigScreen_hideWithoutUpdatesSubtitle),
             checked = tuning.hideWithoutUpdates,
             onCheckedChange = { onApply(tuning.copy(hideWithoutUpdates = it)) },
             modifier = checkboxRow,
         )
-    }
-}
-
-/** [LabeledCheckbox] with the explanation line upstream's options sheet gave these options. */
-@Composable
-private fun SubtitledCheckbox(
-    label: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.small)
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .clickable(role = Role.Checkbox, onClick = { onCheckedChange(!checked) }),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-    ) {
-        Checkbox(checked = checked, onCheckedChange = null)
-        Column {
-            Text(text = label)
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 

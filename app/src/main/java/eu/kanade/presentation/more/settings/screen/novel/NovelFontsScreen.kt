@@ -42,6 +42,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.more.settings.screen.novel.components.NovelDeleteDialog
 import eu.kanade.presentation.util.Screen
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
@@ -165,27 +166,10 @@ class NovelFontsScreen : Screen() {
                 onDismissRequest = viewModel::dismissDialog,
                 onDownload = viewModel::download,
             )
-            is NovelFontDialog.Delete -> AlertDialog(
+            is NovelFontDialog.Delete -> NovelDeleteDialog(
+                text = stringResource(MR.strings.novel_font_delete_confirmation, dialog.font.displayName),
                 onDismissRequest = viewModel::dismissDialog,
-                confirmButton = {
-                    TextButton(onClick = { viewModel.delete(dialog.font) }) {
-                        Text(text = stringResource(MR.strings.action_ok))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = viewModel::dismissDialog) {
-                        Text(text = stringResource(MR.strings.action_cancel))
-                    }
-                },
-                title = { Text(text = stringResource(MR.strings.action_delete)) },
-                text = {
-                    Text(
-                        text = stringResource(
-                            MR.strings.novel_font_delete_confirmation,
-                            dialog.font.displayName,
-                        ),
-                    )
-                },
+                onConfirm = { viewModel.delete(dialog.font) },
             )
         }
     }

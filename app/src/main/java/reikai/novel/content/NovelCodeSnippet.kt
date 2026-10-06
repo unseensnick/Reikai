@@ -1,8 +1,6 @@
 package reikai.novel.content
 
 import kotlinx.serialization.Serializable
-import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 import java.util.UUID
 
 /**
@@ -13,23 +11,16 @@ import java.util.UUID
  */
 @Serializable
 data class NovelCodeSnippet(
-    val title: String,
+    override val title: String,
     val code: String,
-    val enabled: Boolean = true,
+    override val enabled: Boolean = true,
     val runOnAppend: Boolean = false,
-    val id: String = UUID.randomUUID().toString(),
-)
+    override val id: String = UUID.randomUUID().toString(),
+) : NovelStoredItem<NovelCodeSnippet> {
+    override fun toggled() = copy(enabled = !enabled)
+}
 
 enum class NovelSnippetKind { CSS, JS }
 
-object NovelSnippets {
-    /** The stored snippet list, or empty for one that will not read, as the find-and-replace rules do. */
-    fun decode(json: String): List<NovelCodeSnippet> = try {
-        novelRegexRuleJson.decodeFromString(json)
-    } catch (e: Exception) {
-        logcat(LogPriority.WARN, e) { "Failed to parse code snippets" }
-        emptyList()
-    }
-
-    fun encode(snippets: List<NovelCodeSnippet>): String = novelRegexRuleJson.encodeToString(snippets)
-}
+/** The codec for both snippet lists, each stored in its own preference. */
+object NovelSnippets : NovelStoredListCodec<NovelCodeSnippet>(NovelCodeSnippet.serializer(), "code snippets")
