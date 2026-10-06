@@ -97,7 +97,8 @@ deletion and the per-host lock all run either way.
 - `app/.../data/library/LibraryUpdateJob.kt`: `startDelayed`, debug-only, the only way to reach an
   activity-less process by hand.
 - `NetworkPreferences.enableTurnstileSolver` and `enableTurnstileBackgroundSolver`,
-  `SettingsAdvancedScreen`, `strings.xml`: the two switches and their wording. The second is nested
+  `reikai/presentation/settings/BypassPreferences.kt`, `strings.xml`: the two switches and their
+  wording, which Advanced's Network group lists after its own rows. The second is nested
   under the first, which in this settings DSL means it is absent from the screen rather than greyed
   out while the parent is off, since `StatusWrapper` wraps every row in `AnimatedVisibility`. It
   covers a library update that starts with no app screen at all, and deliberately not a merely

@@ -26,6 +26,7 @@ All proxy mechanics live in the net-new `FlareSolverrClient` (in `core/common`):
 - `CloudflareInterceptor`: challenge detection + delegate decision, a `// RK` island on Mihon's file.
 - `NetworkHelper`, `NetworkPreferences`, `AndroidCookieJar`: smaller `// RK` islands (client wiring including the UA pin, the URL/enable prefs, the shared cookie jar).
 - `core/common/.../network/interceptor/FlareSolverrUserAgentPin.kt`: the network interceptor that applies the pinned User-Agent (net-new).
+- `reikai/presentation/settings/BypassPreferences.kt`: the proxy's settings rows with their sign-in and failed-test dialogs, which Advanced's Network group lists after its own rows (net-new).
 
 ## Status
 
