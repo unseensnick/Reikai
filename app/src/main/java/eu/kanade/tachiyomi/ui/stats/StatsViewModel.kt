@@ -13,7 +13,6 @@ import eu.kanade.presentation.more.stats.StatsScreenState
 import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
-import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +20,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
-import reikai.data.novel.NovelStatusCode
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
 import reikai.domain.library.includes
@@ -127,22 +125,8 @@ class StatsViewModel(
             libraryMangaCount =
             (if (mangaPart) i.manga.titles.size else 0) + (if (novelPart) i.novels.titles.size else 0),
             completedMangaCount =
-            (
-                if (mangaPart) {
-                    i.manga.titles.count { it.manga.status.toInt() == SManga.COMPLETED && it.unreadCount == 0L }
-                } else {
-                    0
-                }
-                ) +
-                (
-                    if (novelPart) {
-                        i.novels.titles.count {
-                            it.novel.status.toInt() == NovelStatusCode.COMPLETED && it.unreadCount == 0L
-                        }
-                    } else {
-                        0
-                    }
-                    ),
+            (if (mangaPart) i.manga.completedCount { it.smartUpdateFacts() } else 0) +
+                (if (novelPart) i.novels.completedCount { it.smartUpdateFacts() } else 0),
             totalReadDuration =
             (if (mangaPart) i.mangaReadDuration else 0L) + (if (novelPart) i.novelReadDuration else 0L),
         )
@@ -194,20 +178,19 @@ class StatsViewModel(
     // RK <--
 
     private fun getGlobalUpdateItemCount(libraryManga: List<LibraryManga>): Int {
-        val includedCategories = preferences.updateCategories.get().map { it.toLong() }
-        val excludedCategories = preferences.updateCategoriesExclude.get().map { it.toLong() }
+        // RK --> the category rule is the kernel both update jobs scope by
+        val includedCategories = preferences.updateCategories.get().mapTo(mutableSetOf()) { it.toLong() }
+        val excludedCategories = preferences.updateCategoriesExclude.get().mapTo(mutableSetOf()) { it.toLong() }
+        // RK <--
         val updateRestrictions = preferences.autoUpdateMangaRestrictions.get()
 
-        return libraryManga.filter {
-            val included = includedCategories.isEmpty() || it.categories.intersect(includedCategories).isNotEmpty()
-            val excluded = it.categories.intersect(excludedCategories).isNotEmpty()
-            included && !excluded
-        }
+        return libraryManga
+            .filter { matchesCategoryFilter(it.categories, includedCategories, excludedCategories) } // RK
             .fastCountNot { smartUpdateProgressSkip(it.smartUpdateFacts(), updateRestrictions) != null } // RK
     }
 
-    // RK --> the novel global-update count, over the novel update categories + restrictions; the
-    // category rule is matchesCategoryFilter, the one the novel update job applies
+    // RK --> the novel global-update count, over the novel update categories + restrictions and the
+    // category rule both update jobs scope by
     private fun getNovelGlobalUpdateItemCount(libraryNovels: List<LibraryNovel>): Int {
         val includedCategories = novelPreferences.novelUpdateCategories().get().mapTo(mutableSetOf()) { it.toLong() }
         val excludedCategories =

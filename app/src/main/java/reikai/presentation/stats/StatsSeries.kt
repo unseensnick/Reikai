@@ -1,6 +1,7 @@
 package reikai.presentation.stats
 
 import eu.kanade.tachiyomi.data.track.Tracker
+import reikai.domain.library.SmartUpdateFacts
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.MergeBucket
 import reikai.presentation.library.libraryTrackerMeans
@@ -20,6 +21,10 @@ class StatsSeries<T>(private val buckets: List<MergeBucket<T>>, private val id: 
 
     private val membersByTitle: Map<Long, List<Long>> =
         buckets.associate { bucket -> id(bucket.members.first()) to bucket.members.map(id) }
+
+    /** Mihon's completed count: titles whose status is completed and that have nothing left unread. */
+    fun completedCount(facts: (T) -> SmartUpdateFacts): Int =
+        titles.count { title -> facts(title).let { it.isCompleted && it.unreadCount == 0L } }
 
     fun trackedCount(tracksById: Map<Long, List<Track>>): Int =
         membersByTitle.values.count { mergedGroupTracks(it, tracksById).isNotEmpty() }

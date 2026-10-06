@@ -61,6 +61,24 @@ class CategoryFilterTest {
     }
 
     @Test
+    fun `a manual update of one category covers it whatever the update filter excludes`() {
+        isUpdateScope(categories = listOf(2L), categoryId = 2L, include = setOf(1L), exclude = setOf(2L)) shouldBe
+            true
+    }
+
+    @Test
+    fun `a manual update of one category leaves out a series outside it`() {
+        isUpdateScope(categories = listOf(1L), categoryId = 2L, include = emptySet(), exclude = emptySet()) shouldBe
+            false
+    }
+
+    @Test
+    fun `without a manual category the update filter decides`() {
+        isUpdateScope(categories = listOf(1L), categoryId = -1L, include = setOf(1L), exclude = emptySet()) shouldBe
+            true
+    }
+
+    @Test
     fun `a confirm keeps stored ids the picker never showed`() {
         mergeCategorySelection(
             stored = setOf(1L, 100000007L),

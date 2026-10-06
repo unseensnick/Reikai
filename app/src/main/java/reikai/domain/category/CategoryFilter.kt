@@ -25,6 +25,14 @@ fun matchesCategoryFilter(categories: Collection<Long>, include: Set<Long>, excl
 }
 
 /**
+ * Whether a library update covers a series on [categories]. A manual update of one category
+ * ([categoryId], -1 for none, as both update workers store it) covers that category alone, whatever
+ * the update filter ([include], [exclude]) says; otherwise the filter decides.
+ */
+fun isUpdateScope(categories: Collection<Long>, categoryId: Long, include: Set<Long>, exclude: Set<Long>): Boolean =
+    if (categoryId != -1L) categoryId in categories else matchesCategoryFilter(categories, include, exclude)
+
+/**
  * The selection to store after a picker confirm: [confirmed] replaces the part of [stored] that the
  * picker displayed ([shown]) and leaves the rest alone. Storing [confirmed] wholesale instead would
  * drop every id whose category the picker did not show, which is silent data loss wherever one stored

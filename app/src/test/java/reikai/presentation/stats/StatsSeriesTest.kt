@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
+import reikai.domain.library.smartUpdateFacts
 import reikai.domain.merge.TestMergeManagers
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
@@ -49,6 +50,24 @@ class StatsSeriesTest {
         series(type, mergingOn = true).meanScores(tracksOnSecondMember, trackers).toList() shouldBe listOf(7.0)
     }
 
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a completed series read to the end counts as completed`(type: ContentType) = runTest {
+        completedCount(type, status = COMPLETED, readCount = 3) shouldBe 1
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a completed series with unread chapters is not completed`(type: ContentType) = runTest {
+        completedCount(type, status = COMPLETED, readCount = 2) shouldBe 0
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `an ongoing series read to the end is not completed`(type: ContentType) = runTest {
+        completedCount(type, status = ONGOING, readCount = 3) shouldBe 0
+    }
+
     private val tracksOnSecondMember = mapOf(2L to listOf(track(entryId = 2L, score = 7.0)))
 
     private val trackers = mapOf(
@@ -63,22 +82,33 @@ class StatsSeriesTest {
         }
     }
 
-    private fun manga(id: Long) = LibraryManga(
-        manga = Manga.create().copy(id = id),
+    /** One three-chapter title of [type], merging off. */
+    private suspend fun completedCount(type: ContentType, status: Long, readCount: Long): Int {
+        val managers = TestMergeManagers(emptyMap(), mergingOn = false)
+        return when (type) {
+            ContentType.MANGA -> managers.manga.statsSeries(listOf(manga(1L, status, 3, readCount))) { it.id }
+                .completedCount { it.smartUpdateFacts() }
+            else -> managers.novel.statsSeries(listOf(novel(1L, status, 3, readCount))) { it.id }
+                .completedCount { it.smartUpdateFacts() }
+        }
+    }
+
+    private fun manga(id: Long, status: Long = 0, totalChapters: Long = 0, readCount: Long = 0) = LibraryManga(
+        manga = Manga.create().copy(id = id, status = status),
         categories = emptyList(),
-        totalChapters = 0,
-        readCount = 0,
+        totalChapters = totalChapters,
+        readCount = readCount,
         bookmarkCount = 0,
         latestUpload = 0,
         chapterFetchedAt = 0,
         lastRead = 0,
     )
 
-    private fun novel(id: Long) = LibraryNovel(
-        novel = Novel.create().copy(id = id),
+    private fun novel(id: Long, status: Long = 0, totalChapters: Long = 0, readCount: Long = 0) = LibraryNovel(
+        novel = Novel.create().copy(id = id, status = status),
         categories = emptyList(),
-        totalChapters = 0,
-        readCount = 0,
+        totalChapters = totalChapters,
+        readCount = readCount,
         bookmarkCount = 0,
         downloadCount = 0,
         latestUpload = 0,
@@ -102,4 +132,10 @@ class StatsSeriesTest {
         finishDate = 0L,
         private = false,
     )
+
+    private companion object {
+        // SManga and NovelStatusCode share these values.
+        const val ONGOING = 1L
+        const val COMPLETED = 2L
+    }
 }

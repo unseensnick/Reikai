@@ -48,6 +48,7 @@ import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
+import reikai.domain.category.isUpdateScope
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.smartUpdateFacts
@@ -183,18 +184,13 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     private suspend fun addMangaToQueue(categoryId: Long) {
         val libraryManga = getLibraryManga.await()
 
-        val listToUpdate = if (categoryId != -1L) {
-            libraryManga.filter { categoryId in it.categories }
-        } else {
-            val includedCategories = libraryPreferences.updateCategories.get().map { it.toLong() }
-            val excludedCategories = libraryPreferences.updateCategoriesExclude.get().map { it.toLong() }
-
-            libraryManga.filter {
-                val included = includedCategories.isEmpty() || it.categories.intersect(includedCategories).isNotEmpty()
-                val excluded = it.categories.intersect(excludedCategories).isNotEmpty()
-                included && !excluded
-            }
+        // RK --> the scope rule is a kernel the novel update job calls too
+        val includedCategories = libraryPreferences.updateCategories.get().mapTo(mutableSetOf()) { it.toLong() }
+        val excludedCategories = libraryPreferences.updateCategoriesExclude.get().mapTo(mutableSetOf()) { it.toLong() }
+        val listToUpdate = libraryManga.filter {
+            isUpdateScope(it.categories, categoryId, includedCategories, excludedCategories)
         }
+        // RK <--
 
         val restrictions = libraryPreferences.autoUpdateMangaRestrictions.get()
         val skippedUpdates = mutableListOf<Pair<Manga, String?>>()
