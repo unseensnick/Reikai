@@ -1,8 +1,6 @@
 package reikai.presentation.browse.catalogue
 
 import androidx.compose.runtime.Immutable
-import tachiyomi.core.common.preference.CheckboxState
-import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 
 /**
@@ -95,11 +93,4 @@ sealed interface EntryBrowseDialog {
     /** The source's own filter sheet, dispatched per type because the filter shapes have nothing in
      *  common: a typed `FilterList` on one side, a plugin JSON schema on the other. */
     data object Filter : EntryBrowseDialog
-
-    /** The one category choice a bulk selection applies to every entry in it. Raised by the bulk
-     *  model rather than by an entry, so it arrives through the same channel but confirms its own
-     *  way, through `setSelectionCategories`. */
-    data class SelectionCategories(
-        val initialSelection: List<CheckboxState.State<Category>>,
-    ) : EntryBrowseDialog
 }

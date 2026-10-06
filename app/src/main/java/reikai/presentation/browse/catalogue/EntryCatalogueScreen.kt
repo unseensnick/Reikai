@@ -37,7 +37,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
-import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
@@ -45,7 +44,6 @@ import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog
-import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.follows.MangaDexFollowsScreen
@@ -68,6 +66,8 @@ import reikai.novel.source.NovelFilters
 import reikai.novel.source.NovelSettings
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
+import reikai.presentation.browse.EntryBulkFavoriteViewModel
+import reikai.presentation.browse.PendingBulkCategoryDialog
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.detailsScreen
 import reikai.presentation.browse.rememberEntryGestures
@@ -177,6 +177,7 @@ class EntryCatalogueScreen(
 
         Catalogue(
             behavior = adapter,
+            bulk = bulk,
             onOpenSettings = { navigator.push(SourcePreferencesScreen(sourceId)) },
             onHelpClick = {
                 uriHandler.openUri(if (isLocal) LocalSource.HELP_URL else Constants.URL_HELP)
@@ -222,6 +223,7 @@ class EntryCatalogueScreen(
 
         Catalogue(
             behavior = adapter,
+            bulk = bulk,
             // A preference screen is a screen of its own; the LNReader schema is a sheet over this one.
             onOpenSettings = {
                 when (source?.settings) {
@@ -267,6 +269,7 @@ class EntryCatalogueScreen(
     @Composable
     private fun Catalogue(
         behavior: EntryBrowseBehavior,
+        bulk: EntryBulkFavoriteViewModel<*>,
         onOpenSettings: () -> Unit,
         onHelpClick: () -> Unit,
         localSourceHelp: (() -> Unit)? = null,
@@ -442,18 +445,14 @@ class EntryCatalogueScreen(
             )
         }
 
-        // The two this surface owns alone; the four a long press can raise are shared.
-        when (val dialog = loaded.dialog) {
+        // The filter sheet is this surface's alone; the add flow's questions and the bulk category
+        // prompt are drawn the way every other surface draws them.
+        when (loaded.dialog) {
             EntryBrowseDialog.Filter -> filterSheet(behavior::dismissDialog)
-            is EntryBrowseDialog.SelectionCategories -> ChangeCategoryDialog(
-                initialSelection = dialog.initialSelection,
-                onDismissRequest = behavior::dismissDialog,
-                onEditCategories = { navigator.push(CategoryScreen()) },
-                onConfirm = { include, _ -> behavior.setSelectionCategories(include) },
-            )
             null -> Unit
         }
         EntryAddDialogs(behavior.addFlow)
+        PendingBulkCategoryDialog(bulk)
 
         when (val dialog = savedSearchDialog) {
             null -> Unit

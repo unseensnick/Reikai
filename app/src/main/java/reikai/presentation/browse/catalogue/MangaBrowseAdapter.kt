@@ -40,12 +40,6 @@ class MangaBrowseAdapter(
     onPickTarget: (targetId: Long) -> Unit = {},
 ) : EntryBrowseBehavior {
 
-    /**
-     * The bulk category choice, kept as it is mapped rather than read back off the model: the dialog
-     * dismisses before it confirms, and dismissing clears the model's own copy.
-     */
-    @Volatile private var raisedBulkDialog: EntryBulkFavoriteViewModel.Dialog<Manga>? = null
-
     private val savedSearchFilters = MangaSavedSearchFilters()
 
     private val capabilities = EntryBrowseCapabilities(
@@ -84,7 +78,6 @@ class MangaBrowseAdapter(
         state: BrowseSourceViewModel.State,
         bulkState: EntryBulkFavoriteViewModel.State<Manga>,
     ): EntryBrowseScreenState {
-        bulkState.dialog?.let { raisedBulkDialog = it }
         val source = model.source ?: return EntryBrowseScreenState.Loading
         if (source is StubSource) return EntryBrowseScreenState.SourceMissing(source.toString())
         return EntryBrowseScreenState.Loaded(
@@ -105,9 +98,7 @@ class MangaBrowseAdapter(
             selectionMode = bulkState.selectionMode,
             selectedKeys = bulkState.selection.mapTo(mutableSetOf(), ::mangaRowKey),
             capabilities = capabilities,
-            // One dialog channel: the bulk category picker only ever opens while an entry dialog is
-            // closed, so it rides the same slot rather than needing a second one in the state.
-            dialog = state.dialog?.toNeutral() ?: bulkState.dialog?.toNeutral(),
+            dialog = state.dialog?.toNeutral(),
         )
     }
 
@@ -115,11 +106,6 @@ class MangaBrowseAdapter(
         Listing.Popular -> EntryBrowseListing.Popular
         Listing.Latest -> EntryBrowseListing.Latest
         is Listing.Search -> EntryBrowseListing.Search(query)
-    }
-
-    private fun EntryBulkFavoriteViewModel.Dialog<Manga>.toNeutral(): EntryBrowseDialog = when (this) {
-        is EntryBulkFavoriteViewModel.Dialog.ChangeCategory ->
-            EntryBrowseDialog.SelectionCategories(initialSelection)
     }
 
     private fun BrowseSourceViewModel.Dialog.toNeutral(): EntryBrowseDialog = when (this) {
@@ -191,15 +177,7 @@ class MangaBrowseAdapter(
 
     override fun addSelectionToLibrary() = bulk.addFavorite()
 
-    override fun setSelectionCategories(categoryIds: List<Long>) {
-        val dialog = raisedBulkDialog as? EntryBulkFavoriteViewModel.Dialog.ChangeCategory ?: return
-        bulk.setCategories(dialog.items, categoryIds)
-    }
-
-    override fun dismissDialog() {
-        model.setDialog(null)
-        bulk.setDialog(null)
-    }
+    override fun dismissDialog() = model.setDialog(null)
 }
 
 /**

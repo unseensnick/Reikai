@@ -52,13 +52,11 @@ interface EntryBrowseBehavior {
     fun selectAll(rows: List<EntryBrowseRow>)
     fun invertSelection(rows: List<EntryBrowseRow>)
 
-    /** Add every selected row to the library, which raises the category dialog. */
+    /** Add every selected row to the library. A category prompt, when one is needed, is the bulk
+     *  model's own and the screen draws it the way every bulk surface does. */
     fun addSelectionToLibrary()
 
-    /** Apply the bulk category choice to the whole selection. */
-    fun setSelectionCategories(categoryIds: List<Long>)
-
-    /** Close the filter sheet or the bulk category choice. */
+    /** Close the filter sheet. */
     fun dismissDialog()
 
     /** What a long press on a row asks, and the verbs that answer it; [onRowLongClick] starts it. */

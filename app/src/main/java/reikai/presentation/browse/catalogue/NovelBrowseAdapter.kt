@@ -41,12 +41,6 @@ class NovelBrowseAdapter(
 
     private val savedSearchFilters = NovelSavedSearchFilters()
 
-    /**
-     * The bulk category choice, kept as it is mapped rather than read back off the model: the dialog
-     * dismisses before it confirms, and dismissing clears the model's own copy.
-     */
-    @Volatile private var raisedBulkDialog: EntryBulkFavoriteViewModel.Dialog<SelectedNovel>? = null
-
     private val capabilities = EntryBrowseCapabilities(
         migrationPick = migrateForId?.let { id ->
             MigrationPickCapability(id) { row, onPicked ->
@@ -97,7 +91,6 @@ class NovelBrowseAdapter(
         bulkState: EntryBulkFavoriteViewModel.State<SelectedNovel>,
         toolbar: ToolbarText,
     ): EntryBrowseScreenState {
-        bulkState.dialog?.let { raisedBulkDialog = it }
         val source = state.source
             ?: return state.missingSourceLabel?.let(EntryBrowseScreenState::SourceMissing)
                 ?: EntryBrowseScreenState.Loading
@@ -123,17 +116,9 @@ class NovelBrowseAdapter(
             selectionMode = bulkState.selectionMode,
             selectedKeys = bulkState.selection.mapTo(mutableSetOf()) { novelRowKey(it.sourceId, it.item.path) },
             capabilities = capabilities,
-            // One dialog channel: the bulk category picker only ever opens while an entry dialog is
-            // closed, so it rides the same slot rather than needing a second one in the state.
-            dialog = EntryBrowseDialog.Filter.takeIf { state.filterSheetOpen } ?: bulkState.dialog?.toNeutral(),
+            dialog = EntryBrowseDialog.Filter.takeIf { state.filterSheetOpen },
         )
     }
-
-    private fun EntryBulkFavoriteViewModel.Dialog<SelectedNovel>.toNeutral(): EntryBrowseDialog =
-        when (this) {
-            is EntryBulkFavoriteViewModel.Dialog.ChangeCategory ->
-                EntryBrowseDialog.SelectionCategories(initialSelection)
-        }
 
     override fun setListing(listing: EntryBrowseListing) {
         toolbarText.value = ToolbarText.Typed(null)
@@ -207,15 +192,7 @@ class NovelBrowseAdapter(
 
     override fun addSelectionToLibrary() = bulk.addFavorite()
 
-    override fun setSelectionCategories(categoryIds: List<Long>) {
-        val dialog = raisedBulkDialog as? EntryBulkFavoriteViewModel.Dialog.ChangeCategory ?: return
-        bulk.setCategories(dialog.items, categoryIds)
-    }
-
-    override fun dismissDialog() {
-        model.closeFilterSheet()
-        bulk.setDialog(null)
-    }
+    override fun dismissDialog() = model.closeFilterSheet()
 }
 
 /**

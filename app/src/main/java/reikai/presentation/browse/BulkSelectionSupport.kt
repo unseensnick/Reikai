@@ -1,6 +1,7 @@
 package reikai.presentation.browse
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
@@ -94,7 +95,17 @@ fun BulkCategoryDialogs(
     }
 }
 
-/** One content type's batch category prompt, for a surface that lists that type alone or both. */
+/** The batch category prompt [bulk] has raised, if any, for a surface that lists that type alone. */
+@Composable
+fun <T : Any> PendingBulkCategoryDialog(bulk: EntryBulkFavoriteViewModel<T>) {
+    val dialog = bulk.state.collectAsState().value.dialog ?: return
+    BulkCategoryDialog(bulk, dialog)
+}
+
+/**
+ * One content type's batch category prompt. It confirms with the batch it was drawn with, since the
+ * dialog dismisses (clearing the model's copy) before it confirms.
+ */
 @Composable
 fun <T : Any> BulkCategoryDialog(
     bulk: EntryBulkFavoriteViewModel<T>,

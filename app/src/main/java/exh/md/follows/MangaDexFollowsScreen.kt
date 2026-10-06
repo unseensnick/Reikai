@@ -20,9 +20,9 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.source.SourceKey
-import reikai.presentation.browse.BulkCategoryDialog
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
+import reikai.presentation.browse.PendingBulkCategoryDialog
 import reikai.presentation.browse.catalogue.EntryBrowseCatalogue
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryBrowseScreenState
@@ -120,6 +120,6 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
         }
 
         EntryAddDialogs(viewModel.addFlow)
-        bulkFavoriteState.dialog?.let { BulkCategoryDialog(bulkFavoriteViewModel, it) }
+        PendingBulkCategoryDialog(bulkFavoriteViewModel)
     }
 }
