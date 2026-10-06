@@ -1208,7 +1208,11 @@
     return null;
   }
 
-  /* value against baseUrl, or as written when it needs no base or is not a URL either base can read. */
+  /*
+   * value against baseUrl, or as written when it needs no base or is not a URL either base can read.
+   * NovelChapterAddress.absolute is this rule for the native reader and the download, and
+   * NovelWebDocumentTest holds the two to the same answers.
+   */
   function absolute(value, baseUrl) {
     var trimmed = value.trim();
     if (!trimmed || trimmed.charAt(0) === '#' || HAS_SCHEME.test(trimmed)) return value;

@@ -24,6 +24,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import reikai.novel.content.NovelChapterAddress
 import reikai.presentation.reader.WebViewHostActivity
 import reikai.presentation.reader.readerTestSettings
 import reikai.presentation.reader.text.ChapterScrollProgress
@@ -537,6 +538,32 @@ class NovelWebDocumentTest {
             evalList(
                 "[...document.querySelectorAll('[data-rk-chapter-id=\"99\"] [srcset]')]" +
                     ".map(e => e.getAttribute('srcset'))",
+            ),
+        )
+    }
+
+    /** reader.js and NovelChapterAddress are one rule written twice, so a chapter scrolled into and
+     *  the same chapter opened natively or downloaded name the same pictures and links. */
+    @Test
+    fun aChapterAddedByScrollingResolvesAsTheNativeReaderDoes() {
+        loadDocument()
+        val base = "https://other.test/novel/"
+        val addresses = listOf(
+            "/a.png",
+            "b.html",
+            "\\c.png",
+            "//cdn.test/d.png",
+            "#note",
+            "",
+            "mailto:x@other.test",
+            "https://cdn.test/e.png?x=1",
+        )
+        val html = addresses.joinToString("") { "<a href=\"$it\">x</a>" }
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, ${JSONObject.quote(base)}, $SEAM)")
+        assertEquals(
+            addresses.map { NovelChapterAddress.absolute(base, it) },
+            evalList(
+                "[...document.querySelectorAll('[data-rk-chapter-id=\"99\"] a')].map(e => e.getAttribute('href'))",
             ),
         )
     }

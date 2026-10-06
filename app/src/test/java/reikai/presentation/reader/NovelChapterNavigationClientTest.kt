@@ -2,6 +2,7 @@ package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.novel.content.NovelChapterAddress
 import reikai.presentation.reader.NovelChapterNavigationClient.Companion.decide
 import reikai.presentation.reader.NovelChapterNavigationClient.Decision
 
@@ -18,6 +19,13 @@ class NovelChapterNavigationClientTest {
     @Test
     fun `a tapped link to the document's own url is refused`() {
         decide(base, base, hasGesture = true) shouldBe Decision.BLOCK
+    }
+
+    /** WebView reports a site named without a path with its trailing slash. */
+    @Test
+    fun `a tapped link to the document's own url is refused when the site names no path`() {
+        decide("https://source.example/", NovelChapterAddress.trustedBase("https://source.example"), true) shouldBe
+            Decision.BLOCK
     }
 
     @Test

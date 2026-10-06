@@ -16,6 +16,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.runInterruptible
 import logcat.LogPriority
 import reikai.data.coil.NovelImage
+import reikai.novel.content.NovelChapterAddress
 import reikai.presentation.reader.web.NovelWebImages
 import tachiyomi.core.common.util.system.logcat
 import java.io.ByteArrayInputStream
@@ -85,7 +86,7 @@ class NovelChapterNavigationClient(
         fun decide(requestUrl: String, baseUrl: String?, hasGesture: Boolean): Decision {
             if (baseUrl != null && requestUrl.startsWith("$baseUrl#")) return Decision.ALLOW
             if (requestUrl == baseUrl) return Decision.BLOCK
-            val isWeb = requestUrl.startsWith("http://") || requestUrl.startsWith("https://")
+            val isWeb = NovelChapterAddress.isWebAddress(requestUrl)
             // Without a gesture the page is navigating itself, which a chapter has no reason to do.
             return if (hasGesture && isWeb) Decision.OPEN_EXTERNALLY else Decision.BLOCK
         }

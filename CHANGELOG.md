@@ -671,6 +671,7 @@ agent under Settings -> Advanced.
 - The manga reader no longer drops a page-turn signal or a preloaded chapter when it is busy, and cancelled novel plugin checks, font downloads and update runs stop instead of being logged as failures.
 - Browse, global search and the feed no longer re-read every stored novel each time a novel is saved.
 - A series' page no longer rebuilds its chapter list when another series updates.
+- One rule now turns a novel chapter's picture and link addresses into full ones, for both readers and downloads.
 - The in-app browser, the Cloudflare bypass and the tracker sign-in browser now present one browser identity (from Mihon, mihonapp/mihon#3678), and Shikimori recommendations identify as Reikai like the other Shikimori calls.
 - Kitsu tracking, the taste profile and Fill from tracker now use only Kitsu's newer API (partly from Mihon, mihonapp/mihon#3792), and Shikimori progress goes through its own update endpoint (from Mihon, mihonapp/mihon#3810).
 - The arm64 download is about 30 MB instead of 44 MB, because native libraries are now compressed inside it. The installed app takes a little more space.

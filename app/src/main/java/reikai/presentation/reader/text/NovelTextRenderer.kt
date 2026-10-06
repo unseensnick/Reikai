@@ -26,6 +26,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
+import reikai.novel.content.NovelChapterAddress
 import reikai.novel.content.NovelImageSources
 import reikai.presentation.reader.NovelTextScale
 import tachiyomi.core.common.util.system.logcat
@@ -237,7 +238,7 @@ class NovelTextRenderer(
      * definition-list and `pre` layout, which are rebuilt here into the lines a WebView shows for them.
      */
     private fun normalizeHtmlForRendering(html: String, baseUrl: String?): String = try {
-        val doc = Jsoup.parse(html, baseUrl.orEmpty())
+        val doc = Jsoup.parse(html)
         doc.select("style, script").remove()
         NovelChapterTags.prepare(doc)
         doc.select("video source, audio source").remove()
@@ -247,7 +248,7 @@ class NovelTextRenderer(
         val targetWidth = context.resources.displayMetrics.widthPixels
         doc.select("img").forEach { img ->
             NovelImageSources.srcsetCandidate(img, targetWidth)?.let { img.attr("src", it) }
-            resolveAgainstBase(img, "src")
+            if (img.hasAttr("src")) img.attr("src", NovelChapterAddress.absolute(baseUrl, img.attr("src")))
             val parent = img.parent()
             if (parent?.tagName() == "p" || parent?.tagName() == "div") {
                 liftOutOfText(img, parent)
@@ -258,13 +259,7 @@ class NovelTextRenderer(
         // The WebView mode loads the chapter with this base, so its relative links arrive absolute and
         // open in the browser. Left relative here they reach the link policy as a non-http URL, which
         // it blocks, and the tap did nothing with nothing said.
-        // A fragment or empty href names nothing to open, as reader.js leaves it, so the policy blocks it.
-        doc.select("a[href]")
-            .filterNot { link ->
-                val href = link.attr("href").trim()
-                href.isEmpty() || href.startsWith("#") || href.startsWith(NovelChapterTags.ANCHOR_HREF)
-            }
-            .forEach { resolveAgainstBase(it, "href") }
+        doc.select("a[href]").forEach { it.attr("href", NovelChapterAddress.absolute(baseUrl, it.attr("href"))) }
         doc.body().html()
     } catch (e: Exception) {
         logcat(LogPriority.WARN, e) { "Chapter markup left unprepared" }
@@ -303,14 +298,6 @@ class NovelTextRenderer(
         listOf(parent, after)
             .filter { !it.hasText() && it.selectFirst("img") == null }
             .forEach(Element::remove)
-    }
-
-    /** Jsoup answers with the empty string when a value needs a base and there is none, so the
-     *  original is kept there. A `data:` source needs no base and is skipped rather than re-parsed. */
-    private fun resolveAgainstBase(element: Element, attribute: String) {
-        if (element.attr(attribute).startsWith("data:")) return
-        val resolved = element.absUrl(attribute)
-        if (resolved.isNotBlank()) element.attr(attribute, resolved)
     }
 
     private fun applyParagraphSpans(spannable: SpannableStringBuilder, spacingPx: Int, indentPx: Int) {

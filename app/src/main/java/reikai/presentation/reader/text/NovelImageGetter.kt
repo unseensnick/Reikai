@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.data.coil.NovelImage
+import reikai.novel.content.NovelChapterAddress
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
@@ -126,9 +127,7 @@ class NovelImageGetter(
         when {
             source.isNullOrBlank() -> showFailure(wrapper, retryable = false)
             source.startsWith("data:") -> decodeInlineImage(source, wrapper)
-            source.startsWith("http://") || source.startsWith("https://") ->
-                pendingLoads += PendingLoad(source, wrapper)
-            source.startsWith("//") -> pendingLoads += PendingLoad("https:$source", wrapper)
+            NovelChapterAddress.isWebAddress(source) -> pendingLoads += PendingLoad(source, wrapper)
             else -> {
                 logcat(LogPriority.DEBUG) { "Skipping unsupported image source" }
                 showFailure(wrapper, retryable = false)

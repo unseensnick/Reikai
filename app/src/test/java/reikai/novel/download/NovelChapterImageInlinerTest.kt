@@ -95,6 +95,27 @@ class NovelChapterImageInlinerTest {
     }
 
     @Test
+    fun `a protocol-relative picture from a source with no site is stored as both readers show it`() = runTest {
+        inlineChapterImages("""<img src="//cdn.example/a.jpg">""", "", images)
+
+        fetched shouldBe listOf("https://cdn.example/a.jpg")
+    }
+
+    @Test
+    fun `a backslash in a picture's address is stored as both readers show it`() = runTest {
+        inlined("""<img src="\a.jpg">""")
+
+        fetched shouldBe listOf("https://site.example/a.jpg")
+    }
+
+    @Test
+    fun `a relative picture from a source with no web site is left as it came`() = runTest {
+        inlineChapterImages("""<img src="/a.jpg">""", "file:///sdcard/", images)
+
+        fetched shouldBe emptyList()
+    }
+
+    @Test
     fun `an image already stored inline is left as it is`() = runTest {
         inlined("""<img src="data:image/png;base64,AQID">""")
 

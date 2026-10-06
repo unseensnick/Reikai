@@ -4,6 +4,7 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.jsoup.Jsoup
 import reikai.data.coil.NovelImage
+import reikai.novel.content.NovelChapterAddress
 import reikai.novel.content.NovelImageSources
 import java.util.concurrent.ConcurrentHashMap
 
@@ -26,11 +27,11 @@ class NovelWebImages {
         // Pretty-printing reflows preformatted text, the trap the download inliner avoids the same way.
         document.outputSettings().prettyPrint(false)
         document.select("img[src]").forEach { img ->
-            routed(absolute(baseUrl, img.attr("src")), sourceId)?.let { img.attr("src", it) }
+            routed(NovelChapterAddress.absolute(baseUrl, img.attr("src")), sourceId)?.let { img.attr("src", it) }
         }
         document.select("img[srcset], source[srcset]").forEach { element ->
             val candidates = NovelImageSources.parseSrcset(element.attr("srcset")).map { (url, descriptor) ->
-                val address = routed(absolute(baseUrl, url), sourceId) ?: url
+                val address = routed(NovelChapterAddress.absolute(baseUrl, url), sourceId) ?: url
                 if (descriptor.isEmpty()) address else "$address $descriptor"
             }
             element.attr("srcset", candidates.joinToString(", "))
@@ -47,7 +48,7 @@ class NovelWebImages {
     }
 
     private fun routed(url: String, sourceId: String?): String? {
-        if (!url.startsWith("http://") && !url.startsWith("https://")) return null
+        if (!NovelChapterAddress.isWebAddress(url)) return null
         routed += NovelImage(url, sourceId)
         return HttpUrl.Builder()
             .scheme("https")
@@ -62,12 +63,5 @@ class NovelWebImages {
     private companion object {
         const val HOST = "appassets.androidplatform.net"
         const val PATH = "rk-image"
-    }
-
-    /** A protocol-relative address is https, as the text renderer takes it; no base leaves the rest. */
-    private fun absolute(baseUrl: String?, url: String): String {
-        val trimmed = url.trim()
-        baseUrl?.toHttpUrlOrNull()?.resolve(trimmed)?.let { return it.toString() }
-        return if (trimmed.startsWith("//")) "https:$trimmed" else trimmed
     }
 }

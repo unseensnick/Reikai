@@ -29,6 +29,7 @@ import org.json.JSONObject
 import reikai.data.coil.fetchNovelImage
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
+import reikai.novel.content.NovelChapterAddress
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
@@ -316,7 +317,7 @@ class NovelWebViewport(
                 context = context,
                 chapterId = chapter.chapterId,
                 documentToken = token,
-                chapterHtml = webImages.rewrite(chapter.html, safeBaseUrl(chapter), chapter.sourceId),
+                chapterHtml = webImages.rewrite(chapter.html, chapter.baseUrl, chapter.sourceId),
                 // Carried into the document rather than scrolled to afterwards, because the page has
                 // to exist before it has anywhere to scroll and the load is asynchronous.
                 initialFraction = chapter.progressPercent / 100f,
@@ -330,16 +331,11 @@ class NovelWebViewport(
                 sourceStylesheet = chapter.sourceStylesheet?.css,
             )
         }
-        val safeBaseUrl = safeBaseUrl(chapter)
+        val safeBaseUrl = NovelChapterAddress.trustedBase(chapter.baseUrl)
         loadedBaseUrl = safeBaseUrl
         webView.loadDataWithBaseURL(safeBaseUrl, html, "text/html", "UTF-8", null)
         syncEnd()
     }
-
-    // Only trust an http(s) base URL. The plugin controls the site URL, and a file:// base would hand
-    // the chapter document a file origin.
-    private fun safeBaseUrl(chapter: NovelReaderViewModel.LoadedChapter): String? =
-        chapter.baseUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
 
     /**
      * Pushes changed display settings into the live document, so a size or colour change reflows in
@@ -474,14 +470,14 @@ class NovelWebViewport(
         val verb = if (atStart) "prependChapter" else "appendChapter"
         // Its own base, since the document's is the opened chapter's and a neighbour can come from a
         // download or, in a merged series, another site.
-        val baseUrl = safeBaseUrl(chapter)?.let(JSONObject::quote) ?: "null"
+        val baseUrl = NovelChapterAddress.trustedBase(chapter.baseUrl)?.let(JSONObject::quote) ?: "null"
         val seamJs = seam?.let(::seamJson)?.toString() ?: "null"
         // Off the main thread for the reason the document build is: a downloaded chapter carries its
         // images inline, so escaping it and copying the result runs past a frame on the string alone.
         val js = withContext(Dispatchers.Default) {
             "rkReader.$verb(" +
                 "${JSONObject.quote(chapter.chapterId.toString())}, " +
-                "${JSONObject.quote(webImages.rewrite(chapter.html, safeBaseUrl(chapter), chapter.sourceId))}, " +
+                "${JSONObject.quote(webImages.rewrite(chapter.html, chapter.baseUrl, chapter.sourceId))}, " +
                 "$baseUrl, " +
                 "$seamJs);"
         }
