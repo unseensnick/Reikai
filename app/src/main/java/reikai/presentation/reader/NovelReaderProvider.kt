@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.lifecycleScope
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
-import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
@@ -30,9 +29,9 @@ import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
+import reikai.presentation.details.novelDetailsIntent
 import reikai.presentation.reader.text.NovelWindowDiff
 import reikai.util.snapshotOnChange
-import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.system.logcat
 import kotlin.math.abs
 
@@ -97,14 +96,8 @@ class NovelReaderProvider(
 
     override suspend fun chapterWebUrl(chapterId: Long): String? = viewModel.webUrlOf(chapterId)
 
-    // By source and url rather than row id, since that is what the novel screen is pushed with.
     override fun detailsIntent(context: Context): Intent? = viewModel.detailsRoute.value?.let { route ->
-        Intent(context, MainActivity::class.java).apply {
-            action = Constants.SHORTCUT_NOVEL
-            putExtra(Constants.NOVEL_SOURCE_EXTRA, route.source)
-            putExtra(Constants.NOVEL_URL_EXTRA, route.url)
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
+        novelDetailsIntent(context, route.source, route.url).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
     }
 
     override fun pageBackground(context: Context): Flow<Int> = viewModel.settings.map {

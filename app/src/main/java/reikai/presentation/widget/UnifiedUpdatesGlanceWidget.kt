@@ -64,7 +64,8 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelUpdateWithRelations
-import tachiyomi.core.common.Constants
+import reikai.presentation.details.mangaDetailsIntent
+import reikai.presentation.details.novelDetailsIntent
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
@@ -252,9 +253,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
     }
 
     private fun mangaIntent(context: Context, mangaId: Long) =
-        Intent(context, Class.forName(Constants.MAIN_ACTIVITY)).apply {
-            action = Constants.SHORTCUT_MANGA
-            putExtra(Constants.MANGA_EXTRA, mangaId)
+        mangaDetailsIntent(context, mangaId).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             // Distinct PendingIntents per series, https://issuetracker.google.com/issues/238793260
@@ -262,10 +261,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
         }
 
     private fun novelIntent(context: Context, row: NovelUpdateWithRelations) =
-        Intent(context, Class.forName(Constants.MAIN_ACTIVITY)).apply {
-            action = Constants.SHORTCUT_NOVEL
-            putExtra(Constants.NOVEL_SOURCE_EXTRA, row.source)
-            putExtra(Constants.NOVEL_URL_EXTRA, row.novelUrl)
+        novelDetailsIntent(context, row.source, row.novelUrl).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             // Distinct PendingIntents, namespaced so a novel id never collides with a manga id.

@@ -102,8 +102,8 @@ import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.closesWhenIncognitoEnds
 import reikai.presentation.browse.globalsearch.searchIntentScreen
 import reikai.presentation.browse.repos.RepositoriesScreen
+import reikai.presentation.details.novelDetailsScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
-import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
@@ -427,13 +427,11 @@ class MainActivity : BaseActivity() {
                 navigator.popUntilRoot()
                 HomeScreen.Tab.Library(idToOpen)
             }
-            // RK: open a novel's details from a per-novel update notification
+            // RK: open a novel's details, as built by novelDetailsIntent
             Constants.SHORTCUT_NOVEL -> {
-                val source = intent.getStringExtra(Constants.NOVEL_SOURCE_EXTRA)
-                val url = intent.getStringExtra(Constants.NOVEL_URL_EXTRA)
-                if (source != null && url != null) {
+                intent.novelDetailsScreen()?.let {
                     navigator.popUntilRoot()
-                    navigator.push(NovelScreen(source, url))
+                    navigator.push(it)
                 }
                 null
             }

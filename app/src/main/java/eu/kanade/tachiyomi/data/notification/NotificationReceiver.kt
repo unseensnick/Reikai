@@ -28,6 +28,7 @@ import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
+import reikai.presentation.details.novelDetailsIntent
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.chapter.interactor.GetChapter
@@ -605,11 +606,8 @@ class NotificationReceiver : BroadcastReceiver() {
          * PendingIntent per novel, since extras are not part of its identity.
          */
         internal fun openNovelPendingActivity(context: Context, novel: Novel): PendingIntent {
-            val intent = Intent(context, MainActivity::class.java).apply {
+            val intent = novelDetailsIntent(context, novel.source, novel.url).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                action = Constants.SHORTCUT_NOVEL
-                putExtra(Constants.NOVEL_SOURCE_EXTRA, novel.source)
-                putExtra(Constants.NOVEL_URL_EXTRA, novel.url)
                 putExtra("notificationId", novel.id.hashCode())
                 putExtra("groupId", Notifications.ID_NOVEL_LIBRARY_RESULT)
                 putExtra("notificationTag", Notifications.TAG_NOVEL_NEW_CHAPTERS)

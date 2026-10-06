@@ -7,7 +7,6 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.model.Page
-import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
@@ -38,7 +37,7 @@ import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.reader.pageIndex
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.pageProgressLabel
-import tachiyomi.core.common.Constants
+import reikai.presentation.details.mangaDetailsIntent
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.asMangaCover
@@ -105,11 +104,7 @@ class MangaReaderProvider(
 
     // Upstream's ReaderActivity.openMangaScreen, moved here so the host asks the session.
     override fun detailsIntent(context: Context): Intent? = viewModel.manga?.id?.let { id ->
-        Intent(context, MainActivity::class.java).apply {
-            action = Constants.SHORTCUT_MANGA
-            putExtra(Constants.MANGA_EXTRA, id)
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
+        mangaDetailsIntent(context, id).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
     }
 
     override fun pageBackground(context: Context): Flow<Int> =
