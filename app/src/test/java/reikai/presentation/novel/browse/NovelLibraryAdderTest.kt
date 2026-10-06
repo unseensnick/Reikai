@@ -32,8 +32,13 @@ class NovelLibraryAdderTest {
 
     private val item = NovelItem(name = "a novel", path = "/a-novel", cover = null)
 
+    private fun storedNovel(id: Long, favorite: Boolean) = mockk<Novel> {
+        every { this@mockk.id } returns id
+        every { this@mockk.favorite } returns favorite
+    }
+
     private fun repositoryStub(): NovelRepository = mockk {
-        coEvery { getById(any()) } returns mockk<Novel> { every { favorite } returns false }
+        coEvery { getById(any()) } answers { storedNovel(firstArg(), favorite = false) }
         coEvery { getByUrlAndSource(any(), any()) } returns null
         coEvery { insertOrGet(any()) } returns mockk<Novel> {
             every { id } returns 5L
@@ -54,8 +59,7 @@ class NovelLibraryAdderTest {
             coEvery { awaitUpdateFavorite(any(), any()) } returns favoriteWriteSucceeds
         },
         novelRepository: NovelRepository = mockk {
-            coEvery { getById(any()) } returns
-                if (rowExists) mockk<Novel> { every { favorite } returns alreadyFavorite } else null
+            coEvery { getById(any()) } answers { storedNovel(firstArg(), alreadyFavorite).takeIf { rowExists } }
             coEvery { getByUrlAndSource(any(), any()) } returns null
             coEvery { insertOrGet(any()) } returns mockk<Novel> {
                 every { id } returns 5L

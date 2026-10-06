@@ -477,8 +477,13 @@ class NovelGroupAddProbe : GroupAddProbe {
         defaultCategoryId: Int,
     ) = NovelLibraryAdder(
         novelRepository = mockk<NovelRepository> {
-            coEvery { getById(any()) } returns
-                if (rowExists) mockk<Novel> { every { favorite } returns alreadyFavorite } else null
+            coEvery { getById(any()) } answers {
+                val id = firstArg<Long>()
+                mockk<Novel> {
+                    every { this@mockk.id } returns id
+                    every { favorite } returns alreadyFavorite
+                }.takeIf { rowExists }
+            }
             coEvery { getByUrlAndSource(any(), any()) } returns null
             coEvery { insertOrGet(any()) } returns mockk<Novel> {
                 every { id } returns 1L

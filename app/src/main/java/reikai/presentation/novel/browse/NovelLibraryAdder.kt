@@ -148,13 +148,7 @@ class NovelLibraryAdder(
      * in a date-added sort for something the user did not do. Twin of `MangaLibraryAdder.favoriteForAdd`,
      * pinned by `AddToGroupConformanceTest`'s confirm cases.
      */
-    suspend fun favoriteForAdd(novelId: Long): Long? {
-        val novel = novelRepository.getById(novelId) ?: return null
-        if (novel.favorite) return novelId
-        if (!updateNovel.awaitUpdateFavorite(novelId, favorite = true)) return null
-        autoBindOnAdd.novel(novel)
-        return novelId
-    }
+    suspend fun favoriteForAdd(novelId: Long): Long? = novelRepository.getById(novelId)?.let { favoriteStored(it) }
 
     /** Where an entry joining [selectedIds]'s group lands, or null to ask. Reads only. */
     suspend fun groupOrDefaultCategories(selectedIds: List<Long>): List<Long>? =
@@ -235,12 +229,15 @@ class NovelLibraryAdder(
      *  null when the favorite write failed. The bulk add path favorites many items this way, then applies
      *  one category set to all. insertOrGet may return a non-favorite shadow row from a prior details
      *  open, so favorite is applied as a follow-up. */
-    suspend fun favoriteReturningId(item: NovelItem, sourceId: String): Long? {
-        val stored = materialize(item, sourceId) ?: return null
-        if (stored.favorite) return stored.id
-        if (!updateNovel.awaitUpdateFavorite(stored.id, favorite = true)) return null
-        autoBindOnAdd.novel(stored)
-        return stored.id
+    suspend fun favoriteReturningId(item: NovelItem, sourceId: String): Long? =
+        materialize(item, sourceId)?.let { favoriteStored(it) }
+
+    /** [favoriteForAdd]'s rule over a row just read, which every favorite of a stored row here shares. */
+    private suspend fun favoriteStored(novel: Novel): Long? {
+        if (novel.favorite) return novel.id
+        if (!updateNovel.awaitUpdateFavorite(novel.id, favorite = true)) return null
+        autoBindOnAdd.novel(novel)
+        return novel.id
     }
 
     /** Whether the browsed [item] is in the library now, rather than when a list drew it. */
