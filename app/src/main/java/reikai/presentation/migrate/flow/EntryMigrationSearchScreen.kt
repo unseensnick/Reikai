@@ -1,14 +1,10 @@
 package reikai.presentation.migrate.flow
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,7 +13,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
@@ -33,7 +28,7 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.domain.source.service.SourcePreferences
-import eu.kanade.presentation.components.SearchToolbar
+import eu.kanade.presentation.browse.components.GlobalSearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineDispatcher
@@ -46,8 +41,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import reikai.domain.library.ContentType
-import reikai.presentation.browse.EntrySearchSourceFilterChips
 import reikai.presentation.browse.SOURCE_SEARCH_CONCURRENCY
+import reikai.presentation.browse.globalsearch.SearchSourceFilter
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -106,44 +101,25 @@ class EntryMigrationSearchScreen(
         PickOutcomeToast(state.pickOutcome, viewModel::consumePickOutcome)
 
         Scaffold(
-            topBar = { scrollBehavior ->
-                // The global-search header shape: search field in the toolbar, progress under it,
-                // then the has-results chip. Same surface, same reading.
-                Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                    Box {
-                        SearchToolbar(
-                            searchQuery = query,
-                            onChangeSearchQuery = { query = it.orEmpty() },
-                            onSearch = { viewModel.search(it) },
-                            onClickCloseSearch = navigator::pop,
-                            navigateUp = navigator::pop,
-                            scrollBehavior = scrollBehavior,
-                        )
-                        val progress = state.searchedCount
-                        val total = state.sections.size
-                        val barModifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .fillMaxWidth()
-                        when {
-                            // Indeterminate: a resolve is one fetch of unknown length.
-                            state.resolvingPick -> LinearProgressIndicator(modifier = barModifier)
-                            progress in 1..<total -> LinearProgressIndicator(
-                                progress = { progress / total.toFloat() },
-                                modifier = barModifier,
-                            )
-                        }
-                    }
-                    EntrySearchSourceFilterChips(
-                        isPinnedOnly = false,
-                        onlyShowHasResults = state.onlyShowHasResults,
-                        // The sources searched are the configured migration targets; the
-                        // pinned/all source filter has no meaning here.
-                        showSourceFilter = false,
-                        onSelectPinnedOnly = {},
-                        onSelectAll = {},
-                        onToggleResults = viewModel::toggleOnlyResults,
-                    )
-                }
+            // No scroll behaviour passed on, as Reikai's global search does, so the bar stays one
+            // plain header block with the chips under it.
+            topBar = { _ ->
+                GlobalSearchToolbar(
+                    searchQuery = query,
+                    progress = state.searchedCount,
+                    total = state.sections.size,
+                    navigateUp = navigator::pop,
+                    onChangeSearchQuery = { query = it.orEmpty() },
+                    onSearch = viewModel::search,
+                    // The sources searched are the configured migration targets; the pinned/all
+                    // source filter has no meaning here.
+                    hideSourceFilter = true,
+                    sourceFilter = SearchSourceFilter.All,
+                    onChangeSearchFilter = {},
+                    onlyShowHasResults = state.onlyShowHasResults,
+                    onToggleResults = viewModel::toggleOnlyResults,
+                    isBusy = state.resolvingPick,
+                )
             },
         ) { contentPadding ->
             // Unlike global search, a source still loading or failed stays under the filter (see

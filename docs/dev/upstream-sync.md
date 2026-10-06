@@ -100,6 +100,14 @@ Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer doe
   `AppBar.kt` was otherwise byte-identical, so re-apply the island rather than reverting to their
   blob. Drop it only if upstream fixes the race itself.
 
+- **`GlobalSearchToolbar` gets no scroll behaviour on Global search or the migration search, where
+  upstream's bar tints to the scrolled container colour as results scroll.** The parameter is a
+  nullable `// RK` so the bar, the tab strip and the chip row read as one header block; both Reikai
+  screens pass none, so the two search headers match each other. The migration search also draws an
+  indeterminate bar through the `// RK` `isBusy` while a picked target resolves, in place of the
+  searched-sources count. Upstream's `MigrateSearchScreen` is replaced by `EntryMigrationSearchScreen`
+  (off-path manifest).
+
 - **Backup create / validate / restore are streamed, not whole-file.** `BackupCreator`, `BackupFileValidator`, and `BackupRestorer` diverge from Mihon's `encodeToByteArray(Backup.serializer(), backup)` / `decode()` (which build the whole `Backup` in memory and OOM on a large library, unseensnick/Reikai#53). Reikai writes each top-level protobuf field to the gzip sink and reads it back one field at a time (`BackupProtoWriter` / `BackupProtoReader`), so a future sync of these three files is a hand-merge inside the `// RK` islands, never a verbatim copy. `BackupCreateJob` carries one island of its own, the `Throwable` catch that reports an out-of-memory backup. The wire format is unchanged (same field numbers), so backups stay cross-compatible with upstream.
 - **The shared `category` table carries a `content_type` discriminator and `CategoryRepository` is content-type-aware.** Reikai folded its novel category stack into Mihon's shared `category` table with a `content_type` column (0 universal / 1 manga / 2 novel), so `category.sq` (the column, the seeded universal row 0, `getNovelCategories` / `getNovelCategoriesByNovelId`, the sort-override-clear), the `CategoryRepository` interface + `CategoryRepositoryImpl` (a `contentType` param on `getAll` / `getAllAsFlow` / `insert`, plus `getCategoriesByNovelId`), and `DeleteCategory` (delegates to Reikai's `deleteCategoryAndCleanup`) all diverge inside `// RK` / `-- RK` islands. A category-id preference cleanup rides on top: `PreferenceRestorer` and `BackupRestorer` remap category-id prefs by name on restore and skip a dead key, and a `188f` migration scrubs them on upgrade. A sync of any of these is a hand-merge inside the islands, never a verbatim copy; read [category-schema-unification.md](plans/category-schema-unification.md) first. The two junction tables (`manga_category`, `novels_categories`) carry no content type, so entry storage syncs normally.
 
