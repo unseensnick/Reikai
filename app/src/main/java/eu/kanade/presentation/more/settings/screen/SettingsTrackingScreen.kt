@@ -256,8 +256,10 @@ object SettingsTrackingScreen : SearchableSettings {
                         },
                         logout = { dialog = LogoutDialog(trackerManager.mdList) },
                     ),
-                    // RK: RanobeDB light-novel tracker. The whole credential is a personal access
-                    // token generated on the site, so no OAuth redirect and no WebView.
+                    // RK: RanobeDB light-novel tracker. The credential is a personal access token
+                    // generated on the site, or the session cookie a WebView sign-in captures, so no
+                    // OAuth redirect. The help link is the sign-in page, not the token form: the
+                    // site's settings render empty until you are signed in.
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.ranobeDb,
                         login = {
@@ -265,7 +267,7 @@ object SettingsTrackingScreen : SearchableSettings {
                                 tracker = trackerManager.ranobeDb,
                                 tokenStringRes = MR.strings.login_token,
                                 helpStringRes = MR.strings.login_ranobedb_token_info,
-                                helpUrl = RANOBEDB_LOGIN_URL,
+                                helpUrl = trackerManager.ranobeDb.cookieLoginUrl,
                             )
                         },
                         logout = { dialog = LogoutDialog(trackerManager.ranobeDb) },
@@ -431,12 +433,6 @@ object SettingsTrackingScreen : SearchableSettings {
     }
 
     // RK --> single-secret token login, plus RanobeDB's two sync toggles.
-    //
-    // The sign-in page, not the token form: RanobeDB's settings tabs are a `?view=` query rather
-    // than a path, and the whole page renders empty until you are signed in, so sending a signed-out
-    // user straight there shows them nothing. `login_ranobedb_token_info` carries the last step.
-    private const val RANOBEDB_LOGIN_URL = "https://ranobedb.org/login"
-
     @Composable
     private fun ranobeDbPreferences(
         trackPreferences: TrackPreferences,

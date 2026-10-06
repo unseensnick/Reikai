@@ -1,6 +1,7 @@
 package reikai.domain.track.site
 
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.data.track.novelupdates.NovelUpdatesApi
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
@@ -19,6 +20,11 @@ class OwnedSitesTest {
     )
     fun `NovelUpdates' pages are its tracker's, however the address is written`(site: String) {
         OwnedSites.ownerOf(site)?.trackerId shouldBe TrackerManager.NOVELUPDATES
+    }
+
+    @Test
+    fun `the site NovelUpdates owns is the one its tracker calls`() {
+        OwnedSites.ownerOf(NovelUpdatesApi.BASE_URL)?.trackerId shouldBe TrackerManager.NOVELUPDATES
     }
 
     @Test

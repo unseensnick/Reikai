@@ -1,6 +1,7 @@
 package reikai.domain.track.site
 
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.data.track.novelupdates.NovelUpdatesApi
 import reikai.domain.source.siteHost
 import reikai.novel.source.NovelSource
 
@@ -19,7 +20,7 @@ object OwnedSites {
     private val all = listOf(
         OwnedSite(
             trackerId = TrackerManager.NOVELUPDATES,
-            host = "novelupdates.com",
+            host = checkNotNull(siteHost(NovelUpdatesApi.BASE_URL)),
             hiddenSourceKeys = setOf(
                 "pref_enable_tracking",
                 "pref_track_last_read",
