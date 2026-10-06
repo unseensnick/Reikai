@@ -118,9 +118,9 @@ import reikai.domain.track.autobind.AutoBindTrackers
 import reikai.domain.track.autobind.offerTrackers
 import reikai.domain.track.autobind.trackingButtonState
 import reikai.presentation.browse.AddOutcome
+import reikai.presentation.browse.DuplicatePrompt
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.addEntry
-import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.finishAdd
 import reikai.presentation.components.pageProgressLabel
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
@@ -707,17 +707,7 @@ class MangaViewModel(
                     val prompt = mangaLibraryAdder.findDuplicates(manga)
 
                     if (prompt != null) {
-                        updateSuccessState {
-                            it.copy(
-                                dialog = Dialog.DuplicateManga(
-                                    manga,
-                                    prompt.duplicates,
-                                    prompt.suggestGroup,
-                                    prompt.groupIdByEntryId,
-                                    prompt.sourceLabels,
-                                ),
-                            )
-                        }
+                        updateSuccessState { it.copy(dialog = Dialog.DuplicateManga(manga, prompt)) }
                         return@launchIO
                     }
                     // RK <--
@@ -1595,15 +1585,9 @@ class MangaViewModel(
         // RK: confirm clearing downloads; sourceName is the chip being viewed, null in the unified view.
         data class ClearDownloads(val sourceName: String?) : Dialog
 
-        // RK: suggestGroup gates the "add to existing group" action (the same-title suggestion pref);
-        // groupIdByMangaId collapses same-group duplicates into one card.
-        data class DuplicateManga(
-            val manga: Manga,
-            val duplicates: List<MangaWithChapterCount>,
-            val suggestGroup: Boolean,
-            val groupIdByMangaId: Map<Long, Long>,
-            val sourceLabels: Map<Long, EntrySourceLabel>,
-        ) : Dialog
+        // RK: the adder's whole prompt in place of duplicates, so its groups, labels and grouping offer reach
+        // the shared dialog as one value
+        data class DuplicateManga(val manga: Manga, val prompt: DuplicatePrompt<MangaWithChapterCount, Long>) : Dialog
         data class Migrate(val target: Manga, val current: Manga) : Dialog
         data class SetFetchInterval(val manga: Manga) : Dialog
         data object SettingsSheet : Dialog

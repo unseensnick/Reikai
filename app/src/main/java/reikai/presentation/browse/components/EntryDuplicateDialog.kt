@@ -64,6 +64,7 @@ import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.Person
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.icons.materialsymbols.rounded.Warning
+import reikai.presentation.browse.DuplicatePrompt
 import reikai.presentation.components.entryStatusIcon
 import reikai.presentation.components.entryStatusRes
 import reikai.presentation.selection.EntrySelection
@@ -77,6 +78,30 @@ import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.secondaryItemAlpha
 import tachiyomi.presentation.core.util.selectedBackground
+
+/**
+ * The dialog over an adder's whole [prompt]: its source labels feed each [card], its groups collapse
+ * the cards, and [onAddToGroup] is offered only where the prompt suggests grouping.
+ */
+@Composable
+fun <T, K> EntryDuplicateDialog(
+    prompt: DuplicatePrompt<T, K>,
+    card: T.(Map<K, EntrySourceLabel>) -> EntryDuplicateCardUi,
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit,
+    onOpen: (T) -> Unit,
+    onMigrate: (T) -> Unit,
+    onAddToGroup: (selectedIds: List<Long>) -> Unit,
+) = EntryDuplicateDialog(
+    duplicates = prompt.duplicates,
+    toUi = { it.card(prompt.sourceLabels) },
+    onDismissRequest = onDismissRequest,
+    onConfirm = onConfirm,
+    onOpen = onOpen,
+    onMigrate = onMigrate,
+    groupIdByEntryId = prompt.groupIdByEntryId,
+    onAddToGroup = onAddToGroup.takeIf { prompt.suggestGroup },
+)
 
 /**
  * The "possible duplicates" dialog for both content types, shown when the entry being added looks

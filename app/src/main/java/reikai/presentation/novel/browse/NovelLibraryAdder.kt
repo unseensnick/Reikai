@@ -67,14 +67,7 @@ class NovelLibraryAdder(
         )
         return when (decision) {
             AddDecision.Remove -> NovelBrowseDialog.RemoveNovel(item, sourceId)
-            is AddDecision.ConfirmDuplicate -> NovelBrowseDialog.AddDuplicate(
-                item = item,
-                sourceId = sourceId,
-                duplicates = decision.duplicates.duplicates,
-                sourceLabels = decision.duplicates.sourceLabels,
-                suggestGroup = decision.duplicates.suggestGroup,
-                groupIdByNovelId = decision.duplicates.groupIdByEntryId,
-            )
+            is AddDecision.ConfirmDuplicate -> NovelBrowseDialog.AddDuplicate(item, sourceId, decision.duplicates)
             AddDecision.Add -> addToLibrary(item, sourceId)
         }
     }

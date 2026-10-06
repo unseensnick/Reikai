@@ -2,6 +2,7 @@ package reikai.presentation.browse.components
 
 import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.NovelWithChapterCount
+import reikai.domain.novel.model.asNovelCover
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 
 /**
@@ -51,14 +52,7 @@ fun MangaWithChapterCount.toDuplicateCard(sourceLabels: Map<Long, EntrySourceLab
 
 fun NovelWithChapterCount.toDuplicateCard(sourceLabels: Map<String, EntrySourceLabel>) = EntryDuplicateCardUi(
     id = novel.id,
-    // Duplicates are library rows by definition, so the cover fetcher can take the favorite path.
-    coverModel = NovelCover(
-        url = novel.thumbnailUrl,
-        sourceId = novel.source,
-        isNovelFavorite = true,
-        lastModified = novel.coverLastModified,
-        novelId = novel.id,
-    ),
+    coverModel = novel.asNovelCover(),
     title = novel.title,
     author = novel.author,
     artist = novel.artist,

@@ -1,13 +1,14 @@
 package reikai.presentation.browse
 
 import reikai.domain.merge.EntryMergeManager
+import reikai.presentation.browse.components.EntryDuplicateCardUi
 import reikai.presentation.browse.components.EntrySourceLabel
 
 /**
  * What an add's duplicate dialog shows: the library entries that may be the same series, each one's
  * source label keyed by the type's source id [K], the group of every grouped duplicate so a group
  * collapses into one card, and whether to offer joining one. Only [duplicatePrompt] builds it, called by
- * each adder's `findDuplicates`, which every add path asks.
+ * each adder's `findDuplicates`, which every add path asks, and the dialogs carry it whole.
  */
 data class DuplicatePrompt<D, K>(
     val duplicates: List<D>,
@@ -31,3 +32,11 @@ suspend fun <D, K> duplicatePrompt(
         suggestGroup = mergeManager.suggestGroupingOnAdd,
     )
 }
+
+/** The shared dialog's neutral form of this prompt, [card] drawing one duplicate from its source labels. */
+fun <D, K> DuplicatePrompt<D, K>.toAddDuplicate(card: D.(Map<K, EntrySourceLabel>) -> EntryDuplicateCardUi) =
+    EntryAddDialog.AddDuplicate(
+        duplicates = duplicates.map { it.card(sourceLabels) },
+        groupIdByEntryId = groupIdByEntryId,
+        suggestGroup = suggestGroup,
+    )

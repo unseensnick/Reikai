@@ -106,8 +106,20 @@ class EntryAddFlowConformanceTest {
         probe.openedDuplicate(duplicate) shouldBe probe.expectedDuplicate
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `the duplicate prompt keeps its groups and the grouping offer`(probe: AddFlowProbe) = runTest {
+        val duplicate = probe.storeDuplicate()
+        probe.storeEntry(inLibrary = false)
+        probe.pressEntry()
+
+        val prompt = probe.flow.dialog.value as EntryAddDialog.AddDuplicate
+        (prompt.groupIdByEntryId to prompt.suggestGroup) shouldBe (mapOf(duplicate to DUPLICATE_GROUP) to true)
+    }
+
     companion object {
         const val PICKED_CATEGORY = 3L
+        const val DUPLICATE_GROUP = 70L
 
         @JvmStatic
         fun probes() = listOf(MangaAddFlowProbe(), NovelAddFlowProbe())
@@ -116,7 +128,8 @@ class EntryAddFlowConformanceTest {
 
 /**
  * One content type's flow over its fake library, with one user category and "always ask" as the
- * default, so every add that has no group to follow raises the picker.
+ * default, so every add that has no group to follow raises the picker. The duplicate is grouped and
+ * grouping is offered.
  */
 abstract class AddFlowProbe {
     private val job = SupervisorJob()
@@ -154,7 +167,10 @@ abstract class AddFlowProbe {
 }
 
 class MangaAddFlowProbe : AddFlowProbe() {
-    private val library = FakeMangaLibrary(listOf(libraryCategory(EntryAddFlowConformanceTest.PICKED_CATEGORY)))
+    private val library = FakeMangaLibrary(
+        userCategories = listOf(libraryCategory(EntryAddFlowConformanceTest.PICKED_CATEGORY)),
+        mergeManager = fakeGrouping(mapOf(DUPLICATE to EntryAddFlowConformanceTest.DUPLICATE_GROUP), suggest = true),
+    )
     override val flow = MangaAddFlow(library.adder, scope)
 
     override fun toString() = "manga"
@@ -195,7 +211,10 @@ class MangaAddFlowProbe : AddFlowProbe() {
 }
 
 class NovelAddFlowProbe : AddFlowProbe() {
-    private val library = FakeNovelLibrary(listOf(libraryCategory(EntryAddFlowConformanceTest.PICKED_CATEGORY)))
+    private val library = FakeNovelLibrary(
+        userCategories = listOf(libraryCategory(EntryAddFlowConformanceTest.PICKED_CATEGORY)),
+        mergeManager = fakeGrouping(mapOf(DUPLICATE to EntryAddFlowConformanceTest.DUPLICATE_GROUP), suggest = true),
+    )
     override val flow = NovelAddFlow(library.adder, scope)
 
     override fun toString() = "novel"

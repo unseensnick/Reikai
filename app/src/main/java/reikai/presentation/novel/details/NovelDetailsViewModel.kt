@@ -119,7 +119,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddFavoriteResult
-import reikai.presentation.browse.components.EntrySourceLabel
+import reikai.presentation.browse.DuplicatePrompt
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryManageSourceInfo
@@ -988,16 +988,7 @@ class NovelDetailsViewModel(
             if (!novel.favorite) {
                 // Warn on a similarly-named library novel before adding (mirrors MangaViewModel).
                 novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { prompt ->
-                    updateLoaded {
-                        it.copy(
-                            dialog = NovelDetailsDialog.DuplicateNovel(
-                                prompt.duplicates,
-                                prompt.sourceLabels,
-                                prompt.suggestGroup,
-                                prompt.groupIdByEntryId,
-                            ),
-                        )
-                    }
+                    updateLoaded { it.copy(dialog = NovelDetailsDialog.DuplicateNovel(prompt)) }
                     return@launchIO
                 }
                 addToLibrary(novel)
@@ -1627,14 +1618,7 @@ sealed interface NovelDetailsDialog {
 
     data object EditInfo : NovelDetailsDialog
 
-    data class DuplicateNovel(
-        val duplicates: List<NovelWithChapterCount>,
-        val sourceLabels: Map<String, EntrySourceLabel>,
-        /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */
-        val suggestGroup: Boolean,
-        /** Novel id -> group id, so same-group duplicates collapse into one card. */
-        val groupIdByNovelId: Map<Long, Long>,
-    ) : NovelDetailsDialog
+    data class DuplicateNovel(val prompt: DuplicatePrompt<NovelWithChapterCount, String>) : NovelDetailsDialog
 
     data class DeleteChapters(val chapters: List<NovelChapter>) : NovelDetailsDialog
 

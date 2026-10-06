@@ -75,6 +75,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
+import tachiyomi.domain.manga.model.MangaWithChapterCount
 
 class MangaScreen(
     val mangaId: Long, // RK: exposed so the migrate flow can identity-check the screen below it
@@ -287,16 +288,13 @@ class MangaScreen(
                 }
                 is MangaViewModel.Dialog.DuplicateManga -> {
                     EntryDuplicateDialog(
-                        duplicates = dialog.duplicates,
-                        toUi = { it.toDuplicateCard(dialog.sourceLabels) },
+                        prompt = dialog.prompt,
+                        card = MangaWithChapterCount::toDuplicateCard,
                         onDismissRequest = onDismissRequest,
                         onConfirm = { viewModel.toggleFavorite(checkDuplicate = false) },
                         onOpen = { navigator.push(MangaScreen(it.manga.id)) },
                         onMigrate = { viewModel.showMigrateDialog(it.manga) },
-                        // RK: offer grouping when the same-title suggestion pref is on.
-                        groupIdByEntryId = dialog.groupIdByMangaId,
-                        onAddToGroup = { selectedIds: List<Long> -> viewModel.addToExistingGroup(selectedIds) }
-                            .takeIf { dialog.suggestGroup },
+                        onAddToGroup = viewModel::addToExistingGroup,
                     )
                 }
 

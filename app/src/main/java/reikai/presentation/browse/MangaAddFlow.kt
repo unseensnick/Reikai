@@ -3,7 +3,6 @@ package reikai.presentation.browse
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.CoroutineScope
 import reikai.domain.library.ContentType
-import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.components.toDuplicateCard
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
@@ -16,10 +15,7 @@ sealed interface MangaAddDialog {
 
     data class AddDuplicate(
         val manga: Manga,
-        val duplicates: List<MangaWithChapterCount>,
-        val suggestGroup: Boolean,
-        val groupIdByMangaId: Map<Long, Long>,
-        val sourceLabels: Map<Long, EntrySourceLabel>,
+        val prompt: DuplicatePrompt<MangaWithChapterCount, Long>,
     ) : MangaAddDialog
 
     data class ChangeCategory(
@@ -68,11 +64,7 @@ class MangaAddFlow(
     override fun MangaAddDialog.toNeutral(): EntryAddDialog = when (this) {
         is MangaAddDialog.Remove -> EntryAddDialog.Remove(manga.title)
         is MangaAddDialog.ChangeCategory -> EntryAddDialog.ChangeCategory(initialSelection)
-        is MangaAddDialog.AddDuplicate -> EntryAddDialog.AddDuplicate(
-            duplicates = duplicates.map { it.toDuplicateCard(sourceLabels) },
-            groupIdByEntryId = groupIdByMangaId,
-            suggestGroup = suggestGroup,
-        )
+        is MangaAddDialog.AddDuplicate -> prompt.toAddDuplicate(MangaWithChapterCount::toDuplicateCard)
         is MangaAddDialog.Migrate -> EntryAddDialog.Migrate(currentId, targetId)
     }
 }

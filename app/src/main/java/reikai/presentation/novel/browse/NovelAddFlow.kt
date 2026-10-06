@@ -4,10 +4,11 @@ import kotlinx.coroutines.CoroutineScope
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.novel.host.NovelItem
+import reikai.presentation.browse.DuplicatePrompt
 import reikai.presentation.browse.EntryAddDialog
 import reikai.presentation.browse.EntryAddFlow
-import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.components.toDuplicateCard
+import reikai.presentation.browse.toAddDuplicate
 import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
@@ -18,13 +19,7 @@ sealed interface NovelBrowseDialog {
         val item: NovelItem,
         /** The source the result came from, so the confirm acts on the right one (varies in global search). */
         val sourceId: String,
-        val duplicates: List<NovelWithChapterCount>,
-        /** Source id -> its label for each duplicate (resolved in the adder, so the dialog is DI-free). */
-        val sourceLabels: Map<String, EntrySourceLabel>,
-        /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */
-        val suggestGroup: Boolean,
-        /** Novel id -> group id, so same-group duplicates collapse into one card. */
-        val groupIdByNovelId: Map<Long, Long>,
+        val prompt: DuplicatePrompt<NovelWithChapterCount, String>,
     ) : NovelBrowseDialog
     data class ChangeCategory(
         val target: NovelCategoryTarget,
@@ -81,6 +76,7 @@ class NovelAddFlow(
 
     // A novel is addressed by source and path, which only the raised dialog's duplicates still know.
     override fun duplicateScreen(entryId: Long) = (raised as? NovelBrowseDialog.AddDuplicate)
+        ?.prompt
         ?.duplicates
         ?.firstOrNull { it.novel.id == entryId }
         ?.let { NovelScreen(it.novel.source, it.novel.url) }
@@ -88,11 +84,7 @@ class NovelAddFlow(
     override fun NovelBrowseDialog.toNeutral(): EntryAddDialog = when (this) {
         is NovelBrowseDialog.RemoveNovel -> EntryAddDialog.Remove(item.name)
         is NovelBrowseDialog.ChangeCategory -> EntryAddDialog.ChangeCategory(initialSelection)
-        is NovelBrowseDialog.AddDuplicate -> EntryAddDialog.AddDuplicate(
-            duplicates = duplicates.map { it.toDuplicateCard(sourceLabels) },
-            groupIdByEntryId = groupIdByNovelId,
-            suggestGroup = suggestGroup,
-        )
+        is NovelBrowseDialog.AddDuplicate -> prompt.toAddDuplicate(NovelWithChapterCount::toDuplicateCard)
         is NovelBrowseDialog.Migrate -> EntryAddDialog.Migrate(currentId, targetId)
     }
 }

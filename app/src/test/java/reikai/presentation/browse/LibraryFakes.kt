@@ -12,7 +12,10 @@ import kotlinx.coroutines.flow.update
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.CategorySortOrder
+import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.RemoveMangaFromLibrary
+import reikai.domain.merge.EntryMergeManager
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.UpdateNovel
@@ -31,12 +34,27 @@ import tachiyomi.domain.manga.repository.MangaRepository
 
 fun libraryCategory(id: Long) = Category(id = id, name = "category $id", order = 0L, flags = 0L)
 
+/** A merge manager with [groupIdByEntryId]'s entries grouped, offering grouping on add when [suggest] says. */
+inline fun <reified T : EntryMergeManager> fakeGrouping(
+    groupIdByEntryId: Map<Long, Long> = emptyMap(),
+    suggest: Boolean = false,
+): T = mockk(relaxed = true) {
+    coEvery { groupIdsFor(any()) } answers {
+        firstArg<List<Long>>().mapNotNull { id -> groupIdByEntryId[id]?.let { id to it } }.toMap()
+    }
+    every { suggestGroupingOnAdd } returns suggest
+}
+
 /**
  * A manga library in memory behind the real [MangaLibraryAdder] and [UpdateManga], so a test adds the
  * way the app does and reads back what landed. Every read sees the table as it is now, as the
  * database would, which is what a stale list snapshot is tested against.
  */
-class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCategoryId: Int = -1) {
+class FakeMangaLibrary(
+    userCategories: List<Category> = emptyList(),
+    defaultCategoryId: Int = -1,
+    mergeManager: MangaMergeManager = fakeGrouping(),
+) {
 
     private val table = MutableStateFlow<Map<Long, Manga>>(emptyMap())
     val rows: Map<Long, Manga> get() = table.value
@@ -118,14 +136,14 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
         },
         updateManga = updateManga,
         autoBindOnAdd = mockk { every { manga(any(), any()) } answers { trackersBound += firstArg<Manga>().id } },
-        mergeManager = mockk(relaxed = true) { coEvery { groupIdsFor(any()) } returns emptyMap() },
+        mergeManager = mergeManager,
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = mockk {
             every { categorySortOrder } returns
                 mockk { every { get() } returns CategorySortOrder.MANUAL }
         },
         removeMangaFromLibrary = RemoveMangaFromLibrary(
-            mergeManager = mockk(relaxed = true),
+            mergeManager = mergeManager,
             sourceTracker = mockk(relaxed = true),
             getManga = getManga,
             updateManga = updateManga,
@@ -139,7 +157,11 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
 }
 
 /** The novel half of [FakeMangaLibrary]: the real [NovelLibraryAdder] and [UpdateNovel] over rows in memory. */
-class FakeNovelLibrary(userCategories: List<Category> = emptyList(), defaultCategoryId: Int = -1) {
+class FakeNovelLibrary(
+    userCategories: List<Category> = emptyList(),
+    defaultCategoryId: Int = -1,
+    mergeManager: NovelMergeManager = fakeGrouping(),
+) {
 
     val rows = mutableMapOf<Long, Novel>()
     val favoriteWrites = mutableListOf<Long>()
@@ -193,7 +215,7 @@ class FakeNovelLibrary(userCategories: List<Category> = emptyList(), defaultCate
         setNovelCategories = mockk { coEvery { await(any(), any()) } answers { filed[firstArg()!!] = secondArg() } },
         updateNovel = UpdateNovel(novelRepository = repository, sourceTracker = mockk(relaxed = true)),
         novelPreferences = novelPreferences,
-        mergeManager = mockk(relaxed = true) { coEvery { groupIdsFor(any()) } returns emptyMap() },
+        mergeManager = mergeManager,
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = mockk {
             every { categorySortOrder } returns

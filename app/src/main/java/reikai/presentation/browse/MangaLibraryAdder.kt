@@ -60,13 +60,7 @@ class MangaLibraryAdder(
         val decision = decideAdd(inLibrary = isInLibrary(manga.id)) { findDuplicates(manga) }
         return when (decision) {
             AddDecision.Remove -> MangaAddDialog.Remove(manga)
-            is AddDecision.ConfirmDuplicate -> MangaAddDialog.AddDuplicate(
-                manga = manga,
-                duplicates = decision.duplicates.duplicates,
-                suggestGroup = decision.duplicates.suggestGroup,
-                groupIdByMangaId = decision.duplicates.groupIdByEntryId,
-                sourceLabels = decision.duplicates.sourceLabels,
-            )
+            is AddDecision.ConfirmDuplicate -> MangaAddDialog.AddDuplicate(manga, decision.duplicates)
             AddDecision.Add -> addToLibrary(manga)
         }
     }

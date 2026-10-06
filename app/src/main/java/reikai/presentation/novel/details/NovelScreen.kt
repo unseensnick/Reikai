@@ -34,6 +34,7 @@ import reikai.data.novel.expectedNextUpdate
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.source.SourceKey
@@ -254,16 +255,13 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
             onConfirm = { include, _ -> viewModel.applyCategories(include, dialog.joinGroup) },
         )
         is NovelDetailsDialog.DuplicateNovel -> EntryDuplicateDialog(
-            duplicates = dialog.duplicates,
-            toUi = { it.toDuplicateCard(dialog.sourceLabels) },
+            prompt = dialog.prompt,
+            card = NovelWithChapterCount::toDuplicateCard,
             onDismissRequest = viewModel::dismissDialog,
             onConfirm = viewModel::addFavoriteAnyway,
             onOpen = { navigator.push(NovelScreen(it.novel.source, it.novel.url)) },
             onMigrate = { viewModel.startMigrate(it.novel.id) },
-            groupIdByEntryId = dialog.groupIdByNovelId,
-            onAddToGroup = { selectedIds: List<Long> ->
-                viewModel.addToExistingGroup(selectedIds)
-            }.takeIf { dialog.suggestGroup },
+            onAddToGroup = viewModel::addToExistingGroup,
         )
         NovelDetailsDialog.ChapterSettings -> NovelChapterSettingsDialog(
             sorting = state.sorting,

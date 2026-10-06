@@ -136,10 +136,8 @@ private const val GROUP_ID = 70L
 private const val SOURCE_NAME = "Home"
 
 /** A merge manager that has [DUPLICATE_ID] grouped and offers grouping on add. */
-private inline fun <reified T : EntryMergeManager> groupingMergeManager(): T = mockk(relaxed = true) {
-    coEvery { groupIdsFor(listOf(DUPLICATE_ID)) } returns mapOf(DUPLICATE_ID to GROUP_ID)
-    every { suggestGroupingOnAdd } returns true
-}
+private inline fun <reified T : EntryMergeManager> groupingMergeManager(): T =
+    fakeGrouping(mapOf(DUPLICATE_ID to GROUP_ID), suggest = true)
 
 private fun category(id: Long, name: String = "category $id") =
     Category(id = id, name = name, order = 0L, flags = 0L)
