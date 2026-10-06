@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
-import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
@@ -38,7 +38,7 @@ class NovelDownloadProviderTest {
         unmockkStatic(TextUtils::class)
     }
 
-    private val libraryPreferences = LibraryPreferences(InMemoryPreferenceStore())
+    private val libraryPreferences = LibraryPreferences(EmittingPreferenceStore())
 
     private val provider by lazy {
         NovelDownloadProvider(
@@ -73,6 +73,38 @@ class NovelDownloadProviderTest {
         provider.renameNovel(novel, "New Title")
 
         File(root, "src/Old Title").exists() shouldBe false
+    }
+
+    @Test
+    fun `deleting chapters removes each one's file`() {
+        val chapters = (1L..3L).map { chapter.copy(id = it, url = "/c/$it", name = "Chapter $it") }
+        chapters.forEach { provider.writeChapter(novel, it, "<p>text</p>") }
+
+        provider.deleteChapters(novel, chapters)
+
+        chapters.mapNotNull { provider.readChapter(novel, it) } shouldBe emptyList()
+    }
+
+    @Test
+    fun `deleting chapters leaves the novel's other chapters`() {
+        val other = chapter.copy(id = 8L, url = "/c/8", name = "Chapter 8")
+        provider.writeChapter(novel, chapter, "<p>text</p>")
+        provider.writeChapter(novel, other, "<p>kept</p>")
+
+        provider.deleteChapters(novel, listOf(chapter))
+
+        provider.readChapter(novel, other) shouldBe "<p>kept</p>"
+    }
+
+    @Test
+    fun `deleting a chapter saved before the non-ASCII setting flipped removes it`() {
+        val accented = chapter.copy(name = "Chapitre \u00e9t\u00e9")
+        provider.writeChapter(novel, accented, "<p>text</p>")
+        libraryPreferences.disallowNonAsciiFilenames.set(true)
+
+        provider.deleteChapters(novel, listOf(accented))
+
+        provider.readChapter(novel, accented) shouldBe null
     }
 
     /** A case-only rename goes through a temporary name, which a case-insensitive file system needs. */

@@ -146,7 +146,7 @@ class NovelManualDeleteHalf : ManualDeleteHalf {
         val removed = ConcurrentHashMap.newKeySet<Long>()
         val done = CompletableDeferred<Unit>()
         val provider = mockk<NovelDownloadProvider>(relaxed = true) {
-            every { deleteChapter(any(), any()) } answers { removed += secondArg<NovelChapter>().id }
+            every { deleteChapters(any(), any()) } answers { removed += secondArg<List<NovelChapter>>().map { it.id } }
             // Asked once every chapter has gone, so it marks the delete as finished.
             every { isNovelDirEmpty(any()) } answers { false.also { done.complete(Unit) } }
         }

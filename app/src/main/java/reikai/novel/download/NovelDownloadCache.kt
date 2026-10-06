@@ -153,11 +153,15 @@ class NovelDownloadCache(
         }
     }
 
-    /** Optimistically drop a just-deleted chapter, pruning now-empty novel / source dirs. */
-    fun removeChapter(novel: Novel, chapter: NovelChapter) {
+    /**
+     * Optimistically drop just-deleted [chapters], all [novel]'s, pruning now-empty novel / source dirs. One
+     * edit and one change for the batch, as Mihon's DownloadCache.removeChapters, since each change rebuilds
+     * the novel's page and the library.
+     */
+    fun removeChapters(novel: Novel, chapters: List<NovelChapter>) {
         val source = provider.sourceDirName(novel)
         val novelDir = provider.novelDirName(novel)
-        val names = provider.validChapterFileNames(chapter).toSet()
+        val names = chapters.flatMapTo(HashSet()) { provider.validChapterFileNames(it) }
         scope.launch {
             mutex.withLock {
                 tree = tree.mutate { sources ->

@@ -46,8 +46,9 @@ class NovelDownloadStore(
         }
     }
 
-    fun remove(chapterId: Long) {
-        preferences.edit { remove(chapterId.toString()) }
+    /** One edit for the batch, as Mihon's DownloadStore.removeAll, since each rewrites the whole file. */
+    fun removeAll(chapterIds: Collection<Long>) {
+        preferences.edit { chapterIds.forEach { remove(it.toString()) } }
     }
 
     fun clear() {

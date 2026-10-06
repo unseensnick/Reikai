@@ -114,6 +114,10 @@ class NovelDownloadManagerFailureTest {
 internal class FakeSharedPreferences : SharedPreferences {
     private val values = mutableMapOf<String, Any?>()
 
+    /** Edits written, since each one rewrites the whole file on a device. */
+    var writes = 0
+        private set
+
     override fun getAll(): Map<String, *> = values.toMap()
     override fun getString(key: String, defValue: String?): String? = values[key] as? String ?: defValue
     override fun getStringSet(key: String, defValues: Set<String>?): Set<String>? = defValues
@@ -139,6 +143,7 @@ internal class FakeSharedPreferences : SharedPreferences {
         override fun remove(key: String) = apply { removes += key }
         override fun clear() = apply { clear = true }
         override fun commit(): Boolean {
+            writes++
             if (clear) values.clear()
             removes.forEach { values.remove(it) }
             values.putAll(puts)

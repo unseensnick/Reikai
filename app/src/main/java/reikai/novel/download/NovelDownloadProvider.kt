@@ -112,8 +112,13 @@ class NovelDownloadProvider(
         return tmp.renameTo(finalName)
     }
 
-    fun deleteChapter(novel: Novel, chapter: NovelChapter) {
-        findChapterFile(novel, chapter)?.delete()
+    /**
+     * Deletes [chapters]' files, all [novel]'s, each the first of its names found, as Mihon's findChapterDirs
+     * picks. Lists the folder once, where a lookup per chapter costs a few storage-provider queries each.
+     */
+    fun deleteChapters(novel: Novel, chapters: List<NovelChapter>) {
+        val files = findNovelDir(novel)?.listFiles()?.associateBy { it.name } ?: return
+        chapters.forEach { chapter -> validChapterFileNames(chapter).firstNotNullOfOrNull(files::get)?.delete() }
     }
 
     /** Deletes the novel's folder, then its source's folder once that is empty, as manga's does. */

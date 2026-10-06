@@ -255,7 +255,7 @@ class NovelDownloadManager(
 
     /** Call after the live queue dropped [chapterIds], so a rewrite cannot save them again. */
     private fun removeSaved(chapterIds: Collection<Long>) {
-        synchronized(storeLock) { chapterIds.forEach(store::remove) }
+        synchronized(storeLock) { store.removeAll(chapterIds) }
     }
 
     /** Relocate a downloaded chapter's file after a source re-title, keeping the disk index in sync.
@@ -340,10 +340,10 @@ class NovelDownloadManager(
     private suspend fun deleteChapterFiles(chapters: List<NovelChapter>) {
         val novelsById = novelRepo.ownersOf(chapters)
         removeSaved(chapters.map { it.id })
-        chapters.forEach { ch ->
-            val novel = novelsById[ch.novelId] ?: return@forEach
-            provider.deleteChapter(novel, ch)
-            cache.removeChapter(novel, ch)
+        chapters.groupBy { it.novelId }.forEach { (novelId, owned) ->
+            val novel = novelsById[novelId] ?: return@forEach
+            provider.deleteChapters(novel, owned)
+            cache.removeChapters(novel, owned)
         }
         // A novel left with nothing downloaded loses its folder, as a manga does.
         novelsById.values.filter(provider::isNovelDirEmpty).forEach { novel ->
