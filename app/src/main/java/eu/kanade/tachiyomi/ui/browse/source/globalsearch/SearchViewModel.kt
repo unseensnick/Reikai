@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.Source
-import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import mihon.domain.manga.model.toDomainManga
@@ -16,7 +16,6 @@ import reikai.presentation.browse.liveMangaRow
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.source.service.SourceManager
-import java.util.concurrent.Executors
 
 abstract class SearchViewModel(
     // RK: upstream's initialState dropped with the state it seeded (see addFlow).
@@ -30,8 +29,7 @@ abstract class SearchViewModel(
     mangaLibraryAdder: MangaLibraryAdder,
 ) : ViewModel() {
 
-    // RK: a pool of its own, so blocking source calls never crowd out the shared IO dispatcher.
-    private val coroutineDispatcher = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
+    private val coroutineDispatcher = Dispatchers.IO.limitedParallelism(5)
 
     private val enabledLanguages = sourcePreferences.enabledLanguages.get()
     private val disabledSources = sourcePreferences.disabledSources.get()
