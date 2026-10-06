@@ -60,6 +60,9 @@ class MergedDuplicateDownloadsTest {
 
     private var writes = Writes.OK
 
+    /** Storage as Android's shared storage is: a lookup finds a name in any letter case, and a rename avoids one. */
+    private var caseBlind = false
+
     private val mangaRoot = FakeDir("downloads", parent = null)
     private val novelRoot = FakeDir("novel_downloads", parent = null)
 
@@ -123,6 +126,30 @@ class MergedDuplicateDownloadsTest {
             downloads.carryFolders(listOf(duplicate(type, OLD)))
 
             sourceDir(type).child(KEPT)?.findFile("Chapter 1") shouldBeSameInstanceAs chapter.file
+        }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a copy titled apart only in letter case takes the survivor's title on a case-blind disk`(type: Type) =
+        runTest {
+            caseBlind = true
+            sourceDir(type).dir(KEPT.uppercase()).dir("Chapter 1")
+
+            downloads.carryFolders(listOf(duplicate(type, KEPT.uppercase())))
+
+            sourceDir(type).names() shouldBe listOf(KEPT)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a copy titled apart only in letter case merges into the survivor's own folder where both exist`(type: Type) =
+        runTest {
+            type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
+            type.chapter(sourceDir(type).dir(KEPT.uppercase()), CH2, "old")
+
+            downloads.carryFolders(listOf(duplicate(type, KEPT.uppercase())))
+
+            type.read(sourceDir(type).dir(KEPT), CH2) shouldBe "old"
         }
 
     @ParameterizedTest
@@ -482,7 +509,12 @@ class MergedDuplicateDownloadsTest {
             every { isFile } returns !isDir
             every { exists() } answers { parent == null || parent.children[this@FakeDir.name] === this@FakeDir }
             every { length() } answers { if (isDir) 0L else bytes.size.toLong() }
-            every { findFile(any()) } answers { children[firstArg()]?.file }
+            every { parentFile } answers { parent?.file }
+            every { findFile(any()) } answers {
+                val asked = firstArg<String>()
+                (children[asked] ?: children.entries.firstOrNull { caseBlind && it.key.equals(asked, true) }?.value)
+                    ?.file
+            }
             every { listFiles() } answers { if (isDir) children.values.map { it.file }.toTypedArray() else null }
             every { createDirectory(any()) } answers { create(firstArg(), directory = true)?.file }
             every { createFile(any()) } answers { create(firstArg(), directory = false)?.file }
@@ -534,7 +566,13 @@ class MergedDuplicateDownloadsTest {
             val siblings = parent?.children ?: return false
             val target = generateSequence(0) { it + 1 }
                 .map { if (it == 0) requested else "$requested ($it)" }
-                .first { it !in siblings || siblings[it] === this }
+                .first { candidate ->
+                    if (caseBlind) {
+                        siblings.keys.none { it.equals(candidate, ignoreCase = true) }
+                    } else {
+                        candidate !in siblings || siblings[candidate] === this
+                    }
+                }
             siblings.remove(name)
             name = target
             siblings[target] = this

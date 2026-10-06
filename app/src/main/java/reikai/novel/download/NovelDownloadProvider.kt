@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import reikai.domain.download.renameDownloadFolder
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -129,17 +130,14 @@ class NovelDownloadProvider(
     }
 
     /**
-     * Moves the novel's folder to [newTitle]'s name, as manga's `DownloadManager.renameManga` does, through a
-     * temporary name when only the letter case changes. False when there was nothing to move or the move failed.
+     * Moves the novel's folder to [newTitle]'s name by [renameDownloadFolder]. False when there was nothing to move
+     * or the move failed.
      */
     fun renameNovel(novel: Novel, newTitle: String): Boolean {
         val dir = findNovelDir(novel) ?: return false
         val newName = novelDirName(newTitle)
         if (dir.name == newName) return false
-        if (dir.name.equals(newName, ignoreCase = true) && !dir.renameTo(newName + Downloader.TMP_DIR_SUFFIX)) {
-            return false
-        }
-        return dir.renameTo(newName)
+        return renameDownloadFolder(dir, newName)
     }
 
     /** Free bytes on the volume novel downloads go to, or -1 when it cannot be read. */

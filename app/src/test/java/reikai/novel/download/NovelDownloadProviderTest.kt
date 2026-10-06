@@ -106,14 +106,4 @@ class NovelDownloadProviderTest {
 
         provider.readChapter(novel, accented) shouldBe null
     }
-
-    /** A case-only rename goes through a temporary name, which a case-insensitive file system needs. */
-    @Test
-    fun `a novel renamed only in letter case keeps its downloaded chapters`() {
-        provider.writeChapter(novel, chapter, "<p>text</p>")
-
-        provider.renameNovel(novel, "OLD TITLE")
-
-        provider.readChapter(novel.copy(title = "OLD TITLE"), chapter) shouldBe "<p>text</p>"
-    }
 }

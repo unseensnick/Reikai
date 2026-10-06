@@ -116,8 +116,10 @@ device: an upgrade from a 196 or 197 build with real data is the owner's check.
 - **Downloads follow the merge by one rule for both types** (`MergedDuplicateDownloads`: the queues
   from the 198 carry, the folders from the pass after it). A download folder is named by source and title, so a copy whose title differs from the
   survivor's has its folder renamed in place to the survivor's title when the survivor has no folder of
-  its own, through a temporary name for a change of letter case only, as both engines' title renames
-  do; both download indexes are then rebuilt. Titles are compared as folder names before the manga
+  its own, through a temporary name for a change of letter case only, by the `renameDownloadFolder`
+  rule the novel title rename also uses; both download indexes are then rebuilt. A case-blind disk
+  finds the copy's own folder under a survivor title apart only in letter case, so then only a folder
+  listed under the survivor's exact name counts as the survivor's own and is merged into. Titles are compared as folder names before the manga
   source is looked up, since that lookup waits for extensions to load. Where several copies merged into
   one survivor, the lowest id goes first and takes the name. The chapter files inside keep their names,
   which come from each chapter's name and url, so they match the survivor's rows wherever the merged

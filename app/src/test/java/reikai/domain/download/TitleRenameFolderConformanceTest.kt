@@ -60,7 +60,7 @@ class TitleRenameFolderConformanceTest {
     fun `a title change leaves a folder another entry on the source is named onto`(half: TitleRenameHalf) = runTest {
         File(root, "src/Old").mkdirs()
 
-        half.rename(root, otherTitles = listOf("Old"))
+        half.rename(UniFile.fromFile(root)!!, otherTitles = listOf("Old"))
 
         File(root, "src").list()!!.toSet() shouldBe setOf("Old")
     }
@@ -70,9 +70,19 @@ class TitleRenameFolderConformanceTest {
     fun `a title change moves a folder only its own entry is named onto`(half: TitleRenameHalf) = runTest {
         File(root, "src/Old").mkdirs()
 
-        half.rename(root, otherTitles = listOf("Other"))
+        half.rename(UniFile.fromFile(root)!!, otherTitles = listOf("Other"))
 
         File(root, "src").list()!!.toSet() shouldBe setOf("New")
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
+    fun `a change of letter case alone renames the folder on a case-blind disk`(half: TitleRenameHalf) = runTest {
+        val disk = CaseBlindSourceFolder("Old")
+
+        half.rename(disk.root, otherTitles = emptyList(), newTitle = "OLD")
+
+        disk.names() shouldBe listOf("OLD")
     }
 
     companion object {
@@ -82,16 +92,16 @@ class TitleRenameFolderConformanceTest {
 }
 
 interface TitleRenameHalf {
-    /** Retitles an entry stored as "Old", whose folder sits at `src/Old` under [root], to "New". */
-    suspend fun rename(root: File, otherTitles: List<String>)
+    /** Retitles an entry stored as "Old", whose folder sits at `src/Old` under [downloads], to [newTitle]. */
+    suspend fun rename(downloads: UniFile, otherTitles: List<String>, newTitle: String = "New")
 }
 
 class MangaTitleRenameHalf : TitleRenameHalf {
     override fun toString() = "manga"
 
-    override suspend fun rename(root: File, otherTitles: List<String>) {
+    override suspend fun rename(downloads: UniFile, otherTitles: List<String>, newTitle: String) {
         val manga = Manga.create().copy(id = 1L, source = 1L, title = "Old")
-        val sourceFolder = UniFile.fromFile(root)!!.findFile("src")!!
+        val sourceFolder = downloads.findFile("src")!!
         val manager = DownloadManager(
             context = mockk(relaxed = true),
             provider = mockk {
@@ -109,14 +119,14 @@ class MangaTitleRenameHalf : TitleRenameHalf {
             sourceTitles = mockk { coEvery { otherMangaTitles(1L, 1L) } returns otherTitles },
         )
 
-        manager.renameManga(manga, "New")
+        manager.renameManga(manga, newTitle)
     }
 }
 
 class NovelTitleRenameHalf : TitleRenameHalf {
     override fun toString() = "novel"
 
-    override suspend fun rename(root: File, otherTitles: List<String>) {
+    override suspend fun rename(downloads: UniFile, otherTitles: List<String>, newTitle: String) {
         val novel = Novel.create().copy(id = 1L, source = "src", url = "/n", title = "Old")
         val libraryPreferences = LibraryPreferences(InMemoryPreferenceStore())
         val manager = NovelDownloadManager(
@@ -126,7 +136,7 @@ class NovelTitleRenameHalf : TitleRenameHalf {
             },
             provider = NovelDownloadProvider(
                 storageManager = mockk<StorageManager> {
-                    every { getNovelDownloadsDirectory() } returns UniFile.fromFile(root)
+                    every { getNovelDownloadsDirectory() } returns downloads
                     every { changes } returns MutableSharedFlow()
                 },
                 downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
@@ -146,6 +156,6 @@ class NovelTitleRenameHalf : TitleRenameHalf {
             sourceTitles = mockk { coEvery { otherNovelTitles("src", 1L) } returns otherTitles },
         )
 
-        manager.renameNovel(novel, "New")
+        manager.renameNovel(novel, newTitle)
     }
 }

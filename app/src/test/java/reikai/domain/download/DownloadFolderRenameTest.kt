@@ -48,4 +48,22 @@ class DownloadFolderRenameTest {
     fun `a change of letter case moves though a case-blind disk finds the new name`() {
         movesDownloadFolder(folder("Old", caseBlind = true), "OLD", otherEntryFolders = emptyList()) shouldBe true
     }
+
+    @Test
+    fun `a change of letter case renames on a case-blind disk`() {
+        val disk = CaseBlindSourceFolder("Old")
+
+        renameDownloadFolder(disk.folder.findFile("Old")!!, "OLD")
+
+        disk.names() shouldBe listOf("OLD")
+    }
+
+    @Test
+    fun `a new name renames the folder`() {
+        val disk = CaseBlindSourceFolder("Old")
+
+        renameDownloadFolder(disk.folder.findFile("Old")!!, "New")
+
+        disk.names() shouldBe listOf("New")
+    }
 }

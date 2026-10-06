@@ -6,12 +6,12 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.download.DownloadStore
-import eu.kanade.tachiyomi.data.download.Downloader
 import logcat.LogPriority
 import reikai.domain.dedupe.MergedDuplicate
 import reikai.domain.dedupe.MergedDuplicateChapter
 import reikai.domain.dedupe.survivorIds
 import reikai.domain.download.QueuedChapter
+import reikai.domain.download.renameDownloadFolder
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -114,16 +114,20 @@ class MergedDuplicateDownloads(
     }
 
     /**
-     * Renames the copy's folder to the survivor's name, in place, through a temporary name when only the letter
-     * case differs, as both engines' title renames do. A survivor with a folder of its own has the copy's merged
-     * into it instead, by [DownloadFolderMerge].
+     * Renames the copy's folder to the survivor's name, in place, by [renameDownloadFolder]. A survivor with a
+     * folder of its own has the copy's merged into it instead, by [DownloadFolderMerge].
      */
     private fun moveFolder(discarded: UniFile?, survivor: UniFile?, survivorName: String): FolderCarry {
         if (discarded == null || discarded.name == survivorName) return NOTHING_TO_DO
-        if (survivor != null) return DownloadFolderMerge.merge(from = discarded, into = survivor)
-        val caseOnly = discarded.name.equals(survivorName, ignoreCase = true)
-        val renamed = (!caseOnly || discarded.renameTo(survivorName + Downloader.TMP_DIR_SUFFIX)) &&
-            discarded.renameTo(survivorName)
+        // A case-blind disk finds the copy itself under a name apart only in letter case, so then only a folder
+        // listed under the survivor's exact name is its own
+        val own = if (discarded.name.equals(survivorName, ignoreCase = true)) {
+            discarded.parentFile?.listFiles()?.firstOrNull { it.name == survivorName }
+        } else {
+            survivor
+        }
+        if (own != null) return DownloadFolderMerge.merge(from = discarded, into = own)
+        val renamed = renameDownloadFolder(discarded, survivorName)
         return FolderCarry(finished = renamed, changed = renamed)
     }
 
