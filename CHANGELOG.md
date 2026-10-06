@@ -128,7 +128,7 @@ agent under Settings -> Advanced.
 - **A new-chapters notification now counts unnumbered chapters in its "and N more", and no longer counts a merged series' repeated chapter number as an extra.**
 - **The library update no longer refetches a finished adult-source series you have read, and the series keeps the description and status its source gives it.**
 - **The novel library-update and download category filters now include the Default (uncategorized) group, as manga's do.**
-- **Deleting a category now clears it from the library and Updates filters.**
+- **Deleting a category now clears it from the library and Updates filters and from your collapsed categories.**
 - **Undo in Settings -> Library -> Edit categories now restores only the categories that delete removed, even after a second delete.**
 - **Settings -> Library -> Preferred sources lists the local source again, starts right under its tabs, and moves a source on every Up or Down tap, on manga and novels.** An uninstalled source used to swallow the tap.
 - **The library filter icon no longer lights up for a custom-interval filter whose update restriction is off.**
@@ -615,7 +615,7 @@ agent under Settings -> Advanced.
 - **Restoring a backup now brings merged series back exactly as the backup grouped them: unrelated series no longer collapse into one card, and a pair you split stays split.**
 - **Restoring a backup with App settings ticked now reinstalls your light-novel plugins by itself, checks each against your added repos, and names any it could not bring back.**
 - **Restoring a backup over a series you already have no longer rewinds it, on manga and novels: chapters keep the further position, and trackers keep your status and score and only move progress forward (partly from Mihon).**
-- **Restoring a backup now keeps your default category, update categories and category filters for manga and novels, including Default and Always ask.** A Yōkai backup keeps Default but leaves out its other category choices, since it saves no way to match them.
+- **Restoring a backup now keeps your default category, update categories, category filters and collapsed categories for manga and novels, including Default and Always ask.** A Yōkai backup keeps Default but leaves out its other category choices, since it saves no way to match them.
 - **Picking a backup to restore now opens the system file picker on devices where it would not open before (from Mihon).** Upstream: mihonapp/mihon#3948.
 - **One bad entry in a restore no longer takes a hundred others down with it, and a backup holding the same series twice under one source now restores (from Mihon).** Only the entry that actually failed is reported. Upstream: mihonapp/mihon#3667.
 - **The restore log now names every light novel, merged series, edited details and manga extension a restore could not bring back, and the rest of the restore carries on.** That includes an extension whose install failed, was cancelled or timed out.

@@ -245,6 +245,19 @@ class CategoryPreferenceRestoreTest {
         filter.get() shouldBe setOf("100", "400")
     }
 
+    @Test
+    fun `collapsed categories of either library map through their names`() = runTest {
+        val collapsed = ReikaiLibraryPreferences(store).collapsedCategories
+
+        restore(
+            reikaiCategories,
+            BackupPreference(collapsed.key(), StringSetPreferenceValue(setOf("12", "21"))),
+            novelCategories = listOf(BackupNovelCategory("Light novels", id = 21)),
+        )
+
+        collapsed.get() shouldBe setOf("200", "300")
+    }
+
     /** The Backup field 2 of each app, alone. */
     @Serializable
     class YokaiBackup(@ProtoNumber(2) val categories: List<YokaiCategory>)

@@ -42,10 +42,10 @@ class CategoryIdPreferences(
     )
 
     /**
-     * Sets that may hold ids of EITHER content type: the include/exclude library filter, and one pair
-     * per rendered recents surface (see `RecentsSurface`). Scrubbed against the union of valid ids,
-     * and a delete of any content type scrubs them. On restore each id translates as a manga category
-     * first, then as a novel one.
+     * Sets that may hold ids of EITHER content type: the include/exclude library filter, the collapsed
+     * library categories, and one pair per rendered recents surface (see `RecentsSurface`). Scrubbed
+     * against the union of valid ids, and a delete of any content type scrubs them. On restore each id
+     * translates as a manga category first, then as a novel one.
      */
     val sharedSets: List<Preference<Set<String>>> = listOf(
         reikaiLibraryPreferences.filterCategoriesInclude,
@@ -56,6 +56,7 @@ class CategoryIdPreferences(
         reikaiSourcePreferences.historyFilterCategoriesExclude,
         reikaiSourcePreferences.recentsFilterCategoriesInclude,
         reikaiSourcePreferences.recentsFilterCategoriesExclude,
+        reikaiLibraryPreferences.collapsedCategories,
     )
 
     /** Novel default-category preference: a single id, or -1 for "prompt on favorite". */

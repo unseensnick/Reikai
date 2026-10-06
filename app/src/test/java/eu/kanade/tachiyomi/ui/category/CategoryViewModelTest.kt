@@ -122,5 +122,17 @@ class CategoryViewModelTest {
         table.value shouldBe listOf(b, c)
     }
 
+    @Test
+    fun `committing a delete drops the category from the collapsed ones`() = runTest {
+        val events = mutableListOf<CategoryEvent>()
+        val model = model(events)
+        reikaiLibraryPreferences.collapsedCategories.set(setOf(a.id.toString(), b.id.toString()))
+        model.deleteCategory(a)
+
+        model.commitPendingDelete(events.undoBatches().single())
+
+        reikaiLibraryPreferences.collapsedCategories.get() shouldBe setOf(b.id.toString())
+    }
+
     private fun List<CategoryEvent>.undoBatches() = filterIsInstance<CategoryEvent.ShowUndoSnackbar>().map { it.batch }
 }
