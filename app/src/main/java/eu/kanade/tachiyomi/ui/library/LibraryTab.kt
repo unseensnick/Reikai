@@ -166,22 +166,7 @@ data object LibraryTab : Tab {
         // for an instant swap; the lifecycle read is what lets the models stop once it is not.
         val mangaLibState by engine.behaviorFor(ContentType.MANGA).state.collectAsStateWithLifecycle()
         val novelLibState by engine.behaviorFor(ContentType.NOVELS).state.collectAsStateWithLifecycle()
-        val libState = when (libraryContentType) {
-            ContentType.MANGA -> mangaLibState
-            ContentType.NOVELS -> novelLibState
-            // RK: the All view's state, combined field by field. The list itself is not in here at all;
-            // it comes off the assembly below.
-            ContentType.ALL -> LibraryScreenState(
-                isLoading = mangaLibState.isLoading || novelLibState.isLoading,
-                isLibraryEmpty = mangaLibState.isLibraryEmpty && novelLibState.isLibraryEmpty,
-                // The engine fans a search out to both models, so the two queries mirror each other.
-                searchQuery = mangaLibState.searchQuery,
-                hasActiveFilters = mangaLibState.hasActiveFilters || novelLibState.hasActiveFilters,
-                showContinueButton = mangaLibState.showContinueButton,
-                // Either type's overlay edit must reach the screen, so both identities are carried.
-                overlayKey = mangaLibState.overlayKey to novelLibState.overlayKey,
-            )
-        }
+        val libState = LibraryScreenState.forChip(libraryContentType, mangaLibState, novelLibState)
         // RK: the list (the sections, their rows and their counts) renders off the engine's assembly,
         // the only place that can bucket both content types into one list. The assembly lags a chip
         // flip and a cold start by one emission, so it renders only when its chip matches, and until

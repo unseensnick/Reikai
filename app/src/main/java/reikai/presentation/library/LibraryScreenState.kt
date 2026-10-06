@@ -1,6 +1,7 @@
 package reikai.presentation.library
 
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 
 /**
  * The neutral, per-content-type library state the shared LibraryTab renders, so the tab reads one state
@@ -24,4 +25,25 @@ data class LibraryScreenState(
      * every other field equal, the state flow conflates it away, and the edit never reaches the screen.
      */
     val overlayKey: Any?,
-)
+) {
+    companion object {
+        /**
+         * The state the [chip] shows. All combines the two types: loading or filtered while either is,
+         * empty only when both are, and carrying both overlay keys so either type's edit reaches the screen.
+         * The search and the continue-reading setting are shared, so the manga side answers for both.
+         */
+        fun forChip(chip: ContentType, manga: LibraryScreenState, novel: LibraryScreenState): LibraryScreenState =
+            when (chip) {
+                ContentType.MANGA -> manga
+                ContentType.NOVELS -> novel
+                ContentType.ALL -> LibraryScreenState(
+                    isLoading = manga.isLoading || novel.isLoading,
+                    isLibraryEmpty = manga.isLibraryEmpty && novel.isLibraryEmpty,
+                    searchQuery = manga.searchQuery,
+                    hasActiveFilters = manga.hasActiveFilters || novel.hasActiveFilters,
+                    showContinueButton = manga.showContinueButton,
+                    overlayKey = manga.overlayKey to novel.overlayKey,
+                )
+            }
+    }
+}
