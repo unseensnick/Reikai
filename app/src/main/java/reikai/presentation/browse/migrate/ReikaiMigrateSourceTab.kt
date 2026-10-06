@@ -109,7 +109,7 @@ fun Screen.reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabCo
                         contentPadding = contentPadding,
                         onClickItem = { row ->
                             navigator.push(
-                                EntryMigrationFavoritesScreen(row.key.contentType, row.key.migrationId),
+                                EntryMigrationFavoritesScreen(row.key.contentType, row.key.rawId),
                             )
                         },
                         onToggleSortingMode = engine::toggleSortingMode,
@@ -130,13 +130,6 @@ fun Screen.reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabCo
         },
     )
 }
-
-/** The id the migration picker takes for this source: a manga source's number, a plugin's own id. */
-private val SourceKey.migrationId: String
-    get() = when (this) {
-        is SourceKey.Manga -> id.toString()
-        is SourceKey.Novel -> id
-    }
 
 @Composable
 private fun MigrateSourcesList(
@@ -165,7 +158,7 @@ private fun MigrateSourcesList(
                 onClickItem = { onClickItem(row) },
                 // Copying the id is how a source with no name left is identified elsewhere.
                 onLongClickItem = {
-                    val id = row.key.migrationId
+                    val id = row.key.rawId
                     context.copyToClipboard(id, id)
                 },
                 badge = { if (showContentType) ContentTypeBadge(row.key.contentType) },

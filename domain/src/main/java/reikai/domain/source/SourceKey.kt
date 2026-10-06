@@ -21,6 +21,13 @@ sealed interface SourceKey : java.io.Serializable {
         override val contentType: ContentType get() = ContentType.NOVELS
     }
 
+    /** The id with no type prefix, as a user would type it. Not unique across types: persist [serialize]. */
+    val rawId: String
+        get() = when (this) {
+            is Manga -> id.toString()
+            is Novel -> id
+        }
+
     /**
      * On-disk form, used by anything that persists a source across restarts. Both branches carry a
      * prefix so neither can be read as the other, and the id keeps whatever characters it has: a

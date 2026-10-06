@@ -36,13 +36,8 @@ data class BrowseSourceRow(
 }
 
 /** Whether [row] survives the Sources search box: its name, its extension's name, or its exact id. */
-fun matchesSourceQuery(row: BrowseSourceRow, query: String?): Boolean {
-    val id = when (val key = row.key) {
-        is SourceKey.Manga -> key.id.toString()
-        is SourceKey.Novel -> key.id
-    }
-    return matchesBrowseQuery(query, listOf(row.name, row.extensionName), listOf(id))
-}
+fun matchesSourceQuery(row: BrowseSourceRow, query: String?): Boolean =
+    matchesBrowseQuery(query, listOf(row.name, row.extensionName), listOf(row.key.rawId))
 
 /** A rendered Sources list: section headings interleaved with the rows under them. */
 sealed interface SourcesListItem {
