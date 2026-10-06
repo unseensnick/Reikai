@@ -21,7 +21,7 @@ import org.junit.runner.RunWith
  * connection enforces them. The unit tests that demonstrate enforcement build a `JdbcSqliteDriver` and
  * turn it on with a hand-written pragma, which is neither the driver nor the mechanism production uses,
  * so they cannot answer for it. This opens the driver with `DatabaseBindings.sqlDriverConfiguration`, the
- * value `providesSqlDriver` passes, over a probe schema rather than the app's own database, with a
+ * configuration `providesSqlDriver` builds, over a probe schema rather than the app's own database, with a
  * control that turns only enforcement off to prove the probe can tell the two apart.
  */
 @RunWith(AndroidJUnit4::class)
@@ -83,10 +83,8 @@ class ForeignKeyEnforcementTest {
             driver = BundledSQLiteDriver(),
             databaseType = AndroidxSqliteDatabaseType.File(context.getDatabasePath(name).absolutePath),
             schema = ProbeSchema,
-            configuration = if (enforced) {
-                DatabaseBindings.sqlDriverConfiguration
-            } else {
-                DatabaseBindings.sqlDriverConfiguration.copy(isForeignKeyConstraintsEnabled = false)
+            configuration = DatabaseBindings.sqlDriverConfiguration(isLowRamDevice = false).let {
+                if (enforced) it else it.copy(isForeignKeyConstraintsEnabled = false)
             },
         )
         opened += driver to name
