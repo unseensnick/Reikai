@@ -357,6 +357,8 @@ guards against cannot reach this screen.
 
 ## Decisions & tradeoffs
 
+- **The favorites picker runs the shared selection kernel, long press included (owner ruling Q11 (a), 2026-10-06).** `EntryMigrationFavoritesViewModel` holds a `SelectionState` and routes tap, select all, invert, clear and pruning through `EntrySelection`, and a long press runs `rangeOrToggle` as every other Reikai multi-select does. Mihon's picker has tap and clear only, and a long press there does nothing; select all and invert were already Reikai additions. The merge source pick keeps its long press unbound: it lists the few members of one group, and the ruling covered this picker.
+
 - Takeover over parity-patching: options assessed were (a) full flow takeover, (b) partial UI-only takeover, (c) no takeover with parity fixes, (d) reshape Mihon's flow in place via `// RK`. (b) keeps the step fork because the fork lives in orchestration; (d) is maximum sync tax on the highest-churn files; (c) leaves the divergence permanent, and history shows the novel side never receives flow improvements. (a) accepted with the churn price stated in the amendment.
 - Global search excluded: separable seam, negligible churn, already half-Reikai via `MangaLibraryAdder`. The flow's search screen runs on its own adapter so `SearchViewModel` is never absorbed; only the flow-serving `MigrateSearchViewModel` subclass goes.
 - No pref or enum merges: per-type flag enums and source-list prefs stay as stored; adapters translate by concept at the seam (the bit layouts differ, so bit-copying is forbidden). Avoids a data migration for zero user benefit.

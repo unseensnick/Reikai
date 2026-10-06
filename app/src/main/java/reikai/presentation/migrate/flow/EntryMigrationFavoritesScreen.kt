@@ -50,6 +50,8 @@ import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.MigrationPickRow
+import reikai.presentation.selection.EntrySelection
+import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
@@ -169,6 +171,7 @@ class EntryMigrationFavoritesScreen(
                         coverData = entry.cover,
                         checked = entry.id in state.selected,
                         onToggle = { viewModel.toggle(entry.id) },
+                        onLongClick = { viewModel.rangeSelect(entry.id) },
                         onClickCover = { entry.openDetails(navigator) },
                     )
                 }
@@ -191,7 +194,7 @@ class EntryMigrationFavoritesViewModel(
         fun create(adapter: MigrationFlowAdapter, sourceKey: String): EntryMigrationFavoritesViewModel
     }
 
-    private val selected = MutableStateFlow<Set<EntryId>>(emptySet())
+    private val selection = MutableStateFlow(SelectionState<EntryId>())
 
     /**
      * The source's name and its favorites, as one value so the screen never shows a loaded list under
@@ -215,36 +218,34 @@ class EntryMigrationFavoritesViewModel(
         // Drop a selected entry that left the list, so a migration cannot act on a stale id.
         .onEach { content ->
             if (!content.isLoading) {
-                val present = content.entries.mapTo(HashSet()) { it.id }
-                selected.update { it.intersect(present) }
+                selection.update { EntrySelection.retain(it, content.entries.map { entry -> entry.id }) }
             }
         }
 
-    val state: StateFlow<State> = combine(content, selected) { content, selected ->
+    val state: StateFlow<State> = combine(content, selection) { content, selection ->
         State(
             isLoading = content.isLoading,
             failed = content.failed,
             sourceName = content.sourceName,
             entries = content.entries,
-            selected = selected,
+            selected = selection.selection,
         )
     }
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
-    fun toggle(id: EntryId) = selected.update { if (id in it) it - id else it + id }
+    fun toggle(id: EntryId) = selection.update { EntrySelection.toggle(it, id) }
 
-    fun selectAll() {
-        val ids = state.value.entries.mapTo(HashSet()) { it.id }
-        selected.update { ids }
-    }
+    /** A long press: the run from the last tapped entry to [id], or [id] dropped when it is selected. */
+    fun rangeSelect(id: EntryId) = selection.update { EntrySelection.rangeOrToggle(it, id, entryIds()) }
 
-    fun clearSelection() = selected.update { emptySet() }
+    fun selectAll() = selection.update { EntrySelection.selectAll(it, entryIds()) }
 
-    fun invertSelection() {
-        val entries = state.value.entries
-        selected.update { current -> entries.mapNotNull { it.id.takeIf { id -> id !in current } }.toSet() }
-    }
+    fun clearSelection() = selection.update { EntrySelection.clear() }
+
+    fun invertSelection() = selection.update { EntrySelection.invert(it, entryIds()) }
+
+    private fun entryIds() = state.value.entries.map { it.id }
 
     private data class Content(
         val isLoading: Boolean = true,

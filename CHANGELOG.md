@@ -471,6 +471,7 @@ agent under Settings -> Advanced.
 - **Check a match before you commit to it: tap a batch row's match or long-press any result to open its page.** Anything already in your library is marked, and a match whose latest chapter is behind the entry's shows by how much, in red.
 - **Choose what a migration carries at the moment you confirm it, on both manga and novels.** Only the options the selected entries can actually use are offered.
 - **Leave an entry out of a migration, so a source that never answers can't hold up the rest.** Skipping takes it off the list, as does migrating it, so what's left is always what still needs you.
+- **Long-pressing an entry in Migrate's per-source list now selects every entry between it and the last one you tapped.**
 
 #### Changed
 

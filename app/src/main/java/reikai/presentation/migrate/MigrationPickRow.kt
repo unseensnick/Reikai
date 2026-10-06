@@ -1,6 +1,6 @@
 package reikai.presentation.migrate
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,12 +33,14 @@ fun MigrationPickRow(
     checked: Boolean,
     onToggle: () -> Unit,
     onClickCover: () -> Unit,
+    /** A long press; null leaves it unbound, as the merge source pick does. */
+    onLongClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .selectedBackground(checked)
-            .clickable(onClick = onToggle)
+            .combinedClickable(onClick = onToggle, onLongClick = onLongClick)
             .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {

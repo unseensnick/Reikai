@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -30,7 +31,49 @@ class EntryMigrationFavoritesViewModelTest {
 
     @Test
     fun `clearing the selection leaves nothing selected`() = runTest(dispatcher) {
-        val favorites = listOf(1L, 2L).map {
+        val viewModel = loaded(2)
+        viewModel.selectAll()
+        viewModel.state.first { it.selected.size == 2 }
+
+        viewModel.clearSelection()
+
+        viewModel.state.first { it.selected.size != 2 }.selected shouldBe emptySet()
+    }
+
+    @Test
+    fun `a long press selects every entry from the one last tapped`() = runTest(dispatcher) {
+        val viewModel = loaded(4)
+        viewModel.toggle(EntryId.Manga(1L))
+
+        viewModel.rangeSelect(EntryId.Manga(3L))
+
+        viewModel.state.first { it.selected.size > 1 }.selected shouldBe (1L..3L).map { EntryId.Manga(it) }.toSet()
+    }
+
+    @Test
+    fun `a long press on a selected entry drops it`() = runTest(dispatcher) {
+        val viewModel = loaded(2)
+        viewModel.selectAll()
+        viewModel.state.first { it.selected.size == 2 }
+
+        viewModel.rangeSelect(EntryId.Manga(2L))
+
+        viewModel.state.first { it.selected.size != 2 }.selected shouldBe setOf(EntryId.Manga(1L))
+    }
+
+    @Test
+    fun `inverting selects exactly what was not selected`() = runTest(dispatcher) {
+        val viewModel = loaded(3)
+        viewModel.toggle(EntryId.Manga(1L))
+        viewModel.state.first { it.selected.size == 1 }
+
+        viewModel.invertSelection()
+
+        viewModel.state.first { it.selected.size == 2 }.selected shouldBe setOf(EntryId.Manga(2L), EntryId.Manga(3L))
+    }
+
+    private suspend fun TestScope.loaded(count: Int): EntryMigrationFavoritesViewModel {
+        val favorites = (1L..count).map {
             MigrationFavorite(EntryId.Manga(it), "t$it", null, MigrationPayload.OfManga(Manga.create()))
         }
         val viewModel =
@@ -38,12 +81,7 @@ class EntryMigrationFavoritesViewModelTest {
         backgroundScope.launch { viewModel.state.collect {} }
         // The state is built on the IO dispatcher, which virtual time does not reach, so each step
         // awaits the emission it needs rather than advancing the clock.
-        viewModel.state.first { it.entries.size == 2 }
-        viewModel.selectAll()
-        viewModel.state.first { it.selected.size == 2 }
-
-        viewModel.clearSelection()
-
-        viewModel.state.first { it.selected.size != 2 }.selected shouldBe emptySet()
+        viewModel.state.first { it.entries.size == count }
+        return viewModel
     }
 }
