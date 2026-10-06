@@ -57,34 +57,22 @@ class DownloadManager(
     private val sourceTitles: SourceTitlesRepository, // RK
 ) {
 
-    val isRunning: Boolean
-        get() = downloader.isRunning
-
     val queueState
         get() = downloader.queueState
 
-    // For use by DownloadService only
-    fun downloaderStart() = downloader.start()
-    fun downloaderStop(reason: String? = null) = downloader.stop(reason)
-
-    // RK: lets DownloadJob wait for the startup queue restore before resuming, so downloads that
-    // were active when the app was killed aren't left stuck in the queue on the next launch.
+    // RK: lets the download queue wait for the startup queue restore before it reads the queue
     suspend fun awaitQueueRestored() = downloader.awaitQueueRestored()
 
     val isDownloaderRunning
         get() = DownloadJob.isRunningFlow(context)
 
     /**
-     * Tells the downloader to begin downloads.
+     * Starts the download worker, which runs the downloader.
      */
     fun startDownloads() {
         if (downloader.isRunning) return
 
-        if (DownloadJob.isRunning(context)) {
-            downloader.start()
-        } else {
-            DownloadJob.start(context)
-        }
+        DownloadJob.start(context)
     }
 
     /**
@@ -150,7 +138,9 @@ class DownloadManager(
      * @param autoStart whether to start the downloader after enqueing the chapters.
      */
     suspend fun downloadChapters(manga: Manga, chapters: List<Chapter>, autoStart: Boolean = true) {
-        downloader.queueChapters(manga, chapters, autoStart)
+        if (downloader.queueChapters(manga, chapters, autoStart)) {
+            startDownloads()
+        }
     }
 
     /**
@@ -164,7 +154,7 @@ class DownloadManager(
             addAll(0, downloads)
             reorderQueue(this)
         }
-        if (!DownloadJob.isRunning(context)) startDownloads()
+        startDownloads()
     }
 
     /**
@@ -332,7 +322,7 @@ class DownloadManager(
             }
         }
         // RK: a paused queue emptied one series at a time has nothing left to resume, so clear and stop:
-        // a network pause keeps DownloadJob in the foreground until stop() ends it
+        // DownloadJob waits out a network pause until stop() clears it
         else if (queueState.value.isEmpty()) {
             clearQueue()
         }

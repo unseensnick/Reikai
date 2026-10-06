@@ -97,8 +97,9 @@ interface EmptiedQueueHalf {
 }
 
 /**
- * Mihon's downloader, paused by a lost network, has stopped its job but keeps DownloadJob alive; only
- * its stop() ends that job, so stop() being asked is the manga answer. The pause kind is the same state.
+ * Mihon's downloader, paused by a lost network, has stopped its job, and DownloadJob waits while it stays
+ * paused; only its stop() clears the pause, so stop() being asked is the manga answer. The pause kind is
+ * the same state.
  */
 class MangaEmptiedQueueHalf : EmptiedQueueHalf {
     override fun toString() = "manga"

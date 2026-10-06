@@ -84,7 +84,6 @@ class ChapterDownloadActionsConformanceTest {
         // Starting either worker needs WorkManager, which is not under test; each half records the asks.
         mockkObject(NovelDownloadJob.Companion)
         mockkObject(DownloadJob.Companion)
-        every { DownloadJob.isRunning(any()) } returns false
         mockkStatic(Context::activeNetworkState)
         every { any<Context>().activeNetworkState() } returns NetworkState(true, true, true)
         // Mihon's Downloader restores its saved queue on the main dispatcher as it is built.
@@ -275,7 +274,6 @@ class MangaDownloadActionsHalf : DownloadActionsHalf {
     // Built inside the test: its constructor launches on the main dispatcher the test installs.
     private val downloader by lazy {
         every { DownloadJob.start(any()) } answers { startAsked = true }
-        every { DownloadJob.stop(any()) } answers { stopped.complete(Unit) }
         Downloader(
             context = context,
             provider = provider,
@@ -291,6 +289,8 @@ class MangaDownloadActionsHalf : DownloadActionsHalf {
             notifier = mockk<DownloadNotifier>(relaxed = true) {
                 // The real notice suspends for the adult verdict before it posts.
                 coEvery { onError(any(), any(), any()) } coAnswers { delay(ERROR_NOTICE_MS) }
+                // A stop with nothing paused posts the done notice; the worker ends on that stop.
+                every { onComplete() } answers { stopped.complete(Unit) }
             },
         )
     }
