@@ -16,6 +16,7 @@ import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -154,25 +155,10 @@ class LibraryEngine(
             )
         }
         combine(
-            contentType,
-            combine(providers.map { it.rows }) { it.toList() },
-            // Only what the assembly consumes from the provider states: the query (the
-            // search-forces-counts rule), the overlay key (the per-item display read applies the
-            // custom-info overlay, so an edit must re-emit the assembled list to repaint) and the
-            // track key (the tracker-score sort and the tracking-status groups read tracks on
-            // demand). Taking the whole states re-ran the full bucket-and-sort on every state tick,
-            // page swipes and loading flags included.
-            combine(
-                providers.map { p ->
-                    combine(
-                        p.state.map { it.searchQuery to it.overlayKey }.distinctUntilChanged(),
-                        p.trackKey,
-                    ) { (query, _), _ -> query }
-                },
-            ) { it.toList() },
+            activeAssemblyInputs(contentType, providers),
             categoryRepository.getUnfilteredAsFlow(),
             prefsFlow,
-        ) { chip, rowsPerProvider, queryPerProvider, allCategories, prefs ->
+        ) { inputs, allCategories, prefs ->
             // Piggybacked here rather than a collector of its own so it runs exactly when the list
             // changes: a selected entry the assembly dropped must leave the selection too, or the
             // toolbar count promises more than the verbs will touch. Pruned after the assembly, not
@@ -180,7 +166,7 @@ class LibraryEngine(
             // category, an emptied bucket and a lagging dynamic group all do, and those leave the
             // entry in the providers' rows, where the verbs would still find and act on it.
             // No assembly says nothing about what is on screen, so it prunes nothing.
-            assembleFor(chip, rowsPerProvider, queryPerProvider, allCategories, prefs)
+            assembleFor(inputs, allCategories, prefs)
                 ?.also { pruneSelection(it.presentIds) }
         }
             // The transform sorts and buckets the whole library; keep it off the main thread.
@@ -194,22 +180,18 @@ class LibraryEngine(
     }
 
     private suspend fun assembleFor(
-        chip: ContentType,
-        rowsPerProvider: List<List<LibraryItem>?>,
-        searchQueryPerProvider: List<String?>,
+        inputs: ActiveAssemblyInputs,
         allCategories: List<Category>,
         prefs: AssemblyPrefs,
     ): LibraryAssembled? {
+        val chip = inputs.chip
         val active = providersFor(chip)
+        val shown = inputs.perProvider.filterNotNull()
         // A provider in the view that has not loaded yet means no assembly, never one without its rows:
         // the tab would draw that as the whole library, short by every entry of that type. One outside
         // the view is not waited for, or the Manga chip would sit behind the novel plugins loading.
-        val rows = providers.indices
-            .filter { providers[it] in active }
-            .flatMap { rowsPerProvider[it] ?: return null }
-        val searchActive = active.any {
-            !searchQueryPerProvider[providers.indexOf(it)].isNullOrEmpty()
-        }
+        val rows = shown.flatMap { it.rows ?: return null }
+        val searchActive = shown.any { !it.searchQuery.isNullOrEmpty() }
         // Lazy per provider, so only a view actually sorting by tracker score pays the computation.
         val means = active.associate { it.contentType to lazy(it::trackerMeans) }
         val fields = mixedLibraryItemSortFields { item ->
@@ -659,3 +641,41 @@ class LibraryEngine(
         clearSelection()
     }
 }
+
+/**
+ * What the assembly reads from the providers, narrowed to those [chip] shows. Every provider stays
+ * subscribed, so a chip swap finds the other warm, but a hidden one's emissions stop here: a download
+ * tick on the type the chip hides used to re-sort and re-render the visible list.
+ */
+internal fun activeAssemblyInputs(
+    chip: Flow<ContentType>,
+    providers: List<LibraryProvider>,
+): Flow<ActiveAssemblyInputs> = combine(
+    chip,
+    combine(providers.map { it.assemblyInputs() }) { it.toList() },
+) { type, inputs ->
+    ActiveAssemblyInputs(
+        chip = type,
+        perProvider = inputs.mapIndexed { i, input -> input.takeIf { type.includes(providers[i].contentType) } },
+    )
+}.distinctUntilChanged()
+
+// Only what the assembly consumes from a provider's state: the query (the search-forces-counts rule),
+// the overlay key (the display read applies the custom-info overlay, so an edit must repaint) and the
+// track key (the tracker-score sort and the tracking-status groups read tracks on demand). Taking the
+// whole state re-ran the full bucket-and-sort on every state tick, page swipes and loading flags included.
+private fun LibraryProvider.assemblyInputs(): Flow<ProviderAssemblyInputs> = combine(
+    rows,
+    state.map { it.searchQuery to it.overlayKey }.distinctUntilChanged(),
+    trackKey,
+) { rows, (query, _), _ -> ProviderAssemblyInputs(rows, query) }
+
+/**
+ * One provider's inputs, with identity equality on purpose: every source above is already distinct,
+ * so a new instance means one of them changed, the overlay or track key included, which the fields do
+ * not hold. A data class would compare whole row lists and drop an overlay or a track edit.
+ */
+internal class ProviderAssemblyInputs(val rows: List<LibraryItem>?, val searchQuery: String?)
+
+/** [perProvider] is aligned with the engine's providers, null for one [chip] hides. */
+internal data class ActiveAssemblyInputs(val chip: ContentType, val perProvider: List<ProviderAssemblyInputs?>)

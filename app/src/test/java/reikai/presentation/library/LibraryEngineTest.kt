@@ -11,11 +11,15 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -258,6 +262,55 @@ class LibraryEngineTest {
     }
 
     private fun LibraryAssembled.firstEntry() = buckets.firstOrNull()?.let { itemsFor(it).first().entryId }
+
+    /** What the Manga chip hands the assembly while novel rows and one manga state are live. */
+    private fun TestScope.mangaChipInputs(
+        novelRows: Flow<List<LibraryItem>?>,
+        mangaState: StateFlow<LibraryScreenState> = MutableStateFlow(screenState),
+        mangaRows: Flow<List<LibraryItem>?> = flowOf(listOf(row(1, listOf(11)))),
+    ): List<ActiveAssemblyInputs> {
+        val manga = provider(ContentType.MANGA)
+        every { manga.rows } returns mangaRows
+        every { manga.state } returns mangaState
+        val novels = provider(ContentType.NOVELS)
+        every { novels.rows } returns novelRows
+        val emitted = mutableListOf<ActiveAssemblyInputs>()
+        backgroundScope.launch {
+            activeAssemblyInputs(flowOf(ContentType.MANGA), listOf(manga, novels)).toList(emitted)
+        }
+        return emitted
+    }
+
+    @Test
+    fun `a row change on the type the chip hides never reaches the assembly`() = runTest(UnconfinedTestDispatcher()) {
+        val novelRows = MutableStateFlow<List<LibraryItem>?>(listOf(row(1, listOf(11))))
+        val emitted = mangaChipInputs(novelRows)
+
+        novelRows.value = listOf(row(2, listOf(11)))
+
+        emitted.size shouldBe 1
+    }
+
+    @Test
+    fun `a row change on the type the chip shows reaches the assembly`() = runTest(UnconfinedTestDispatcher()) {
+        val mangaRows = MutableStateFlow<List<LibraryItem>?>(listOf(row(1, listOf(11))))
+        val emitted = mangaChipInputs(flowOf(emptyList()), mangaRows = mangaRows)
+
+        mangaRows.value = listOf(row(2, listOf(11)))
+
+        emitted.size shouldBe 2
+    }
+
+    /** The rows stay equal through an overlay edit, so only the overlay key can repaint the title. */
+    @Test
+    fun `an overlay edit on the shown type reaches the assembly`() = runTest(UnconfinedTestDispatcher()) {
+        val mangaState = MutableStateFlow(screenState)
+        val emitted = mangaChipInputs(flowOf(emptyList()), mangaState = mangaState)
+
+        mangaState.value = screenState.copy(overlayKey = mapOf(1L to "Renamed"))
+
+        emitted.size shouldBe 2
+    }
 
     @Test
     fun `a model still loading hands over no rows`() = runTest {
