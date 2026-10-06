@@ -421,16 +421,12 @@ class LibraryEngine(
 
     /**
      * Since the filter unification every axis writes a library-wide preference, so the All view is the
-     * manga part (the axis superset: novels only omit the debug interval axis) over a union category list.
+     * manga part (the axis superset: novels only omit the debug interval axis) over every category.
      */
     private fun providerSettingsFor(contentType: ContentType): LibraryProviderSettings {
         providersFor(contentType).singleOrNull()?.let { return it.settings }
-        val manga = providersFor(ContentType.MANGA).single().settings
-        val novel = providersFor(ContentType.NOVELS).single().settings
-        return manga.copy(
-            // The union is sorted again as one list: concatenating two sorted halves is not sorted.
-            categories = combine(manga.categories, novel.categories) { m, n -> (m + n).distinctBy { it.id } }
-                .sortedByCategoryPref(reikaiLibraryPreferences)
+        return providersFor(ContentType.MANGA).single().settings.copy(
+            categories = categoryRepository.subscribeAllInCategoryOrder(reikaiLibraryPreferences)
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
         )
     }

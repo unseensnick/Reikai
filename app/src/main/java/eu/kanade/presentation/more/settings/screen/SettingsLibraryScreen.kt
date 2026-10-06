@@ -234,13 +234,10 @@ object SettingsLibraryScreen : SearchableSettings {
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        // RK: the edit-categories screen lists every category, so this count is the union of the two
-        // library reads rather than the manga-visible ones alone. They overlap on categories shown in
-        // both libraries, hence the dedupe by id.
-        val userCategoriesCount = (allCategories + novelCategories)
-            .distinctBy { it.id }
-            .filterNot(Category::isSystemCategory)
-            .size
+        // RK: the edit-categories screen lists every category of both libraries, so this counts them all
+        val everyCategory by remember { context.appGraph.categoryRepository.getUnfilteredAsFlow() }
+            .collectAsState(initial = emptyList())
+        val userCategoriesCount = everyCategory.filterNot(Category::isSystemCategory).size
 
         // For default category
         val ids = listOf(libraryPreferences.defaultCategory.defaultValue()) +

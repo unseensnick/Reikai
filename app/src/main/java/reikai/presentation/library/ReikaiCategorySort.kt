@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.combine
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
  * Orders a category list by the Reikai category-sort-order pref, so every surface that lists
@@ -25,3 +26,7 @@ fun reikaiSortCategories(categories: List<Category>, sortOrder: CategorySortOrde
 /** [reikaiSortCategories] applied to every emission, re-sorting whenever the sort-order pref changes. */
 fun Flow<List<Category>>.sortedByCategoryPref(prefs: ReikaiLibraryPreferences): Flow<List<Category>> =
     combine(this, prefs.categorySortOrder.changes(), ::reikaiSortCategories)
+
+/** Every category of both libraries, live and in the category sort order, for a list spanning the two. */
+fun CategoryRepository.subscribeAllInCategoryOrder(prefs: ReikaiLibraryPreferences): Flow<List<Category>> =
+    getUnfilteredAsFlow().sortedByCategoryPref(prefs)
