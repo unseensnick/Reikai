@@ -9,17 +9,22 @@ import mihon.app.di.AppGraph
 import mihon.app.di.injekt.MetroInjektRegistrar
 import mihon.core.metro.GraphProvider
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.core.common.preference.PreferenceStore
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.InjektScope
 
 /**
  * Some trackers read their preferences through the app graph as they are built, so a JVM test that
  * builds one installs a graph standing in for the app's, the way the app installs its own: through
- * the Injekt registrar. Returns the scope it replaced, which the caller restores.
+ * the Injekt registrar. Returns the scope it replaced, which the caller restores. The default store
+ * drops writes; a test that reads a stored login back passes one that keeps them.
  */
-fun installTrackerTestGraph(network: NetworkHelper = mockk(relaxed = true)): InjektScope {
+fun installTrackerTestGraph(
+    network: NetworkHelper = mockk(relaxed = true),
+    preferences: PreferenceStore = InMemoryPreferenceStore(),
+): InjektScope {
     val graph = mockk<AppGraph>(relaxed = true) {
-        every { trackPreferences } returns TrackPreferences(InMemoryPreferenceStore())
+        every { trackPreferences } returns TrackPreferences(preferences)
         every { networkHelper } returns network
     }
     val application = mockk<Application>(relaxed = true, moreInterfaces = arrayOf(GraphProvider::class))

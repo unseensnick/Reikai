@@ -14,6 +14,8 @@ import eu.kanade.tachiyomi.data.track.novellist.dto.NLReadingListEntry
 import eu.kanade.tachiyomi.data.track.novellist.dto.NLUpdateRequest
 import eu.kanade.tachiyomi.network.HttpException
 import reikai.data.track.MetadataAccess
+import reikai.data.track.TenPointScore
+import reikai.data.track.storeCheckedCredential
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -32,9 +34,6 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
         const val COMPLETED = 2L
         const val DROPPED = 4L
         const val PLAN_TO_READ = 5L
-
-        // Score is 1..10 on the wire; index 0 is "unset", which the route takes as an omitted field.
-        private val SCORE_LIST = listOf("-") + (1..10).map { it.toString() }
 
         private val SESSION_CHUNK = Regex("novellist(?:\\.(\\d+))?=([^;]+)")
         private val BASE64_BLOB = Regex("base64-([A-Za-z0-9+/=_-]+)")
@@ -80,12 +79,12 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
 
     override fun getCompletionStatus(): Long = COMPLETED
 
-    override fun getScoreList(): List<String> = SCORE_LIST
+    // Index 0, unset, goes out as an omitted field, which the route takes as no score.
+    override fun getScoreList(): List<String> = TenPointScore.list
 
     override fun indexToScore(index: Int): Double = index.toDouble()
 
-    override fun displayScore(track: DomainTrack): String =
-        if (track.score <= 0.0) SCORE_LIST[0] else track.score.toInt().toString()
+    override fun displayScore(track: DomainTrack): String = TenPointScore.display(track.score)
 
     override suspend fun search(query: String): List<TrackSearch> = searchNovel(query)
 
@@ -172,21 +171,9 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
 
     override suspend fun loginWithCookie(credential: String) = storeCredential(credential)
 
-    /**
-     * Validates against the profile route before storing, and fills the username slot, without which
-     * [isLoggedIn] stays false because it reads both the username and the password.
-     */
-    private suspend fun storeCredential(credential: String) {
-        interceptor.newAuth(credential)
-        try {
-            val user = api.getCurrentUser()
-            saveDisplayUsername(user.username)
-            saveCredentials(user.username, credential)
-        } catch (e: Throwable) {
-            interceptor.newAuth(null)
-            throw e
-        }
-    }
+    // Validated against the profile route before it is stored.
+    private suspend fun storeCredential(credential: String) =
+        storeCheckedCredential(credential, interceptor::newAuth) { api.getCurrentUser().username }
 
     override suspend fun updateUserConfig() {
         saveDisplayUsername(api.getCurrentUser().username)

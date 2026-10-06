@@ -13,6 +13,8 @@ import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBSeries
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBSeriesListEntry
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBStaff
 import reikai.data.track.MetadataAccess
+import reikai.data.track.TenPointScore
+import reikai.data.track.storeCheckedCredential
 import tachiyomi.i18n.MR
 import java.time.Instant
 import java.time.ZoneId
@@ -41,9 +43,6 @@ class RanobeDb(id: Long) :
         const val ON_HOLD = 3L
         const val DROPPED = 4L
         const val PLAN_TO_READ = 5L
-
-        // Score is 1..10 on the wire; index 0 is "unset", which the API takes as null.
-        private val SCORE_LIST = listOf("-") + (1..10).map { it.toString() }
 
         /**
          * Marks a stored credential as a session cookie rather than a token, so the interceptor
@@ -107,14 +106,12 @@ class RanobeDb(id: Long) :
 
     override fun getCompletionStatus(): Long = COMPLETED
 
-    override fun getScoreList(): List<String> = SCORE_LIST
+    // Index 0, unset, goes out as null.
+    override fun getScoreList(): List<String> = TenPointScore.list
 
     override fun indexToScore(index: Int): Double = index.toDouble()
 
-    // Anything at or below zero is unscored: the API's range starts at 1, and a search result's
-    // score arrives as -1 until something sets it.
-    override fun displayScore(track: DomainTrack): String =
-        if (track.score <= 0.0) SCORE_LIST[0] else track.score.toInt().toString()
+    override fun displayScore(track: DomainTrack): String = TenPointScore.display(track.score)
 
     override suspend fun search(query: String): List<TrackSearch> = searchNovel(query)
 
@@ -199,22 +196,9 @@ class RanobeDb(id: Long) :
 
     override suspend fun loginWithCookie(credential: String) = storeCredential(credential)
 
-    /**
-     * Both logins land here. The username slot is filled from `/user/me`, which proves the
-     * credential works before it is stored and keeps [isLoggedIn] true, since that reads the
-     * username and password slots and a token login leaves the username otherwise empty.
-     */
-    private suspend fun storeCredential(credential: String) {
-        interceptor.newAuth(credential)
-        try {
-            val user = api.getCurrentUser()
-            saveDisplayUsername(user.username)
-            saveCredentials(user.username, credential)
-        } catch (e: Throwable) {
-            interceptor.newAuth(null)
-            throw e
-        }
-    }
+    // Both logins land here, checked against `/user/me` before the credential is stored.
+    private suspend fun storeCredential(credential: String) =
+        storeCheckedCredential(credential, interceptor::newAuth) { api.getCurrentUser().username }
 
     override suspend fun updateUserConfig() {
         saveDisplayUsername(api.getCurrentUser().username)
