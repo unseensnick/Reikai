@@ -32,6 +32,7 @@ import mihon.app.di.appGraph
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.novel.model.asNovelCover
@@ -233,6 +234,12 @@ class NovelScreen(
                 NovelDetailsDialogs(s, viewModel)
             }
         }
+    }
+
+    companion object {
+        // The page is keyed by source and url, so an id from the download queue or recents needs its stored row.
+        suspend fun forStored(novelId: Long, novelRepository: NovelRepository): NovelScreen? =
+            novelRepository.getById(novelId)?.let { NovelScreen(it.source, it.url) }
     }
 }
 

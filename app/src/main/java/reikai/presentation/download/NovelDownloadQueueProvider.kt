@@ -74,7 +74,7 @@ class NovelDownloadQueueProvider(
     }
 
     override suspend fun detailsScreen(seriesId: Long): Screen? =
-        novelRepo.getById(seriesId)?.let { NovelScreen(it.source, it.url) }
+        NovelScreen.forStored(seriesId, novelRepo)
 
     override fun cancelChapter(chapterId: Long) = downloadManager.cancelDownloads(listOf(chapterId))
 

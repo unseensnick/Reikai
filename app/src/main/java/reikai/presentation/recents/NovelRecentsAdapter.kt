@@ -298,8 +298,7 @@ class NovelRecentsAdapter(
 
     override suspend fun detailsScreen(entry: EntryId): Screen? {
         val novelId = (entry as? EntryId.Novel)?.rawId ?: return null
-        val novel = novelRepository.getById(novelId) ?: return null
-        return NovelScreen(novel.source, novel.url)
+        return NovelScreen.forStored(novelId, novelRepository)
     }
 
     // No lookup, unlike detailsScreen: the novel reader is keyed by id, not by source and url.
