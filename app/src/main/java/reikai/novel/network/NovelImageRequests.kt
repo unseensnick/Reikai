@@ -4,18 +4,20 @@ import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.online.HttpSource
-import kotlinx.coroutines.flow.first
 import logcat.LogPriority
+import okhttp3.CacheControl
+import okhttp3.Call
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import reikai.domain.novel.NovelPreferences
-import reikai.novel.source.IREADER_NOVEL_SOURCE_PREFIX
-import reikai.novel.source.TACHIYOMI_NOVEL_SOURCE_PREFIX
-import reikai.novel.source.ireader.IReaderSourceHolder
+import reikai.novel.source.AppNovelSource
+import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.isNovelAppSourceId
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import ireader.core.source.HttpSource as IReaderHttpSource
 
@@ -32,7 +34,19 @@ class NovelImageClient(
      * other host gets [elsewhere]: the app's client, the source's user agent and its site as Referer.
      */
     fun forUrl(url: String): NovelImageClient = if (elsewhere == null || isSameSite(url, site)) this else elsewhere
+
+    /**
+     * The call for the picture at [url], for every novel picture fetch. It skips OkHttp's own cache,
+     * which keeps a failed answer that a retry, or downloading the chapter again, then reads back.
+     */
+    fun newCall(url: String): Call {
+        val picture = forUrl(url)
+        val request = Request.Builder().url(url).headers(picture.headers).cacheControl(NO_STORE).build()
+        return picture.client.newCall(request)
+    }
 }
+
+private val NO_STORE = CacheControl.Builder().noStore().build()
 
 /**
  * Whether [url] is on [site]'s host or a subdomain of it, `www.` aside, so a site's own CDN counts.
@@ -48,7 +62,7 @@ internal fun isSameSite(url: String, site: String?): Boolean {
 /**
  * How each novel source's images are fetched, for covers, both reader modes and downloads alike.
  * Answered without running any plugin: a cover can be drawn before one has loaded, so an LNReader
- * source is read from the record its last load saved, and an APK source from its loaded extension.
+ * source is read from the record its last load saved, and an app's source from its registered catalogue.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -56,14 +70,11 @@ class NovelImageRequests(
     private val context: Context,
     private val network: NetworkHelper,
     private val novelPreferences: NovelPreferences,
-    private val extensionManager: ExtensionManager,
+    private val sourceManager: NovelSourceManager,
 ) {
 
     suspend fun forSource(sourceId: String?): NovelImageClient {
-        apkSource(sourceId)?.let { return withElsewhere(it.client, it.headers, it.baseUrl) }
-        iReaderSource(sourceId)?.let {
-            return withElsewhere(network.client, iReaderImageHeaders(it), (it.source as? IReaderHttpSource)?.baseUrl)
-        }
+        appImages(sourceId)?.let { return it }
         val record = sourceId?.let { novelPreferences.seenNovelSources().get()[it] }
         return withElsewhere(
             network.client,
@@ -77,43 +88,26 @@ class NovelImageRequests(
      * IReader source's cover-request ones. An LNReader plugin has none of its own, so it gets none, and
      * so does a source whose headers throw, as a manga source's do in the WebView.
      */
-    suspend fun webViewHeaders(sourceId: String?): Map<String, String> {
-        val apk = apkSource(sourceId)
-        val iReader = if (apk == null) iReaderSource(sourceId) else null
-        return try {
-            val headers = apk?.headers ?: iReader?.let(::iReaderImageHeaders)
-            headers?.toMultimap()?.mapValues { it.value.firstOrNull().orEmpty() }.orEmpty()
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to build headers" }
-            emptyMap()
+    suspend fun webViewHeaders(sourceId: String?): Map<String, String> =
+        runCatchingCancellable {
+            appImages(sourceId)?.headers?.toMultimap()?.mapValues { it.value.firstOrNull().orEmpty() }.orEmpty()
+        }
+            .onFailure { logcat(LogPriority.ERROR, it) { "Failed to build headers" } }
+            .getOrDefault(emptyMap())
+
+    // An app's id is checked first, since the registry answers only once the extension scan is done.
+    private suspend fun appImages(sourceId: String?): NovelImageClient? {
+        if (sourceId == null || !isNovelAppSourceId(sourceId)) return null
+        return when (val catalogue = (sourceManager.getWithoutPlugins(sourceId) as? AppNovelSource)?.appSource) {
+            is HttpSource -> withElsewhere(catalogue.client, catalogue.headers, catalogue.baseUrl)
+            is IReaderHttpSource -> withElsewhere(network.client, iReaderImageHeaders(catalogue), catalogue.baseUrl)
+            else -> null
         }
     }
 
     private fun withElsewhere(client: OkHttpClient, headers: Headers, site: String?): NovelImageClient {
-        val plain = Headers.Builder().apply {
-            headers["User-Agent"]?.let { set("User-Agent", it) }
-            set("Accept", IMAGE_ACCEPT)
-            if (!site.isNullOrBlank()) set("Referer", site)
-        }.build()
+        val plain = lnImageHeaders(headers["User-Agent"].orEmpty(), site, emptyMap())
         return NovelImageClient(client, headers, site, NovelImageClient(network.client, plain))
-    }
-
-    // Found by its whole text id: an IReader app and a tachiyomi-format one may share the number. The
-    // prefix is checked first, since the extension list waits for the whole extension scan.
-    private suspend fun iReaderSource(sourceId: String?): IReaderSourceHolder? {
-        if (sourceId?.startsWith(IREADER_NOVEL_SOURCE_PREFIX) != true) return null
-        return extensionManager.loadedNovelExtensionsFlow.first()
-            .flatMap { it.sources.filterIsInstance<IReaderSourceHolder>() }
-            .firstOrNull { IREADER_NOVEL_SOURCE_PREFIX + it.id == sourceId }
-    }
-
-    private suspend fun apkSource(sourceId: String?): HttpSource? {
-        val id = sourceId?.removePrefix(TACHIYOMI_NOVEL_SOURCE_PREFIX)
-            ?.takeIf { it != sourceId }
-            ?.toLongOrNull()
-            ?: return null
-        return extensionManager.loadedNovelExtensionsFlow.first()
-            .firstNotNullOfOrNull { extension -> extension.sources.firstOrNull { it.id == id } as? HttpSource }
     }
 }
 
@@ -137,8 +131,7 @@ internal fun lnImageHeaders(deviceUserAgent: String, site: String?, pluginHeader
  * set a Referer or user agent, and none overrides the page-image request. The site stands in for the
  * cover, since the headers do not depend on which picture is asked for.
  */
-internal fun iReaderImageHeaders(holder: IReaderSourceHolder): Headers {
-    val source = holder.source as? IReaderHttpSource ?: return Headers.headersOf()
+internal fun iReaderImageHeaders(source: IReaderHttpSource): Headers {
     val requested = runCatching { source.getCoverRequest(source.baseUrl).second.headers.build() }.getOrNull()
         ?: return Headers.headersOf()
     return Headers.Builder().apply {

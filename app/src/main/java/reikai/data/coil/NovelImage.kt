@@ -9,8 +9,6 @@ import coil3.fetch.SourceFetchResult
 import coil3.key.Keyer
 import coil3.request.Options
 import eu.kanade.tachiyomi.network.awaitSuccess
-import okhttp3.CacheControl
-import okhttp3.Request
 import okio.FileSystem
 import reikai.novel.network.NovelImageRequests
 
@@ -58,10 +56,7 @@ suspend fun fetchNovelImage(
     val key = image.url
     if (readCache) diskCache?.openSnapshot(key)?.let { return it.toResult(diskCache, key, null, DataSource.DISK) }
 
-    val client = requests.forSource(image.sourceId).forUrl(image.url)
-    // OkHttp's own cache would keep a failed answer that a retry then reads back.
-    val request = Request.Builder().url(image.url).headers(client.headers).cacheControl(NO_STORE).build()
-    val response = client.client.newCall(request).awaitSuccess()
+    val response = requests.forSource(image.sourceId).newCall(image.url).awaitSuccess()
     val mimeType = response.header("Content-Type")?.substringBefore(';')?.trim()?.takeIf { it.isNotEmpty() }
     val editor = diskCache?.takeIf { writeCache }?.openEditor(key)
         ?: return SourceFetchResult(
@@ -86,5 +81,3 @@ private fun DiskCache.Snapshot.toResult(cache: DiskCache, key: String, mimeType:
         mimeType,
         dataSource,
     )
-
-private val NO_STORE = CacheControl.Builder().noStore().build()

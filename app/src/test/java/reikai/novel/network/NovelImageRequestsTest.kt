@@ -4,6 +4,7 @@ import android.content.Context
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.HttpSource
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
@@ -14,11 +15,14 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import mihon.domain.extension.model.ContentWarning
+import okhttp3.Headers
 import okhttp3.Headers.Companion.headersOf
 import okhttp3.OkHttpClient
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
+import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.ireader.IReaderSourceHolder
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
@@ -71,15 +75,8 @@ class NovelImageRequestsTest {
 
     @Test
     fun `an APK source uses its own headers`() = runTest {
-        val source = mockk<HttpSource> {
-            every { id } returns 42L
-            every { baseUrl } returns "https://apk.example"
-            every { headers } returns headersOf("Referer", "https://apk.example/")
-            every { client } returns OkHttpClient()
-        }
-        val extension = mockk<Extension.Loaded> { every { sources } returns listOf(source) }
-
-        val headers = requests(loaded = listOf(extension)).forSource("tachiyomi:42").headers
+        val headers = requests(loaded = listOf(app(apkSource(headersOf("Referer", "https://apk.example/")))))
+            .forSource("tachiyomi:42").headers
 
         headers["Referer"] shouldBe "https://apk.example/"
     }
@@ -102,6 +99,16 @@ class NovelImageRequestsTest {
             .forUrl("https://images.example/p.jpg").headers["Referer"] shouldBe "https://apk.example"
     }
 
+    /** One rule for a picture's plain headers, whichever source kind names the picture. */
+    @Test
+    fun `a chapter picture on another site gets the plain image headers an LNReader source sends`() = runTest {
+        val apk = apkSource(headersOf("User-Agent", "apk-agent", "X-Token", "secret"))
+
+        requests(loaded = listOf(app(apk))).forSource("tachiyomi:42")
+            .forUrl("https://images.example/p.jpg").headers shouldBe
+            lnImageHeaders("apk-agent", "https://apk.example", emptyMap())
+    }
+
     @Test
     fun `a plugin's own image header stays on its site`() = runTest {
         val identity =
@@ -111,44 +118,16 @@ class NovelImageRequestsTest {
             .forUrl("https://elsewhere.example/p.jpg").headers["X-Image"] shouldBe null
     }
 
-    private fun apkWithToken(): Extension.Loaded {
-        val source = mockk<HttpSource> {
-            every { id } returns 42L
-            every { baseUrl } returns "https://apk.example"
-            every { headers } returns headersOf("X-Token", "secret")
-            every { client } returns OkHttpClient()
-        }
-        return mockk { every { sources } returns listOf(source) }
-    }
-
     @Test
     fun `an IReader source uses the headers its cover request carries`() = runTest {
-        val catalogue = mockk<IReaderHttpSource> {
-            every { id } returns 42L
-            every { baseUrl } returns "https://ir.example"
-            every { getCoverRequest(any()) } answers {
-                HttpClient() to HttpRequestBuilder().apply { headers.append("Referer", "https://ir.example/") }
-            }
-        }
-        val extension = mockk<Extension.Loaded> { every { sources } returns listOf(IReaderSourceHolder(catalogue)) }
-
-        val headers = requests(loaded = listOf(extension)).forSource("ireader:42").headers
+        val headers = requests(loaded = listOf(iReaderApp())).forSource("ireader:42").headers
 
         headers["Referer"] shouldBe "https://ir.example/"
     }
 
     @Test
     fun `an IReader source is not taken for a tachiyomi one with the same number`() = runTest {
-        val catalogue = mockk<IReaderHttpSource> {
-            every { id } returns 42L
-            every { baseUrl } returns "https://ir.example"
-            every { getCoverRequest(any()) } answers {
-                HttpClient() to HttpRequestBuilder().apply { headers.append("Referer", "https://ir.example/") }
-            }
-        }
-        val extension = mockk<Extension.Loaded> { every { sources } returns listOf(IReaderSourceHolder(catalogue)) }
-
-        requests(loaded = listOf(extension)).forSource("tachiyomi:42").headers["Referer"] shouldBe null
+        requests(loaded = listOf(iReaderApp())).forSource("tachiyomi:42").headers["Referer"] shouldBe null
     }
 
     @Test
@@ -159,16 +138,7 @@ class NovelImageRequestsTest {
 
     @Test
     fun `the WebView gets the headers an IReader source's cover request carries`() = runTest {
-        val catalogue = mockk<IReaderHttpSource> {
-            every { id } returns 42L
-            every { baseUrl } returns "https://ir.example"
-            every { getCoverRequest(any()) } answers {
-                HttpClient() to HttpRequestBuilder().apply { headers.append("Referer", "https://ir.example/") }
-            }
-        }
-        val extension = mockk<Extension.Loaded> { every { sources } returns listOf(IReaderSourceHolder(catalogue)) }
-
-        requests(loaded = listOf(extension)).webViewHeaders("ireader:42") shouldBe
+        requests(loaded = listOf(iReaderApp())).webViewHeaders("ireader:42") shouldBe
             mapOf("referer" to "https://ir.example/")
     }
 
@@ -177,18 +147,70 @@ class NovelImageRequestsTest {
         requests(scanDone = false).webViewHeaders("p") shouldBe emptyMap()
     }
 
+    private fun apkWithToken() = app(apkSource(headersOf("X-Token", "secret")))
+
+    private fun apkSource(headers: Headers) = mockk<HttpSource> {
+        every { id } returns 42L
+        every { name } returns "APK"
+        every { lang } returns "en"
+        every { supportsLatest } returns false
+        every { getFilterList() } returns FilterList()
+        every { baseUrl } returns "https://apk.example"
+        every { this@mockk.headers } returns headers
+        every { client } returns OkHttpClient()
+    }
+
+    private fun iReaderApp(): Extension.Loaded {
+        val catalogue = mockk<IReaderHttpSource> {
+            every { id } returns 42L
+            every { name } returns "IReader"
+            every { lang } returns "en"
+            every { getFilters() } returns emptyList()
+            every { getListings() } returns emptyList()
+            every { baseUrl } returns "https://ir.example"
+            every { getCoverRequest(any()) } answers {
+                HttpClient() to HttpRequestBuilder().apply { headers.append("Referer", "https://ir.example/") }
+            }
+        }
+        return app(IReaderSourceHolder(catalogue)).copy(kind = Extension.Kind.IREADER)
+    }
+
+    private fun app(vararg sources: eu.kanade.tachiyomi.source.Source) = Extension.Loaded(
+        name = "App",
+        pkgName = "eu.kanade.tachiyomi.novelextension.en.app",
+        versionName = "1.6.1",
+        versionCode = 1,
+        libVersion = 1.6,
+        lang = "en",
+        contentWarning = ContentWarning.SAFE,
+        isShared = true,
+        signatures = emptyList(),
+        kind = Extension.Kind.TACHIYOMI_NOVEL,
+        pkgFactory = null,
+        sources = sources.toList(),
+        icon = null,
+    )
+
     private fun requests(
         seen: Map<String, LnSourceIdentity> = emptyMap(),
         loaded: List<Extension.Loaded> = emptyList(),
         scanDone: Boolean = true,
-    ) = NovelImageRequests(
-        context = mockk<Context>(relaxed = true),
-        network = mockk<NetworkHelper> { every { client } returns OkHttpClient() },
-        novelPreferences = NovelPreferences(
+    ): NovelImageRequests {
+        val preferences = NovelPreferences(
             InMemoryPreferenceStore(sequenceOf(InMemoryPreference("ln_seen_novel_sources", seen, emptyMap()))),
-        ),
-        extensionManager = mockk<ExtensionManager> {
-            every { loadedNovelExtensionsFlow } returns if (scanDone) flowOf(loaded) else flow { awaitCancellation() }
-        },
-    )
+        )
+        return NovelImageRequests(
+            context = mockk<Context>(relaxed = true),
+            network = mockk<NetworkHelper> { every { client } returns OkHttpClient() },
+            novelPreferences = preferences,
+            sourceManager = NovelSourceManager(
+                installer = { error("loaded the plugins") },
+                extensionManager = mockk<ExtensionManager> {
+                    every { loadedNovelExtensionsFlow } returns
+                        if (scanDone) flowOf(loaded) else flow { awaitCancellation() }
+                },
+                prefs = preferences,
+            ),
+        )
+    }
 }

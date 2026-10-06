@@ -569,6 +569,7 @@ agent under Settings -> Advanced.
 - **Sorting or reordering the download queue no longer brings back a chapter that just finished or drops one just queued.**
 - **Download queue counts no longer reset when you reopen the queue, or count a cancelled chapter as downloaded.**
 - **A downloaded novel chapter with pictures now keeps the line breaks the source draws, and its pictures show offline even when the source offers several sizes.**
+- **Downloading a novel chapter again now refetches a picture that failed before.**
 - **A novel chapter download now fails at once with the reason when the device is nearly full or the source returns the chapter empty, as manga does, instead of retrying.**
 - **Reading a novel in incognito now downloads the next chapters ahead, as reading manga in incognito does.**
 - **Deleting a novel's last downloaded chapter now removes its empty folder, as manga does.**

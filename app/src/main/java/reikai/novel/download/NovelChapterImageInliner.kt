@@ -1,7 +1,6 @@
 package reikai.novel.download
 
 import android.util.Base64
-import okhttp3.Request
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import reikai.novel.content.NovelChapterAddress
@@ -37,9 +36,7 @@ suspend fun inlineChapterImages(html: String, baseSite: String, images: NovelIma
         if (src.isBlank()) continue
         val absolute = NovelChapterAddress.absolute(baseSite, src)
         runCatching {
-            val picture = images.forUrl(absolute)
-            val request = Request.Builder().url(absolute).headers(picture.headers).build()
-            picture.client.newCall(request).execute().use { response ->
+            images.newCall(absolute).execute().use { response ->
                 if (!response.isSuccessful) return@use
                 val body = response.body
                 // Bound the read itself, not just the post-read size: a lying or unknown (-1)

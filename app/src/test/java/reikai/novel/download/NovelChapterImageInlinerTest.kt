@@ -23,10 +23,12 @@ class NovelChapterImageInlinerTest {
     /** The image host, answering every address with a few bytes of image. */
     private val fetched = mutableListOf<String>()
     private val referers = mutableListOf<String?>()
+    private val noStore = mutableListOf<Boolean>()
     private val client = OkHttpClient.Builder()
         .addInterceptor { chain ->
             fetched += chain.request().url.toString()
             referers += chain.request().header("Referer")
+            noStore += chain.request().cacheControl.noStore
             Response.Builder()
                 .request(chain.request())
                 .protocol(Protocol.HTTP_1_1)
@@ -127,6 +129,14 @@ class NovelChapterImageInlinerTest {
         inlined("""<img src="/a.jpg">""")
 
         referers shouldBe listOf("https://site.example/")
+    }
+
+    /** OkHttp's own cache would keep a failed answer, which downloading the chapter again then reads back. */
+    @Test
+    fun `a stored image is fetched past the network cache`() = runTest {
+        inlined("""<img src="/a.jpg">""")
+
+        noStore shouldBe listOf(true)
     }
 
     @Test
