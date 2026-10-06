@@ -70,6 +70,7 @@ import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.detailsScreen
+import reikai.presentation.browse.rememberEntryGestures
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelSourceFilterSheet
@@ -344,6 +345,14 @@ class EntryCatalogueScreen(
 
         BackHandler(enabled = loaded.selectionMode) { behavior.setSelectionMode(false) }
 
+        val gestures = rememberEntryGestures(
+            // A migration pick outranks a selection.
+            choose = loaded.capabilities.migrationPick?.let { pick -> { row: EntryBrowseRow -> pick.pick(row) {} } }
+                ?: behavior::toggleSelection.takeIf { loaded.selectionMode },
+            open = { row: EntryBrowseRow -> navigator.push(row.detailsScreen(sourceKey)) },
+            add = behavior::onRowLongClick,
+        )
+
         val navigateUp = {
             if (!loaded.isUserQuery && loaded.query != null) {
                 behavior.setQuery(null)
@@ -424,30 +433,12 @@ class EntryCatalogueScreen(
                 rows = rows,
                 rowStyle = loaded.rowStyle,
                 selectedKeys = loaded.selectedKeys,
-                // Both modes make a long press preview the entry rather than grab it.
-                longPressOpensEntry = loaded.selectionMode || loaded.capabilities.migrationPick != null,
                 snackbarHostState = snackbarHostState,
                 contentPadding = contentPadding,
                 onWebViewClick = onWebViewClick,
                 onHelpClick = onHelpClick,
                 onLocalSourceHelpClick = localSourceHelp,
-                onClick = { row ->
-                    val pick = loaded.capabilities.migrationPick
-                    when {
-                        pick != null -> pick.pick(row) {}
-                        loaded.selectionMode -> behavior.toggleSelection(row)
-                        else -> navigator.push(row.detailsScreen(sourceKey))
-                    }
-                },
-                onLongClick = { row ->
-                    // Selecting or picking a migration target, a long press previews the entry; the
-                    // add flow would favourite something the reader is only inspecting.
-                    if (loaded.capabilities.migrationPick != null || loaded.selectionMode) {
-                        navigator.push(row.detailsScreen(sourceKey))
-                    } else {
-                        behavior.onRowLongClick(row)
-                    }
-                },
+                gestures = gestures,
             )
         }
 

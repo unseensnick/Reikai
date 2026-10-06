@@ -24,10 +24,12 @@ import reikai.presentation.browse.BulkCategoryDialog
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.catalogue.EntryBrowseCatalogue
+import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryBrowseScreenState
 import reikai.presentation.browse.catalogue.MangaBrowseAdapter
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.detailsScreen
+import reikai.presentation.browse.rememberEntryGestures
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -59,6 +61,11 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
         BackHandler(enabled = bulkFavoriteState.selectionMode) {
             bulkFavoriteViewModel.backHandler()
         }
+        val gestures = rememberEntryGestures(
+            choose = adapter::toggleSelection.takeIf { bulkFavoriteState.selectionMode },
+            open = { row: EntryBrowseRow -> navigator.push(row.detailsScreen(SourceKey.Manga(sourceId))) },
+            add = adapter::onRowLongClick,
+        )
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -104,25 +111,11 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                 rows = entries,
                 rowStyle = loaded.rowStyle,
                 selectedKeys = loaded.selectedKeys,
-                longPressOpensEntry = bulkFavoriteState.selectionMode,
                 snackbarHostState = snackbarHostState,
                 contentPadding = paddingValues,
                 onWebViewClick = {},
                 onHelpClick = {},
-                onClick = { row ->
-                    if (bulkFavoriteState.selectionMode) {
-                        adapter.toggleSelection(row)
-                    } else {
-                        navigator.push(row.detailsScreen(SourceKey.Manga(sourceId)))
-                    }
-                },
-                onLongClick = { row ->
-                    if (bulkFavoriteState.selectionMode) {
-                        navigator.push(row.detailsScreen(SourceKey.Manga(sourceId)))
-                    } else {
-                        adapter.onRowLongClick(row)
-                    }
-                },
+                gestures = gestures,
             )
         }
 

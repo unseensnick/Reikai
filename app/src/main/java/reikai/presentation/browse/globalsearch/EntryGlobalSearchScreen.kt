@@ -10,8 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -29,9 +27,11 @@ import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.SearchResultSection
+import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.detailsScreen
 import reikai.presentation.browse.listedEntries
+import reikai.presentation.browse.rememberEntryGestures
 import reikai.presentation.browse.selectedRowKeys
 import reikai.presentation.browse.selectionTitle
 import reikai.presentation.browse.startAdd
@@ -70,7 +70,6 @@ class EntryGlobalSearchScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val haptic = LocalHapticFeedback.current
 
         val mangaModel = assistedMetroViewModel<GlobalSearchViewModel, GlobalSearchViewModel.Factory> {
             create(initialExtensionFilter = extensionFilter)
@@ -199,6 +198,14 @@ class EntryGlobalSearchScreen(
             LazyColumn(contentPadding = contentPadding) {
                 items(state.visibleRows.size, key = { state.visibleRows[it].key.toString() }) { index ->
                     val row = state.visibleRows[index]
+                    val gestures = rememberEntryGestures(
+                        choose = { entry: EntryBrowseRow -> entry.toggleSelection(row.key, mangaBulk, novelBulk) }
+                            .takeIf { selectionMode },
+                        open = { entry: EntryBrowseRow -> navigator.push(entry.detailsScreen(row.key)) },
+                        add = { entry: EntryBrowseRow ->
+                            entry.startAdd(row.key, mangaModel.addFlow, novelModel.addFlow)
+                        },
+                    )
                     SearchResultSection(
                         // Sections re-sort as each source lands, so they slide rather than jump.
                         modifier = Modifier.animateItem(),
@@ -209,21 +216,7 @@ class EntryGlobalSearchScreen(
                         showsFormat = state.showsFormat,
                         selectedKeys = selectedKeys,
                         onClickSource = { navigator.push(EntryCatalogueScreen(row.key, state.query)) },
-                        onClickEntry = { entry ->
-                            if (selectionMode) {
-                                entry.toggleSelection(row.key, mangaBulk, novelBulk)
-                            } else {
-                                navigator.push(entry.detailsScreen(row.key))
-                            }
-                        },
-                        onLongClickEntry = { entry ->
-                            if (selectionMode) {
-                                navigator.push(entry.detailsScreen(row.key))
-                            } else {
-                                entry.startAdd(row.key, mangaModel.addFlow, novelModel.addFlow)
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            }
-                        },
+                        gestures = gestures,
                     )
                 }
             }

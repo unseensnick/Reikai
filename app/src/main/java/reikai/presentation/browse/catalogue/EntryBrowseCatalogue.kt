@@ -15,10 +15,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -33,6 +31,7 @@ import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.presentation.browse.EntryBrowseGridCell
+import reikai.presentation.browse.EntryGestures
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
@@ -59,10 +58,7 @@ fun EntryBrowseCatalogue(
     contentPadding: PaddingValues,
     onWebViewClick: (challengeUrl: String?) -> Unit,
     onHelpClick: () -> Unit,
-    onClick: (EntryBrowseRow) -> Unit,
-    onLongClick: (EntryBrowseRow) -> Unit,
-    /** Whether a long press opens the entry instead of grabbing it, which is when it does not buzz. */
-    longPressOpensEntry: Boolean = false,
+    gestures: EntryGestures<EntryBrowseRow>,
     onLocalSourceHelpClick: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -114,14 +110,6 @@ fun EntryBrowseCatalogue(
         return
     }
 
-    // Buzzed here rather than in each layout, so the gallery rows get it too. Only when the press
-    // grabs the row: while selecting, a long press opens the entry, which upstream does not buzz for.
-    val haptic = LocalHapticFeedback.current
-    val onLongPress: (EntryBrowseRow) -> Unit = { row ->
-        if (!longPressOpensEntry) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        onLongClick(row)
-    }
-
     when (rowStyle) {
         // The adult-source layout brings its own rows and reads the gallery metadata off the payload,
         // which only the manga adapter puts there. Reached only when that adapter asks for it.
@@ -129,8 +117,8 @@ fun EntryBrowseCatalogue(
             rows = rows,
             contentPadding = contentPadding,
             selectedKeys = selectedKeys,
-            onClick = onClick,
-            onLongClick = onLongPress,
+            onClick = gestures.onClick,
+            onLongClick = gestures.onLongClick,
         )
         is EntryBrowseRowStyle.Standard -> StandardRows(
             rows = rows,
@@ -138,8 +126,8 @@ fun EntryBrowseCatalogue(
             columns = rowStyle.columns,
             selectedKeys = selectedKeys,
             contentPadding = contentPadding,
-            onClick = onClick,
-            onLongClick = onLongPress,
+            onClick = gestures.onClick,
+            onLongClick = gestures.onLongClick,
         )
     }
 }

@@ -39,6 +39,7 @@ import reikai.presentation.browse.detailsScreen
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.browse.listedEntries
+import reikai.presentation.browse.rememberEntryGestures
 import reikai.presentation.browse.selectedRowKeys
 import reikai.presentation.browse.selectionTitle
 import reikai.presentation.browse.startAdd
@@ -211,6 +212,13 @@ private fun Screen.FeedContent(
             LazyColumn(contentPadding = contentPadding) {
                 items(state.entries.size, key = { state.entries[it].feedId }) { index ->
                     val entry = state.entries[index]
+                    val gestures = rememberEntryGestures(
+                        choose = { result: EntryBrowseRow -> onToggle(entry.row, result) }.takeIf { selectionMode },
+                        open = { result: EntryBrowseRow -> navigator.push(result.detailsScreen(entry.row.key)) },
+                        add = { result: EntryBrowseRow ->
+                            result.startAdd(entry.row.key, model.mangaAddFlow, model.novelAddFlow)
+                        },
+                    )
                     SearchResultSection(
                         row = entry.row,
                         // A saved-search row is titled by the search, so its source has to be said
@@ -233,22 +241,7 @@ private fun Screen.FeedContent(
                         // Removing a row mid-selection would take entries out from under it, so
                         // while selecting the heading does nothing.
                         onLongClickSource = { model.confirmRemove(entry) }.takeIf { !selectionMode },
-                        // Both gestures invert while selecting, the way every other browse grid
-                        // here does it: a tap picks, a long press previews.
-                        onClickEntry = { result ->
-                            if (selectionMode) {
-                                onToggle(entry.row, result)
-                            } else {
-                                navigator.push(result.detailsScreen(entry.row.key))
-                            }
-                        },
-                        onLongClickEntry = { result ->
-                            if (selectionMode) {
-                                navigator.push(result.detailsScreen(entry.row.key))
-                            } else {
-                                result.startAdd(entry.row.key, model.mangaAddFlow, model.novelAddFlow)
-                            }
-                        },
+                        gestures = gestures,
                     )
                 }
             }

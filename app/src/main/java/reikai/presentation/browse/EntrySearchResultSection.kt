@@ -31,8 +31,7 @@ fun SearchResultSection(
     /** [EntryBrowseRow.key]s of the selected results, across both content types. */
     selectedKeys: Set<String>,
     onClickSource: (BrowseSearchRow) -> Unit,
-    onClickEntry: (EntryBrowseRow) -> Unit,
-    onLongClickEntry: (EntryBrowseRow) -> Unit,
+    gestures: EntryGestures<EntryBrowseRow>,
     showContentType: Boolean = false,
     /** Replaces the source language under the title, where a row is not titled by its source. */
     subtitle: String? = null,
@@ -65,8 +64,8 @@ fun SearchResultSection(
                 entries = result.entries,
                 key = { it.key },
                 toUi = { it.content.collectAsState().value.ui },
-                onClick = onClickEntry,
-                onLongClick = onLongClickEntry,
+                onClick = gestures.onClick,
+                onLongClick = gestures.onLongClick,
                 isSelected = { it.key in selectedKeys },
             )
         }
