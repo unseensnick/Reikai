@@ -35,7 +35,8 @@ import java.io.IOException
 /**
  * Only a finished novel download leaves the saved queue, as Mihon's Downloader removes a download
  * from its store only once it is DOWNLOADED. A chapter that failed comes back after a restart and
- * waits for Resume, like a failed manga chapter.
+ * waits for Resume, like a failed manga chapter. A chapter whose name another chapter's download already holds
+ * counts as finished, as manga's downloader counts it.
  */
 class NovelDownloadManagerFailureTest {
 
@@ -60,14 +61,19 @@ class NovelDownloadManagerFailureTest {
         every { getSharedPreferences(any(), any()) } returns prefs
         every { getSystemService(NotificationManager::class.java) } returns mockk<NotificationManager>(relaxed = true)
     }
-    private val chapterRepo = mockk<NovelChapterRepository> { coEvery { getById(10L) } returns chapter }
-    private val failingSource = mockk<NovelSource> {
+    private val sameName = chapter.copy(id = 11L, url = "u11")
+    private val chapterRepo = mockk<NovelChapterRepository> {
+        coEvery { getById(10L) } returns chapter
+        coEvery { getById(11L) } returns sameName
+    }
+    private val source = mockk<NovelSource> {
         every { minimumRequestDelayMs } returns 0L
-        coEvery { parseChapter(any()) } throws IOException("source down")
+        coEvery { parseChapter("u10") } throws IOException("source down")
+        coEvery { parseChapter("u11") } returns "text"
     }
 
     // Stubbed outside a mockk block, where a bare get binds to MockK's own.
-    private val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get("src") } returns failingSource }
+    private val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get("src") } returns source }
 
     private val manager = NovelDownloadManager(
         context = context,
@@ -80,7 +86,7 @@ class NovelDownloadManagerFailureTest {
         downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
         sourcePreferences = ReikaiSourcePreferences(InMemoryPreferenceStore()),
         novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
-        saver = mockk(),
+        saver = mockk { coEvery { save(any(), any(), any(), any()) } returns NovelChapterSaver.SaveResult.NAME_TAKEN },
         securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
         adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
         sourceTitles = mockk(),
@@ -107,6 +113,15 @@ class NovelDownloadManagerFailureTest {
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
 
         NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe listOf(10L)
+    }
+
+    @Test
+    fun `a chapter whose name another chapter's download holds leaves the saved queue`() = runTest {
+        manager.downloadChapters(listOf(sameName))
+
+        manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
+
+        NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe emptyList()
     }
 }
 

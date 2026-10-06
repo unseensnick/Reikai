@@ -79,7 +79,10 @@ class NovelDownloadRekeyMigration(
         if (move.merged && provider.findChapterFile(move.novel, move.chapter) != null) return
         runCatching {
             val html = move.file.openInputStream().bufferedReader().use { it.readText() }
-            if (provider.writeChapter(move.novel, move.chapter, html)) move.file.delete()
+            // Named with the hash, as every install this runs on names chapters: the setting saying so is written
+            // by ChapterNameSuffixMigration, after this one, and without it two chapters of one name share a file.
+            val name = provider.chapterFileName(move.chapter.name, move.chapter.url, enableChapterNameHash = true)
+            if (provider.writeChapter(move.novel, move.chapter, html, name)) move.file.delete()
         }.onFailure {
             logcat(LogPriority.WARN, it) {
                 "Novel download re-key failed: novel=${move.novel.id} chapter=${move.chapter.id}"

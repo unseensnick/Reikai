@@ -354,6 +354,11 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_disallow_non_ascii_filenames),
                     subtitle = stringResource(MR.strings.pref_disallow_non_ascii_filenames_details),
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = libraryPreferences.enableChapterNameHash,
+                    title = stringResource(MR.strings.pref_enable_chapter_name_hash),
+                    subtitle = stringResource(MR.strings.pref_enable_chapter_name_hash_details),
+                ),
                 // RK --> dissolve every merge group. The old "clear manual" vs "separate auto" split
                 // collapsed after the rebuild (both now clear every group), so it is one action per type.
                 Preference.PreferenceItem.TextPreference(

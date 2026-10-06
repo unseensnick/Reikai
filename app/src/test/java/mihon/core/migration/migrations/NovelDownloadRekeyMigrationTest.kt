@@ -120,6 +120,22 @@ class NovelDownloadRekeyMigrationTest {
         oldFile(DISCARDED, MERGED_CHAPTER).exists() shouldBe true
     }
 
+    /**
+     * The installs this runs on name chapters with the url hash, which tells two chapters of one name apart,
+     * though the setting that says so is only written by a later migration.
+     */
+    @Test
+    fun `two chapters of one name keep their own downloads`() = runTest {
+        oldFile(SURVIVOR, CHAPTER).writeText("first")
+        oldFile(SURVIVOR, KEPT_CHAPTER).writeText("second")
+        val sameName = keptChapter.copy(name = chapter.name)
+        coEvery { chapters.getById(KEPT_CHAPTER) } returns sameName
+
+        run(record())
+
+        listOf(chapter, sameName).map { provider.readChapter(survivor, it) } shouldBe listOf("first", "second")
+    }
+
     @Test
     fun `a merged-away manga's id leaves a novel folder of that number alone`() = runTest {
         oldFile(DISCARDED, CHAPTER).writeText("old")

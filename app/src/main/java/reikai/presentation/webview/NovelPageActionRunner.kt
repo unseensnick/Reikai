@@ -46,6 +46,7 @@ class NovelPageActionRunner(
         when (fetcher.useForChapterText(chapterId, url, html)) {
             ChapterFromPage.SAVED -> string(MR.strings.novel_page_chapter_saved)
             ChapterFromPage.NO_TEXT -> string(MR.strings.novel_page_no_chapter_text)
+            ChapterFromPage.NAME_TAKEN -> string(MR.strings.novel_page_chapter_name_taken)
             ChapterFromPage.UNREADABLE -> unreadable()
         }
     }

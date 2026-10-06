@@ -20,11 +20,11 @@ import tachiyomi.domain.storage.service.StorageManager
 
 /**
  * Resolves on-disk locations for downloaded novel chapter text, mirroring the manga [DownloadProvider]:
- * `<novel downloads dir>/<source>/<novel title>/<chapter name>_<url hash>.html`. Derived from stable metadata
- * rather than numeric DB ids, so a download survives reinstall, restore and storage moves. The `<source>` segment
- * keys on the PLUGIN ID, not a display name, which a plugin update can change (the manga side keys on display name
- * because its numeric source ids are stable). One self-contained HTML file per chapter, written to a temp name and
- * renamed on success.
+ * `<novel downloads dir>/<source>/<novel title>/<chapter name>[_<url hash>].html`, the chapter part named by
+ * manga's rule, hash setting included. Derived from stable metadata rather than numeric DB ids, so a download
+ * survives reinstall, restore and storage moves. The `<source>` segment keys on the PLUGIN ID, not a display name,
+ * which a plugin update can change (the manga side keys on display name because its numeric source ids are stable).
+ * One self-contained HTML file per chapter, written to a temp name and renamed on success.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -58,21 +58,23 @@ class NovelDownloadProvider(
     fun novelDirName(title: String): String = downloadProvider.getMangaDirName(title)
 
     /** The on-disk file name a chapter's download is written to: `<manga-style chapter dir name>.html`. */
-    fun chapterFileName(chapterName: String, chapterUrl: String): String =
-        downloadProvider.getChapterDirName(chapterName, null, chapterUrl) + HTML_EXT
+    fun chapterFileName(
+        chapterName: String,
+        chapterUrl: String,
+        enableChapterNameHash: Boolean = libraryPreferences.enableChapterNameHash.get(),
+    ): String = downloadProvider.getChapterDirName(
+        chapterName,
+        null,
+        chapterUrl,
+        enableChapterNameHash = enableChapterNameHash,
+    ) + HTML_EXT
 
     /**
-     * File names a chapter's download might sit under: the current one plus the variant produced under
-     * the opposite non-ASCII-filenames setting, so toggling that setting doesn't orphan a download
-     * (mirrors the manga [DownloadProvider.getValidChapterDirNames]). No `.cbz`: novels are text-only.
+     * File names a chapter's download might sit under, current first: the manga provider's names for it under
+     * every file-name setting, so changing one doesn't orphan a download. No `.cbz`: novels are text-only.
      */
-    fun validChapterFileNames(chapterName: String, chapterUrl: String): List<String> {
-        val ascii = libraryPreferences.disallowNonAsciiFilenames.get()
-        return listOf(
-            downloadProvider.getChapterDirName(chapterName, null, chapterUrl, ascii) + HTML_EXT,
-            downloadProvider.getChapterDirName(chapterName, null, chapterUrl, !ascii) + HTML_EXT,
-        ).distinct()
-    }
+    fun validChapterFileNames(chapterName: String, chapterUrl: String): List<String> =
+        downloadProvider.getChapterNameVariants(chapterName, null, chapterUrl).map { it + HTML_EXT }
 
     fun sourceDirName(novel: Novel): String = sourceDirName(novel.source)
     fun novelDirName(novel: Novel): String = novelDirName(novel.title)
@@ -101,9 +103,13 @@ class NovelDownloadProvider(
      * Persist a chapter's HTML, creating parent dirs. Writes to a temp file then renames, so a scan
      * never sees a partial file. False when no storage dir is configured or the rename fails.
      */
-    fun writeChapter(novel: Novel, chapter: NovelChapter, html: String): Boolean {
+    fun writeChapter(
+        novel: Novel,
+        chapter: NovelChapter,
+        html: String,
+        finalName: String = chapterFileName(chapter),
+    ): Boolean {
         val dir = novelDir(novel) ?: return false
-        val finalName = chapterFileName(chapter)
         val tmpName = finalName + Downloader.TMP_DIR_SUFFIX
         dir.findFile(tmpName)?.delete()
         val tmp = dir.createFile(tmpName) ?: return false

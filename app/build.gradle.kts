@@ -59,10 +59,10 @@ android {
         // the novel tap-to-scroll switch into a tap layout; 195 carries the extension NSFW switch into the
         // allowed content warnings; 196 moves bypass-server credentials out of the stored address; 197
         // carries the novel auto-scroll switch into start-on-open; 198 carries the custom covers and
-        // downloads of duplicates the upgrade merged away. All sit above 0.3.2's 185, so a 0.3.2 install still runs
-        // them. Further migrations take 199+.
+        // downloads of duplicates the upgrade merged away; 199 keeps the hash suffix in chapter file names for
+        // upgraders. All sit above 0.3.2's 185, so a 0.3.2 install still runs them. Further migrations take 200+.
         // versionName tracks the last shipped release until this cycle is cut.
-        versionCode = 198
+        versionCode = 199
         versionName = "0.3.2"
         // RK <--
 

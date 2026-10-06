@@ -422,7 +422,8 @@ class NovelDownloadManager(
                             ?: return@runCatchingCancellable false
                         if (chapter == null) return@runCatchingCancellable false
                         val html = source.parseChapter(next.url).ifBlank { throw EmptyChapterException() }
-                        saver.save(novel, chapter, source, html)
+                        // A name another chapter's download holds counts as downloaded, as manga's downloader counts it
+                        saver.save(novel, chapter, source, html) != NovelChapterSaver.SaveResult.FAILED
                     }.getOrElse {
                         lastError = it
                         logcat(LogPriority.ERROR, it) {

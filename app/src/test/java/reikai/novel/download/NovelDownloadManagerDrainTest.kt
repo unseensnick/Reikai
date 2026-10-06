@@ -109,7 +109,7 @@ class NovelDownloadManagerDrainTest {
             downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
             sourcePreferences = ReikaiSourcePreferences(InMemoryPreferenceStore()),
             novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
-            saver = mockk { coEvery { save(any(), any(), any(), any()) } returns true },
+            saver = mockk { coEvery { save(any(), any(), any(), any()) } returns NovelChapterSaver.SaveResult.SAVED },
             securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
             sourceTitles = mockk(),

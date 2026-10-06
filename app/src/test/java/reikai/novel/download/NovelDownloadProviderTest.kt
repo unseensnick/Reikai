@@ -13,6 +13,8 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -105,5 +107,31 @@ class NovelDownloadProviderTest {
         provider.deleteChapters(novel, listOf(accented))
 
         provider.readChapter(novel, accented) shouldBe null
+    }
+
+    /** Each file-name setting flipped after the download: the name it was written under is still tried. */
+    @ParameterizedTest(name = "written with non-ASCII disallowed {0} and the hash {1}")
+    @CsvSource("false, false", "false, true", "true, false", "true, true")
+    fun `a download is found after both file name settings change`(disallowNonAscii: Boolean, hash: Boolean) {
+        libraryPreferences.disallowNonAsciiFilenames.set(disallowNonAscii)
+        libraryPreferences.enableChapterNameHash.set(hash)
+        val accented = chapter.copy(name = "Chapitre é 1")
+        provider.writeChapter(novel, accented, "<p>text</p>")
+
+        libraryPreferences.disallowNonAsciiFilenames.set(!disallowNonAscii)
+        libraryPreferences.enableChapterNameHash.set(!hash)
+
+        provider.readChapter(novel, accented) shouldBe "<p>text</p>"
+    }
+
+    /** The old copy stays on disk under the name it was written with, so the current name has to win. */
+    @Test
+    fun `a chapter downloaded again after a setting change reads the new copy`() {
+        provider.writeChapter(novel, chapter, "<p>old</p>")
+        libraryPreferences.enableChapterNameHash.set(true)
+
+        provider.writeChapter(novel, chapter, "<p>new</p>")
+
+        provider.readChapter(novel, chapter) shouldBe "<p>new</p>"
     }
 }

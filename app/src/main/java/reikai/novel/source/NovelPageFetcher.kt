@@ -14,6 +14,7 @@ import reikai.data.novel.toNovel
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.download.NovelChapterSaver
+import reikai.novel.download.NovelChapterSaver.SaveResult
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -78,14 +79,15 @@ class NovelPageFetcher(
         val source = sourceManager.get(novel.source) ?: return@attempt ChapterFromPage.UNREADABLE
         val fetch = source.pageFetch ?: return@attempt ChapterFromPage.UNREADABLE
         val text = fetch.chapterText(chapter.url, url, html)
-        when {
-            text.isBlank() -> ChapterFromPage.NO_TEXT
-            saver.save(novel, chapter, source, text) -> ChapterFromPage.SAVED.also { chapterSaved.tryEmit(chapterId) }
-            else -> ChapterFromPage.UNREADABLE
+        if (text.isBlank()) return@attempt ChapterFromPage.NO_TEXT
+        when (saver.save(novel, chapter, source, text)) {
+            SaveResult.SAVED -> ChapterFromPage.SAVED.also { chapterSaved.tryEmit(chapterId) }
+            SaveResult.NAME_TAKEN -> ChapterFromPage.NAME_TAKEN
+            SaveResult.FAILED -> ChapterFromPage.UNREADABLE
         }
     } ?: ChapterFromPage.UNREADABLE
 
-    enum class ChapterFromPage { SAVED, NO_TEXT, UNREADABLE }
+    enum class ChapterFromPage { SAVED, NO_TEXT, NAME_TAKEN, UNREADABLE }
 
     // A source's parser runs on a page it did not request, so a failure is reported, never thrown.
     private suspend fun <T> attempt(block: suspend () -> T): T? = try {

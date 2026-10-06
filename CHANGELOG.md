@@ -547,6 +547,7 @@ agent under Settings -> Advanced.
 - **Tap a series in the download queue to see its chapters, cancel one, start one now, move one to the bottom, or read why it failed.** A downloading manga chapter shows its page count.
 - **Settings -> Downloads -> Pacing sets the wait between novel chapter downloads, for every source or one at a time, never below what the source asks for.** Manga sources pace themselves.
 - **Where a list mixes kinds of novel source (Browse, global search, the feed and migration), each one is labelled JS, APK or IReader.**
+- **Settings -> Advanced can now leave the hash suffix off downloaded chapter names, for manga and novels (partly from Mihon).** Existing installs keep it on. Upstream: mihonapp/mihon#3966.
 
 #### Changed
 
