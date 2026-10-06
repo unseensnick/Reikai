@@ -10,9 +10,10 @@ import reikai.domain.novel.track.toDbTrack
 import reikai.domain.novel.track.toNovelTrack
 
 /**
- * Novel twin of [eu.kanade.domain.track.interactor.RefreshTracks]: pulls the latest remote state for
- * every bound novel track and persists it. No EnhancedTracker chapter-sync: no novel-capable tracker is
- * an EnhancedTracker. Merge-group-aware: refreshes tracks bound on any member of the group.
+ * Novel twin of [eu.kanade.domain.track.interactor.RefreshTracks], pinned by RefreshTracksConformanceTest:
+ * pulls the latest remote state for every bound novel track and persists it. No EnhancedTracker
+ * chapter-sync: no novel-capable tracker is an EnhancedTracker. Merge-group-aware: refreshes tracks
+ * bound on any member of the group.
  *
  * @return the failed updates.
  */
