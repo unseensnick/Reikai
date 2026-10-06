@@ -38,6 +38,7 @@ data class ALRecsPage(
 
 @Serializable
 data class ALRecsMedia(
+    val format: String? = null,
     val title: ALRecsTitle? = null,
     val synonyms: List<String> = emptyList(),
     val recommendations: ALRecsEdges? = null,

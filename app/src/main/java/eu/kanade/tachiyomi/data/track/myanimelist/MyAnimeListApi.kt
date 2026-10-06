@@ -28,6 +28,7 @@ import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
+import reikai.data.track.isMyAnimeListNovel
 import tachiyomi.core.common.util.lang.withIOContext
 import uy.kohesive.injekt.injectLazy
 import java.text.SimpleDateFormat
@@ -89,7 +90,7 @@ class MyAnimeListApi(
                     .parseAs<MALSearchResult>()
                     .data
                     // RK --> light novels share the /manga endpoint with media_type containing "novel"
-                    .filter { it.node.mediaType.contains("novel") == novel }
+                    .filter { isMyAnimeListNovel(it.node.mediaType) == novel }
                     // RK <--
                     .map { parseSearchItem(it.node) }
             }
@@ -107,7 +108,7 @@ class MyAnimeListApi(
                     .awaitSuccess()
                     .parseAs<MALManga>()
                     // RK: the same media-type split the title search filters on.
-                    .takeIf { it.mediaType.contains("novel") == novel }
+                    .takeIf { isMyAnimeListNovel(it.mediaType) == novel }
                     ?.let { parseSearchItem(it) }
             }
         }
@@ -220,17 +221,18 @@ class MyAnimeListApi(
         }
     }
 
-    suspend fun findListItems(query: String, offset: Int = 0): List<TrackSearch> {
+    suspend fun findListItems(query: String, offset: Int = 0, novel: Boolean = false): List<TrackSearch> { // RK
         return withIOContext {
             val myListSearchResult = getListPage(offset)
 
             val matches = myListSearchResult.data
                 .filter { it.node.title.contains(query, ignoreCase = true) }
+                .filter { isMyAnimeListNovel(it.node.mediaType) == novel } // RK: the list holds both kinds
                 .map { parseSearchItem(it.node) }
 
             // Check next page if there's more
             if (!myListSearchResult.paging.next.isNullOrBlank()) {
-                matches + findListItems(query, offset + LIST_PAGINATION_AMOUNT)
+                matches + findListItems(query, offset + LIST_PAGINATION_AMOUNT, novel) // RK
             } else {
                 matches
             }

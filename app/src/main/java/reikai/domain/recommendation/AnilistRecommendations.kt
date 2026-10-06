@@ -10,6 +10,7 @@ import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import reikai.data.track.isAnilistNovel
 import reikai.domain.recommendation.dto.ALMediaContextResponse
 import reikai.domain.recommendation.dto.ALRecsEdge
 import reikai.domain.recommendation.dto.ALRecsMedia
@@ -43,9 +44,9 @@ class AnilistRecommendations(
             put("query", QUERY_BY_SEARCH)
             put("variables", buildJsonObject { put("search", title) })
         }
-        // The search variant returns multiple medias whose own titles loosely match; keep only the
-        // ones that actually contain the query in some title variant before pulling their recs.
-        return execute(payload) { media -> media.matchesQuery(title) }
+        // The search variant returns multiple medias whose own titles loosely match, light novels among
+        // them; keep only the manga that contain the query in some title variant before pulling recs.
+        return execute(payload) { media -> !isAnilistNovel(media.format) && media.matchesQuery(title) }
     }
 
     override suspend fun getMediaContext(remoteId: Long): MediaContext {
@@ -177,6 +178,7 @@ class AnilistRecommendations(
             query Recommendations(${'$'}search: String!) {
               Page {
                 media(search: ${'$'}search, type: MANGA) {
+                  format
                   title { romaji english native }
                   synonyms
                   recommendations {

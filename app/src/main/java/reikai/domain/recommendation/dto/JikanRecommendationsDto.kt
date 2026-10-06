@@ -60,4 +60,5 @@ data class JikanSearchResponse(
 data class JikanSearchEntry(
     @SerialName("mal_id")
     val malId: Long,
+    val type: String? = null,
 )

@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
+import reikai.data.track.isMyAnimeListNovel
 import reikai.domain.recommendation.dto.JikanImages
 import reikai.domain.recommendation.dto.JikanMangaResponse
 import reikai.domain.recommendation.dto.JikanRecsResponse
@@ -56,7 +57,7 @@ class MyAnimeListRecommendations(
             .build()
 
         val data = with(json) { client.newCall(GET(url)).awaitSuccess().parseAs<JikanSearchResponse>() }
-        val firstMalId = data.data.firstOrNull()?.malId ?: return emptyList()
+        val firstMalId = data.data.firstOrNull { !isMyAnimeListNovel(it.type) }?.malId ?: return emptyList()
         return getRecsById(firstMalId)
     }
 

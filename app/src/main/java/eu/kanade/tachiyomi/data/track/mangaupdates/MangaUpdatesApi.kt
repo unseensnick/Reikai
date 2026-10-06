@@ -27,6 +27,7 @@ import kotlinx.serialization.json.putJsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import reikai.data.track.MANGA_UPDATES_NON_MANGA_TYPES
 import tachiyomi.core.common.util.lang.withIOContext
 import uy.kohesive.injekt.injectLazy
 import tachiyomi.domain.track.model.Track as DomainTrack
@@ -166,13 +167,7 @@ class MangaUpdatesApi(
             // (returns every type regardless of include/exclude semantics) and is post-filtered by
             // record type in the caller, so it is robust without confirming the API's filter meaning.
             if (!novel) {
-                put(
-                    "filter_types",
-                    buildJsonArray {
-                        add("drama cd")
-                        add("novel")
-                    },
-                )
+                put("filter_types", buildJsonArray { MANGA_UPDATES_NON_MANGA_TYPES.forEach { add(it) } })
             }
             // RK <--
         }

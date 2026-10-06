@@ -11,6 +11,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import reikai.data.track.isMangaUpdatesManga
 import reikai.domain.recommendation.dto.MUSearchResponse
 import reikai.domain.recommendation.dto.MUSeriesResponse
 
@@ -67,7 +68,8 @@ class MangaUpdatesRecommendations(
         val data = with(json) {
             client.newCall(POST(url.toString(), body = body)).awaitSuccess().parseAs<MUSearchResponse>()
         }
-        val firstSeriesId = data.results.firstOrNull()?.record?.seriesId ?: return emptyList()
+        val firstSeriesId = data.results.firstOrNull { isMangaUpdatesManga(it.record.type) }?.record?.seriesId
+            ?: return emptyList()
         return getRecsById(firstSeriesId)
     }
 

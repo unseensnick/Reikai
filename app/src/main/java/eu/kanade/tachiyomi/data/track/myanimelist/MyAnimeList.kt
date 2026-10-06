@@ -140,7 +140,7 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
 
         if (query.startsWith(SEARCH_LIST_PREFIX)) {
             query.substringAfter(SEARCH_LIST_PREFIX).let { title ->
-                return api.findListItems(title)
+                return api.findListItems(title, novel = true)
             }
         }
 

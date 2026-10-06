@@ -50,4 +50,5 @@ data class MUSearchResult(
 data class MUSearchRecord(
     @SerialName("series_id")
     val seriesId: Long,
+    val type: String? = null,
 )

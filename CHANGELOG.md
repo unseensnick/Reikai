@@ -253,6 +253,7 @@ agent under Settings -> Advanced.
 - **Tapping a tag on a series from an adult source or an enhanced source now searches that source in its own tag format, so the search finds results.**
 - **Removing an adult-source series from your library and your account favorites now keeps it in the library if the account removal fails.** A message says why, so you can try again.
 - **Closing Edit info while Fill from tracker is still loading no longer shows a tracker error.**
+- **The Related row on a manga you don't track no longer shows a light novel's recommendations from AniList, MyAnimeList or MangaUpdates.**
 - **Related-manga suggestions no longer shrink while they refresh, or disappear when a refresh fails offline.**
 - **A related-manga suggestion already in your library is now dimmed and badged even when its source lists it under a different link.**
 - **Related-manga suggestions now rank more fairly: tracker picks keep up to 12 places in the row, and a series tracked on several services or a title listing a genre twice no longer counts double.**
@@ -533,6 +534,7 @@ agent under Settings -> Advanced.
 - **AniList tracking now stays under the service's request limit, so a burst of updates is no longer rejected (from Mihon).** Upstream: mihonapp/mihon#3942.
 - **Removing a tracker with "Also remove from" now keeps it bound when the service refuses, so you can retry.**
 - **Marking a chapter read now updates the tracker status shown on the entry straight away, on manga and novels.**
+- **A MyAnimeList my: search now offers only manga on a manga and only light novels on a novel.** A MangaUpdates id: search on a manga no longer answers with a novel.
 - **Kitsu tracking restored from an old Yokai backup now refreshes and updates again, on manga and novels.** It repairs itself the first time it is used.
 - **Binding or changing the status of a series from your own manga server when you have not started it no longer marks its Chapter 0 read, in Reikai or on the server.**
 - **Backing out of the category choice when adding a manga from its page no longer binds its server tracker.**
