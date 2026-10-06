@@ -146,14 +146,10 @@ class RecentsEngine(
         chipPreference.changes().stateIn(viewModelScope, SharingStarted.Eagerly, chipPreference.get())
     }
 
-    /**
-     * Flipping the chip drops the selection, matching the library engine. Rows the chip now hides
-     * would otherwise keep counting in the toolbar until the next assembly prunes them, promising
-     * more than the verbs would touch.
-     */
+    /** Flipping the chip drops the selection through [EntrySelection.afterChipFlip]. */
     fun setContentType(type: ContentType) {
-        if (contentType.value == type) return
-        clearSelection()
+        // The preference rather than [contentType], whose change event lags the write.
+        selectionStore.update { EntrySelection.afterChipFlip(it, chipPreference.get(), type) }
         chipPreference.set(type)
     }
 

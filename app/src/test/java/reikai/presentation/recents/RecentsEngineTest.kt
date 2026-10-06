@@ -657,6 +657,18 @@ class RecentsEngineTest {
         engine.selection.value shouldBe emptySet()
     }
 
+    /** The tab row fires again on the chip already shown, which is not a flip. */
+    @Test
+    fun `re-selecting the chip shown keeps the selection`() {
+        val engine = emittingEngine(provider(ContentType.MANGA), setOf(RecentsMode.UPDATES))
+        engine.setContentType(ContentType.MANGA)
+        engine.toggleSelection(ref(manga1, 1))
+
+        engine.setContentType(ContentType.MANGA)
+
+        engine.selection.value shouldBe setOf(ref(manga1, 1))
+    }
+
     /**
      * History takes a selection because every verb behind one acts on the chapter a row names, which
      * a history row has. It does not take grouping (no burst to group) or the chapter-state filters

@@ -225,4 +225,15 @@ class EntrySelectionTest {
     fun `select all leaves a row selected that is no longer visible`() {
         EntrySelection.selectAll(state(9L, anchor = 9L), listOf(1L, 2L)).selection shouldBe setOf(1L, 2L, 9L)
     }
+
+    @Test
+    fun `flipping a chip drops the selection`() {
+        EntrySelection.afterChipFlip(state(1L, anchor = 1L), from = "Manga", to = "Novels") shouldBe state()
+    }
+
+    @Test
+    fun `re-selecting the chip shown keeps the selection`() {
+        EntrySelection.afterChipFlip(state(1L, anchor = 1L), from = "Manga", to = "Manga") shouldBe
+            state(1L, anchor = 1L)
+    }
 }

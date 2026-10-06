@@ -101,6 +101,14 @@ object EntrySelection {
     fun <T> clear(): SelectionState<T> = SelectionState()
 
     /**
+     * A chip narrowing the list moved [from] one value [to] another. The selection goes, since picks
+     * the new chip hides would still count on the bar and reach the verbs; a chip tapped again where
+     * it already stands keeps it, as tab rows fire on a re-tap too.
+     */
+    fun <T, C> afterChipFlip(state: SelectionState<T>, from: C, to: C): SelectionState<T> =
+        if (from == to) state else clear()
+
+    /**
      * The selected rows among [visible], in list order: what a details screen counts and acts on. A
      * row a filter hides can still sit in the selection until the next rebuild [retain]s it away, and
      * no counter or bulk action may reach it.

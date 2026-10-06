@@ -17,6 +17,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.category.CategoryIdPreferences
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
@@ -79,6 +80,28 @@ class CategoryViewModelTest {
 
     private val CategoryViewModel.selection
         get() = (state.value as CategoryScreenState.Success).selection
+
+    /** The screen only masks picks the chip hides, so kept ones came back on the next flip. */
+    @Test
+    fun `flipping the chip drops the picks it would hide`() = runTest {
+        val model = model()
+        model.toggleSelection(a.id)
+        model.setContentType(ContentType.NOVELS)
+
+        model.setContentType(ContentType.ALL)
+
+        model.selection shouldBe emptySet()
+    }
+
+    @Test
+    fun `re-selecting the chip shown keeps the selection`() = runTest {
+        val model = model()
+        model.toggleSelection(a.id)
+
+        model.setContentType(ContentType.ALL)
+
+        model.selection shouldBe setOf(a.id)
+    }
 
     /** The long press ranges from the selection's anchor, so a delete that cleared only what the screen
      *  shows left the deleted rows to come back with it. */

@@ -84,6 +84,32 @@ class UpdateErrorsViewModelTest {
         novelStarted shouldBe false
     }
 
+    @Test
+    fun `flipping the chip drops the selection`() = runTest {
+        val viewModel = selectingOne(ContentType.ALL)
+
+        viewModel.setContentType(ContentType.NOVELS)
+
+        viewModel.selected() shouldBe emptySet()
+    }
+
+    /** The tab row fires again on the chip already shown, which is not a flip. */
+    @Test
+    fun `re-selecting the chip shown keeps the selection`() = runTest {
+        val viewModel = selectingOne(ContentType.ALL)
+
+        viewModel.setContentType(ContentType.ALL)
+
+        viewModel.selected() shouldBe setOf("m1")
+    }
+
+    private suspend fun selectingOne(chip: ContentType) = viewModel(chip).also {
+        it.state.first { state -> state is UpdateErrorsScreenState.Success }
+        it.toggleSelection("m1")
+    }
+
+    private fun UpdateErrorsViewModel.selected() = (state.value as UpdateErrorsScreenState.Success).selected
+
     private fun viewModel(chip: ContentType) = UpdateErrorsViewModel(
         initialContentType = chip,
         getLibraryUpdateErrors = mockk { every { subscribeAll() } returns flowOf(emptyList()) },

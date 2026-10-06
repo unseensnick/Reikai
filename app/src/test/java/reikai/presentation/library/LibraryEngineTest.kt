@@ -397,6 +397,27 @@ class LibraryEngineTest {
     }
 
     @Test
+    fun `flipping the chip drops the selection`() {
+        engine.setContentType(ContentType.MANGA)
+        engine.toggleSelection(bucket, m1)
+
+        engine.setContentType(ContentType.NOVELS)
+
+        engine.selection.value.isEmpty() shouldBe true
+    }
+
+    /** The tab row fires again on the chip already shown, which is not a flip. */
+    @Test
+    fun `re-selecting the chip shown keeps the selection`() {
+        engine.setContentType(ContentType.MANGA)
+        engine.toggleSelection(bucket, m1)
+
+        engine.setContentType(ContentType.MANGA)
+
+        engine.selection.value shouldContainExactly setOf(m1)
+    }
+
+    @Test
     fun `toggling adds then removes an entry`() {
         engine.toggleSelection(bucket, m1)
         engine.selection.value shouldContainExactly setOf(m1)

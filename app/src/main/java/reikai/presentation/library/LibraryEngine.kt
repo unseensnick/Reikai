@@ -452,17 +452,16 @@ class LibraryEngine(
     }
 
     /**
-     * Switch the chip. The selection is dropped because it is shared across content types, so keeping it
-     * would carry rows into a view that does not list them, leaving a count on the action bar and actions
-     * that hit nothing. Leaving All for Manga clears it too, by decision, rather than keeping the manga part.
+     * Switch the chip, which drops the selection through [EntrySelection.afterChipFlip]. Leaving All for
+     * Manga clears it too, by decision, rather than keeping the manga part.
      */
     fun setContentType(type: ContentType) {
-        clearSelection()
+        // Read from the preference, not [contentType], whose change event lags the write.
+        val shown = reikaiLibraryPreferences.libraryContentType.get()
+        selectionStore.update { EntrySelection.afterChipFlip(it, shown, type) }
         // One search for the library, as Recents and Browse have. The field keeps its text across the
         // flip, so the view flipped to must filter by it rather than by a query left on its own model.
-        // Read from the preference, not [contentType], whose change event lags the write.
-        val query = providersFor(reikaiLibraryPreferences.libraryContentType.get())
-            .firstOrNull()?.state?.value?.searchQuery
+        val query = providersFor(shown).firstOrNull()?.state?.value?.searchQuery
         reikaiLibraryPreferences.libraryContentType.set(type)
         search(type, query)
     }

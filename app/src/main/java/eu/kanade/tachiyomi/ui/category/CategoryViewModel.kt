@@ -102,8 +102,9 @@ class CategoryViewModel(
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), CategoryScreenState.Loading)
 
-    // RK: the content-type chip
+    // RK: the content-type chip, which drops the selection on a flip
     fun setContentType(contentType: ContentType) {
+        selectionStore.update { EntrySelection.afterChipFlip(it, chipContentType.value, contentType) }
         chipContentType.value = contentType
     }
 

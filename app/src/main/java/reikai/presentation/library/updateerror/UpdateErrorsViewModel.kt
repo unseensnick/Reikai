@@ -28,6 +28,8 @@ import reikai.domain.novel.updateerror.DeleteNovelUpdateErrors
 import reikai.domain.novel.updateerror.GetNovelUpdateErrors
 import reikai.domain.novel.updateerror.NovelUpdateError
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.selection.EntrySelection
+import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.source.service.SourceManager
 
@@ -92,8 +94,8 @@ class UpdateErrorsViewModel(
 
     fun setContentType(type: ContentType) = state.update { state ->
         if (state !is UpdateErrorsScreenState.Success) return@update state
-        // Selection is per-list; switching the chip drops a now-hidden selection.
-        state.copy(contentType = type, selected = emptySet())
+        val kept = EntrySelection.afterChipFlip(SelectionState(state.selected), state.contentType, type)
+        state.copy(contentType = type, selected = kept.selection)
     }
 
     fun toggleSelection(key: String) = state.update { state ->
