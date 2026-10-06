@@ -57,6 +57,7 @@ import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.download.downloadStateOf
 import reikai.domain.download.runChapterAction
 import reikai.domain.download.swipeDownloadAction
+import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterUnit
@@ -169,8 +170,8 @@ class NovelDetailsViewModel(
     private val novelRepo: NovelRepository,
     private val updateNovel: UpdateNovel,
     private val sourceTracker: SourceTrackerDispatcher,
-    // "Reset all" clears the cached custom cover too, not just the custom-info row.
     private val coverCache: CoverCache,
+    private val clearCustomCover: ClearCustomCover,
     private val setNovelChapterFlags: SetNovelChapterFlags,
     private val chapterRepo: NovelChapterRepository,
     private val downloadManagerProvider: () -> NovelDownloadManager,
@@ -1103,8 +1104,7 @@ class NovelDetailsViewModel(
             setCustomNovelInfo.set(CustomNovelInfo(novelId = n.id))
             // A cover set from the picker is a cached file, not a row field, so clearing the row
             // alone leaves it in place and winning (NovelCoverKeyer).
-            coverCache.deleteCustomCover(EntryId.Novel(n.id))
-            updateNovel.awaitUpdateCoverLastModified(n.id)
+            clearCustomCover.await(EntryId.Novel(n.id))
         }
         dismissDialog()
     }

@@ -36,7 +36,6 @@ import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
-import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -90,6 +89,7 @@ import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.download.downloadStateOf
+import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
@@ -201,8 +201,8 @@ class MangaViewModel(
     private val setReadStatus: SetReadStatus,
     private val updateChapter: UpdateChapter,
     private val updateManga: UpdateManga,
-    // RK: "Reset all" clears the cached custom cover too, not just the custom-info row.
-    private val coverCache: CoverCache,
+    // RK: coverCache moved out, the heart's covers to RemoveMangaFromLibrary and Reset all's to ClearCustomCover
+    private val clearCustomCover: ClearCustomCover,
     // RK --> a tracker bound on one source of a merged series counts for the whole group, so every read
     // here goes through GetTracksInGroup instead of Mihon's per-manga GetTracks.
     private val getTracksInGroup: GetTracksInGroup,
@@ -1642,8 +1642,7 @@ class MangaViewModel(
             setCustomMangaInfo.set(CustomMangaInfo(mangaId = manga.id))
             // RK: a cover set from the picker or the reader is a cached file, not a row field, so
             // clearing the row alone leaves it in place and winning (MangaCoverKeyer).
-            coverCache.deleteCustomCover(EntryId.Manga(manga.id))
-            updateManga.awaitUpdateCoverLastModified(manga.id)
+            clearCustomCover.await(EntryId.Manga(manga.id))
         }
         dismissDialog()
     }

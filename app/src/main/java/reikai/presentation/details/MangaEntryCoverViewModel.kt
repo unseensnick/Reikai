@@ -10,6 +10,8 @@ import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.util.editCover
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import reikai.domain.entry.ClearCustomCover
+import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
@@ -31,6 +33,7 @@ class MangaEntryCoverViewModel(
     private val coverCache: CoverCache,
     private val updateManga: UpdateManga,
     private val coverManager: LocalCoverManager,
+    private val clearCustomCover: ClearCustomCover,
     imageSaver: ImageSaver,
 ) : EntryCoverViewModel<Manga>(imageSaver) {
 
@@ -60,7 +63,6 @@ class MangaEntryCoverViewModel(
     }
 
     override suspend fun removeCustomCover(entry: Manga) {
-        coverCache.deleteCustomCover(entry.id)
-        updateManga.awaitUpdateCoverLastModified(entry.id)
+        clearCustomCover.await(EntryId.Manga(entry.id))
     }
 }

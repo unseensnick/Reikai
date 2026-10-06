@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
@@ -33,6 +34,7 @@ class NovelCoverViewModel(
     private val getCustomNovelInfo: GetCustomNovelInfo,
     private val updateNovel: UpdateNovel,
     private val coverCache: CoverCache,
+    private val clearCustomCover: ClearCustomCover,
     imageSaver: ImageSaver,
 ) : EntryCoverViewModel<Novel>(imageSaver) {
 
@@ -64,7 +66,6 @@ class NovelCoverViewModel(
     }
 
     override suspend fun removeCustomCover(entry: Novel) {
-        coverCache.deleteCustomCover(EntryId.Novel(entry.id))
-        updateNovel.awaitUpdateCoverLastModified(entry.id)
+        clearCustomCover.await(EntryId.Novel(entry.id))
     }
 }

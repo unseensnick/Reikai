@@ -85,6 +85,7 @@ class MangaCoverEditProbe(private val source: Long = 1L) : CoverEditProbe {
             coverCache = mockk(relaxed = true),
             updateManga = mockk(relaxed = true),
             coverManager = mockk(relaxed = true),
+            clearCustomCover = mockk(relaxed = true),
             imageSaver = mockk(relaxed = true),
         )
     }
@@ -104,6 +105,7 @@ class NovelCoverEditProbe : CoverEditProbe {
             getCustomNovelInfo = mockk<GetCustomNovelInfo> { every { subscribe(novel.id) } returns flowOf(null) },
             updateNovel = mockk(relaxed = true),
             coverCache = mockk(relaxed = true),
+            clearCustomCover = mockk(relaxed = true),
             imageSaver = mockk(relaxed = true),
         )
     }
