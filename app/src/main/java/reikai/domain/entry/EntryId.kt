@@ -36,13 +36,12 @@ fun EntryId.customCoverKey(): String = when (this) {
 }
 
 /**
- * The key a content entry uses in `MangaCover.vibrantCoverColorMap`, the cover-derived theme colour
- * cache. That map is upstream and keyed by [Long], so novels stay negated here rather than patching
- * Mihon for a cache that rebuilds itself on the next cover load. This is the one place the negated-id
- * projection deliberately survives, and it is safe precisely because nothing persists beyond a colour
- * that can be recomputed.
+ * One [Long] per entry across both types, novels negated: row ids are positive, so the halves never
+ * meet. For Long-keyed structures that never persist: upstream's `MangaCover.vibrantCoverColorMap`
+ * (a colour the next cover load recomputes) and the mixed library's Random rank. Never store it or
+ * use it as an identity; that is what [EntryId] itself is for.
  */
-fun EntryId.vibrantColorKey(): Long = when (this) {
+fun EntryId.signedKey(): Long = when (this) {
     is EntryId.Manga -> rawId
     is EntryId.Novel -> -rawId
 }

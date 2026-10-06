@@ -2,7 +2,9 @@ package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.category.isHidden
+import reikai.domain.category.withoutSystemCategory
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.signedKey
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibrarySortFields
@@ -40,7 +42,7 @@ fun assembleLibrary(
 ): List<Pair<LibraryBucket, List<LibraryItem>>> {
     val buckets = HashMap<Long, MutableList<LibraryItem>>()
     rows.forEach { item ->
-        val categoryIds = item.libraryManga.categories.filter { it != Category.UNCATEGORIZED_ID }
+        val categoryIds = item.libraryManga.categories.withoutSystemCategory()
         if (categoryIds.isEmpty()) {
             buckets.getOrPut(Category.UNCATEGORIZED_ID) { mutableListOf() }.add(item)
         } else {
@@ -97,13 +99,13 @@ class LibraryAssembled(
 /**
  * Sort fields for a mixed list: [libraryItemSortFields] with a type-unique id key. The comparator's only
  * id use is the Random rank, `Random(seed + id)`, and a manga and a novel sharing a raw id would rank
- * identically, gluing the pair together under Random. Novel ids are negated (rowids are positive, so the
- * spaces cannot meet); this perturbs only the Random rank, never an identity.
+ * identically, gluing the pair together under Random. [signedKey] keeps the two apart; it perturbs only
+ * the Random rank, never an identity.
  */
 fun mixedLibraryItemSortFields(trackerMean: (LibraryItem) -> Double): LibrarySortFields<LibraryItem> {
     val base = libraryItemSortFields(trackerMean)
     return LibrarySortFields(
-        id = { if (it.entryId is EntryId.Novel) -it.id else it.id },
+        id = { it.entryId.signedKey() },
         title = base.title,
         lastRead = base.lastRead,
         lastUpdate = base.lastUpdate,

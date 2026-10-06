@@ -58,6 +58,7 @@ import mihon.icons.materialsymbols.rounded.Info
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Settings
 import reikai.domain.library.ContentType
+import reikai.domain.library.includes
 import reikai.domain.library.labelRes
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.install.canonicalizePluginUrl
@@ -123,7 +124,7 @@ fun Screen.reikaiExtensionsTab(
             AppBar.OverflowAction(
                 title = stringResource(MR.strings.action_filter),
                 onClick = { navigator.push(ExtensionFilterScreen()) },
-            ).takeIf { contentType != ContentType.NOVELS },
+            ).takeIf { contentType.includes(ContentType.MANGA) },
             AppBar.OverflowAction(
                 title = stringResource(MR.strings.repos),
                 onClick = openRepos,

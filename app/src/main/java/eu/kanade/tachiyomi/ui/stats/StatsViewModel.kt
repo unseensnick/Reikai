@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
+import reikai.domain.library.includes
 import reikai.domain.library.smartUpdateFacts
 import reikai.domain.library.smartUpdateProgressSkip
 import reikai.domain.manga.MangaMergeManager
@@ -119,8 +120,8 @@ class StatsViewModel(
     // RK --> fold the precomputed ingredients into the four cards for the selected content type.
     // mangaPart/novelPart gate which side contributes; ALL sums both.
     private fun buildSuccess(type: ContentType, i: StatsIngredients): StatsScreenState.Success {
-        val mangaPart = type != ContentType.NOVELS
-        val novelPart = type != ContentType.MANGA
+        val mangaPart = type.includes(ContentType.MANGA)
+        val novelPart = type.includes(ContentType.NOVELS)
 
         val overview = StatsData.Overview(
             libraryMangaCount =

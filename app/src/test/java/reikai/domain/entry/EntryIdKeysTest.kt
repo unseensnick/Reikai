@@ -23,8 +23,8 @@ class EntryIdKeysTest {
     }
 
     @Test
-    fun `the colour-cache key keeps manga and novels apart in one Long-keyed map`() {
-        EntryId.Manga(12L).vibrantColorKey() shouldBe 12L
-        EntryId.Novel(12L).vibrantColorKey() shouldNotBe EntryId.Manga(12L).vibrantColorKey()
+    fun `the signed key keeps manga and novels apart in one Long-keyed map`() {
+        EntryId.Manga(12L).signedKey() shouldBe 12L
+        EntryId.Novel(12L).signedKey() shouldNotBe EntryId.Manga(12L).signedKey()
     }
 }

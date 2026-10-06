@@ -101,6 +101,17 @@ class LibraryAssemblyTest {
     }
 
     @Test
+    fun `a row filed in a category is never also listed under the system category`() {
+        val result = assembleLibrary(
+            rows = listOf(item(1, categories = listOf(0, 10))),
+            categories = listOf(system, category(10)),
+            inputs = inputs(),
+            fields = fields,
+        )
+        result.map { it.first.categoryId } shouldBe listOf(10L)
+    }
+
+    @Test
     fun `an uncategorized row lands in the system bucket whether it carries 0 or nothing`() {
         val result = assembleLibrary(
             rows = listOf(item(1, categories = listOf(0)), item(2, categories = emptyList(), novel = true)),

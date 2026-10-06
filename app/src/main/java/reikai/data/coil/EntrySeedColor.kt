@@ -9,7 +9,7 @@ import coil3.request.allowHardware
 import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import reikai.domain.entry.EntryId
-import reikai.domain.entry.vibrantColorKey
+import reikai.domain.entry.signedKey
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.model.MangaCover
 
@@ -20,7 +20,7 @@ import tachiyomi.domain.manga.model.MangaCover
  * by the screen, because the edit-info dialog tints from the cover either way.
  */
 suspend fun EntryId.seedColor(extract: suspend () -> Int?): Int? {
-    val key = vibrantColorKey()
+    val key = signedKey()
     return MangaCover.vibrantCoverColorMap[key]
         ?: extract()?.also { MangaCover.vibrantCoverColorMap[key] = it }
 }
