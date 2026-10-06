@@ -1,9 +1,19 @@
 package reikai.presentation.browse
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.icerock.moko.resources.StringResource
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import reikai.domain.source.SourceKey
@@ -16,10 +26,6 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
-
-// What a batch add owes on any surface that lists both content types: what a pick and select-all act
-// on, how the selection is named, and how the categories are asked for. Shared so the two surfaces
-// cannot answer any of them differently.
 
 /**
  * Every result [this] lists, split back into the two halves each bulk model owns, for select-all and
@@ -39,59 +45,111 @@ fun List<BrowseSearchRow>.listedEntries(): Pair<List<Manga>, List<SelectedNovel>
     return manga to novels
 }
 
-/** The selection as the result rows key it, which is what a card reads to draw itself picked. */
-fun selectedRowKeys(manga: List<Manga>, novels: List<SelectedNovel>): Set<String> =
-    manga.mapTo(mutableSetOf(), ::mangaRowKey) + novels.map { novelRowKey(it.sourceId, it.item.path) }
+/**
+ * The one selection global search and the feed hold over both content types, kept as each type's own
+ * bulk model so the add verbs stay per-type. It answers what a pick, select-all and invert reach, how
+ * the selection is named and how the categories are asked for, so the two surfaces cannot differ.
+ */
+@Stable
+class MixedBulkSelection internal constructor(
+    private val manga: BulkFavoriteViewModel,
+    private val novels: NovelBulkFavoriteViewModel,
+    private val mangaState: State<EntryBulkFavoriteViewModel.State<Manga>>,
+    private val novelState: State<EntryBulkFavoriteViewModel.State<SelectedNovel>>,
+) {
+    val selectionMode: Boolean
+        get() = mangaState.value.selectionMode || novelState.value.selectionMode
 
-/** Picks or unpicks this result of the source at [sourceKey], in its own type's selection. */
-fun EntryBrowseRow.toggleSelection(
-    sourceKey: SourceKey,
-    mangaBulk: BulkFavoriteViewModel,
-    novelBulk: NovelBulkFavoriteViewModel,
-) = when (sourceKey) {
-    is SourceKey.Manga -> mangaBulk.toggleSelection(manga)
-    is SourceKey.Novel -> novelBulk.toggleSelection(sourceKey.id, item)
-}
+    val count: Int
+        get() = mangaState.value.selection.size + novelState.value.selection.size
 
-/** "3 Manga, 1 Novel" while the selection holds both, otherwise the plain count the bar shows. */
-@Composable
-fun selectionTitle(mangaCount: Int, novelCount: Int): String? =
-    if (mangaCount > 0 && novelCount > 0) {
-        stringResource(
+    /** The picks as the result rows key them. Derived, so a source landing hands every row the same
+     *  set rather than a new one that redraws it. */
+    val selectedKeys: Set<String> by derivedStateOf {
+        mangaState.value.selection.mapTo(mutableSetOf(), ::mangaRowKey) +
+            novelState.value.selection.map { novelRowKey(it.sourceId, it.item.path) }
+    }
+
+    /**
+     * Whether each category prompt says which type it files. Decided when the batch is dispatched:
+     * the first prompt resolving empties its own selection, and re-reading that would leave the
+     * second one unlabelled.
+     */
+    var namePrompts: Boolean by mutableStateOf(false)
+        private set
+
+    fun start() = manga.toggleSelectionMode(true)
+
+    fun clear() {
+        manga.toggleSelectionMode(false)
+        novels.toggleSelectionMode(false)
+    }
+
+    /** Picks or unpicks [row] of the source at [sourceKey], in its own type's selection. */
+    fun toggle(row: EntryBrowseRow, sourceKey: SourceKey) = when (sourceKey) {
+        is SourceKey.Manga -> manga.toggleSelection(row.manga)
+        is SourceKey.Novel -> novels.toggleSelection(SelectedNovel(sourceKey.id, row.item))
+    }
+
+    fun selectAll(rows: List<BrowseSearchRow>) {
+        val (listedManga, listedNovels) = rows.listedEntries()
+        listedManga.forEach { manga.select(it) }
+        listedNovels.forEach { novels.select(it) }
+    }
+
+    fun invert(rows: List<BrowseSearchRow>) {
+        val (listedManga, listedNovels) = rows.listedEntries()
+        manga.reverseSelection(listedManga)
+        novels.reverseSelection(listedNovels)
+    }
+
+    fun add() {
+        namePrompts = mangaState.value.selection.isNotEmpty() && novelState.value.selection.isNotEmpty()
+        manga.addFavorite()
+        novels.addFavorite()
+    }
+
+    /** "3 Manga, 1 Novel" while the selection holds both, otherwise null for the bar's plain count. */
+    @Composable
+    fun title(): String? {
+        val mangaCount = mangaState.value.selection.size
+        val novelCount = novelState.value.selection.size
+        if (mangaCount == 0 || novelCount == 0) return null
+        return stringResource(
             MR.strings.bulk_selected_types,
             pluralStringResource(MR.plurals.bulk_selected_manga, mangaCount, mangaCount),
             pluralStringResource(MR.plurals.bulk_selected_novels, novelCount, novelCount),
         )
-    } else {
-        null
     }
 
-/**
- * The batch category prompts. Each content type files into its own categories, so a mixed batch is
- * asked once per type rather than offered a merged list where half the choices would not apply.
- */
+    /**
+     * The batch category prompts. Each type files into its own categories, so a mixed batch is asked
+     * once per type, one at a time: resolving the manga prompt reveals the novel one.
+     */
+    @Composable
+    fun Dialogs() {
+        val mangaDialog = mangaState.value.dialog
+        val novelDialog = novelState.value.dialog
+        when {
+            mangaDialog != null -> BulkCategoryDialog(manga, mangaDialog, promptTitle(MR.strings.content_type_manga))
+            novelDialog != null -> BulkCategoryDialog(novels, novelDialog, promptTitle(MR.strings.content_type_novels))
+        }
+    }
+
+    @Composable
+    private fun promptTitle(type: StringResource): String? =
+        stringResource(MR.strings.categories_for_type, stringResource(type)).takeIf { namePrompts }
+}
+
+/** The [MixedBulkSelection] over the bulk models of the screen this is called in. */
 @Composable
-fun BulkCategoryDialogs(
-    mangaBulk: BulkFavoriteViewModel,
-    novelBulk: NovelBulkFavoriteViewModel,
-    mangaDialog: EntryBulkFavoriteViewModel.Dialog<Manga>?,
-    novelDialog: EntryBulkFavoriteViewModel.Dialog<SelectedNovel>?,
-    /** Whether the batch spans both types, so each prompt says which one it is filing. */
-    namePrompts: Boolean,
-) {
-    when {
-        mangaDialog != null -> BulkCategoryDialog(
-            bulk = mangaBulk,
-            dialog = mangaDialog,
-            title = stringResource(MR.strings.categories_for_type, stringResource(MR.strings.content_type_manga))
-                .takeIf { namePrompts },
-        )
-        novelDialog != null -> BulkCategoryDialog(
-            bulk = novelBulk,
-            dialog = novelDialog,
-            title = stringResource(MR.strings.categories_for_type, stringResource(MR.strings.content_type_novels))
-                .takeIf { namePrompts },
-        )
+fun rememberMixedBulkSelection(): MixedBulkSelection {
+    val manga = metroViewModel<BulkFavoriteViewModel>()
+    val novels = metroViewModel<NovelBulkFavoriteViewModel>()
+    val mangaState = manga.state.collectAsStateWithLifecycle()
+    val novelState = novels.state.collectAsStateWithLifecycle()
+    return remember(manga, novels, mangaState, novelState) {
+        MixedBulkSelection(manga, novels, mangaState, novelState)
     }
 }
 

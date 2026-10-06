@@ -84,6 +84,23 @@ class GlobalSearchEngineTest {
         preferences.globalSearchSourceFilter.get() shouldBe SearchSourceFilter.PinnedOnly
     }
 
+    /** The tab row fires again on the tab already shown, which must not read as a flip that drops a selection. */
+    @Test
+    fun `re-selecting the tab shown is not a change`() = runTest(dispatcher) {
+        preferences.browseContentType.set(ContentType.MANGA)
+        val engine = engine().also { it.state.first { state -> state.searched } }
+
+        engine.setContentType(ContentType.MANGA) shouldBe false
+    }
+
+    @Test
+    fun `choosing another tab is a change`() = runTest(dispatcher) {
+        preferences.browseContentType.set(ContentType.MANGA)
+        val engine = engine().also { it.state.first { state -> state.searched } }
+
+        engine.setContentType(ContentType.NOVELS) shouldBe true
+    }
+
     @Test
     fun `nothing pinned to search says so`() {
         GlobalSearchEngine.State(query = "q", searched = true).emptyReason shouldBe

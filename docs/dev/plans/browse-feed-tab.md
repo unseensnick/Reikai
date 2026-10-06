@@ -338,9 +338,9 @@ adult-source saved-search specialization.
 - **The bottom nav stays put during a selection**, where Komikku hides it. Tied to the selection alone
   it stays hidden once you swipe to another Browse tab, which is the same leak as their toolbar, and
   nothing at the bottom of the screen conflicts with a toolbar at the top.
-- **`selectionTitle` and the category prompts are shared with the global search.** Both surfaces list
-  the two content types over the same row component, so how a mixed batch is named and how it is filed
-  is one rule with two callers rather than a twin.
+- **The whole selection is shared with the global search, as `MixedBulkSelection`.** Both surfaces list
+  the two content types over the same row component, so what a pick reaches, how a mixed batch is named
+  and how it is filed is one holder with two callers rather than a twin.
 - **A row heading stays tappable while selecting, rather than going inert.** Long-pressing it no longer
   removes the row, and with no long-press handler the gesture falls through to the tap, so the heading
   opens its source. Inert was considered and declined: the arrow is still drawn, and a drawn control

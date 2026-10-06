@@ -28,23 +28,17 @@ import mihon.icons.materialsymbols.automirroredrounded.Sort
 import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.SelectAll
-import reikai.presentation.browse.BulkCategoryDialogs
-import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
+import reikai.presentation.browse.MixedBulkSelection
 import reikai.presentation.browse.SearchResultSection
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.detailsScreen
-import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
-import reikai.presentation.browse.listedEntries
 import reikai.presentation.browse.rememberEntryGestures
-import reikai.presentation.browse.selectedRowKeys
-import reikai.presentation.browse.selectionTitle
+import reikai.presentation.browse.rememberMixedBulkSelection
 import reikai.presentation.browse.startAdd
-import reikai.presentation.browse.toggleSelection
-import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.i18n.stringResource
@@ -67,47 +61,21 @@ fun Screen.reikaiFeedTab(): TabContent {
     // writing state during composition that the same composition reads is what loops it.
     LaunchedEffect(state.entries.size) { if (state.entries.size < 2) reordering = false }
 
-    // One selection spanning both halves, held as each type's own so the add verbs stay per-type.
-    // Same shape the global search uses over the same rows.
-    val mangaBulk = metroViewModel<BulkFavoriteViewModel>()
-    val novelBulk = metroViewModel<NovelBulkFavoriteViewModel>()
-    val mangaBulkState by mangaBulk.state.collectAsState()
-    val novelBulkState by novelBulk.state.collectAsState()
-    val selectionMode = mangaBulkState.selectionMode || novelBulkState.selectionMode
-    val clearSelection = {
-        mangaBulk.toggleSelectionMode(false)
-        novelBulk.toggleSelectionMode(false)
-    }
-    // Decided when the batch is dispatched, not while the prompts run: the first one resolving
-    // empties its own selection, and re-reading that would leave the second prompt unlabelled.
-    var namePrompts by remember { mutableStateOf(false) }
+    val selection = rememberMixedBulkSelection()
 
     return TabContent(
         titleRes = MR.strings.label_feed,
-        actionModeToolbar = if (!selectionMode) {
+        actionModeToolbar = if (!selection.selectionMode) {
             null
         } else {
             {
                 BulkSelectionToolbar(
-                    selectedCount = mangaBulkState.selection.size + novelBulkState.selection.size,
-                    title = selectionTitle(mangaBulkState.selection.size, novelBulkState.selection.size),
-                    onClickClearSelection = clearSelection,
-                    onChangeCategoryClick = {
-                        namePrompts = mangaBulkState.selection.isNotEmpty() &&
-                            novelBulkState.selection.isNotEmpty()
-                        mangaBulk.addFavorite()
-                        novelBulk.addFavorite()
-                    },
-                    onSelectAll = {
-                        val (manga, novels) = state.entries.map { it.row }.listedEntries()
-                        manga.forEach { mangaBulk.select(it) }
-                        novels.forEach(novelBulk::select)
-                    },
-                    onReverseSelection = {
-                        val (manga, novels) = state.entries.map { it.row }.listedEntries()
-                        mangaBulk.reverseSelection(manga)
-                        novelBulk.reverseSelection(novels)
-                    },
+                    selectedCount = selection.count,
+                    title = selection.title(),
+                    onClickClearSelection = selection::clear,
+                    onChangeCategoryClick = selection::add,
+                    onSelectAll = { selection.selectAll(state.entries.map { it.row }) },
+                    onReverseSelection = { selection.invert(state.entries.map { it.row }) },
                 )
             }
         },
@@ -134,13 +102,13 @@ fun Screen.reikaiFeedTab(): TabContent {
                 AppBar.Action(
                     title = stringResource(MR.strings.action_bulk_select),
                     icon = MaterialSymbols.Rounded.SelectAll,
-                    onClick = { mangaBulk.toggleSelectionMode(true) },
+                    onClick = selection::start,
                 ).takeIf { state.entries.isNotEmpty() },
             )
         },
         content = { contentPadding, _ ->
-            BackHandler(enabled = reordering || selectionMode) {
-                if (selectionMode) clearSelection() else reordering = false
+            BackHandler(enabled = reordering || selection.selectionMode) {
+                if (selection.selectionMode) selection.clear() else reordering = false
             }
             Crossfade(targetState = reordering, label = "feed_reorder") { showOrder ->
                 if (showOrder) {
@@ -154,19 +122,11 @@ fun Screen.reikaiFeedTab(): TabContent {
                         state = state,
                         model = model,
                         contentPadding = contentPadding,
-                        selectionMode = selectionMode,
-                        selectedKeys = selectedRowKeys(mangaBulkState.selection, novelBulkState.selection),
-                        onToggle = { row, result -> result.toggleSelection(row.key, mangaBulk, novelBulk) },
+                        selection = selection,
                     )
                 }
             }
-            BulkCategoryDialogs(
-                mangaBulk,
-                novelBulk,
-                mangaBulkState.dialog,
-                novelBulkState.dialog,
-                namePrompts,
-            )
+            selection.Dialogs()
         },
     )
 }
@@ -176,9 +136,7 @@ private fun Screen.FeedContent(
     state: FeedState,
     model: FeedViewModel,
     contentPadding: PaddingValues,
-    selectionMode: Boolean,
-    selectedKeys: Set<String>,
-    onToggle: (BrowseSearchRow, EntryBrowseRow) -> Unit,
+    selection: MixedBulkSelection,
 ) {
     val navigator = LocalNavigator.currentOrThrow
 
@@ -213,7 +171,8 @@ private fun Screen.FeedContent(
                 items(state.entries.size, key = { state.entries[it].feedId }) { index ->
                     val entry = state.entries[index]
                     val gestures = rememberEntryGestures(
-                        choose = { result: EntryBrowseRow -> onToggle(entry.row, result) }.takeIf { selectionMode },
+                        choose = { result: EntryBrowseRow -> selection.toggle(result, entry.row.key) }
+                            .takeIf { selection.selectionMode },
                         open = { result: EntryBrowseRow -> navigator.push(result.detailsScreen(entry.row.key)) },
                         add = { result: EntryBrowseRow ->
                             result.startAdd(entry.row.key, model.mangaAddFlow, model.novelAddFlow)
@@ -226,7 +185,7 @@ private fun Screen.FeedContent(
                         subtitle = entry.sourceName.takeIf { entry.savedSearch != null },
                         showContentType = true,
                         showsFormat = state.showsFormat,
-                        selectedKeys = selectedKeys,
+                        selectedKeys = selection.selectedKeys,
                         onClickSource = {
                             navigator.push(
                                 EntryCatalogueScreen(
@@ -240,7 +199,7 @@ private fun Screen.FeedContent(
                         },
                         // Removing a row mid-selection would take entries out from under it, so
                         // while selecting the heading does nothing.
-                        onLongClickSource = { model.confirmRemove(entry) }.takeIf { !selectionMode },
+                        onLongClickSource = { model.confirmRemove(entry) }.takeIf { !selection.selectionMode },
                         gestures = gestures,
                     )
                 }

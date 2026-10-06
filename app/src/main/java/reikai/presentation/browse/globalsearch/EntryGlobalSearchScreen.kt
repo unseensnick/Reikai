@@ -22,22 +22,15 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.TravelExplore
 import reikai.domain.library.ContentType
 import reikai.domain.library.labelRes
-import reikai.presentation.browse.BulkCategoryDialogs
-import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
-import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.SearchResultSection
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.detailsScreen
-import reikai.presentation.browse.listedEntries
 import reikai.presentation.browse.rememberEntryGestures
-import reikai.presentation.browse.selectedRowKeys
-import reikai.presentation.browse.selectionTitle
+import reikai.presentation.browse.rememberMixedBulkSelection
 import reikai.presentation.browse.startAdd
-import reikai.presentation.browse.toggleSelection
 import reikai.presentation.components.HeaderTabRow
-import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -86,22 +79,8 @@ class EntryGlobalSearchScreen(
         }
         val state by engine.state.collectAsStateWithLifecycle()
 
-        val mangaBulk = metroViewModel<BulkFavoriteViewModel>()
-        val novelBulk = metroViewModel<NovelBulkFavoriteViewModel>()
-        val mangaBulkState by mangaBulk.state.collectAsStateWithLifecycle()
-        val novelBulkState by novelBulk.state.collectAsStateWithLifecycle()
-        // One selection spanning both halves, held as each type's own so the add verbs stay per-type.
-        val selectionMode = mangaBulkState.selectionMode || novelBulkState.selectionMode
-        val selectedKeys = selectedRowKeys(mangaBulkState.selection, novelBulkState.selection)
-        val clearSelection = {
-            mangaBulk.toggleSelectionMode(false)
-            novelBulk.toggleSelectionMode(false)
-        }
-        BackHandler(enabled = selectionMode) { clearSelection() }
-
-        // Decided when the batch is dispatched, not while the prompts run: the first one resolving
-        // empties its own selection, and re-reading that would leave the second prompt unlabelled.
-        var namePrompts by remember { mutableStateOf(false) }
+        val selection = rememberMixedBulkSelection()
+        BackHandler(enabled = selection.selectionMode) { selection.clear() }
 
         // A deep link naming one extension and matching one entry opens it rather than showing a
         // list of one.
@@ -143,34 +122,23 @@ class EntryGlobalSearchScreen(
                     onlyShowHasResults = state.onlyShowHasResults,
                     onToggleResults = engine::toggleHasResults,
                     onToggleSelectionMode = {
-                        if (selectionMode) clearSelection() else mangaBulk.toggleSelectionMode(true)
+                        if (selection.selectionMode) selection.clear() else selection.start()
                     },
-                    selectionMode = selectionMode,
-                    selectedCount = mangaBulkState.selection.size + novelBulkState.selection.size,
-                    selectionTitle = selectionTitle(mangaBulkState.selection.size, novelBulkState.selection.size),
-                    onClickClearSelection = clearSelection,
-                    onSelectAll = {
-                        val (manga, novels) = state.visibleRows.listedEntries()
-                        manga.forEach { mangaBulk.select(it) }
-                        novels.forEach(novelBulk::select)
-                    },
-                    onReverseSelection = {
-                        val (manga, novels) = state.visibleRows.listedEntries()
-                        mangaBulk.reverseSelection(manga)
-                        novelBulk.reverseSelection(novels)
-                    },
-                    onChangeCategoryClick = {
-                        namePrompts = mangaBulkState.selection.isNotEmpty() &&
-                            novelBulkState.selection.isNotEmpty()
-                        mangaBulk.addFavorite()
-                        novelBulk.addFavorite()
-                    },
+                    selectionMode = selection.selectionMode,
+                    selectedCount = selection.count,
+                    selectionTitle = selection.title(),
+                    onClickClearSelection = selection::clear,
+                    onSelectAll = { selection.selectAll(state.visibleRows) },
+                    onReverseSelection = { selection.invert(state.visibleRows) },
+                    onChangeCategoryClick = selection::add,
                     tabs = {
                         HeaderTabRow(
                             items = ContentType.entries,
                             selected = state.contentType,
                             label = ContentType::labelRes,
-                            onSelect = engine::setContentType,
+                            // A flip drops the selection: the picks it would hide would still count on
+                            // the bar and reach the add.
+                            onSelect = { if (engine.setContentType(it)) selection.clear() },
                         )
                     },
                 )
@@ -199,8 +167,8 @@ class EntryGlobalSearchScreen(
                 items(state.visibleRows.size, key = { state.visibleRows[it].key.toString() }) { index ->
                     val row = state.visibleRows[index]
                     val gestures = rememberEntryGestures(
-                        choose = { entry: EntryBrowseRow -> entry.toggleSelection(row.key, mangaBulk, novelBulk) }
-                            .takeIf { selectionMode },
+                        choose = { entry: EntryBrowseRow -> selection.toggle(entry, row.key) }
+                            .takeIf { selection.selectionMode },
                         open = { entry: EntryBrowseRow -> navigator.push(entry.detailsScreen(row.key)) },
                         add = { entry: EntryBrowseRow ->
                             entry.startAdd(row.key, mangaModel.addFlow, novelModel.addFlow)
@@ -214,7 +182,7 @@ class EntryGlobalSearchScreen(
                         // kind a source is. The Browse lists badge their rows on the same rule.
                         showContentType = state.contentType == ContentType.ALL,
                         showsFormat = state.showsFormat,
-                        selectedKeys = selectedKeys,
+                        selectedKeys = selection.selectedKeys,
                         onClickSource = { navigator.push(EntryCatalogueScreen(row.key, state.query)) },
                         gestures = gestures,
                     )
@@ -224,8 +192,6 @@ class EntryGlobalSearchScreen(
 
         EntryAddDialogs(mangaModel.addFlow)
         EntryAddDialogs(novelModel.addFlow)
-        // One prompt at a time: resolving the manga one reveals the novel one, and each is named so
-        // the second is not a surprise.
-        BulkCategoryDialogs(mangaBulk, novelBulk, mangaBulkState.dialog, novelBulkState.dialog, namePrompts)
+        selection.Dialogs()
     }
 }

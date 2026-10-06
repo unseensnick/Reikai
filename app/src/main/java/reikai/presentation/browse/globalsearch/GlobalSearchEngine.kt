@@ -74,7 +74,9 @@ class GlobalSearchEngine(
         }
     }
 
-    fun setContentType(contentType: ContentType) {
+    /** Moves the chip, answering whether it moved: the tab row fires again on the tab already shown. */
+    fun setContentType(contentType: ContentType): Boolean {
+        if (state.value.contentType == contentType) return false
         // A scoped search keeps its choice to itself: it was opened from an entry of a known type,
         // so switching tabs here must not reprogram what the Browse tab opens on.
         if (scopedContentType == null) sourcePreferences.browseContentType.set(contentType)
@@ -82,6 +84,7 @@ class GlobalSearchEngine(
         // The tab changes which sources are in scope, so the current query is re-run over the new
         // set rather than left showing the old one's rows.
         search(state.value.query)
+        return true
     }
 
     fun updateQuery(query: String?) {
