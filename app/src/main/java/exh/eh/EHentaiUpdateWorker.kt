@@ -288,11 +288,11 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
             )
         }
 
-        fun setupTask(context: Context, prefInterval: Int? = null, prefRestrictions: Set<String>? = null) {
+        fun setupTask(context: Context, prefInterval: Int? = null) {
             val exhPreferences = context.appGraph.exhPreferences
             val interval = prefInterval ?: exhPreferences.exhAutoUpdateFrequency().get()
             if (interval > 0) {
-                val restrictions = prefRestrictions ?: exhPreferences.exhAutoUpdateRequirements().get()
+                val restrictions = exhPreferences.exhAutoUpdateRequirements().get()
                 val networkType = if (DEVICE_NETWORK_NOT_METERED in restrictions) {
                     NetworkType.UNMETERED
                 } else {

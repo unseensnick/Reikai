@@ -84,7 +84,7 @@ class PreferenceRestorerTest {
         every { BackupCreateJob.setupTask(any(), any()) } returns Unit
         every { NovelUpdateJob.setupTask(any(), any()) } returns Unit
         every { TrackerLibraryRefreshJob.setupTask(any(), any()) } returns Unit
-        every { EHentaiUpdateWorker.setupTask(any(), any(), any()) } returns Unit
+        every { EHentaiUpdateWorker.setupTask(any(), any()) } returns Unit
     }
 
     @AfterEach
@@ -382,7 +382,7 @@ class PreferenceRestorerTest {
             ),
             Arguments.of(
                 "adult gallery updates",
-                { c: Context -> verify { EHentaiUpdateWorker.setupTask(c, null, null) } },
+                { c: Context -> verify { EHentaiUpdateWorker.setupTask(c, null) } },
             ),
         )
 

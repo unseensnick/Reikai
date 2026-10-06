@@ -4,12 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.util.fastMap
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
@@ -17,10 +13,10 @@ import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.novel.NovelSourceDelaysScreen
 import eu.kanade.presentation.more.settings.screen.novel.downloadDelayLabel
-import eu.kanade.presentation.more.settings.widget.TriStateListDialog
 import mihon.app.di.appGraph
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.download.NovelDownloadPacing
+import reikai.presentation.settings.categoryFilterPreference
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -214,25 +210,6 @@ object SettingsDownloadScreen : SearchableSettings {
         showDownloadAheadInfo: Boolean,
     ): Preference.PreferenceGroup {
         val enabled by downloadNew.collectAsState()
-        val included by includedCategories.collectAsState()
-        val excluded by excludedCategories.collectAsState()
-        var showDialog by rememberSaveable { mutableStateOf(false) }
-        if (showDialog) {
-            TriStateListDialog(
-                title = stringResource(MR.strings.categories),
-                message = stringResource(MR.strings.pref_download_new_categories_details),
-                items = categories,
-                initialChecked = included.mapNotNull { id -> categories.find { it.id.toString() == id } },
-                initialInversed = excluded.mapNotNull { id -> categories.find { it.id.toString() == id } },
-                itemLabel = { it.visualName },
-                onDismissRequest = { showDialog = false },
-                onValueChanged = { newIncluded, newExcluded ->
-                    includedCategories.set(newIncluded.fastMap { it.id.toString() }.toSet())
-                    excludedCategories.set(newExcluded.fastMap { it.id.toString() }.toSet())
-                    showDialog = false
-                },
-            )
-        }
         val aheadEntries = listOf(0, 2, 3, 5, 10)
             .associateWith {
                 if (it == 0) {
@@ -253,15 +230,12 @@ object SettingsDownloadScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_download_new_unread_chapters_only),
                     visible = enabled,
                 ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.categories),
-                    subtitle = getCategoriesLabel(
-                        allCategories = categories,
-                        included = included,
-                        excluded = excluded,
-                    ),
+                categoryFilterPreference(
+                    categories,
+                    includedCategories,
+                    excludedCategories,
+                    MR.strings.pref_download_new_categories_details,
                     visible = enabled,
-                    onClick = { showDialog = true },
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = autoDownloadWhileReading,

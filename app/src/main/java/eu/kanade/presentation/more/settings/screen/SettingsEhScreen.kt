@@ -54,13 +54,11 @@ import logcat.LogPriority
 import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Error
+import reikai.presentation.settings.updateScheduleRows
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETWORK_NOT_METERED
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
 import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.i18n.MR
@@ -236,40 +234,13 @@ object SettingsEhScreen : SearchableSettings {
         getExhFavoriteMangaWithMetadata: GetExhFavoriteMangaWithMetadata,
         getFlatMetadataById: GetFlatMetadataById,
     ): Preference.PreferenceGroup {
-        val context = LocalContext.current
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.gallery_update_checker),
-            preferenceItems = listOf(
-                Preference.PreferenceItem.ListPreference(
-                    preference = exhPreferences.exhAutoUpdateFrequency(),
-                    entries = mapOf(
-                        0 to stringResource(MR.strings.update_never),
-                        12 to stringResource(MR.strings.update_12hour),
-                        24 to stringResource(MR.strings.update_24hour),
-                        48 to stringResource(MR.strings.update_48hour),
-                        72 to stringResource(MR.strings.update_72hour),
-                        168 to stringResource(MR.strings.update_weekly),
-                    ),
-                    title = stringResource(MR.strings.pref_library_update_interval),
-                    onValueChanged = {
-                        EHentaiUpdateWorker.setupTask(context, it)
-                        true
-                    },
-                ),
-                Preference.PreferenceItem.MultiSelectListPreference(
-                    preference = exhPreferences.exhAutoUpdateRequirements(),
-                    entries = mapOf(
-                        DEVICE_ONLY_ON_WIFI to stringResource(MR.strings.connected_to_wifi),
-                        DEVICE_NETWORK_NOT_METERED to stringResource(MR.strings.network_not_metered),
-                        DEVICE_CHARGING to stringResource(MR.strings.charging),
-                    ),
-                    title = stringResource(MR.strings.pref_library_update_restriction),
-                    subtitle = stringResource(MR.strings.restrictions),
-                    onValueChanged = {
-                        EHentaiUpdateWorker.setupTask(context)
-                        true
-                    },
-                ),
+            preferenceItems = updateScheduleRows(
+                exhPreferences.exhAutoUpdateFrequency(),
+                exhPreferences.exhAutoUpdateRequirements(),
+                EHentaiUpdateWorker::setupTask,
+            ) + listOf(
                 updaterStatistics(exhPreferences, getExhFavoriteMangaWithMetadata, getFlatMetadataById),
             ),
         )

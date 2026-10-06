@@ -557,28 +557,26 @@ class NovelPreferences(
 
     // Background chapter updates.
 
-    /** How often the background novel-update job runs, in hours. 0 = off (the default, matching the
-     *  manga library's off-by-default); 12/24/48/72/168 mirror the manga interval options. */
-    fun libraryUpdateInterval() = preferenceStore.getInt("novel_library_update_interval", 0)
+    // The update defaults are manga's own, read off Mihon's declarations so an upstream change reaches
+    // novels too. Only defaultValue() is read, so this instance never touches the manga keys.
+    private val mangaUpdateDefaults by lazy { LibraryPreferences(preferenceStore) }
 
-    /** Device conditions gating the background job, reusing the manga restriction keys
-     *  ([LibraryPreferences.DEVICE_ONLY_ON_WIFI] etc.) so the same Constraints builder applies. */
-    fun libraryUpdateDeviceRestrictions() =
-        preferenceStore.getStringSet(
-            "novel_library_update_restrictions",
-            setOf(LibraryPreferences.DEVICE_ONLY_ON_WIFI),
-        )
+    /** How often the background novel-update job runs, in hours; 0 is off. */
+    fun libraryUpdateInterval() = preferenceStore.getInt(
+        "novel_library_update_interval",
+        mangaUpdateDefaults.autoUpdateInterval.defaultValue(),
+    )
 
-    /** Smart-update restrictions, reusing the manga restriction keys ([LibraryPreferences.MANGA_HAS_UNREAD]
-     *  etc.) for the same meaning, and defaulting to the set manga's `autoUpdateMangaRestrictions` does. */
+    /** Device conditions gating the background job, in the manga restriction keys. */
+    fun libraryUpdateDeviceRestrictions() = preferenceStore.getStringSet(
+        "novel_library_update_restrictions",
+        mangaUpdateDefaults.autoUpdateDeviceRestrictions.defaultValue(),
+    )
+
+    /** Smart-update restrictions, in the manga restriction keys. */
     fun novelUpdateRestrictions() = preferenceStore.getStringSet(
         "novel_library_smart_update",
-        setOf(
-            LibraryPreferences.MANGA_HAS_UNREAD,
-            LibraryPreferences.MANGA_NON_COMPLETED,
-            LibraryPreferences.MANGA_NON_READ,
-            LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD,
-        ),
+        mangaUpdateDefaults.autoUpdateMangaRestrictions.defaultValue(),
     )
 
     /** Categories to include / exclude from the background update (mirrors the manga update categories). */

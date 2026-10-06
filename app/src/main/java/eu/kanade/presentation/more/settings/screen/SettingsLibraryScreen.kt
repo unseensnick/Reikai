@@ -4,20 +4,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.util.fastMap
-import androidx.core.content.ContextCompat
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
-import eu.kanade.presentation.more.settings.widget.TriStateListDialog
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
@@ -26,11 +21,10 @@ import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.library.preferredsources.PreferredSourcesScreen
+import reikai.presentation.settings.categoryFilterPreference
+import reikai.presentation.settings.updateScheduleRows
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETWORK_NOT_METERED
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_HAS_UNREAD
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_NON_COMPLETED
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_NON_READ
@@ -40,7 +34,6 @@ import tachiyomi.domain.library.service.LibraryPreferences.Companion.MARK_DUPLIC
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.collectAsState
 
 object SettingsLibraryScreen : SearchableSettings {
 
@@ -86,73 +79,21 @@ object SettingsLibraryScreen : SearchableSettings {
         allNovelCategories: List<Category>,
         reikaiLibraryPreferences: ReikaiLibraryPreferences,
     ): Preference.PreferenceGroup {
-        val context = LocalContext.current
-        val intervalPref = novelPreferences.libraryUpdateInterval()
-        val interval by intervalPref.collectAsState()
-
-        val includePref = novelPreferences.novelUpdateCategories()
-        val excludePref = novelPreferences.novelUpdateCategoriesExclude()
-        val included by includePref.collectAsState()
-        val excluded by excludePref.collectAsState()
-        var showCategoriesDialog by rememberSaveable { mutableStateOf(false) }
-        if (showCategoriesDialog) {
-            TriStateListDialog(
-                title = stringResource(MR.strings.categories),
-                message = stringResource(MR.strings.pref_library_update_categories_details),
-                items = allNovelCategories,
-                initialChecked = included.mapNotNull { id -> allNovelCategories.find { it.id.toString() == id } },
-                initialInversed = excluded.mapNotNull { id -> allNovelCategories.find { it.id.toString() == id } },
-                itemLabel = { it.visualName },
-                onDismissRequest = { showCategoriesDialog = false },
-                onValueChanged = { newIncluded, newExcluded ->
-                    includePref.set(newIncluded.map { it.id.toString() }.toSet())
-                    excludePref.set(newExcluded.map { it.id.toString() }.toSet())
-                    showCategoriesDialog = false
-                },
-            )
-        }
         return Preference.PreferenceGroup(
             // RK: same "Global update" concept as the manga group, content-typed for consistency.
             title = contentTypedCategory(MR.strings.pref_category_library_update, MR.strings.content_type_novels),
-            preferenceItems = listOf(
-                Preference.PreferenceItem.ListPreference(
-                    preference = intervalPref,
-                    entries = mapOf(
-                        0 to stringResource(MR.strings.update_never),
-                        12 to stringResource(MR.strings.update_12hour),
-                        24 to stringResource(MR.strings.update_24hour),
-                        48 to stringResource(MR.strings.update_48hour),
-                        72 to stringResource(MR.strings.update_72hour),
-                        168 to stringResource(MR.strings.update_weekly),
-                    ),
-                    title = stringResource(MR.strings.pref_library_update_interval),
-                    onValueChanged = {
-                        NovelUpdateJob.setupTask(context, it)
-                        true
-                    },
-                ),
-                Preference.PreferenceItem.MultiSelectListPreference(
-                    preference = novelPreferences.libraryUpdateDeviceRestrictions(),
-                    entries = mapOf(
-                        DEVICE_ONLY_ON_WIFI to stringResource(MR.strings.connected_to_wifi),
-                        DEVICE_NETWORK_NOT_METERED to stringResource(MR.strings.network_not_metered),
-                        DEVICE_CHARGING to stringResource(MR.strings.charging),
-                    ),
-                    title = stringResource(MR.strings.pref_library_update_restriction),
-                    subtitle = stringResource(MR.strings.restrictions),
-                    visible = interval > 0,
-                    onValueChanged = {
-                        // Post to the main looper so the preference write lands before rescheduling.
-                        ContextCompat.getMainExecutor(context).execute { NovelUpdateJob.setupTask(context) }
-                        true
-                    },
-                ),
+            preferenceItems = updateScheduleRows(
+                novelPreferences.libraryUpdateInterval(),
+                novelPreferences.libraryUpdateDeviceRestrictions(),
+                NovelUpdateJob::setupTask,
+            ) + listOf(
                 // Categories + Smart update are ungated (always shown), matching the manga Global-update
                 // group where only the device-restriction row is gated on interval > 0.
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.categories),
-                    subtitle = getCategoriesLabel(allNovelCategories, included, excluded),
-                    onClick = { showCategoriesDialog = true },
+                categoryFilterPreference(
+                    allNovelCategories,
+                    novelPreferences.novelUpdateCategories(),
+                    novelPreferences.novelUpdateCategoriesExclude(),
+                    MR.strings.pref_library_update_categories_details,
                 ),
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = novelPreferences.novelUpdateRestrictions(),
@@ -299,81 +240,22 @@ object SettingsLibraryScreen : SearchableSettings {
         libraryPreferences: LibraryPreferences,
         reikaiLibraryPreferences: ReikaiLibraryPreferences, // RK: update errors
     ): Preference.PreferenceGroup {
-        val context = LocalContext.current
-
-        val autoUpdateIntervalPref = libraryPreferences.autoUpdateInterval
-        val autoUpdateCategoriesPref = libraryPreferences.updateCategories
-        val autoUpdateCategoriesExcludePref = libraryPreferences.updateCategoriesExclude
-
-        val autoUpdateInterval by autoUpdateIntervalPref.collectAsState()
-
-        val included by autoUpdateCategoriesPref.collectAsState()
-        val excluded by autoUpdateCategoriesExcludePref.collectAsState()
-        var showCategoriesDialog by rememberSaveable { mutableStateOf(false) }
-        if (showCategoriesDialog) {
-            TriStateListDialog(
-                title = stringResource(MR.strings.categories),
-                message = stringResource(MR.strings.pref_library_update_categories_details),
-                items = allCategories,
-                initialChecked = included.mapNotNull { id -> allCategories.find { it.id.toString() == id } },
-                initialInversed = excluded.mapNotNull { id -> allCategories.find { it.id.toString() == id } },
-                itemLabel = { it.visualName },
-                onDismissRequest = { showCategoriesDialog = false },
-                onValueChanged = { newIncluded, newExcluded ->
-                    autoUpdateCategoriesPref.set(newIncluded.map { it.id.toString() }.toSet())
-                    autoUpdateCategoriesExcludePref.set(newExcluded.map { it.id.toString() }.toSet())
-                    showCategoriesDialog = false
-                },
-            )
-        }
-
         return Preference.PreferenceGroup(
             // RK: content-type header, pairs with the novel library-update group.
             title = contentTypedCategory(MR.strings.pref_category_library_update, MR.strings.content_type_manga),
-            preferenceItems = listOf(
-                Preference.PreferenceItem.ListPreference(
-                    preference = autoUpdateIntervalPref,
-                    entries = mapOf(
-                        0 to stringResource(MR.strings.update_never),
-                        12 to stringResource(MR.strings.update_12hour),
-                        24 to stringResource(MR.strings.update_24hour),
-                        48 to stringResource(MR.strings.update_48hour),
-                        72 to stringResource(MR.strings.update_72hour),
-                        168 to stringResource(MR.strings.update_weekly),
-                    ),
-                    title = stringResource(MR.strings.pref_library_update_interval),
-                    onValueChanged = {
-                        LibraryUpdateJob.setupTask(context, it)
-                        true
-                    },
+            // RK --> interval, restrictions and categories rows shared with the novel and gallery checkers
+            preferenceItems = updateScheduleRows(
+                libraryPreferences.autoUpdateInterval,
+                libraryPreferences.autoUpdateDeviceRestrictions,
+                LibraryUpdateJob::setupTask,
+            ) + listOf(
+                categoryFilterPreference(
+                    allCategories,
+                    libraryPreferences.updateCategories,
+                    libraryPreferences.updateCategoriesExclude,
+                    MR.strings.pref_library_update_categories_details,
                 ),
-                Preference.PreferenceItem.MultiSelectListPreference(
-                    preference = libraryPreferences.autoUpdateDeviceRestrictions,
-                    entries = mapOf(
-                        DEVICE_ONLY_ON_WIFI to stringResource(MR.strings.connected_to_wifi),
-                        DEVICE_NETWORK_NOT_METERED to stringResource(MR.strings.network_not_metered),
-                        DEVICE_CHARGING to stringResource(MR.strings.charging),
-                    ),
-                    title = stringResource(MR.strings.pref_library_update_restriction),
-                    subtitle = stringResource(MR.strings.restrictions),
-                    visible = autoUpdateInterval > 0,
-                    onValueChanged = {
-                        // Post to event looper to allow the preference to be updated.
-                        ContextCompat.getMainExecutor(context).execute {
-                            LibraryUpdateJob.setupTask(context)
-                        }
-                        true
-                    },
-                ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.categories),
-                    subtitle = getCategoriesLabel(
-                        allCategories = allCategories,
-                        included = included,
-                        excluded = excluded,
-                    ),
-                    onClick = { showCategoriesDialog = true },
-                ),
+                // RK <--
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.autoUpdateMetadata,
                     title = stringResource(MR.strings.pref_library_update_refresh_metadata),

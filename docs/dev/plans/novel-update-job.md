@@ -53,7 +53,7 @@ Every novel notification posts through `Context.notify`, which applies the `POST
 
 ### Settings parity
 
-The "Light novel updates" group is built by `getNovelUpdateGroup` in `SettingsLibraryScreen.kt`, fenced as a `// RK` block alongside Mihon's manga "Global update" group. Its order mirrors manga: interval -> device restrictions -> **Categories** (a tri-state include/exclude dialog over the novel categories) -> **Smart update** (a multi-select with the four skip options, always shown like the manga group's). Deliberately dropped versus manga: show-unread-count (no separate novel Updates count surface) and refresh-metadata (novels always re-parse, so it is marginal). The preferences are unreleased, so no database migration was needed.
+The "Light novel updates" group is built by `getNovelUpdateGroup` in `SettingsLibraryScreen.kt`, fenced as a `// RK` block alongside Mihon's manga "Global update" group. Its order mirrors manga: interval -> device restrictions -> **Categories** (a tri-state include/exclude dialog over the novel categories) -> **Smart update** (a multi-select with the four skip options, always shown like the manga group's). Deliberately dropped versus manga: show-unread-count (no separate novel Updates count surface) and refresh-metadata (novels always re-parse, so it is marginal). The interval, device-restriction and Categories rows are the ones the manga group and the E-Hentai update checker show too, built once by `updateScheduleRows` and `categoryFilterPreference` ([UpdateScheduleRows.kt](../../../app/src/main/java/reikai/presentation/settings/UpdateScheduleRows.kt)), and the novel interval and both restriction sets default to manga's (`NovelPreferences` reads `LibraryPreferences`' declared defaults, pinned by `NovelUpdateDefaultsTest`). The preferences are unreleased, so no database migration was needed.
 
 ## Key files
 
@@ -67,6 +67,7 @@ The "Light novel updates" group is built by `getNovelUpdateGroup` in `SettingsLi
 - [app/src/main/java/reikai/data/notification/NewChaptersSummary.kt](../../../app/src/main/java/reikai/data/notification/NewChaptersSummary.kt): the group summary both update notifiers post, the Download threshold and the round cover icon, pinned by `NewChaptersTest`.
 - [app/src/main/java/reikai/domain/novel/NovelPreferences.kt](../../../app/src/main/java/reikai/domain/novel/NovelPreferences.kt): `libraryUpdateInterval()`, the device-restriction prefs, `novelUpdateCategories()` / `novelUpdateCategoriesExclude()`, `novelUpdateRestrictions()`, and the auto-download category prefs.
 - [app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsLibraryScreen.kt](../../../app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsLibraryScreen.kt): `getNovelUpdateGroup` (the `// RK` "Light novel updates" settings block: interval, restrictions, Categories, Smart update).
+- [app/src/main/java/reikai/presentation/settings/UpdateScheduleRows.kt](../../../app/src/main/java/reikai/presentation/settings/UpdateScheduleRows.kt): the interval, device-restriction and Categories rows every update checker shows.
 
 ## Status
 

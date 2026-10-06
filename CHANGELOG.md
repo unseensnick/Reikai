@@ -458,6 +458,7 @@ agent under Settings -> Advanced.
 - **The large mainstream source the app enhances now uses the language you set as preferred in its settings for follows sync, tracking and sign-in, and follows its extension's description switches.** The final chapter in the description is on by default, as in the extension.
 - **Tapping a follows sync action while one is running now says a sync is already running, instead of silently stopping the first partway.**
 - **The adult-source favorites backup now runs one at a time and shows its own progress notification instead of saying the library is updating.**
+- **Changing the adult-gallery update checker's restrictions now takes effect straight away instead of after the next interval change.** Its restrictions row also hides while the checker is off, as the library's does.
 - **Adult-source series show the same star rating in Browse and on their details page.**
 - **Light-novel source icons are no longer larger than manga ones in the same list, most noticeably on the Migrate tab.**
 - **Two languages whose codes share one name (such as "in" and "id") no longer lose a section in Browse's lists and source filter, on manga and novels.**
