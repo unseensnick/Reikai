@@ -2,6 +2,10 @@ package reikai.presentation.reader
 
 /** The bounds both readers' controls offer, so manga and novels cannot disagree. */
 object ReaderRanges {
+    /** The steps a float setting is counted in on a slider or stepper; see `scaled`. */
+    const val TENTHS = 10
+    const val PERCENT = 100
+
     val volumeKeyScrollPercent = 25..100
     val railHeightPercent = 65..100
 

@@ -37,13 +37,14 @@ import reikai.presentation.reader.ReaderDisplayFilters
 import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.ReaderTextSettings
 import reikai.presentation.reader.ViewportAutoScroll
+import reikai.presentation.reader.autoScrollSpeedLabel
+import reikai.util.scaled
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-import kotlin.math.roundToInt
 
 /**
  * What the in-reader settings sheet edits, answered per content type so the compiler makes both
@@ -174,21 +175,20 @@ private fun ColumnScope.AutoScrollRows(running: Boolean, onToggle: () -> Unit, s
             )
         }
         is ViewportAutoScroll.Continuous -> {
-            val speed by shape.speed.collectAsState()
+            val speedPref = shape.speed.scaled(ReaderRanges.TENTHS)
+            val speed by speedPref.collectAsState()
             SliderItem(
-                value = (speed * TENTHS).roundToInt(),
+                value = speed,
                 valueRange = ReaderRanges.autoScrollSpeedTenths,
                 label = stringResource(MR.strings.pref_auto_scroll_speed),
-                valueString = "%.1fx".format(speed),
-                onChange = { shape.speed.set(it / TENTHS) },
+                valueString = autoScrollSpeedLabel(speed),
+                onChange = speedPref::set,
                 pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
             )
         }
         null -> Unit
     }
 }
-
-private const val TENTHS = 10f
 
 /** The entry's own rotation, which both readers store per entry and offer first on the Reading tab. */
 @Composable

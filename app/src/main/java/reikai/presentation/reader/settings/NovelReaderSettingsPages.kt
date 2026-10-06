@@ -73,6 +73,8 @@ import reikai.presentation.reader.readerTextColorInt
 import reikai.presentation.reader.readerThemePresets
 import reikai.presentation.reader.readerThemeShown
 import reikai.presentation.reader.rememberTtsOptions
+import reikai.presentation.reader.tenthsLabel
+import reikai.util.scaled
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -84,7 +86,6 @@ import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import java.util.Locale
-import kotlin.math.roundToInt
 
 /*
  * The novel half of the reader's settings sheet, in tsundoku's look: the rows a reader adjusts while
@@ -92,8 +93,6 @@ import kotlin.math.roundToInt
  * rotation, the text size and the page colours, which live here and on the reader's Theme and Text size
  * bar buttons. Read aloud is a novel's tab alone.
  */
-
-private const val TENTHS = 10f
 
 /** Words the split threshold steps by, across its 20 to 2000 range. */
 private const val AUTO_SPLIT_STEP = 10
@@ -375,15 +374,14 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
             label = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
             pref = preferences.readerVolumeButtonsInverted(),
         )
-        val fractionPref = preferences.readerVolumeButtonsFraction()
-        val fraction by fractionPref.collectAsState()
-        val percent = (fraction * 100).roundToInt()
+        val percentPref = preferences.readerVolumeButtonsFraction().scaled(ReaderRanges.PERCENT)
+        val percent by percentPref.collectAsState()
         SliderItem(
             value = percent,
             valueRange = ReaderRanges.volumeKeyScrollPercent,
             label = stringResource(MR.strings.pref_volume_keys_scroll_amount),
             valueString = "$percent%",
-            onChange = { fractionPref.set(it / 100f) },
+            onChange = percentPref::set,
             pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         )
     }
@@ -472,15 +470,16 @@ private fun PageColorRow(labelRes: StringResource, color: Int, onPick: (String) 
 /** A setting stored as a float and stepped in tenths, shown through [format]. */
 @Composable
 private fun TenthsStepper(pref: Preference<Float>, labelRes: StringResource, tenths: IntRange, format: String) {
-    val value by pref.collectAsState()
+    val scaled = pref.scaled(ReaderRanges.TENTHS)
+    val value by scaled.collectAsState()
     StepperItem(
         label = stringResource(labelRes),
-        value = (value * TENTHS).roundToInt(),
-        onChange = { pref.set(it / TENTHS) },
+        value = value,
+        onChange = scaled::set,
         valueRange = tenths,
-        defaultValue = (pref.defaultValue() * TENTHS).roundToInt(),
-        scale = TENTHS.toInt(),
-        valueString = format.format(value),
+        defaultValue = scaled.defaultValue(),
+        scale = ReaderRanges.TENTHS,
+        valueString = tenthsLabel(value, format),
     )
 }
 

@@ -37,14 +37,17 @@ import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.TtsOptions
+import reikai.presentation.reader.autoScrollSpeedPreference
 import reikai.presentation.reader.readerBottomButtonsPreference
 import reikai.presentation.reader.readerFontLabel
 import reikai.presentation.reader.rememberTtsOptions
+import reikai.presentation.reader.tenthsLabel
+import reikai.presentation.reader.volumeKeyScrollPreference
+import reikai.util.scaled
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import java.util.Locale
-import kotlin.math.roundToInt
 import tachiyomi.core.common.preference.Preference as PreferenceStoreEntry
 
 /**
@@ -80,8 +83,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val context = LocalContext.current
         val enginePref = novelPreferences.readerTtsEngine()
         val voicePref = novelPreferences.readerTtsVoice()
-        val ratePref = novelPreferences.readerTtsRate()
-        val pitchPref = novelPreferences.readerTtsPitch()
+        val ratePref = novelPreferences.readerTtsRate().scaled(ReaderRanges.TENTHS)
+        val pitchPref = novelPreferences.readerTtsPitch().scaled(ReaderRanges.TENTHS)
         val engine by enginePref.collectAsState()
         val selectedLanguages by novelPreferences.readerTtsLanguages().collectAsState()
         val rate by ratePref.collectAsState()
@@ -138,18 +141,18 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     },
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = (rate * TENTHS).roundToInt(),
+                    value = rate,
                     valueRange = NovelTextRanges.readAloudRateTenths,
                     title = stringResource(MR.strings.pref_tts_rate),
-                    valueString = "%.1fx".format(rate),
-                    onValueChanged = { ratePref.set(it / TENTHS) },
+                    valueString = tenthsLabel(rate, "%.1fx"),
+                    onValueChanged = { ratePref.set(it) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = (pitch * TENTHS).roundToInt(),
+                    value = pitch,
                     valueRange = NovelTextRanges.readAloudPitchTenths,
                     title = stringResource(MR.strings.pref_tts_pitch),
-                    valueString = "%.1f".format(pitch),
-                    onValueChanged = { pitchPref.set(it / TENTHS) },
+                    valueString = tenthsLabel(pitch, "%.1f"),
+                    onValueChanged = { pitchPref.set(it) },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerTtsAutoPageAdvance(),
@@ -235,9 +238,9 @@ object SettingsNovelReaderScreen : SearchableSettings {
      */
     @Composable
     private fun getTextDisplayGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
-        val indentPref = novelPreferences.readerParagraphIndent()
-        val spacingPref = novelPreferences.readerParagraphSpacing()
-        val lineSpacingPref = novelPreferences.readerLineSpacing()
+        val indentPref = novelPreferences.readerParagraphIndent().scaled(ReaderRanges.TENTHS)
+        val spacingPref = novelPreferences.readerParagraphSpacing().scaled(ReaderRanges.TENTHS)
+        val lineSpacingPref = novelPreferences.readerLineSpacing().scaled(ReaderRanges.TENTHS)
         val indent by indentPref.collectAsState()
         val spacing by spacingPref.collectAsState()
         val lineSpacing by lineSpacingPref.collectAsState()
@@ -260,11 +263,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     onClick = { navigator.push(NovelFontsScreen()) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = (lineSpacing * TENTHS).roundToInt(),
+                    value = lineSpacing,
                     valueRange = NovelTextRanges.lineHeightTenths,
                     title = stringResource(MR.strings.pref_novel_line_spacing),
-                    valueString = "%.1fx".format(lineSpacing),
-                    onValueChanged = { lineSpacingPref.set(it / TENTHS) },
+                    valueString = tenthsLabel(lineSpacing, "%.1fx"),
+                    onValueChanged = { lineSpacingPref.set(it) },
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerTextAlign(),
@@ -276,20 +279,20 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 marginRow(novelPreferences.readerMarginLeft(), MR.strings.pref_margin_left),
                 marginRow(novelPreferences.readerMarginRight(), MR.strings.pref_margin_right),
                 Preference.PreferenceItem.SliderPreference(
-                    value = (indent * TENTHS).roundToInt(),
+                    value = indent,
                     valueRange = NovelTextRanges.paragraphIndentTenths,
                     title = stringResource(MR.strings.pref_paragraph_indent),
                     subtitle = stringResource(MR.strings.pref_paragraph_indent_summary),
-                    valueString = "%.1fem".format(indent),
-                    onValueChanged = { indentPref.set(it / TENTHS) },
+                    valueString = tenthsLabel(indent, "%.1fem"),
+                    onValueChanged = { indentPref.set(it) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = (spacing * TENTHS).roundToInt(),
+                    value = spacing,
                     valueRange = NovelTextRanges.paragraphSpacingTenths,
                     title = stringResource(MR.strings.pref_paragraph_spacing),
                     subtitle = stringResource(MR.strings.pref_paragraph_spacing_summary),
-                    valueString = "%.1fem".format(spacing),
-                    onValueChanged = { spacingPref.set(it / TENTHS) },
+                    valueString = tenthsLabel(spacing, "%.1fem"),
+                    onValueChanged = { spacingPref.set(it) },
                 ),
             ),
         )
@@ -409,8 +412,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val seamless by novelPreferences.readerSeamlessChapters().collectAsState()
         val autoLoadNextAtPref = novelPreferences.readerAutoLoadNextAt()
         val autoLoadNextAt by autoLoadNextAtPref.collectAsState()
-        val autoScrollSpeedPref = novelPreferences.readerAutoScrollSpeed()
-        val autoScrollSpeed by autoScrollSpeedPref.collectAsState()
         val fullscreen by novelPreferences.readerFullscreen().collectAsState()
         val tapLayout by novelPreferences.readerTapLayout().collectAsState()
         val markReadPercentPref = novelPreferences.readerMarkReadPercent()
@@ -532,13 +533,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerAutoScrollOnOpen(),
                     title = stringResource(MR.strings.pref_auto_scroll_on_open),
                 ),
-                Preference.PreferenceItem.SliderPreference(
-                    value = (autoScrollSpeed * TENTHS).roundToInt(),
-                    valueRange = ReaderRanges.autoScrollSpeedTenths,
-                    title = stringResource(MR.strings.pref_auto_scroll_speed),
-                    valueString = "%.1fx".format(autoScrollSpeed),
-                    onValueChanged = { autoScrollSpeedPref.set(it / TENTHS) },
-                ),
+                autoScrollSpeedPreference(novelPreferences.readerAutoScrollSpeed(), subtitle = null),
                 readerBottomButtonsPreference(ReaderBottomButton.BarPreferences.novel(novelPreferences)),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerPreserveReadingPosition(),
@@ -553,9 +548,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
     private fun getNavigationGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
         val useVolumeButtonsPref = novelPreferences.readerUseVolumeButtons()
         val useVolumeButtons by useVolumeButtonsPref.collectAsState()
-        val volumeButtonsFractionPref = novelPreferences.readerVolumeButtonsFraction()
-        val volumeButtonsFraction by volumeButtonsFractionPref.collectAsState()
-        val volumeButtonsPercent = (volumeButtonsFraction * 100).roundToInt()
         // Gated on the rail alone, unlike the manga screen's pair: a novel has no reading mode to pick it.
         val railHeightPref = novelPreferences.readerRailHeight()
         val railHeight by railHeightPref.collectAsState()
@@ -574,13 +566,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
                     enabled = useVolumeButtons,
                 ),
-                Preference.PreferenceItem.SliderPreference(
-                    value = volumeButtonsPercent,
-                    valueRange = ReaderRanges.volumeKeyScrollPercent,
-                    title = stringResource(MR.strings.pref_volume_keys_scroll_amount),
-                    valueString = "$volumeButtonsPercent%",
+                volumeKeyScrollPreference(
+                    novelPreferences.readerVolumeButtonsFraction(),
                     enabled = useVolumeButtons,
-                    onValueChanged = { volumeButtonsFractionPref.set(it / 100f) },
+                    subtitle = null,
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerHideThreshold(),
@@ -643,6 +632,3 @@ object SettingsNovelReaderScreen : SearchableSettings {
 
 /** Custom's key in a colour list. Fully transparent, so no colour the picker writes can equal it. */
 private const val CUSTOM_COLOR = 0
-
-/** The slider rows are integers, so an em value rides across as tenths of one. */
-private const val TENTHS = 10f

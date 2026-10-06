@@ -15,13 +15,14 @@ import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.presentation.reader.ReaderRanges
+import reikai.presentation.reader.autoScrollSpeedPreference
 import reikai.presentation.reader.readerBottomButtonsPreference
+import reikai.presentation.reader.volumeKeyScrollPreference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import java.text.NumberFormat
-import kotlin.math.roundToInt
 
 /**
  * Manga reader settings, a top-level Settings entry beside [SettingsNovelReaderScreen].
@@ -191,11 +192,10 @@ object SettingsMangaReaderScreen : SearchableSettings {
 
     @Composable
     private fun getReadingGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
-        // RK: collected for the preload and auto-scroll sliders
+        // RK: collected for the preload and auto-scroll interval sliders
         val preloadSizePref = readerPreferences.preloadSize
         val preloadSize by preloadSizePref.collectAsState()
         val autoScrollInterval by readerPreferences.autoScrollInterval.collectAsState() // RK
-        val autoScrollSpeed by readerPreferences.autoScrollSpeed.collectAsState() // RK
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reading),
             preferenceItems = listOf(
@@ -246,13 +246,9 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     valueString = stringResource(MR.strings.seconds_short, autoScrollInterval),
                     onValueChanged = { readerPreferences.autoScrollInterval.set(it) },
                 ),
-                Preference.PreferenceItem.SliderPreference(
-                    value = (autoScrollSpeed * TENTHS).roundToInt(),
-                    valueRange = ReaderRanges.autoScrollSpeedTenths,
-                    title = stringResource(MR.strings.pref_auto_scroll_speed),
+                autoScrollSpeedPreference(
+                    readerPreferences.autoScrollSpeed,
                     subtitle = stringResource(MR.strings.pref_volume_keys_scroll_amount_long_strip),
-                    valueString = "%.1fx".format(autoScrollSpeed),
-                    onValueChanged = { readerPreferences.autoScrollSpeed.set(it / TENTHS) },
                 ),
                 // RK <--
                 Preference.PreferenceItem.SwitchPreference(
@@ -478,10 +474,6 @@ object SettingsMangaReaderScreen : SearchableSettings {
     ): Preference.PreferenceGroup {
         val readWithVolumeKeysPref = readerPreferences.readWithVolumeKeys
         val readWithVolumeKeys by readWithVolumeKeysPref.collectAsState()
-        // RK: volume-key scroll amount (long-strip viewers), novel-reader parity
-        val volumeScrollAmountPref = readerPreferences.readWithVolumeKeysScrollAmount
-        val volumeScrollAmount by volumeScrollAmountPref.collectAsState()
-        val volumeScrollPercent = (volumeScrollAmount * 100).roundToInt()
 
         val verticalNavigator by readerPreferences.verticalNavigator.collectAsState()
         val showNavigator by readerPreferences.showNavigator.collectAsState() // RK
@@ -500,15 +492,11 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
                     enabled = readWithVolumeKeys,
                 ),
-                // RK: volume-key scroll amount, novel-reader parity
-                Preference.PreferenceItem.SliderPreference(
-                    value = volumeScrollPercent,
-                    valueRange = ReaderRanges.volumeKeyScrollPercent,
-                    title = stringResource(MR.strings.pref_volume_keys_scroll_amount),
-                    subtitle = stringResource(MR.strings.pref_volume_keys_scroll_amount_long_strip),
-                    valueString = "$volumeScrollPercent%",
+                // RK: volume-key scroll amount (long-strip viewers), novel-reader parity
+                volumeKeyScrollPreference(
+                    readerPreferences.readWithVolumeKeysScrollAmount,
                     enabled = readWithVolumeKeys && !highQualityRenderer,
-                    onValueChanged = { volumeScrollAmountPref.set(it / 100f) },
+                    subtitle = stringResource(MR.strings.pref_volume_keys_scroll_amount_long_strip),
                 ),
                 // RK -->
                 Preference.PreferenceItem.SwitchPreference(
@@ -559,6 +547,3 @@ object SettingsMangaReaderScreen : SearchableSettings {
         )
     }
 }
-
-// RK: the auto-scroll speed is stored as itself and stepped in tenths, as the novel reader's is
-private const val TENTHS = 10f
