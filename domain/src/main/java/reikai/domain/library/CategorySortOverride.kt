@@ -14,20 +14,19 @@ import tachiyomi.domain.library.model.LibrarySort
 const val CATEGORY_SORT_CUSTOMIZED = 0b1L
 
 /**
- * The sort a manga category should use: its own decoded flags when it's an override (CUSTOMIZED set),
- * else the [global] library sort.
+ * Whether [category] may keep a sort of its own, on read and on write. The system (Default) row may not:
+ * it is universal, one row serving the manga and novel libraries at once, so an override stored on it
+ * could not mean one thing for manga and another for novels. Sorting it sets the global sort instead.
  */
-fun sortForCategory(flags: Long, global: LibrarySort): LibrarySort =
-    if (flags and CATEGORY_SORT_CUSTOMIZED != 0L) LibrarySort.valueOf(flags) else global
+fun canOverrideSort(category: Category): Boolean = !category.isSystemCategory
 
-/**
- * The sort a category should use, honouring the one scope rule the flags cannot express: the system
- * (Default) category always follows the [global] sort. That row is universal, a single row serving the
- * manga and novel libraries at once, so an override stored on it could not mean one thing for manga and
- * another for novels. Prefer this over the flags overload wherever the [Category] itself is at hand.
- */
+/** Whether [category] keeps its own sort. A stale bit on the Default row reads as no override. */
+fun isSortOverridden(category: Category): Boolean =
+    canOverrideSort(category) && category.flags and CATEGORY_SORT_CUSTOMIZED != 0L
+
+/** The sort [category] uses: its own decoded flags when overridden, else the [global] library sort. */
 fun sortForCategory(category: Category, global: LibrarySort): LibrarySort =
-    if (category.isSystemCategory) global else sortForCategory(category.flags, global)
+    if (isSortOverridden(category)) LibrarySort.valueOf(category.flags) else global
 
 /**
  * Resolve Mihon's sort key to the neutral mode the shared comparator understands. Both libraries decode

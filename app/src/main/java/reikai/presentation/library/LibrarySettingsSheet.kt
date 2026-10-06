@@ -25,12 +25,11 @@ import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Refresh
-import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
+import reikai.domain.library.isSortOverridden
 import reikai.domain.library.sortForCategory
 import reikai.presentation.category.CategoryFilterRow
 import reikai.presentation.category.toLongIdSet
 import tachiyomi.core.common.preference.TriState
-import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSortItem
@@ -46,8 +45,7 @@ import tachiyomi.presentation.core.util.collectAsState
  * active [LibrarySettingsBinding] describes, so a change reaches manga and novels at once and neither
  * can gain an option the other silently misses. [settingsViewModel] backs the Display tab, the
  * logged-in tracker list and the global "Downloaded only" mode, all library-wide. A null [categoryId]
- * is the global scope, and the Default category resolves to it too: that row is universal, so a sort
- * override on it could not mean one thing for manga and another for novels.
+ * is the global scope, and the sort kernel (canOverrideSort) sends the Default category there too.
  */
 @Composable
 fun LibrarySettingsSheet(
@@ -170,10 +168,8 @@ private fun ColumnScope.SortPage(
     val globalSort by settings.globalSort.collectAsState()
     val categories by settings.categories.collectAsState()
 
-    // The Default row is universal, so it has no override of its own and follows the global sort.
-    val scopeId = categoryId?.takeUnless { it == Category.UNCATEGORIZED_ID }
-    val flags = scopeId?.let { id -> categories.find { it.id == id }?.flags } ?: 0L
-    val currentSort = sortForCategory(flags, globalSort)
+    val category = categoryId?.let { id -> categories.find { it.id == id } }
+    val currentSort = category?.let { sortForCategory(it, globalSort) } ?: globalSort
     val sortDescending = !currentSort.isAscending
 
     val options = remember(trackers.isEmpty()) { librarySortTypes(hasTracker = trackers.isNotEmpty()) }
@@ -183,7 +179,7 @@ private fun ColumnScope.SortPage(
             BaseSortItem(
                 label = stringResource(sortLabelRes(mode)),
                 icon = MaterialSymbols.Rounded.Refresh.takeIf { currentSort.type == LibrarySort.Type.Random },
-                onClick = { settings.setSort(scopeId, mode, LibrarySort.Direction.Ascending) },
+                onClick = { settings.setSort(categoryId, mode, LibrarySort.Direction.Ascending) },
             )
             return@forEach
         }
@@ -197,14 +193,14 @@ private fun ColumnScope.SortPage(
                 } else {
                     currentSort.direction
                 }
-                settings.setSort(scopeId, mode, direction)
+                settings.setSort(categoryId, mode, direction)
             },
         )
     }
 
     // Clear this category's override so it follows the global sort again (only when overridden).
-    if (scopeId != null && (flags and CATEGORY_SORT_CUSTOMIZED) != 0L) {
-        ResetToGlobalSortItem(onClick = { settings.resetSort(scopeId) })
+    if (category != null && isSortOverridden(category)) {
+        ResetToGlobalSortItem(onClick = { settings.resetSort(category.id) })
     }
 }
 

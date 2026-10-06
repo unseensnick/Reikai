@@ -2,6 +2,7 @@ package tachiyomi.domain.category.interactor
 
 import dev.zacsweers.metro.Inject
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
+import reikai.domain.library.canOverrideSort
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibrarySort
@@ -21,7 +22,8 @@ class SetSortModeForCategory(
         if (type == LibrarySort.Type.Random) {
             preferences.randomSortSeed.set(Random.nextInt())
         }
-        if (category != null && preferences.categorizedDisplaySettings.get()) {
+        // RK: canOverrideSort sends the universal Default row to the global sort
+        if (category != null && canOverrideSort(category) && preferences.categorizedDisplaySettings.get()) {
             // RK: a per-category sort is an OVERRIDE. Mark the CUSTOMIZED bit so the read
             // (reikai.domain.library.sortForCategory) uses this category's own sort; non-overridden
             // categories follow the global sortingMode instead.
