@@ -321,7 +321,7 @@ class App :
                 // Keyer
                 add(MangaCoverKeyer(coverCache))
                 add(MangaKeyer())
-                add(NovelCoverKeyer()) // RK
+                add(NovelCoverKeyer(coverCache)) // RK
                 add(NovelImageKeyer()) // RK
                 add(PagePreviewKeyer()) // RK
                 add(MangaDexTrackCoverKeyer()) // RK

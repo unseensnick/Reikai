@@ -435,6 +435,7 @@ agent under Settings -> Advanced.
 - **The Cloudflare bypass now gives up in seconds on a challenge the site abandons or a browser process that dies, instead of after half a minute, and a dying browser no longer risks taking the app down.**
 - **Clearing a site's cookies in the WebView now removes the ones it shares with its subdomains, so a failed Cloudflare bypass no longer spoils the next request to that site.**
 - **Browse, global search and the feed now show your custom cover on a novel in your library, as they do for manga.**
+- **Adding a light novel from Browse now keeps the cover already loaded instead of downloading it again.**
 - **The Hide entries already in library setting now applies to novel sources too.** Browsing keeps loading further pages when everything on a page is already in your library.
 - **Peeking at a possible duplicate no longer throws away the add you were making.** Long-press opens it, and the same question is waiting when you come back.
 - **Adding a manga no longer flags an unrelated library manga as a duplicate because both are tracked on a tracker that gives no entry id (from Mihon).** Upstream: mihonapp/mihon#4008.
