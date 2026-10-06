@@ -14,14 +14,13 @@ import kotlinx.coroutines.flow.onStart
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
 import reikai.domain.source.ToggleNovelSource
-import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.isDisabled
 
 /**
- * The installed light-novel sources, as the shared Sources list's novel provider. Loads the
- * persisted plugins once via [LnPluginInstaller.ensureLoaded], then follows [NovelSourceManager].
+ * The installed light-novel sources, as the shared Sources list's novel provider, over
+ * [NovelSourceManager.loadedSources].
  *
  * Sectioning, the chip and the row dialog belong to [SourcesEngine]: they describe the whole list,
  * which this only ever sees half of.
@@ -31,14 +30,13 @@ import reikai.novel.source.isDisabled
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class NovelSourcesViewModel(
     manager: NovelSourceManager,
-    private val installer: LnPluginInstaller,
     private val sourcePreferences: ReikaiSourcePreferences,
     private val toggleNovelSource: ToggleNovelSource,
 ) : ViewModel() {
 
-    /** Enabled sources, ungrouped. Null until the plugin host has answered once. */
+    /** Enabled sources, ungrouped. Null until the plugins and the apps have loaded once. */
     val sources: Flow<List<NovelSourceEntry>?> = combine(
-        manager.sources,
+        manager.loadedSources(),
         sourcePreferences.pinnedNovelSources.changes(),
         sourcePreferences.disabledNovelSources.changes(),
         sourcePreferences.disabledNovelLanguages.changes(),
@@ -46,12 +44,7 @@ class NovelSourcesViewModel(
     ) { sources, pinned, disabled, disabledLangs, lastUsed ->
         sources.toEntries(pinned, disabled, disabledLangs, (lastUsed as? SourceKey.Novel)?.id)
     }
-        .onStart<List<NovelSourceEntry>?> {
-            emit(null)
-            // The plugin host has to be loaded before the source list means anything, and this runs
-            // on every (re)subscription now that the list is not always-on. ensureLoaded is idempotent.
-            installer.ensureLoaded()
-        }
+        .onStart<List<NovelSourceEntry>?> { emit(null) }
         .flowOn(Dispatchers.IO)
 
     fun togglePin(sourceId: String) {

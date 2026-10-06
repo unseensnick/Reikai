@@ -2,8 +2,6 @@ package reikai.novel.source
 
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
-import eu.kanade.tachiyomi.source.CatalogueSource
-import eu.kanade.tachiyomi.source.model.FilterList
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
@@ -15,7 +13,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
@@ -47,14 +44,14 @@ class NovelSourceManagerTest {
 
     @Test
     fun `an installed app's catalogue is registered`() = runTest {
-        loaded.value = listOf(app(catalogue(7L)))
+        loaded.value = listOf(novelApp(novelCatalogue(7L)))
 
         manager.sources.first { it.isNotEmpty() }.map { it.id } shouldBe listOf("tachiyomi:7")
     }
 
     @Test
     fun `an uninstalled app's catalogue leaves the registry`() = runTest {
-        loaded.value = listOf(app(catalogue(7L)))
+        loaded.value = listOf(novelApp(novelCatalogue(7L)))
         manager.sources.first { it.isNotEmpty() }
 
         loaded.value = emptyList()
@@ -67,14 +64,14 @@ class NovelSourceManagerTest {
         val plugin = mockk<NovelSource> { every { id } returns "plugin" }
         manager.register(plugin)
 
-        loaded.value = listOf(app(catalogue(7L)))
+        loaded.value = listOf(novelApp(novelCatalogue(7L)))
 
         manager.sources.first { it.size == 2 }.map { it.id }.toSet() shouldBe setOf("plugin", "tachiyomi:7")
     }
 
     @Test
     fun `an app's catalogue is remembered, so its novels keep a name once it is removed`() = runTest {
-        loaded.value = listOf(app(catalogue(7L)))
+        loaded.value = listOf(novelApp(novelCatalogue(7L)))
 
         val written = slot<Map<String, LnSourceIdentity>>()
         verify(timeout = 5_000) { seen.set(capture(written)) }
@@ -83,7 +80,7 @@ class NovelSourceManagerTest {
 
     @Test
     fun `an IReader app's catalogue is registered under its own id beside a tachiyomi one's`() = runTest {
-        loaded.value = listOf(app(catalogue(7L)), iReaderApp(7L))
+        loaded.value = listOf(novelApp(novelCatalogue(7L)), iReaderApp(7L))
 
         manager.sources.first { it.size == 2 }.map { it.id }.toSet() shouldBe setOf("tachiyomi:7", "ireader:7")
     }
@@ -94,7 +91,7 @@ class NovelSourceManagerTest {
         loaded.value = listOf(iReader)
         val before = manager.sources.first { it.isNotEmpty() }.single()
 
-        loaded.value = listOf(iReader, app(catalogue(8L)))
+        loaded.value = listOf(iReader, novelApp(novelCatalogue(8L)))
 
         manager.sources.first { it.size == 2 }.first { it.id == "ireader:7" } shouldBeSameInstanceAs before
     }
@@ -107,7 +104,7 @@ class NovelSourceManagerTest {
 
     @Test
     fun `an installed source is named by itself`() = runTest {
-        loaded.value = listOf(app(catalogue(7L)))
+        loaded.value = listOf(novelApp(novelCatalogue(7L)))
         manager.sources.first { it.isNotEmpty() }
 
         manager.nameOf("tachiyomi:7") shouldBe "App 7"
@@ -151,13 +148,13 @@ class NovelSourceManagerTest {
     @Test
     fun `an installed source's own language wins over its seen record`() = runTest {
         every { seen.get() } returns mapOf("tachiyomi:7" to LnSourceIdentity(name = "App 7", lang = "ja"))
-        loaded.value = listOf(app(catalogue(7L)))
+        loaded.value = listOf(novelApp(novelCatalogue(7L)))
         manager.sources.first { it.isNotEmpty() }
 
         manager.langOf("tachiyomi:7") shouldBe "en"
     }
 
-    private fun iReaderApp(sourceId: Long) = app().copy(
+    private fun iReaderApp(sourceId: Long) = novelApp().copy(
         pkgName = "ireader.app.en",
         kind = Extension.Kind.IREADER,
         sources = listOf(
@@ -171,29 +168,5 @@ class NovelSourceManagerTest {
                 },
             ),
         ),
-    )
-
-    private fun catalogue(sourceId: Long) = mockk<CatalogueSource> {
-        every { id } returns sourceId
-        every { name } returns "App $sourceId"
-        every { lang } returns "en"
-        every { supportsLatest } returns false
-        every { getFilterList() } returns FilterList()
-    }
-
-    private fun app(vararg catalogues: CatalogueSource) = Extension.Loaded(
-        name = "App",
-        pkgName = "eu.kanade.tachiyomi.novelextension.en.app",
-        versionName = "1.6.1",
-        versionCode = 1,
-        libVersion = 1.6,
-        lang = "en",
-        contentWarning = ContentWarning.SAFE,
-        isShared = true,
-        signatures = emptyList(),
-        kind = Extension.Kind.TACHIYOMI_NOVEL,
-        pkgFactory = null,
-        sources = catalogues.toList(),
-        icon = null,
     )
 }

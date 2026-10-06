@@ -15,7 +15,6 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import mihon.domain.extension.model.ContentWarning
 import okhttp3.Headers
 import okhttp3.Headers.Companion.headersOf
 import okhttp3.OkHttpClient
@@ -24,6 +23,7 @@ import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.ireader.IReaderSourceHolder
+import reikai.novel.source.novelApp
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import ireader.core.source.HttpSource as IReaderHttpSource
@@ -75,7 +75,7 @@ class NovelImageRequestsTest {
 
     @Test
     fun `an APK source uses its own headers`() = runTest {
-        val headers = requests(loaded = listOf(app(apkSource(headersOf("Referer", "https://apk.example/")))))
+        val headers = requests(loaded = listOf(novelApp(apkSource(headersOf("Referer", "https://apk.example/")))))
             .forSource("tachiyomi:42").headers
 
         headers["Referer"] shouldBe "https://apk.example/"
@@ -104,7 +104,7 @@ class NovelImageRequestsTest {
     fun `a chapter picture on another site gets the plain image headers an LNReader source sends`() = runTest {
         val apk = apkSource(headersOf("User-Agent", "apk-agent", "X-Token", "secret"))
 
-        requests(loaded = listOf(app(apk))).forSource("tachiyomi:42")
+        requests(loaded = listOf(novelApp(apk))).forSource("tachiyomi:42")
             .forUrl("https://images.example/p.jpg").headers shouldBe
             lnImageHeaders("apk-agent", "https://apk.example", emptyMap())
     }
@@ -147,7 +147,7 @@ class NovelImageRequestsTest {
         requests(scanDone = false).webViewHeaders("p") shouldBe emptyMap()
     }
 
-    private fun apkWithToken() = app(apkSource(headersOf("X-Token", "secret")))
+    private fun apkWithToken() = novelApp(apkSource(headersOf("X-Token", "secret")))
 
     private fun apkSource(headers: Headers) = mockk<HttpSource> {
         every { id } returns 42L
@@ -172,24 +172,8 @@ class NovelImageRequestsTest {
                 HttpClient() to HttpRequestBuilder().apply { headers.append("Referer", "https://ir.example/") }
             }
         }
-        return app(IReaderSourceHolder(catalogue)).copy(kind = Extension.Kind.IREADER)
+        return novelApp(IReaderSourceHolder(catalogue)).copy(kind = Extension.Kind.IREADER)
     }
-
-    private fun app(vararg sources: eu.kanade.tachiyomi.source.Source) = Extension.Loaded(
-        name = "App",
-        pkgName = "eu.kanade.tachiyomi.novelextension.en.app",
-        versionName = "1.6.1",
-        versionCode = 1,
-        libVersion = 1.6,
-        lang = "en",
-        contentWarning = ContentWarning.SAFE,
-        isShared = true,
-        signatures = emptyList(),
-        kind = Extension.Kind.TACHIYOMI_NOVEL,
-        pkgFactory = null,
-        sources = sources.toList(),
-        icon = null,
-    )
 
     private fun requests(
         seen: Map<String, LnSourceIdentity> = emptyMap(),
