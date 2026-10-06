@@ -75,6 +75,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -133,6 +134,7 @@ import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
+import reikai.presentation.details.loadThenRenderOn
 import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
@@ -342,19 +344,18 @@ class MangaViewModel(
             // RK --> when the manga is part of a merge group, the chapter list is the aggregated
             // union of every grouped source; otherwise it stays the single-source list.
             combine(
-                combine(
-                    getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true).distinctUntilChanged(),
-                    mergeGroup.state,
-                    downloadCache.changes,
-                    downloadManager.queueState,
-                ) { mangaAndChapters, group, _, _ ->
-                    ChapterInputs(mangaAndChapters.first, mangaAndChapters.second, group)
-                },
-                // Re-emit so a hide/unhide or the show-hidden toggle rebuilds the chapter list.
-                hiddenChaptersPref.changes(),
-                showHiddenFlow,
-            ) { inputs, _, _ -> inputs }
-                .flatMapLatest { (manga, ownChapters, group) ->
+                getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true).distinctUntilChanged(),
+                mergeGroup.state,
+            ) { mangaAndChapters, group -> ChapterInputs(mangaAndChapters.first, mangaAndChapters.second, group) }
+                // A download, the queue or a hide only re-renders the loaded rows, as upstream's combine does.
+                .loadThenRenderOn(
+                    merge(
+                        downloadCache.changes,
+                        downloadManager.queueState,
+                        hiddenChaptersPref.changes(),
+                        showHiddenFlow,
+                    ),
+                ) { (manga, ownChapters, group) ->
                     val selectedSource = group.selected
                     when {
                         selectedSource != null && group.ids.size > 1 ->
@@ -365,7 +366,7 @@ class MangaViewModel(
                                     manga = manga,
                                     chapters = ownChapters,
                                     mangaBySource = emptyMap(),
-                                    flags = ownFlags(ownChapters, manga),
+                                    flags = { ownFlags(ownChapters, manga) },
                                 ),
                             )
                         else ->
@@ -373,7 +374,7 @@ class MangaViewModel(
                     }
                 }
                 .collectLatest { mc ->
-                    val items = mc.chapters.toChapterListItems(mc.manga, mc.flags, mc.mangaBySource)
+                    val items = mc.chapters.toChapterListItems(mc.manga, mc.flags(), mc.mangaBySource)
                     val hidden = applyHiddenChapters(items, mc.manga, mc.mangaBySource)
                     updateSuccessState {
                         val next = it.copy(
@@ -973,8 +974,9 @@ class MangaViewModel(
         val manga: Manga,
         val chapters: List<Chapter>,
         val mangaBySource: Map<Long, Manga>,
-        // RK: read, bookmarked and on disk as the view's merge scope answers them for [chapters].
-        val flags: GroupChapterFlags<Chapter>,
+        // RK: read, bookmarked and on disk as the view's merge scope answers them for [chapters]. Built per
+        // render, since the flags cache their disk probe and a download tick re-renders without reloading.
+        val flags: () -> GroupChapterFlags<Chapter>,
         // RK: per-source metadata shown in the info box when a source chip is active (null = unified).
         // Kept separate from [manga] so favorite / tracking / chapter-flag actions stay on the primary.
         val displayManga: Manga? = null,
@@ -1010,8 +1012,10 @@ class MangaViewModel(
                 displayManga = sourceManga,
                 displaySource = sourceManager.getOrStub(sourceManga.source),
                 // The chip shows one source, but a chapter read on a sibling still reads as read.
-                flags = group.rowFlags(pooled, ownChapters, stitch, { it.id }, { it.read }, { it.bookmark }) {
-                    downloadedIdsOf(pooled, mangaBySource, sourceManga)
+                flags = {
+                    group.rowFlags(pooled, ownChapters, stitch, { it.id }, { it.read }, { it.bookmark }) {
+                        downloadedIdsOf(pooled, mangaBySource, sourceManga)
+                    }
                 },
             )
         }
@@ -1093,8 +1097,10 @@ class MangaViewModel(
                 manga = displayManga,
                 chapters = merged,
                 mangaBySource = mangaBySource,
-                flags = group.rowFlags(pooled, merged, stitch, { it.id }, { it.read }, { it.bookmark }) {
-                    downloadedIdsOf(pooled, mangaBySource, displayManga)
+                flags = {
+                    group.rowFlags(pooled, merged, stitch, { it.id }, { it.read }, { it.bookmark }) {
+                        downloadedIdsOf(pooled, mangaBySource, displayManga)
+                    }
                 },
             )
         }
