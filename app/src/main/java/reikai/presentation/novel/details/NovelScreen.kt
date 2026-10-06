@@ -117,13 +117,15 @@ class NovelScreen(
                             onOpenChapter = { chapterId ->
                                 // Route to the chapter's own source (a unified-list row keeps its owning
                                 // novelId). The All chip opens group scope; a source chip opens source scope.
-                                s.chapters.firstOrNull { it.id == chapterId }?.let { ch ->
+                                // The model's state at the tap, so the lambda outlives an emission (as manga's).
+                                val live = viewModel.state.value as? NovelDetailsState.Loaded
+                                live?.chapters?.firstOrNull { it.id == chapterId }?.let { ch ->
                                     context.startActivity(
                                         ReaderActivity.newNovelIntent(
                                             context = context,
                                             novelId = ch.novelId,
                                             chapterId = ch.id,
-                                            sourceScoped = s.selectedSourceNovelId != null,
+                                            sourceScoped = live.selectedSourceNovelId != null,
                                         ),
                                     )
                                 }

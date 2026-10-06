@@ -432,6 +432,10 @@ private fun LazyListScope.entryChapterItems(
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     onOpenChapter: (Long) -> Unit,
 ) {
+    // The row lambdas capture these and the typed chapter below, never the whole state, so a row whose
+    // own values did not change skips recomposing when another row changes.
+    val selectionMode = state.selectionMode
+    val chaptersDownloadable = state.chaptersDownloadable
     items(
         items = state.chapters.items,
         key = { item ->
@@ -445,48 +449,50 @@ private fun LazyListScope.entryChapterItems(
         when (item) {
             is EntryChapterListItem.Missing -> MissingChapterCountListItem(count = item.count)
             is EntryChapterListItem.Chapter -> {
+                // Typed as the stable Chapter, so the lambdas compare it by value rather than by instance.
+                val chapter: EntryChapterListItem.Chapter = item
                 val haptic = LocalHapticFeedback.current
-                val isSelected = item.id in state.selection
+                val isSelected = chapter.id in state.selection
                 MangaChapterListItem(
                     modifier = Modifier.alpha(
-                        if (item.id in state.chapters.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f,
+                        if (chapter.id in state.chapters.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f,
                     ),
-                    title = if (state.showChapterNumberOnly && item.isRecognizedNumber) {
-                        stringResource(MR.strings.display_mode_chapter, formatChapterNumber(item.chapterNumber))
+                    title = if (state.showChapterNumberOnly && chapter.isRecognizedNumber) {
+                        stringResource(MR.strings.display_mode_chapter, formatChapterNumber(chapter.chapterNumber))
                     } else {
-                        item.name
+                        chapter.name
                     },
                     date = when {
-                        item.dateUpload > 0L -> relativeDateText(item.dateUpload)
+                        chapter.dateUpload > 0L -> relativeDateText(chapter.dateUpload)
                         // Upstream's formatter answers "N/A" for an undated chapter; whether that
                         // reads as information or as noise is the content type's call.
                         state.chapters.undatedChapterDate == UndatedChapterDate.NotApplicable ->
-                            relativeDateText(item.dateUpload)
+                            relativeDateText(chapter.dateUpload)
                         else -> null
                     },
-                    readProgress = item.readProgress,
-                    scanlator = item.subtitle,
-                    read = item.read,
-                    bookmark = item.bookmark,
+                    readProgress = chapter.readProgress,
+                    scanlator = chapter.subtitle,
+                    read = chapter.read,
+                    bookmark = chapter.bookmark,
                     selected = isSelected,
-                    downloadIndicatorEnabled = !state.selectionMode && state.chaptersDownloadable,
-                    downloadStateProvider = { item.downloadState },
-                    downloadProgressProvider = { item.downloadProgress },
+                    downloadIndicatorEnabled = !selectionMode && chaptersDownloadable,
+                    downloadStateProvider = { chapter.downloadState },
+                    downloadProgressProvider = { chapter.downloadProgress },
                     chapterSwipeStartAction = chapterSwipeStartAction,
                     chapterSwipeEndAction = chapterSwipeEndAction,
                     onLongClick = {
-                        behavior.toggleSelection(item.id, true)
+                        behavior.toggleSelection(chapter.id, true)
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
                     onClick = {
-                        if (state.selectionMode) behavior.toggleSelection(item.id, false) else onOpenChapter(item.id)
+                        if (selectionMode) behavior.toggleSelection(chapter.id, false) else onOpenChapter(chapter.id)
                     },
-                    onDownloadClick = if (state.chaptersDownloadable) {
-                        { behavior.onChapterDownloadAction(item.id, it) }
+                    onDownloadClick = if (chaptersDownloadable) {
+                        { behavior.onChapterDownloadAction(chapter.id, it) }
                     } else {
                         null
                     },
-                    onChapterSwipe = { behavior.chapterSwipe(item.id, it) },
+                    onChapterSwipe = { behavior.chapterSwipe(chapter.id, it) },
                 )
             }
         }

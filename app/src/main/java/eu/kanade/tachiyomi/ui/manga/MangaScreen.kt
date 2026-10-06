@@ -131,9 +131,13 @@ class MangaScreen(
                     nav = EntryDetailsNavigation(
                         navigateUp = navigator::pop,
                         // A specific source chip opens source scope; the All chip (null) opens group scope.
+                        // Reads the model's state at the tap rather than capturing this emission's, so the
+                        // lambda outlives an emission and the chapter rows can skip recomposing.
                         onOpenChapter = { chapterId ->
-                            successState.chapters.firstOrNull { it.id == chapterId }?.chapter?.let {
-                                openChapter(context, it, successState.selectedSourceMangaId != null)
+                            (viewModel.state.value as? MangaViewModel.State.Success)?.let { live ->
+                                live.chapters.firstOrNull { it.id == chapterId }?.chapter?.let {
+                                    openChapter(context, it, live.selectedSourceMangaId != null)
+                                }
                             }
                         },
                         onGlobalSearch = { scope.launch { performSearch(navigator, it, global = true) } },
