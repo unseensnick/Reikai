@@ -47,6 +47,7 @@ import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.presentation.recents.MangaRecentsAdapter
 import reikai.presentation.recents.NovelRecentsAdapter
 import reikai.presentation.widget.UnifiedUpdatesGlanceWidget
+import reikai.presentation.widget.UnifiedUpdatesWidgetManager
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
@@ -107,6 +108,7 @@ interface ReikaiGraph {
     val novelChapterRepository: NovelChapterRepository // NovelUpdates finds the release a read links to
     val novelFontManager: NovelFontManager
     val migrationPickHandoff: MigrationPickHandoff
+    val unifiedUpdatesWidgetManager: UnifiedUpdatesWidgetManager // the receiver reports widgets placed
 
     // The two details adapters build their cover model for whichever entry the source chip is showing,
     // so the id arrives at call time and the factory is what the graph can hand over.
