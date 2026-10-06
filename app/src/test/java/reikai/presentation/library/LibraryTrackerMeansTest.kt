@@ -37,7 +37,7 @@ class LibraryTrackerMeansTest {
     @Test
     fun `a group scores once per logged-in tracker and skips unrated scores`() {
         // Members 1 and 2 are one group. Tracker 1 is bound on both (counted once, the first member's
-        // score), tracker 2 is logged out, tracker 3 is bound but unrated.
+        // score on a progress tie), tracker 2 is logged out, tracker 3 is bound but unrated.
         val means = libraryTrackerMeans(
             membersByRow = mapOf(1L to listOf(1L, 2L)),
             tracksById = mapOf(
@@ -51,14 +51,26 @@ class LibraryTrackerMeansTest {
     }
 
     @Test
-    fun `a group keeps one track per tracker, the first member's`() {
+    fun `a group keeps one track per tracker, the furthest-read, as the tracking sheet does`() {
+        val behind = track(1L, 1L, 8.0).copy(lastChapterRead = 3.0)
+        val ahead = track(2L, 1L, 4.0).copy(lastChapterRead = 9.0)
+        val tracks = mergedGroupTracks(
+            memberIds = listOf(1L, 2L),
+            tracksById = mapOf(1L to listOf(behind), 2L to listOf(ahead, track(2L, 3L, 5.0))),
+        )
+
+        tracks shouldBe listOf(ahead, track(2L, 3L, 5.0))
+    }
+
+    @Test
+    fun `a tie on progress keeps the first member's track`() {
         val first = track(1L, 1L, 8.0)
         val tracks = mergedGroupTracks(
             memberIds = listOf(1L, 2L),
-            tracksById = mapOf(1L to listOf(first), 2L to listOf(track(2L, 1L, 4.0), track(2L, 3L, 5.0))),
+            tracksById = mapOf(1L to listOf(first), 2L to listOf(track(2L, 1L, 4.0))),
         )
 
-        tracks shouldBe listOf(first, track(2L, 3L, 5.0))
+        tracks shouldBe listOf(first)
     }
 
     @Test

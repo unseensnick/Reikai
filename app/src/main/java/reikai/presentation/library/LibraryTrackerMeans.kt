@@ -3,6 +3,7 @@ package reikai.presentation.library
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import reikai.domain.track.canonicalTracksPerTracker
 import tachiyomi.domain.track.model.Track
 
 /**
@@ -26,10 +27,10 @@ fun libraryTrackerMeans(
 
 /**
  * A merged row's tracks, which every tracker-reading library rule reads (filter, sort, grouping), so a
- * tracker bound on any grouped source counts. One per tracker, the first member's winning.
+ * tracker bound on any grouped source counts. One per tracker, picked as the tracking sheet picks it.
  */
 fun mergedGroupTracks(memberIds: List<Long>, tracksById: Map<Long, List<Track>>): List<Track> =
-    memberIds.flatMap { tracksById[it].orEmpty() }.distinctBy { it.trackerId }
+    canonicalTracksPerTracker(memberIds.flatMap { tracksById[it].orEmpty() }, Track::trackerId, Track::lastChapterRead)
 
 /** The tracking status a row is grouped under: the first logged-in tracker's among [groupTracks]. */
 fun groupTrackStatus(
