@@ -39,6 +39,7 @@ import eu.kanade.presentation.browse.ExtensionSplitButton
 import eu.kanade.presentation.browse.ExtensionTrustDialog
 import eu.kanade.presentation.browse.ExtensionUninstallConfirmation
 import eu.kanade.presentation.browse.NotLoadedDialog
+import eu.kanade.presentation.browse.components.BaseBrowseItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.presentation.components.WarningBanner
@@ -67,9 +68,12 @@ import reikai.novel.source.NovelSource
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.BrowseSectionHeader
-import reikai.presentation.browse.components.NovelSourceRow
+import reikai.presentation.browse.components.ExtensionRowDetail
+import reikai.presentation.browse.components.NovelSourceIcon
+import reikai.presentation.browse.components.SourceNameRow
 import reikai.presentation.browse.extension.details.NovelPluginDetailsScreen
 import reikai.presentation.browse.repos.RepositoriesScreen
+import reikai.presentation.browse.sourceLanguageName
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.TypeBadge
@@ -507,7 +511,7 @@ private fun NovelExtensionRow(
             val key = canonicalizePluginUrl(payload.url)
             val installing = key in state.inProgress
             val details = stringResource(MR.strings.ext_not_loaded_details) to { onNotLoaded(payload) }
-            NovelSourceRow(
+            PluginRow(
                 modifier = modifier,
                 name = payload.name,
                 lang = lang,
@@ -551,7 +555,7 @@ private fun NovelExtensionRow(
                     navigator.push(NovelPluginDetailsScreen(update.entry.id))
                 }
             }
-            NovelSourceRow(
+            PluginRow(
                 modifier = modifier,
                 name = update.entry.name,
                 lang = lang,
@@ -584,7 +588,7 @@ private fun NovelExtensionRow(
                 },
             )
         }
-        is NovelSource -> NovelSourceRow(
+        is NovelSource -> PluginRow(
             modifier = modifier,
             name = payload.name,
             lang = lang,
@@ -609,7 +613,7 @@ private fun NovelExtensionRow(
             val webView = payload.site.takeIf { it.isNotEmpty() }?.let {
                 stringResource(MR.strings.action_open_in_web_view) to { navigator.push(webViewFor(payload)) }
             }
-            NovelSourceRow(
+            PluginRow(
                 modifier = modifier,
                 name = payload.name,
                 lang = lang,
@@ -665,6 +669,36 @@ private fun PluginRetryButton(
  */
 private fun webViewFor(entry: LnRegistryEntry) =
     WebViewScreen(url = entry.site, initialTitle = entry.name, pluginId = entry.id)
+
+/** A plugin's row, drawn as an apk extension row is: its repo, then its language and version. */
+@Composable
+private fun PluginRow(
+    name: String,
+    lang: String,
+    iconUrl: String?,
+    version: String?,
+    repoName: String?,
+    onClickItem: () -> Unit,
+    onLongClickItem: () -> Unit,
+    badge: @Composable () -> Unit,
+    action: @Composable RowScope.() -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BaseBrowseItem(
+        modifier = modifier,
+        onClickItem = onClickItem,
+        onLongClickItem = onLongClickItem,
+        icon = { NovelSourceIcon(iconUrl, size = 48.dp) },
+        action = action,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(start = MaterialTheme.padding.medium)) {
+            SourceNameRow(name, badge)
+            repoName?.let { ExtensionRowDetail(it) }
+            val facts = listOfNotNull(sourceLanguageName(lang, LocalContext.current), version)
+            if (facts.isNotEmpty()) ExtensionRowDetail(facts.joinToString(" • "))
+        }
+    }
+}
 
 /**
  * A novel row's trailing buttons, or a spinner while its install runs.

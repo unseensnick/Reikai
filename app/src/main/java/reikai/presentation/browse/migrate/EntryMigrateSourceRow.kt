@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import eu.kanade.presentation.browse.components.BaseBrowseItem
+import reikai.presentation.browse.components.SourceNameRow
 import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.browse.components.sourceDetail
 import reikai.presentation.browse.sourceLanguageName
@@ -52,19 +53,7 @@ fun EntryMigrateSourceRow(
                     .padding(horizontal = MaterialTheme.padding.medium)
                     .weight(1f),
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = row.name,
-                        modifier = Modifier.weight(1f, fill = false),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    badge()
-                }
+                SourceNameRow(row.name, badge)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                     verticalAlignment = Alignment.CenterVertically,

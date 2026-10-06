@@ -54,7 +54,9 @@ import mihon.icons.materialsymbols.rounded.Info
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Settings
 import mihon.icons.materialsymbols.rounded.VerifiedUser
+import reikai.presentation.browse.components.ExtensionRowDetail
 import reikai.presentation.browse.components.NovelIconInset
+import reikai.presentation.browse.components.SourceNameRow
 import reikai.presentation.browse.extension.versionLabel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -179,30 +181,10 @@ private fun ExtensionItemContent(
     Column(
         modifier = modifier.padding(start = MaterialTheme.padding.medium),
     ) {
-        // RK --> the name shares a row with the content-type badge
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = extension.name,
-                modifier = Modifier.weight(1f, fill = false),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            badge()
-        }
-        // RK <--
+        SourceNameRow(extension.name, badge) // RK: the name shares a row with the content-type badge
 
         if (store != null) {
-            Text(
-                text = store.name,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            ExtensionRowDetail(store.name) // RK: shared with the novel plugin rows
         }
 
         ExtensionItemMetadata(
@@ -276,13 +258,7 @@ private fun ExtensionItemMetadata(
             extension.versionName.takeIf { it.isNotEmpty() }?.let { versionLabel(it, updateVersion) },
         )
         if (facts.isNotEmpty()) {
-            Text(
-                text = facts.joinToString(" • "),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            ExtensionRowDetail(facts.joinToString(" • ")) // RK: shared with the novel plugin rows
         }
 
         val notable = listOfNotNull(

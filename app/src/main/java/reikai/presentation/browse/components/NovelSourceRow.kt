@@ -1,7 +1,6 @@
 package reikai.presentation.browse.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
@@ -18,39 +17,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import eu.kanade.presentation.browse.components.BaseBrowseItem
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ChromeReaderMode
-import reikai.presentation.browse.sourceLanguageName
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.theme.header
-import tachiyomi.presentation.core.util.secondaryItemAlpha
 
 /**
- * One row for a light-novel source, mirroring Mihon's [eu.kanade.presentation.browse.components.BaseSourceItem]
- * shape (icon, name + language, trailing action) but typed on the LN side (plain fields, not Mihon's
- * `Source`). Shared by the Sources-tab list and the Extensions-tab plugin manager.
+ * One row for a light-novel source, drawn as Mihon's [eu.kanade.presentation.browse.components.BaseSourceItem]
+ * draws a manga one (icon, name and detail, trailing action) but typed on the LN side (plain fields, not
+ * Mihon's `Source`). The Extensions tab's plugin rows are drawn as apk extension rows instead.
  */
 @Composable
 fun NovelSourceRow(
     name: String,
-    lang: String = "",
     iconUrl: String?,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
-    /** Shown after the language, the way a manga extension row shows its own. */
-    version: String? = null,
     onClickItem: () -> Unit = {},
     onLongClickItem: () -> Unit = {},
     /** Content-type badge, beside the name, drawn by a shared list that holds both types. */
     badge: @Composable () -> Unit = {},
-    /** The repo a plugin comes from, under the name as an apk extension row names its store. */
-    repoName: String? = null,
     action: @Composable RowScope.() -> Unit = {},
 ) {
     BaseBrowseItem(
@@ -59,47 +49,7 @@ fun NovelSourceRow(
         onLongClickItem = onLongClickItem,
         icon = { NovelSourceIcon(iconUrl, size = 48.dp) },
         action = action,
-        content = {
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = MaterialTheme.padding.medium)
-                    .weight(1f),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = name,
-                        modifier = Modifier.weight(1f, fill = false),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    badge()
-                }
-                if (repoName != null) {
-                    Text(
-                        text = repoName,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                val secondary = subtitle ?: listOfNotNull(sourceLanguageName(lang, LocalContext.current), version)
-                    .joinToString(" • ").takeIf { it.isNotEmpty() }
-                if (secondary != null) {
-                    Text(
-                        modifier = Modifier.secondaryItemAlpha(),
-                        text = secondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-            }
-        },
+        content = { SourceRowContent(name, subtitle, badge) },
     )
 }
 
