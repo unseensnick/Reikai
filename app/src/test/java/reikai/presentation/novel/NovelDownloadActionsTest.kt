@@ -3,6 +3,7 @@ package reikai.presentation.novel
 import eu.kanade.presentation.manga.DownloadAction
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.domain.merge.GroupMarks
 import reikai.domain.novel.model.NovelChapter
 
 class NovelDownloadActionsTest {
@@ -33,9 +34,13 @@ class NovelDownloadActionsTest {
         from: List<NovelChapter> = chapters,
         sortDescending: Boolean = false,
     ): List<Long> =
-        selectChaptersForDownloadAction(from, sortDescending, action, excluded, readElsewhere, bookmarkedElsewhere) {
-            it.id in hidden
-        }.map { it.id }
+        selectChaptersForDownloadAction(
+            from,
+            sortDescending,
+            action,
+            excluded,
+            GroupMarks(readElsewhere, bookmarkedElsewhere),
+        ) { it.id in hidden }.map { it.id }
 
     @Test
     fun `a hidden chapter is passed over before next N counts`() {

@@ -216,8 +216,8 @@ class NovelRecentsAdapter(
             ref = ChapterRef(EntryId.Novel(owner.id), chapter.id),
             chapter = item.lane.chapterLabel(chapter.name, chapter.chapterNumber),
             state = chapterState(
-                read = chapter.read || chapter.id in resolved.readElsewhere,
-                bookmark = chapter.bookmark || chapter.id in resolved.bookmarkedElsewhere,
+                read = resolved.marks.isRead(chapter.id, chapter.read),
+                bookmark = resolved.marks.isBookmarked(chapter.id, chapter.bookmark),
                 progress = ChapterProgress.Percent(chapter.lastTextProgress),
             ),
             // The copy a tap opens, which on a group-scoped lane can be another source's on disk.

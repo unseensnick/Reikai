@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.merge.GroupMarks
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -176,8 +177,7 @@ class ReadingOrderConformanceTest {
                     showHiddenRequested = false,
                     keyOf = { it.url },
                     downloadedChapterIds = emptySet(),
-                    readInOtherSources = emptySet(),
-                    bookmarkedInOtherSources = emptySet(),
+                    marks = GroupMarks.NONE,
                     downloadedOnly = false,
                 ).visible
             },

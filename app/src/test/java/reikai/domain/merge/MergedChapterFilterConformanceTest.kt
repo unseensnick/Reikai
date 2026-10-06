@@ -81,12 +81,21 @@ class MergedChapterFilterConformanceTest {
     private object MangaDetails : Probe {
         override fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long> {
             val manga = Manga.create().copy(id = 1L, source = 100L, chapterFlags = mangaFlagOf(filter))
+            val shown = mangaChapter(CHAPTER_ID, read = false, bookmark = false)
+            val flags = groupFlags(
+                shown,
+                mangaChapter(SIBLING_ID, readElsewhere, bookmarkedElsewhere),
+                { it.id },
+                { it.read },
+                { it.bookmark },
+            )
+            // As MangaViewModel.toChapterListItems builds each row.
             val item = ChapterList.Item(
-                chapter = Chapter.create().copy(id = CHAPTER_ID, mangaId = 1L),
+                chapter = shown,
                 downloadState = Download.State.NOT_DOWNLOADED,
                 downloadProgress = 0,
-                readInAnotherSource = readElsewhere,
-                bookmarkedInAnotherSource = bookmarkedElsewhere,
+                isRead = flags.isRead(shown),
+                isBookmarked = flags.isBookmarked(shown),
             )
             return listOf(item).applyFilters(manga).map { it.id }.toList()
         }
@@ -95,15 +104,23 @@ class MergedChapterFilterConformanceTest {
     }
 
     private object NovelDetails : Probe {
-        override fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long> =
-            listOf(novelChapter(CHAPTER_ID)).sortedAndFiltered(
+        override fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long> {
+            val shown = novelChapter(CHAPTER_ID)
+            val flags = groupFlags(
+                shown,
+                novelChapter(SIBLING_ID, readElsewhere, bookmarkedElsewhere),
+                { it.id },
+                { it.read },
+                { it.bookmark },
+            )
+            return listOf(shown).sortedAndFiltered(
                 novel = novelWith(filter),
                 prefs = NovelPreferences(InMemoryPreferenceStore()),
                 downloadedChapterIds = emptySet(),
-                readInOtherSources = if (readElsewhere) setOf(CHAPTER_ID) else emptySet(),
-                bookmarkedInOtherSources = if (bookmarkedElsewhere) setOf(CHAPTER_ID) else emptySet(),
+                marks = flags.marks,
                 downloadedOnly = false,
             ).map { it.id }
+        }
 
         override fun toString() = "novel details"
     }
@@ -123,15 +140,7 @@ class MergedChapterFilterConformanceTest {
     ) : Probe {
         override fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long> {
             val shown = chapter(CHAPTER_ID, false, false)
-            val flags = GroupChapterFlags(
-                scope = MergeScope.Group,
-                pooled = listOf(shown, chapter(SIBLING_ID, readElsewhere, bookmarkedElsewhere)),
-                shown = listOf(shown),
-                stitch = listOf(ChapterUnit(CHAPTER_ID, 0, 0), ChapterUnit(SIBLING_ID, 0, 1)),
-                id = id,
-                read = read,
-                bookmark = bookmark,
-            ) { emptySet() }
+            val flags = groupFlags(shown, chapter(SIBLING_ID, readElsewhere, bookmarkedElsewhere), id, read, bookmark)
             return listOf(shown)
                 .filter {
                     flags.isForwardEligible(it, skipRead = false, skipFiltered = true, filters = filtersOf(filter))
@@ -145,7 +154,7 @@ class MergedChapterFilterConformanceTest {
     private object MangaReader : Reader<Chapter>(
         name = "manga reader",
         filtersOf = { Manga.create().copy(chapterFlags = mangaFlagOf(it)).readerChapterFilters() },
-        chapter = { id, read, bookmark -> Chapter.create().copy(id = id, read = read, bookmark = bookmark) },
+        chapter = ::mangaChapter,
         id = { it.id },
         read = { it.read },
         bookmark = { it.bookmark },
@@ -169,6 +178,21 @@ class MergedChapterFilterConformanceTest {
 
         @JvmStatic
         fun probes() = listOf(MangaDetails, NovelDetails, MangaReader, NovelReader)
+
+        /** A real two-source stitch: [shown] is the copy the list keeps, [sibling] the other source's. */
+        fun <T> groupFlags(shown: T, sibling: T, id: (T) -> Long, read: (T) -> Boolean, bookmark: (T) -> Boolean) =
+            GroupChapterFlags(
+                scope = MergeScope.Group,
+                pooled = listOf(shown, sibling),
+                shown = listOf(shown),
+                stitch = listOf(ChapterUnit(CHAPTER_ID, 0, 0), ChapterUnit(SIBLING_ID, 0, 1)),
+                id = id,
+                read = read,
+                bookmark = bookmark,
+            ) { emptySet() }
+
+        fun mangaChapter(id: Long, read: Boolean, bookmark: Boolean) =
+            Chapter.create().copy(id = id, mangaId = id, read = read, bookmark = bookmark)
 
         fun mangaFlagOf(filter: Filter) = when (filter) {
             Filter.UNREAD -> Manga.CHAPTER_SHOW_UNREAD

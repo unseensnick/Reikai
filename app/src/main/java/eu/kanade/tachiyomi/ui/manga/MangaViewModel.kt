@@ -952,8 +952,8 @@ class MangaViewModel(
                 downloadState = downloadState,
                 downloadProgress = activeDownload?.progress ?: 0,
                 selected = chapter.id in chapterSelection, // RK: was selectedChapterIds
-                readInAnotherSource = chapter.id in flags.readElsewhere,
-                bookmarkedInAnotherSource = chapter.id in flags.bookmarkedElsewhere,
+                isRead = flags.isRead(chapter), // RK
+                isBookmarked = flags.isBookmarked(chapter), // RK
             )
         }
     }
@@ -1964,24 +1964,15 @@ sealed class ChapterList {
         val downloadState: Download.State,
         val downloadProgress: Int,
         val selected: Boolean = false,
-        // RK: another grouped source's copy of this chapter is read. Kept separate from chapter.read,
-        // which stays the row's own DB truth because tracker sync, delete-after-read and mark-unread all
-        // act on the real row.
-        val readInAnotherSource: Boolean = false,
-        // RK: same, for the bookmark flag. Writes already reach every copy, so this only shows through
-        // when the copies were never in sync: a bookmark set before the sources were merged, or one a
-        // backup restored onto a copy the stitch does not show.
-        val bookmarkedInAnotherSource: Boolean = false,
+        // RK: read and bookmarked as the user sees them, the merge group's answer (GroupMarks), so a
+        // chapter read on any source reads as read here, matching the library's unread count. Kept apart
+        // from chapter.read, which stays the row's own DB truth because tracker sync, delete-after-read
+        // and mark-unread act on the real row.
+        val isRead: Boolean,
+        val isBookmarked: Boolean, // RK
     ) : ChapterList() {
         val id = chapter.id
         val isDownloaded = downloadState == Download.State.DOWNLOADED
-
-        // RK: read as the user sees it. The list shows one row per chapter across the group, so a
-        // chapter read on any source reads as read here, matching the library's unread count.
-        val isRead = chapter.read || readInAnotherSource
-
-        // RK: bookmarked as the user sees it, on the same any-source rule as [isRead].
-        val isBookmarked = chapter.bookmark || bookmarkedInAnotherSource
     }
 }
 

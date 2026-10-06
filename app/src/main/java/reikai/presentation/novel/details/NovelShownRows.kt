@@ -1,5 +1,6 @@
 package reikai.presentation.novel.details
 
+import reikai.domain.merge.GroupMarks
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -20,18 +21,10 @@ fun novelShownRows(
     showHiddenRequested: Boolean,
     keyOf: (NovelChapter) -> String,
     downloadedChapterIds: Set<Long>,
-    readInOtherSources: Set<Long>,
-    bookmarkedInOtherSources: Set<Long>,
+    marks: GroupMarks,
     downloadedOnly: Boolean,
 ): HiddenChapterView<NovelChapter> {
     val view = resolveHiddenChapterView(chapters, hiddenKeys, showHiddenRequested, keyOf)
-    val shown = view.visible.sortedAndFiltered(
-        novel,
-        prefs,
-        downloadedChapterIds,
-        readInOtherSources,
-        bookmarkedInOtherSources,
-        downloadedOnly,
-    )
+    val shown = view.visible.sortedAndFiltered(novel, prefs, downloadedChapterIds, marks, downloadedOnly)
     return view.copy(visible = shown)
 }

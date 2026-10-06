@@ -11,8 +11,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import reikai.domain.manga.ChapterAggregation
+import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.MergedGroupCounts
-import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.merge.storedUnitsOf
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.model.NovelChapter
@@ -210,18 +210,16 @@ class MergedCountConformanceTest {
         val byNovel = rows.groupBy({ it.owner }, { it.toNovelChapter() })
         val merged = NovelChapterAggregation.merge(byNovel)
         val pooled = byNovel.values.flatten()
-        val readElsewhere =
-            flaggedOnAnotherSource(pooled, merged.chapters, merged.units, { it.id }, { it.read })
-        return merged.chapters.count { !it.read && it.id !in readElsewhere }
+        val marks = GroupMarks.of(pooled, merged.chapters, merged.units, { it.id }, { it.read }, { it.bookmark })
+        return merged.chapters.count { !marks.isRead(it.id, it.read) }
     }
 
     private fun mangaListCount(rows: List<Row>): Int {
         val bySource = rows.groupBy({ it.owner }, { it.toChapter() })
         val merged = ChapterAggregation.merge(bySource)
         val pooled = bySource.values.flatten()
-        val readElsewhere =
-            flaggedOnAnotherSource(pooled, merged.chapters, merged.units, { it.id }, { it.read })
-        return merged.chapters.count { !it.read && it.id !in readElsewhere }
+        val marks = GroupMarks.of(pooled, merged.chapters, merged.units, { it.id }, { it.read }, { it.bookmark })
+        return merged.chapters.count { !marks.isRead(it.id, it.read) }
     }
 
     // The badge's answer: the same stitch, stored the way reconciliation stores it, then counted.

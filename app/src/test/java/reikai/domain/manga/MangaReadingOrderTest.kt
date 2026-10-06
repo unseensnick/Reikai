@@ -144,7 +144,9 @@ class MangaReadingOrderTest {
                 chapters.getNextUnread(manga, mockk())?.id
             },
             NextChapterCaller("details resume") { manga, chapters ->
-                chapters.map { ChapterList.Item(it, Download.State.NOT_DOWNLOADED, 0) }.getNextUnread(manga)?.id
+                chapters.map {
+                    ChapterList.Item(it, Download.State.NOT_DOWNLOADED, 0, isRead = it.read, isBookmarked = it.bookmark)
+                }.getNextUnread(manga)?.id
             },
             NextChapterCaller("download next, one source") { manga, chapters ->
                 val chapterRepository = mockk<ChapterRepository> {

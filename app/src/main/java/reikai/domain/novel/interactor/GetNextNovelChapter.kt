@@ -6,7 +6,6 @@ import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
-import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
@@ -19,10 +18,9 @@ import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.model.sortedAndFiltered
 import reikai.domain.novel.ownersOf
 
-/** A merged novel's chapters in reading order, and the ids another source of the group already read. */
+/** A merged novel's chapters in reading order. */
 data class NovelGroupChapters(
     val chapters: List<NovelChapter>,
-    val readInOtherSources: Set<Long> = emptySet(),
     /** The stored stitch behind [chapters], and every member's chapters, so a caller can ask a
      *  cross-source question (bookmarked anywhere, on disk anywhere) about the copies it stands in for. */
     val stitch: List<ChapterUnit> = emptyList(),
@@ -55,10 +53,10 @@ class GetNextNovelChapter(
     private val mergedChapterProvider: NovelMergedChapterProvider,
 ) {
     /**
-     * The group's chapters as one cross-source list, the same one the details "All" view shows, plus
-     * what counts as read on another source. Ordered by the novel's own chapter sort, ascending, which
-     * is the order its reader pages in; a merged list is restamped to the stitch first, so the default
-     * "by source order" reads that cross-source order rather than interleaving the sources.
+     * The group's chapters as one cross-source list, the same one the details "All" view shows. Ordered
+     * by the novel's own chapter sort, ascending, which is the order its reader pages in; a merged list is
+     * restamped to the stitch first, so the default "by source order" reads that cross-source order
+     * rather than interleaving the sources.
      */
     suspend fun groupChapters(novelId: Long): NovelGroupChapters {
         val order = readingOrder(novelId)
@@ -73,7 +71,6 @@ class GetNextNovelChapter(
         val unified = mergedChapterProvider.merged(pooled, stitch).sortedWith(order)
         return NovelGroupChapters(
             chapters = unified,
-            readInOtherSources = flaggedOnAnotherSource(pooled, unified, stitch, { it.id }, { it.read }),
             stitch = stitch,
             pooledChapters = pooled,
         )
@@ -124,23 +121,6 @@ class GetNextNovelChapter(
         downloadedIds: (List<NovelChapter>, Map<Long, Novel>) -> Set<Long>,
     ): NovelChapter? {
         val group = groupChapters(novelId)
-        val listed = listedByFilters(novelId, group, downloadedOnly, downloadedIds)
-        val shown = ReadingOrder.hiddenLast(listed, hiddenAmong(group.pooledChapters))
-        return ReadingOrder.nextToRead(shown) { it.read || it.id in group.readInOtherSources }
-    }
-
-    /**
-     * [group]'s chapters the filters keep, still in reading order: the filter's own sort is display order.
-     * Read, bookmarked and on disk are the group's answers, so a chapter whose only copy on disk is another
-     * source's passes a Downloaded filter: that is the copy the reader opens.
-     */
-    private suspend fun listedByFilters(
-        novelId: Long,
-        group: NovelGroupChapters,
-        downloadedOnly: Boolean,
-        downloadedIds: (List<NovelChapter>, Map<Long, Novel>) -> Set<Long>,
-    ): List<NovelChapter> {
-        val novel = novelRepository.getById(novelId) ?: return group.chapters
         val pooled = group.pooledChapters
         val novels = novelRepository.ownersOf(pooled)
         val flags = GroupChapterFlags(
@@ -152,15 +132,26 @@ class GetNextNovelChapter(
             { it.read },
             { it.bookmark },
         ) { downloadedIds(pooled, novels) }
-        val kept = group.chapters.sortedAndFiltered(
-            novel,
-            novelPreferences,
-            flags.downloadedIds,
-            flags.readElsewhere,
-            flags.bookmarkedElsewhere,
-            downloadedOnly,
-        ).mapTo(HashSet()) { it.id }
-        return group.chapters.filter { it.id in kept }
+        val listed = listedByFilters(novelId, group.chapters, flags, downloadedOnly)
+        val shown = ReadingOrder.hiddenLast(listed, hiddenAmong(pooled))
+        return ReadingOrder.nextToRead(shown, flags::isRead)
+    }
+
+    /**
+     * [chapters] the filters keep, still in reading order: the filter's own sort is display order. Read,
+     * bookmarked and on disk are [flags]' group answers, so a chapter whose only copy on disk is another
+     * source's passes a Downloaded filter: that is the copy the reader opens.
+     */
+    private suspend fun listedByFilters(
+        novelId: Long,
+        chapters: List<NovelChapter>,
+        flags: GroupChapterFlags<NovelChapter>,
+        downloadedOnly: Boolean,
+    ): List<NovelChapter> {
+        val novel = novelRepository.getById(novelId) ?: return chapters
+        val kept = chapters.sortedAndFiltered(novel, novelPreferences, flags.downloadedIds, flags.marks, downloadedOnly)
+            .mapTo(HashSet()) { it.id }
+        return chapters.filter { it.id in kept }
     }
 
     /** Whether the user hid a chapter of [chapters], each copy keyed by the source of its own novel. */

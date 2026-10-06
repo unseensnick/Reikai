@@ -61,7 +61,7 @@ class GroupChapterFlagsTest {
             bookmark = { it.bookmark },
         ) { emptySet() }
 
-        flags.readElsewhere shouldBe emptySet()
+        flags.marks shouldBe GroupMarks.NONE
     }
 
     @Test

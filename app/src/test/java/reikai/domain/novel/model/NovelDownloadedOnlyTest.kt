@@ -2,6 +2,7 @@ package reikai.domain.novel.model
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.domain.merge.GroupMarks
 import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 
@@ -37,8 +38,7 @@ class NovelDownloadedOnlyTest {
         of,
         prefs,
         downloadedChapterIds = setOf(1L),
-        readInOtherSources = emptySet(),
-        bookmarkedInOtherSources = emptySet(),
+        marks = GroupMarks.NONE,
         downloadedOnly = downloadedOnly,
     ).map { it.id }.sorted()
 

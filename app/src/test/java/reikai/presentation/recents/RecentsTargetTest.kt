@@ -5,6 +5,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.GroupMarks
 
 /**
  * The read lane's target rule, and the added lane's. They are one function each rather than one per
@@ -79,8 +80,7 @@ class RecentsTargetTest {
 
     private fun forRules(chapters: List<Copy>) = recentsChapters(
         chapters = chapters,
-        pooled = pooled,
-        stitch = stitch,
+        marks = GroupMarks.of(pooled, pooled, stitch, { it.id }, { it.read }, { it.bookmark }),
         id = { it.id },
         read = { it.read },
         isHidden = { false },
@@ -89,8 +89,7 @@ class RecentsTargetTest {
     // Chapters 1 and 2 unread, projected the way both providers project theirs, with [hidden] hidden.
     private fun unreadPair(vararg hidden: Long) = recentsChapters(
         chapters = listOf(Copy(1, false), Copy(2, false)),
-        pooled = emptyList(),
-        stitch = emptyList(),
+        marks = GroupMarks.NONE,
         id = { it.id },
         read = { it.read },
         isHidden = { it.id in hidden },
@@ -162,15 +161,15 @@ class RecentsTargetTest {
 
     @Test
     fun `a chapter read on another source is flagged`() = runTest {
-        resolve(updated(11), group = listOf(Copy(11, false)))?.readElsewhere shouldBe setOf(11L)
+        resolve(updated(11), group = listOf(Copy(11, false)))?.marks?.isRead(11L, ownRead = false) shouldBe true
     }
 
     @Test
     fun `a chapter bookmarked on another source is flagged`() = runTest {
         val pooled = listOf(Copy(1, false, bookmark = true), Copy(11, false))
 
-        resolve(updated(11), group = listOf(Copy(11, false)), pooled = pooled)?.bookmarkedElsewhere shouldBe
-            setOf(11L)
+        resolve(updated(11), group = listOf(Copy(11, false)), pooled = pooled)
+            ?.marks?.isBookmarked(11L, ownBookmark = false) shouldBe true
     }
 
     @Test

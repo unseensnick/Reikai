@@ -1,5 +1,6 @@
 package reikai.domain.novel.model
 
+import reikai.domain.merge.GroupMarks
 import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.util.lang.compareToWithCollator
 
@@ -114,23 +115,22 @@ fun readingOrderComparator(novel: Novel, prefs: NovelPreferences): Comparator<No
 /**
  * Sort + filter a chapter list for display, using the novel's effective settings. [downloadedChapterIds]
  * carries the disk-download membership (from NovelDownloadCache) so the downloaded filter has no DB flag.
- * The two "in other sources" sets carry a merge group's cross-source state, so a filter agrees with what
- * the rows show rather than with the copy the stitch happened to keep.
+ * [marks] carries a merge group's cross-source state, so a filter agrees with what the rows show rather
+ * than with the copy the stitch happened to keep.
  */
 fun List<NovelChapter>.sortedAndFiltered(
     novel: Novel,
     prefs: NovelPreferences,
     downloadedChapterIds: Set<Long>,
-    readInOtherSources: Set<Long>,
-    bookmarkedInOtherSources: Set<Long>,
+    marks: GroupMarks,
     downloadedOnly: Boolean,
 ): List<NovelChapter> {
     val read = novel.effectiveReadFilter(prefs)
     val bookmarked = novel.effectiveBookmarkedFilter(prefs)
     val downloaded = novel.appliedDownloadedFilter(prefs, downloadedOnly)
     val filtered = filter { ch ->
-        val isRead = ch.read || ch.id in readInOtherSources
-        val isBookmarked = ch.bookmark || ch.id in bookmarkedInOtherSources
+        val isRead = marks.isRead(ch.id, ch.read)
+        val isBookmarked = marks.isBookmarked(ch.id, ch.bookmark)
         val readOk = when (read) {
             NovelChapterFlags.SHOW_UNREAD -> !isRead
             NovelChapterFlags.SHOW_READ -> isRead

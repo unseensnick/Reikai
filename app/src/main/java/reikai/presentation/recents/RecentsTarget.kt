@@ -2,7 +2,7 @@ package reikai.presentation.recents
 
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.merge.ChapterUnit
-import reikai.domain.merge.flaggedOnAnotherSource
+import reikai.domain.merge.GroupMarks
 
 /**
  * One of an entry's chapters, projected to what a target rule needs, built by each provider from its own
@@ -18,25 +18,20 @@ data class RecentsChapter(
 )
 
 /**
- * [chapters], in the order given, as the rules below read them: read when the copy is, or when a copy
- * on another source that the stored [stitch] places with it is, among [pooled], every member's
- * chapters. A provider projects the group list and the entry's own list both through here: a copy the
- * stitch dropped from the group list is still that chapter, and carrying only its own flag let the
- * own-source fallback reopen a chapter the group had finished. Hidden chapters go last, per
- * [ReadingOrder.hiddenLast], so the rules below open one only when nothing else is left.
+ * [chapters], in the order given, as the rules below read them: read as [marks], the group's answer over
+ * every member's chapters, says. A provider projects the group list and the entry's own list both
+ * through here: a copy the stitch dropped from the group list is still that chapter, and carrying only
+ * its own flag let the own-source fallback reopen a chapter the group had finished. Hidden chapters go
+ * last, per [ReadingOrder.hiddenLast], so the rules below open one only when nothing else is left.
  */
 fun <T> recentsChapters(
     chapters: List<T>,
-    pooled: List<T>,
-    stitch: List<ChapterUnit>,
+    marks: GroupMarks,
     id: (T) -> Long,
     read: (T) -> Boolean,
     isHidden: (T) -> Boolean,
-): List<RecentsChapter> {
-    val readElsewhere = flaggedOnAnotherSource(pooled, chapters, stitch, id, read)
-    return ReadingOrder.hiddenLast(chapters, isHidden)
-        .map { RecentsChapter(id(it), read(it) || id(it) in readElsewhere) }
-}
+): List<RecentsChapter> =
+    ReadingOrder.hiddenLast(chapters, isHidden).map { RecentsChapter(id(it), marks.isRead(id(it), read(it))) }
 
 /**
  * Resume over a merge group: reopen the recorded chapter while it is unfinished, else the earliest
@@ -89,16 +84,15 @@ suspend fun addedTarget(group: List<RecentsChapter>, ownSource: suspend () -> Li
 /**
  * The chapter a lane's rule picked for a row, with what the row is drawn from. [chapters] holds every
  * chapter a rule could name, so the picked id projects back into a row: the group's list plus any
- * own-source copy the stitch dropped. [readElsewhere] and [bookmarkedElsewhere] are the named chapters
- * flagged on another source of the group, so the row says what the details list says.
+ * own-source copy the stitch dropped. [marks] answers read and bookmarked for the group, so the row says
+ * what the details list says.
  */
 class RecentsTarget<T>(
     val chapterId: Long,
     val chapters: Map<Long, T>,
     val stitch: List<ChapterUnit>,
     val pooled: List<T>,
-    val readElsewhere: Set<Long>,
-    val bookmarkedElsewhere: Set<Long>,
+    val marks: GroupMarks,
 )
 
 /**
@@ -119,7 +113,10 @@ suspend fun <T> resolveRecentsTarget(
     isHidden: (T) -> Boolean,
 ): RecentsTarget<T>? {
     val chapters = group.associateByTo(mutableMapOf(), id)
-    fun List<T>.forRules() = recentsChapters(this, pooled, stitch, id, read, isHidden)
+    // Over every member's chapters, which hold both lists below (an entry's own rows are among them
+    // whenever it is merged), so one pass answers either.
+    val marks = GroupMarks.of(pooled, pooled, stitch, id, read, bookmark)
+    fun List<T>.forRules() = recentsChapters(this, marks, id, read, isHidden)
     suspend fun ownSourceForRules() = ownSource().onEach { chapters[id(it)] = it }.forRules()
 
     val chapterId = when (lane) {
@@ -127,14 +124,5 @@ suspend fun <T> resolveRecentsTarget(
         is RecentsLane.Updated -> lane.chapter.chapterId
         RecentsLane.Added -> addedTarget(group.forRules()) { ownSourceForRules() }
     } ?: return null
-    // Over both lists, so a row naming a copy the stitch dropped says what the group says of it.
-    val named = chapters.values.toList()
-    return RecentsTarget(
-        chapterId = chapterId,
-        chapters = chapters,
-        stitch = stitch,
-        pooled = pooled,
-        readElsewhere = flaggedOnAnotherSource(pooled, named, stitch, id, read),
-        bookmarkedElsewhere = flaggedOnAnotherSource(pooled, named, stitch, id, bookmark),
-    )
+    return RecentsTarget(chapterId, chapters, stitch, pooled, marks)
 }

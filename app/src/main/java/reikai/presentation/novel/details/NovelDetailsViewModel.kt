@@ -62,6 +62,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.DetailsRemoval
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.GroupMarks
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.NovelChapterRepository
@@ -509,8 +510,7 @@ class NovelDetailsViewModel(
                 0,
                 flags.downloadedIds,
                 downloadFolderOwnerOf(null, members, anchor),
-                flags.readElsewhere,
-                flags.bookmarkedElsewhere,
+                flags.marks,
             )
         }
     }
@@ -574,8 +574,7 @@ class NovelDetailsViewModel(
                 idx,
                 flags.downloadedIds,
                 downloadFolderOwnerOf(viewNovel, listOf(viewNovel), anchor),
-                flags.readElsewhere,
-                flags.bookmarkedElsewhere,
+                flags.marks,
             )
             if (chapters.isEmpty() && isAnchorView) {
                 if (pageKey == null) maybeFirstFetch(viewNovel) else maybeFetchPage(viewNovel, pageKey)
@@ -603,13 +602,11 @@ class NovelDetailsViewModel(
         pageIndex: Int,
         downloadedChapterIds: Set<Long>,
         downloadFolderOwner: Novel?,
-        readInOtherSources: Set<Long> = emptySet(),
-        bookmarkedInOtherSources: Set<Long> = emptySet(),
+        marks: GroupMarks,
     ) {
         viewRows = chapters
         val hidden = hiddenChaptersPref.get()
-        val view =
-            shownRows(anchor, chapters, hidden, downloadedChapterIds, readInOtherSources, bookmarkedInOtherSources)
+        val view = shownRows(anchor, chapters, hidden, downloadedChapterIds, marks)
         val hasHiddenChapters = view.hasHidden
         val showHidden = view.showHidden
         val display = view.visible
@@ -628,7 +625,7 @@ class NovelDetailsViewModel(
         // Over the rows on screen, in the order the reader walks them, so the button opens what Next
         // would reach. Hidden rows are never resumed into, even while they are being shown.
         val resumable = ReadingOrder.of(display.filterNot { it.id in hiddenChapterIds }, sortDescending)
-        val resume = ReadingOrder.nextToRead(resumable) { it.read || it.id in readInOtherSources }
+        val resume = ReadingOrder.nextToRead(resumable) { marks.isRead(it.id, it.read) }
         val viewSource = viewedNovelSource(viewNovel.id, anchor.id, siblingSources.value, source)
         val novelWebUrl = viewSource?.webUrl(viewNovel.url, isNovel = true)
         state.update { prev ->
@@ -649,15 +646,14 @@ class NovelDetailsViewModel(
                 downloadStates = currentDownloadStates,
                 downloadedChapterIds = downloadedChapterIds,
                 downloadFolderOwner = downloadFolderOwner,
-                readInOtherSources = readInOtherSources,
-                bookmarkedInOtherSources = bookmarkedInOtherSources,
+                marks = marks,
                 trackingCount = currentTrackingButton.count,
                 hasLoggedInTrackers = currentTrackingButton.hasTrackers,
                 customInfo = currentCustomInfo,
                 dialog = loaded?.dialog,
                 selection = retainChapterSelection(display),
                 resumeChapter = resume,
-                hasStarted = chapters.any { it.read || it.id in readInOtherSources },
+                hasStarted = chapters.any { marks.isRead(it.id, it.read) },
                 seedColor = loaded?.seedColor,
                 // An uninstalled plugin shows its own id, as its chip does.
                 sourceName = viewSource?.name ?: viewNovel.source,
@@ -1245,14 +1241,7 @@ class NovelDetailsViewModel(
         val siblings = group.ids.filter { it != viewNovel.id }.flatMap { chapterRepo.getByNovelId(it) }
         val flags = group.novelRowFlags(chapters + siblings, chapters, mergedChapterProvider.stitchOf(viewNovel.id))
         val hidden = hiddenChaptersPref.get()
-        return shownRows(
-            loaded.novel,
-            chapters,
-            hidden,
-            flags.downloadedIds,
-            flags.readElsewhere,
-            flags.bookmarkedElsewhere,
-        ).visible
+        return shownRows(loaded.novel, chapters, hidden, flags.downloadedIds, flags.marks).visible
     }
 
     private fun shownRows(
@@ -1260,8 +1249,7 @@ class NovelDetailsViewModel(
         chapters: List<NovelChapter>,
         hidden: Set<String>,
         downloadedChapterIds: Set<Long>,
-        readInOtherSources: Set<Long>,
-        bookmarkedInOtherSources: Set<Long>,
+        marks: GroupMarks,
     ) = novelShownRows(
         chapters,
         anchor,
@@ -1270,16 +1258,15 @@ class NovelDetailsViewModel(
         showHiddenFlow.value,
         ::hiddenKey,
         downloadedChapterIds,
-        readInOtherSources,
-        bookmarkedInOtherSources,
+        marks,
         downloadedOnly = basePreferences.downloadedOnly.get(),
     )
 
     fun toggleChapterBookmark(chapter: NovelChapter) {
         viewModelScope.launchIO {
             // Toggled against what the row shows, which on a merged entry is the group's own state.
-            val loaded = state.value as? NovelDetailsState.Loaded
-            val target = !(chapter.bookmark || chapter.id in loaded?.bookmarkedInOtherSources.orEmpty())
+            val marks = (state.value as? NovelDetailsState.Loaded)?.marks ?: GroupMarks.NONE
+            val target = !marks.isBookmarked(chapter.id, chapter.bookmark)
             chapterRepo.setBookmarkBulk(expandToGroup(listOf(chapter)).map { it.id }, target)
         }
     }
@@ -1331,8 +1318,8 @@ class NovelDetailsViewModel(
         when (action) {
             // Toggled against the row's shown state, so a chapter read on a grouped source turns unread.
             LibraryPreferences.ChapterSwipeAction.ToggleRead -> {
-                val readElsewhere = (state.value as? NovelDetailsState.Loaded)?.readInOtherSources.orEmpty()
-                markChapterRead(chapter, !(chapter.read || chapter.id in readElsewhere))
+                val marks = (state.value as? NovelDetailsState.Loaded)?.marks ?: GroupMarks.NONE
+                markChapterRead(chapter, !marks.isRead(chapter.id, chapter.read))
             }
             LibraryPreferences.ChapterSwipeAction.ToggleBookmark -> toggleChapterBookmark(chapter)
             LibraryPreferences.ChapterSwipeAction.Download -> {
@@ -1416,8 +1403,7 @@ class NovelDetailsViewModel(
                 loaded.sortDescending,
                 action,
                 downloadedIds + queuedIds,
-                loaded.readInOtherSources,
-                loaded.bookmarkedInOtherSources,
+                loaded.marks,
             ) { hiddenKey(it) in hidden }
             if (targets.isNotEmpty()) {
                 downloadManager.downloadChapters(targets)
@@ -1550,12 +1536,9 @@ sealed interface NovelDetailsState {
         val downloadedChapterIds: Set<Long> = emptySet(),
         /** Whose folder Open folder opens; null hides it and Clear downloads. See downloadFolderOwner. */
         val downloadFolderOwner: Novel? = null,
-        /** Chapters unread on their own row but already read on another source of the merge group. */
-        val readInOtherSources: Set<Long> = emptySet(),
-        /** The same, for the bookmark flag. Writes reach every copy already, so this shows through only
-         *  where the copies were never in sync: a bookmark set before the sources were merged, or one a
-         *  backup restored onto a copy the stitch does not show. */
-        val bookmarkedInOtherSources: Set<Long> = emptySet(),
+        /** Read and bookmarked as the merge group answers them, so a chapter read on another source reads
+         *  as read here. */
+        val marks: GroupMarks = GroupMarks.NONE,
         /** Bound tracks on trackers the sheet offers; drives the details action-row Tracking button. */
         val trackingCount: Int = 0,
         /** Whether the sheet offers any tracker; without one the Tracking button opens tracker settings. */
