@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import mihon.domain.manga.model.toDomainManga
-import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.recommendation.PrepareRecommendationAssembly
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RecommendationOrigin
@@ -30,17 +29,17 @@ import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.localIdOf
 import reikai.presentation.browse.AddOutcome
+import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.batchCategories
 import reikai.presentation.browse.catalogue.BrowseColumns
 import reikai.presentation.browse.catalogue.trackBrowseColumns
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
-import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
-import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
@@ -64,7 +63,6 @@ class RelatedMangasBrowseViewModel(
     private val context: Context,
     private val relatedMangaCache: RelatedMangaCache,
     private val getFavorites: GetFavorites,
-    private val getCategories: GetCategories,
     private val libraryAdder: MangaLibraryAdder,
     private val networkToLocalManga: NetworkToLocalManga,
     private val libraryPreferences: LibraryPreferences,
@@ -183,22 +181,15 @@ class RelatedMangasBrowseViewModel(
                 return@launchIO
             }
 
-            val categories = getCategories.await().filterNot { it.isSystemCategory }
-            val directIds = resolveDefaultCategoryIds(categories, libraryPreferences.defaultCategory.get())
-            if (directIds != null) {
-                addAndReport(resolved, directIds, skipped = trackerOrigin.size)
-            } else {
-                state.update {
-                    // Freshly-added manga have no categories yet, so every checkbox starts unchecked.
-                    it.copy(
-                        dialog = Dialog.ChangeCategory(
-                            resolved,
-                            categories.mapAsCheckboxState {
-                                false
-                            },
-                            trackerOrigin.size,
-                        ),
-                    )
+            when (
+                val batch = batchCategories(
+                    libraryAdder.getUserCategories(),
+                    libraryPreferences.defaultCategory.get(),
+                )
+            ) {
+                is BatchCategories.Default -> addAndReport(resolved, batch.categoryIds, skipped = trackerOrigin.size)
+                is BatchCategories.Ask -> state.update {
+                    it.copy(dialog = Dialog.ChangeCategory(resolved, batch.initialSelection, trackerOrigin.size))
                 }
             }
         }

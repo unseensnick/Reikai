@@ -122,7 +122,7 @@ agent under Settings -> Advanced.
 - **The continue button on a novel in the library now follows that novel's chapter filters, as manga does.** Set to bookmarked or downloaded chapters only, it opened the first unread chapter regardless.
 - **Clearing a novel's history now drops it in the library's Last read sort, as it does for manga.** Novels read before history was kept carry their place over on upgrade and from older backups.
 - **Downloaded badges now notice chapters you delete outside the app.**
-- **Every category picker now follows your category sort order, on manga and novels.** Adding from Browse, global search, History, a bulk selection, a series' own Edit categories or the Updates and History category filter listed them in database order.
+- **Every category picker now follows your category sort order, on manga and novels.** Adding from Browse, global search, History, a bulk selection, Related manga's See all, a series' own Edit categories or the Updates and History category filter listed them in database order.
 - **The library's Change categories action now lists hidden categories, so manga can be moved into one.**
 - **Grouping the library by tag or author no longer splits one tag into two groups when sources spell it differently, like Adult and ADULT.**
 - **Grouping the library by source now shows real source names on the category tabs, not the raw internal key.**

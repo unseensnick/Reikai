@@ -23,6 +23,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.library.CategorySortOrder
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.EnabledRecommendationStreams
 import reikai.domain.recommendation.PrepareRecommendationAssembly
@@ -40,6 +41,7 @@ import reikai.domain.recommendation.taste.TasteProfile
 import reikai.presentation.browse.FakeMangaLibrary
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.Manga
@@ -85,7 +87,7 @@ class RelatedMangasBrowseViewModelTest {
     }
 
     /** The library, as a live table: a favourite write lands here and every read sees it. */
-    private val library = FakeMangaLibrary()
+    private var library = FakeMangaLibrary()
 
     // One stored row per url, numbered from 10 in the order the grid resolves them.
     private val localIds = mutableMapOf<String, Long>()
@@ -142,7 +144,6 @@ class RelatedMangasBrowseViewModelTest {
         context = mockk(relaxed = true),
         relatedMangaCache = cache,
         getFavorites = getFavorites,
-        getCategories = library.getCategories,
         libraryAdder = library.adder,
         networkToLocalManga = mockk {
             coEvery { this@mockk.invoke(any<Manga>()) } answers {
@@ -303,6 +304,26 @@ class RelatedMangasBrowseViewModelTest {
         viewModel.toggleRangeSelection("a2")
 
         viewModel.state.value.selectedUrls shouldBe setOf("a1", "a2")
+    }
+
+    @Test
+    fun `the bulk add's category picker follows the category sort order`() = runTest {
+        library = FakeMangaLibrary(
+            userCategories = listOf(Category(3L, "Zeta", 0L, 0L), Category(4L, "Alpha", 1L, 0L)),
+            categorySortOrder = CategorySortOrder.A_TO_Z,
+        )
+        val cache = RelatedMangaCache().apply {
+            put(MANGA_ID, RelatedPool(listOf(candidate("a", SOURCE_ID)), emptyMap()))
+        }
+        val viewModel = viewModel(cache = cache)
+        settle { viewModel.state.first { it.items.isNotEmpty() } }
+        viewModel.toggleSelection("a")
+
+        viewModel.addSelectedToLibrary()
+
+        val picker = settle { viewModel.state.first { it.dialog != null } }.dialog
+        (picker as RelatedMangasBrowseViewModel.Dialog.ChangeCategory).initialSelection.map { it.value.id } shouldBe
+            listOf(4L, 3L)
     }
 
     @Test

@@ -1,6 +1,8 @@
 package reikai.presentation.browse
 
+import reikai.domain.category.resolveDefaultCategoryIds
 import tachiyomi.core.common.preference.CheckboxState
+import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.domain.category.model.Category
 
 /** How an add ended. Nothing is written on [NeedsCategoryChoice] or [Failed]. */
@@ -74,3 +76,18 @@ suspend fun addEntryOrPrompt(
     AddOutcome.Failed -> AddFavoriteResult.Failed
     AddOutcome.NeedsCategoryChoice -> AddFavoriteResult.NeedsCategoryChoice(categoryPicker())
 }
+
+/** Where a bulk add files its whole batch, decided once for the batch by [batchCategories]. */
+sealed interface BatchCategories {
+    data class Default(val categoryIds: List<Long>) : BatchCategories
+
+    data class Ask(val initialSelection: List<CheckboxState.State<Category>>) : BatchCategories
+}
+
+/**
+ * The bulk add's one category decision: the default when one is usable, else a picker over
+ * [categories] in the order given, all unchecked, since entries not yet added have no categories.
+ */
+fun batchCategories(categories: List<Category>, defaultCategoryId: Int): BatchCategories =
+    resolveDefaultCategoryIds(categories, defaultCategoryId)?.let(BatchCategories::Default)
+        ?: BatchCategories.Ask(categories.mapAsCheckboxState { false })

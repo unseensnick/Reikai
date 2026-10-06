@@ -54,6 +54,7 @@ class FakeMangaLibrary(
     userCategories: List<Category> = emptyList(),
     defaultCategoryId: Int = -1,
     mergeManager: MangaMergeManager = fakeGrouping(),
+    categorySortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
 ) {
 
     private val table = MutableStateFlow<Map<Long, Manga>>(emptyMap())
@@ -139,8 +140,7 @@ class FakeMangaLibrary(
         mergeManager = mergeManager,
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = mockk {
-            every { categorySortOrder } returns
-                mockk { every { get() } returns CategorySortOrder.MANUAL }
+            every { this@mockk.categorySortOrder } returns mockk { every { get() } returns categorySortOrder }
         },
         removeMangaFromLibrary = RemoveMangaFromLibrary(
             mergeManager = mergeManager,

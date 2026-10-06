@@ -12,9 +12,7 @@ import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import reikai.domain.category.resolveDefaultCategoryIds
 import tachiyomi.core.common.preference.CheckboxState
-import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
 
@@ -100,12 +98,9 @@ abstract class EntryBulkFavoriteViewModel<T : Any> :
                 toggleSelectionMode(false)
                 return@launchIO
             }
-            val categories = userCategories()
-            val directIds = resolveDefaultCategoryIds(categories, defaultCategoryId())
-            if (directIds != null) {
-                addAndFinish(items, directIds)
-            } else {
-                setDialog(Dialog.ChangeCategory(items, categories.mapAsCheckboxState { false }))
+            when (val batch = batchCategories(userCategories(), defaultCategoryId())) {
+                is BatchCategories.Default -> addAndFinish(items, batch.categoryIds)
+                is BatchCategories.Ask -> setDialog(Dialog.ChangeCategory(items, batch.initialSelection))
             }
         }
     }
