@@ -145,7 +145,9 @@ class TachiyomiNovelSource(
     }
 
     private fun MangasPage.toPage() = NovelItemsPage(
-        items = mangas.map { NovelItem(name = it.title, path = it.url, cover = it.thumbnail_url) },
+        items = mangas.map {
+            NovelItem(name = NovelTextSanitizer.decodeEntities(it.title), path = it.url, cover = it.thumbnail_url)
+        },
         hasNextPage = hasNextPage,
     )
 

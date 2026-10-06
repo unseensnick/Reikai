@@ -31,6 +31,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginInfo
+import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 import reikai.novel.source.ireader.IReaderNovelSource
 import ireader.core.source.CatalogSource as IReaderCatalogSource
@@ -68,6 +69,19 @@ class NovelSourceConformanceTest {
     @EnumSource(Kind::class)
     fun `the last page of a listing says so`(kind: Kind) = runTest {
         source(kind).browse(NovelListing.Popular, page = 2, filters = null).hasNextPage shouldBe false
+    }
+
+    // A listed name must match the decoded one its novel is stored under, or the row and the novel disagree.
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a listed novel's name is decoded`(kind: Kind) = runTest {
+        source(kind).browse(NovelListing.Popular, page = 3, filters = null).items.single().name shouldBe DECODED
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a searched novel's name is decoded`(kind: Kind) = runTest {
+        source(kind).search("query", page = 1, filters = null).items.single().name shouldBe DECODED
     }
 
     /** Owed by the adapters that convert a native chapter; a plugin hands its own fields over as they are. */
@@ -285,6 +299,10 @@ class NovelSourceConformanceTest {
         coEvery { getPageList(any(), any()) } returns listOf(Text("a\u0000b"))
         coEvery { getMangaList(listing, 2) } returns
             MangasPageInfo(listOf(MangaInfo(key = "last", title = "last")), false)
+        coEvery { getMangaList(listing, 3) } returns
+            MangasPageInfo(listOf(MangaInfo(key = "n", title = ENCODED)), false)
+        coEvery { getMangaList(any<List<IReaderFilter<*>>>(), 1) } returns
+            MangasPageInfo(listOf(MangaInfo(key = "n", title = ENCODED)), false)
     }
 
     private fun pluginHost() = mockk<LnPluginHost> {
@@ -295,6 +313,8 @@ class NovelSourceConformanceTest {
         coEvery { parseChapter("p", "c1") } returns "<p>a\u0000b</p>"
         // A plugin says it has run out by answering with nothing.
         coEvery { popularNovels("p", 2, any()) } returns emptyList()
+        coEvery { popularNovels("p", 3, any()) } returns listOf(NovelItem(ENCODED, "n"))
+        coEvery { searchNovels("p", "query", 1) } returns listOf(NovelItem(ENCODED, "n"))
     }
 
     private fun catalogue() = mockk<CatalogueSource> {
@@ -309,6 +329,9 @@ class NovelSourceConformanceTest {
         coEvery { getPageList(any()) } returns listOf(Page(0, "c1"))
         coEvery { fetchPageText(any()) } returns "<p>a\u0000b</p>"
         coEvery { getPopularManga(2) } returns MangasPage(listOf(manga("last")), hasNextPage = false)
+        coEvery { getPopularManga(3) } returns MangasPage(listOf(manga("n").apply { title = ENCODED }), false)
+        coEvery { getSearchManga(1, "query", any()) } returns
+            MangasPage(listOf(manga("n").apply { title = ENCODED }), false)
     }
 
     private fun chapter(url: String) = SChapter.create().apply {
@@ -342,5 +365,9 @@ class NovelSourceConformanceTest {
         const val NOVEL_LINK = "https://example.com/novel"
         const val CHAPTER_LINK = "https://example.com/novel/c1"
         const val OTHER_SITE_LINK = "https://other.example/novel"
+
+        // Plugins hand a name over HTML-escaped, as they scraped it.
+        const val ENCODED = "Tom &amp; Jerry&#39;s"
+        const val DECODED = "Tom & Jerry's"
     }
 }

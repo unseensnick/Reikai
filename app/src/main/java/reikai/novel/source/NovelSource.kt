@@ -173,6 +173,7 @@ internal suspend fun <T> appSourceCall(block: suspend CoroutineScope.() -> T): T
 /**
  * One page of a listing or search, and whether the source says another follows. A format that cannot
  * say ends at its first empty page, so asking past the end costs nothing there; a tachiyomi source may
- * answer that with an error instead.
+ * answer that with an error instead. Each adapter decodes every name with `NovelTextSanitizer.decodeEntities`,
+ * as `SourceNovel.toNovel` decodes the details, so a listed row and the novel stored from it read one name.
  */
 data class NovelItemsPage(val items: List<NovelItem>, val hasNextPage: Boolean)

@@ -54,9 +54,8 @@ private fun mergeRefreshedNovel(existing: Novel, parsed: Novel, updateTitles: Bo
         initialized = true,
     )
 
-// toNovel's placeholder for a nameless parse is not a title.
 private val Novel.sentTitle: String?
-    get() = title.takeIf { it != "Untitled" }
+    get() = sentNovelName(title)
 
 /** Whether a [StoredDetails.SUSPECT] novel's [parsed] details prove its stored ones another novel's. */
 private fun wearsAnothersDetails(existing: Novel, parsed: Novel): Boolean {

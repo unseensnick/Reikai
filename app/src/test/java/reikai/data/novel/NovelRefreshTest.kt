@@ -165,6 +165,16 @@ class NovelRefreshTest {
         coVerify { downloads.renameNovel(match { it.title == "Novel" }, "Renamed") }
     }
 
+    // A plugin fills a name its page lacks with a placeholder (webnovel.ts `'No Title Found'`).
+    @Test
+    fun `a refresh whose source sends only a placeholder name keeps the novel's title`() = runTest {
+        val novel = storedNovel()
+
+        refresh(novel, PagedSource(oneChapter, title = "No Title Found"), preferences = updatingTitles)
+
+        novels.getById(novel.id)!!.title shouldBe "Novel"
+    }
+
     /** Manga's sync raises the same exception, which both details screens and both update jobs word as "No chapters found". */
     @Test
     fun `a refresh that finds no chapters fails with NoChaptersException`() = runTest {

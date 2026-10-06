@@ -18,4 +18,9 @@ class NovelItemMappingTest {
                 thumbnailUrl = "https://cover.test/a.jpg",
             )
     }
+
+    @Test
+    fun `a browsed result with a blank name is stored as untitled`() {
+        NovelItem(name = " ", path = "/a").toNovel("src").title shouldBe "Untitled"
+    }
 }

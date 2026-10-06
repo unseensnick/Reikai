@@ -40,6 +40,22 @@ object NovelStatusCode {
     fun toSourceString(code: Int): String? = names[code]
 }
 
+// Stored for a novel its source names nothing.
+private const val UNTITLED = "Untitled"
+
+// Plugins fill a missing name with one of these (novelhall.ts `|| 'Untitled'`, webnovel.ts `'No Title Found'`).
+private val PLACEHOLDER_NAMES = setOf(UNTITLED, "No Title Found")
+
+/**
+ * The name a source sent, or null for a blank one or a plugin's placeholder. Untrimmed, since a stored
+ * title names the novel's download folder.
+ */
+fun sentNovelName(name: String?): String? = name?.takeUnless { it.isBlank() || it.trim() in PLACEHOLDER_NAMES }
+
+/** The parse's name decoded, or null when it names nothing. */
+val SourceNovel.sentName: String?
+    get() = sentNovelName(name?.let(NovelTextSanitizer::decodeEntities))
+
 /**
  * Translate a freshly-parsed [SourceNovel] (lnreader plugin output) into an unsaved domain [Novel]
  * (`id = -1L`). A refresh stores it over the stored row with [storeRefreshedNovel]; a novel opened
@@ -54,7 +70,7 @@ fun SourceNovel.toNovel(
     id = -1L,
     source = sourceId,
     url = path,
-    title = name?.let { NovelTextSanitizer.decodeEntities(it) } ?: "Untitled",
+    title = sentName ?: UNTITLED,
     author = author?.let { NovelTextSanitizer.decodeEntities(it) },
     artist = artist?.let { NovelTextSanitizer.decodeEntities(it) },
     description = summary?.let { NovelTextSanitizer.decodeEntities(it) },
@@ -77,7 +93,7 @@ fun SourceNovel.toNovel(
  * what a list row has; the details and chapters arrive with the first refresh.
  */
 fun NovelItem.toNovel(sourceId: String): Novel =
-    Novel.create().copy(source = sourceId, url = path, title = name, thumbnailUrl = cover)
+    Novel.create().copy(source = sourceId, url = path, title = sentNovelName(name) ?: UNTITLED, thumbnailUrl = cover)
 
 /**
  * Translate a [ChapterItem] (lnreader plugin's chapter list entry) into an unsaved domain

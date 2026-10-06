@@ -175,7 +175,15 @@ class IReaderNovelSource(
     private fun MangasPageInfo.toPage() = NovelItemsPage(
         items = mangas.filter {
             it.title.isNotBlank()
-        }.map { NovelItem(name = it.title, path = it.key, cover = it.cover.ifBlank { null }) },
+        }.map {
+            NovelItem(
+                name = NovelTextSanitizer.decodeEntities(it.title),
+                path = it.key,
+                cover = it.cover.ifBlank {
+                    null
+                },
+            )
+        },
         hasNextPage = hasNextPage,
     )
 

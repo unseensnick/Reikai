@@ -127,6 +127,12 @@ class RepairNovelDetailsTest {
         repaired(VICTIM, titles = mapOf(DONOR to "Donor")).author shouldBe "Donor author"
     }
 
+    /** A placeholder is not a title, so it proves nothing either. */
+    @Test
+    fun `a novel its source names only by a placeholder keeps its details`() = runTest {
+        repaired(VICTIM, titles = mapOf(DONOR to "Donor", VICTIM to "No Title Found")).author shouldBe "Donor author"
+    }
+
     /**
      * Two library novels on one source wearing the donor's details, repaired against a source that names each by
      * [titles] and sends no author or description, as the plugin behind the reported case does. Returns the novel

@@ -26,7 +26,6 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
-import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.SmartNovelSearchEngine
@@ -300,8 +299,7 @@ class NovelMigrationFlowAdapter(
 
     /** Null counts for an empty list, matching every other candidate builder. */
     private fun MigrationCandidate.withCounts(item: NovelItem, chapters: List<ChapterItem>): MigrationCandidate {
-        // The novel's title is stored decoded, so the hit's name is decoded to strip it the same way.
-        val stored = chapters.toSourceChapters(novelId = -1L, novelTitle = NovelTextSanitizer.decodeEntities(item.name))
+        val stored = chapters.toSourceChapters(novelId = -1L, novelTitle = item.name)
         if (stored.isEmpty()) return copy(chapterCount = null, latestChapter = null)
         return copy(chapterCount = stored.size, latestChapter = stored.latestChapterNumber { it.chapterNumber })
     }

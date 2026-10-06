@@ -4,6 +4,7 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import reikai.data.novel.insertOpenedNovel
 import reikai.data.novel.refreshNovelFromSource
+import reikai.data.novel.sentName
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -104,9 +105,7 @@ class ResolveNovelLink(
     )
 
     // A page that is not a novel's still parses on many sites; a name and something to read is the bar.
-    // Plugins fill a missing name with a placeholder (novelhall.ts `|| 'Untitled'`).
-    private fun SourceNovel.isANovel() =
-        !name.isNullOrBlank() && name !in PLACEHOLDER_NAMES && (!chapters.isNullOrEmpty() || totalPages > 1)
+    private fun SourceNovel.isANovel() = sentName != null && (!chapters.isNullOrEmpty() || totalPages > 1)
 
     private suspend fun chapterTarget(source: NovelSource, link: NovelLink.Chapter): NovelLinkTarget? {
         val novel = novelRepository.getByUrlAndSource(link.novelPath, source.id)
@@ -135,8 +134,4 @@ class ResolveNovelLink(
             novelChapterRepository,
             libraryPreferences,
         )
-
-    private companion object {
-        val PLACEHOLDER_NAMES = setOf("Untitled", "No Title Found")
-    }
 }

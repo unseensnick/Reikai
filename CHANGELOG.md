@@ -374,6 +374,8 @@ agent under Settings -> Advanced.
 - **Hiding chapter titles on a novel no longer changes its chapter order, and sorting its chapters no longer changes how their titles show.** Each follows your global default until you change it on that novel.
 - **Novel chapter dates now hold: a refresh keeps a date the source stops giving, an undated new chapter gets one as on manga, and a month-first date like 12/25/2024 reads correctly.** A date that is not a real day shows no date rather than a rolled-over one.
 - **Novel chapter names no longer repeat the novel's title in front.**
+- **Light novel names in Browse and search results no longer show raw codes like &amp;.** Before, these codes showed in result rows until the novel was opened.
+- **A light novel's title is no longer replaced by a source's "No Title Found" or "Untitled" placeholder.**
 - **Downloading a selection of novel chapters no longer fetches the ones already downloaded again.**
 - **Novel updates set to Wi-Fi only no longer run on mobile data on Android 8.**
 - **Smart update under Settings -> Library -> Global update · Novels now lists its options in the same order as the manga one.**

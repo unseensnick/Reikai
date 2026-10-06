@@ -75,5 +75,8 @@ class LnPluginSource(
         host.resolveUrl(info.id, path, isNovel)
 
     // The format reports no next page, so a plugin's catalogue ends at its first empty one.
-    private fun List<NovelItem>.toPage() = NovelItemsPage(this, hasNextPage = isNotEmpty())
+    private fun List<NovelItem>.toPage() = NovelItemsPage(
+        map { it.copy(name = NovelTextSanitizer.decodeEntities(it.name)) },
+        hasNextPage = isNotEmpty(),
+    )
 }
