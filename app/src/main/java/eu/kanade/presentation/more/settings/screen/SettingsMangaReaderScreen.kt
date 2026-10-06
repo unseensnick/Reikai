@@ -118,7 +118,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.drawUnderCutout,
                     title = stringResource(MR.strings.pref_cutout_short),
-                    enabled = LocalView.current.hasDisplayCutout() && fullscreen,
+                    visible = LocalView.current.hasDisplayCutout() && fullscreen,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.keepScreenOn,
@@ -158,14 +158,14 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     valueRange = ReaderPreferences.MILLI_CONVERSION.let { it..it * 15 step it },
                     title = stringResource(MR.strings.pref_flash_duration),
                     valueText = { stringResource(MR.strings.pref_flash_duration_summary, it) },
-                    enabled = flashPageState,
+                    visible = flashPageState,
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     preference = readerPreferences.flashPageInterval,
                     valueRange = 1..10,
                     title = stringResource(MR.strings.pref_flash_page_interval),
                     valueText = { pluralStringResource(MR.plurals.pref_pages, it, it) },
-                    enabled = flashPageState,
+                    visible = flashPageState,
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = flashColorPref,
@@ -176,7 +176,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                             to stringResource(MR.strings.pref_flash_style_white_black),
                     ),
                     title = stringResource(MR.strings.pref_flash_with),
-                    enabled = flashPageState,
+                    visible = flashPageState,
                 ),
             ),
         )
@@ -277,7 +277,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     )
                         .associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_read_with_tapping_inverted),
-                    enabled = navMode != 5,
+                    visible = navMode != 5,
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = imageScaleTypePref,
@@ -300,12 +300,12 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.landscapeZoom,
                     title = stringResource(MR.strings.pref_landscape_zoom),
-                    enabled = imageScaleType == 1,
+                    visible = imageScaleType == 1,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.navigateToPan,
                     title = stringResource(MR.strings.pref_navigate_pan),
-                    enabled = navMode != 5,
+                    visible = navMode != 5,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = dualPageSplitPref,
@@ -319,7 +319,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     preference = readerPreferences.dualPageInvertPaged,
                     title = stringResource(MR.strings.pref_dual_page_invert),
                     subtitle = stringResource(MR.strings.pref_dual_page_invert_summary),
-                    enabled = dualPageSplit,
+                    visible = dualPageSplit,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = rotateToFitPref,
@@ -332,7 +332,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.dualPageRotateToFitInvert,
                     title = stringResource(MR.strings.pref_page_rotate_invert),
-                    enabled = rotateToFit,
+                    visible = rotateToFit,
                 ),
             ),
         )
@@ -373,7 +373,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     )
                         .associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_read_with_tapping_inverted),
-                    enabled = navMode != 5,
+                    visible = navMode != 5,
                 ),
                 // RK --> Min width under the high quality renderer, upstream's side padding otherwise
                 if (highQualityRenderer) {
@@ -420,7 +420,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     preference = readerPreferences.dualPageInvertWebtoon,
                     title = stringResource(MR.strings.pref_dual_page_invert),
                     subtitle = stringResource(MR.strings.pref_dual_page_invert_summary),
-                    enabled = dualPageSplit,
+                    visible = dualPageSplit,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = rotateToFitPref,
@@ -433,7 +433,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.dualPageRotateToFitInvertWebtoon,
                     title = stringResource(MR.strings.pref_page_rotate_invert),
-                    enabled = rotateToFit,
+                    visible = rotateToFit,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.webtoonDoubleTapZoomEnabled,
@@ -468,12 +468,12 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.readWithVolumeKeysInverted,
                     title = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
-                    enabled = readWithVolumeKeys,
+                    visible = readWithVolumeKeys,
                 ),
                 // RK: volume-key scroll amount (long-strip viewers), novel-reader parity
                 volumeKeyScrollPreference(
                     readerPreferences.readWithVolumeKeysScrollAmount,
-                    enabled = readWithVolumeKeys && !highQualityRenderer,
+                    visible = readWithVolumeKeys && !highQualityRenderer,
                     subtitle = stringResource(MR.strings.pref_volume_keys_scroll_amount_long_strip),
                 ),
                 // RK -->
@@ -488,19 +488,19 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     entries = ReadingMode.entries.filter { it != ReadingMode.DEFAULT }
                         .associate { it to stringResource(it.stringRes) },
                     title = stringResource(MR.strings.pref_vertical_navigator),
-                    enabled = showNavigator, // RK
+                    visible = showNavigator, // RK
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.verticalNavigatorOnLeft,
                     title = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left),
-                    enabled = showNavigator && verticalNavigator.isNotEmpty(), // RK
+                    visible = showNavigator && verticalNavigator.isNotEmpty(), // RK
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     preference = readerPreferences.verticalNavigatorHeight,
                     valueRange = ReaderRanges.railHeightPercent, // RK
                     steps = ReaderRanges.railHeightSteps, // RK
                     title = stringResource(MR.strings.pref_vertical_navigator_height),
-                    enabled = showNavigator && verticalNavigator.isNotEmpty(), // RK
+                    visible = showNavigator && verticalNavigator.isNotEmpty(), // RK
                 ),
             ),
         )

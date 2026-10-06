@@ -51,7 +51,7 @@ fun PreferenceScreen(
             when (preference) {
                 // Create Preference Group
                 is Preference.PreferenceGroup -> {
-                    if (!preference.enabled) return@fastForEachIndexed
+                    if (!preference.visible) return@fastForEachIndexed
 
                     item {
                         Column {

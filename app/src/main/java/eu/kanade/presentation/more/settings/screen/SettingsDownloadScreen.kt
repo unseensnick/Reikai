@@ -251,7 +251,7 @@ object SettingsDownloadScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = downloadNewUnreadOnly,
                     title = stringResource(MR.strings.pref_download_new_unread_chapters_only),
-                    enabled = enabled,
+                    visible = enabled,
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.categories),
@@ -260,7 +260,7 @@ object SettingsDownloadScreen : SearchableSettings {
                         included = included,
                         excluded = excluded,
                     ),
-                    enabled = enabled,
+                    visible = enabled,
                     onClick = { showDialog = true },
                 ),
                 Preference.PreferenceItem.ListPreference(

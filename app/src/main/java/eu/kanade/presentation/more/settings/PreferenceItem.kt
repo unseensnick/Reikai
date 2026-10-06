@@ -48,7 +48,7 @@ fun StatusWrapper(
     groupTitle: String?,
     content: @Composable () -> Unit,
 ) {
-    val enabled = item.enabled
+    val enabled = item.visible
     // RK: match title within its group, so a same-titled item elsewhere stays unlit
     val highlighted = highlightKey != null && HighlightKey(groupTitle, item.title).matches(highlightKey)
     AnimatedVisibility(

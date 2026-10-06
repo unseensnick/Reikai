@@ -88,7 +88,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
             Preference.PreferenceItem.SwitchPreference(
                 preference = toggle.preference,
                 title = toggle.tracker.name,
-                enabled = relatedEnabled && includeTrackers,
+                visible = relatedEnabled && includeTrackers,
             )
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_recommendation_sources),
@@ -126,13 +126,13 @@ object SettingsRecommendationsScreen : SearchableSettings {
             }
         }
 
-        // enabled = visible in Mihon's preference DSL, so a tracker's pull toggle only appears once
-        // the user is logged into it (the pull needs their private library, which login gates).
+        // A tracker's pull toggle only appears once the user is logged into it (the pull needs their
+        // private library, which login gates).
         fun pullToggle(fetcher: TrackerLibraryFetcher) =
             Preference.PreferenceItem.SwitchPreference(
                 preference = fetcher.pullPreference,
                 title = fetcher.tracker.name,
-                enabled = fetcher.tracker.isLoggedIn,
+                visible = fetcher.tracker.isLoggedIn,
             )
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_taste_profile),
@@ -206,14 +206,14 @@ object SettingsRecommendationsScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_recommendation_style),
                     valueText = { "$it%" },
                     valueRange = 0..100,
-                    enabled = rerank,
+                    visible = rerank,
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     preference = prefs.serendipity,
                     title = stringResource(MR.strings.pref_serendipity),
                     valueText = { "$it%" },
                     valueRange = 0..100,
-                    enabled = rerank,
+                    visible = rerank,
                 ),
             ),
         )

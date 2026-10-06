@@ -29,7 +29,7 @@ fun autoScrollSpeedPreference(
 @Composable
 fun volumeKeyScrollPreference(
     preference: Preference<Float>,
-    enabled: Boolean,
+    visible: Boolean,
     subtitle: String?,
 ) = SettingsPreference.PreferenceItem.SliderPreference(
     preference = preference.scaled(ReaderRanges.PERCENT),
@@ -37,5 +37,5 @@ fun volumeKeyScrollPreference(
     title = stringResource(MR.strings.pref_volume_keys_scroll_amount),
     subtitle = subtitle,
     valueText = { "$it%" },
-    enabled = enabled,
+    visible = visible,
 )

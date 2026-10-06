@@ -432,7 +432,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerDrawUnderCutout(),
                     title = stringResource(MR.strings.pref_cutout_short),
-                    enabled = LocalView.current.hasDisplayCutout() && fullscreen,
+                    visible = LocalView.current.hasDisplayCutout() && fullscreen,
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerTapLayout(),
@@ -519,11 +519,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerVolumeButtonsInverted(),
                     title = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
-                    enabled = useVolumeButtons,
+                    visible = useVolumeButtons,
                 ),
                 volumeKeyScrollPreference(
                     novelPreferences.readerVolumeButtonsFraction(),
-                    enabled = useVolumeButtons,
+                    visible = useVolumeButtons,
                     subtitle = null,
                 ),
                 Preference.PreferenceItem.ListPreference(

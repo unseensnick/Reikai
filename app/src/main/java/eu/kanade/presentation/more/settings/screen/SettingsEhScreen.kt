@@ -203,23 +203,23 @@ object SettingsEhScreen : SearchableSettings {
             title = stringResource(MR.strings.eh_favorites_backup),
             // Every item needs the ExHentai login, and a disabled item is hidden (not greyed), so gate
             // the whole group: this hides the header too, instead of leaving it orphaned when logged out.
-            enabled = exhentaiEnabled,
+            visible = exhentaiEnabled,
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = exhPreferences.exhBackupFavoritesToAccount(),
                     title = stringResource(MR.strings.eh_backup_favorites_to_account),
                     subtitle = stringResource(MR.strings.eh_backup_favorites_to_account_summary),
-                    enabled = exhentaiEnabled,
+                    visible = exhentaiEnabled,
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = exhPreferences.exhFavoritesBackupSlot(),
                     entries = (0..9).associateWith { stringResource(MR.strings.eh_favorites_slot, it) },
                     title = stringResource(MR.strings.pref_eh_favorites_slot),
-                    enabled = exhentaiEnabled,
+                    visible = exhentaiEnabled,
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.eh_back_up_favorites_now),
-                    enabled = exhentaiEnabled,
+                    visible = exhentaiEnabled,
                     onClick = { EhFavoritesBackupJob.startNow(context) },
                 ),
             ),
@@ -322,7 +322,7 @@ object SettingsEhScreen : SearchableSettings {
             ),
             title = stringResource(MR.strings.use_hentai_at_home),
             subtitle = stringResource(MR.strings.use_hentai_at_home_summary),
-            enabled = exhentaiEnabled,
+            visible = exhentaiEnabled,
         )
     }
 
@@ -340,7 +340,7 @@ object SettingsEhScreen : SearchableSettings {
             } else {
                 stringResource(MR.strings.show_japanese_titles_option_2)
             },
-            enabled = exhentaiEnabled,
+            visible = exhentaiEnabled,
         )
     }
 
@@ -358,7 +358,7 @@ object SettingsEhScreen : SearchableSettings {
             } else {
                 stringResource(MR.strings.use_original_images_off)
             },
-            enabled = exhentaiEnabled,
+            visible = exhentaiEnabled,
         )
     }
 
@@ -368,7 +368,7 @@ object SettingsEhScreen : SearchableSettings {
         return Preference.PreferenceItem.TextPreference(
             title = stringResource(MR.strings.watched_tags),
             subtitle = stringResource(MR.strings.watched_tags_summary),
-            enabled = exhentaiEnabled,
+            visible = exhentaiEnabled,
             onClick = {
                 context.startActivity(
                     WebViewActivity.newIntent(
@@ -467,7 +467,7 @@ object SettingsEhScreen : SearchableSettings {
         return Preference.PreferenceItem.TextPreference(
             title = stringResource(MR.strings.tag_filtering_threshold),
             subtitle = stringResource(MR.strings.tag_filtering_threshhold_summary, value),
-            enabled = exhentaiEnabled,
+            visible = exhentaiEnabled,
             onClick = {
                 dialogOpen = true
             },
@@ -497,7 +497,7 @@ object SettingsEhScreen : SearchableSettings {
         return Preference.PreferenceItem.TextPreference(
             title = stringResource(MR.strings.tag_watching_threshhold),
             subtitle = stringResource(MR.strings.tag_watching_threshhold_summary, value),
-            enabled = exhentaiEnabled,
+            visible = exhentaiEnabled,
             onClick = {
                 dialogOpen = true
             },
@@ -513,7 +513,7 @@ object SettingsEhScreen : SearchableSettings {
             preference = exhPreferences.exhWatchedListDefaultState(),
             title = stringResource(MR.strings.watched_list_default),
             subtitle = stringResource(MR.strings.watched_list_state_summary),
-            enabled = exhentaiEnabled,
+            visible = exhentaiEnabled,
         )
     }
 
@@ -533,7 +533,7 @@ object SettingsEhScreen : SearchableSettings {
             ),
             title = stringResource(MR.strings.eh_image_quality),
             subtitle = stringResource(MR.strings.eh_image_quality_summary),
-            enabled = exhentaiEnabled,
+            visible = exhentaiEnabled,
         )
     }
 
@@ -723,7 +723,7 @@ object SettingsEhScreen : SearchableSettings {
         return Preference.PreferenceItem.TextPreference(
             title = stringResource(MR.strings.language_filtering),
             subtitle = stringResource(MR.strings.language_filtering_summary),
-            enabled = exhentaiEnabled,
+            visible = exhentaiEnabled,
             onClick = { dialogOpen = true },
         )
     }
@@ -814,7 +814,7 @@ object SettingsEhScreen : SearchableSettings {
         return Preference.PreferenceItem.TextPreference(
             title = stringResource(MR.strings.front_page_categories),
             subtitle = stringResource(MR.strings.front_page_categories_summary),
-            enabled = exhentaiEnabled,
+            visible = exhentaiEnabled,
             onClick = { dialogOpen = true },
         )
     }

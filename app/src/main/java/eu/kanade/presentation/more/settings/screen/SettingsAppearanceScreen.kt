@@ -92,7 +92,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = amoledPref,
                     title = stringResource(MR.strings.pref_dark_theme_pure_black),
-                    enabled = themeMode != ThemeMode.LIGHT,
+                    visible = themeMode != ThemeMode.LIGHT,
                     onValueChanged = {
                         (context as? Activity)?.let { ActivityCompat.recreate(it) }
                         true
@@ -108,7 +108,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                     preference = uiPreferences.themeCoverBasedStyle,
                     entries = PaletteStyle.entries.associateWith { it.name },
                     title = stringResource(MR.strings.pref_theme_cover_based_style),
-                    enabled = themeCoverBased,
+                    visible = themeCoverBased,
                 ),
                 // RK <--
             ),

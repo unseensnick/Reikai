@@ -140,7 +140,7 @@ object SettingsLibraryScreen : SearchableSettings {
                     ),
                     title = stringResource(MR.strings.pref_library_update_restriction),
                     subtitle = stringResource(MR.strings.restrictions),
-                    enabled = interval > 0,
+                    visible = interval > 0,
                     onValueChanged = {
                         // Post to the main looper so the preference write lands before rescheduling.
                         ContextCompat.getMainExecutor(context).execute { NovelUpdateJob.setupTask(context) }
@@ -359,7 +359,7 @@ object SettingsLibraryScreen : SearchableSettings {
                     ),
                     title = stringResource(MR.strings.pref_library_update_restriction),
                     subtitle = stringResource(MR.strings.restrictions),
-                    enabled = autoUpdateInterval > 0,
+                    visible = autoUpdateInterval > 0,
                     onValueChanged = {
                         // Post to event looper to allow the preference to be updated.
                         ContextCompat.getMainExecutor(context).execute {

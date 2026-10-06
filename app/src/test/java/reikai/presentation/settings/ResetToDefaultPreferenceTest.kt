@@ -22,7 +22,7 @@ class ResetToDefaultPreferenceTest {
         settingShown: Boolean,
         expected: Boolean,
     ) {
-        resetToDefaultPreference(address, current, TITLE, settingShown).enabled shouldBe expected
+        resetToDefaultPreference(address, current, TITLE, settingShown).visible shouldBe expected
     }
 
     @Test

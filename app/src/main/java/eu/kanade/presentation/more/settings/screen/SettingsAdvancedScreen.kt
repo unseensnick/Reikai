@@ -369,7 +369,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_reset_user_agent_string),
-                    enabled = remember(userAgent) { userAgent != userAgentPref.defaultValue() },
+                    visible = remember(userAgent) { userAgent != userAgentPref.defaultValue() },
                     onClick = {
                         userAgentPref.delete()
                         context.toast(MR.strings.requires_app_restart)
@@ -385,15 +385,14 @@ object SettingsAdvancedScreen : SearchableSettings {
                     preference = networkPreferences.enableTurnstileBackgroundSolver,
                     title = stringResource(MR.strings.pref_enable_turnstile_background_solver),
                     subtitle = stringResource(MR.strings.pref_enable_turnstile_background_solver_summary),
-                    enabled = turnstileSolverEnabled,
+                    visible = turnstileSolverEnabled,
                 ),
-                // RK: spike instrumentation, debug builds only. `enabled = false` removes the row
-                //     entirely in this DSL, so a release build shows none of the three.
+                // RK: spike instrumentation, debug builds only
                 Preference.PreferenceItem.TextPreference(
                     title = "Turnstile: library update in 60s (spike)",
                     subtitle = "Queues a manual update after a delay. Kill the app during it, and the " +
                         "job starts a process with no activity, which is the solver's real no-window trigger",
-                    enabled = BuildConfig.DEBUG,
+                    visible = BuildConfig.DEBUG,
                     onClick = {
                         LibraryUpdateJob.startDelayed(context.workManager, delaySeconds = 60)
                         context.toast("Library update queued for 60s, kill the app now")
@@ -403,7 +402,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = "Turnstile: force the no-isolated-world path (spike)",
                     subtitle = "Currently ${if (forceNoWatchSolver) "on" else "off"}. Solves as if the " +
                         "WebView were too old for an isolated world, on events alone with no probe. Resets on restart",
-                    enabled = BuildConfig.DEBUG,
+                    visible = BuildConfig.DEBUG,
                     onClick = {
                         forceNoWatchSolver = !forceNoWatchSolver
                         TurnstileSolver.forceNoWatch = forceNoWatchSolver
@@ -413,7 +412,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = "Turnstile: force the no-window path (spike)",
                     subtitle = "Currently ${if (forceHeadlessSolver) "on" else "off"}. Solves as if no " +
                         "app screen were open, which otherwise only a scheduled update reaches. Resets on restart",
-                    enabled = BuildConfig.DEBUG,
+                    visible = BuildConfig.DEBUG,
                     onClick = {
                         forceHeadlessSolver = !forceHeadlessSolver
                         TurnstileSolver.forceHeadless = forceHeadlessSolver
@@ -435,7 +434,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                     } else {
                         "%s"
                     },
-                    enabled = flareSolverrEnabled,
+                    visible = flareSolverrEnabled,
                     onValueChanged = {
                         when {
                             it.trim().toHttpUrlOrNull() == null -> {
@@ -456,7 +455,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                     preference = networkPreferences.flareSolverrUrl,
                     current = flareSolverrUrl,
                     title = stringResource(MR.strings.pref_clear_flaresolverr_url),
-                    enabled = flareSolverrEnabled,
+                    visible = flareSolverrEnabled,
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_flaresolverr_login),
@@ -468,7 +467,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                             stringResource(MR.strings.pref_flaresolverr_login_password_only)
                         else -> stringResource(MR.strings.pref_flaresolverr_login_summary)
                     },
-                    enabled = flareSolverrEnabled,
+                    visible = flareSolverrEnabled,
                     onClick = { showFlareSolverrLogin = true },
                 ),
                 Preference.PreferenceItem.TextPreference(
@@ -483,8 +482,8 @@ object SettingsAdvancedScreen : SearchableSettings {
                             stringResource(lastTest.reason.stringRes())
                         else -> stringResource(MR.strings.pref_test_flaresolverr_summary)
                     },
-                    // Stays enabled while a test runs, since this DSL hides a disabled row; a tap then does nothing.
-                    enabled = flareSolverrEnabled,
+                    // Stays shown while a test runs, since this DSL has no disabled state; a tap then does nothing.
+                    visible = flareSolverrEnabled,
                     onClick = {
                         val url = networkPreferences.flareSolverrUrl.get().trim()
                         if (flareSolverrTesting) {
