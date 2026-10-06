@@ -176,34 +176,19 @@ private fun ColumnScope.SortPage(
     val currentSort = sortForCategory(flags, globalSort)
     val sortDescending = !currentSort.isAscending
 
-    // Tracker-score sort only shows with a logged-in tracker: nothing else could score an entry.
-    val options = remember(trackers.isEmpty()) {
-        listOfNotNull(
-            MR.strings.action_sort_alpha to LibrarySort.Type.Alphabetical,
-            MR.strings.action_sort_total to LibrarySort.Type.TotalChapters,
-            MR.strings.action_sort_last_read to LibrarySort.Type.LastRead,
-            MR.strings.action_sort_last_manga_update to LibrarySort.Type.LastUpdate,
-            MR.strings.action_sort_unread_count to LibrarySort.Type.UnreadCount,
-            MR.strings.action_sort_latest_chapter to LibrarySort.Type.LatestChapter,
-            MR.strings.action_sort_chapter_fetch_date to LibrarySort.Type.ChapterFetchDate,
-            MR.strings.action_sort_date_added to LibrarySort.Type.DateAdded,
-            (MR.strings.action_sort_tracker_score to LibrarySort.Type.TrackerMean).takeIf { trackers.isNotEmpty() },
-            MR.strings.action_sort_downloaded to LibrarySort.Type.Downloaded,
-            MR.strings.action_sort_random to LibrarySort.Type.Random,
-        )
-    }
+    val options = remember(trackers.isEmpty()) { librarySortTypes(hasTracker = trackers.isNotEmpty()) }
 
-    options.forEach { (titleRes, mode) ->
+    options.forEach { mode ->
         if (mode == LibrarySort.Type.Random) {
             BaseSortItem(
-                label = stringResource(titleRes),
+                label = stringResource(sortLabelRes(mode)),
                 icon = MaterialSymbols.Rounded.Refresh.takeIf { currentSort.type == LibrarySort.Type.Random },
                 onClick = { settings.setSort(scopeId, mode, LibrarySort.Direction.Ascending) },
             )
             return@forEach
         }
         SortItem(
-            label = stringResource(titleRes),
+            label = stringResource(sortLabelRes(mode)),
             sortDescending = sortDescending.takeIf { currentSort.type == mode },
             onClick = {
                 // Tapping the active mode flips direction; switching modes keeps the current one.
