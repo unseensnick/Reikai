@@ -91,6 +91,12 @@ class SavedSearchFiltersConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a saved search carrying no filters opens on the source's defaults`(probe: SavedSearchFiltersProbe) {
+        probe.restore(null, names = listOf("A", "B", "C"), preset = "B") shouldBe listOf("B")
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `a source with no filters saves nothing`(probe: SavedSearchFiltersProbe) {
         probe.save(names = emptyList(), chosen = null).shouldBeNull()
     }
@@ -198,7 +204,7 @@ interface SavedSearchFiltersProbe {
     fun save(names: List<String>, chosen: String?): String?
 
     /** Decodes onto a state built for [names], with [preset] switched on before decoding. */
-    fun restore(json: String, names: List<String>, preset: String? = null): List<String>
+    fun restore(json: String?, names: List<String>, preset: String? = null): List<String>
 }
 
 class MangaSavedSearchFiltersProbe : SavedSearchFiltersProbe {
@@ -207,8 +213,8 @@ class MangaSavedSearchFiltersProbe : SavedSearchFiltersProbe {
 
     override fun save(names: List<String>, chosen: String?): String? = filters.encode(state(names, chosen))
 
-    override fun restore(json: String, names: List<String>, preset: String?): List<String> =
-        filters.decode(json, state(names, preset))
+    override fun restore(json: String?, names: List<String>, preset: String?): List<String> =
+        filters.restore(json) { state(names, preset) }
             .filterIsInstance<Filter.CheckBox>()
             .filter { it.state }
             .map { it.name }
@@ -225,8 +231,8 @@ class NovelSavedSearchFiltersProbe : SavedSearchFiltersProbe {
 
     override fun save(names: List<String>, chosen: String?): String? = filters.encode(state(names, chosen))
 
-    override fun restore(json: String, names: List<String>, preset: String?): List<String> {
-        val decoded = filters.decode(json, state(names, preset)) as NovelFilterState.LnValues
+    override fun restore(json: String?, names: List<String>, preset: String?): List<String> {
+        val decoded = filters.restore(json) { state(names, preset) } as NovelFilterState.LnValues
         // Only the filters the source still declares, since the plugin's schema is what the options
         // are built from; a value left over from a filter that is gone never reaches a request.
         return names.filter { decoded.values[it]?.jsonPrimitive?.boolean == true }
@@ -245,8 +251,8 @@ class NovelFilterListSavedSearchFiltersProbe : SavedSearchFiltersProbe {
 
     override fun save(names: List<String>, chosen: String?): String? = filters.encode(state(names, chosen))
 
-    override fun restore(json: String, names: List<String>, preset: String?): List<String> =
-        (filters.decode(json, state(names, preset)) as NovelFilterState.Filters).list
+    override fun restore(json: String?, names: List<String>, preset: String?): List<String> =
+        (filters.restore(json) { state(names, preset) } as NovelFilterState.Filters).list
             .filterIsInstance<Filter.CheckBox>()
             .filter { it.state }
             .map { it.name }

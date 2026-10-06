@@ -4,15 +4,18 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.CatalogueEnd
 import reikai.domain.source.SourceKey
 import reikai.domain.source.model.SavedSearch
 import reikai.novel.host.NovelItem
+import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelFilters
 import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
@@ -53,5 +56,17 @@ class NovelFeedProviderTest {
         val shown = NovelFeedProvider(mockk(), mockk(), MutableStateFlow(FavoritedNovels.None)).load(row, saved)
 
         shown.map { it.item.name } shouldBe listOf(NovelListing.Popular.name)
+    }
+
+    @Test
+    fun `a saved search's filters reach the plugin`() = runTest {
+        val sent = slot<NovelFilterState?>()
+        coEvery { source.browse(any(), any(), captureNullable(sent)) } returns
+            NovelItemsPage(emptyList(), CatalogueEnd.Reported(false))
+        val saved = SavedSearch(1L, SourceKey.Novel("plugin"), "Saved", query = null, filtersJson = """{"genre":"x"}""")
+
+        NovelFeedProvider(mockk(), mockk(), MutableStateFlow(FavoritedNovels.None)).load(row, saved)
+
+        (sent.captured as NovelFilterState.LnValues).values["genre"] shouldBe JsonPrimitive("x")
     }
 }

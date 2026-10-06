@@ -91,13 +91,11 @@ class MangaFeedProvider(
     override suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<EntryBrowseRow> {
         val source = row.source as Source
         val page = when {
-            savedSearch != null -> {
-                // Onto a list the source builds now, so anything the search does not carry keeps the
-                // source's own default. Same rule the catalogue applies when a chip is tapped.
-                val filterList = source.getFilterList()
-                savedSearch.filtersJson?.let { filters.decode(it, filterList) }
-                source.getSearchManga(1, savedSearch.query.orEmpty(), filterList)
-            }
+            savedSearch != null -> source.getSearchManga(
+                1,
+                savedSearch.query.orEmpty(),
+                filters.restore(savedSearch.filtersJson, source::getFilterList),
+            )
             source.supportsLatest -> source.getLatestUpdates(1)
             else -> source.getPopularManga(1)
         }
@@ -148,13 +146,11 @@ class NovelFeedProvider(
 
     private suspend fun page(source: NovelSource, savedSearch: SavedSearch?): List<NovelItem> {
         val defaults = source.filters?.defaultState()
-        val stored = savedSearch?.filtersJson
-            ?.let { json -> defaults?.let { filters.decode(json, it) } }
-            ?: defaults
         if (savedSearch == null) {
             val listing = if (source.supportsLatest) NovelListing.Latest else NovelListing.Popular
             return source.browse(listing, page = 1, defaults).items
         }
+        val stored = source.filters?.let { filters.restore(savedSearch.filtersJson, it::defaultState) }
         return when (val run = NovelSavedSearchRun.of(source.filters?.applyToSearch == true, savedSearch.query)) {
             is NovelSavedSearchRun.SearchWithFilters -> source.search(run.query, page = 1, stored).items
             is NovelSavedSearchRun.PlainSearch -> source.search(run.query, page = 1, defaults).items

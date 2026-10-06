@@ -90,7 +90,10 @@ silently and with no way for a reader to notice. Reikai matches on the filter's 
 consuming repeats in order, and leaves a filter with no match at the source's own default. The stored
 payload is unchanged, so it stays readable by the encoding it came from. Two things are kept from
 Komikku: the per-element catch, so one unreadable filter costs its own value rather than the search,
-and the encoding itself. The novel side needed none of this, being keyed already.
+and the encoding itself. The novel side needed none of this, being keyed already. Every place a saved
+search opens, the catalogue chip and the feed row for both types, applies it through
+`SavedSearchFilters.restore`, onto filters the source builds for that call, so a value the search does
+not carry reads the source's current default rather than what was on screen.
 
 The one case a name cannot separate is two filters of the same kind and name in one list, which stay
 positional among themselves. That is upstream's behaviour for every filter, narrowed to the only place

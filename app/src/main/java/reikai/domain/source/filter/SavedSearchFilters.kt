@@ -26,6 +26,16 @@ interface SavedSearchFilters<S> {
      * saved search that cannot be applied must still open its source.
      */
     fun decode(json: String, current: S): S
+
+    /**
+     * A saved search's filters, [json] applied onto the source's defaults as [defaults] builds them now,
+     * so anything the search carries no value for reads today's default rather than what is on screen.
+     * No payload is the defaults themselves.
+     */
+    fun restore(json: String?, defaults: () -> S): S {
+        val fresh = defaults()
+        return json?.let { decode(it, fresh) } ?: fresh
+    }
 }
 
 /**

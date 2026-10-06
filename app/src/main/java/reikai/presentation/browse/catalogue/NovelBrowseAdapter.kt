@@ -167,10 +167,7 @@ class NovelBrowseAdapter(
 
     override fun applySearch(query: String?, filtersJson: String?) {
         val filters = model.state.value.source?.filters
-        val defaults = filters?.defaultState()
-        model.setFilterState(
-            filtersJson?.let { json -> defaults?.let { savedSearchFilters.decode(json, it) } } ?: defaults,
-        )
+        model.setFilterState(filters?.let { savedSearchFilters.restore(filtersJson, it::defaultState) })
         toolbarText.value = ToolbarText.Typed(query)
         model.applySavedSearch(query)
     }

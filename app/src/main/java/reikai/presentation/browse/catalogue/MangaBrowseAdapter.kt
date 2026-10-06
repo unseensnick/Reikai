@@ -149,10 +149,7 @@ class MangaBrowseAdapter(
     }
 
     override fun applySearch(query: String?, filtersJson: String?) {
-        // Onto a list the source builds now rather than the one on screen, so a saved search reads the
-        // source's current defaults for anything it does not carry a value for.
-        val filters = model.source?.getFilterList() ?: FilterList()
-        filtersJson?.let { savedSearchFilters.decode(it, filters) }
+        val filters = savedSearchFilters.restore(filtersJson) { model.source?.getFilterList() ?: FilterList() }
         // Empty rather than null for a search that carries none: Mihon's search() reads null as "keep
         // what is there", so a filters-only search would otherwise run against whatever the reader had
         // typed and show results the saved search never described. The novel half clears it in applySavedSearch.

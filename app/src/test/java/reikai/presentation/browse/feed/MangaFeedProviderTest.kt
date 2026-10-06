@@ -1,6 +1,9 @@
 package reikai.presentation.browse.feed
 
 import eu.kanade.domain.source.interactor.GetEnabledSources
+import eu.kanade.tachiyomi.source.model.Filter
+import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import exh.source.EHENTAI_EXT_SOURCES
 import exh.source.EH_SOURCE_ID
@@ -8,13 +11,19 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.source.SourceKey
+import reikai.domain.source.filter.MangaSavedSearchFilters
+import reikai.domain.source.model.SavedSearch
+import reikai.presentation.browse.globalsearch.BrowseSearchRow
+import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.browse.source.MangaSourcesProvider
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.Source
 import tachiyomi.source.local.LocalSource
 import eu.kanade.tachiyomi.source.Source as LiveSource
@@ -112,4 +121,28 @@ class MangaFeedProviderTest {
 
         provider(enabled).sources().map { it.key } shouldBe sourcesTab.filterNot { it.isUsedLast }.map { it.key }
     }
+
+    @Test
+    fun `a saved search's filters reach the source`() = runTest {
+        val sent = slot<FilterList>()
+        val live = mockk<LiveSource> {
+            every { id } returns 1L
+            every { getFilterList() } answers { FilterList(CheckBoxFilter()) }
+            coEvery { getSearchManga(1, "", capture(sent)) } returns MangasPage(emptyList(), false)
+        }
+        val row = BrowseSearchRow(SourceKey.Manga(1L), "One", "en", false, EntrySearchState.Loading, source = live)
+        val json = MangaSavedSearchFilters().encode(FilterList(CheckBoxFilter().apply { state = true }))
+        val provider = MangaFeedProvider(
+            sourceManager = mockk(),
+            getEnabledSources = enabledSources(emptyList()),
+            networkToLocalManga = mockk { coEvery { this@mockk.invoke(any<List<Manga>>()) } returns emptyList() },
+            getManga = mockk(),
+        )
+
+        provider.load(row, SavedSearch(1L, SourceKey.Manga(1L), "Saved", query = null, filtersJson = json))
+
+        (sent.captured.single() as Filter.CheckBox).state shouldBe true
+    }
+
+    private class CheckBoxFilter : Filter.CheckBox("Completed")
 }
