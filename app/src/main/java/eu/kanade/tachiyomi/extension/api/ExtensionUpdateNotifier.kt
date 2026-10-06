@@ -1,16 +1,13 @@
 package eu.kanade.tachiyomi.extension.api
 
 import android.content.Context
-import androidx.core.app.NotificationCompat
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
-import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.cancelNotification
-import eu.kanade.tachiyomi.util.system.notify
+import reikai.data.notification.notifyExtensionUpdates
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.i18n.MR
 
@@ -21,26 +18,19 @@ class ExtensionUpdateNotifier(
     private val securityPreferences: SecurityPreferences,
 ) {
     fun promptUpdates(names: List<String>) {
-        context.notify(
+        // RK --> built by the notice light-novel plugins share
+        context.notifyExtensionUpdates(
             Notifications.ID_UPDATES_TO_EXTS,
             Notifications.CHANNEL_EXTENSIONS_UPDATE,
-        ) {
-            setContentTitle(
-                context.pluralStringResource(
-                    MR.plurals.update_check_notification_ext_updates,
-                    names.size,
-                    names.size,
-                ),
-            )
-            if (!securityPreferences.hideNotificationContent.get()) {
-                val extNames = names.joinToString(", ")
-                setContentText(extNames)
-                setStyle(NotificationCompat.BigTextStyle().bigText(extNames))
-            }
-            setSmallIcon(R.drawable.ic_extension_24dp)
-            setContentIntent(NotificationReceiver.openExtensionsPendingActivity(context))
-            setAutoCancel(true)
-        }
+            context.pluralStringResource(
+                MR.plurals.update_check_notification_ext_updates,
+                names.size,
+                names.size,
+            ),
+            names,
+            securityPreferences.hideNotificationContent.get(),
+        )
+        // RK <--
     }
 
     fun dismiss() {

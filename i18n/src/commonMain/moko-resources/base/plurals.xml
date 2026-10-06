@@ -117,6 +117,11 @@
         <item quantity="one">Extension update available</item>
         <item quantity="other">%d extension updates available</item>
     </plurals>
+    <!-- RK: the light-novel plugin update notice -->
+    <plurals name="ln_plugin_updates_available">
+        <item quantity="one">Light novel plugin update available</item>
+        <item quantity="other">%d light novel plugin updates available</item>
+    </plurals>
 
     <plurals name="num_repos">
         <item quantity="one">%d store</item>

@@ -360,7 +360,6 @@
     <string name="tts_sleep_timer">Sleep timer</string>
     <string name="tts_sleep_timer_end_of_chapter">End of chapter</string>
     <string name="tts_sleep_timer_ends_with_chapter">Stops at the end of this chapter</string>
-    <string name="ln_plugins_update_available">%d light novel plugin update(s) available</string>
     <!-- RK: light-novel chapter updates (P5 S7) -->
     <string name="novel_library_update">Light novel updates</string>
     <!-- missing undo feature after Compose rewrite #7454 -->
