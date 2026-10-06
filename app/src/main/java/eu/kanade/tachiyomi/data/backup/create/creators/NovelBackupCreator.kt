@@ -90,11 +90,8 @@ class NovelBackupCreator(
     }
 
     override suspend fun history(entry: Novel, backup: BackupNovel) {
-        val urls = novelChapterRepository.getByNovelId(entry.id).associate { it.id to it.url }
-        val history = novelHistoryRepository.getHistoryByNovelId(entry.id).mapNotNull { row ->
-            urls[row.chapterId]?.let {
-                BackupNovelHistory(url = it, lastRead = row.readAt ?: 0L, readDuration = row.readDuration)
-            }
+        val history = novelHistoryRepository.getUrlKeyedHistoryByNovelId(entry.id).map {
+            BackupNovelHistory(url = it.chapterUrl, lastRead = it.readAt, readDuration = it.readDuration)
         }
         if (history.isNotEmpty()) {
             backup.history = history

@@ -7,26 +7,27 @@ import reikai.domain.library.ReleaseInterval
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
- * Predicts when [novel] is next due from all of its chapters and stores it, the novel side of manga's
- * `UpdateManga.awaitUpdateFetchInterval`. An interval the user set is kept; a [window] of (0, 0) means
- * today's.
+ * Predicts when [novel] is next due from all of its [chapters] and stores it, the novel side of manga's
+ * `UpdateManga.awaitUpdateFetchInterval`. An interval the user set is kept, and then [chapters] is never
+ * read; a [window] of (0, 0) means today's.
  */
 suspend fun updateNovelFetchInterval(
     novel: Novel,
-    novelChapterRepository: NovelChapterRepository,
+    chapters: suspend () -> List<NovelChapter>,
     novelRepository: NovelRepository,
     window: Pair<Long, Long> = Pair(0, 0),
     zone: TimeZone = TimeZone.currentSystemDefault(),
     now: LocalDateTime = Clock.System.now().toLocalDateTime(zone),
 ) {
     val interval = ReleaseInterval.userOrPredicted(novel.fetchInterval) {
-        val chapters = novelChapterRepository.getByNovelId(novel.id)
-        ReleaseInterval.calculate(chapters.map { it.dateUpload }, chapters.map { it.dateFetch }, zone)
+        val all = chapters()
+        ReleaseInterval.calculate(all.map { it.dateUpload }, all.map { it.dateFetch }, zone)
     }
     val currentWindow = ReleaseInterval.windowOrToday(window, now.date, zone)
     val nextUpdate = ReleaseInterval.nextUpdate(novel.nextUpdate, novel.lastUpdate, interval, now, zone, currentWindow)
@@ -52,7 +53,7 @@ suspend fun predictNovelFetchInterval(
     window: Pair<Long, Long> = Pair(0, 0),
 ) {
     if (listChanged || ReleaseInterval.needsPrediction(manualFetch, novel.fetchInterval, novel.nextUpdate, window)) {
-        updateNovelFetchInterval(novel, novelChapterRepository, novelRepository, window)
+        updateNovelFetchInterval(novel, { novelChapterRepository.getByNovelId(novel.id) }, novelRepository, window)
     }
 }
 

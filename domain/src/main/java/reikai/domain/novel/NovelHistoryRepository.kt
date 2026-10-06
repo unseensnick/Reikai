@@ -1,6 +1,7 @@
 package reikai.domain.novel
 
 import kotlinx.coroutines.flow.Flow
+import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.novel.model.NovelHistory
 import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.NovelHistoryWithRelations
@@ -26,6 +27,9 @@ interface NovelHistoryRepository {
     suspend fun deleteAllNovelHistory(): Boolean
     suspend fun upsertNovelHistory(update: NovelHistoryUpdate)
     suspend fun getHistoryByNovelId(novelId: Long): List<NovelHistory>
+
+    /** Every history row of the novel keyed by its chapter's url, as a backup carries it. */
+    suspend fun getUrlKeyedHistoryByNovelId(novelId: Long): List<RestoredChapterHistory>
 
     /** Backup restore of one chapter's history: the later read time and the longer duration win. */
     suspend fun restoreHistory(chapterId: Long, readAt: Long, readDuration: Long)

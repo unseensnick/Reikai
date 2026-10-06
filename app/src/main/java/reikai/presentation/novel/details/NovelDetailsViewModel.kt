@@ -1174,7 +1174,11 @@ class NovelDetailsViewModel(
     fun setFetchInterval(days: Int) {
         val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
         viewModelScope.launchIO {
-            updateNovelFetchInterval(novel.copy(fetchInterval = -days), chapterRepo, novelRepo)
+            updateNovelFetchInterval(
+                novel.copy(fetchInterval = -days),
+                { chapterRepo.getByNovelId(novel.id) },
+                novelRepo,
+            )
         }
     }
 

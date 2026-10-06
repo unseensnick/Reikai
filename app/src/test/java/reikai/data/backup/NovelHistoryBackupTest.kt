@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
+import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.Novel
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -55,9 +56,27 @@ class NovelHistoryBackupTest {
         backup.history.map { it.url to it.readDuration } shouldBe listOf("chapter" to 500L)
     }
 
-    private fun creator() = NovelBackupCreator(
+    @Test
+    fun `history is keyed by chapter url without reading the chapter list again`() = runTest {
+        listOf(
+            "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                "favorite_at) VALUES (1, 'src', 'novel', 'title', 0, 0, 0, 0)",
+            "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, chapter_number, " +
+                "source_order, date_fetch, date_upload) VALUES (10, 1, 'chapter', 'c', 1, 0, 1, 0, 0, 0)",
+            "INSERT INTO novel_history(chapter_id, last_read, time_read) VALUES (10, 300, 500)",
+        ).forEach { driver.execute(null, it, 0).await() }
+        val backup = BackupNovel(source = "src", url = "novel")
+
+        // A strict mock: the chapters part already reads the list, so the history part must not.
+        creator(chapters = mockk()).history(Novel.create().copy(id = 1L), backup)
+
+        backup.history.map { Triple(it.url, it.lastRead, it.readDuration) } shouldBe
+            listOf(Triple("chapter", 300L, 500L))
+    }
+
+    private fun creator(chapters: NovelChapterRepository = NovelChapterRepositoryImpl(database)) = NovelBackupCreator(
         novelRepository = mockk(),
-        novelChapterRepository = NovelChapterRepositoryImpl(database),
+        novelChapterRepository = chapters,
         categoryRepository = mockk(),
         novelTrackRepository = mockk(),
         mergeGroupRepository = mockk(),

@@ -9,7 +9,6 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import org.junit.jupiter.api.Test
-import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -22,21 +21,25 @@ class NovelFetchIntervalTest {
     private val now = LocalDateTime(2026, 9, 17, 12, 0)
     private val stored = slot<NovelUpdate>()
     private val novels = mockk<NovelRepository> { coEvery { update(capture(stored)) } returns true }
-    private val chapters = mockk<NovelChapterRepository>()
 
     @Test
     fun `chapters released every two days predict a two day interval`() = runTest {
-        coEvery { chapters.getByNovelId(1L) } returns
-            listOf(uploadedOn(17), uploadedOn(15), uploadedOn(13), uploadedOn(11))
+        val chapters = listOf(uploadedOn(17), uploadedOn(15), uploadedOn(13), uploadedOn(11))
 
-        updateNovelFetchInterval(novel(), chapters, novels, zone = zone, now = now)
+        updateNovelFetchInterval(novel(), { chapters }, novels, zone = zone, now = now)
 
         stored.captured.fetchInterval shouldBe 2
     }
 
     @Test
     fun `an interval the user set is kept`() = runTest {
-        updateNovelFetchInterval(novel().copy(fetchInterval = -5), chapters, novels, zone = zone, now = now)
+        updateNovelFetchInterval(
+            novel().copy(fetchInterval = -5),
+            { error("an interval the user set reads no chapters") },
+            novels,
+            zone = zone,
+            now = now,
+        )
 
         stored.captured.fetchInterval shouldBe -5
     }

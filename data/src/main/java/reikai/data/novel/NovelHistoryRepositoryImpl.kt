@@ -9,6 +9,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import logcat.LogPriority
+import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.model.NovelHistory
 import reikai.domain.novel.model.NovelHistoryUpdate
@@ -77,6 +78,11 @@ class NovelHistoryRepositoryImpl(
     override suspend fun getHistoryByNovelId(novelId: Long): List<NovelHistory> =
         database.novel_historyQueries.getHistoryByNovelId(novelId) { chapterId, readAt, readDuration ->
             NovelHistory(chapterId, readAt, readDuration)
+        }.awaitAsList()
+
+    override suspend fun getUrlKeyedHistoryByNovelId(novelId: Long): List<RestoredChapterHistory> =
+        database.novel_historyQueries.getUrlKeyedHistoryByNovelId(novelId) { url, readAt, readDuration ->
+            RestoredChapterHistory(url, readAt ?: 0L, readDuration)
         }.awaitAsList()
 
     override suspend fun restoreHistory(chapterId: Long, readAt: Long, readDuration: Long) {

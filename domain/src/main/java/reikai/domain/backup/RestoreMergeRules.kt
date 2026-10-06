@@ -51,7 +51,7 @@ fun <T> List<T>.foldChapterCopies(
  */
 fun backupChapterReadAhead(device: Double, backup: Double): Double? = backup.takeIf { it > device }
 
-/** One backup history entry as a restore reads it; [readAt] is 0 for an entry the user removed. */
+/** One chapter's history keyed by its url, as a backup carries it; [readAt] is 0 for an entry the user removed. */
 data class RestoredChapterHistory(val chapterUrl: String, val readAt: Long, val readDuration: Long)
 
 /**

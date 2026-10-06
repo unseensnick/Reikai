@@ -36,6 +36,7 @@ import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelChapter
 import tachiyomi.domain.category.model.NewCategory
 import tachiyomi.domain.category.repository.CategoryRepository
 
@@ -76,12 +77,12 @@ class NovelRestorer(
             dbNovel.id
         }
 
-        restoreChapters(novelId, backupNovel.chapters)
+        val chapters = restoreChapters(novelId, backupNovel.chapters)
         // Predicted from the restored chapters rather than carried in the backup, as manga's restore does.
-        novelRepository.getById(novelId)?.let { updateNovelFetchInterval(it, novelChapterRepository, novelRepository) }
+        novelRepository.getById(novelId)?.let { updateNovelFetchInterval(it, { chapters }, novelRepository) }
         restoreCategoryMembership(novelId, backupNovel.categories, backupCategories)
         restoreTracks(novelId, backupNovel.tracking)
-        restoreHistory(novelId, backupNovel.history)
+        restoreHistory(chapters, backupNovel.history)
         // An old backup carries the Last read stamp without history; after the history above, so a
         // backup that has history keeps it as is.
         backupNovel.lastReadAt?.takeIf { it > 0 }?.let { lastRead ->
@@ -111,11 +112,14 @@ class NovelRestorer(
         )
     }
 
+    /** The novel's chapters as stored once the backup's are in, so the steps after this read no list. */
     private suspend fun restoreChapters(
         novelId: Long,
         backupChapters: List<BackupNovelChapter>,
-    ) {
-        val dbChaptersByUrl = novelChapterRepository.getByNovelId(novelId).associateBy { it.url }
+    ): List<NovelChapter> {
+        val dbChapters = novelChapterRepository.getByNovelId(novelId)
+        val dbChaptersByUrl = dbChapters.associateBy { it.url }
+        val inserted = mutableListOf<NovelChapter>()
         backupChapters.foldChapterCopies(
             url = { it.url },
             state = { RestoredChapterState(it.read, it.bookmark, it.lastTextProgress) },
@@ -131,7 +135,10 @@ class NovelRestorer(
             val incoming = backupChapter.toChapterImpl(novelId)
             val dbChapter = dbChaptersByUrl[backupChapter.url]
             if (dbChapter == null) {
-                checkNotNull(novelChapterRepository.insert(incoming)) { "Failed to insert chapter ${incoming.url}" }
+                val id = checkNotNull(novelChapterRepository.insert(incoming)) {
+                    "Failed to insert chapter ${incoming.url}"
+                }
+                inserted += incoming.copy(id = id)
             } else {
                 // Keep the device's structural fields; only fold in read state from the backup.
                 val readState = RestoredChapterState(dbChapter.read, dbChapter.bookmark, dbChapter.lastTextProgress)
@@ -146,6 +153,7 @@ class NovelRestorer(
                 }
             }
         }
+        return dbChapters + inserted
     }
 
     private suspend fun restoreCategoryMembership(
@@ -188,15 +196,16 @@ class NovelRestorer(
     }
 
     private suspend fun restoreHistory(
-        novelId: Long,
+        chapters: List<NovelChapter>,
         backupHistory: List<BackupNovelHistory>,
     ) {
+        val chapterIdsByUrl = chapters.associate { it.url to it.id }
         backupHistory
             .map { RestoredChapterHistory(it.url, it.lastRead, it.readDuration) }
             .foldHistoryCopies()
             .forEach { history ->
-                val chapter = novelChapterRepository.getByUrlAndNovelId(history.chapterUrl, novelId) ?: return@forEach
-                novelHistoryRepository.restoreHistory(chapter.id, history.readAt, history.readDuration)
+                val chapterId = chapterIdsByUrl[history.chapterUrl] ?: return@forEach
+                novelHistoryRepository.restoreHistory(chapterId, history.readAt, history.readDuration)
             }
     }
 
