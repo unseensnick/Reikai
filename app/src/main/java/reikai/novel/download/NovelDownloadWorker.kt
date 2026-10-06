@@ -43,8 +43,10 @@ class NovelDownloadWorker(context: Context, workerParams: WorkerParameters) :
     private val notifier = NovelDownloadNotifier(context, securityPreferences)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
+        // The service may post this after the drain's own notice, so one starting off the network says why here too.
         val notification = notifier.progress(
-            NovelDownloadProgress.Downloading(0, manager.queueState.value.size, "", isAdult = false),
+            manager.networkPause()
+                ?: NovelDownloadProgress.Downloading(0, manager.queueState.value.size, "", isAdult = false),
         )
         val id = Notifications.ID_NOVEL_DOWNLOADER
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

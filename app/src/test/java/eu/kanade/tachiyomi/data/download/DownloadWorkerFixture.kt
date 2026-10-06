@@ -95,6 +95,12 @@ class DownloadWorkerFixture(
         every { app.applicationContext } returns app
     }
 
+    private val notifier by lazy {
+        notifierFor?.invoke(app) ?: mockk<DownloadNotifier>(relaxed = true) {
+            every { onNetworkPause(any()) } answers { events += "paused" }
+        }
+    }
+
     val downloader by lazy {
         Downloader(
             context = app,
@@ -107,9 +113,7 @@ class DownloadWorkerFixture(
             getCategories = mockk(),
             getTracks = mockk(),
             store = mockk<DownloadStore>(relaxed = true) { coEvery { restore() } coAnswers { restored.await() } },
-            notifier = notifierFor?.invoke(app) ?: mockk<DownloadNotifier>(relaxed = true) {
-                every { onNetworkPause(any()) } answers { events += "paused" }
-            },
+            notifier = notifier,
         )
     }
 
@@ -144,6 +148,7 @@ class DownloadWorkerFixture(
         every { graph.inject(any<DownloadWorker>()) } answers {
             firstArg<DownloadWorker>().setField("downloader", downloader)
             firstArg<DownloadWorker>().setField("downloadPreferences", downloadPreferences)
+            firstArg<DownloadWorker>().setField("notifier", notifier)
         }
         @Suppress("UNCHECKED_CAST")
         every { (app as GraphProvider<AppGraph>).graph } returns graph

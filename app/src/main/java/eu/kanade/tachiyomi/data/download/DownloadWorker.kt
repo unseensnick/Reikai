@@ -39,15 +39,22 @@ class DownloadWorker(context: Context, workerParams: WorkerParameters) : Corouti
 
     @Inject private lateinit var downloadPreferences: DownloadPreferences
 
+    @Inject private lateinit var notifier: DownloadNotifier // RK
+
+    // RK: why the worker paused the downloader, or null while it may fetch
+    private var networkIssue: String? = null
+
     init {
         graph.inject(this)
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
-        val notification = applicationContext.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
-            setContentTitle(applicationContext.getString(R.string.download_notifier_downloader_title))
-            setSmallIcon(android.R.drawable.stat_sys_download)
-        }.build()
+        // RK: the service can post this after the downloader's paused notice, so a worker starting paused shows that
+        val notification = networkIssue?.let(notifier::pausedNotification)
+            ?: applicationContext.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
+                setContentTitle(applicationContext.getString(R.string.download_notifier_downloader_title))
+                setSmallIcon(android.R.drawable.stat_sys_download)
+            }.build()
         return ForegroundInfo(
             Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS,
             notification,
@@ -62,7 +69,7 @@ class DownloadWorker(context: Context, workerParams: WorkerParameters) : Corouti
     override suspend fun doWork(): Result {
         // RK: a resume after a force-kill would otherwise read the queue before its restore lands
         downloader.awaitQueueRestored()
-        var networkIssue = networkIssue()
+        networkIssue = networkIssue() // RK: read by getForegroundInfo
         // RK --> a queue started without a suitable network waits for one below, as a dropped one does
         if (networkIssue != null && downloader.queueState.value.isEmpty()) return Result.failure()
 
@@ -73,12 +80,13 @@ class DownloadWorker(context: Context, workerParams: WorkerParameters) : Corouti
             setForegroundSafely()
 
             // RK --> a network issue pauses the downloader and the worker waits it out, starting it again
-            // once the issue clears. A user pause or an emptied queue ends the wait, as stop() clears isPaused
-            if (networkIssue != null) downloader.stop(networkIssue)
+            // once the issue clears. A user pause or an emptied queue ends the wait, as stop() clears isPaused.
+            // A changed issue pauses again, so the notice never says Wi-Fi once the device is offline
+            networkIssue?.let(downloader::stop)
             while (downloader.isRunning || downloader.isPaused) {
                 delay(1.seconds)
                 val issue = networkIssue()
-                if (issue != null && downloader.isRunning) downloader.stop(issue)
+                if (issue != null && (downloader.isRunning || issue != networkIssue)) downloader.stop(issue)
                 if (issue == null && networkIssue != null && downloader.isPaused) downloader.start()
                 networkIssue = issue
             }

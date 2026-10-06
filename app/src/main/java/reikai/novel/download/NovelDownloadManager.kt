@@ -383,7 +383,7 @@ class NovelDownloadManager(
                 if (networkIssue() != null) {
                     // Nothing is downloading, so the UI should read Queued, not Downloading.
                     _downloadingNovelId.value = null
-                    awaitNetwork(done, onProgress)
+                    awaitNetwork(onProgress)
                     continue
                 }
                 setState(next.chapterId, NovelDownload.State.DOWNLOADING)
@@ -492,11 +492,14 @@ class NovelDownloadManager(
     private fun networkIssue() =
         downloadNetworkIssue(context.activeNetworkState(), downloadPreferences.downloadOnlyOverWifi.get())
 
+    /** Why the drain waits for a network right now, or null when it may fetch. */
+    fun networkPause(): NovelDownloadProgress.Paused? =
+        networkIssue()?.let { NovelDownloadProgress.Paused(context.stringResource(it)) }
+
     // Ends once nothing is left to fetch too, so an emptied paused queue ends the drain.
-    private suspend fun awaitNetwork(done: Int, onProgress: (NovelDownloadProgress) -> Unit) {
+    private suspend fun awaitNetwork(onProgress: (NovelDownloadProgress) -> Unit) {
         while (hasQueued()) {
-            val issue = networkIssue() ?: return
-            onProgress(NovelDownloadProgress.Paused(done, pendingTotal(done), context.stringResource(issue)))
+            onProgress(networkPause() ?: return)
             delay(NETWORK_RECHECK_MS)
         }
     }

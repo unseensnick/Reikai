@@ -35,10 +35,26 @@ class NovelDownloadNotifier(
 
     /** What a user pause leaves behind, so the queue can be resumed or cleared from the shade. */
     fun onPaused() {
-        val notification = context.notificationBuilder(Notifications.CHANNEL_NOVEL_DOWNLOADER) {
+        val notification = paused(context.stringResource(MR.strings.download_notifier_download_paused))
+        context.notificationManager.notify(Notifications.ID_NOVEL_DOWNLOADER_PAUSED, notification)
+    }
+
+    /**
+     * Build the worker's notification (also its `getForegroundInfo`). A drain waiting for a network shows
+     * the paused notice saying why, as the manga worker does, on the worker's own id.
+     */
+    fun progress(progress: NovelDownloadProgress): Notification = when (progress) {
+        is NovelDownloadProgress.Paused -> paused(progress.reason)
+        is NovelDownloadProgress.Downloading -> downloading(progress)
+    }
+
+    private fun paused(reason: String): Notification =
+        context.notificationBuilder(Notifications.CHANNEL_NOVEL_DOWNLOADER) {
             setContentTitle(context.stringResource(MR.strings.chapter_paused))
-            setContentText(context.stringResource(MR.strings.download_notifier_download_paused))
+            setContentText(reason)
             setSmallIcon(R.drawable.ic_pause_24dp)
+            // A drain waiting for a network posts this again at every recheck.
+            setOnlyAlertOnce(true)
             setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))
             addAction(
                 R.drawable.ic_play_arrow_24dp,
@@ -51,11 +67,8 @@ class NovelDownloadNotifier(
                 NotificationReceiver.cancelNovelDownloadPendingBroadcast(context),
             )
         }.build()
-        context.notificationManager.notify(Notifications.ID_NOVEL_DOWNLOADER_PAUSED, notification)
-    }
 
-    /** Build the progress notification (also used for the worker's `getForegroundInfo`). */
-    fun progress(progress: NovelDownloadProgress): Notification =
+    private fun downloading(progress: NovelDownloadProgress.Downloading): Notification =
         builder
             .clearActions()
             .addAction(
@@ -64,7 +77,7 @@ class NovelDownloadNotifier(
                 NotificationReceiver.pauseNovelDownloadsPendingBroadcast(context),
             )
             .apply {
-                val novel = (progress as? NovelDownloadProgress.Downloading)?.novel ?: return@apply
+                val novel = progress.novel ?: return@apply
                 addAction(
                     R.drawable.ic_book_24dp,
                     context.stringResource(MR.strings.action_show_manga),

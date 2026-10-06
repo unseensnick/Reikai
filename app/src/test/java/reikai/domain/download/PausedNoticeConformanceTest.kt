@@ -6,7 +6,9 @@ import androidx.work.CoroutineWorker
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.download.DownloadNotifier
 import eu.kanade.tachiyomi.data.download.DownloadWorkerFixture
+import eu.kanade.tachiyomi.data.download.DownloadWorkerFixture.Companion.MOBILE
 import eu.kanade.tachiyomi.data.download.DownloadWorkerFixture.Companion.OFFLINE
+import eu.kanade.tachiyomi.data.download.DownloadWorkerFixture.Companion.ONLINE
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.NetworkState
 import eu.kanade.tachiyomi.util.system.activeNetworkState
@@ -95,6 +97,42 @@ class PausedNoticeConformanceTest {
         half.noticeTexts() shouldBe listOf(NO_NETWORK)
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
+    fun `a waiting queue's notice says why it waits now`(half: PausedNoticeHalf) = conformance(half) {
+        half.network = MOBILE
+        half.start(this)
+        tick()
+
+        half.network = OFFLINE
+        tick()
+
+        half.noticeTexts() shouldBe listOf(NO_NETWORK)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
+    fun `a queue started off the network says why from its first notice`(half: PausedNoticeHalf) = conformance(half) {
+        half.network = OFFLINE
+        half.start(this)
+        tick()
+
+        // WorkManager's foreground service can post the worker's first notice after the engine's own.
+        half.postForegroundNotice()
+
+        half.noticeTexts() shouldBe listOf(NO_NETWORK)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
+    fun `a queue waiting for a network shows a paused notice`(half: PausedNoticeHalf) = conformance(half) {
+        half.network = OFFLINE
+        half.start(this)
+        tick()
+
+        half.noticeTitles() shouldBe listOf(PAUSED)
+    }
+
     companion object {
         @JvmStatic
         fun halves() = listOf(MangaPausedNoticeHalf(), NovelPausedNoticeHalf())
@@ -108,18 +146,29 @@ private fun TestScope.tick() {
 }
 
 private const val NO_NETWORK = "no network"
+private const val PAUSED = "paused"
 
-/** Over the shade's stand-in for every string, so the no-network reason reads as itself. */
+/** Over the shade's stand-in for every string, so the no-network reason and the paused title read as themselves. */
 private fun stubNoNetworkText() {
     every { any<Context>().stringResource(MR.strings.download_notifier_no_network) } returns NO_NETWORK
+    every { any<Context>().stringResource(MR.strings.chapter_paused) } returns PAUSED
 }
 
 interface PausedNoticeHalf : AutoCloseable {
+    /** The network the engine sees, from the next start or recheck on. */
+    var network: NetworkState
+
     /** How many download notices the shade shows. */
     val notices: Int
 
     /** What each download notice in the shade says. */
     fun noticeTexts(): List<CharSequence?>
+
+    /** The title of each download notice in the shade. */
+    fun noticeTitles(): List<CharSequence?>
+
+    /** Posts the running worker's foreground notice, as its service does once started. */
+    suspend fun postForegroundNotice()
 
     /** Queues one chapter and runs the engine's worker, whose fetch then hangs. */
     suspend fun start(test: TestScope)
@@ -136,10 +185,24 @@ class MangaPausedNoticeHalf : PausedNoticeHalf {
 
     private lateinit var shade: FakeNotificationShade
     private var fixture: DownloadWorkerFixture? = null
+    private var foregroundWorker: CoroutineWorker? = null
+
+    override var network = ONLINE
+        set(value) {
+            field = value
+            fixture?.network = value
+        }
 
     override val notices get() = shade.shown.size
 
     override fun noticeTexts() = shade.shown.keys.map(shade::textOf)
+
+    override fun noticeTitles() = shade.shown.keys.map(shade::titleOf)
+
+    override suspend fun postForegroundNotice() {
+        val info = foregroundWorker!!.getForegroundInfo()
+        shade.post(info.notificationId, info.notification)
+    }
 
     override suspend fun start(test: TestScope) {
         shade = FakeNotificationShade()
@@ -150,6 +213,8 @@ class MangaPausedNoticeHalf : PausedNoticeHalf {
             }
         }
         fixture = f
+        f.network = network
+        coEvery { any<CoroutineWorker>().setForegroundSafely() } coAnswers { foregroundWorker = firstArg() }
         f.queue()
         f.startWorker()
     }
@@ -180,8 +245,9 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
     override fun toString() = "novel"
 
     private lateinit var shade: FakeNotificationShade
-    private var network = NetworkState(isConnected = true, isValidated = true, isWifi = true)
+    override var network = ONLINE
     private var worker: Job? = null
+    private var foregroundWorker: CoroutineWorker? = null
 
     private val novel = Novel.create().copy(id = 1L, source = "src", title = "Novel")
     private val chapter = NovelChapter(
@@ -203,6 +269,13 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
 
     override fun noticeTexts() = shade.shown.keys.map(shade::textOf)
 
+    override fun noticeTitles() = shade.shown.keys.map(shade::titleOf)
+
+    override suspend fun postForegroundNotice() {
+        val info = foregroundWorker!!.getForegroundInfo()
+        shade.post(info.notificationId, info.notification)
+    }
+
     override suspend fun start(test: TestScope) {
         shade = FakeNotificationShade()
         stubNoNetworkText()
@@ -212,7 +285,7 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
         mockkStatic(Dispatchers::class)
         every { Dispatchers.IO } returns StandardTestDispatcher(test.testScheduler)
         mockkStatic(WORKER_EXTENSIONS)
-        coEvery { any<CoroutineWorker>().setForegroundSafely() } just runs
+        coEvery { any<CoroutineWorker>().setForegroundSafely() } coAnswers { foregroundWorker = firstArg() }
         val graph = mockk<AppGraph>()
         every { graph.inject(any<NovelDownloadWorker>()) } answers {
             firstArg<NovelDownloadWorker>().setField("manager", manager)
@@ -254,7 +327,7 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
     }
 
     override fun resumeOffline(test: TestScope) {
-        network = NetworkState(isConnected = false, isValidated = false, isWifi = false)
+        network = OFFLINE
         manager.startDownloads()
         test.tick()
     }

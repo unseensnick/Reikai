@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.download
 
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.graphics.BitmapFactory
@@ -141,10 +142,15 @@ class DownloadNotifier(
     fun onPaused(id: Int = Notifications.ID_DOWNLOAD_CHAPTER_PAUSED, reason: String? = null) {
         // The progress id belongs to the download worker's foreground service, which takes the
         // notification with it when the worker stops
-        context.notify(
-            id, // RK
-            Notifications.CHANNEL_DOWNLOADER_PROGRESS,
-        ) {
+        context.notify(id, pausedNotification(reason)) // RK
+
+        // Reset initial values
+        isDownloading = false
+    }
+
+    // RK: what onPaused shows, built apart so the waiting download worker's foreground notice is the same one
+    fun pausedNotification(reason: String?): Notification =
+        context.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
             setContentTitle(context.stringResource(MR.strings.chapter_paused))
             setContentText(reason ?: context.stringResource(MR.strings.download_notifier_download_paused)) // RK
             setSmallIcon(R.drawable.ic_pause_24dp)
@@ -164,11 +170,7 @@ class DownloadNotifier(
                 context.stringResource(MR.strings.action_cancel_all),
                 NotificationReceiver.clearDownloadsPendingBroadcast(context),
             )
-        }
-
-        // Reset initial values
-        isDownloading = false
-    }
+        }.build() // RK
 
     // RK -->
 
