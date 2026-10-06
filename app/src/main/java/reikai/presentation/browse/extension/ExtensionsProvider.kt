@@ -3,7 +3,6 @@ package reikai.presentation.browse.extension
 import eu.kanade.domain.extension.model.Extensions
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
-import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionUiModel
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel
 import kotlinx.coroutines.flow.Flow
@@ -11,11 +10,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
+import reikai.domain.source.homeUrl
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSource
-import reikai.novel.source.ireader.IReaderSourceHolder
 import reikai.novel.source.novelFormat
 import reikai.novel.source.toLangCode
 import reikai.novel.update.LnPluginUpdate
@@ -131,8 +130,7 @@ private fun Extension.searchTerms(): List<String> = buildList {
     when (this@searchTerms) {
         is Extension.Loaded -> sources.forEach { source ->
             add(source.name)
-            (source as? HttpSource)?.getHomeUrl()?.let(::add)
-            (source as? IReaderSourceHolder)?.baseUrl?.let(::add)
+            source.homeUrl?.let(::add)
         }
         is Extension.Available -> sources.forEach {
             add(it.name)

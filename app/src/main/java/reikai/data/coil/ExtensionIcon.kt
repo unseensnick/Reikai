@@ -14,10 +14,9 @@ import coil3.request.Options
 import coil3.request.SuccessResult
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
-import eu.kanade.tachiyomi.source.online.HttpSource
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.NovelIconHints
-import reikai.novel.source.ireader.IReaderSourceHolder
+import reikai.domain.source.siteUrls
 
 private const val EXTENSION_ICON_SCHEME = "reikai-extension-icon"
 
@@ -68,7 +67,7 @@ class ExtensionIconFetcher(
         val sites = extensionManager.value.getLoadedNovelExtensions()
             .firstOrNull { it.pkgName == pkgName }
             ?.sources.orEmpty()
-            .map { (it as? HttpSource)?.baseUrl ?: (it as? IReaderSourceHolder)?.baseUrl }
+            .flatMap { it.siteUrls }
         for (url in borrowableIcons(novelPreferences.value.novelIconHints().get(), pkgName, sites)) {
             val result = imageLoader.execute(ImageRequest.Builder(options.context).data(url).build())
             if (result is SuccessResult) {

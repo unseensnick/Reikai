@@ -19,7 +19,6 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.network.NetworkHelper
-import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,7 +34,7 @@ import kotlinx.coroutines.flow.stateIn
 import logcat.LogPriority
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import reikai.domain.source.ToggleNovelSource // RK
-import reikai.novel.source.ireader.IReaderSourceHolder // RK
+import reikai.domain.source.siteUrls // RK
 import reikai.novel.source.novelSourceId // RK
 import tachiyomi.core.common.util.system.logcat
 import kotlin.time.Duration.Companion.seconds
@@ -103,15 +102,7 @@ class ExtensionDetailsViewModel(
         val extension = successState?.extension ?: return
 
         val urls = extension.sources
-            // RK --> an IReader catalogue is not a tachiyomi HttpSource, but has a site all the same
-            .flatMap {
-                when (it) {
-                    is HttpSource -> listOf(it.baseUrl, it.getHomeUrl())
-                    is IReaderSourceHolder -> listOfNotNull(it.baseUrl)
-                    else -> emptyList()
-                }
-            }
-            // RK <--
+            .flatMap { it.siteUrls } // RK: an IReader catalogue is no HttpSource, but has a site all the same
             .filter { it.isNotEmpty() }
             .distinct()
 
