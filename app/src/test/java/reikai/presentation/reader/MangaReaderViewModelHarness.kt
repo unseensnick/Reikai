@@ -15,10 +15,8 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import io.mockk.coEvery
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkConstructor
-import io.mockk.runs
 import io.mockk.unmockkConstructor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -30,6 +28,7 @@ import kotlinx.coroutines.withTimeout
 import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.source.SourceKey
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.data.Database
@@ -45,6 +44,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
+import java.io.IOException
 
 /**
  * A real [ReaderViewModel] over an in-memory database and the real chapter interactors, so a mark or a
@@ -121,7 +121,8 @@ class MangaReaderViewModelHarness private constructor(
 
     /**
      * Opens [chapterId] of [manga], waits for the first chapter to land, then asks [probe]. [preferences]
-     * seeds the store the reader, download and library settings read, by key.
+     * seeds the store the reader, download and library settings read, by key. The page loader throws for
+     * a chapter in [failing], as a dropped connection does, and [incognito] answers for every source.
      */
     suspend fun <T> open(
         manga: Manga,
@@ -131,6 +132,8 @@ class MangaReaderViewModelHarness private constructor(
         onDisk: Set<Long> = emptySet(),
         downloadedOnly: Boolean = false,
         sourceScoped: Boolean = false,
+        failing: Set<Long> = emptySet(),
+        incognito: Boolean = false,
         onDownload: (List<Chapter>) -> Unit = {},
         onDelete: (List<Chapter>) -> Unit = {},
         probe: suspend (ReaderViewModel, ReaderViewModel.State) -> T,
@@ -139,7 +142,9 @@ class MangaReaderViewModelHarness private constructor(
         // The model starts loading from its init block, which a main dispatcher nothing advances never runs.
         Dispatchers.setMain(UnconfinedTestDispatcher())
         mockkConstructor(ChapterLoader::class)
-        coEvery { anyConstructed<ChapterLoader>().loadChapter(any(), any()) } just runs
+        coEvery { anyConstructed<ChapterLoader>().loadChapter(any(), any()) } answers {
+            if (firstArg<ReaderChapter>().chapter.id in failing) throw IOException("no connection")
+        }
         val store = ViewModelStore()
         try {
             val isOnDisk = { name: String, title: String ->
@@ -186,7 +191,7 @@ class MangaReaderViewModelHarness private constructor(
                 upsertHistory = mockk(relaxed = true),
                 updateChapter = UpdateChapter(chapters),
                 setMangaViewerFlags = mockk(relaxed = true),
-                getIncognitoState = mockk(relaxed = true),
+                getIncognitoState = mockk { coEvery { await(any<SourceKey>()) } returns incognito },
                 libraryPreferences = LibraryPreferences(prefs),
                 coverManager = mockk(relaxed = true),
                 updateManga = mockk(relaxed = true),

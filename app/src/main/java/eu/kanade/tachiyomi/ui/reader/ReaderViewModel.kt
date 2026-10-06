@@ -949,7 +949,8 @@ class ReaderViewModel(
     // RK --> mark-read-on-skip: mark the chapter the user skipped past (forward only) as read, opt-in.
     // Reuses updateChapterProgressOnComplete for tracker sync / delete-on-read / duplicates;
     // it does not persist the read flag itself (its normal caller does during a page-progress
-    // save, which a forward skip never reaches), so we persist it here.
+    // save, which a forward skip never reaches), so we persist it here. Twin of
+    // NovelReaderViewModel.markReadOnSkip, pinned by MarkReadOnSkipConformanceTest.
     fun markChapterReadOnSkip(readerChapter: ReaderChapter) {
         if (readerChapter.chapter.read || !readerPreferences.markReadOnSkip.get()) return
         viewModelScope.launchNonCancellable {

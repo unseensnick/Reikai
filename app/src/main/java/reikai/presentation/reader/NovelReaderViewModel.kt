@@ -1374,7 +1374,8 @@ class NovelReaderViewModel(
     }
 
     /** Marks the chapter the user skipped away from as read, forward only, when the setting is on.
-     *  Outlives the session, as ReaderViewModel.markChapterReadOnSkip does. */
+     *  Outlives the session. Twin of ReaderViewModel.markChapterReadOnSkip, pinned by
+     *  MarkReadOnSkipConformanceTest. */
     private fun markReadOnSkip(departedId: Long) {
         if (!novelPreferences.readerMarkReadOnSkip().get()) return
         viewModelScope.launchNonCancellable {
