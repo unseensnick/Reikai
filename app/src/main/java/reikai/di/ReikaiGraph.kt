@@ -22,6 +22,7 @@ import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RepairNovelDetails
 import reikai.domain.novel.track.NovelDelayedTrackingUpdateWorker
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
@@ -128,6 +129,7 @@ interface ReikaiGraph {
     // shape: Injekt registered every one of these with addFactory, never addSingletonFactory.
     val getNovelCategories: GetNovelCategories
     val categoryRepository: CategoryRepository // Settings counts every category of both libraries
+    val getNovelTracks: GetNovelTracks // NovelUpdates reads the chapters its track reaches, per the sharing switch
 
     // The metadata trio backs source-api's MetadataSource contract, which installed extensions
     // implement, so these three are reached through Injekt rather than the graph.

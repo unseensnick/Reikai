@@ -5,6 +5,7 @@ import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.network.NetworkHelper
 import io.mockk.every
 import io.mockk.mockk
+import mihon.app.di.AppBindings
 import mihon.app.di.AppGraph
 import mihon.app.di.injekt.MetroInjektRegistrar
 import mihon.core.metro.GraphProvider
@@ -16,16 +17,20 @@ import uy.kohesive.injekt.api.InjektScope
 /**
  * Some trackers read their preferences through the app graph as they are built, so a JVM test that
  * builds one installs a graph standing in for the app's, the way the app installs its own: through
- * the Injekt registrar. Returns the scope it replaced, which the caller restores. The default store
- * drops writes; a test that reads a stored login back passes one that keeps them.
+ * the Injekt registrar. [configure] stubs whatever else the test reaches. Returns the scope it
+ * replaced, which the caller restores. The default store drops writes; a test that reads a stored
+ * login back passes one that keeps them.
  */
 fun installTrackerTestGraph(
     network: NetworkHelper = mockk(relaxed = true),
     preferences: PreferenceStore = InMemoryPreferenceStore(),
+    configure: AppGraph.() -> Unit = {},
 ): InjektScope {
     val graph = mockk<AppGraph>(relaxed = true) {
         every { trackPreferences } returns TrackPreferences(preferences)
         every { networkHelper } returns network
+        every { json } returns AppBindings.providesJson()
+        configure()
     }
     val application = mockk<Application>(relaxed = true, moreInterfaces = arrayOf(GraphProvider::class))
     @Suppress("UNCHECKED_CAST")

@@ -313,9 +313,9 @@ class NovelUpdates(id: Long) :
     private fun readReleaseIds(chapters: List<NovelChapter>, number: Double): Set<String> =
         chapters.filter { it.read && it.chapterNumber == number }.mapNotNullTo(HashSet()) { releaseIdOf(it.url) }
 
-    /** The novel's chapters and those of the sources merged with it, since a track spans the group. */
+    /** The chapters of every source the track reaches: the merge group, or only its own with sharing off. */
     private suspend fun groupChapters(novelId: Long): List<NovelChapter> =
-        appGraph.novelMergeManager.computeRelatedIds(novelId)
+        appGraph.getNovelTracks.groupIds(novelId)
             .flatMap { appGraph.novelChapterRepository.getByNovelId(it) }
 
     private fun mapping(): NovelUpdatesListMapping =

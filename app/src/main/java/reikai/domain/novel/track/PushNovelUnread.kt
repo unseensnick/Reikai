@@ -33,15 +33,15 @@ class PushNovelUnread(
         SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, e -> logcat(LogPriority.WARN, e) },
     )
 
-    /** One call per unread, however many merged sources its chapters come from: a track spans them all. */
+    /** One call per track, however many merged sources the unread spans. */
     fun launch(unread: List<NovelChapter>) {
         if (unread.isEmpty()) return
         scope.launch {
-            tracksFor(unread).forEach { track ->
+            tracksFor(unread).forEach { (track, reached) ->
                 val tracker = trackerManager.get(track.trackerId)
                 if (tracker !is UnreadPushTracker || !tracker.isLoggedIn) return@forEach
                 try {
-                    tracker.pushUnread(track.toDbTrack(), unread)
+                    tracker.pushUnread(track.toDbTrack(), reached)
                         ?.let { upsertNovelTrack.await(it.toNovelTrack(idRequired = true)!!) }
                 } catch (e: Exception) {
                     logcat(LogPriority.WARN, e) { "Could not move ${tracker.name} back for unread chapters" }
@@ -50,6 +50,11 @@ class PushNovelUnread(
         }
     }
 
-    internal suspend fun tracksFor(unread: List<NovelChapter>): List<NovelTrack> =
+    /** Each track with the unread chapters it reaches: its group's, or only its own source's with sharing off. */
+    internal suspend fun tracksFor(unread: List<NovelChapter>): List<Pair<NovelTrack, List<NovelChapter>>> =
         unread.map { it.novelId }.distinct().flatMap { getNovelTracks.awaitGroup(it) }.distinctBy { it.id }
+            .map { track ->
+                val reach = getNovelTracks.groupIds(track.novelId).toSet()
+                track to unread.filter { it.novelId in reach }
+            }
 }
