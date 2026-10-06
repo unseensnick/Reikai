@@ -30,6 +30,7 @@ import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRepoRegistries
 import reikai.novel.registry.LnRepoResult
+import reikai.novel.registry.pluginRepos
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -110,15 +111,8 @@ class LnPluginManagerViewModel(
         // Merge in repo order, so first-write-wins on URL collisions matches the install/check surfaces.
         val registries = results.values.map { (it as? LnRepoResult.Reached)?.entries.orEmpty() }
         val byUrl = LinkedHashMap<String, LnRegistryEntry>()
-        val repoByUrl = HashMap<String, String>()
-        results.forEach { (repoUrl, result) ->
-            val repoName = repoNameFromAddress(repoUrl).first
-            (result as? LnRepoResult.Reached)?.entries.orEmpty().forEach { entry ->
-                val key = canonicalizePluginUrl(entry.url)
-                if (key !in byUrl) byUrl[key] = entry
-                repoByUrl.putIfAbsent(key, repoName)
-            }
-        }
+        registries.flatten().forEach { entry -> byUrl.putIfAbsent(canonicalizePluginUrl(entry.url), entry) }
+        val repoByUrl = pluginRepos(results).mapValues { repoNameFromAddress(it.value).first }
         return RepoFetch(
             hasRepos = results.isNotEmpty(),
             available = byUrl.filterKeys { it !in installedUrls }.values.toList(),

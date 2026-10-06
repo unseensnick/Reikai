@@ -96,6 +96,26 @@ class LnRepoRegistriesTest {
         prefs.addedRepoUrls().get() shouldBe emptySet()
     }
 
+    @Test
+    fun `a plugin two repos list belongs to the earlier one`() {
+        val listing = LnRepoResult.Reached(listOf(ENTRY))
+
+        pluginRepos(mapOf(REPO to listing, OTHER_REPO to listing)) shouldBe mapOf(ENTRY.url to REPO)
+    }
+
+    @Test
+    fun `a listed script with brackets is found under its canonical url`() {
+        val bracketed = ENTRY.copy(url = "https://example.org/NovelBin[readnovelfull].js")
+
+        pluginRepos(mapOf(REPO to LnRepoResult.Reached(listOf(bracketed)))) shouldBe
+            mapOf("https://example.org/NovelBin%5Breadnovelfull%5D.js" to REPO)
+    }
+
+    @Test
+    fun `a repo that did not answer owns no plugin`() {
+        pluginRepos(mapOf(DOWN_REPO to LnRepoResult.Unreachable("HTTP 404"))) shouldBe emptyMap()
+    }
+
     private companion object {
         const val REPO = "https://example.org/plugins.json"
         const val OTHER_REPO = "https://example.net/plugins.json"

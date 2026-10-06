@@ -1,5 +1,6 @@
 package reikai.presentation.browse.extension.details
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextAlign
@@ -30,6 +32,8 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.browse.ExtensionUninstallConfirmation
+import eu.kanade.presentation.browse.InfoDivider
+import eu.kanade.presentation.browse.InfoText
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.util.Screen
@@ -127,7 +131,29 @@ private fun NovelPluginDetails(
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center,
             )
-            Text(text = plugin.id, style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = plugin.id,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            state.repoName?.let { name ->
+                Text(
+                    text = name,
+                    modifier = Modifier
+                        .clip(MaterialTheme.shapes.small)
+                        .clickable(enabled = state.repoWebsite != null) {
+                            state.repoWebsite?.let(uriHandler::openUri)
+                        }
+                        .padding(
+                            horizontal = MaterialTheme.padding.extraSmall,
+                            vertical = MaterialTheme.padding.extraSmall / 2,
+                        ),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
 
         Row(
@@ -135,12 +161,18 @@ private fun NovelPluginDetails(
                 .fillMaxWidth()
                 .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
             horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            InfoText(state.version, stringResource(MR.strings.ext_info_version), Modifier.weight(1f))
             InfoText(
-                browseLanguageLabel(plugin.lang, context),
-                stringResource(MR.strings.ext_info_language),
-                Modifier.weight(1f),
+                modifier = Modifier.weight(1f),
+                primaryText = state.version,
+                secondaryText = stringResource(MR.strings.ext_info_version),
+            )
+            InfoDivider()
+            InfoText(
+                modifier = Modifier.weight(1f),
+                primaryText = browseLanguageLabel(plugin.lang, context),
+                secondaryText = stringResource(MR.strings.ext_info_language),
             )
         }
 
@@ -163,13 +195,6 @@ private fun NovelPluginDetails(
 
         HorizontalDivider(modifier = Modifier.padding(top = MaterialTheme.padding.small))
 
-        if (state.repoUrl != null) {
-            TextPreferenceWidget(
-                title = stringResource(MR.strings.repo_kind_plugins),
-                subtitle = state.repoUrl,
-                onPreferenceClick = { uriHandler.openUri(repoPage(state.repoUrl)) },
-            )
-        }
         if (settings != null) {
             TextPreferenceWidget(
                 title = stringResource(MR.strings.action_settings),
@@ -190,21 +215,3 @@ private fun NovelPluginDetails(
         NovelSourceSettingsSheet(settings, onDismiss = { showSettings = false })
     }
 }
-
-@Composable
-private fun InfoText(primary: String, secondary: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = primary, style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.Center)
-        Text(
-            text = secondary,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-        )
-    }
-}
-
-/** A repo's GitHub page when its index is served raw from GitHub, as Mihon's Open repo resolves one. */
-private fun repoPage(indexUrl: String): String =
-    Regex("""https://raw.githubusercontent.com/(.+?)/(.+?)/.+""").find(indexUrl)
-        ?.let { "https://github.com/${it.groupValues[1]}/${it.groupValues[2]}" }
-        ?: indexUrl

@@ -369,8 +369,9 @@ private fun DetailsHeader(
     }
 }
 
+// RK: internal, NovelPluginDetailsScreen draws the same header row
 @Composable
-private fun InfoText(
+internal fun InfoText(
     primaryText: String,
     secondaryText: String,
     modifier: Modifier = Modifier,
@@ -406,8 +407,9 @@ private fun InfoText(
     }
 }
 
+// RK: internal, NovelPluginDetailsScreen draws the same header row
 @Composable
-private fun InfoDivider() {
+internal fun InfoDivider() {
     VerticalDivider(
         modifier = Modifier
             .padding(horizontal = MaterialTheme.padding.small)

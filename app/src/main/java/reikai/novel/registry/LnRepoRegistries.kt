@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import reikai.domain.novel.NovelPreferences
+import reikai.novel.install.canonicalizePluginUrl
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
@@ -50,6 +51,20 @@ suspend fun LnRegistryFetcher.fetchEach(repos: Collection<String>): Map<String, 
             repo to result
         }
     }.awaitAll().toMap()
+}
+
+/**
+ * The repo each listed plugin comes from, keyed by canonical script URL. A script two repos list
+ * belongs to the earlier one in [results], so every screen naming a plugin's repo names the same one.
+ */
+fun pluginRepos(results: Map<String, LnRepoResult>): Map<String, String> {
+    val repos = HashMap<String, String>()
+    results.forEach { (repoUrl, result) ->
+        (result as? LnRepoResult.Reached)?.entries.orEmpty().forEach {
+            repos.putIfAbsent(canonicalizePluginUrl(it.url), repoUrl)
+        }
+    }
+    return repos
 }
 
 /**

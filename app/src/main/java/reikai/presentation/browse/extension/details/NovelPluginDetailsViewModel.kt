@@ -17,12 +17,14 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import reikai.domain.extension.repoNameFromAddress
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRepoRegistries
 import reikai.novel.registry.LnRepoResult
+import reikai.novel.registry.pluginRepos
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -67,13 +69,18 @@ class NovelPluginDetailsViewModel(
         data object Uninstalled : State
 
         @Immutable
-        data class Success(val plugin: NovelSource, val version: String, val repoUrl: String?) : State
+        data class Success(
+            val plugin: NovelSource,
+            val version: String,
+            val repoName: String?,
+            val repoWebsite: String?,
+        ) : State
     }
 }
 
 /**
  * What the details page says about [plugin]: the version its install recorded, as the Extensions row
- * shows it, and the added repo that lists its script, or null when none that answered does.
+ * shows it, and the added repo that lists its script, named and linked as the Repos screen does.
  */
 internal fun novelPluginDetails(
     plugin: NovelSource,
@@ -81,10 +88,11 @@ internal fun novelPluginDetails(
     repos: Map<String, LnRepoResult>,
 ): NovelPluginDetailsViewModel.State.Success {
     val record = installed.entries.firstOrNull { it.value.pluginId == plugin.id }
-    val repoUrl = record?.key?.let { script ->
-        repos.entries.firstOrNull { (_, result) ->
-            (result as? LnRepoResult.Reached)?.entries.orEmpty().any { canonicalizePluginUrl(it.url) == script }
-        }?.key
-    }
-    return NovelPluginDetailsViewModel.State.Success(plugin, record?.value?.version ?: plugin.version, repoUrl)
+    val repo = record?.let { pluginRepos(repos)[canonicalizePluginUrl(it.key)] }?.let(::repoNameFromAddress)
+    return NovelPluginDetailsViewModel.State.Success(
+        plugin = plugin,
+        version = record?.value?.version ?: plugin.version,
+        repoName = repo?.first,
+        repoWebsite = repo?.second,
+    )
 }

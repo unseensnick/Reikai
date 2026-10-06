@@ -34,18 +34,32 @@ class NovelPluginDetailsTest {
     @Test
     fun `the repo is the added one that lists its script`() {
         val repos = mapOf("https://other/index.json" to listing(OTHER), REPO to listing(SCRIPT))
-        novelPluginDetails(plugin, installed, repos).repoUrl shouldBe REPO
+        novelPluginDetails(plugin, installed, repos).repoName shouldBe "repo.example"
+    }
+
+    @Test
+    fun `a repo served from its own host links to that host, not its index`() {
+        val repos = mapOf(REPO to listing(SCRIPT))
+        novelPluginDetails(plugin, installed, repos).repoWebsite shouldBe "https://repo.example"
+    }
+
+    @Test
+    fun `a GitHub raw repo is named by its owner and links its GitHub page`() {
+        val details = novelPluginDetails(plugin, installed, mapOf(GITHUB_REPO to listing(SCRIPT)))
+        (details.repoName to details.repoWebsite) shouldBe
+            ("LNReader" to "https://github.com/LNReader/lnreader-plugins")
     }
 
     @Test
     fun `a repo that did not answer names no repo`() {
         val repos = mapOf(REPO to LnRepoResult.Unreachable("offline"))
-        novelPluginDetails(plugin, installed, repos).repoUrl shouldBe null
+        novelPluginDetails(plugin, installed, repos).repoName shouldBe null
     }
 
     private companion object {
-        const val REPO = "https://repo/index.json"
-        const val SCRIPT = "https://repo/plugin.js"
+        const val REPO = "https://repo.example/plugins.min.json"
+        const val GITHUB_REPO = "https://raw.githubusercontent.com/LNReader/lnreader-plugins/v3/plugins.min.json"
+        const val SCRIPT = "https://repo.example/plugin.js"
         const val OTHER = "https://other/plugin.js"
     }
 }
