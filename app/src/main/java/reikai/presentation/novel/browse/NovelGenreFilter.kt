@@ -1,10 +1,8 @@
 package reikai.presentation.novel.browse
 
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import reikai.domain.source.filter.selectGenre
@@ -37,12 +35,10 @@ private fun lnGenreValue(
         val current = defaults[key]
         val picked = when (filter["type"]?.jsonPrimitive?.contentOrNull) {
             "Picker" -> JsonPrimitive(value)
-            "Checkbox" -> JsonArray((current as? JsonArray).orEmpty() + JsonPrimitive(value))
-            "ExcludableCheckboxGroup" -> buildJsonObject {
-                val obj = current as? JsonObject
-                put("include", JsonArray((obj?.get("include") as? JsonArray).orEmpty() + JsonPrimitive(value)))
-                put("exclude", (obj?.get("exclude") as? JsonArray) ?: JsonArray(emptyList()))
-            }
+            "Checkbox" -> checkboxValue(checkedValues(current) + value)
+            "ExcludableCheckboxGroup" -> IncludeExclude.of(current).let {
+                it.copy(include = it.include + value)
+            }.toJson()
             else -> continue
         }
         return key to picked

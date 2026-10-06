@@ -19,10 +19,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -105,13 +103,7 @@ private fun NovelFilterItem(
         "Picker" -> SchemaPickerRow(label, schema, current, onValueChange)
         "Checkbox" -> SchemaCheckboxGroupRow(label, schema, current, onValueChange)
         "ExcludableCheckboxGroup" -> {
-            val obj = current as? JsonObject
-            val include =
-                (obj?.get("include") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet()
-                    ?: emptySet()
-            val exclude =
-                (obj?.get("exclude") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet()
-                    ?: emptySet()
+            val (include, exclude) = IncludeExclude.of(current)
             Column {
                 HeadingItem(text = label)
                 optionsOf(schema).forEach { (optLabel, optValue) ->
@@ -124,18 +116,13 @@ private fun NovelFilterItem(
                         label = optLabel,
                         state = triState,
                         onClick = {
-                            // Off -> include -> exclude -> Off, then re-emit both lists.
-                            val (inc, exc) = when (triState) {
-                                TriState.DISABLED -> (include + optValue) to exclude
-                                TriState.ENABLED_IS -> (include - optValue) to (exclude + optValue)
-                                TriState.ENABLED_NOT -> include to (exclude - optValue)
+                            // Off -> include -> exclude -> Off.
+                            val next = when (triState) {
+                                TriState.DISABLED -> IncludeExclude(include + optValue, exclude)
+                                TriState.ENABLED_IS -> IncludeExclude(include - optValue, exclude + optValue)
+                                TriState.ENABLED_NOT -> IncludeExclude(include, exclude - optValue)
                             }
-                            onValueChange(
-                                buildJsonObject {
-                                    put("include", JsonArray(inc.map { JsonPrimitive(it) }))
-                                    put("exclude", JsonArray(exc.map { JsonPrimitive(it) }))
-                                },
-                            )
+                            onValueChange(next.toJson())
                         },
                     )
                 }
@@ -184,7 +171,7 @@ internal fun SchemaCheckboxGroupRow(
     current: JsonElement?,
     onChange: (JsonElement) -> Unit,
 ) {
-    val selected = (current as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet() ?: emptySet()
+    val selected = checkedValues(current)
     Column {
         HeadingItem(text = label)
         optionsOf(schema).forEach { (optLabel, optValue) ->
@@ -194,7 +181,7 @@ internal fun SchemaCheckboxGroupRow(
                 checked = checked,
                 onClick = {
                     val next = if (checked) selected - optValue else selected + optValue
-                    onChange(JsonArray(next.map { JsonPrimitive(it) }))
+                    onChange(checkboxValue(next))
                 },
             )
         }
