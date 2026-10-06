@@ -10,11 +10,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -25,15 +20,12 @@ import eu.kanade.presentation.library.components.MangaComfortableGridItem
 import eu.kanade.presentation.library.components.MangaCompactGridItem
 import eu.kanade.presentation.library.components.MangaListItem
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import reikai.domain.entry.EntryId
 import reikai.presentation.browse.catalogue.AdaptiveGridMinCellWidth
+import reikai.presentation.components.LibraryUpdatePullRefresh
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
-import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.util.plus
-import kotlin.time.Duration.Companion.seconds
 
 /** Whether a section is collapsed. The two kinds of bucket use separate preferences. */
 fun reikaiIsCollapsed(
@@ -132,6 +124,7 @@ fun ReikaiLibraryContent(
     onGlobalSearchClicked: () -> Unit,
     // pull down at the top of the single-list to update the whole library (overflow Update library).
     onRefresh: () -> Boolean,
+    refreshing: Boolean,
     // per-category header affordances; a dynamic group has no category, so these take the real one
     onClickCategorySort: (Category) -> Unit,
     onRefreshCategory: (Category) -> Unit,
@@ -179,22 +172,10 @@ fun ReikaiLibraryContent(
             columns = columnCount,
         )
 
-        val scope = rememberCoroutineScope()
-        var isRefreshing by remember { mutableStateOf(false) }
-        PullRefresh(
-            refreshing = isRefreshing,
+        LibraryUpdatePullRefresh(
+            updating = refreshing,
             enabled = selection.isEmpty(),
-            onRefresh = {
-                val started = onRefresh()
-                if (started) {
-                    scope.launch {
-                        // Cosmetic spinner only: the library update runs as a background job.
-                        isRefreshing = true
-                        delay(1.seconds)
-                        isRefreshing = false
-                    }
-                }
-            },
+            onRefresh = onRefresh,
             indicatorPadding = PaddingValues(top = contentPadding.calculateTopPadding()),
         ) {
             ReikaiFastScrollLazyVerticalGrid(

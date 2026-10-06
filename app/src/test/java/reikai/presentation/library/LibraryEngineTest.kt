@@ -223,6 +223,15 @@ class LibraryEngineTest {
         assembled.presentIds shouldContainExactly setOf(m1)
     }
 
+    @Test
+    fun `a running update behind the chip shows as refreshing`() = runTest {
+        every { novel.updating } returns flowOf(true)
+        every { manga.updating } returns flowOf(false)
+        engine.setContentType(ContentType.NOVELS)
+
+        engine.refreshing.first { it } shouldBe true
+    }
+
     private val reading = Category(id = 11, name = "Reading", order = 0, flags = 0)
 
     /**

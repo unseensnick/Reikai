@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +32,7 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Refresh
@@ -36,8 +41,10 @@ import mihon.icons.materialsymbols.rounded.SwapCalls
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelCover
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.details.NovelScreen
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -60,6 +67,8 @@ class UpdateErrorsScreen(
             create(initialContentType = initialContentType)
         }
         val state by viewModel.state.collectAsState()
+        val scope = rememberCoroutineScope()
+        val snackbarHostState = remember { SnackbarHostState() }
 
         if (state is UpdateErrorsScreenState.Loading) {
             LoadingScreen()
@@ -116,7 +125,17 @@ class UpdateErrorsScreen(
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_update_library),
                                         icon = MaterialSymbols.Rounded.Refresh,
-                                        onClick = { viewModel.retry(context) },
+                                        onClick = {
+                                            val started = viewModel.retry(context)
+                                            val message = libraryRefreshMessage(
+                                                started,
+                                                successState.contentType,
+                                                category = false,
+                                            )
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(context.stringResource(message))
+                                            }
+                                        },
                                     ),
                                     AppBar.OverflowAction(
                                         title = stringResource(MR.strings.action_clear_all),
@@ -129,6 +148,7 @@ class UpdateErrorsScreen(
                     scrollBehavior = scrollBehavior,
                 )
             },
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { paddingValues ->
             Column(modifier = Modifier.padding(paddingValues)) {
                 ContentTypeFilterChips(

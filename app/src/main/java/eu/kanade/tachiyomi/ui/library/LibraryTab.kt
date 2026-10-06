@@ -71,6 +71,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.sortForCategory
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.library.LibraryBucket
 import reikai.presentation.library.LibraryDialog
 import reikai.presentation.library.LibraryEngine
@@ -153,6 +154,7 @@ data object LibraryTab : Tab {
             )
         }
         val libraryContentType by engine.contentType.collectAsState()
+        val refreshing by engine.refreshing.collectAsStateWithLifecycle()
         val libraryDialog by engine.dialog.collectAsState()
         // RK: the library-wide display config, read from the engine rather than off the manga model, so
         // the tab does not reach into one content type for a setting that belongs to neither.
@@ -294,18 +296,17 @@ data object LibraryTab : Tab {
         }
         // RK <--
 
+        // RK --> the engine starts the update behind the chip, and the message is the one Recents and
+        //        Update errors show
         val onClickRefresh: (Category?) -> Boolean = { category ->
             val started = engine.refresh(libraryContentType, category)
             scope.launch {
-                val msgRes = when {
-                    !started -> MR.strings.update_already_running
-                    category != null -> MR.strings.updating_category
-                    else -> MR.strings.updating_library
-                }
+                val msgRes = libraryRefreshMessage(started, libraryContentType, category = category != null)
                 snackbarHostState.showSnackbar(context.stringResource(msgRes))
             }
             started
         }
+        // RK <--
 
         // RK: open an entry on its own details screen, routed by the ROW's content type rather than the
         // active chip. Navigation stays per-type (each type has its own screen), but the decision no
@@ -625,6 +626,7 @@ data object LibraryTab : Tab {
                                 },
                                 // RK: pull-to-refresh on the single-list updates the whole library (= overflow Update library).
                                 onRefresh = { onClickRefresh(null) },
+                                refreshing = refreshing,
                                 // RK: per-category header sort (Sort tab scoped to it), refresh, select-all
                                 onClickCategorySort = { category ->
                                     engine.openSettingsDialog(libraryContentType, category.id, LibrarySettingsTab.SORT)
@@ -659,6 +661,7 @@ data object LibraryTab : Tab {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
                                 onRefresh = { onClickRefresh(currentRealCategory()) },
+                                refreshing = refreshing,
                                 onGlobalSearchClicked = {
                                     navigator.push(
                                         EntryGlobalSearchScreen(

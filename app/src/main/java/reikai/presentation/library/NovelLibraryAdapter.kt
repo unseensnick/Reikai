@@ -94,6 +94,8 @@ class NovelLibraryAdapter(
     override val trackKey: Flow<Any?> =
         model.state.map { it.trackerMeans to it.tracksByRep }.distinctUntilChanged()
 
+    override val updating: Flow<Boolean> = NovelUpdateJob.isRunningFlow(context)
+
     override fun trackerMeans(): Map<Long, Double> = model.state.value.trackerMeans
 
     override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)

@@ -8,23 +8,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import reikai.domain.entry.EntryId // RK
+import reikai.presentation.components.LibraryUpdatePullRefresh // RK
 import reikai.presentation.library.LibraryBucket // RK
 import tachiyomi.domain.library.model.LibraryDisplayMode
-import tachiyomi.presentation.core.components.material.PullRefresh
-import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun LibraryContent(
@@ -44,6 +38,7 @@ fun LibraryContent(
     onToggleSelection: (LibraryBucket, LibraryItem) -> Unit,
     onToggleRangeSelection: (LibraryBucket, LibraryItem) -> Unit,
     onRefresh: () -> Boolean,
+    refreshing: Boolean,
     onGlobalSearchClicked: () -> Unit,
     getItemCountForCategory: (LibraryBucket) -> Int?,
     getDisplayMode: (Int) -> PreferenceMutableState<LibraryDisplayMode>,
@@ -59,7 +54,6 @@ fun LibraryContent(
         ),
     ) {
         val scope = rememberCoroutineScope()
-        var isRefreshing by remember(pagerState.currentPage) { mutableStateOf(false) }
 
         // RK: a lone dynamic group still gets tabs; only a lone real Default category hides them.
         val onlySystemCategory = buckets.size == 1 && buckets.first().realCategory?.isSystemCategory == true
@@ -81,19 +75,11 @@ fun LibraryContent(
             )
         }
 
-        PullRefresh(
-            refreshing = isRefreshing,
+        // RK: the spinner follows the update job instead of upstream's one-second fake
+        LibraryUpdatePullRefresh(
+            updating = refreshing,
             enabled = selection.isEmpty(),
-            onRefresh = {
-                val started = onRefresh()
-                if (!started) return@PullRefresh
-                scope.launch {
-                    // Fake refresh status but hide it after a second as it's a long running task
-                    isRefreshing = true
-                    delay(1.seconds)
-                    isRefreshing = false
-                }
-            },
+            onRefresh = onRefresh,
         ) {
             LibraryPager(
                 state = pagerState,

@@ -38,6 +38,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.includes
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
+import reikai.presentation.components.chipUpdating
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import reikai.presentation.selection.SelectionStore
@@ -178,6 +179,12 @@ class LibraryEngine(
             // synchronously is not shared while subscribed. `randomEntry` reads this one, and it holds
             // because a share that has emitted keeps its last value after the window closes.
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
+    }
+
+    /** Whether a library update behind the chip is running, so the pull-to-refresh spinner follows it. */
+    val refreshing: StateFlow<Boolean> by lazy {
+        chipUpdating(contentType, providers.map { it.contentType to it.updating })
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), false)
     }
 
     private suspend fun assembleFor(

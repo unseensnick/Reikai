@@ -96,6 +96,8 @@ class MangaLibraryAdapter(
     override val trackKey: Flow<Any?> =
         model.state.map { it.libraryData.tracksMap to it.libraryData.loggedInTrackerIds }.distinctUntilChanged()
 
+    override val updating: Flow<Boolean> = LibraryUpdateJob.isRunningFlow(context)
+
     override fun trackerMeans(): Map<Long, Double> {
         val data = model.state.value.libraryData
         val trackers = trackerManager.getAll(data.loggedInTrackerIds).associateBy { it.id }

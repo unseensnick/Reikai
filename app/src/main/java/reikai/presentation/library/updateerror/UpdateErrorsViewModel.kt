@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.library.ContentType
+import reikai.domain.library.includes
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.GetLibraryUpdateErrors
 import reikai.domain.library.updateerror.LibraryUpdateError
@@ -143,10 +144,16 @@ class UpdateErrorsViewModel(
         }
     }
 
-    fun retry(context: Context) {
+    /** Starts the update of each library behind the chip; true when at least one was not already running. */
+    fun retry(context: Context): Boolean {
         val type = (state.value as? UpdateErrorsScreenState.Success)?.contentType ?: ContentType.ALL
-        if (type != ContentType.NOVELS) LibraryUpdateJob.startNow(context.workManager)
-        if (type != ContentType.MANGA) NovelUpdateJob.startNow(context.workManager)
+        // Every start is attempted before asking whether any began, so a running manga update cannot
+        // short-circuit the novel one.
+        val started = buildList {
+            if (type.includes(ContentType.MANGA)) add(LibraryUpdateJob.startNow(context.workManager))
+            if (type.includes(ContentType.NOVELS)) add(NovelUpdateJob.startNow(context.workManager))
+        }
+        return started.any { it }
     }
 }
 

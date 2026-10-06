@@ -48,6 +48,7 @@ import reikai.domain.merge.MergeScope
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.components.chipUpdating
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionStore
 import tachiyomi.core.common.preference.Preference
@@ -258,12 +259,8 @@ class RecentsEngine(
      * about whether anything was actually running.
      */
     val refreshing: StateFlow<Boolean> by lazy {
-        combine(
-            contentType,
-            combine(providers.map { it.updating }) { it.toList() },
-        ) { chip, perProvider ->
-            activeIndices(chip).any { perProvider[it] }
-        }.stateIn(viewModelScope, OVER_PROVIDERS, false)
+        chipUpdating(contentType, providers.map { it.contentType to it.updating })
+            .stateIn(viewModelScope, OVER_PROVIDERS, false)
     }
 
     /**

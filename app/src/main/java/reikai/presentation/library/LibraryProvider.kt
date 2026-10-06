@@ -49,6 +49,9 @@ interface LibraryProvider : LibraryBehavior {
      */
     val trackKey: Flow<Any?>
 
+    /** Whether this type's library update is running now, a scheduled one as well as a pulled one. */
+    val updating: Flow<Boolean>
+
     /**
      * Apply this type's display-only custom title/cover overlay to one of its rows. The assembly emits
      * raw rows (filter, sort and selection must never see an override), so the display read applies the

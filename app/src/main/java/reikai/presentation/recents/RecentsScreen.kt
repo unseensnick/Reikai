@@ -63,10 +63,11 @@ import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.HeaderTabRow
+import reikai.presentation.components.LibraryUpdatePullRefresh
+import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.updates.EntryUpdatesRow
 import tachiyomi.core.common.i18n.stringResource
@@ -76,7 +77,6 @@ import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.ListGroupHeader
-import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
@@ -179,16 +179,13 @@ fun Screen.RecentsScreen(
         }
     }
 
-    fun refresh() {
+    fun refresh(): Boolean {
         val started = engine.refresh()
         scope.launchIO {
-            val message = when {
-                !started -> MR.strings.update_already_running
-                contentType == ContentType.ALL -> MR.strings.updating_both_libraries
-                else -> MR.strings.updating_library
-            }
+            val message = libraryRefreshMessage(started, contentType, category = false)
             withUIContext { snackbarHostState.showSnackbar(context.stringResource(message)) }
         }
+        return started
     }
 
     BackHandler(enabled = selection.isNotEmpty(), onBack = engine::clearSelection)
@@ -288,8 +285,8 @@ fun Screen.RecentsScreen(
                         }
                         // Pull-to-refresh belongs to the feed a library update actually changes.
                         if (showsUpdated) {
-                            PullRefresh(
-                                refreshing = refreshing,
+                            LibraryUpdatePullRefresh(
+                                updating = refreshing,
                                 onRefresh = ::refresh,
                                 enabled = selection.isEmpty(),
                                 indicatorPadding = bodyPadding,
