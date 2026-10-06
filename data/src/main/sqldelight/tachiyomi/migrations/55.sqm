@@ -1,0 +1,3 @@
+-- Lets the novel updates feed walk chapters newest fetch first and stop at its limit, as the manga feed
+-- does on chapter_state_date_fetch_index, instead of reading every library chapter and sorting.
+CREATE INDEX novel_chapters_date_fetch_index ON novel_chapters(date_fetch);

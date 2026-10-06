@@ -29,6 +29,9 @@ CREATE TABLE novel_chapters(
 -- A novel lists a chapter once, as a manga does under chapter's UNIQUE(manga_id, remote_url) (51.sqm)
 CREATE UNIQUE INDEX novel_chapters_novel_id_url_index ON novel_chapters(novel_id, url);
 CREATE INDEX novel_chapters_unread_by_novel_index ON novel_chapters(novel_id, read) WHERE read = 0;
+-- The updates feed reads chapters newest fetch first and stops at its limit, as chapter's
+-- chapter_state_date_fetch_index lets the manga feed do (55.sqm)
+CREATE INDEX novel_chapters_date_fetch_index ON novel_chapters(date_fetch);
 
 getByNovelId:
 SELECT *
