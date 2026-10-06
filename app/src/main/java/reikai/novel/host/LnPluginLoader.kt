@@ -5,6 +5,7 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.util.lang.Hash
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
@@ -13,7 +14,6 @@ import tachiyomi.core.common.util.system.logcat
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import java.security.MessageDigest
 
 /**
  * Downloads compiled plugin `.js` files and keeps the installed ones under
@@ -101,10 +101,8 @@ class LnPluginLoader(
     }
 
     private fun fileFor(url: String, extension: String = SCRIPT_EXTENSION): File {
-        val hash = MessageDigest.getInstance("SHA-256")
-            .digest(url.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-            .take(32)
+        // Half the digest, as installed plugins have always been named; a longer name would strand them.
+        val hash = Hash.sha256(url).take(32)
         return File(File(context.filesDir, DIR_NAME).apply { mkdirs() }, "$hash.$extension")
     }
 

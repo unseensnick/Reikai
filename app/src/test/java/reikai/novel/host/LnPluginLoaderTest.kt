@@ -39,6 +39,14 @@ class LnPluginLoaderTest {
         loader.installed(url) shouldBe script
     }
 
+    /** The name is derived from the URL, so changing the rule would strand every installed plugin. */
+    @Test
+    fun `a plugin is stored under the first half of its url's sha-256`() = runTest {
+        loader.store(url, script)
+
+        appFiles.resolve("lnplugins").listFiles()!!.single().name shouldBe "ae884cb00c1ba49571e958e3de009fad.js"
+    }
+
     @Test
     fun `a plugin with no stored script has nothing to load`() = runTest {
         loader.installed(url) shouldBe null

@@ -4,7 +4,9 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.network.awaitSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -17,7 +19,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
-import okhttp3.Request
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
@@ -436,11 +437,7 @@ class LnPluginInstaller(
      * entries (typically: present a list and call [installFromUrl] for each chosen entry's `url`).
      */
     override suspend fun fetchRepo(repoJsonUrl: String): List<LnRegistryEntry> = withContext(Dispatchers.IO) {
-        val req = Request.Builder().url(repoJsonUrl).build()
-        networkHelper.client.newCall(req).execute().use { res ->
-            if (!res.isSuccessful) {
-                error("registry fetch failed: HTTP ${res.code} from $repoJsonUrl")
-            }
+        networkHelper.client.newCall(GET(repoJsonUrl)).awaitSuccess().use { res ->
             LnRegistry.parse(res.body.string())
         }
     }
