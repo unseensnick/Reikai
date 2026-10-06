@@ -1,6 +1,7 @@
 package reikai.data.backup
 
 import dev.zacsweers.metro.Inject
+import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
@@ -22,6 +23,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.carryShowNsfwSource
 import reikai.novel.content.NovelSnippets
+import tachiyomi.core.common.preference.Preference
 
 /**
  * Reikai's half of an App settings restore: retired keys carried into their replacements or skipped,
@@ -35,6 +37,7 @@ class AppPreferenceCarry(
     private val extensionSourcePreferences: SourcePreferences,
     private val networkPreferences: NetworkPreferences,
     private val trackPreferences: TrackPreferences,
+    private val basePreferences: BasePreferences,
 ) {
 
     /** Carries the keys it owns, hands the rest to [write], then applies what must follow the write. */
@@ -76,7 +79,11 @@ class AppPreferenceCarry(
                 (value as? BooleanPreferenceValue)?.let { novelPreferences.carryReaderAutoScroll(it.value) }
             // The address decides where the NovelList sign-in token goes, so a backup never moves it.
             trackPreferences.novelListApiUrl.key() -> Unit
-            else -> return key in SKIPPED_KEYS || SKIPPED_PREFIXES.any(key::startsWith)
+            // A backup may be someone else's: it never picks a silent installer for later extension
+            // installs, nor lets a chapter's own scripts run.
+            basePreferences.extensionInstaller.key(), novelPreferences.readerKeepEmbeddedJs().key() -> Unit
+            // Mihon never backs up app state, extension trust among it, so only a crafted backup carries any.
+            else -> return key in SKIPPED_KEYS || Preference.isAppState(key) || SKIPPED_PREFIXES.any(key::startsWith)
         }
         return true
     }

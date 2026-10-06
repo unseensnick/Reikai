@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import android.content.Context
+import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
@@ -73,6 +74,7 @@ class PreferenceRestorerTest {
             sourcePreferences,
             networkPreferences,
             TrackPreferences(store),
+            mockk<BasePreferences> { every { extensionInstaller.key() } returns INSTALLER_KEY },
         ),
     )
 
@@ -323,6 +325,16 @@ class PreferenceRestorerTest {
         address.isSet() shouldBe false
     }
 
+    /** A backup may be someone else's, so it never decides how code reaches the app or whether it runs. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("untrustedKeys")
+    @DisplayName("a restore never sets what lets a backup install or run code")
+    fun untrustedKeyIsNotStored(name: String, key: String, value: PreferenceValue) = runTest {
+        restorer.restoreApp(listOf(BackupPreference(key, value)), backupCategories = null)
+
+        store.getString(key, "").isSet() shouldBe false
+    }
+
     /** The switch comes before the bar in the backup, so the bar restored after it must still gain the button. */
     @Test
     @DisplayName("a backup with read-aloud on and a customised bar keeps the read-aloud button")
@@ -373,6 +385,9 @@ class PreferenceRestorerTest {
     }
 
     companion object {
+        // The stored key; the real preference cannot be built here, since it reads the device's installers.
+        private const val INSTALLER_KEY = "extension_installer"
+
         @JvmStatic
         fun rearmedJobs() = listOf(
             Arguments.of("novel updates", { c: Context -> verify { NovelUpdateJob.setupTask(c, null) } }),
@@ -397,6 +412,24 @@ class PreferenceRestorerTest {
             Arguments.of(ReikaiLibraryPreferences.DEAD_LAST_USED_NOVEL_PAGE_KEY, IntPreferenceValue(3)),
             Arguments.of(ReikaiLibraryPreferences.DEAD_LAST_USED_ALL_PAGE_KEY, IntPreferenceValue(3)),
         ) + DEAD_READER_TTS_BUTTON_KEYS.map { Arguments.of(it, IntPreferenceValue(120)) }
+
+        @JvmStatic
+        fun untrustedKeys(): List<Arguments> {
+            val store = EmittingPreferenceStore()
+            return listOf(
+                Arguments.of("the extension installer", INSTALLER_KEY, StringPreferenceValue("SHIZUKU")),
+                Arguments.of(
+                    "extension trust, an app-state key",
+                    SourcePreferences(store).trustedExtensions.key(),
+                    StringSetPreferenceValue(setOf("pkg:1:hash")),
+                ),
+                Arguments.of(
+                    "a chapter's own scripts",
+                    NovelPreferences(store).readerKeepEmbeddedJs().key(),
+                    BooleanPreferenceValue(true),
+                ),
+            )
+        }
 
         @JvmStatic
         fun pluginFlagOrders(): List<Arguments> {

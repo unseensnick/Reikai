@@ -168,6 +168,7 @@ class SourcePreferencesBackupTest {
             SourcePreferences(store),
             NetworkPreferences(store, isDebugBuild = false),
             TrackPreferences(store),
+            mockk(relaxed = true),
         ),
     )
 

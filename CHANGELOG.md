@@ -624,6 +624,7 @@ agent under Settings -> Advanced.
 
 - **Restoring a backup now brings merged series back exactly as the backup grouped them: unrelated series no longer collapse into one card, and a pair you split stays split.**
 - **Restoring a backup with App settings ticked now reinstalls your light-novel plugins by itself, checks each against your added repos, and names any it could not bring back.**
+- **Restoring a backup no longer changes your extension installer, trusts extensions or turns on Run scripts a chapter embeds.** Your device keeps its own choice for each.
 - **Restoring a backup over a series you already have no longer rewinds it, on manga and novels: chapters keep the further position, and trackers keep your status and score and only move progress forward (partly from Mihon).**
 - **Restoring a backup now keeps your default category, update categories, category filters and collapsed categories for manga and novels, including Default and Always ask.** A Yōkai backup keeps Default but leaves out its other category choices, since it saves no way to match them.
 - **Restoring a backup now turns Settings -> Library -> Per-category settings for sort on only when a manga or light-novel category keeps its own sort, and keeps the per-category sorts of a backup made by Mihon or by Reikai before 0.3.0.** A hidden category, or one reset to the library sort, no longer turns it on.
