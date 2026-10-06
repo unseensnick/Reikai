@@ -46,6 +46,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.ReadAloudControls
+import reikai.presentation.reader.ReaderActionRow
 import reikai.presentation.reader.ReaderBarsFadeSpec
 import reikai.presentation.reader.ReaderBarsSlideSpec
 import reikai.presentation.reader.ReaderChapterStep
@@ -277,7 +278,8 @@ fun ReaderAppBars(
                         onSeekFinished = onSeekFinished,
                     )
                 }
-                ReaderBottomBar(
+                // RK: the shared action row, which replaced upstream's ReaderBottomBar for both readers
+                ReaderActionRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(backgroundColor)

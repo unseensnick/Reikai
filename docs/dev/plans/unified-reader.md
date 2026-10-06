@@ -26,7 +26,7 @@ The manga reader stays a View-based screen (`ReaderActivity`) that hosts the exi
 
 The mechanism:
 
-- **The shared chrome composables** live under `eu/kanade/presentation/reader/`: `ReaderAppBars` (top + bottom bars with tap-to-toggle immersive animation), `ReaderTopBar`, `ReaderBottomBar`, `ChapterNavigator` (prev/next + seekbar), and `ReaderPageIndicator`. These are Mihon's own reader chrome, already pure Compose, already driven by immutable state. Since the reader takeover both content types render them, from the one `ReaderActivity` host.
+- **The shared chrome composables** live under `eu/kanade/presentation/reader/`: `ReaderAppBars` (top + bottom bars with tap-to-toggle immersive animation), `ReaderTopBar`, `ChapterNavigator` (prev/next + seekbar), and `ReaderPageIndicator`, with the bottom bar's buttons drawn by Reikai's `ReaderActionRow` in place of Mihon's `ReaderBottomBar`. The rest are Mihon's own reader chrome, already pure Compose, already driven by immutable state. Since the reader takeover both content types render them, from the one `ReaderActivity` host.
 
 - **The settings sheets are shared now**, settled by the reader takeover rather than this plan: one `ReaderSettingsSheet` with the same tabs for both readers bar Read aloud, which only novels get, each content type answering its own pages. See step 11 of [content-layer-reader-surface.md](content-layer-reader-surface.md).
 
@@ -39,7 +39,7 @@ The mechanism:
 ## Key files
 
 - Manga reader (View host, stays): `app/src/main/java/eu/kanade/tachiyomi/ui/reader/ReaderActivity.kt`.
-- Shared chrome composables: `app/src/main/java/eu/kanade/presentation/reader/appbars/ReaderAppBars.kt`, `.../appbars/ReaderTopBar.kt`, `.../appbars/ReaderBottomBar.kt`, `.../components/ChapterNavigator.kt`, `.../ReaderPageIndicator.kt`, and `.../ReaderContentOverlay.kt`.
+- Shared chrome composables: `app/src/main/java/eu/kanade/presentation/reader/appbars/ReaderAppBars.kt`, `.../appbars/ReaderTopBar.kt`, `.../components/ChapterNavigator.kt`, `.../ReaderPageIndicator.kt`, `.../ReaderContentOverlay.kt`, and the bottom bar, `app/src/main/java/reikai/presentation/reader/ReaderActionRow.kt`.
 - Shared in-reader settings sheet: `app/src/main/java/reikai/presentation/reader/settings/`.
 - Novel reader, since the takeover: `NovelReaderProvider`, `NovelTextViewport` and `NovelWebViewport` under `app/src/main/java/reikai/presentation/reader/`, in the shared `ReaderActivity` host.
 
