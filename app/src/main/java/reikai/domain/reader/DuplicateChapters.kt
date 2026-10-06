@@ -1,5 +1,7 @@
 package reikai.domain.reader
 
+import reikai.domain.chapter.isRecognizedChapterNumber
+
 /**
  * Drop same-numbered duplicate chapters WITHIN one entry, which a source produces by listing a chapter
  * twice or under several scanlators. Of each set the chapter being read wins, then a [prefer]red one
@@ -21,7 +23,7 @@ fun <T> List<T>.removeDuplicateChapters(
     // A number below zero is no number: a prologue and an afterword both read -1 and are two chapters.
     return groupBy { chapter ->
         val number = numberOf(chapter)
-        Triple(ownerOf(chapter), number, if (number < 0) idOf(chapter) else null)
+        Triple(ownerOf(chapter), number, if (isRecognizedChapterNumber(number)) null else idOf(chapter))
     }.map { (_, chapters) ->
         val preferred = chapters.filter(prefer)
         chapters.find { idOf(it) == currentId }
@@ -49,8 +51,9 @@ fun <T> List<T>.duplicatesOfRead(
     val readOwner = ownerOf(read)
     // Narrowed to Float as upstream compares: a source-reported number is a float, a parsed one a double.
     val readNumber = numberOf(read).toFloat()
+    val readIsNumbered = isRecognizedChapterNumber(numberOf(read))
     return filter {
-        val sameNumberInEntry = readNumber >= 0f && ownerOf(it) == readOwner && numberOf(it).toFloat() == readNumber
+        val sameNumberInEntry = readIsNumbered && ownerOf(it) == readOwner && numberOf(it).toFloat() == readNumber
         idOf(it) != readId && (idOf(it) in stitchCopies || sameNumberInEntry)
     }
 }

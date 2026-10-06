@@ -6,6 +6,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.sync.Semaphore
+import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.entry.EntryId
 import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.fanOutPerSource
@@ -72,7 +73,7 @@ val StripResult.hasSomethingToSay: Boolean
  * through this, so the rule has one place to be wrong.
  */
 inline fun <T> List<T>.latestChapterNumber(number: (T) -> Double): Double? =
-    maxOfOrNull(number)?.takeIf { it >= 0.0 }
+    maxOfOrNull(number)?.takeIf(::isRecognizedChapterNumber)
 
 /**
  * The chosen target sources: the [saved] order, else the [pinned] sources, else everything

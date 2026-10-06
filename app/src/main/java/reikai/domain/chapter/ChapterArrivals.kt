@@ -39,7 +39,7 @@ fun chapterArrivals(
     markDuplicateAsRead: Boolean,
     now: Long,
 ): List<Arrival> {
-    val readNumbers = stored.filter { it.read && it.number >= 0.0 }.map { it.number }.toSet()
+    val readNumbers = stored.filter { it.read && isRecognizedChapterNumber(it.number) }.map { it.number }.toSet()
     val removedByNumber = removed.groupBy { it.number }
     // Keeps an older undated chapter from sorting above a newer dated one.
     var maxSeenUploadDate = 0L
@@ -51,7 +51,7 @@ fun chapterArrivals(
             chapter.dateUpload
         }
         val duplicate = markDuplicateAsRead && chapter.number in readNumbers
-        val twins = removedByNumber[chapter.number].takeIf { chapter.number >= 0.0 }
+        val twins = removedByNumber[chapter.number].takeIf { isRecognizedChapterNumber(chapter.number) }
         if (twins == null) {
             Arrival(chapter.read || duplicate, chapter.bookmark, now + added.size - index, dateUpload, duplicate)
         } else {

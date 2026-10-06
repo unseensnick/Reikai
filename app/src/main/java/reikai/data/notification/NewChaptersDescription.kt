@@ -2,6 +2,7 @@ package reikai.data.notification
 
 import android.content.Context
 import eu.kanade.presentation.util.formatChapterNumber
+import reikai.domain.chapter.isRecognizedChapterNumber
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -29,13 +30,14 @@ sealed interface NewChapters {
  */
 fun newChapters(chapterNumbers: List<Double>, total: Int): NewChapters {
     val named = chapterNumbers
-        .filter { it >= 0.0 }
+        .filter(::isRecognizedChapterNumber)
         .sorted()
         .map(::formatChapterNumber)
         .distinct()
     if (named.isEmpty()) return NewChapters.Count(total)
 
-    val remaining = chapterNumbers.count { it < 0.0 } + (named.size - NOTIF_MAX_CHAPTERS).coerceAtLeast(0)
+    val remaining =
+        chapterNumbers.count { !isRecognizedChapterNumber(it) } + (named.size - NOTIF_MAX_CHAPTERS).coerceAtLeast(0)
     return when (named.size) {
         1 -> NewChapters.Single(named.first(), remaining)
         else -> NewChapters.Multiple(named.take(NOTIF_MAX_CHAPTERS), remaining)

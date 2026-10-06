@@ -7,6 +7,7 @@ import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.backup.mergedHistory
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
@@ -212,13 +213,13 @@ internal fun computeChapterMigration(
     targetChapters: List<NovelChapter>,
 ): List<NovelChapter> {
     val maxReadNumber = currentChapters
-        .filter { it.read && it.chapterNumber >= 0.0 }
+        .filter { it.read && isRecognizedChapterNumber(it.chapterNumber) }
         .maxOfOrNull { it.chapterNumber }
 
     return targetChapters.mapNotNull { target ->
-        if (target.chapterNumber < 0.0) return@mapNotNull null
+        if (!isRecognizedChapterNumber(target.chapterNumber)) return@mapNotNull null
 
-        val match = currentChapters.firstOrNull { it.chapterNumber >= 0.0 && it.chapterNumber == target.chapterNumber }
+        val match = currentChapters.sameNumberAs(target)
         var read = target.read || match?.read == true
         val bookmark = if (match != null) match.bookmark else target.bookmark
         val progress = maxOf(target.lastTextProgress, match?.lastTextProgress ?: 0L)
@@ -252,9 +253,8 @@ internal fun computeHistoryMigration(
     val historyByChapter = currentHistory.associateBy { it.chapterId }
     val targetHistoryByChapter = targetHistory.associateBy { it.chapterId }
     return targetChapters.mapNotNull { target ->
-        if (target.chapterNumber < 0.0) return@mapNotNull null
-        val match = currentChapters.firstOrNull { it.chapterNumber >= 0.0 && it.chapterNumber == target.chapterNumber }
-        val history = match?.let { historyByChapter[it.id] } ?: return@mapNotNull null
+        if (!isRecognizedChapterNumber(target.chapterNumber)) return@mapNotNull null
+        val history = currentChapters.sameNumberAs(target)?.let { historyByChapter[it.id] } ?: return@mapNotNull null
         val readAt = history.readAt ?: return@mapNotNull null
         val stored = targetHistoryByChapter[target.id]
         val (mergedReadAt, addedDuration) =
@@ -262,3 +262,7 @@ internal fun computeHistoryMigration(
         NovelHistoryUpdate(target.id, mergedReadAt, addedDuration)
     }
 }
+
+/** The source chapter a recognized [target] carries state from: the one with the same number. */
+private fun List<NovelChapter>.sameNumberAs(target: NovelChapter): NovelChapter? =
+    firstOrNull { it.chapterNumber == target.chapterNumber }

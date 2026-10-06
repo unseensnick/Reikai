@@ -1,5 +1,6 @@
 package reikai.domain.novel
 
+import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.merge.MergedChapterOrder
 import reikai.domain.merge.MergedChapters
 import reikai.domain.merge.sourcePriority
@@ -118,7 +119,7 @@ object NovelChapterAggregation {
     fun matchKey(chapter: NovelChapter): String? {
         val title = normalizedTitle(chapter.name)
         if (title.isNotEmpty()) return "$TITLE_KEY_PREFIX$title"
-        if (chapter.chapterNumber > 0.0) return "n:${chapter.chapterNumber}"
+        if (isRecognizedChapterNumber(chapter.chapterNumber)) return "n:${chapter.chapterNumber}"
         return null
     }
 

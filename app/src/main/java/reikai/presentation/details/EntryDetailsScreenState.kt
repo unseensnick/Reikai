@@ -3,6 +3,7 @@ package reikai.presentation.details
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import eu.kanade.tachiyomi.data.download.model.Download
+import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.entry.EntryId
 
 /**
@@ -131,9 +132,7 @@ sealed interface EntryChapterListItem {
         /** Live download percent for the spinner; 0 for novels (no per-chapter progress). */
         val downloadProgress: Int,
     ) : EntryChapterListItem {
-        /** A real chapter number, so a cross-source dedup / gap check can trust it. Manga names this
-         *  `isRecognizedNumber`; the novel side inlined `>= 0.0`. Same rule, one name. */
-        val isRecognizedNumber: Boolean get() = chapterNumber >= 0.0
+        val isRecognizedNumber: Boolean get() = isRecognizedChapterNumber(chapterNumber)
     }
 
     @Immutable

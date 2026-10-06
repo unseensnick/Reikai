@@ -3,6 +3,7 @@ package reikai.domain.novel.interactor
 import dev.zacsweers.metro.Inject
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.matchesCategoryFilter
+import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
@@ -27,7 +28,7 @@ class FilterNovelChaptersForDownload(
         if (!preferences.downloadNewUnreadChaptersOnly().get()) return newChapters
         val readNumbers = chapterRepo.getByNovelId(novel.id)
             .asSequence()
-            .filter { it.read && it.chapterNumber >= 0.0 }
+            .filter { it.read && isRecognizedChapterNumber(it.chapterNumber) }
             .map { it.chapterNumber }
             .toSet()
         return newChapters.filterNot { it.chapterNumber in readNumbers }

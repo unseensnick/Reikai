@@ -73,12 +73,22 @@ class NovelChapterAggregationTest {
     @Test
     fun `drops sibling chapters with an unrecognized number`() {
         val trunk = listOf(chapter(1L, 1.0), chapter(1L, 2.0))
-        // 0.0 means "no number" for novels, so it can't be matched across sources.
-        val other = listOf(chapter(2L, 0.0), chapter(2L, 3.0))
+        // A negative number is the recognizer finding none, so it can't be matched across sources.
+        val other = listOf(chapter(2L, -1.0), chapter(2L, 3.0))
 
         val unified = NovelChapterAggregation.merge(mapOf(1L to trunk, 2L to other)).chapters
 
         unified.numbers() shouldBe listOf(1.0, 2.0, 3.0)
+    }
+
+    @Test
+    fun `keeps a sibling's untitled chapter 0, which is a recognized number`() {
+        val trunk = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
+        val other = listOf(chapter(2L, 0.0), chapter(2L, 1.0))
+
+        val unified = NovelChapterAggregation.merge(mapOf(1L to trunk, 2L to other)).chapters
+
+        unified.numbers() shouldBe listOf(0.0, 1.0, 2.0, 3.0)
     }
 
     // Cross-source read carry-over, the twin of MergedChapterProviderTest's manga cases. Run over the
@@ -206,10 +216,10 @@ class NovelChapterAggregationTest {
 
     @Test
     fun `unnumbered novels show the fullest source's full list unchanged`() {
-        // Both sources leave every chapter unnumbered (0.0), the common lnreader case. There's no
-        // cross-source key, so the unified view is just the source with the most chapters.
-        val small = listOf(chapter(1L, 0.0), chapter(1L, 0.0), chapter(1L, 0.0))
-        val big = listOf(chapter(2L, 0.0), chapter(2L, 0.0), chapter(2L, 0.0), chapter(2L, 0.0), chapter(2L, 0.0))
+        // Both sources leave every chapter unnumbered (-1.0 once a sync finds no number), the common
+        // lnreader case. There's no cross-source key, so the unified view is just the fullest source.
+        val small = listOf(chapter(1L, -1.0), chapter(1L, -1.0), chapter(1L, -1.0))
+        val big = listOf(chapter(2L, -1.0), chapter(2L, -1.0), chapter(2L, -1.0), chapter(2L, -1.0), chapter(2L, -1.0))
 
         val unified = NovelChapterAggregation.merge(mapOf(1L to small, 2L to big)).chapters
 

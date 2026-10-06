@@ -25,8 +25,13 @@ class NovelChapterMatchKeyTest {
     }
 
     @Test
+    fun `an untitled chapter 0 keys on its number`() {
+        NovelChapterAggregation.matchKey(chapter("Chapter 0", 0.0)) shouldBe "n:0.0"
+    }
+
+    @Test
     fun `a novel chapter with neither a title nor a number has no identity`() {
-        NovelChapterAggregation.matchKey(chapter("", 0.0)).shouldBeNull()
+        NovelChapterAggregation.matchKey(chapter("", -1.0)).shouldBeNull()
     }
 
     private fun chapter(name: String, number: Double) = NovelChapter(

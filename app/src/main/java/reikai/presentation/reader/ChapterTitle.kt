@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import android.content.Context
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.util.formatChapterNumber
+import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.reader.ChapterTitleFormat
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -35,7 +36,7 @@ fun Context.chapterTitleWords(): ChapterTitleWords = object : ChapterTitleWords 
  * whatever the format, since a source that numbers nothing stores a negative one.
  */
 fun ChapterTitleFormat.chapterTitle(name: String, number: Double, words: ChapterTitleWords): String {
-    if (this == ChapterTitleFormat.NAME || number < 0) return name
+    if (this == ChapterTitleFormat.NAME || !isRecognizedChapterNumber(number)) return name
     val shown = formatChapterNumber(number)
     if (this == ChapterTitleFormat.NUMBER) return words.numbered(shown)
     val rest = name.withoutLeadingNumber(shown)

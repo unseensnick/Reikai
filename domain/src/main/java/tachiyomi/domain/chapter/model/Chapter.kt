@@ -2,6 +2,7 @@ package tachiyomi.domain.chapter.model
 
 import kotlinx.serialization.json.JsonObject
 import mihon.core.common.extensions.EMPTY
+import reikai.domain.chapter.isRecognizedChapterNumber
 
 data class Chapter(
     val id: Long,
@@ -21,7 +22,7 @@ data class Chapter(
     val pageCount: Long,
 ) {
     val isRecognizedNumber: Boolean
-        get() = chapterNumber >= 0f
+        get() = isRecognizedChapterNumber(chapterNumber) // RK: the one rule novels read too
 
     fun copyFrom(other: Chapter): Chapter {
         return copy(

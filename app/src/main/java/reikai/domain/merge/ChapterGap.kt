@@ -1,5 +1,6 @@
 package reikai.domain.merge
 
+import reikai.domain.chapter.isRecognizedChapterNumber
 import tachiyomi.domain.chapter.model.Chapter
 import kotlin.math.floor
 
@@ -24,7 +25,7 @@ object ChapterGap {
         if (!numberIsTrustworthy(lower)) return 0
         // Two sources of one entry count differently, so the difference measures nothing.
         if (higher.ownerId != lower.ownerId) return 0
-        if (higher.number < 0.0 || lower.number < 0.0) return 0
+        if (!isRecognizedChapterNumber(higher.number) || !isRecognizedChapterNumber(lower.number)) return 0
         // Never negative: a pair the list order puts the wrong way round is missing nothing, not a
         // negative something, and every caller only asks whether the answer is above zero.
         return (floor(higher.number).toInt() - floor(lower.number).toInt() - 1).coerceAtLeast(0)
