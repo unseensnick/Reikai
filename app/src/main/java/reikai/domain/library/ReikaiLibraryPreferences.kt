@@ -3,6 +3,7 @@ package reikai.domain.library
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import reikai.util.getStringList
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.TriState
@@ -163,13 +164,8 @@ class ReikaiLibraryPreferences(
     )
 
     /** Novel-source ids ranked highest-priority-first; the trunk source for a merged novel chapter list.
-     *  Novel source ids are Strings (plugin slugs), so this is a newline-joined ordered list. */
-    val preferredNovelSources: Preference<List<String>> = preferenceStore.getObjectFromString(
-        key = "preferred_novel_sources",
-        defaultValue = emptyList(),
-        serializer = { it.joinToString("\n") },
-        deserializer = { it.split("\n").filter(String::isNotBlank) },
-    )
+     *  Novel source ids are Strings (plugin slugs), so this is a string list rather than a long array. */
+    val preferredNovelSources: Preference<List<String>> = preferenceStore.getStringList("preferred_novel_sources")
 
     /** Mirror a tracker added to one source onto every favorited member of its merged group. */
     val syncTrackerLinksGrouped: Preference<Boolean> = preferenceStore.getBoolean("sync_tracker_links_grouped", true)

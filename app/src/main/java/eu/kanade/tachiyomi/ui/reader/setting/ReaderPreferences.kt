@@ -7,6 +7,7 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.util.getStringList
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
@@ -121,12 +122,7 @@ class ReaderPreferences(
         preferenceStore.getStringSet("reader_bottom_buttons", ReaderBottomButton.BUTTONS_DEFAULTS)
 
     /** The order of [readerBottomButtons], as codes; empty draws them in declaration order. */
-    val readerBottomButtonOrder: Preference<List<String>> = preferenceStore.getObjectFromString(
-        key = "reader_bottom_button_order",
-        defaultValue = emptyList(),
-        serializer = { it.joinToString("\n") },
-        deserializer = { it.split("\n").filter(String::isNotBlank) },
-    )
+    val readerBottomButtonOrder: Preference<List<String>> = preferenceStore.getStringList("reader_bottom_button_order")
 
     val preserveReadingPosition: Preference<Boolean> = preferenceStore.getBoolean("preserve_reading_position", false)
 

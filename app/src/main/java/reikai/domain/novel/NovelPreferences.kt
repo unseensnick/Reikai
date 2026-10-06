@@ -17,6 +17,7 @@ import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.domain.source.NovelIconHints
 import reikai.novel.content.NovelSnippetKind
+import reikai.util.getStringList
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
@@ -416,12 +417,7 @@ class NovelPreferences(
         preferenceStore.getStringSet("ln_reader_bottom_buttons", ReaderBottomButton.NOVEL_BUTTONS_DEFAULTS)
 
     /** The order of [readerBottomButtons], as codes; empty draws them in declaration order. */
-    fun readerBottomButtonOrder() = preferenceStore.getObjectFromString<List<String>>(
-        key = "ln_reader_bottom_button_order",
-        defaultValue = emptyList(),
-        serializer = { it.joinToString("\n") },
-        deserializer = { it.split("\n").filter(String::isNotBlank) },
-    )
+    fun readerBottomButtonOrder() = preferenceStore.getStringList("ln_reader_bottom_button_order")
 
     /**
      * Puts the read-aloud button on a customised bar, for someone whose retired read-aloud switch was on:

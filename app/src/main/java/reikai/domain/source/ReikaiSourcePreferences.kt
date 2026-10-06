@@ -8,6 +8,7 @@ import mihon.domain.extension.model.ContentWarning
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.globalsearch.SearchSourceFilter
 import reikai.presentation.recents.RecentsMode
+import reikai.util.getStringList
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
@@ -119,14 +120,9 @@ class ReikaiSourcePreferences(
      * Ordered novel source ids picked in the migration pre-step. Novel twin of
      * [eu.kanade.domain.source.service.SourcePreferences.migrationSources]: the selection and its
      * priority order drive which sources a migration searches (and so which match it suggests first).
-     * Order matters, so it is a List, stored newline-joined (source ids never contain newlines).
+     * Order matters, so it is a string list.
      */
-    val novelMigrationSources: Preference<List<String>> = preferenceStore.getObjectFromString(
-        "ln_migration_sources",
-        emptyList(),
-        { it.joinToString("\n") },
-        { if (it.isEmpty()) emptyList() else it.split("\n") },
-    )
+    val novelMigrationSources: Preference<List<String>> = preferenceStore.getStringList("ln_migration_sources")
 
     /** Sticky content-type filter on the Updates tab (manga + novels), its own key. */
     val updatesContentType: Preference<ContentType> =
