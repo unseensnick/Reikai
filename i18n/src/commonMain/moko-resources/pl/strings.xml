@@ -656,7 +656,6 @@
     <string name="copied_to_clipboard_plain">Skopiowano do schowka</string>
     <string name="pref_skip_dupe_chapters">Pomiń zduplikowane rozdziały</string>
     <string name="enhanced_services_not_installed">Dostępne, ale źródło nie jest zainstalowane: %s</string>
-    <string name="track_error">Błąd %1$s: %2$s</string>
     <string name="information_required_plain">*wymagane</string>
     <string name="pref_hide_in_library_items">Ukryj pozycje znajdujące się już w bibliotece</string>
     <string name="action_copy_to_clipboard">Kopiuj do schowka</string>

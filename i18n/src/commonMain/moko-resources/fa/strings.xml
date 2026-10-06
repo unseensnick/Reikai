@@ -726,7 +726,6 @@
     <string name="cutout_mode_ignore">نادیده‌گرفتن</string>
     <string name="notification_incognito_text">غیرفعال کردن حالت ناشناس</string>
     <string name="clear_db_exclude_read">عناوین دارای چپترهای خوانده‌شده را نگه دارید</string>
-    <string name="track_error">%1$s خطا: %2$s</string>
     <string name="manga_interval_expected_update_soon">به‌زودی</string>
     <string name="migrationConfigScreen.selectEnabledLabel">انتخاب منابع فعال</string>
     <string name="transition_animation_stack_right">پشته (راست)</string>

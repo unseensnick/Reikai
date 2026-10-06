@@ -640,7 +640,6 @@
     <string name="myanimelist_relogin">MAL ত পুনৰ লগইন কৰক অনুগ্ৰহ কৰি</string>
     <string name="source_unsupported">উৎস সমৰ্থিত নহয়</string>
     <string name="error_no_match">কোনো মিল পোৱা নগ\'ল</string>
-    <string name="track_error">%1$s ত্ৰুটি: %2$s</string>
     <string name="track_remove_date_conf_title">তাৰিখ আঁতৰাওক নেকি?</string>
     <string name="track_remove_start_date_conf_text">এইটোৱে %sৰ পৰা আপোনাৰ পূৰ্বে নিৰ্বাচিত আৰম্ভ তাৰিখ আঁতৰাব</string>
     <string name="track_delete_title">%s ট্ৰেকিং আঁতৰাওক নেকি?</string>

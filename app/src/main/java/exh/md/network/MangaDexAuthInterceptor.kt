@@ -31,7 +31,7 @@ class MangaDexAuthInterceptor(
         }
         val loaded = oauth
             ?: MdUtil.loadOAuth(trackPreferences, mdList)?.also { oauth = it }
-            ?: throw IOException("No authentication token")
+            ?: throw TrackerSignedOutException(mdList.name)
         val current = if (loaded.isExpired()) refreshToken(chain, loaded) else loaded
 
         val response = chain.proceed(originalRequest.withBearer(current))

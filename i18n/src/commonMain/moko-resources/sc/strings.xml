@@ -656,7 +656,6 @@
     <string name="copied_to_clipboard_plain">Copiadu in punta de billete</string>
     <string name="pref_skip_dupe_chapters">Brinca sos capìtulos duplicados</string>
     <string name="enhanced_services_not_installed">A disponimentu ma sa fonte no est installada: %s</string>
-    <string name="track_error">Errore %1$s: %2$s</string>
     <string name="information_required_plain">*netzessàriu</string>
     <string name="pref_hide_in_library_items">Cua sos elementos giai in sa biblioteca</string>
     <string name="action_copy_to_clipboard">Còpia in punta de billete</string>

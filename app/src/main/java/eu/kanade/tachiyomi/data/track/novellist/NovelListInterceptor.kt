@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.data.track.novellist
 import eu.kanade.tachiyomi.BuildConfig
 import okhttp3.Interceptor
 import okhttp3.Response
-import java.io.IOException
+import reikai.data.track.TrackerSignedOutException
 
 /**
  * One credential shape, the JWT the sign-in cookie carries, sent as the `jwtAuth` bearer the
@@ -15,7 +15,7 @@ class NovelListInterceptor(
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val credential = token ?: throw IOException("Not authenticated with NovelList")
+        val credential = token ?: throw TrackerSignedOutException("NovelList")
 
         val authRequest = chain.request().newBuilder()
             .addHeader("Authorization", "Bearer $credential")

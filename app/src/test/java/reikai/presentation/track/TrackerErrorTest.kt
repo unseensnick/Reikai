@@ -33,11 +33,8 @@ class TrackerErrorTest {
             Arguments.of(HttpException(401), true, TrackerError.SignedOut),
             Arguments.of(HttpException(403), true, TrackerError.SignedOut),
             Arguments.of(HttpException(500), true, TrackerError.Http(500)),
-            Arguments.of(
-                IOException("Not authenticated with NovelList"),
-                true,
-                TrackerError.Other("Not authenticated with NovelList"),
-            ),
+            Arguments.of(IOException("Unknown score type"), true, TrackerError.Other("Unknown score type")),
+            Arguments.of(IllegalStateException("  "), true, TrackerError.Other(null)),
         )
     }
 }

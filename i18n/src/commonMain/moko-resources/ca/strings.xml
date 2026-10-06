@@ -643,7 +643,6 @@
     <string name="label_read_duration">Temps de lectura</string>
     <string name="label_titles_section">Elements</string>
     <string name="label_completed_titles">Elements completats</string>
-    <string name="track_error">Error %1$s: %2$s</string>
     <string name="action_not_now">Ara no</string>
     <string name="label_titles_in_global_update">A l’actualització global</string>
     <string name="label_overview_section">Resum</string>

@@ -656,7 +656,6 @@
     <string name="copied_to_clipboard_plain">Αντιγράφηκε στο πρόχειρο</string>
     <string name="pref_skip_dupe_chapters">Παράλειψη διπλότυπων κεφαλαίων</string>
     <string name="enhanced_services_not_installed">Διαθέσιμο αλλά η πηγή δεν έχει εγκατασταθεί: %s</string>
-    <string name="track_error">%1$s σφάλμα: %2$s</string>
     <string name="information_required_plain">*απαιτούμενο</string>
     <string name="pref_hide_in_library_items">Απόκρυψη καταχωρήσεων που βρίσκονται ήδη στη βιβλιοθήκη</string>
     <string name="action_copy_to_clipboard">Αντιγραφή στο πρόχειρο</string>

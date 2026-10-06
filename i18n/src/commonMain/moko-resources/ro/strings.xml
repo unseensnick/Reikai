@@ -653,7 +653,6 @@
     <string name="information_no_manga_category">Categorie goala</string>
     <string name="pref_skip_dupe_chapters">Treci peste capitolele duplicae</string>
     <string name="enhanced_services_not_installed">Disponibil, dar sursa nu este instalata: %s</string>
-    <string name="track_error">%1$s eroare: %2$s</string>
     <string name="information_required_plain">*necesar</string>
     <string name="copied_to_clipboard_plain">Copiat in clipboard</string>
     <string name="unlock_app_title">Deblochează %s</string>

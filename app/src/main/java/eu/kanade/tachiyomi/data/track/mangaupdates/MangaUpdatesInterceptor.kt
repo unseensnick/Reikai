@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.data.track.mangaupdates
 import eu.kanade.tachiyomi.BuildConfig
 import okhttp3.Interceptor
 import okhttp3.Response
-import java.io.IOException
+import reikai.data.track.TrackerSignedOutException
 
 class MangaUpdatesInterceptor(
     mangaUpdates: MangaUpdates,
@@ -14,7 +14,7 @@ class MangaUpdatesInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
 
-        val token = token ?: throw IOException("Not authenticated with MangaUpdates")
+        val token = token ?: throw TrackerSignedOutException("MangaUpdates") // RK: read as signed out
 
         // Add the authorization header to the original request.
         val authRequest = originalRequest.newBuilder()

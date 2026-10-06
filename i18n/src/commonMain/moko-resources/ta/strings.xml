@@ -661,7 +661,6 @@
     <string name="source_unsupported">சான்று ஆதரிக்கப்படவில்லை</string>
     <string name="unfinished_list">முடிக்கப்படாத பட்டியல்</string>
     <string name="error_no_match">போட்டி எதுவும் கிடைக்கவில்லை</string>
-    <string name="track_error">%1$s பிழை: %2$s</string>
     <string name="track_remove_date_conf_title">தேதியை அகற்றவா?</string>
     <string name="track_remove_start_date_conf_text">இது நீங்கள் முன்னர் தேர்ந்தெடுக்கப்பட்ட தொடக்க தேதியை %s இலிருந்து அகற்றும்</string>
     <string name="track_remove_finish_date_conf_text">இது நீங்கள் முன்னர் தேர்ந்தெடுக்கப்பட்ட பூச்சு தேதியை %s இலிருந்து அகற்றும்</string>

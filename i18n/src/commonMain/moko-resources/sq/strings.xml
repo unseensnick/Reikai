@@ -657,7 +657,6 @@
     <string name="pref_hide_in_library_items">Fshih elementet tashmë në bibliotekë</string>
     <string name="action_copy_to_clipboard">Kopjo në kujtesën e fragmenteve</string>
     <string name="action_update_category">Përditëso kategorinë</string>
-    <string name="track_error">%1$s gabim: %2$s</string>
     <string name="information_required_plain">*kërkohet</string>
     <string name="copied_to_clipboard_plain">U kopjua në clipboard</string>
     <string name="pref_storage_location">Pika e magazinimit</string>

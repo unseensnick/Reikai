@@ -13,6 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import reikai.data.track.MetadataAccess
+import reikai.data.track.TrackerSignedOutException
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.track.UnreadPushTracker
 import reikai.domain.track.autobind.AutoBindEntry
@@ -247,7 +248,7 @@ class NovelUpdates(id: Long) :
     private suspend fun signedInAccount(): NovelUpdatesAccount {
         val account = api.account()
         if (account.lists.isEmpty()) {
-            throw IOException("NovelUpdates shows no reading lists: sign in again")
+            throw TrackerSignedOutException(name)
         }
         return account
     }

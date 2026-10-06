@@ -689,7 +689,6 @@
     <string name="myanimelist_relogin">Калі ласка, увайдзіце ў MAL зноў</string>
     <string name="source_unsupported">Крыніца не падтрымліваецца</string>
     <string name="error_no_match">Супадзенняў не знойдзена</string>
-    <string name="track_error">%1$s памылка: %2$s</string>
     <string name="track_remove_date_conf_title">Прыбраць дату?</string>
     <string name="track_remove_start_date_conf_text">Гэта прыбярэ выбраную раней дату пачатку з %s</string>
     <string name="track_remove_finish_date_conf_text">Гэта прыбярэ абраную раней дату заканчэння з %s</string>

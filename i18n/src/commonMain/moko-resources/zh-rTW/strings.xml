@@ -656,7 +656,6 @@
     <string name="copied_to_clipboard_plain">已複製到剪貼簿</string>
     <string name="pref_skip_dupe_chapters">略過重複的章節</string>
     <string name="enhanced_services_not_installed">可供使用但來源尚未安裝：%s</string>
-    <string name="track_error">%1$s 發生錯誤：%2$s</string>
     <string name="information_required_plain">*必填</string>
     <string name="pref_hide_in_library_items">隱藏已在書櫃的作品</string>
     <string name="action_copy_to_clipboard">複製</string>

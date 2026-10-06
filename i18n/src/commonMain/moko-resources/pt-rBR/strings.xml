@@ -656,7 +656,6 @@
     <string name="copied_to_clipboard_plain">Copiado para a área de transferência</string>
     <string name="enhanced_services_not_installed">Disponíveis, mas a fonte não está instalada: %s</string>
     <string name="pref_skip_dupe_chapters">Pular capítulos duplicados</string>
-    <string name="track_error">Erro em %1$s: %2$s</string>
     <string name="information_required_plain">*obrigatório</string>
     <string name="pref_hide_in_library_items">Ocultar títulos que já estão na biblioteca</string>
     <string name="action_copy_to_clipboard">Copiar para a área de transferência</string>

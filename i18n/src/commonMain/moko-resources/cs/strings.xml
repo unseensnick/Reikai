@@ -656,7 +656,6 @@
     <string name="copied_to_clipboard_plain">Zkopírováno do schránky</string>
     <string name="enhanced_services_not_installed">K dispozici, ale zdroj není nainstalován: %s</string>
     <string name="pref_skip_dupe_chapters">Přeskakovat duplicitní kapitoly</string>
-    <string name="track_error">%1$s chyba: %2$s</string>
     <string name="information_required_plain">*vyžadováno</string>
     <string name="pref_hide_in_library_items">Skrýt položky, které jsou již v knihovně</string>
     <string name="action_copy_to_clipboard">Zkopírovat do schránky</string>

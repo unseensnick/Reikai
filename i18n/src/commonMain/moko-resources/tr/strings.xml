@@ -656,7 +656,6 @@
     <string name="copied_to_clipboard_plain">Panoya kopyalandı</string>
     <string name="enhanced_services_not_installed">Kullanılabilir ancak kaynak yüklü değil: %s</string>
     <string name="pref_skip_dupe_chapters">Yinelenen bölümleri atla</string>
-    <string name="track_error">%1$s hatası: %2$s</string>
     <string name="information_required_plain">*gerekli</string>
     <string name="pref_hide_in_library_items">Zaten kitaplıkta bulunan girdileri gizle</string>
     <string name="action_copy_to_clipboard">Panoya kopyala</string>

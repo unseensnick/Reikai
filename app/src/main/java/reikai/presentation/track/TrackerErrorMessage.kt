@@ -1,6 +1,7 @@
 package reikai.presentation.track
 
 import android.content.Context
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.util.system.isOnline
 import reikai.data.track.TrackerSignedOutException
@@ -23,7 +24,7 @@ sealed interface TrackerError {
         // Named by the tracker rather than the host: a tracker's API host is often a backend the user
         // has never seen, and Mihon's source formatter sends HTTP errors to a WebView trackers lack.
         fun of(error: Throwable, isOnline: Boolean): TrackerError =
-            error.firstCause { kindOf(it, isOnline) } ?: Other(error.message)
+            error.firstCause { kindOf(it, isOnline) } ?: Other(error.message?.takeIf { it.isNotBlank() })
 
         private fun kindOf(error: Throwable, isOnline: Boolean): TrackerError? = when (error) {
             is TrackerSignedOutException -> SignedOut
@@ -44,3 +45,8 @@ fun Context.trackerErrorMessage(name: String, error: Throwable): String =
         is TrackerError.Http -> stringResource(MR.strings.tracker_error_http, name, kind.code)
         is TrackerError.Other -> kind.message ?: error::class.simpleName.orEmpty()
     }
+
+/** One toast's text for several failed tracker calls, a line said once however many trackers hit it; null for none. */
+fun Context.trackerFailuresMessage(failed: List<Pair<Tracker, Throwable>>): String? =
+    failed.map { (tracker, error) -> trackerErrorMessage(tracker.name, error) }.distinct()
+        .takeIf { it.isNotEmpty() }?.joinToString("\n")

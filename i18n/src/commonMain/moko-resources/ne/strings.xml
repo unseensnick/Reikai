@@ -641,7 +641,6 @@
     <string name="description_placeholder">कुनै वर्णन छैन</string>
     <string name="appwidget_unavailable_locked">एप लक सक्षम हुँदा विजेट उपलब्ध छैन</string>
     <string name="empty_backup_error">ब्याकअप गर्न कुनै पुस्तकालय इन्ट्रीहरू छैनन्</string>
-    <string name="track_error">%1$s त्रुटि: %2$s</string>
     <string name="cant_open_last_read_chapter">अन्तिम पढिएको अध्याय खोल्न असमर्थ भयो</string>
     <string name="source_empty_screen">कुनै स्रोत फेला परेन</string>
     <string name="label_overview_section">अवलोकन</string>

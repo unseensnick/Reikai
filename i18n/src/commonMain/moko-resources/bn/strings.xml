@@ -782,7 +782,6 @@
     <string name="exclude_scanlators">স্ক্যানলেটর বাদ</string>
     <string name="no_scanlators_found">কোনো স্ক্যানলেটর পাওয়া যায়নি</string>
     <string name="action_toggle_private_on">ব্যক্তিগত ট্র্যাকিং</string>
-    <string name="track_error">%1$s ত্রুটি: %2$s</string>
     <string name="track_remove_date_conf_title">তারিখ মুছবেন?</string>
     <string name="track_remove_start_date_conf_text">এটি %s থেকে পূর্বে নির্বাচিত শুরুর তারিখ মুছে ফেলবে</string>
     <string name="track_remove_finish_date_conf_text">এটি %s থেকে পূর্বে নির্বাচিত শেষ তারিখ মুছে ফেলবে</string>

@@ -45,6 +45,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.presentation.components.entryStatusRes
+import reikai.presentation.track.trackerErrorMessage
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.model.Track
@@ -122,16 +123,10 @@ fun EntryEditInfoDialog(
                         onFilled = { b.applyMetadata(it, colorScheme) },
                         onFailed = { e ->
                             logcat(LogPriority.ERROR, e) { "Fill from tracker failed (${tracker.name})" }
-                            val message = when (val error = trackerAutofillError(e)) {
-                                TrackerAutofillError.NotFound ->
-                                    ctx.stringResource(MR.strings.track_autofill_not_found, tracker.name)
-                                TrackerAutofillError.SignedOut ->
-                                    ctx.stringResource(MR.strings.tracker_error_signed_out, tracker.name)
-                                is TrackerAutofillError.Failed -> ctx.stringResource(
-                                    MR.strings.track_error,
-                                    tracker.name,
-                                    error.message ?: ctx.stringResource(MR.strings.unknown_error),
-                                )
+                            val message = if (isMissingOnTracker(e)) {
+                                ctx.stringResource(MR.strings.track_autofill_not_found, tracker.name)
+                            } else {
+                                ctx.trackerErrorMessage(tracker.name, e)
                             }
                             ctx.toast(message)
                         },

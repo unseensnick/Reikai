@@ -773,7 +773,6 @@
     <string name="tracked_privately">निजी तौर पर ट्रैक किया गया</string>
     <string name="action_toggle_private_on">निजी रूप से ट्रैक करें</string>
     <string name="action_toggle_private_off">सार्वजनिक रूप से ट्रैक करें</string>
-    <string name="track_error">%1$s त्रुटि: %2$s</string>
     <string name="track_remove_date_conf_title">तारीख हटाएं?</string>
     <string name="track_remove_start_date_conf_text">यह आपके पहले चुने गए प्रारंभ तिथि %s को हटा देगा</string>
     <string name="track_remove_finish_date_conf_text">यह आपके पहले चुने गए समाप्ति तिथि %s को हटा देगा</string>

@@ -632,7 +632,6 @@
     <string name="enhanced_services_not_installed">Elérhető de a forrás nincs telepítve: %s</string>
     <string name="missing_storage_permission">Tárhely engedély nincs megadva</string>
     <string name="label_used">Használt</string>
-    <string name="track_error">%1$s hiba: %2$s</string>
     <string name="are_you_sure">Biztos vagy benne?</string>
     <string name="information_no_manga_category">Kategória üres</string>
     <string name="track_remove_finish_date_conf_text">Ez eltávolítja az eddig kiválasztott befejezési dátumot a(z) %s szolgáltatásból</string>

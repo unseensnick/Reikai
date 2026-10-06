@@ -656,7 +656,6 @@
     <string name="pref_skip_dupe_chapters">Langkau bab pendua</string>
     <string name="enhanced_services_not_installed">Tersedia tetapi sumber tidak dipasang: %s</string>
     <string name="copied_to_clipboard_plain">Disalin ke papan keratan</string>
-    <string name="track_error">%1$s ralat: %2$s</string>
     <string name="information_required_plain">*diperlukan</string>
     <string name="pref_hide_in_library_items">Sembunyikan entri yang sudah ada di dalam pustaka</string>
     <string name="action_copy_to_clipboard">Salin ke papan keratan</string>

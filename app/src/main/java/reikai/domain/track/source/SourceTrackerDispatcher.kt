@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import logcat.LogPriority
 import reikai.domain.entry.EntryId
+import reikai.presentation.track.trackerErrorMessage
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.system.logcat
@@ -44,7 +45,8 @@ class SourceTrackerDispatcher(
         }
         if (shown) {
             launchUI {
-                context.toast(context.stringResource(MR.strings.source_tracker_failed, name, error.message.orEmpty()))
+                val reason = context.trackerErrorMessage(name, error)
+                context.toast(context.stringResource(MR.strings.source_tracker_failed, name, reason))
             }
         }
     }

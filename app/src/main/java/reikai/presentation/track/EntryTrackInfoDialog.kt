@@ -238,16 +238,12 @@ data class EntryTrackInfoDialogHomeScreen(
         }
 
         private suspend fun refreshTrackers() {
-            port.refresh()
-                .filter { it.first != null }
-                .forEach { (track, e) ->
-                    logcat(LogPriority.ERROR, e) {
-                        "Failed to refresh track data entry=$entry for service ${track!!.id}"
-                    }
-                    withUIContext {
-                        context.toast(context.stringResource(MR.strings.track_error, track!!.name, e.message ?: ""))
-                    }
-                }
+            val failed = port.refresh().mapNotNull { (tracker, e) -> tracker?.let { it to e } }
+            failed.forEach { (tracker, e) ->
+                logcat(LogPriority.ERROR, e) { "Failed to refresh track data entry=$entry for service ${tracker.id}" }
+            }
+            val message = context.trackerFailuresMessage(failed) ?: return
+            withUIContext { context.toast(message) }
         }
 
         fun togglePrivate(item: TrackItem) {

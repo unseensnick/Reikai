@@ -11,7 +11,7 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
 import logcat.LogPriority
 import reikai.domain.track.ChapterPushOutcome
-import reikai.presentation.track.trackerErrorMessage
+import reikai.presentation.track.trackerFailuresMessage
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -77,7 +77,7 @@ class EntryAutoTrackOnMarkRead<C>(
     // Upstream toasts "updated" after an Always push and each refresh failure on its own. Here a push that
     // lands says nothing, and one mark shows at most one toast, a tracker failing twice named once.
     private suspend fun reportFailures(failed: List<Pair<Tracker, Throwable>>) {
-        val lines = failed.map { (tracker, error) -> context.trackerErrorMessage(tracker.name, error) }.distinct()
-        if (lines.isNotEmpty()) withUIContext { context.toast(lines.joinToString("\n")) }
+        val message = context.trackerFailuresMessage(failed) ?: return
+        withUIContext { context.toast(message) }
     }
 }

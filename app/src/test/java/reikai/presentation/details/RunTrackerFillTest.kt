@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.data.track.MetadataAccess
+import reikai.presentation.track.TrackerError
 
 /** One "Fill from tracker" fetch: when it runs at all, and what it reports. */
 class RunTrackerFillTest {
@@ -45,7 +46,7 @@ class RunTrackerFillTest {
     fun `a signed-out tracker whose metadata needs a login reads as signed out`() = runTest {
         var reported: Throwable? = null
         runTrackerFill(tracker(loggedIn = false), fetch = { "filled" }, onFilled = {}, onFailed = { reported = it })
-        trackerAutofillError(reported!!) shouldBe TrackerAutofillError.SignedOut
+        TrackerError.of(reported!!, isOnline = true) shouldBe TrackerError.SignedOut
     }
 
     @Test

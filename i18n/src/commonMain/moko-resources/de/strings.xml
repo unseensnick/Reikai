@@ -656,7 +656,6 @@
     <string name="copied_to_clipboard_plain">In die Zwischenablage kopiert</string>
     <string name="enhanced_services_not_installed">Verfügbar, aber Quelle ist nicht installiert: %s</string>
     <string name="pref_skip_dupe_chapters">Doppelte Kapitel überspringen</string>
-    <string name="track_error">%1$s-Fehler: %2$s</string>
     <string name="information_required_plain">*erforderlich</string>
     <string name="pref_hide_in_library_items">Einträge verbergen, die bereits in der Bibliothek sind</string>
     <string name="action_copy_to_clipboard">In die Zwischenablage kopieren</string>

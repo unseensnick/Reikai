@@ -5,7 +5,6 @@ import eu.kanade.tachiyomi.data.track.anilist.dto.ALOAuth
 import okhttp3.Interceptor
 import okhttp3.Response
 import reikai.data.track.TrackerSignedOutException
-import java.io.IOException
 
 class AnilistInterceptor(val anilist: Anilist, private var token: String?) : Interceptor {
 
@@ -17,16 +16,18 @@ class AnilistInterceptor(val anilist: Anilist, private var token: String?) : Int
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
 
+        // RK --> every missing or dead login reads as signed out, see TrackerSignedOutException
         if (token.isNullOrEmpty()) {
-            throw TrackerSignedOutException("Anilist") // RK: an IOException
+            throw TrackerSignedOutException("Anilist")
         }
         if (oauth == null) {
-            oauth = anilist.loadOAuth() ?: throw IOException("No authentication token")
+            oauth = anilist.loadOAuth() ?: throw TrackerSignedOutException("Anilist")
         }
         if (oauth!!.isExpired()) {
             anilist.logout()
-            throw IOException("Token expired. Reconnect AniList in Settings.")
+            throw TrackerSignedOutException("Anilist")
         }
+        // RK <--
 
         // Add the authorization header to the original request.
         val authRequest = originalRequest.newBuilder()

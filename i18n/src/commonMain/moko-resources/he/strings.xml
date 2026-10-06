@@ -658,7 +658,6 @@
     <string name="pref_chapter_swipe_start">פרק בהחלקה שמאלה</string>
     <string name="pref_double_tap_zoom">לחיצה כפולה לקירוב (זום)</string>
     <string name="label_total_chapters">בסך הכל</string>
-    <string name="track_error">שגיאה %1$s: %2$s</string>
     <string name="download_ahead_info">עובד רק אם הפרק הנוכחי והפרק הבא כבר הורדו.</string>
     <string name="pref_skip_dupe_chapters">דלג על פרקים כפולים</string>
     <string name="pref_dns_over_https">DNS over HTTPS (DoH)</string>

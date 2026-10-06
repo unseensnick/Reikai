@@ -656,7 +656,6 @@
     <string name="copied_to_clipboard_plain">Se ha copiado al portapapeles</string>
     <string name="pref_skip_dupe_chapters">Saltarse los capítulos repetidos</string>
     <string name="enhanced_services_not_installed">Están disponibles, pero las fuentes todavía no se han instalado: %s</string>
-    <string name="track_error">%1$s error: %2$s</string>
     <string name="information_required_plain">*necesaria</string>
     <string name="pref_hide_in_library_items">Saltar elementos que ya estén en la biblioteca</string>
     <string name="action_copy_to_clipboard">Copiar al portapapeles</string>

@@ -656,7 +656,6 @@
     <string name="copied_to_clipboard_plain">Kopiert til utklippstavlen</string>
     <string name="enhanced_services_not_installed">Tilgjengelig, men kilden er ikke installert: %s</string>
     <string name="pref_skip_dupe_chapters">Hopp over dupliserte kapitler</string>
-    <string name="track_error">%1$s feil: %2$s</string>
     <string name="information_required_plain">*påkrevd</string>
     <string name="pref_hide_in_library_items">Skjul oppføringer som allerede er i biblioteket</string>
     <string name="action_copy_to_clipboard">Kopier til utklippstavle</string>

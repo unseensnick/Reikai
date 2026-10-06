@@ -517,7 +517,7 @@ agent under Settings -> Advanced.
 - **A tracker set on one source of a merged series now shows, updates and is removed on all of its sources, unless you turn off Settings -> Tracking -> Share trackers across merged sources.** The library's tracking filter, sort and groups follow the group too, and a split or migration leaves each source its own copy.
 - **Reading an older chapter from another source of a merged series can no longer push your tracker's progress backwards.**
 - **Reading progress queued for a tracker while offline is no longer dropped when the track is refreshed or restored before it is sent, on manga and novels (from Mihon).**
-- **A failed tracker link or update now says why in plain words, such as No Internet connection or Log in to AniList again, and a failed novel link no longer crashes the app.**
+- **A failed tracker link, update, refresh or Fill from tracker now says why in plain words, such as No Internet connection or Log in to AniList again, and a failed novel link no longer crashes the app.**
 - **Refreshing, searching or filling from Bangumi, MangaBaka or Hikka while signed out no longer crashes the app.** Signed-out trackers now say to log in again instead of showing raw error text.
 - **An expired or revoked AniList sign-in now asks you to sign in again under Settings -> Tracking, instead of failing with an error (partly from Mihon).** Upstream: mihonapp/mihon#3888.
 - **AniList tracking now stays under the service's request limit, so a burst of updates is no longer rejected (from Mihon).** Upstream: mihonapp/mihon#3942.

@@ -655,7 +655,6 @@
     <string name="pref_library_update_show_tab_badge">Afficher le nombre de chapitres non lus sur l\'icône des mises à jour</string>
     <string name="copied_to_clipboard_plain">Copié dans le presse-papier</string>
     <string name="pref_skip_dupe_chapters">Ignorer les chapitres en double</string>
-    <string name="track_error">%1$s erreur : %2$s</string>
     <string name="enhanced_services_not_installed">Disponible mais la source n\'est pas installée : %s</string>
     <string name="information_required_plain">*obligatoire</string>
     <string name="pref_hide_in_library_items">Masquer les séries déjà présentes dans la bibliothèque</string>

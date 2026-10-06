@@ -656,7 +656,6 @@
     <string name="pref_skip_dupe_chapters">تجاوز الفصول المكررة</string>
     <string name="enhanced_services_not_installed">متوفر ولكن المصدر غير مثبت: %s</string>
     <string name="copied_to_clipboard_plain">نسخ الى الحافظة</string>
-    <string name="track_error">%1$s خطأ: %2$s</string>
     <string name="information_required_plain">*مطلوب</string>
     <string name="action_copy_to_clipboard">نسخ إلى الحافظة</string>
     <string name="pref_hide_in_library_items">إخفاء الإدخالات الموجودة بالفعل في المكتبة</string>

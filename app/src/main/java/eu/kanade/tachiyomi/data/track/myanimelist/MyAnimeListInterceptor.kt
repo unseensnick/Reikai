@@ -55,8 +55,8 @@ class MyAnimeListInterceptor(private val myanimelist: MyAnimeList) : Interceptor
 
         val response = try {
             chain.proceed(MyAnimeListApi.refreshTokenRequest(oauth!!))
-        } catch (_: Throwable) {
-            throw MALTokenRefreshFailed()
+        } catch (e: Throwable) { // RK
+            throw MALTokenRefreshFailed(e) // RK: keep the cause, so offline reads as offline
         }
 
         if (response.code == 401) {
@@ -79,5 +79,5 @@ class MyAnimeListInterceptor(private val myanimelist: MyAnimeList) : Interceptor
 }
 
 class MALTitleNotApproved : IOException("MAL: This title can't be added because it is waiting for approval.")
-class MALTokenRefreshFailed : IOException("MAL: Failed to refresh account token")
-class MALTokenExpired : IOException("MAL: Login has expired")
+class MALTokenRefreshFailed(cause: Throwable? = null) : IOException("MAL: Failed to refresh account token", cause) // RK
+class MALTokenExpired : TrackerSignedOutException("MyAnimeList") // RK: read as signed out

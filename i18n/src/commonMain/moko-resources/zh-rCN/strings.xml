@@ -656,7 +656,6 @@
     <string name="copied_to_clipboard_plain">已复制到剪贴板</string>
     <string name="enhanced_services_not_installed">支持以下平台但图源尚未安装：%s</string>
     <string name="pref_skip_dupe_chapters">跳过重复章节</string>
-    <string name="track_error">%1$s 发生错误：%2$s</string>
     <string name="information_required_plain">*必填</string>
     <string name="pref_hide_in_library_items">隐藏已添加到书架的作品</string>
     <string name="action_copy_to_clipboard">复制到剪贴板</string>

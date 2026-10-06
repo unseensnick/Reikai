@@ -635,7 +635,6 @@
     <string name="label_read_chapters">Lidos</string>
     <string name="label_tracker_section">Monitoradores</string>
     <string name="invalid_location">Local inválido: %s</string>
-    <string name="track_error">Erro em %1$s: %2$s</string>
     <string name="label_titles_section">Itens</string>
     <string name="label_read_duration">Duração de leitura</string>
     <string name="pref_security_summary">Bloqueio da app, ecrã seguro</string>

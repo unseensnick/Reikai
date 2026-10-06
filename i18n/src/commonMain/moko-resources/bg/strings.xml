@@ -650,7 +650,6 @@
     <string name="action_add_anyway">Добави все пак</string>
     <string name="action_create">Създай</string>
     <string name="invalid_backup_file_error">Пълна грешка:</string>
-    <string name="track_error">%1$s грешка: %2$s</string>
     <string name="updates_last_update_info_just_now">Току що</string>
     <string name="label_overview_section">Общ преглед</string>
     <string name="label_read_chapters">Прочетено</string>

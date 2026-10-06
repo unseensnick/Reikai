@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.data.track.ranobedb
 import eu.kanade.tachiyomi.BuildConfig
 import okhttp3.Interceptor
 import okhttp3.Response
-import java.io.IOException
+import reikai.data.track.TrackerSignedOutException
 
 class RanobeDbInterceptor(
     ranobeDb: RanobeDb,
@@ -12,7 +12,7 @@ class RanobeDbInterceptor(
     private var token: String? = ranobeDb.restoreToken()
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val credential = token ?: throw IOException("Not authenticated with RanobeDB")
+        val credential = token ?: throw TrackerSignedOutException("RanobeDB")
 
         val authRequest = chain.request().newBuilder()
             // A WebView login stores the session cookie, a token login stores the token itself, and

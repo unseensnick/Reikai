@@ -495,7 +495,6 @@
     <string name="are_you_sure">Ĉu vi certas?</string>
     <string name="updates_last_update_info_just_now">Ĵus</string>
     <string name="relative_time_span_never">Neniam</string>
-    <string name="track_error">%1$s eraro: %2$s</string>
     <string name="source_empty_screen">Neniu fonto trovita</string>
     <string name="crash_screen_title">Ups!</string>
     <string name="onboarding_permission_analytics">Permesi analizojn</string>

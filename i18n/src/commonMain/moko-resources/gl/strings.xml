@@ -629,7 +629,6 @@
     <string name="other_source">Outros</string>
     <string name="unknown_status">Estado descoñecido</string>
     <string name="source_not_installed">Fonte non instalada: %1$s</string>
-    <string name="track_error">Erro %1$s: %2$s</string>
     <string name="snack_categories_deleted">Categorías eliminadas</string>
     <string name="dialog_with_checkbox_remove_description">Isto eliminará a data de lectura deste capítulo. Estás seguro?</string>
     <string name="unfinished_list">Lista de inacabados</string>

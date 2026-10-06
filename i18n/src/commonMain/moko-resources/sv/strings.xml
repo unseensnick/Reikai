@@ -660,7 +660,6 @@
     <string name="skipped_reason_not_in_release_period">Hoppades över eftersom ingen publicering förväntades idag</string>
     <string name="label_tracked_titles">Spårade artiklar</string>
     <string name="day_short">%dd</string>
-    <string name="track_error">%1$s fel: %2$s</string>
     <string name="pref_double_tap_zoom">Dubbeltryck för att zooma</string>
     <string name="track_remove_start_date_conf_text">Detta kommer att ta bort ditt tidigare valda startdatum från %s</string>
     <string name="track_delete_title">Ta bort %s spårning?</string>
