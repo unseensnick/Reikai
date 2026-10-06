@@ -34,6 +34,7 @@ import reikai.data.backup.AppPreferenceCarry
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.category.CategoryIdPreferences
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.DEAD_READER_AUTO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
@@ -393,6 +394,8 @@ class PreferenceRestorerTest {
             Arguments.of(ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY, BooleanPreferenceValue(false)),
             Arguments.of(DEAD_READER_TTS_ENABLED_KEY, BooleanPreferenceValue(true)),
             Arguments.of(ReikaiSourcePreferences.DEAD_DOWNLOAD_CONTENT_TYPE_KEY, StringPreferenceValue("NOVELS")),
+            Arguments.of(ReikaiLibraryPreferences.DEAD_LAST_USED_NOVEL_PAGE_KEY, IntPreferenceValue(3)),
+            Arguments.of(ReikaiLibraryPreferences.DEAD_LAST_USED_ALL_PAGE_KEY, IntPreferenceValue(3)),
         ) + DEAD_READER_TTS_BUTTON_KEYS.map { Arguments.of(it, IntPreferenceValue(120)) }
 
         @JvmStatic

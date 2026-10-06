@@ -43,6 +43,7 @@ import reikai.presentation.selection.SelectionState
 import reikai.presentation.selection.SelectionStore
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.SetSortModeForCategory
 import tachiyomi.domain.category.model.Category
@@ -355,18 +356,20 @@ class LibraryEngine(
      * the Manga chip's restore point with a foreign index.
      */
     fun updateActiveCategoryIndex(contentType: ContentType, index: Int) {
-        when (contentType) {
-            ContentType.MANGA -> libraryPreferences.lastUsedCategory.set(index)
-            ContentType.NOVELS -> reikaiLibraryPreferences.lastUsedNovelCategory.set(index)
-            ContentType.ALL -> reikaiLibraryPreferences.lastUsedAllCategory.set(index)
-        }
+        lastUsedCategoryPref(contentType).set(index)
     }
 
     /** The restore page for a chip's pager, read once at pager construction. */
-    fun initialPageFor(contentType: ContentType): Int = when (contentType) {
-        ContentType.MANGA -> libraryPreferences.lastUsedCategory.get()
-        ContentType.NOVELS -> reikaiLibraryPreferences.lastUsedNovelCategory.get()
-        ContentType.ALL -> reikaiLibraryPreferences.lastUsedAllCategory.get()
+    fun initialPageFor(contentType: ContentType): Int = lastUsedCategoryPref(contentType).get()
+
+    /**
+     * Where a chip's settled page is kept. App state for every chip, as Mihon keeps its own: a page
+     * index describes this device's category list, so a backup must not carry it to another.
+     */
+    internal fun lastUsedCategoryPref(contentType: ContentType): Preference<Int> = when (contentType) {
+        ContentType.MANGA -> libraryPreferences.lastUsedCategory
+        ContentType.NOVELS -> reikaiLibraryPreferences.lastUsedNovelCategory
+        ContentType.ALL -> reikaiLibraryPreferences.lastUsedAllCategory
     }
 
     /** The one library-wide global sort (chip-free since the sort preferences unified). */

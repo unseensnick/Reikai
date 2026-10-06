@@ -93,9 +93,11 @@ class ReikaiLibraryPreferences(
 
     // Per-chip last category page for the tabbed pager. Manga rides Mihon's own lastUsedCategory
     // key; these cover the Novels and All chips, whose pagers index different category lists, so
-    // one shared key restored the wrong page after a chip switch.
-    val lastUsedNovelCategory: Preference<Int> = preferenceStore.getInt("reikai_last_used_novel_category", 0)
-    val lastUsedAllCategory: Preference<Int> = preferenceStore.getInt("reikai_last_used_all_category", 0)
+    // one shared key restored the wrong page after a chip switch. App state, as Mihon's is.
+    val lastUsedNovelCategory: Preference<Int> =
+        preferenceStore.getInt(Preference.appStateKey("reikai_last_used_novel_category"), 0)
+    val lastUsedAllCategory: Preference<Int> =
+        preferenceStore.getInt(Preference.appStateKey("reikai_last_used_all_category"), 0)
 
     // endregion
 
@@ -231,5 +233,10 @@ class ReikaiLibraryPreferences(
         // filter unifications, so one kernel call can group manga and novels into shared buckets. Value
         // dropped, not migrated (a group mode is casually re-picked); skipped on restore.
         const val DEAD_NOVEL_GROUP_BY_KEY = "group_novel_library_by"
+
+        // The Novels and All chips' saved pages as plain keys, before they became app state. Values
+        // dropped, not migrated (each pager reopens on its first page once); skipped on restore.
+        const val DEAD_LAST_USED_NOVEL_PAGE_KEY = "reikai_last_used_novel_category"
+        const val DEAD_LAST_USED_ALL_PAGE_KEY = "reikai_last_used_all_category"
     }
 }

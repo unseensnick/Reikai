@@ -100,6 +100,8 @@ class AppPreferenceCarry(
             ReikaiLibraryPreferences.DEAD_NOVEL_MERGE_ICONS_KEY,
             ReikaiLibraryPreferences.DEAD_NOVEL_GROUP_BY_KEY,
             ReikaiLibraryPreferences.DEAD_SHOW_EMPTY_CATEGORIES_KEY,
+            ReikaiLibraryPreferences.DEAD_LAST_USED_NOVEL_PAGE_KEY,
+            ReikaiLibraryPreferences.DEAD_LAST_USED_ALL_PAGE_KEY,
             ReikaiSourcePreferences.DEAD_UPDATES_FILTER_CATEGORIES_KEY,
             ReikaiSourcePreferences.DEAD_DOWNLOAD_CONTENT_TYPE_KEY,
             // The WebView developer tools let any computer with debugging rights inspect the app's

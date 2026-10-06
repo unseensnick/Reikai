@@ -27,12 +27,15 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.CategoryContentType
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibraryManga
@@ -359,6 +362,13 @@ class LibraryEngineTest {
         engine.updateActiveCategoryIndex(ContentType.ALL, 3)
 
         engine.initialPageFor(ContentType.MANGA) shouldBe 2
+    }
+
+    /** A page index describes this device's category list, so no chip's may travel in a backup. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class)
+    fun `every chip keeps its restore page as app state`(type: ContentType) {
+        Preference.isAppState(engine.lastUsedCategoryPref(type).key()) shouldBe true
     }
 
     @Test

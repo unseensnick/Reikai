@@ -12,7 +12,7 @@ app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	abfb0aee4c193079
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	f95131f6c1c7530a
 app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt	app/src/main/java/reikai/data/track/TrackerRefreshJob.kt	2ec218252f58acee
-app/src/main/java/reikai/domain/library/ReikaiLibraryPreferences.kt	app/src/main/java/reikai/domain/recommendation/ReikaiRecommendationPreferences.kt	c41dea93e48d50aa
+app/src/main/java/reikai/domain/library/ReikaiLibraryPreferences.kt	app/src/main/java/reikai/domain/recommendation/ReikaiRecommendationPreferences.kt	09165fda2d9f7232
 app/src/main/java/reikai/domain/library/updateerror/LibraryUpdateErrorInteractors.kt	app/src/main/java/reikai/domain/novel/updateerror/NovelUpdateErrorInteractors.kt	2f49a3018a725c47
 app/src/main/java/reikai/domain/manga/MangaGroupStitcher.kt	app/src/main/java/reikai/domain/novel/NovelGroupStitcher.kt	921901091f325374
 app/src/main/java/reikai/domain/manga/PropagateTrackerLinks.kt	app/src/main/java/reikai/domain/novel/track/PropagateNovelTrackerLinks.kt	e388e1016493e46c

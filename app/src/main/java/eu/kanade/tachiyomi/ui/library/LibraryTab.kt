@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -227,37 +228,21 @@ data object LibraryTab : Tab {
         // RK: one scroll state per content type, so toggling the Manga/Novels chip preserves each
         // view's own position instead of both sharing a single offset (upstream is manga-only). The
         // active pair falls through to the current type, like the other `active*` locals above.
-        val mangaSingleListGridState = rememberLazyGridState()
-        val novelSingleListGridState = rememberLazyGridState()
-        val allSingleListGridState = rememberLazyGridState()
-        val singleListGridState = when (libraryContentType) {
-            ContentType.MANGA -> mangaSingleListGridState
-            ContentType.NOVELS -> novelSingleListGridState
-            ContentType.ALL -> allSingleListGridState
-        }
+        val singleListGridStates = ContentType.entries.associateWith { key(it) { rememberLazyGridState() } }
+        val singleListGridState = singleListGridStates.getValue(libraryContentType)
         // RK: one pager per chip, each sized from a snapshot taken only while its own chip is up. Pointing
         // all three at activeBuckets.size would make an inactive chip's pager lose its position, since
         // Compose clamps a pager's currentPage whenever its pageCount shrinks. Each pager seeds its own
         // chip's persisted page (the pager clamps the value if the list is shorter).
-        val mangaPageCount = remember { mutableIntStateOf(0) }
-        val novelPageCount = remember { mutableIntStateOf(0) }
-        val allPageCount = remember { mutableIntStateOf(0) }
-        when (libraryContentType) {
-            ContentType.MANGA -> mangaPageCount.intValue = activeBuckets.size
-            ContentType.NOVELS -> novelPageCount.intValue = activeBuckets.size
-            ContentType.ALL -> allPageCount.intValue = activeBuckets.size
+        val pageCounts = remember { ContentType.entries.associateWith { mutableIntStateOf(0) } }
+        pageCounts.getValue(libraryContentType).intValue = activeBuckets.size
+        val pagerStates = ContentType.entries.associateWith { type ->
+            key(type) {
+                val initialPage = remember { engine.initialPageFor(type) }
+                rememberPagerState(initialPage = initialPage) { pageCounts.getValue(type).intValue }
+            }
         }
-        val mangaInitialPage = remember { engine.initialPageFor(ContentType.MANGA) }
-        val novelInitialPage = remember { engine.initialPageFor(ContentType.NOVELS) }
-        val allInitialPage = remember { engine.initialPageFor(ContentType.ALL) }
-        val mangaPagerState = rememberPagerState(initialPage = mangaInitialPage) { mangaPageCount.intValue }
-        val novelPagerState = rememberPagerState(initialPage = novelInitialPage) { novelPageCount.intValue }
-        val allPagerState = rememberPagerState(initialPage = allInitialPage) { allPageCount.intValue }
-        val pagerState = when (libraryContentType) {
-            ContentType.MANGA -> mangaPagerState
-            ContentType.NOVELS -> novelPagerState
-            ContentType.ALL -> allPagerState
-        }
+        val pagerState = pagerStates.getValue(libraryContentType)
         var hopperTarget by remember { mutableStateOf<Int?>(null) }
         fun reikaiHeaderIndices(): List<Int> = reikaiCategoryHeaderIndices(
             buckets = activeBuckets,
