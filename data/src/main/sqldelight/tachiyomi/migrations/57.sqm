@@ -1,0 +1,42 @@
+-- The merged chapter copies every merged count reads, defined once per content type (see
+-- data/merged_chapter_unit.sq). Views only: nothing stored changes.
+CREATE VIEW mergedCountedUnitView AS
+SELECT U.group_id AS groupId, U.unit AS unit, U.chapter_id AS chapterId, C.manga_id AS ownerId,
+    C.user_read AS read, C.user_bookmark AS bookmark,
+    C.remote_name AS name, C.remote_scanlator AS scanlator, C.remote_url AS url
+FROM merged_chapter_unit U
+JOIN chapter C
+ON C.id = U.chapter_id
+JOIN manga M
+ON M.id = C.manga_id
+AND M.user_favorite_at IS NOT NULL
+LEFT JOIN excluded_scanlator ES
+ON C.manga_id = ES.manga_id
+AND C.remote_scanlator = ES.scanlator
+WHERE U.unit IS NOT NULL
+AND ES.scanlator IS NULL;
+
+CREATE VIEW mergedNovelCountedUnitView AS
+SELECT U.group_id AS groupId, U.unit AS unit, U.chapter_id AS chapterId, C.novel_id AS ownerId,
+    C.read AS read, C.bookmark AS bookmark, C.name AS name, C.url AS url
+FROM merged_novel_chapter_unit U
+JOIN novel_chapters C
+ON C._id = U.chapter_id
+JOIN novels N
+ON N._id = C.novel_id
+AND N.favorite_at IS NOT NULL
+WHERE U.unit IS NOT NULL;
+
+CREATE VIEW mergedUnitCopiesView AS
+SELECT groupId, unit,
+    sum(CASE WHEN read = 1 THEN 1 ELSE 0 END) AS readCopies,
+    sum(CASE WHEN bookmark = 1 THEN 1 ELSE 0 END) AS bookmarkedCopies
+FROM mergedCountedUnitView
+GROUP BY groupId, unit;
+
+CREATE VIEW mergedNovelUnitCopiesView AS
+SELECT groupId, unit,
+    sum(CASE WHEN read = 1 THEN 1 ELSE 0 END) AS readCopies,
+    sum(CASE WHEN bookmark = 1 THEN 1 ELSE 0 END) AS bookmarkedCopies
+FROM mergedNovelCountedUnitView
+GROUP BY groupId, unit;

@@ -1,10 +1,11 @@
 -- Which entries still have something left to read, for the recents surface's "show read" filter.
--- Declares no view or table, so it needs no .sqm: these are queries over the base chapter tables.
+-- Declares no view or table, so it needs no .sqm: these are queries over tables and views declared
+-- elsewhere.
 --
 -- The answer has to be the one a tap on the row resolves, or the filter keeps a row whose tap opens
 -- nothing and drops one with chapters left. The tap resolves over the merge group with excluded
 -- scanlators left out, so this does too: a library member of a stitched group answers with its group,
--- unread while any unit has no read copy, counted as merged_chapter_unit.sq's countsByGroup counts.
+-- unread while any unit has no read copy, read off mergedUnitCopiesView as countsByGroup reads it.
 -- Everything else answers with its own chapters: an entry in no group, a member outside the library
 -- (the group counts read library members only), a group not stitched yet, and every entry while
 -- series merging is off.
@@ -17,21 +18,11 @@
 
 getMangaIdsWithUnread:
 WITH
-unitCopies AS (
-    SELECT U.group_id AS groupId, sum(CASE WHEN C.user_read = 1 THEN 1 ELSE 0 END) AS readCopies
-    FROM merged_chapter_unit U
-    JOIN chapter C ON C.id = U.chapter_id
-    JOIN manga M ON M.id = C.manga_id AND M.user_favorite_at IS NOT NULL
-    LEFT JOIN excluded_scanlator ES ON C.manga_id = ES.manga_id AND C.remote_scanlator = ES.scanlator
-    WHERE U.unit IS NOT NULL
-    AND ES.scanlator IS NULL
-    GROUP BY U.group_id, U.unit
-),
 groupJudged AS (
     SELECT MGM.manga_id AS mangaId, max(CASE WHEN UC.readCopies = 0 THEN 1 ELSE 0 END) AS hasUnread
     FROM merge_group_manga MGM
     JOIN manga M ON M.id = MGM.manga_id
-    JOIN unitCopies UC ON UC.groupId = MGM.group_id
+    JOIN mergedUnitCopiesView UC ON UC.groupId = MGM.group_id
     WHERE :mergingEnabled AND M.user_favorite_at IS NOT NULL
     GROUP BY MGM.manga_id
 )
@@ -47,19 +38,11 @@ AND C.manga_id NOT IN (SELECT mangaId FROM groupJudged);
 -- Novel twin. No scanlator join: novels offer no scanlator filter.
 getNovelIdsWithUnread:
 WITH
-unitCopies AS (
-    SELECT U.group_id AS groupId, sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies
-    FROM merged_novel_chapter_unit U
-    JOIN novel_chapters C ON C._id = U.chapter_id
-    JOIN novels N ON N._id = C.novel_id AND N.favorite_at IS NOT NULL
-    WHERE U.unit IS NOT NULL
-    GROUP BY U.group_id, U.unit
-),
 groupJudged AS (
     SELECT MGN.novel_id AS novelId, max(CASE WHEN UC.readCopies = 0 THEN 1 ELSE 0 END) AS hasUnread
     FROM merge_group_novel MGN
     JOIN novels N ON N._id = MGN.novel_id
-    JOIN unitCopies UC ON UC.groupId = MGN.group_id
+    JOIN mergedNovelUnitCopiesView UC ON UC.groupId = MGN.group_id
     WHERE :mergingEnabled AND N.favorite_at IS NOT NULL
     GROUP BY MGN.novel_id
 )

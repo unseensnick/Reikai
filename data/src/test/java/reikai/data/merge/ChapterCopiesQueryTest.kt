@@ -1,6 +1,7 @@
 package reikai.data.merge
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.kotest.assertions.withClue
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -9,6 +10,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.RecordingDriver
+import reikai.data.queryPlan
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergedChapterUnitRepository.StoredUnit
 import tachiyomi.data.Database
@@ -99,6 +102,22 @@ class ChapterCopiesQueryTest {
             .first { it.copy.chapterId == 20L }
             .let { it.ownerTitle to it.ownerSource } shouldBe ("title 2" to "102")
     }
+
+    @ParameterizedTest
+    @EnumSource(names = ["MANGA", "NOVELS"])
+    fun `asking for a chapter's copies looks up its rows rather than walking every placed unit`(type: ContentType) =
+        runTest {
+            // Each recents row asks on every re-emission, so the cost has to follow the chapters named.
+            val issued = mutableListOf<String>()
+            MergedChapterUnitRepositoryImpl(DatabaseBindings.providesDatabase(RecordingDriver(driver, issued)))
+                .getCopiesAsFlow(type, listOf(10L)).first()
+
+            val plan = driver.queryPlan(issued.single())
+
+            withClue(plan) {
+                plan.none { it.startsWith("SCAN") || it.startsWith("MATERIALIZE") } shouldBe true
+            }
+        }
 
     private suspend fun copyIds(type: ContentType, vararg ids: Long): Map<Long, Set<Long>> =
         units.getCopiesAsFlow(type, ids.toList()).first()
