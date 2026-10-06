@@ -10,13 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -56,7 +53,9 @@ import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.simpleicons.Discord
 import mihon.icons.simpleicons.SimpleIcons
 import reikai.domain.extension.RepoStatus
+import reikai.presentation.components.CardKicker
 import reikai.presentation.components.ContentTypeBadge
+import reikai.presentation.components.ReikaiListCard
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Pill
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -206,26 +205,16 @@ private fun RepoCard(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // The download queue's card, so the two card lists read as one family.
-    Card(
-        onClick = onOpen,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-    ) {
+    ReikaiListCard(onClick = onOpen, modifier = modifier) {
         Column(modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = stringResource(
-                        when (card.format) {
-                            RepoFormat.STORE -> MR.strings.repo_kind_store
-                            RepoFormat.PLUGINS -> MR.strings.repo_kind_plugins
-                        },
-                    ),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                )
+            CardKicker(
+                text = stringResource(
+                    when (card.format) {
+                        RepoFormat.STORE -> MR.strings.repo_kind_store
+                        RepoFormat.PLUGINS -> MR.strings.repo_kind_plugins
+                    },
+                ),
+            ) {
                 if (showTypeBadges) card.contentTypes.forEach { ContentTypeBadge(it) }
             }
             Text(

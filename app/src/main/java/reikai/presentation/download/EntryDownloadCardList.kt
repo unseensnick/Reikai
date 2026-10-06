@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -36,7 +33,9 @@ import mihon.icons.materialsymbols.rounded.DragHandle
 import mihon.icons.materialsymbols.rounded.ExpandLess
 import mihon.icons.materialsymbols.rounded.ExpandMore
 import reikai.domain.library.ContentType
+import reikai.presentation.components.CardKicker
 import reikai.presentation.components.ContentTypeBadge
+import reikai.presentation.components.ReikaiListCard
 import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
@@ -153,14 +152,7 @@ private fun ReorderableCollectionItemScope.EntryDownloadCard(
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        onClick = onOpen,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-    ) {
+    ReikaiListCard(onClick = onOpen, modifier = modifier) {
         Column(modifier = Modifier.padding(start = 4.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Icon(
@@ -172,18 +164,7 @@ private fun ReorderableCollectionItemScope.EntryDownloadCard(
                         .draggableHandle(),
                 )
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Text(
-                            text = item.sourceName,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
+                    CardKicker(item.sourceName) {
                         if (showTypeBadge) ContentTypeBadge(item.contentType)
                     }
                     Text(
