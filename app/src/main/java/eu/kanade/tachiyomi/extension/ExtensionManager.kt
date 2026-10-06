@@ -42,6 +42,7 @@ import reikai.domain.extension.KindListing
 import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.hasSigningKey
 import reikai.domain.extension.kindListing
+import reikai.domain.extension.signingKeys
 import reikai.domain.extension.toRepoStatus
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ContentWarningScan
@@ -597,7 +598,7 @@ class ExtensionManager(
     // is no key at all, so it never counts as one an apk could be signed with.
     private suspend fun readStores() {
         stores = extensionStoreRepository.getAll()
-        storeKeys = stores.filter { it.hasSigningKey }.mapTo(HashSet()) { it.signingKey }
+        storeKeys = stores.signingKeys
     }
 
     /**

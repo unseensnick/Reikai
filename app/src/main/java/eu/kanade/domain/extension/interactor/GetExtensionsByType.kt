@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.combine
 import mihon.domain.extension.model.ContentWarning
 import mihon.domain.extension.repository.ExtensionStoreRepository
 import reikai.domain.extension.hasSigningKey
+import reikai.domain.extension.signingKeys
 
 @Inject
 class GetExtensionsByType(
@@ -37,7 +38,7 @@ class GetExtensionsByType(
                 loaded,
                 notLoaded,
                 available,
-                stores.filter { it.hasSigningKey }.mapTo(HashSet()) { it.signingKey },
+                stores.signingKeys,
             )
         }
     }

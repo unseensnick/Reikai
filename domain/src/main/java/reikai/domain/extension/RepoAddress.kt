@@ -8,6 +8,10 @@ const val NO_SIGNING_KEY = "NO_SIGNING_KEY"
 
 val ExtensionStore.hasSigningKey: Boolean get() = signingKey != NO_SIGNING_KEY
 
+/** The keys an apk from these stores can be signed with; a keyless store adds none. */
+val Collection<ExtensionStore>.signingKeys: Set<String>
+    get() = filter { it.hasSigningKey }.mapTo(HashSet()) { it.signingKey }
+
 /**
  * A name and website for a repo that publishes neither: a GitHub raw address names its owner and
  * links the repo, anything else its host.
