@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.FavoritedNovels
+import reikai.domain.source.CatalogueEnd
 import reikai.domain.source.SourceKey
 import reikai.domain.source.model.SavedSearch
 import reikai.novel.host.NovelItem
@@ -32,7 +33,7 @@ class NovelFeedProviderTest {
         every { supportsLatest } returns true
         every { filters } returns NovelFilters.LnSchema(JsonObject(emptyMap()))
         coEvery { browse(any(), any(), any()) } answers {
-            NovelItemsPage(listOf(NovelItem(firstArg<NovelListing>().name, "/x", null)), hasNextPage = false)
+            NovelItemsPage(listOf(NovelItem(firstArg<NovelListing>().name, "/x", null)), CatalogueEnd.Reported(false))
         }
     }
 

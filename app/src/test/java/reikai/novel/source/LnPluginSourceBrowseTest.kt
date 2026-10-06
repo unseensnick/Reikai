@@ -1,5 +1,6 @@
 package reikai.novel.source
 
+import androidx.paging.PagingSource
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -14,6 +15,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginInfo
+import reikai.novel.host.NovelItem
 
 /** What an LNReader plugin receives when a listing is paged, since its filters and Latest share one options object. */
 class LnPluginSourceBrowseTest {
@@ -62,5 +64,24 @@ class LnPluginSourceBrowseTest {
     @Test
     fun `an empty schema declares no filters`() {
         source(JsonObject(emptyMap())).filters shouldBe null
+    }
+
+    // The format cannot say a page is the last, and some plugins answer past the end with a repeat.
+    @Test
+    fun `a plugin repeating its last page ends the listing`() = runTest {
+        val repeating = mockk<LnPluginHost> {
+            coEvery { popularNovels(any(), any(), any()) } returns listOf(NovelItem("a", "a"))
+        }
+        val pager =
+            NovelListingPagingSource(
+                LnPluginSource(repeating, LnPluginInfo(id = "p", name = "P")),
+                NovelListing.Popular,
+                null,
+            )
+        pager.load(PagingSource.LoadParams.Refresh(key = null, loadSize = 20, placeholdersEnabled = false))
+
+        val result = pager.load(PagingSource.LoadParams.Append(key = 2L, loadSize = 20, placeholdersEnabled = false))
+
+        (result as PagingSource.LoadResult.Page).nextKey shouldBe null
     }
 }

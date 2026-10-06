@@ -2,6 +2,7 @@ package reikai.novel.source
 
 import kotlinx.serialization.json.JsonPrimitive
 import mihon.domain.extension.model.ContentWarning
+import reikai.domain.source.CatalogueEnd
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginInfo
 import reikai.novel.host.NovelItem
@@ -74,9 +75,9 @@ class LnPluginSource(
     override suspend fun resolveUrl(path: String, isNovel: Boolean): String? =
         host.resolveUrl(info.id, path, isNovel)
 
-    // The format reports no next page, so a plugin's catalogue ends at its first empty one.
+    // The format reports no next page, so where a plugin's catalogue ends is inferred.
     private fun List<NovelItem>.toPage() = NovelItemsPage(
         map { it.copy(name = NovelTextSanitizer.decodeEntities(it.name)) },
-        hasNextPage = isNotEmpty(),
+        end = CatalogueEnd.Inferred,
     )
 }

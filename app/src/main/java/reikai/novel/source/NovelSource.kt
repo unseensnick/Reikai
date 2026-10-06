@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.SourceTracker
 import kotlinx.coroutines.CoroutineScope
 import mihon.domain.extension.model.ContentWarning
+import reikai.domain.source.CatalogueEnd
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 import tachiyomi.core.common.util.lang.withIOContext
@@ -171,9 +172,8 @@ internal suspend fun <T> appSourceCall(block: suspend CoroutineScope.() -> T): T
 }
 
 /**
- * One page of a listing or search, and whether the source says another follows. A format that cannot
- * say ends at its first empty page, so asking past the end costs nothing there; a tachiyomi source may
- * answer that with an error instead. Each adapter decodes every name with `NovelTextSanitizer.decodeEntities`,
- * as `SourceNovel.toNovel` decodes the details, so a listed row and the novel stored from it read one name.
+ * One page of a listing or search, and how the source marks where its listing ends. Each adapter decodes
+ * every name with `NovelTextSanitizer.decodeEntities`, as `SourceNovel.toNovel` decodes the details, so a
+ * listed row and the novel stored from it read one name.
  */
-data class NovelItemsPage(val items: List<NovelItem>, val hasNextPage: Boolean)
+data class NovelItemsPage(val items: List<NovelItem>, val end: CatalogueEnd)

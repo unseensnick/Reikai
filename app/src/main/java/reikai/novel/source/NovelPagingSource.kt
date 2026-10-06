@@ -3,8 +3,11 @@ package reikai.novel.source
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import kotlinx.coroutines.CancellationException
+import reikai.domain.source.CataloguePaging
+import reikai.domain.source.catalogueRefreshKey
 import reikai.novel.host.NovelItem
 import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.data.source.NoResultsException
 
 /** Pages a source's Popular / Latest listing. */
 class NovelListingPagingSource(
@@ -24,18 +27,12 @@ class NovelSearchPagingSource(
     override suspend fun requestNextPage(page: Int): NovelItemsPage = source.search(query, page, filters)
 }
 
-/**
- * Paging 3 over a novel source, the novel twin of `BaseSourcePagingSource`.
- *
- * A catalogue ends where the source says it does, and also at a page whose every entry has already been
- * seen: a plugin that answers an out-of-range page by repeating the last one would otherwise page
- * forever, since Paging keeps requesting while the key is non-null.
- */
+/** Paging 3 over a novel source; twin of `BaseSourcePagingSource`, pinned by `CataloguePaging`. */
 abstract class BaseNovelPagingSource(
     protected val source: NovelSource,
 ) : PagingSource<Long, NovelItem>() {
 
-    private val seenPaths = hashSetOf<String>()
+    private val paging = CataloguePaging<NovelItem> { it.path }
 
     abstract suspend fun requestNextPage(page: Int): NovelItemsPage
 
@@ -44,14 +41,9 @@ abstract class BaseNovelPagingSource(
 
         return try {
             val fetched = withIOContext { requestNextPage(page.toInt()) }
-            // Dedupe by path so a source repeating entries across a page boundary cannot produce
-            // duplicate keys in the grid.
-            val fresh = fetched.items.filter { seenPaths.add(it.path) }
-            LoadResult.Page(
-                data = fresh,
-                prevKey = null,
-                nextKey = if (!fetched.hasNextPage || fresh.isEmpty()) null else page + 1,
-            )
+            val taken = paging.take(page, params is LoadParams.Refresh, fetched.items, fetched.end)
+                ?: throw NoResultsException()
+            LoadResult.Page(data = taken.fresh, prevKey = null, nextKey = taken.nextKey)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -59,10 +51,5 @@ abstract class BaseNovelPagingSource(
         }
     }
 
-    override fun getRefreshKey(state: PagingState<Long, NovelItem>): Long? {
-        return state.anchorPosition?.let { anchorPosition ->
-            val anchorPage = state.closestPageToPosition(anchorPosition)
-            anchorPage?.prevKey ?: anchorPage?.nextKey
-        }
-    }
+    override fun getRefreshKey(state: PagingState<Long, NovelItem>): Long? = state.catalogueRefreshKey()
 }

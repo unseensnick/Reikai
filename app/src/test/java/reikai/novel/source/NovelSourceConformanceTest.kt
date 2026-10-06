@@ -1,5 +1,6 @@
 package reikai.novel.source
 
+import androidx.paging.PagingSource
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -67,8 +68,12 @@ class NovelSourceConformanceTest {
 
     @ParameterizedTest
     @EnumSource(Kind::class)
-    fun `the last page of a listing says so`(kind: Kind) = runTest {
-        source(kind).browse(NovelListing.Popular, page = 2, filters = null).hasNextPage shouldBe false
+    fun `a listing ends at its last page`(kind: Kind) = runTest {
+        val pager = NovelListingPagingSource(source(kind), NovelListing.Popular, filters = null)
+
+        val result = pager.load(PagingSource.LoadParams.Append(key = 2L, loadSize = 20, placeholdersEnabled = false))
+
+        (result as PagingSource.LoadResult.Page).nextKey shouldBe null
     }
 
     // A listed name must match the decoded one its novel is stored under, or the row and the novel disagree.

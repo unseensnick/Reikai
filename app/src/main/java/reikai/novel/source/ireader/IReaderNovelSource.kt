@@ -13,6 +13,7 @@ import ireader.core.source.model.MangasPageInfo
 import kotlinx.coroutines.CancellationException
 import reikai.data.coil.extensionIconUrl
 import reikai.data.novel.NovelStatusCode
+import reikai.domain.source.CatalogueEnd
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.NovelTextSanitizer
@@ -184,7 +185,7 @@ class IReaderNovelSource(
                 },
             )
         },
-        hasNextPage = hasNextPage,
+        end = CatalogueEnd.Reported(hasNextPage),
     )
 
     private fun ChapterInfo.toChapterItem() = ChapterItem(

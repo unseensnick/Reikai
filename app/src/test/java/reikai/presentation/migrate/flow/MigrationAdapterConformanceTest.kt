@@ -23,6 +23,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.source.CatalogueEnd
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
@@ -247,7 +248,7 @@ object NovelProbe : Probe {
             every { id } returns "target"
             every { name } returns "Target"
             coEvery { search(any(), any(), any()) } returns
-                NovelItemsPage(listing.map { NovelItem(it, it, null) }, hasNextPage = false)
+                NovelItemsPage(listing.map { NovelItem(it, it, null) }, CatalogueEnd.Reported(false))
             coEvery { parseNovel(any()) } answers {
                 synced = true
                 SourceNovel(firstArg(), chapters = sourceChapters.map { ChapterItem("Chapter ${it.drop(2)}", it) })

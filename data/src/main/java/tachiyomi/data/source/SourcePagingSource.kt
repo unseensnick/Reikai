@@ -8,6 +8,9 @@ import eu.kanade.tachiyomi.source.model.MetadataMangasPage
 import exh.metadata.metadata.RaisedSearchMetadata
 import kotlinx.coroutines.CancellationException
 import mihon.domain.manga.model.toDomainManga
+import reikai.domain.source.CatalogueEnd
+import reikai.domain.source.CataloguePaging
+import reikai.domain.source.catalogueRefreshKey
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
@@ -47,7 +50,9 @@ abstract class BaseSourcePagingSource(
     private val networkToLocalManga: NetworkToLocalManga,
 ) : SourcePagingSource() {
 
-    private val seenManga = hashSetOf<String>()
+    // RK: seenManga moved into CataloguePaging, which owns dedupe, the list's end and the refresh key
+    //     for the manga and novel catalogues alike.
+    private val paging = CataloguePaging<Pair<Manga, RaisedSearchMetadata?>> { it.first.url }
 
     abstract suspend fun requestNextPage(source: Source, currentPage: Int): MangasPage
 
@@ -59,19 +64,23 @@ abstract class BaseSourcePagingSource(
 
         return try {
             val source = source()
-            val mangasPage = withIOContext {
-                requestNextPage(source, page.toInt())
-                    .takeIf { it.mangas.isNotEmpty() }
-                    ?: throw NoResultsException()
-            }
+            // RK: an empty page is judged by CataloguePaging below: no results only on a first load
+            val mangasPage = withIOContext { requestNextPage(source, page.toInt()) }
 
             // RK: pair each manga with its metadata by index before the dedup filter, then re-zip
             //     after networkToLocalManga (which preserves order). Non-metadata pages -> null.
             val metadata = (mangasPage as? MetadataMangasPage)?.mangasMetadata ?: emptyList()
-            val manga = mangasPage.mangas
-                .mapIndexed { index, sManga -> sManga.toDomainManga(source.id) to metadata.getOrNull(index) }
-                .filter { seenManga.add(it.first.url) }
+            // RK -->
+            val taken = paging.take(
+                page = page,
+                isFirstLoad = params is LoadParams.Refresh,
+                items = mangasPage.mangas
+                    .mapIndexed { index, sManga -> sManga.toDomainManga(source.id) to metadata.getOrNull(index) },
+                end = CatalogueEnd.Reported(mangasPage.hasNextPage),
+            ) ?: throw NoResultsException()
+            val manga = taken.fresh
                 .let { pairs -> networkToLocalManga(pairs.map { it.first }).zip(pairs.map { it.second }) }
+            // RK <--
 
             LoadResult.Page(
                 data = manga,
@@ -79,8 +88,7 @@ abstract class BaseSourcePagingSource(
                 // RK: a metadata source (E-Hentai) supplies its own paging cursor (the gallery id);
                 //     use it instead of a page-number increment so browse loads past the first page.
                 //     Other sources have no carrier and fall through to the page + 1 behaviour.
-                nextKey = (mangasPage as? MetadataMangasPage)?.nextKey
-                    ?: if (mangasPage.hasNextPage) page + 1 else null,
+                nextKey = taken.nextKey?.let { (mangasPage as? MetadataMangasPage)?.nextKey ?: it },
             )
         } catch (e: CancellationException) {
             throw e
@@ -93,12 +101,9 @@ abstract class BaseSourcePagingSource(
         }
     }
 
-    // RK: the paired element type load() pages
+    // RK: the paired element type load() pages, reloading where CataloguePaging says
     override fun getRefreshKey(state: PagingState<Long, Pair<Manga, RaisedSearchMetadata?>>): Long? {
-        return state.anchorPosition?.let { anchorPosition ->
-            val anchorPage = state.closestPageToPosition(anchorPosition)
-            anchorPage?.prevKey ?: anchorPage?.nextKey
-        }
+        return state.catalogueRefreshKey()
     }
 }
 

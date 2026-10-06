@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.source.online.ResolvableSource
 import eu.kanade.tachiyomi.source.online.UriType
 import reikai.data.coil.extensionIconUrl
 import reikai.data.novel.NovelStatusCode
+import reikai.domain.source.CatalogueEnd
 import reikai.domain.source.SharedLink
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
@@ -148,7 +149,7 @@ class TachiyomiNovelSource(
         items = mangas.map {
             NovelItem(name = NovelTextSanitizer.decodeEntities(it.title), path = it.url, cover = it.thumbnail_url)
         },
-        hasNextPage = hasNextPage,
+        end = CatalogueEnd.Reported(hasNextPage),
     )
 
     private fun SChapter.toChapterItem() = ChapterItem(

@@ -12,6 +12,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.source.CatalogueEnd
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
@@ -33,7 +34,7 @@ class NovelMigrationFlowAdapterTest {
         coEvery { search(any(), any(), any()) } answers {
             val query = firstArg<String>()
             val hits = if ('[' in query) emptyList() else listOf(NovelItem("Title", "/title", null))
-            NovelItemsPage(hits, hasNextPage = false)
+            NovelItemsPage(hits, CatalogueEnd.Reported(false))
         }
         coEvery { parseNovel("/title") } returns SourceNovel(
             path = "/title",

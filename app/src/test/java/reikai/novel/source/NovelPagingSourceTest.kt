@@ -2,49 +2,43 @@ package reikai.novel.source
 
 import androidx.paging.PagingSource
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.source.CatalogueEnd
 import reikai.novel.host.NovelItem
+import tachiyomi.data.source.NoResultsException
 
-/** A catalogue ends where its source says it does, or where a page brings nothing new. */
+/** The novel pager follows the catalogue rule `CataloguePagingTest` pins, carrying each source's end. */
 class NovelPagingSourceTest {
 
     @Test
-    fun `a page that returned entries offers the next one`() = runTest {
-        val source = FakePagingSource(listOf(page("a", "b")))
+    fun `an app source's reported next page is followed past a repeat`() = runTest {
+        val source = FakePagingSource(listOf(page("a"), page("a")), end = CatalogueEnd.Reported(true))
+        source.load(refresh())
 
-        source.load(refresh()).nextKey() shouldBe 2L
+        source.load(append(2)).nextKey() shouldBe 3L
     }
 
     @Test
-    fun `an empty page ends the catalogue`() = runTest {
-        val source = FakePagingSource(listOf(emptyList()))
-
-        source.load(refresh()).nextKey() shouldBe null
-    }
-
-    @Test
-    fun `a page the source calls the last ends the catalogue`() = runTest {
-        // A tachiyomi source may answer a page past the end with an error, so it is never asked for one.
-        val source = FakePagingSource(listOf(page("a", "b")), lastPage = 1)
-
-        source.load(refresh()).nextKey() shouldBe null
-    }
-
-    @Test
-    fun `a page repeating what has already been seen ends the catalogue`() = runTest {
-        // A plugin that answers an out-of-range page with a repeat of the last one would otherwise
-        // page forever, since Paging keeps requesting while the key is non-null.
-        val source = FakePagingSource(listOf(page("a", "b"), page("a", "b")))
+    fun `a plugin's catalogue ends at a page repeating what has been seen`() = runTest {
+        val source = FakePagingSource(listOf(page("a", "b"), page("a", "b")), end = CatalogueEnd.Inferred)
         source.load(refresh())
 
         source.load(append(2)).nextKey() shouldBe null
     }
 
     @Test
+    fun `an empty first page reports no results`() = runTest {
+        val source = FakePagingSource(listOf(emptyList()), end = CatalogueEnd.Reported(false))
+
+        (source.load(refresh()) as PagingSource.LoadResult.Error).throwable.shouldBeInstanceOf<NoResultsException>()
+    }
+
+    @Test
     fun `an entry repeated across a page boundary is listed once`() = runTest {
-        val source = FakePagingSource(listOf(page("a", "b"), page("b", "c")))
+        val source = FakePagingSource(listOf(page("a", "b"), page("b", "c")), end = CatalogueEnd.Inferred)
         source.load(refresh())
 
         source.load(append(2)).items().map { it.path } shouldBe listOf("c")
@@ -52,7 +46,7 @@ class NovelPagingSourceTest {
 
     @Test
     fun `a failed fetch surfaces as an error rather than an end`() = runTest {
-        val source = FakePagingSource(listOf(page("a")), failOnPage = 2)
+        val source = FakePagingSource(listOf(page("a")), end = CatalogueEnd.Inferred, failOnPage = 2)
         source.load(refresh())
 
         (source.load(append(2)) is PagingSource.LoadResult.Error) shouldBe true
@@ -81,13 +75,12 @@ class NovelPagingSourceTest {
 
 private class FakePagingSource(
     private val pages: List<List<NovelItem>>,
+    private val end: CatalogueEnd,
     private val failOnPage: Int? = null,
-    private val lastPage: Int? = null,
 ) : BaseNovelPagingSource(mockk(relaxed = true)) {
 
     override suspend fun requestNextPage(page: Int): NovelItemsPage {
         if (page == failOnPage) error("network")
-        val items = pages.getOrElse(page - 1) { emptyList() }
-        return NovelItemsPage(items, hasNextPage = items.isNotEmpty() && page != lastPage)
+        return NovelItemsPage(pages.getOrElse(page - 1) { emptyList() }, end)
     }
 }

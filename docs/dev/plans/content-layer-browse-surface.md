@@ -272,8 +272,9 @@ For the takeover:
 - The last used source: `ReikaiSourcePreferences.lastUsedSource`, one app-state key for both content
   types. It replaced `SourcePreferences.lastUsedSource` and `NovelPreferences.lastUsedNovelSource`,
   both since deleted.
-- The pagers: `BaseSourcePagingSource` in `data/.../source/SourcePagingSource.kt` is the shape the
-  novel one copies, over `NovelSource` in `reikai/novel/source/`.
+- The pagers: `BaseSourcePagingSource` in `data/.../source/SourcePagingSource.kt` and
+  `BaseNovelPagingSource` over `NovelSource` in `reikai/novel/source/`, both running each page through
+  `CataloguePaging` in `domain/.../reikai/domain/source/CataloguePaging.kt`.
 - The latest-capability check reads the plugin source text `LnPluginInstaller` already holds when it
   calls `LnPluginHost.loadPlugin`.
 
@@ -404,6 +405,15 @@ library's column counts into their own state through `trackBrowseColumns`, and t
 them off the neutral row style, so no composable reads the preference.
 
 ## Decisions & tradeoffs
+
+- **One paging rule for both catalogues, `CataloguePaging` (owner ruling Q5, R2 with (a), 2026-10-06).**
+  Entries are deduped by url or path, and the refresh key is upstream's. The end of a list trusts a
+  source that reports one (`CatalogueEnd.Reported`: every manga source and both novel app formats) and
+  is inferred only for LNReader plugins, which report none (`CatalogueEnd.Inferred`: a page bringing
+  nothing new ends it). An empty first load is "No results found"; an empty later page ends the list
+  quietly, where Mihon throws `NoResultsException` for it and shows a Retry snackbar over the results.
+  Ending every list at a page with nothing new was declined, since it would cut a manga Latest listing
+  short during bulk uploads. Recorded in upstream-sync.md "Deliberate divergences".
 
 - **The filter split is per source kind from 2026-09-21.** The ruling above keeps its mechanism, a typed `FilterList` against a plugin JSON schema, but not its premise that the mechanism follows the content type: novels from compiled-APK sources filter with a `FilterList` and render Mihon's `SourceFilterDialog`. The typed capability lives in the novel source contract. Record: [content-layer-sources-surface.md](content-layer-sources-surface.md).
 
