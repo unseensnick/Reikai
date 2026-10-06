@@ -45,6 +45,7 @@ import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.download.downloadStateOf
 import reikai.domain.download.runChapterAction
 import reikai.domain.manga.AdultContentChecker
+import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.GroupChapterFlags
@@ -56,6 +57,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.downloadedChapterIds
+import reikai.domain.novel.gapPresent
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.SetNovelReadStatus
@@ -340,6 +342,8 @@ class NovelReaderViewModel(
         /** No chapter follows it to step forward to, the answer `chapterAfter` gives, so the end marker
          *  (`NovelSeam.end`) is drawn below it. */
         val isLast: Boolean,
+        /** The numbers the session's chapters carry, which the seam's missing count leaves out. */
+        val gapPresent: ChapterGap.Present = ChapterGap.Present.NONE,
     )
 
     /** The opened entry's own title, which a merged session keeps even as chapters cross sources. */
@@ -567,6 +571,10 @@ class NovelReaderViewModel(
      *  so the chapter just finished stays reachable from the one after it. */
     @Volatile
     private var forwardEligibleIds: Set<Long> = emptySet()
+
+    /** Every number the session's chapters carry, hidden ones included, which a seam's missing count leaves out. */
+    @Volatile
+    private var gapPresent: ChapterGap.Present = ChapterGap.Present.NONE
 
     /** The novels of the opened one's merge group, itself alone when ungrouped, and the group's stored
      *  stitch (empty when ungrouped). Resolved with [orderedIds], in either scope. */
@@ -936,6 +944,7 @@ class NovelReaderViewModel(
             downloaded = novel?.let { novelDownloadCache.isChapterDownloaded(it, this) } == true,
             // Outside the order, chapterAfter has no index to step from and would call anything the last.
             isLast = id in orderedIds && chapterAfter(id) == null,
+            gapPresent = gapPresent,
         )
     }
 
@@ -1142,6 +1151,7 @@ class NovelReaderViewModel(
         val members = pooled.ifEmpty { sorted }
         // Every copy is asked before duplicates go, so the copy a group keeps is one a forward step may land on.
         val eligible = resolveForwardEligible(sorted, groupFlags(members, sorted, novelRepo.ownersOf(members)))
+        gapPresent = sorted.gapPresent()
         val inOrder = navigable(sorted) { it.id in eligible }
         aheadIds = inOrder.map { it.id }
         val current = inOrder.find { it.id == currentChapterId }

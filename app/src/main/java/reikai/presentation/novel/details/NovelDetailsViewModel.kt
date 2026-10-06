@@ -72,6 +72,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.buildNovelChapterListEntries
 import reikai.domain.novel.downloadedChapterIds
+import reikai.domain.novel.gapPresent
 import reikai.domain.novel.hiddenKey
 import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
 import reikai.domain.novel.interactor.GetCustomNovelInfo
@@ -634,17 +635,19 @@ class NovelDetailsViewModel(
         val showHidden = view.showHidden
         val display = view.visible
         val sortDescending = anchor.effectiveSortDescending(novelPreferences)
-        // The header total is the sum of the gaps the list itself would mark, so the two can never
-        // disagree: counting the pooled numbers instead claimed gaps between chapters of different
-        // sources, which count differently. Always shown when > 0; the inline rows are pref-gated.
-        val missingChapterCount = novelMissingChapterCount(display, sortDescending)
+        // When showing hidden, mark which displayed rows are hidden (dimmed + drives Hide/Unhide).
+        val hiddenChapterIds = hiddenChapterIdsIn(display, hidden, showHidden, ::hiddenKey) { it.id }
+        // Counted against every chapter, filtered out or hidden, so hiding one never makes a gap.
+        val present = chapters.gapPresent()
+        val isHiddenRow = { chapter: NovelChapter -> chapter.id in hiddenChapterIds }
+        // The header total covers what the list itself would mark, so the two can never disagree.
+        // Always shown when > 0; the inline rows are pref-gated.
+        val missingChapterCount = novelMissingChapterCount(display, sortDescending, present, isHiddenRow)
         val chapterListEntries = if (novelPreferences.hideMissingChapters().get()) {
             display.map { NovelChapterListEntry.Item(it) }
         } else {
-            buildNovelChapterListEntries(display, sortDescending)
+            buildNovelChapterListEntries(display, sortDescending, present, isHiddenRow)
         }
-        // When showing hidden, mark which displayed rows are hidden (dimmed + drives Hide/Unhide).
-        val hiddenChapterIds = hiddenChapterIdsIn(display, hidden, showHidden, ::hiddenKey) { it.id }
         // Over the rows on screen, in the order the reader walks them, so the button opens what Next
         // would reach. Hidden rows are never resumed into, even while they are being shown.
         val resumable = ReadingOrder.of(display.filterNot { it.id in hiddenChapterIds }, sortDescending)

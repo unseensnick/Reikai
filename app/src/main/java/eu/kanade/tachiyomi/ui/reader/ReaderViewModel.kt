@@ -84,6 +84,7 @@ import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.expandToUnits
+import reikai.domain.merge.gapPresent
 import reikai.domain.merge.withOpenedChapter
 import reikai.domain.reader.ChapterIncognito // RK
 import reikai.domain.reader.ChapterProgress
@@ -407,6 +408,8 @@ class ReaderViewModel(
 
         val selectedChapter = chapters.find { it.id == chapterId }
             ?: error("Requested chapter of id $chapterId not found in chapter list")
+        // RK: before the skip filters and the hidden pass, which drop chapters the series still has
+        val gapPresent = chapters.gapPresent()
 
         // RK: asked once, so the skip filters and the duplicate pass below keep the same copy of a chapter
         val isForwardEligible = forwardEligibility(chapters)
@@ -443,7 +446,7 @@ class ReaderViewModel(
                 }
             }
             .map { it.toDbChapter() }
-            .map(::ReaderChapter)
+            .map { ReaderChapter(it).also { chapter -> chapter.gapPresent = gapPresent } } // RK
     }
 
     // RK --> asked per chapter written, from its own source: a merged group's members can differ, and

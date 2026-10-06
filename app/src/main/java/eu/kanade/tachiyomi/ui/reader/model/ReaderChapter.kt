@@ -4,6 +4,7 @@ import eu.kanade.domain.chapter.model.toDbChapter
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
 import kotlinx.coroutines.flow.MutableStateFlow
+import reikai.domain.merge.ChapterGap
 import tachiyomi.core.common.util.system.logcat
 
 data class ReaderChapter(val chapter: Chapter) {
@@ -21,6 +22,10 @@ data class ReaderChapter(val chapter: Chapter) {
     var pageLoader: PageLoader? = null
 
     var requestedPage: Int = 0
+
+    // RK: every number the series carries, so a boundary's missing-chapter count leaves out the ones
+    // the list has elsewhere, as the details list does (calculateChapterGap).
+    var gapPresent: ChapterGap.Present = ChapterGap.Present.NONE
 
     private var references = 0
 

@@ -235,6 +235,7 @@ agent under Settings -> Advanced.
 #### Fixed
 
 - **Chapter selection on a manga or novel page now acts only on the chapters your filters show, and extending a range no longer re-adds a chapter you deselected.** Mark previous as read follows your filters too, and range selection works the same on both.
+- **Missing chapter warnings no longer count a chapter the series lists elsewhere, or one you hid or filtered out, in the chapter list or between chapters in the reader, on manga and novels.** The header counts each missing number once.
 - **A series whose site shows a placeholder until its cover loads now keeps its real cover.** A series already stuck on the placeholder takes its cover back from its source's listing.
 - **Refreshing a manga no longer blanks its author, artist, description or status when its source sends none.**
 - **Removing a novel from the library on its page now offers to delete its downloaded chapters, as manga does.** Removing a novel from anywhere also clears its saved cover, a custom one included.

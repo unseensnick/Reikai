@@ -19,8 +19,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo
-import reikai.domain.merge.ChapterGap
-import reikai.domain.merge.toGapNeighbour
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
 import reikai.presentation.selection.EntrySelection
@@ -85,12 +83,7 @@ class MangaEntryAdapter(
             ),
             chapters = EntryChapterListUiState(
                 items = chapterListItems.map { it.toNeutralItem(chapterSourceNames()) },
-                // The same rule the inline markers use, so the two cannot disagree, and unchanged when
-                // the "hide missing" pref drops the separators from the rows.
-                missingChapterCount = ChapterGap.total(
-                    processedChapters.map { it.chapter.toGapNeighbour() },
-                    descending = manga.sortDescending(),
-                ),
+                missingChapterCount = missingChapterCount,
                 showHidden = showHidden,
                 hasHiddenChapters = hasHiddenChapters,
                 hiddenChapterIds = hiddenChapterIds,

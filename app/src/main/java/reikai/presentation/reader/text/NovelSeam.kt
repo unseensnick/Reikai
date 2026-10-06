@@ -33,7 +33,7 @@ data class NovelSeam(
             nextDownloaded = next.downloaded,
             // The chapter list's rule, as manga's transition takes it: two sources of a merged novel are
             // never compared, and a pair the order runs backwards is missing nothing.
-            missingChapters = ChapterGap.atSeam(next.gapNeighbour(), finished.gapNeighbour()),
+            missingChapters = ChapterGap.atSeam(next.gapNeighbour(), finished.gapNeighbour(), next.gapPresent),
         )
 
         private fun LoadedChapter.gapNeighbour() = ChapterGap.Neighbour(chapterNumber, title, novelId)

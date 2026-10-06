@@ -33,12 +33,11 @@ import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.tachiyomi.data.database.models.toDomainChapter
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
+import eu.kanade.tachiyomi.ui.reader.viewer.calculateChapterGap
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Info
 import mihon.icons.materialsymbols.rounded.Warning
 import mihon.icons.materialsymbols.roundedfilled.CheckCircle
-import reikai.domain.merge.ChapterGap
-import reikai.domain.merge.toGapNeighbour
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -73,7 +72,7 @@ fun ChapterTransition(
                     bottomChapter = currChapter?.toTransitionChapter(),
                     bottomChapterDownloaded = currChapterDownloaded,
                     fallbackLabel = stringResource(MR.strings.transition_no_previous),
-                    chapterGap = ChapterGap.atSeam(currChapter?.toGapNeighbour(), goingToChapter?.toGapNeighbour()),
+                    chapterGap = calculateChapterGap(transition.from, transition.to),
                     // RK <--
                 )
             }
@@ -87,7 +86,7 @@ fun ChapterTransition(
                     bottomChapter = goingToChapter?.toTransitionChapter(),
                     bottomChapterDownloaded = goingToChapterDownloaded,
                     fallbackLabel = stringResource(MR.strings.transition_no_next),
-                    chapterGap = ChapterGap.atSeam(goingToChapter?.toGapNeighbour(), currChapter?.toGapNeighbour()),
+                    chapterGap = calculateChapterGap(transition.to, transition.from),
                     // RK <--
                 )
             }

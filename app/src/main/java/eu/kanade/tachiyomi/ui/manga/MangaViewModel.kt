@@ -18,7 +18,6 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.asState
 import eu.kanade.core.util.addOrRemove
-import eu.kanade.core.util.insertSeparators
 import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.chapter.model.applyFilters
@@ -101,6 +100,7 @@ import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.DetailsRemoval
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
+import reikai.domain.merge.gapPresent
 import reikai.domain.merge.toGapNeighbour
 import reikai.domain.recommendation.PrepareRecommendationAssembly
 import reikai.domain.recommendation.RecommendationAssembly
@@ -390,6 +390,7 @@ class MangaViewModel(
                             showHidden = hidden.showHidden,
                             hasHiddenChapters = hidden.hasHiddenChapters,
                             hiddenChapterIds = hidden.hiddenChapterIds,
+                            gapPresent = hidden.gapPresent,
                             mergedMangaById = mc.mangaBySource,
                             mergeDisplayManga = mc.displayManga,
                             mergeDisplaySource = mc.displaySource,
@@ -524,6 +525,7 @@ class MangaViewModel(
                     showHidden = hidden.showHidden,
                     hasHiddenChapters = hidden.hasHiddenChapters,
                     hiddenChapterIds = hidden.hiddenChapterIds,
+                    gapPresent = hidden.gapPresent,
                     availableScanlators = getAvailableScanlators.await(mangaId),
                     excludedScanlators = getExcludedScanlators.await(mangaId),
                     isRefreshingData = needRefreshInfo || needRefreshChapter,
@@ -1117,11 +1119,13 @@ class MangaViewModel(
         val showHidden: Boolean,
         val hasHiddenChapters: Boolean,
         val hiddenChapterIds: Set<Long>,
+        val gapPresent: ChapterGap.Present,
     )
 
     /** Drop hidden chapters from [items] unless the user is temporarily showing them, and compute the
      *  hide-related state. "Showing hidden" only holds while hidden chapters still exist, so unhiding
-     *  the last one collapses the mode instead of leaving a stale toggle. */
+     *  the last one collapses the mode instead of leaving a stale toggle. The gap numbers are read
+     *  before the drop, so a hidden chapter's number is never counted missing. */
     private fun applyHiddenChapters(
         items: List<ChapterList.Item>,
         manga: Manga,
@@ -1131,7 +1135,8 @@ class MangaViewModel(
         val keyOf = { item: ChapterList.Item -> item.chapter.hiddenKey(mangaBySource[item.chapter.mangaId] ?: manga) }
         val view = resolveHiddenChapterView(items, hidden, showHiddenFlow.value, keyOf)
         val hiddenChapterIds = hiddenChapterIdsIn(view.visible, hidden, view.showHidden, keyOf) { it.id }
-        return HiddenChapters(view.visible, view.showHidden, view.hasHidden, hiddenChapterIds)
+        val gapPresent = items.map { it.chapter }.gapPresent()
+        return HiddenChapters(view.visible, view.showHidden, view.hasHidden, hiddenChapterIds, gapPresent)
     }
 
     fun hideSelected() {
@@ -1883,6 +1888,9 @@ class MangaViewModel(
             val showHidden: Boolean = false,
             val hasHiddenChapters: Boolean = false,
             val hiddenChapterIds: Set<Long> = emptySet(),
+            // RK: the numbers the missing-chapter markers count against, taken before hidden rows and the
+            // filters drop any, so hiding a chapter never makes a gap.
+            val gapPresent: ChapterGap.Present = ChapterGap.Present.NONE,
             // RK: the manga's custom-info overlay (null = none), applied at the display layer via
             // Manga.withCustomInfo. Never folded into the raw `manga` field above, which stays
             // source-accurate for tracker search, refresh, duplicate detection, downloads, etc.
@@ -1921,26 +1929,35 @@ class MangaViewModel(
                     return@lazy processedChapters
                 }
 
-                processedChapters.insertSeparators { before, after ->
-                    // RK -->
-                    // The shared rule places the marker for novels too, and declines a gap whose two
-                    // sides come from different sources of a group or whose number the name does not
-                    // support.
-                    ChapterGap
-                        .betweenRows(
-                            before?.chapter?.toGapNeighbour(),
-                            after?.chapter?.toGapNeighbour(),
-                            manga.sortDescending(),
-                        )
-                        .takeIf { it > 0 }
-                        ?.let { missingCount ->
-                            ChapterList.MissingCount(
-                                id = "${before?.id}-${after?.id}",
-                                count = missingCount,
-                            )
-                        }
-                    // RK <--
+                // RK -->
+                // The shared rule places the marker for novels too, and declines a gap whose two
+                // sides come from different sources of a group or whose number the name does not
+                // support.
+                ChapterGap.withMarkers(
+                    processedChapters,
+                    neighbourOf = { it.gapNeighbour },
+                    isHidden = { it.id in hiddenChapterIds },
+                    present = gapPresent,
+                    descending = manga.sortDescending(),
+                    row = { it },
+                ) { before, after, missingCount ->
+                    ChapterList.MissingCount(
+                        id = "${before?.id}-${after?.id}",
+                        count = missingCount,
+                    )
                 }
+                // RK <--
+            }
+
+            // RK: the header's count, which covers what the markers would and stays when the pref hides them
+            val missingChapterCount by lazy {
+                ChapterGap.total(
+                    processedChapters,
+                    { it.gapNeighbour },
+                    { it.id in hiddenChapterIds },
+                    gapPresent,
+                    manga.sortDescending(),
+                )
             }
 
             val scanlatorFilterActive: Boolean
@@ -1975,6 +1992,9 @@ sealed class ChapterList {
         // and mark-unread act on the real row.
         val isRead: Boolean,
         val isBookmarked: Boolean, // RK
+        // RK: read from the name once, when the row is built, since a download's progress copies the row
+        // many times a second and the missing-chapter markers ask every row on each copy.
+        val gapNeighbour: ChapterGap.Neighbour = chapter.toGapNeighbour(),
     ) : ChapterList() {
         val id = chapter.id
         val isDownloaded = downloadState == Download.State.DOWNLOADED
