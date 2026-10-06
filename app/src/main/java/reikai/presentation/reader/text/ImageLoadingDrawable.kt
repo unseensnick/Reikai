@@ -7,6 +7,7 @@ import android.graphics.PixelFormat
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import androidx.core.graphics.ColorUtils
+import reikai.presentation.components.LoadingPulse
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -23,7 +24,7 @@ internal class ImageLoadingDrawable(
     private val textColor: () -> Int,
 ) : Drawable() {
 
-    var pulse = PULSE_MAX
+    var pulse = LoadingPulse.MAX
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
@@ -44,17 +45,17 @@ internal class ImageLoadingDrawable(
 
     @Deprecated("Deprecated in Java", ReplaceWith("PixelFormat.TRANSLUCENT", "android.graphics.PixelFormat"))
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+
+    companion object {
+        // The box's strength at a full pulse; reader.css's opacities are this times the pulse range.
+        const val BOX_ALPHA = 0.2f
+    }
 }
 
-/** The box's strength [elapsedMs] into loading: the details skeleton's pulse, eased there and back. */
+/** The box's strength [elapsedMs] into loading: [LoadingPulse], eased there and back. */
 internal fun imageLoadingPulse(elapsedMs: Long): Float {
-    val phase = (elapsedMs % (PULSE_HALF_MS * 2)).toFloat() / PULSE_HALF_MS
+    val half = LoadingPulse.HALF_PERIOD_MS
+    val phase = (elapsedMs % (half * 2)).toFloat() / half
     val eased = (1 - cos(PI * phase).toFloat()) / 2
-    return PULSE_MIN + (PULSE_MAX - PULSE_MIN) * eased
+    return LoadingPulse.MIN + (LoadingPulse.MAX - LoadingPulse.MIN) * eased
 }
-
-// EntryDetailsSkeleton's range and period; the page's reader.css matches them.
-private const val PULSE_MIN = 0.45f
-private const val PULSE_MAX = 0.9f
-private const val PULSE_HALF_MS = 900L
-private const val BOX_ALPHA = 0.2f

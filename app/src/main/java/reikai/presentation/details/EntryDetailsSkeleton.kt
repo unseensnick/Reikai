@@ -30,6 +30,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import eu.kanade.presentation.manga.components.MangaCover
+import reikai.presentation.components.LoadingPulse
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -41,9 +43,9 @@ import tachiyomi.presentation.core.i18n.stringResource
 @Composable
 fun EntryDetailsSkeleton(modifier: Modifier = Modifier) {
     val pulse by rememberInfiniteTransition(label = "skeleton").animateFloat(
-        initialValue = 0.45f,
-        targetValue = 0.9f,
-        animationSpec = infiniteRepeatable(tween(durationMillis = 900), RepeatMode.Reverse),
+        initialValue = LoadingPulse.MIN,
+        targetValue = LoadingPulse.MAX,
+        animationSpec = infiniteRepeatable(tween(durationMillis = LoadingPulse.HALF_PERIOD_MS), RepeatMode.Reverse),
         label = "skeleton-alpha",
     )
     val loading = stringResource(MR.strings.loading)
@@ -56,7 +58,7 @@ fun EntryDetailsSkeleton(modifier: Modifier = Modifier) {
             .semantics { contentDescription = loading },
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Bone(Modifier.width(100.dp).aspectRatio(2f / 3f))
+            Bone(Modifier.width(100.dp).aspectRatio(MangaCover.Book.ratio))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Bone(Modifier.fillMaxWidth(0.8f).height(22.dp))
                 Bone(Modifier.fillMaxWidth(0.5f).height(14.dp))

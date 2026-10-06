@@ -183,7 +183,8 @@ img {
 }
 
 /* A picture's place while it loads, as the text renderer draws it (ImageLoadingDrawable): its strength
-   and period are that drawable's, and reader.js drops the box when the picture lands. */
+   and period are LoadingPulse's times that drawable's BOX_ALPHA, held there by ImageLoadingPulseTest,
+   and reader.js drops the box when the picture lands. */
 img[src]:not(.rk-loaded) {
   width: 100%;
   height: 200px;

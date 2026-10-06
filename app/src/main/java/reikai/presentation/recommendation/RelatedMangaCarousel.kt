@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.tachiyomi.ui.manga.MangaViewModel
 import reikai.domain.recommendation.RelatedMangaCandidate
 import tachiyomi.i18n.MR
@@ -121,11 +122,10 @@ private fun SkeletonCard() {
         modifier = Modifier
             .width(CardWidth)
             .padding(4.dp)
-            .aspectRatio(MANGA_COVER_ASPECT_RATIO)
+            .aspectRatio(MangaCover.Book.ratio)
             .clip(RoundedCornerShape(4.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant),
     )
 }
 
-private const val MANGA_COVER_ASPECT_RATIO = 2f / 3f
 private val CardWidth = 120.dp
