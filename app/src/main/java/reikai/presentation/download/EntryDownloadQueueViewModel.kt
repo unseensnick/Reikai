@@ -181,9 +181,6 @@ class EntryDownloadQueueViewModel(
 
     @Immutable
     data class State(val cards: List<EntryDownloadCardUi> = emptyList()) {
-        /** Chapters still to download across every card. */
-        val pendingChapters: Int get() = cards.sumOf { it.totalChapters - it.downloadedChapters }
-
         /** The type badge only matters while both content types are queued. */
         val showTypeBadge: Boolean get() = cards.distinctBy { it.contentType }.size > 1
     }

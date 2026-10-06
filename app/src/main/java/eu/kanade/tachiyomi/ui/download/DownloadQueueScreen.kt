@@ -62,6 +62,12 @@ object DownloadQueueScreen : Screen() {
         val sheet by screenModel.sheet.collectAsStateWithLifecycle()
         val scope = rememberCoroutineScope()
         val isRunning = queueState is DownloadQueueState.Downloading
+        // Pending chapters across both content types, the count the pause button and the More row read
+        val downloadCount = when (val queue = queueState) {
+            DownloadQueueState.Stopped -> 0
+            is DownloadQueueState.Paused -> queue.pending
+            is DownloadQueueState.Downloading -> queue.pending
+        }
         val hasQueue = state.cards.isNotEmpty()
         var showSortSheet by remember { mutableStateOf(false) }
         // RK <--
@@ -101,11 +107,10 @@ object DownloadQueueScreen : Screen() {
                                 modifier = Modifier.weight(1f, false),
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            // RK: pending chapters across both content types
-                            if (state.pendingChapters > 0) {
+                            if (downloadCount > 0) {
                                 val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
                                 Pill(
-                                    text = "${state.pendingChapters}",
+                                    text = "$downloadCount",
                                     modifier = Modifier.padding(start = 4.dp),
                                     color = MaterialTheme.colorScheme.onBackground
                                         .copy(alpha = pillAlpha),
