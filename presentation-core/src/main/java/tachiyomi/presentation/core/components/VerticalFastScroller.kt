@@ -1,28 +1,19 @@
 package tachiyomi.presentation.core.components
 
-import android.view.ViewConfiguration
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -31,9 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
@@ -42,22 +31,17 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastLastOrNull
 import androidx.compose.ui.util.fastMaxBy
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.sample
 import tachiyomi.presentation.core.components.Scroller.STICKY_HEADER_KEY_PREFIX
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Draws vertical fast scroller to a lazy list
@@ -108,7 +92,7 @@ fun VerticalFastScroller(
                 thumbTopPadding -
                 thumbBottomPadding -
                 listState.layoutInfo.afterContentPadding
-            val thumbHeightPx = with(LocalDensity.current) { ThumbLength.toPx() }
+            val thumbHeightPx = with(LocalDensity.current) { FastScrollThumbLength.toPx() } // RK
             val trackHeightPx = heightPx - thumbHeightPx
             val scrollHeightPx = contentHeight.toFloat() -
                 listState.layoutInfo.beforeContentPadding -
@@ -171,24 +155,15 @@ fun VerticalFastScroller(
                 if (stableScrollInProgress) scrolled.tryEmit(Unit)
             }
 
+            // RK --> one thumb and fade for every scroller, the library's included (FastScrollThumb.kt)
             // Thumb alpha
-            val alpha = remember { Animatable(0f) }
+            val alpha = rememberFastScrollThumbAlpha(scrolled, thumbAllowed)
             val isThumbVisible = alpha.value > 0f
-            LaunchedEffect(scrolled, alpha) {
-                scrolled
-                    .sample(0.1.seconds)
-                    .collectLatest {
-                        if (thumbAllowed()) {
-                            alpha.snapTo(1f)
-                            delay(ScrollBarVisibilityDuration)
-                            alpha.animateTo(0f, animationSpec = ImmediateFadeOutAnimationSpec)
-                        } else {
-                            alpha.animateTo(0f, animationSpec = ImmediateFadeOutAnimationSpec)
-                        }
-                    }
-            }
 
-            Box(
+            FastScrollThumb(
+                alpha = alpha.value,
+                color = thumbColor,
+                endContentPadding = endContentPadding,
                 modifier = Modifier
                     .offset { IntOffset(0, thumbOffsetY.roundToInt()) }
                     .then(
@@ -216,21 +191,9 @@ fun VerticalFastScroller(
                         } else {
                             Modifier
                         },
-                    )
-                    // RK: the wide transparent touch target; the visible thumb (child) stays 12.dp.
-                    .height(ThumbLength)
-                    .padding(end = endContentPadding)
-                    .width(ThumbTouchThickness)
-                    .alpha(alpha.value),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Box(
-                    Modifier
-                        .height(ThumbLength)
-                        .width(ThumbThickness)
-                        .background(color = thumbColor, shape = ThumbShape),
-                )
-            }
+                    ),
+            )
+            // RK <--
         }.map { it.measure(scrollerConstraints) }
         val scrollerWidth = scrollerPlaceable.fastMaxBy { it.width }?.width ?: 0
 
@@ -329,7 +292,7 @@ fun VerticalGridFastScroller(
                 thumbTopPadding -
                 thumbBottomPadding -
                 state.layoutInfo.afterContentPadding
-            val thumbHeightPx = with(LocalDensity.current) { ThumbLength.toPx() }
+            val thumbHeightPx = with(LocalDensity.current) { FastScrollThumbLength.toPx() } // RK
             val trackHeightPx = heightPx - thumbHeightPx
 
             val columnCount = remember(columns) { slotSizesSums(constraints).size.coerceAtLeast(1) }
@@ -368,24 +331,15 @@ fun VerticalGridFastScroller(
                 scrolled.tryEmit(Unit)
             }
 
+            // RK --> one thumb and fade for every scroller, the library's included (FastScrollThumb.kt)
             // Thumb alpha
-            val alpha = remember { Animatable(0f) }
+            val alpha = rememberFastScrollThumbAlpha(scrolled, thumbAllowed)
             val isThumbVisible = alpha.value > 0f
-            LaunchedEffect(scrolled, alpha) {
-                scrolled
-                    .sample(0.1.seconds)
-                    .collectLatest {
-                        if (thumbAllowed()) {
-                            alpha.snapTo(1f)
-                            delay(ScrollBarVisibilityDuration)
-                            alpha.animateTo(0f, animationSpec = ImmediateFadeOutAnimationSpec)
-                        } else {
-                            alpha.animateTo(0f, animationSpec = ImmediateFadeOutAnimationSpec)
-                        }
-                    }
-            }
 
-            Box(
+            FastScrollThumb(
+                alpha = alpha.value,
+                color = thumbColor,
+                endContentPadding = endContentPadding,
                 modifier = Modifier
                     .offset { IntOffset(0, thumbOffsetY.roundToInt()) }
                     .then(
@@ -413,21 +367,9 @@ fun VerticalGridFastScroller(
                         } else {
                             Modifier
                         },
-                    )
-                    // RK: the wide transparent touch target; the visible thumb (child) stays 12.dp.
-                    .height(ThumbLength)
-                    .padding(end = endContentPadding)
-                    .width(ThumbTouchThickness)
-                    .alpha(alpha.value),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Box(
-                    Modifier
-                        .height(ThumbLength)
-                        .width(ThumbThickness)
-                        .background(color = thumbColor, shape = ThumbShape),
-                )
-            }
+                    ),
+            )
+            // RK <--
         }.map { it.measure(scrollerConstraints) }
         val scrollerWidth = scrollerPlaceable.fastMaxBy { it.width }?.width ?: 0
 
@@ -477,17 +419,7 @@ object Scroller {
     const val STICKY_HEADER_KEY_PREFIX = "sticky:"
 }
 
-private val ThumbLength = 48.dp
-private val ThumbThickness = 12.dp
-
-// RK: a transparent touch target wider than the visible thumb, so both scrollers are as easy to grab as
-// the library's own (which uses the same 32.dp). Mihon's draggable area was only the 12.dp visible thumb.
-private val ThumbTouchThickness = 32.dp
-private val ThumbShape = RoundedCornerShape(ThumbThickness / 2)
-private val ScrollBarVisibilityDuration = 2.seconds
-private val ImmediateFadeOutAnimationSpec = tween<Float>(
-    durationMillis = ViewConfiguration.getScrollBarFadeDuration(),
-)
+// RK: the thumb's size, shape and fade timing moved to FastScrollThumb.kt (FastScrollThumbLength).
 
 private val LazyListItemInfo.top: Int
     get() = offset
