@@ -25,3 +25,16 @@ suspend fun <T> SnackbarHostState.offerToDeleteDownloads(
     )
     if (result == SnackbarResult.ActionPerformed) withDownloads.forEach { delete(it) }
 }
+
+/**
+ * Mihon's prompt after the first download of an entry outside the library. [isInLibrary] is read again
+ * on Add, since the entry may have joined the library while the snackbar was up.
+ */
+suspend fun SnackbarHostState.offerAddToLibrary(context: Context, isInLibrary: () -> Boolean, add: () -> Unit) {
+    val result = showSnackbar(
+        message = context.stringResource(MR.strings.snack_add_to_library),
+        actionLabel = context.stringResource(MR.strings.action_add),
+        withDismissAction = true,
+    )
+    if (result == SnackbarResult.ActionPerformed && !isInLibrary()) add()
+}

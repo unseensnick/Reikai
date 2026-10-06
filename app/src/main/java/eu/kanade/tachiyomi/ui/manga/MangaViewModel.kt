@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.ui.manga
 
 import android.content.Context
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
@@ -136,6 +135,7 @@ import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.loadThenRenderOn
+import reikai.presentation.details.offerAddToLibrary
 import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
@@ -1228,14 +1228,8 @@ class MangaViewModel(
                 updateSuccessState { state ->
                     state.copy(hasPromptedToAddBefore = true)
                 }
-                val result = snackbarHostState.showSnackbar(
-                    message = context.stringResource(MR.strings.snack_add_to_library),
-                    actionLabel = context.stringResource(MR.strings.action_add),
-                    withDismissAction = true,
-                )
-                if (result == SnackbarResult.ActionPerformed && !isFavorited) {
-                    toggleFavorite()
-                }
+                // RK: the prompt is written once with novels
+                snackbarHostState.offerAddToLibrary(context, isInLibrary = { isFavorited }) { toggleFavorite() }
             }
         }
     }

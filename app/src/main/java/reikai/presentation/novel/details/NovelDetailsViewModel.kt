@@ -2,7 +2,6 @@ package reikai.presentation.novel.details
 
 import android.content.Context
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
@@ -134,6 +133,7 @@ import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
+import reikai.presentation.details.offerAddToLibrary
 import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
 import reikai.presentation.library.sourceKeyQuery
@@ -1368,19 +1368,17 @@ class NovelDetailsViewModel(
     }
 
     /** After the first download of a not-yet-favorited novel (typically opened from browse), offer to
-     *  add it to the library, once per screen. Mirrors MangaViewModel.startDownload's prompt. */
+     *  add it to the library, once per screen, as manga's startDownload does through the same prompt. */
     private fun promptAddToLibraryOnFirstDownload() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         if (loaded.novel.favorite || loaded.hasPromptedToAddBefore) return
         updateLoaded { it.copy(hasPromptedToAddBefore = true) }
         viewModelScope.launchIO {
-            val result = snackbarHostState.showSnackbar(
-                message = context.stringResource(MR.strings.snack_add_to_library),
-                actionLabel = context.stringResource(MR.strings.action_add),
-                withDismissAction = true,
+            snackbarHostState.offerAddToLibrary(
+                context,
+                isInLibrary = { (state.value as? NovelDetailsState.Loaded)?.novel?.favorite != false },
+                add = ::toggleFavorite,
             )
-            val stillNotFavorite = (state.value as? NovelDetailsState.Loaded)?.novel?.favorite == false
-            if (result == SnackbarResult.ActionPerformed && stillNotFavorite) toggleFavorite()
         }
     }
 
