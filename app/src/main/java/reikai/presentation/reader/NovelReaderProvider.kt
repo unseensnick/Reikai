@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import logcat.LogPriority
 import reikai.data.coil.extractCoverColor
@@ -32,14 +31,15 @@ import reikai.domain.reader.ChapterProgress
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
 import reikai.presentation.reader.text.NovelWindowDiff
+import reikai.util.snapshotOnChange
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.system.logcat
 import kotlin.math.abs
 
 /**
  * The light-novel half of the reader's provider seam, over the live [NovelReaderViewModel] the host
- * resolved. The twin of `MangaReaderProvider`, and thin for the same reason: everything that decides
- * behaviour belongs to the model, so this only adapts.
+ * resolved. The twin of `MangaReaderProvider`, pinned by ReaderProviderConformanceTest, and thin for the
+ * same reason: everything that decides behaviour belongs to the model, so this only adapts.
  */
 class NovelReaderProvider(
     val viewModel: NovelReaderViewModel,
@@ -241,33 +241,18 @@ class NovelReaderProvider(
      * A change to a setting [createViewport] reads once, after the one it was built with. The sheet reaches
      * all four, so the host rebuilds the viewport around the live session, as a rotation does.
      */
-    private val viewportRebuilds: Flow<Unit> = listOf<Flow<Any>>(
-        novelPreferences.readerRenderingMode().changes(),
-        novelPreferences.readerTextSelectable().changes(),
-        novelPreferences.readerUseOriginalFonts().changes(),
-        novelPreferences.readerSourceCssPriority().changes(),
-    )
-        .merge()
-        .map { viewportSnapshot() }
-        .distinctUntilChanged()
+    private val viewportRebuilds: Flow<Unit> = NovelViewportSettings.watched(novelPreferences)
+        .snapshotOnChange { NovelViewportSettings.read(novelPreferences) }
         .drop(1)
         .map { }
 
-    private fun viewportSnapshot(): List<Any> = listOf(
-        novelPreferences.readerRenderingMode().get(),
-        novelPreferences.readerTextSelectable().get(),
-        novelPreferences.readerUseOriginalFonts().get(),
-        novelPreferences.readerSourceCssPriority().get(),
-    )
-
     /**
-     * Text-selectability, the rendering mode and the two WebView font settings are read once here, because
-     * the viewport takes them as plain values so it can be built without the graph; a change rebuilds it
-     * through [viewportRebuilds]. The volume keys are live without one: the switch is read each press and
-     * the rest arrives with every settings push.
+     * The [NovelViewportSettings] are read once here, because the viewport takes them as plain values so
+     * it can be built without the graph; a change rebuilds it through [viewportRebuilds]. The volume keys
+     * are live without one: the switch is read each press and the rest arrives with every settings push.
      */
     override fun createViewport(host: ReaderActivity): ReaderViewport {
-        val textSelectable = novelPreferences.readerTextSelectable().get()
+        val built = NovelViewportSettings.read(novelPreferences)
         // One rule for both renderers, as the long-strip manga viewer hides the menu: read once per
         // viewport, so a changed threshold takes effect on the next open, as manga's does.
         val hideThreshold = novelPreferences.readerHideThreshold().get().threshold
@@ -294,11 +279,11 @@ class NovelReaderProvider(
             onReaderScrolled = { dy -> if (abs(dy) > hideThreshold) host.hideMenu() },
         )
         val autoScrollSpeed = novelPreferences.readerAutoScrollSpeed()
-        if (novelPreferences.readerRenderingMode().get() == NovelRenderingMode.NATIVE) {
+        if (built.renderingMode == NovelRenderingMode.NATIVE) {
             return NovelTextViewport(
                 context = host,
                 fontManager = fontManager,
-                textSelectable = textSelectable,
+                textSelectable = built.textSelectable,
                 callbacks = callbacks,
                 autoScrollSpeed = autoScrollSpeed,
             )
@@ -307,10 +292,10 @@ class NovelReaderProvider(
             context = host,
             fontManager = fontManager,
             imageRequests = imageRequests,
-            textSelectable = textSelectable,
+            textSelectable = built.textSelectable,
             callbacks = callbacks,
-            useOriginalFonts = novelPreferences.readerUseOriginalFonts().get(),
-            sourceCssPriority = novelPreferences.readerSourceCssPriority().get(),
+            useOriginalFonts = built.useOriginalFonts,
+            sourceCssPriority = built.sourceCssPriority,
             devTools = novelPreferences.readerWebViewDevTools().get(),
             autoScrollSpeed = autoScrollSpeed,
         )
@@ -409,5 +394,30 @@ class NovelReaderProvider(
             .drop(1)
             .onEach(viewport::applySettings)
             .launchIn(scope)
+    }
+}
+
+/** The settings a novel viewport is built with, which a change applies only by building it again. */
+internal data class NovelViewportSettings(
+    val renderingMode: NovelRenderingMode,
+    val textSelectable: Boolean,
+    val useOriginalFonts: Boolean,
+    val sourceCssPriority: Boolean,
+) {
+    companion object {
+        fun read(preferences: NovelPreferences) = NovelViewportSettings(
+            renderingMode = preferences.readerRenderingMode().get(),
+            textSelectable = preferences.readerTextSelectable().get(),
+            useOriginalFonts = preferences.readerUseOriginalFonts().get(),
+            sourceCssPriority = preferences.readerSourceCssPriority().get(),
+        )
+
+        // Must name every preference [read] reads; NovelViewportSettingsTest compares the two.
+        fun watched(preferences: NovelPreferences): List<Flow<*>> = listOf(
+            preferences.readerRenderingMode().changes(),
+            preferences.readerTextSelectable().changes(),
+            preferences.readerUseOriginalFonts().changes(),
+            preferences.readerSourceCssPriority().changes(),
+        )
     }
 }

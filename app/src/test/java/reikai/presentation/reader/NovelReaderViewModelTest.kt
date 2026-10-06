@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.mockk.coVerify
@@ -372,5 +373,32 @@ class NovelReaderViewModelTest {
         val model = harness.open(novel, chapter.id)
 
         model.settings.value.webSnippets.css shouldBe "p { color: red; }"
+    }
+
+    @Test
+    fun `a setting changed while reading reaches the live settings`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val chapter = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, chapter.id)
+        advanceUntilIdle()
+
+        harness.novelPreferences.readerTtsKeepInView().set(false)
+        advanceUntilIdle()
+
+        model.settings.value.ttsKeepInView shouldBe false
+    }
+
+    /** The novel's own orientation is not a preference, so the key comparison cannot see it go unwatched. */
+    @Test
+    fun `an orientation picked in the reader reaches the live settings`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val chapter = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, chapter.id)
+        advanceUntilIdle()
+
+        model.setOrientation(ReaderOrientation.LOCKED_LANDSCAPE.flagValue)
+        advanceUntilIdle()
+
+        model.settings.value.orientation shouldBe ReaderOrientation.LOCKED_LANDSCAPE.flagValue
     }
 }

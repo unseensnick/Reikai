@@ -1,5 +1,8 @@
 package reikai.presentation.reader
 
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import kotlinx.coroutines.flow.Flow
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTextAlign
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.novel.font.fontDisplayName
@@ -59,7 +62,99 @@ data class NovelReaderSettings(
     val alwaysShowChapterTransition: Boolean = true,
     /** The user's CSS and JavaScript, which only the WebView renderer applies. */
     val webSnippets: NovelWebSnippets = NovelWebSnippets(),
-)
+) {
+    companion object {
+        /** The settings as stored now, for a novel whose own orientation flag is [orientation]. */
+        fun read(preferences: NovelPreferences, orientation: Int): NovelReaderSettings = with(preferences) {
+            val defaultOrientation = readerDefaultOrientation().get()
+            NovelReaderSettings(
+                fontSize = readerFontSize().get(),
+                lineHeight = readerLineSpacing().get(),
+                textAlign = readerTextAlign().get(),
+                margins = ReaderMargins(
+                    top = readerMarginTop().get(),
+                    bottom = readerMarginBottom().get(),
+                    left = readerMarginLeft().get(),
+                    right = readerMarginRight().get(),
+                ),
+                paragraphIndent = readerParagraphIndent().get(),
+                paragraphSpacing = readerParagraphSpacing().get(),
+                fontFamily = readerFontFamily().get(),
+                followSystemTheme = readerFollowSystemTheme().get(),
+                backgroundColor = readerBackgroundColor().get(),
+                textColor = readerTextColor().get(),
+                keepScreenOn = readerKeepScreenOn().get(),
+                orientation = orientation,
+                resolvedOrientation =
+                if (orientation == ReaderOrientation.DEFAULT.flagValue) defaultOrientation else orientation,
+                ttsScrollToTop = readerTtsScrollToTop().get(),
+                ttsHighlight = readerTtsHighlight().get(),
+                ttsHighlightStyle = readerTtsHighlightStyle().get(),
+                ttsHighlightColor = readerTtsHighlightColor().get(),
+                ttsHighlightTextColor = readerTtsHighlightTextColor().get(),
+                ttsKeepInView = readerTtsKeepInView().get(),
+                bionicReading = readerBionicReading().get(),
+                tapZones = NovelTapZones(
+                    readerTapLayout().get(),
+                    readerTapInvert().get(),
+                    readerTapBottomZoneHeight().get(),
+                ),
+                swipeGestures = readerSwipeGestures().get(),
+                showProgressPercentage = readerShowProgressPercentage().get(),
+                useVolumeButtons = readerUseVolumeButtons().get(),
+                volumeButtonsInverted = readerVolumeButtonsInverted().get(),
+                volumeButtonsFraction = readerVolumeButtonsFraction().get(),
+                railHeightPercent = readerRailHeight().get(),
+                railOnLeft = readerRailOnLeft().get(),
+                useRail = readerUseRail().get(),
+                alwaysShowChapterTransition = readerAlwaysShowChapterTransition().get(),
+                webSnippets = NovelWebSnippets.from(readerCssSnippets().get(), readerJsSnippets().get()),
+            )
+        }
+
+        // Must name every preference [read] reads; NovelReaderSettingsTest compares the two.
+        fun watched(preferences: NovelPreferences): List<Flow<*>> = with(preferences) {
+            listOf(
+                readerFontSize().changes(),
+                readerLineSpacing().changes(),
+                readerTextAlign().changes(),
+                readerMarginTop().changes(),
+                readerMarginBottom().changes(),
+                readerMarginLeft().changes(),
+                readerMarginRight().changes(),
+                readerParagraphIndent().changes(),
+                readerParagraphSpacing().changes(),
+                readerFontFamily().changes(),
+                readerFollowSystemTheme().changes(),
+                readerBackgroundColor().changes(),
+                readerTextColor().changes(),
+                readerKeepScreenOn().changes(),
+                readerDefaultOrientation().changes(),
+                readerTtsScrollToTop().changes(),
+                readerTtsHighlight().changes(),
+                readerTtsHighlightStyle().changes(),
+                readerTtsHighlightColor().changes(),
+                readerTtsHighlightTextColor().changes(),
+                readerTtsKeepInView().changes(),
+                readerBionicReading().changes(),
+                readerTapLayout().changes(),
+                readerTapInvert().changes(),
+                readerTapBottomZoneHeight().changes(),
+                readerSwipeGestures().changes(),
+                readerShowProgressPercentage().changes(),
+                readerUseVolumeButtons().changes(),
+                readerVolumeButtonsInverted().changes(),
+                readerVolumeButtonsFraction().changes(),
+                readerRailHeight().changes(),
+                readerRailOnLeft().changes(),
+                readerUseRail().changes(),
+                readerAlwaysShowChapterTransition().changes(),
+                readerCssSnippets().changes(),
+                readerJsSnippets().changes(),
+            )
+        }
+    }
+}
 
 /**
  * The reader page's four margins, in dp.

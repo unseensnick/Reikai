@@ -57,7 +57,6 @@ import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.NovelTextAlign
 import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.GetNextNovelChapter
@@ -72,7 +71,6 @@ import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.TrackNovelChapter
-import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterIncognito
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReadSessionClock
@@ -104,7 +102,7 @@ import reikai.presentation.reader.text.NovelOpenLanding
 import reikai.presentation.reader.text.NovelResume
 import reikai.presentation.reader.text.NovelWarmPolicy
 import reikai.presentation.reader.text.NovelWindowReach
-import reikai.presentation.reader.web.NovelWebSnippets
+import reikai.util.snapshotOnChange
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.system.logcat
@@ -312,85 +310,13 @@ class NovelReaderViewModel(
     }
 
     /** Reactive reader display settings; the screen resolves follow-system into colors. */
-    val settings: StateFlow<NovelReaderSettings> = combine(
-        // Split because the typed combine stops at five flows, not because the halves differ.
-        combine(
-            combine(
-                novelPreferences.readerFontSize().changes(),
-                novelPreferences.readerLineSpacing().changes(),
-                novelPreferences.readerTextAlign().changes(),
-                novelPreferences.readerFontFamily().changes(),
-            ) { fontSize, lineHeight, textAlign, fontFamily ->
-                TypePrefs(fontSize, lineHeight, textAlign, fontFamily)
-            },
-            combine(
-                novelPreferences.readerMarginTop().changes(),
-                novelPreferences.readerMarginBottom().changes(),
-                novelPreferences.readerMarginLeft().changes(),
-                novelPreferences.readerMarginRight().changes(),
-            ) { top, bottom, left, right -> ReaderMargins(top, bottom, left, right) },
-            novelPreferences.readerParagraphIndent().changes(),
-            novelPreferences.readerParagraphSpacing().changes(),
-        ) { type, margins, indent, spacing -> DisplayPrefs(type, margins, indent, spacing) },
-        combine(
-            novelPreferences.readerFollowSystemTheme().changes(),
-            novelPreferences.readerBackgroundColor().changes(),
-            novelPreferences.readerTextColor().changes(),
-        ) { followSystem, bg, text -> ThemePrefs(followSystem, bg, text) },
-        novelPreferences.readerKeepScreenOn().changes(),
-        combine(
-            orientationOverride,
-            novelPreferences.readerDefaultOrientation().changes(),
-        ) { override, default -> OrientationPrefs(override, default) },
-        combine(
-            combine(
-                novelPreferences.readerTtsScrollToTop().changes(),
-                combine(
-                    novelPreferences.readerTtsHighlight().changes(),
-                    novelPreferences.readerTtsHighlightStyle().changes(),
-                    novelPreferences.readerTtsHighlightColor().changes(),
-                    novelPreferences.readerTtsHighlightTextColor().changes(),
-                    novelPreferences.readerTtsKeepInView().changes(),
-                ) { highlight, style, color, textColor, keepInView ->
-                    TtsHighlightPrefs(highlight, style, color, textColor, keepInView)
-                },
-            ) { scrollToTop, highlight -> TtsPrefs(scrollToTop, highlight) },
-            combine(
-                novelPreferences.readerBionicReading().changes(),
-                combine(
-                    novelPreferences.readerTapLayout().changes(),
-                    novelPreferences.readerTapInvert().changes(),
-                    novelPreferences.readerTapBottomZoneHeight().changes(),
-                    ::NovelTapZones,
-                ),
-                novelPreferences.readerSwipeGestures().changes(),
-                novelPreferences.readerShowProgressPercentage().changes(),
-            ) { bionic, tapZones, swipe, showProgress ->
-                FlagPrefs(bionic, tapZones, swipe, showProgress)
-            },
-            combine(
-                novelPreferences.readerRailHeight().changes(),
-                novelPreferences.readerRailOnLeft().changes(),
-                novelPreferences.readerUseRail().changes(),
-            ) { railHeight, railOnLeft, useRail ->
-                ScrollPrefs(railHeight, railOnLeft, useRail)
-            },
-            combine(
-                novelPreferences.readerUseVolumeButtons().changes(),
-                novelPreferences.readerVolumeButtonsInverted().changes(),
-                novelPreferences.readerVolumeButtonsFraction().changes(),
-            ) { enabled, inverted, fraction -> VolumePrefs(enabled, inverted, fraction) },
-            combine(
-                novelPreferences.readerAlwaysShowChapterTransition().changes(),
-                novelPreferences.readerCssSnippets().changes(),
-                novelPreferences.readerJsSnippets().changes(),
-            ) { alwaysShowTransition, css, js -> alwaysShowTransition to NovelWebSnippets.from(css, js) },
-        ) { tts, flags, scroll, volume, page ->
-            ReaderExtraPrefs(tts, flags, scroll, volume, page.first, page.second)
-        },
-    ) { display, theme, keepScreenOn, orient, extra ->
-        settingsOf(display, theme, keepScreenOn, orient, extra)
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, currentSettings())
+    val settings: StateFlow<NovelReaderSettings> = (NovelReaderSettings.watched(novelPreferences) + orientationOverride)
+        .snapshotOnChange { NovelReaderSettings.read(novelPreferences, orientationOverride.value) }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            NovelReaderSettings.read(novelPreferences, orientationOverride.value),
+        )
 
     /** The chapter the viewport renders: null until the first chapter loads, and still null if that
      *  first load fails. A later failed load keeps the chapter already rendered. */
@@ -1090,103 +1016,6 @@ class NovelReaderViewModel(
         viewModelScope.launchNonCancellable { deleteChaptersBehindReader.deletePending() }
     }
 
-    private fun currentMargins() = ReaderMargins(
-        top = novelPreferences.readerMarginTop().get(),
-        bottom = novelPreferences.readerMarginBottom().get(),
-        left = novelPreferences.readerMarginLeft().get(),
-        right = novelPreferences.readerMarginRight().get(),
-    )
-
-    /** The one place the settings are assembled, so the seed and the live flow cannot disagree. */
-    private fun settingsOf(
-        display: DisplayPrefs,
-        theme: ThemePrefs,
-        keepScreenOn: Boolean,
-        orient: OrientationPrefs,
-        extra: ReaderExtraPrefs,
-    ) = NovelReaderSettings(
-        fontSize = display.type.fontSize,
-        lineHeight = display.type.lineHeight,
-        textAlign = display.type.textAlign,
-        margins = display.margins,
-        paragraphIndent = display.paragraphIndent,
-        paragraphSpacing = display.paragraphSpacing,
-        fontFamily = display.type.fontFamily,
-        followSystemTheme = theme.followSystem,
-        backgroundColor = theme.background,
-        textColor = theme.textColor,
-        keepScreenOn = keepScreenOn,
-        orientation = orient.override,
-        resolvedOrientation = orient.resolved,
-        ttsScrollToTop = extra.tts.scrollToTop,
-        ttsHighlight = extra.tts.highlight.enabled,
-        ttsHighlightStyle = extra.tts.highlight.style,
-        ttsHighlightColor = extra.tts.highlight.color,
-        ttsHighlightTextColor = extra.tts.highlight.textColor,
-        ttsKeepInView = extra.tts.highlight.keepInView,
-        bionicReading = extra.flags.bionicReading,
-        tapZones = extra.flags.tapZones,
-        swipeGestures = extra.flags.swipeGestures,
-        showProgressPercentage = extra.flags.showProgressPercentage,
-        railHeightPercent = extra.scroll.railHeight,
-        railOnLeft = extra.scroll.railOnLeft,
-        useRail = extra.scroll.useRail,
-        useVolumeButtons = extra.volume.enabled,
-        volumeButtonsInverted = extra.volume.inverted,
-        volumeButtonsFraction = extra.volume.fraction,
-        alwaysShowChapterTransition = extra.alwaysShowTransition,
-        webSnippets = extra.webSnippets,
-    )
-
-    private fun currentSettings(): NovelReaderSettings = with(novelPreferences) {
-        settingsOf(
-            DisplayPrefs(
-                TypePrefs(
-                    readerFontSize().get(),
-                    readerLineSpacing().get(),
-                    readerTextAlign().get(),
-                    readerFontFamily().get(),
-                ),
-                currentMargins(),
-                readerParagraphIndent().get(),
-                readerParagraphSpacing().get(),
-            ),
-            ThemePrefs(readerFollowSystemTheme().get(), readerBackgroundColor().get(), readerTextColor().get()),
-            readerKeepScreenOn().get(),
-            OrientationPrefs(orientationOverride.value, readerDefaultOrientation().get()),
-            ReaderExtraPrefs(
-                TtsPrefs(
-                    readerTtsScrollToTop().get(),
-                    TtsHighlightPrefs(
-                        readerTtsHighlight().get(),
-                        readerTtsHighlightStyle().get(),
-                        readerTtsHighlightColor().get(),
-                        readerTtsHighlightTextColor().get(),
-                        readerTtsKeepInView().get(),
-                    ),
-                ),
-                FlagPrefs(
-                    readerBionicReading().get(),
-                    NovelTapZones(readerTapLayout().get(), readerTapInvert().get(), readerTapBottomZoneHeight().get()),
-                    readerSwipeGestures().get(),
-                    readerShowProgressPercentage().get(),
-                ),
-                ScrollPrefs(
-                    readerRailHeight().get(),
-                    readerRailOnLeft().get(),
-                    readerUseRail().get(),
-                ),
-                VolumePrefs(
-                    readerUseVolumeButtons().get(),
-                    readerVolumeButtonsInverted().get(),
-                    readerVolumeButtonsFraction().get(),
-                ),
-                readerAlwaysShowChapterTransition().get(),
-                NovelWebSnippets.from(readerCssSnippets().get(), readerJsSnippets().get()),
-            ),
-        )
-    }
-
     /**
      * The chapter sheet's rows, in reading order, each showing the merge group's read, bookmarked and
      * on-disk state as the details list does. Cold, so the list is only built while the sheet is open,
@@ -1527,7 +1356,7 @@ class NovelReaderViewModel(
 
     /**
      * Enqueues the next N unread, un-downloaded chapters in reading order, the novel twin of manga's
-     * autoDownloadWhileReading, pinned to it by [chaptersToDownloadAhead]. Runs in incognito, which
+     * autoDownloadWhileReading, pinned by [chaptersToDownloadAhead]. Runs in incognito, which
      * keeps history out and not downloads, as in manga. Unlike manga it needs neither chapter on disk:
      * manga's gate keeps a streamed chapter's page loads from sharing the source with the download,
      * and a novel chapter is one request. Read fresh, so a chapter finished here is not queued again.
@@ -1564,54 +1393,6 @@ class NovelReaderViewModel(
 
     override fun onCleared() {
         readAloud.shutdown()
-    }
-
-    private data class TypePrefs(
-        val fontSize: Int,
-        val lineHeight: Float,
-        val textAlign: NovelTextAlign,
-        val fontFamily: String,
-    )
-    private data class DisplayPrefs(
-        val type: TypePrefs,
-        val margins: ReaderMargins,
-        val paragraphIndent: Float,
-        val paragraphSpacing: Float,
-    )
-    private data class ThemePrefs(val followSystem: Boolean, val background: String, val textColor: String)
-    private data class TtsPrefs(val scrollToTop: Boolean, val highlight: TtsHighlightPrefs)
-    private data class TtsHighlightPrefs(
-        val enabled: Boolean,
-        val style: TtsHighlightStyle,
-        val color: Int,
-        val textColor: Int,
-        val keepInView: Boolean,
-    )
-    private data class FlagPrefs(
-        val bionicReading: Boolean,
-        val tapZones: NovelTapZones,
-        val swipeGestures: Boolean,
-        val showProgressPercentage: Boolean,
-    )
-    private data class ScrollPrefs(
-        val railHeight: Int,
-        val railOnLeft: Boolean,
-        val useRail: Boolean,
-    )
-    private data class VolumePrefs(val enabled: Boolean, val inverted: Boolean, val fraction: Float)
-    private data class ReaderExtraPrefs(
-        val tts: TtsPrefs,
-        val flags: FlagPrefs,
-        val scroll: ScrollPrefs,
-        val volume: VolumePrefs,
-        val alwaysShowTransition: Boolean,
-        val webSnippets: NovelWebSnippets,
-    )
-
-    /** Per-novel orientation [override] + the global [default]; [resolved] is what the reader applies
-     *  (the override, or the default when the override is DEFAULT/unset). */
-    private data class OrientationPrefs(val override: Int, val default: Int) {
-        val resolved: Int get() = if (override == ReaderOrientation.DEFAULT.flagValue) default else override
     }
 }
 

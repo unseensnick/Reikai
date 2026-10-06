@@ -1,12 +1,11 @@
 package reikai.novel.content
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
+import reikai.util.snapshotOnChange
 
 /**
  * [TEXT_VIEW]: TextView renders scripts/styles as visible text, so they are always stripped.
@@ -55,15 +54,9 @@ data class NovelContentConfig(
             showRawHtml = preferences.readerShowRawHtml().get(),
         )
 
-        /**
-         * Emits when [from] would produce a different config. Compared as a snapshot rather than by
-         * counting emissions: `changes()` fires once on subscribe, and dropping a fixed number of those
-         * breaks silently the day a setting is added.
-         */
+        /** Emits when [from] would produce a different config. */
         fun changes(preferences: NovelPreferences): Flow<Unit> = inputs(preferences)
-            .merge()
-            .map { from(preferences, chapterUrl = null, chapterName = "") }
-            .distinctUntilChanged()
+            .snapshotOnChange { from(preferences, chapterUrl = null, chapterName = "") }
             .drop(1)
             .map { }
 
