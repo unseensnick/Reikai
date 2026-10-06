@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
+import reikai.data.notification.isHiddenAdult
 import reikai.domain.download.SeriesCompletions
 import reikai.domain.download.deletableDownloads
 import reikai.domain.download.downloadNetworkIssue
@@ -390,9 +391,12 @@ class NovelDownloadManager(
                 val novel = novelRepo.getById(next.novelId)
                 val chapter = chapterRepo.getById(next.chapterId)
                 val total = pendingTotal(done)
-                // Asked only while the adult switch is on, as manga's downloader asks, since the verdict can wait on the extension scan.
-                val isAdult = novel != null && securityPreferences.hideAdultNotificationContent.get() &&
-                    novel.id in adultChecker.adultNovelIdsAmong(listOf(novel))
+                val isAdult = isHiddenAdult(
+                    novel,
+                    securityPreferences.hideAdultNotificationContent.get(),
+                    Novel::id,
+                    adultChecker::adultNovelIdsAmong,
+                )
                 // Checked before the fetch, so a full disk costs no source request and no retries.
                 if (!hasRoomToDownload(provider.availableSpace())) {
                     val reason = context.stringResource(MR.strings.download_insufficient_space)

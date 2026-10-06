@@ -43,4 +43,24 @@ class ShownEntryNameTest {
         hiddenEntryIds(listOf(1L, 2L), hideAll = false, hideAdult = false, id = { it }) { error("asked") } shouldBe
             emptySet()
     }
+
+    @Test
+    fun `a download error does not ask which entries are adult while adult content is shown`() = runTest {
+        isHiddenAdult(1L, hideAdult = false, id = { it }) { error("asked") } shouldBe false
+    }
+
+    @Test
+    fun `a download error hides an adult entry while adult content is hidden`() = runTest {
+        isHiddenAdult(1L, hideAdult = true, id = { it }) { setOf(1L) } shouldBe true
+    }
+
+    @Test
+    fun `a download error still shows an entry that is not adult while adult content is hidden`() = runTest {
+        isHiddenAdult(1L, hideAdult = true, id = { it }) { emptySet() } shouldBe false
+    }
+
+    @Test
+    fun `a download error with no entry does not ask which entries are adult`() = runTest {
+        isHiddenAdult<Long>(null, hideAdult = true, id = { it }) { error("asked") } shouldBe false
+    }
 }

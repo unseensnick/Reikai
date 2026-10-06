@@ -26,6 +26,14 @@ suspend fun <T> hiddenEntryIds(
     return entries.map(id).filterTo(mutableSetOf()) { isEntryHidden(hideAll, hideAdult, it in adultIds) }
 }
 
+/** Whether the adult switch hides [entry], by [hiddenEntryIds]: a download names one entry at a time. */
+suspend fun <T : Any> isHiddenAdult(
+    entry: T?,
+    hideAdult: Boolean,
+    id: (T) -> Long,
+    adultIdsAmong: suspend (List<T>) -> Set<Long>,
+): Boolean = entry != null && hiddenEntryIds(listOf(entry), hideAll = false, hideAdult, id, adultIdsAmong).isNotEmpty()
+
 /**
  * A download error's title, null for the generic downloader title. "Hide notification content" is not
  * applied, as Mihon names the entry in its errors under it too. An adult entry hidden by the adult switch

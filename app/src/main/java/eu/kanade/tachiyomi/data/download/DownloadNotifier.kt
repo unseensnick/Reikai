@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
 import reikai.data.notification.downloadErrorTitle
 import reikai.data.notification.hiddenEntryIds
+import reikai.data.notification.isHiddenAdult
 import reikai.domain.manga.AdultContentChecker
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.manga.model.Manga
@@ -238,7 +239,7 @@ class DownloadNotifier(
     suspend fun onError(error: String? = null, chapter: String? = null, manga: Manga? = null) {
         // RK -->
         val hideAdult = preferences.hideAdultNotificationContent.get()
-        val isAdult = hideAdult && manga != null && manga.id in adultChecker.adultIdsAmong(listOf(manga))
+        val isAdult = isHiddenAdult(manga, hideAdult, Manga::id, adultChecker::adultIdsAmong)
         val title = downloadErrorTitle(manga?.title, chapter, hideAdult, isAdult)
         val mangaId = manga?.id
         // RK <--
