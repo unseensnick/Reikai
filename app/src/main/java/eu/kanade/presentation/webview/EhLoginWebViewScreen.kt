@@ -2,7 +2,6 @@ package eu.kanade.presentation.webview
 
 import android.webkit.CookieManager
 import android.webkit.WebView
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,7 +25,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.kevinnzou.web.AccompanistWebViewClient
-import com.kevinnzou.web.LoadingState
 import com.kevinnzou.web.WebContent
 import com.kevinnzou.web.WebView
 import com.kevinnzou.web.rememberWebViewNavigator
@@ -37,6 +33,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Close
+import reikai.presentation.webview.WebViewLoadingBar
 import reikai.util.isDebugInspectorBuild
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Button
@@ -70,27 +67,7 @@ fun EhLoginWebViewScreen(
                     navigateUp = onUp,
                     navigationIcon = MaterialSymbols.Rounded.Close,
                 )
-                when (val loadingState = state.loadingState) {
-                    is LoadingState.Initializing -> LinearProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.BottomCenter),
-                    )
-                    is LoadingState.Loading -> {
-                        val animatedProgress by animateFloatAsState(
-                            loadingState.progress,
-                            animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
-                            label = "webview_loading",
-                        )
-                        LinearProgressIndicator(
-                            progress = { animatedProgress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.BottomCenter),
-                        )
-                    }
-                    else -> {}
-                }
+                WebViewLoadingBar(state.loadingState)
             }
         },
     ) { contentPadding ->
