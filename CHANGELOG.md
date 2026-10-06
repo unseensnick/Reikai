@@ -235,6 +235,7 @@ agent under Settings -> Advanced.
 - **Refreshing a manga no longer blanks its author, artist, description or status when its source sends none.**
 - **Removing a novel from the library on its page now offers to delete its downloaded chapters, as manga does.** Removing a novel from anywhere also clears its saved cover, a custom one included.
 - **A novel's page now warns when its plugin is uninstalled, names the plugin as it was last seen and hides downloads, as a manga's page does for a missing extension.**
+- **Turning incognito off now closes a novel's page opened from a source, as it already did a manga's.**
 - **When two manga chapters share a number, upload date or name, Resume, Continue reading and Download next now pick the one the reader opens next.**
 - **The full-screen cover viewer, Save and Share now use the cover URL you set in Edit info.**
 - **Reset all in Edit info now also clears a cover you set by hand, on manga and novels.**

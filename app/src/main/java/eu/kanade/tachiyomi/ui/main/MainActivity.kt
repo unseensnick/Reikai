@@ -73,7 +73,6 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.more.NewUpdateScreen
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
@@ -100,6 +99,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownloadCache
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
+import reikai.presentation.browse.closesWhenIncognitoEnds
 import reikai.presentation.browse.globalsearch.searchIntentScreen
 import reikai.presentation.browse.repos.RepositoriesScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
@@ -255,10 +255,8 @@ class MainActivity : BaseActivity() {
                         .drop(1)
                         .filter { !it }
                         .onEach {
-                            val currentScreen = navigator.lastItem
-                            if (currentScreen is EntryCatalogueScreen || // RK: shared catalogue
-                                (currentScreen is MangaScreen && currentScreen.fromSource)
-                            ) {
+                            // RK: one rule for the catalogue and both details pages
+                            if (navigator.lastItem.closesWhenIncognitoEnds()) {
                                 navigator.popUntilRoot()
                             }
                         }

@@ -73,8 +73,8 @@ class NovelScreen(
     val novelUrl: String,
     // The cover a listing showed, which stands in for a placeholder the details page gives.
     private val listingCover: String? = null,
-    // Opened from a source listing, which starts the synopsis expanded as manga's isFromSource does.
-    private val fromSource: Boolean = false,
+    // Opened from a source listing: starts the synopsis expanded, and closes when incognito ends.
+    val fromSource: Boolean = false,
 ) : Screen(), AssistContentScreen {
 
     private var assistUrl: String? = null
