@@ -41,6 +41,6 @@ sealed interface LibraryDialog {
     data class Settings(
         val contentType: ContentType,
         val categoryId: Long?,
-        val initialTab: Int,
+        val initialTab: LibrarySettingsTab,
     ) : LibraryDialog
 }

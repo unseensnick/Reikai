@@ -15,26 +15,12 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 
 /**
- * Reikai's category and hopper settings, rendered under the Display tab by [EntryDisplayPage]. They are
- * library-wide rather than per-content-type, which is why they hang off the shared display model rather
- * than off a [LibrarySettingsBinding].
+ * Reikai's category and hopper settings, under a "Categories" heading at the bottom of the Display tab
+ * ([EntryDisplayPage]). They are library-wide rather than per-content-type, which is why they hang off
+ * the shared display model rather than off a [LibrarySettingsBinding].
  *
  * Follows Mihon's settings idiom (preferences read in the composable via `collectAsState`), consistent
  * with the rest of the settings sheet.
- */
-
-private val hopperLongPressActions = listOf(
-    MR.strings.hopper_action_search to 0,
-    MR.strings.hopper_action_expand_collapse to 1,
-    MR.strings.hopper_action_display to 2,
-    MR.strings.hopper_action_group to 3,
-    MR.strings.hopper_action_random to 4,
-    MR.strings.hopper_action_random_global to 5,
-)
-
-/**
- * The wired Reikai category/hopper settings, rendered under a "Categories" heading at the bottom
- * of the Display tab.
  */
 @Composable
 fun ColumnScope.ReikaiCategoriesPage(viewModel: LibrarySettingsViewModel) {
@@ -71,11 +57,11 @@ fun ColumnScope.ReikaiCategoriesPage(viewModel: LibrarySettingsViewModel) {
     )
     val hopperLongPress by viewModel.reikaiLibraryPreferences.hopperLongPressAction.collectAsState()
     SettingsChipRow(MR.strings.hopper_long_press) {
-        hopperLongPressActions.forEach { (labelRes, value) ->
+        HopperLongPressAction.entries.forEach { action ->
             FilterChip(
-                selected = hopperLongPress == value,
-                onClick = { viewModel.setHopperLongPressAction(value) },
-                label = { Text(stringResource(labelRes)) },
+                selected = hopperLongPress == action.code,
+                onClick = { viewModel.setHopperLongPressAction(action) },
+                label = { Text(stringResource(action.labelRes)) },
             )
         }
     }

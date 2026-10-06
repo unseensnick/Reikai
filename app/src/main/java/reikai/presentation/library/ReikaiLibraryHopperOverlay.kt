@@ -20,8 +20,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * The hopper over both library views, and the jump-to-category picker it opens. The jump itself
- * stays with the caller, which owns the pager and the single list it scrolls. The long-press
- * values are the ones `hopperLongPressActions` in ReikaiLibrarySettings.kt offers.
+ * stays with the caller, which owns the pager and the single list it scrolls.
  */
 @Composable
 fun BoxScope.ReikaiLibraryHopperOverlay(
@@ -37,7 +36,7 @@ fun BoxScope.ReikaiLibraryHopperOverlay(
     onGravityChange: (Int) -> Unit,
     onSearch: () -> Unit,
     onToggleAllCollapsed: () -> Unit,
-    onOpenSettings: (initialTab: Int) -> Unit,
+    onOpenSettings: (initialTab: LibrarySettingsTab) -> Unit,
     onOpenRandom: (inCurrentCategory: Boolean) -> Unit,
 ) {
     var pickerOpen by remember { mutableStateOf(false) }
@@ -84,12 +83,13 @@ fun BoxScope.ReikaiLibraryHopperOverlay(
                 onCenterClick = { pickerOpen = true },
                 onCenterLongClick = {
                     when (settings.hopperLongPressAction) {
-                        0 -> onSearch()
-                        1 -> onToggleAllCollapsed()
-                        2 -> onOpenSettings(2)
-                        3 -> onOpenSettings(3)
-                        4 -> onOpenRandom(true)
-                        5 -> onOpenRandom(false)
+                        HopperLongPressAction.SEARCH -> onSearch()
+                        HopperLongPressAction.EXPAND_COLLAPSE -> onToggleAllCollapsed()
+                        HopperLongPressAction.DISPLAY -> onOpenSettings(LibrarySettingsTab.DISPLAY)
+                        HopperLongPressAction.GROUP -> onOpenSettings(LibrarySettingsTab.GROUP)
+                        HopperLongPressAction.RANDOM -> onOpenRandom(true)
+                        HopperLongPressAction.RANDOM_GLOBAL -> onOpenRandom(false)
+                        null -> Unit
                     }
                 },
                 onDownClick = { onJumpBy(1) },

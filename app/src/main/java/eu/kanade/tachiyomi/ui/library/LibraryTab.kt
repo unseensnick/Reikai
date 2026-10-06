@@ -75,6 +75,7 @@ import reikai.presentation.library.LibraryDialog
 import reikai.presentation.library.LibraryEngine
 import reikai.presentation.library.LibraryScreenState
 import reikai.presentation.library.LibrarySettingsSheet
+import reikai.presentation.library.LibrarySettingsTab
 import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.ReikaiLibraryHopperOverlay
 import reikai.presentation.library.novels.NovelLibraryViewModel
@@ -431,7 +432,7 @@ data object LibraryTab : Tab {
                             // RK: the toolbar sort is GLOBAL (Model A); a null category scopes the sheet to
                             // the global sort, not a stale active category. Per-category overrides are set
                             // from each category header's sort in the single-list view.
-                            engine.openSettingsDialog(libraryContentType, categoryId = null, initialTab = 0)
+                            engine.openSettingsDialog(libraryContentType, categoryId = null, LibrarySettingsTab.FILTER)
                         },
                         onClickRefresh = { onClickRefresh(currentRealCategory()) },
                         onClickGlobalUpdate = { onClickRefresh(null) },
@@ -641,7 +642,7 @@ data object LibraryTab : Tab {
                                 onRefresh = { onClickRefresh(null) },
                                 // RK: per-category header sort (Sort tab scoped to it), refresh, select-all
                                 onClickCategorySort = { category ->
-                                    engine.openSettingsDialog(libraryContentType, category.id, initialTab = 1)
+                                    engine.openSettingsDialog(libraryContentType, category.id, LibrarySettingsTab.SORT)
                                 },
                                 onRefreshCategory = { category -> onClickRefresh(category) },
                                 onSelectAllInCategory = { bucket -> engine.selectAllInCategory(entriesOf(bucket)) },

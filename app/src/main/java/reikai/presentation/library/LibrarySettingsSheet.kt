@@ -1,25 +1,16 @@
 package reikai.presentation.library
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
@@ -34,7 +25,7 @@ import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSortItem
 import tachiyomi.presentation.core.components.HeadingItem
-import tachiyomi.presentation.core.components.SettingsItemsPaddings
+import tachiyomi.presentation.core.components.RadioItem
 import tachiyomi.presentation.core.components.SortItem
 import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.i18n.stringResource
@@ -52,32 +43,28 @@ fun LibrarySettingsSheet(
     settings: LibrarySettingsBinding,
     settingsViewModel: LibrarySettingsViewModel,
     categoryId: Long?,
-    initialTab: Int,
+    initialTab: LibrarySettingsTab,
     onManageCategories: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
-    val tabTitles = listOf(
-        stringResource(MR.strings.action_filter),
-        stringResource(MR.strings.action_sort),
-        stringResource(MR.strings.action_display),
-        stringResource(MR.strings.group),
-    )
+    val tabs = LibrarySettingsTab.entries
     TabbedDialog(
         onDismissRequest = onDismissRequest,
         // The hopper's settings actions and a category header can request a tab directly.
-        pagerState = rememberPagerState(initialPage = initialTab.coerceIn(0, tabTitles.lastIndex)) { tabTitles.size },
-        tabTitles = tabTitles,
+        pagerState = rememberPagerState(initialPage = initialTab.ordinal) { tabs.size },
+        tabTitles = tabs.map { stringResource(it.titleRes) },
     ) { page ->
         Column(
             modifier = Modifier
                 .padding(vertical = TabbedDialogPaddings.Vertical)
                 .verticalScroll(rememberScrollState()),
         ) {
-            when (page) {
-                0 -> FilterPage(settings, settingsViewModel, onManageCategories)
-                1 -> SortPage(settings, settingsViewModel, categoryId)
-                2 -> EntryDisplayPage(viewModel = settingsViewModel, showLocalBadge = settings.showLocalBadge)
-                3 -> GroupPage(settings)
+            when (tabs[page]) {
+                LibrarySettingsTab.FILTER -> FilterPage(settings, settingsViewModel, onManageCategories)
+                LibrarySettingsTab.SORT -> SortPage(settings, settingsViewModel, categoryId)
+                LibrarySettingsTab.DISPLAY ->
+                    EntryDisplayPage(viewModel = settingsViewModel, showLocalBadge = settings.showLocalBadge)
+                LibrarySettingsTab.GROUP -> GroupPage(settings)
             }
         }
     }
@@ -220,19 +207,10 @@ private fun ColumnScope.GroupPage(settings: LibrarySettingsBinding) {
     val groupMode = settings.groupMode
     val groupBy by groupMode.collectAsState()
     groupModes.forEach { (mode, labelRes) ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { groupMode.set(mode) }
-                .padding(
-                    horizontal = SettingsItemsPaddings.Horizontal,
-                    vertical = SettingsItemsPaddings.Vertical,
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            RadioButton(selected = groupBy == mode, onClick = null)
-            Text(text = stringResource(labelRes), style = MaterialTheme.typography.bodyMedium)
-        }
+        RadioItem(
+            label = stringResource(labelRes),
+            selected = groupBy == mode,
+            onClick = { groupMode.set(mode) },
+        )
     }
 }

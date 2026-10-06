@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.presentation.library.HopperLongPressAction
 import tachiyomi.domain.category.interactor.SetDisplayMode
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -50,9 +51,8 @@ class LibrarySettingsViewModel(
         reikaiLibraryPreferences.categorySortOrder.set(value)
     }
 
-    /** Hopper long-press action (0 search .. 5 random-global; see ReikaiLibrarySettings). */
-    fun setHopperLongPressAction(value: Int) {
-        reikaiLibraryPreferences.hopperLongPressAction.set(value)
+    fun setHopperLongPressAction(action: HopperLongPressAction) {
+        reikaiLibraryPreferences.hopperLongPressAction.set(action.code)
     }
     // RK <--
 }

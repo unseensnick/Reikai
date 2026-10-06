@@ -595,7 +595,11 @@ class LibraryEngine(
     }
 
     /** Opens the sheet for the view; [settingsFor] answers every chip since the filter unification. */
-    fun openSettingsDialog(contentType: ContentType, categoryId: Long? = null, initialTab: Int = 0) {
+    fun openSettingsDialog(
+        contentType: ContentType,
+        categoryId: Long? = null,
+        initialTab: LibrarySettingsTab = LibrarySettingsTab.FILTER,
+    ) {
         mutableDialog.value = LibraryDialog.Settings(contentType, categoryId, initialTab)
     }
 

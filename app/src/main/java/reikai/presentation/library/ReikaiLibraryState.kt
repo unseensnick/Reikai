@@ -23,7 +23,7 @@ data class ReikaiLibraryState(
     val hideHopper: Boolean = false,
     val autohideHopper: Boolean = true,
     val hopperGravity: Int = 1,
-    val hopperLongPressAction: Int = 0,
+    val hopperLongPressAction: HopperLongPressAction? = HopperLongPressAction.SEARCH,
     val trackUpdateErrors: Boolean = false,
     val trackNovelUpdateErrors: Boolean = false,
     /** Gates the bulk Merge action: with grouping off the write is refused, so offering it is a dead tap. */
@@ -65,7 +65,7 @@ fun ReikaiLibraryPreferences.libraryStateFlow(): Flow<ReikaiLibraryState> = comb
         hideHopper = it[4] as Boolean,
         autohideHopper = it[5] as Boolean,
         hopperGravity = it[6] as Int,
-        hopperLongPressAction = it[7] as Int,
+        hopperLongPressAction = HopperLongPressAction.fromCode(it[7] as Int),
         trackUpdateErrors = it[8] as Boolean,
         trackNovelUpdateErrors = it[9] as Boolean,
         seriesMergingEnabled = it[10] as Boolean,
