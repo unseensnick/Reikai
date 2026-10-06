@@ -1,9 +1,17 @@
 package reikai.presentation.browse
 
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
 import reikai.domain.source.SourceKey
@@ -36,12 +44,50 @@ class EntryRowFillTest {
     }
 
     @Test
-    fun `a failure keeps the reason it gave`() = runTest {
+    fun `a failure keeps what was thrown, for the screen to word`() = runTest {
+        // Kept whole rather than as its message: an offline error arrives wrapped, and only the
+        // shared formatter knows to read the cause underneath.
         val rows = MutableStateFlow(listOf(row("bad")))
+        val thrown = IllegalStateException("source refused")
 
-        fill(rows) { error("source refused") }
+        fill(rows) { throw thrown }
 
-        (rows.value.single().state as EntrySearchState.Error).message shouldBe "source refused"
+        (rows.value.single().state as EntrySearchState.Error).error shouldBeSameInstanceAs thrown
+    }
+
+    @Test
+    fun `a result that lands after its pass was cancelled is dropped`() = runTest {
+        // Past its last cancellation point when the pass is cancelled, so only the check after the
+        // load keeps it off whatever replaced the pass.
+        val answers = CompletableDeferred<Unit>()
+        val landed = mutableListOf<String>()
+        val pass = launch {
+            fanOutPerSource(
+                items = listOf("a"),
+                permits = { Semaphore(1) },
+                load = { withContext(NonCancellable) { answers.await() } },
+            ) { item, _ -> landed += item }
+        }
+        runCurrent()
+
+        pass.cancel()
+        answers.complete(Unit)
+        advanceUntilIdle()
+
+        landed shouldBe emptyList()
+    }
+
+    @Test
+    fun `one item throwing costs only its own result`() = runTest {
+        val landed = mutableMapOf<String, Boolean>()
+
+        fanOutPerSource(
+            items = listOf("a", "bad", "c"),
+            permits = { Semaphore(SOURCE_SEARCH_CONCURRENCY) },
+            load = { if (it == "bad") error("no") else it },
+        ) { item, result -> landed[item] = result.isSuccess }
+
+        landed shouldBe mapOf("a" to true, "bad" to false, "c" to true)
     }
 
     @Test
@@ -103,7 +149,7 @@ class EntryRowFillTest {
     private suspend fun fill(
         rows: MutableStateFlow<List<BrowseSearchRow>>,
         order: Comparator<BrowseSearchRow>? = null,
-        concurrency: Int = ENTRY_ROW_CONCURRENCY,
+        concurrency: Int = SOURCE_SEARCH_CONCURRENCY,
         load: suspend (BrowseSearchRow) -> List<String>,
     ) = fillEntryRows(
         rows = rows.value,

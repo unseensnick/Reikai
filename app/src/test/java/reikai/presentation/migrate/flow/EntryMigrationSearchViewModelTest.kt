@@ -4,12 +4,14 @@ import eu.kanade.domain.source.service.SourcePreferences
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -64,6 +66,28 @@ class EntryMigrationSearchViewModelTest {
         advanceUntilIdle()
 
         adapter.candidateQueries.last() shouldBe "another title vol 2"
+    }
+
+    @Test
+    fun `a superseded search never lands on the search that replaced it`() = runTest(dispatcher.scheduler) {
+        // The opening search is already past its last cancellation point when the re-search starts,
+        // so only the check after the search can keep its result off the new strips.
+        val openingAnswers = CompletableDeferred<Unit>()
+        val adapter = FakeMigrationFlowAdapter(
+            listOf(migrationEntry(1)),
+            beforeCandidates = { query ->
+                if (query == "Entry 1") withContext(NonCancellable) { openingAnswers.await() } else awaitCancellation()
+            },
+        )
+        val model = model(adapter)
+        advanceUntilIdle()
+
+        model.search("another title")
+        advanceUntilIdle()
+        openingAnswers.complete(Unit)
+        advanceUntilIdle()
+
+        model.state.value.sections.map { it.result } shouldBe listOf(StripResult.Loading)
     }
 
     @Test

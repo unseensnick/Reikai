@@ -1,6 +1,8 @@
 package reikai.presentation.migrate.flow
 
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.novel.source.NovelExtensionFormat
@@ -22,9 +24,22 @@ class MigrationSourceSearchTest {
     @Test
     fun `a landed result fills only its own source's strip`() {
         val strips = listOf(source("a").loadingStrip(), source("b").loadingStrip())
+        val down = StripResult.Failed(IllegalStateException("down"))
 
-        strips.withResult("b", StripResult.Failed("down")).map { it.result } shouldBe
-            listOf(StripResult.Loading, StripResult.Failed("down"))
+        strips.withResult("b", down).map { it.result } shouldBe listOf(StripResult.Loading, down)
+    }
+
+    @Test
+    fun `a source that throws fills its strip with what it threw`() = runTest {
+        val thrown = IllegalStateException("unreachable")
+        val adapter = FakeMigrationFlowAdapter(listOf(migrationEntry(1)), beforeCandidates = { throw thrown })
+        val landed = mutableListOf<StripResult>()
+
+        adapter.fanOutCandidates(migrationEntry(1), "q", listOf(source("target")), Semaphore(1)) { _, result ->
+            landed += result
+        }
+
+        (landed.single() as StripResult.Failed).error shouldBeSameInstanceAs thrown
     }
 
     @Test

@@ -15,7 +15,8 @@ sealed interface EntrySearchState {
     /** Finished; an empty [entries] means the source matched nothing. */
     data class Success(val entries: List<EntryBrowseRow>) : EntrySearchState
 
-    data class Error(val message: String?) : EntrySearchState
+    /** Kept whole and worded at render, where the shared formatter can read an offline cause. */
+    data class Error(val error: Throwable) : EntrySearchState
 
     /**
      * The source behind the row is not there: uninstalled, or a plugin that would not load. Distinct

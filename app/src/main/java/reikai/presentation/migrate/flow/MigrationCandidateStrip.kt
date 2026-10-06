@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
+import eu.kanade.presentation.util.formattedMessage
 import reikai.presentation.browse.EntryBrowseItemUi
 import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
@@ -34,10 +35,11 @@ internal fun MigrationCandidateStrip(
     isCurrentSource: Boolean = false,
 ) {
     val result = strip.result
+    val context = LocalContext.current
     EntrySearchSection(
         title = if (isCurrentSource) "▶ ${strip.sourceName}" else strip.sourceName,
         subtitle = sourceDetail(
-            language = sourceLanguageName(strip.sourceLang, LocalContext.current),
+            language = sourceLanguageName(strip.sourceLang, context),
             format = formatLabel(strip.sourceFormat, showsFormat),
         ).orEmpty(),
         onClick = onBrowseSource,
@@ -46,7 +48,8 @@ internal fun MigrationCandidateStrip(
         when (result) {
             is StripResult.Loading -> GlobalSearchLoadingResultItem()
             // A source that threw says so; "no results" would be a different, wrong answer.
-            is StripResult.Failed -> GlobalSearchErrorResultItem(message = result.error)
+            is StripResult.Failed ->
+                GlobalSearchErrorResultItem(message = with(context) { result.error.formattedMessage })
             // The same row global search renders, so a candidate reads here exactly as it does
             // there: in-library entries dimmed and badged, and still pickable, since migrating onto
             // a library entry is the replace case rather than a mistake.

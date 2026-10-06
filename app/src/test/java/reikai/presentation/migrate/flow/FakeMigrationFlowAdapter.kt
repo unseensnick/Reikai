@@ -34,6 +34,8 @@ class FakeMigrationFlowAdapter(
     private val storedIds: Set<Long> = emptySet(),
     /** What resolving a candidate answers: by default the candidate as it stands, freshly synced. */
     private val onResolve: suspend (MigrationCandidate) -> ResolvedTarget? = { ResolvedTarget(it, syncedNow = true) },
+    /** Runs before a manual search answers, so a test can hold one back or make it throw. */
+    private val beforeCandidates: suspend (query: String) -> Unit = {},
 ) : MigrationFlowAdapter {
     val migrated = mutableListOf<EntryId>()
     val blocked = CompletableDeferred<Unit>()
@@ -71,6 +73,7 @@ class FakeMigrationFlowAdapter(
 
     override suspend fun candidates(entry: MigrationEntry, query: String, sourceKey: String): List<MigrationCandidate> {
         candidateQueries += query
+        beforeCandidates(query)
         return listOf(candidateFor(entry))
     }
 

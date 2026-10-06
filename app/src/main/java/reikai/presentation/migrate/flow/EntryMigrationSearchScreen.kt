@@ -47,6 +47,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.EntrySearchSourceFilterChips
+import reikai.presentation.browse.SOURCE_SEARCH_CONCURRENCY
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -268,9 +269,8 @@ class EntryMigrationSearchViewModel(
     }
 
     /**
-     * Search every chosen source for [query]. A new search supersedes the one before it, and the
-     * per-source writes check they still belong to the current search, since cancelling cannot stop
-     * a coroutine that is already past its last suspension point.
+     * Search every chosen source for [query]. A new search cancels the one before it, whose late
+     * results [fanOutCandidates] then drops.
      */
     fun search(query: String) {
         val entry = state.value.entry ?: return
@@ -278,7 +278,6 @@ class EntryMigrationSearchViewModel(
         val fullQuery = query.withExtraQuery(extraQuery)
         searchJob?.cancel()
         searchJob = viewModelScope.launch(io) {
-            val myJob = coroutineContext[Job]
             val sources = adapter.sourcesFor()
             state.update { it.copy(sections = sources.map { source -> source.loadingStrip() }) }
             adapter.fanOutCandidates(
@@ -286,7 +285,6 @@ class EntryMigrationSearchViewModel(
                 query = fullQuery,
                 sources = sources,
                 permits = permits,
-                isCurrent = { searchJob === myJob },
             ) { sourceKey, landed ->
                 state.update { it.copy(sections = it.sections.withResult(sourceKey, landed)) }
             }

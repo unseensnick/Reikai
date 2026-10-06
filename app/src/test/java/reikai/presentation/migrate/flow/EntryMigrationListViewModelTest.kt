@@ -5,12 +5,16 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -111,6 +115,37 @@ class EntryMigrationListViewModelTest {
         overrides.shouldBeInstanceOf<MigratingEntryRow.OverrideState.Strips>()
         overrides.strips.map { it.result } shouldBe listOf(StripResult.Loading)
     }
+
+    @Test
+    fun `a superseded override search never lands on the search that replaced it`() =
+        runTest(dispatcher.scheduler) {
+            // The first search is already past its last cancellation point when the second starts,
+            // so only the check after the search can keep its result off the new strips.
+            val firstAnswers = CompletableDeferred<Unit>()
+            val adapter = FakeMigrationFlowAdapter(
+                listOf(entry(1)),
+                beforeCandidates = { query ->
+                    if (query == "first") withContext(NonCancellable) { firstAnswers.await() } else awaitCancellation()
+                },
+            )
+            val model = EntryMigrationListViewModel(
+                entryIds = listOf(1L),
+                adapter = adapter,
+                pickHandoff = MigrationPickHandoff(),
+                io = dispatcher,
+            )
+            advanceUntilIdle()
+            model.searchOverrides(EntryId.Manga(1), "first")
+            advanceUntilIdle()
+
+            model.searchOverrides(EntryId.Manga(1), "second")
+            firstAnswers.complete(Unit)
+            advanceUntilIdle()
+
+            val overrides = model.state.value.rows.single().overrides.value
+            overrides.shouldBeInstanceOf<MigratingEntryRow.OverrideState.Strips>()
+            overrides.strips.map { it.result } shouldBe listOf(StripResult.Loading)
+        }
 
     @Test
     fun `a picked target with no chapters is refused`() = runTest(dispatcher.scheduler) {

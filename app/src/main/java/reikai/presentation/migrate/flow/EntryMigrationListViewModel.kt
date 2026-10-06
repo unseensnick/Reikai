@@ -28,6 +28,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
 import reikai.domain.entry.EntryId
+import reikai.presentation.browse.SOURCE_SEARCH_CONCURRENCY
 import reikai.presentation.migrate.flow.MigratingEntryRow.Acceptance
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
@@ -343,16 +344,15 @@ class EntryMigrationListViewModel(
      * Search every configured source for [query] and fill the row's override strips. These run off
      * the batch driver on their own bound, so opening a row answers immediately.
      *
-     * A re-search cancels its predecessor and each write checks its generation, since cancellation
-     * cannot stop a coroutine past its last suspension point. Everything up to the search runs on
-     * the caller's thread, so the strips are on screen before any source is asked.
+     * A re-search cancels its predecessor, whose late results [fanOutCandidates] then drops.
+     * Everything up to the search runs on the caller's thread, so the strips are on screen before
+     * any source is asked.
      */
     fun searchOverrides(id: EntryId, query: String) {
         if (query.isBlank()) return
         val row = rows.firstOrNull { it.entry.id == id } ?: return
         val fullQuery = query.withExtraQuery(state.value.tuning.extraQuery)
         val sources = cachedSources
-        val generation = ++row.overrideGeneration
 
         row.overrideJob?.cancel()
         // Seeded before the launch, not inside it: publishing the strips from the search coroutine
@@ -364,7 +364,6 @@ class EntryMigrationListViewModel(
                 query = fullQuery,
                 sources = sources,
                 permits = interactiveSearches,
-                isCurrent = { row.overrideGeneration == generation },
             ) { sourceKey, landed ->
                 row.overrides.update { current ->
                     val open = current as? MigratingEntryRow.OverrideState.Strips ?: return@update current

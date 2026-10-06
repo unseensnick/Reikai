@@ -50,7 +50,7 @@ class ListedEntriesTest {
     fun `a row that has not answered contributes nothing`() {
         val rows = listOf(
             row(SourceKey.Manga(1L), EntrySearchState.Loading),
-            row(SourceKey.Manga(2L), EntrySearchState.Error("nope")),
+            row(SourceKey.Manga(2L), EntrySearchState.Error(IllegalStateException("nope"))),
             row(SourceKey.Novel("gone"), EntrySearchState.Unavailable),
         )
 

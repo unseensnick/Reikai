@@ -71,5 +71,5 @@ class SearchRowOrderTest {
     private fun loading(name: String) = row(name, hits = 0).copy(state = EntrySearchState.Loading)
 
     private fun errored(name: String) =
-        row(name, hits = 0).copy(state = EntrySearchState.Error("boom"))
+        row(name, hits = 0).copy(state = EntrySearchState.Error(IllegalStateException("boom")))
 }

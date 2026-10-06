@@ -426,7 +426,7 @@ agent under Settings -> Advanced.
 - **Some extensions no longer crash the app while searching or browsing (from Mihon).** Upstream: mihonapp/mihon#4027.
 - **Global search no longer crashes on a result a source lists twice, leaves a finished source spinning, or searches fewer sources when run just after the app opens.**
 - **Manga sources that work out their pages with JavaScript now show those pages again, where some chapters opened empty or failed to load.**
-- **Browsing a source or opening a series while offline now says "No Internet connection" instead of a raw host error, on manga and novels.** The manga reader's failed pages say it too.
+- **Browsing a source, searching in Global search, the feed or a migration, or opening a series while offline now says "No Internet connection" instead of a raw host error, on manga and novels.** The manga reader's failed pages say it too.
 - **Adding a manga that is already in your library, from global search, the feed or a browse list, no longer resets its date added or chapter settings.**
 - **A manga added from Browse, global search or the feed, and any entry added from a recommendations list, batch add, a shared link or a follows sync, now takes your default chapter settings (partly from Mihon).** The last three also file it in your default category, and re-adding one keeps its date added.
 - **The Browse sources filter now covers manga and light novels from any chip, with a Manga / Novels switch between the two halves.**
