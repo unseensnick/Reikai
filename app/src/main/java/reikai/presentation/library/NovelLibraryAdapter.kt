@@ -25,7 +25,6 @@ import reikai.domain.merge.groupedSourceIdsOf
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.novels.NovelLibraryViewModel
-import reikai.presentation.library.novels.novelDynamicGroupingFeed
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import kotlin.time.Duration.Companion.seconds
@@ -102,13 +101,15 @@ class NovelLibraryAdapter(
 
     override suspend fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed {
         val state = model.state.value
-        return novelDynamicGroupingFeed(
-            items = state.favorites,
-            novelById = state.novelById,
-            tracksByRep = state.tracksByRep,
-            loggedInTrackerIds = trackerManager.loggedInTrackers().mapTo(mutableSetOf()) { it.id },
+        return libraryDynamicGroupingFeed(
+            rows = state.favorites,
             groupType = groupType,
-            sourceManager = novelSourceManager,
+            // The slug is the encoded disambiguator; the name is the label.
+            sourceOf = { row ->
+                state.novelById[row.id]?.novel?.source?.let { novelSourceManager.nameOf(it) to it }
+            },
+            groupTracks = { row -> state.tracksByRep[row.id].orEmpty() },
+            loggedInTrackerIds = trackerManager.loggedInTrackers().mapTo(mutableSetOf()) { it.id },
             trackerManager = trackerManager,
             context = context,
         )

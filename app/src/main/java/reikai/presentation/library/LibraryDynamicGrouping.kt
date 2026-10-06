@@ -1,7 +1,13 @@
 package reikai.presentation.library
 
+import android.content.Context
+import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId
 import reikai.domain.library.CategorySortOrder
+import reikai.presentation.components.entryStatusRes
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.domain.track.model.Track
 
 /**
  * Minimal per-item view the dynamic grouping needs, decoupled from the manga / novel domain types so
@@ -19,8 +25,8 @@ data class DynItem(
 /**
  * One provider's pre-resolved inputs for [LibraryDynamicGrouping.build], keyed by the neutral
  * [EntryId] like the kernel: raw row ids collide across content types, and every map below is
- * id-keyed. Each provider resolves its own metadata (different source managers, different track
- * tables); the engine concatenates the active feeds and runs the kernel once, so the under-All merge
+ * id-keyed. Each provider builds one through [libraryDynamicGroupingFeed]; the engine concatenates
+ * the active feeds and runs the kernel once, so the under-All merge
  * and the group ordering come from the kernel's existing logic rather than a hand-written list merge.
  */
 class DynamicGroupingFeed(
@@ -31,15 +37,64 @@ class DynamicGroupingFeed(
     val trackStatuses: Map<EntryId, String> = emptyMap(),
 )
 
+/**
+ * Resolve one content type's rows into a [DynamicGroupingFeed]. Every group mode reads the shared row,
+ * so it means the same for manga and novels; the source label and a merged row's tracks are the two
+ * lookups a row cannot answer, which each adapter supplies.
+ */
+@Suppress("LongParameterList")
+suspend fun libraryDynamicGroupingFeed(
+    rows: List<LibraryItem>,
+    groupType: Int,
+    sourceOf: suspend (LibraryItem) -> Pair<String, String>?,
+    groupTracks: (LibraryItem) -> List<Track>,
+    loggedInTrackerIds: Set<Long>,
+    trackerManager: TrackerManager,
+    context: Context,
+): DynamicGroupingFeed = DynamicGroupingFeed(
+    items = rows.map { row ->
+        val manga = row.libraryManga.manga
+        DynItem(row.entryId, manga.genre, manga.author, manga.artist)
+    },
+    sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
+        rows.mapNotNull { row -> sourceOf(row)?.let { row.entryId to it } }.toMap()
+    } else {
+        emptyMap()
+    },
+    languageCodes = if (groupType == LibraryGroup.BY_LANGUAGE) {
+        rows.associate { it.entryId to it.sourceLanguage }
+    } else {
+        emptyMap()
+    },
+    statusNames = if (groupType == LibraryGroup.BY_STATUS) {
+        rows.associate { it.entryId to context.stringResource(entryStatusRes(it.libraryManga.manga.status)) }
+    } else {
+        emptyMap()
+    },
+    trackStatuses = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
+        rows.mapNotNull { row ->
+            groupTrackStatus(groupTracks(row), loggedInTrackerIds, trackerManager)
+                ?.let { row.entryId to context.stringResource(it) }
+        }.toMap()
+    } else {
+        emptyMap()
+    },
+)
+
+private const val LANG_SPLITTER = "⨼⨦⨠"
+
 private val SEPARATOR_RUN = Regex("[-_\\s]+")
 
 /**
  * Normalized form of a dynamic bucket's key, matching the spelling-merge rule below (case-folded,
  * separator runs unified). This is what [LibraryBucket.Dynamic.key] holds and what is persisted in
  * `collapsed_dynamic_categories`. Stored keys may predate normalization, so membership checks
- * normalize both sides.
+ * normalize both sides. A language key drops its label, which follows the device's language data,
+ * so a relabelled language keeps its stored collapse state.
  */
-fun normalizeDynamicKey(name: String): String = name.lowercase().replace(SEPARATOR_RUN, " ").trim()
+fun normalizeDynamicKey(name: String): String =
+    (if (LANG_SPLITTER in name) name.substringBefore(LANG_SPLITTER) + LANG_SPLITTER else name)
+        .lowercase().replace(SEPARATOR_RUN, " ").trim()
 
 /**
  * Buckets library items into synthetic groups: by source, language, tag, author, status or tracking
@@ -52,7 +107,6 @@ fun normalizeDynamicKey(name: String): String = name.lowercase().replace(SEPARAT
 object LibraryDynamicGrouping {
 
     private const val SOURCE_SPLITTER = "◘•◘"
-    private const val LANG_SPLITTER = "⨼⨦⨠"
 
     private val DYNAMIC_GROUP_TYPES = setOf(
         LibraryGroup.BY_TAG,

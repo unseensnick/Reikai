@@ -1,5 +1,6 @@
 package reikai.presentation.library
 
+import android.content.Context
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactly
@@ -8,6 +9,8 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,6 +38,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
@@ -42,6 +46,7 @@ import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.i18n.MR
 
 class LibraryEngineTest {
 
@@ -271,6 +276,26 @@ class LibraryEngineTest {
 
         engine.assembled.first { it?.buckets?.singleOrNull()?.key == "completed" }
             ?.buckets?.single()?.key shouldBe "completed"
+    }
+
+    @Test
+    fun `grouping by language names a multi-language source as Browse does`() = runTest {
+        mockkStatic("tachiyomi.core.common.i18n.LocalizeKt")
+        try {
+            every { any<Context>().stringResource(MR.strings.multi_lang) } returns "Multi"
+            val provider = provider(ContentType.MANGA, rows = listOf(row(1, listOf(11))))
+            coEvery { provider.dynamicGroupingFeed(any()) } returns DynamicGroupingFeed(
+                items = listOf(DynItem(m1, null, null, null)),
+                languageCodes = mapOf(m1 to "all"),
+            )
+            val engine = engineOver(listOf(provider), groupBy = LibraryGroup.BY_LANGUAGE)
+
+            val bucket = engine.assembled.first { it?.buckets?.isNotEmpty() == true }?.buckets?.single()
+
+            (bucket as LibraryBucket.Dynamic).label shouldBe "Multi"
+        } finally {
+            unmockkStatic("tachiyomi.core.common.i18n.LocalizeKt")
+        }
     }
 
     private fun LibraryAssembled.firstEntry() = buckets.firstOrNull()?.let { itemsFor(it).first().entryId }

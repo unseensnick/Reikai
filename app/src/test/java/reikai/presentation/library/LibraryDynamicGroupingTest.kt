@@ -114,7 +114,37 @@ class LibraryDynamicGroupingTest {
             languageCodes = mapOf(1L to "pt", 2L to "pt-br"),
             languageDisplay = { "Portuguese" },
         )
-        result.keys.map { it.key } shouldContainExactly listOf("pt⨼⨦⨠portuguese", "pt br⨼⨦⨠portuguese")
+        result.keys.map { it.key } shouldContainExactly listOf("pt⨼⨦⨠", "pt br⨼⨦⨠")
+    }
+
+    @Test
+    fun `a language bucket keeps its key when its label changes`() {
+        val japanese = build(
+            listOf(libraryManga(1)),
+            LibraryGroup.BY_LANGUAGE,
+            languageCodes = mapOf(1L to "ja"),
+            languageDisplay = { "Japanese" },
+        ).keys.single()
+        val endonym = build(
+            listOf(libraryManga(1)),
+            LibraryGroup.BY_LANGUAGE,
+            languageCodes = mapOf(1L to "ja"),
+            languageDisplay = { "日本語" },
+        ).keys.single()
+        endonym.key shouldBe japanese.key
+    }
+
+    @Test
+    fun `a language group collapsed under its old label stays collapsed`() {
+        // The literal is what an install already stores for a collapsed Japanese group, labelled by the
+        // device locale's name for the language before headers took the language's own name.
+        val bucket = build(
+            listOf(libraryManga(1)),
+            LibraryGroup.BY_LANGUAGE,
+            languageCodes = mapOf(1L to "ja"),
+            languageDisplay = { "日本語" },
+        ).keys.single()
+        reikaiIsCollapsed(bucket, emptySet(), setOf("ja⨼⨦⨠japanese")) shouldBe true
     }
 
     @Test

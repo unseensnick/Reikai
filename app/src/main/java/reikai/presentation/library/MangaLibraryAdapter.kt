@@ -107,12 +107,15 @@ class MangaLibraryAdapter(
 
     override suspend fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed {
         val data = model.state.value.libraryData
-        return mangaDynamicGroupingFeed(
-            favorites = data.favorites,
-            tracksMap = data.tracksMap,
-            loggedInTrackerIds = data.loggedInTrackerIds,
+        return libraryDynamicGroupingFeed(
+            rows = data.favorites,
             groupType = groupType,
-            sourceManager = sourceManager,
+            sourceOf = { row ->
+                val source = sourceManager.getOrStub(row.libraryManga.manga.source)
+                source.name to source.id.toString()
+            },
+            groupTracks = { row -> mergedGroupTracks(row.memberIds(), data.tracksMap) },
+            loggedInTrackerIds = data.loggedInTrackerIds,
             trackerManager = trackerManager,
             context = context,
         )

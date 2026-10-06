@@ -38,6 +38,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.includes
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
+import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.components.chipUpdating
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
@@ -261,7 +262,7 @@ class LibraryEngine(
             trackStatuses = feeds.fold(emptyMap()) { acc, feed -> acc + feed.trackStatuses },
             languageCodes = feeds.fold(emptyMap()) { acc, feed -> acc + feed.languageCodes },
             statusNames = feeds.fold(emptyMap()) { acc, feed -> acc + feed.statusNames },
-            languageDisplay = ::displayLanguage,
+            languageDisplay = { browseLanguageLabel(it, context) },
             // Built from every logged-in tracker, not one type's: ranking by one side's trackers would
             // drop the other's statuses to the fallback rank. The kernel only calls it for track status.
             trackingStatusOrder = if (prefs.groupBy == LibraryGroup.BY_TRACK_STATUS) {
