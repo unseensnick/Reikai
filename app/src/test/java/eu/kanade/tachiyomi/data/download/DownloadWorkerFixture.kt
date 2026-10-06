@@ -42,8 +42,12 @@ import java.io.IOException
 /**
  * Mihon's [DownloadJob] over the real [Downloader] and [DownloadManager], all on [test]'s scheduler. Only
  * the network, WorkManager, the disk and the source are faked; a fetch hangs until [failFetchInFlight].
+ * The notifier is a stub recording into [events] unless [notifierFor] builds a real one.
  */
-class DownloadWorkerFixture(private val test: TestScope) : AutoCloseable {
+class DownloadWorkerFixture(
+    private val test: TestScope,
+    private val notifierFor: ((Context) -> DownloadNotifier)? = null,
+) : AutoCloseable {
 
     var network = ONLINE
     val events = mutableListOf<String>()
@@ -106,8 +110,8 @@ class DownloadWorkerFixture(private val test: TestScope) : AutoCloseable {
             getCategories = mockk(),
             getTracks = mockk(),
             store = mockk<DownloadStore>(relaxed = true) { coEvery { restore() } coAnswers { restored.await() } },
-            notifier = mockk<DownloadNotifier>(relaxed = true) {
-                every { onPaused(any()) } answers { events += "paused" }
+            notifier = notifierFor?.invoke(app) ?: mockk<DownloadNotifier>(relaxed = true) {
+                every { onNetworkPause() } answers { events += "paused" }
             },
         )
     }

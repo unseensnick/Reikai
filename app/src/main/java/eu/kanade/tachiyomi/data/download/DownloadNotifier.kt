@@ -46,12 +46,6 @@ class DownloadNotifier(
         }
     }
 
-    private val errorNotificationBuilder by lazy {
-        context.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_ERROR) {
-            setAutoCancel(false)
-        }
-    }
-
     /**
      * Status of download. Used for correct notification icon.
      */
@@ -72,7 +66,7 @@ class DownloadNotifier(
      */
     fun dismissProgress() {
         context.cancelNotification(Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS)
-        context.cancelNotification(Notifications.ID_DOWNLOAD_CHAPTER_PAUSED) // RK
+        context.cancelNotification(Notifications.ID_DOWNLOAD_CHAPTER_PAUSED)
     }
 
     /**
@@ -93,7 +87,7 @@ class DownloadNotifier(
         // RK <--
         with(progressNotificationBuilder) {
             if (!isDownloading) {
-                context.cancelNotification(Notifications.ID_DOWNLOAD_CHAPTER_PAUSED) // RK
+                context.cancelNotification(Notifications.ID_DOWNLOAD_CHAPTER_PAUSED)
                 setSmallIcon(android.R.drawable.stat_sys_download)
                 clearActions()
                 // Open download manager when clicked
@@ -142,17 +136,19 @@ class DownloadNotifier(
     /**
      * Show notification when download is paused.
      */
-    // RK: [workerStopping] when the pause ends the worker, which takes its foreground notification
-    // down with it, so the paused entry goes under its own id. A network pause keeps the worker alive
-    // and reuses the foreground one.
-    fun onPaused(workerStopping: Boolean = false) {
-        with(progressNotificationBuilder) {
+    // RK: [id] is the worker's own progress id for a network pause, see onNetworkPause
+    fun onPaused(id: Int = Notifications.ID_DOWNLOAD_CHAPTER_PAUSED) {
+        // The progress id belongs to the download worker's foreground service, which takes the
+        // notification with it when the worker stops
+        context.notify(
+            id, // RK
+            Notifications.CHANNEL_DOWNLOADER_PROGRESS,
+        ) {
             setContentTitle(context.stringResource(MR.strings.chapter_paused))
             setContentText(context.stringResource(MR.strings.download_notifier_download_paused))
             setSmallIcon(R.drawable.ic_pause_24dp)
-            setProgress(0, 0, false)
-            setOngoing(false)
-            clearActions()
+            setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
+            setOnlyAlertOnce(true)
             // Open download manager when clicked
             setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))
             // Resume action
@@ -167,21 +163,23 @@ class DownloadNotifier(
                 context.stringResource(MR.strings.action_cancel_all),
                 NotificationReceiver.clearDownloadsPendingBroadcast(context),
             )
-
-            // RK -->
-            show(
-                if (workerStopping) {
-                    Notifications.ID_DOWNLOAD_CHAPTER_PAUSED
-                } else {
-                    Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS
-                },
-            )
-            // RK <--
         }
 
         // Reset initial values
         isDownloading = false
     }
+
+    // RK -->
+
+    /**
+     * A network pause keeps the worker running, so its paused notice takes the worker's own id, and
+     * replaces the one an earlier user pause left rather than sitting beside it.
+     */
+    fun onNetworkPause() {
+        context.cancelNotification(Notifications.ID_DOWNLOAD_CHAPTER_PAUSED)
+        onPaused(Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS)
+    }
+    // RK <--
 
     /**
      * Resets the state once downloads are completed.
@@ -202,12 +200,14 @@ class DownloadNotifier(
      * Only works on Android 8+.
      */
     fun onWarning(reason: String, timeout: Long? = null, contentIntent: PendingIntent? = null, mangaId: Long? = null) {
-        with(errorNotificationBuilder) {
+        context.notify(
+            Notifications.ID_DOWNLOAD_CHAPTER_ERROR,
+            Notifications.CHANNEL_DOWNLOADER_ERROR,
+        ) {
             setContentTitle(context.stringResource(MR.strings.download_notifier_downloader_title))
             setStyle(NotificationCompat.BigTextStyle().bigText(reason))
             setSmallIcon(R.drawable.ic_warning_white_24dp)
             setAutoCancel(true)
-            clearActions()
             setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))
             if (mangaId != null) {
                 addAction(
@@ -216,11 +216,8 @@ class DownloadNotifier(
                     NotificationReceiver.openEntryPendingActivity(context, mangaId),
                 )
             }
-            setProgress(0, 0, false)
             timeout?.let { setTimeoutAfter(it) }
             contentIntent?.let { setContentIntent(it) }
-
-            show(Notifications.ID_DOWNLOAD_CHAPTER_ERROR)
         }
 
         // Reset download information
@@ -245,13 +242,15 @@ class DownloadNotifier(
         val mangaId = manga?.id
         // RK <--
         // Create notification
-        with(errorNotificationBuilder) {
+        context.notify(
+            Notifications.ID_DOWNLOAD_CHAPTER_ERROR,
+            Notifications.CHANNEL_DOWNLOADER_ERROR,
+        ) {
             setContentTitle(
                 title ?: context.stringResource(MR.strings.download_notifier_downloader_title), // RK
             )
             setContentText(error ?: context.stringResource(MR.strings.download_notifier_unknown_error))
             setSmallIcon(R.drawable.ic_warning_white_24dp)
-            clearActions()
             setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))
             if (mangaId != null) {
                 addAction(
@@ -260,9 +259,6 @@ class DownloadNotifier(
                     NotificationReceiver.openEntryPendingActivity(context, mangaId),
                 )
             }
-            setProgress(0, 0, false)
-
-            show(Notifications.ID_DOWNLOAD_CHAPTER_ERROR)
         }
 
         // Reset download information

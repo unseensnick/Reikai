@@ -169,7 +169,7 @@ class Downloader(
                 .filter { it.status == Download.State.DOWNLOADING }
                 .forEach { it.status = Download.State.QUEUE }
             isPaused = true
-            notifier.onPaused()
+            notifier.onNetworkPause()
             return
         }
         // RK <--
@@ -179,7 +179,7 @@ class Downloader(
             .forEach { it.status = Download.State.ERROR }
 
         if (isPaused && queueState.value.isNotEmpty()) {
-            notifier.onPaused(workerStopping = true) // RK
+            notifier.onPaused()
         } else {
             notifier.onComplete()
         }

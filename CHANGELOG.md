@@ -560,7 +560,7 @@ agent under Settings -> Advanced.
 - **Paused novel downloads now stay paused when the queue is reordered or sorted, no longer fail the chapter being retried, and carry on when resumed straight away.**
 - **A novel chapter that failed to download can now be retried, by Resume or its Retry button in the download queue, and stays queued after a restart, as a manga chapter does.**
 - **Manga downloads queued without a connection now start on their own once it returns, as novel downloads do.**
-- **Pausing manga downloads from the notification now leaves a paused notification to resume from.**
+- **Pausing manga downloads from the notification now leaves a paused notification to resume from (partly from Mihon).** Upstream: mihonapp/mihon#2791.
 - **Retrying a failed manga chapter, from the download queue or the reader's chapter list, now downloads it again at once, even while other chapters are downloading.**
 - **Extensions from a store that cannot be reached no longer show as Orphaned or lose their update badges.**
 - **Marking a chapter read with delete-after-read on no longer deletes its download in a category excluded from removal, and a queued novel chapter marked read now leaves the queue.**
@@ -590,6 +590,7 @@ agent under Settings -> Advanced.
 - **An extension or novel source whose icon is missing or fails to load now shows the default icon instead of a broken image or an empty space.**
 - **An extension row no longer shows a stray dot before its version after an install is cancelled.**
 - **A resumed manga download now shows the right progress instead of restarting from zero.**
+- **A manga download error notification now shows its own time and message instead of an earlier warning's (from Mihon).** Upstream: mihonapp/mihon#3341.
 - **The More tab's download row now reads Paused while novel downloads are paused, matching the download queue's own Resume button.**
 - **The first tap on a download queue sort now sorts ascending.**
 - **The Settings -> Downloads note that download-ahead needs the current and next chapter downloaded now sits under Manga, where it is true, instead of Novels.**
