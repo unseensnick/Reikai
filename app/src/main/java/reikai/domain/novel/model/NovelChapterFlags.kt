@@ -2,7 +2,9 @@ package reikai.domain.novel.model
 
 import reikai.domain.merge.GroupMarks
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.reader.readerChapterFilters
 import tachiyomi.core.common.util.lang.compareToWithCollator
+import tachiyomi.domain.manga.model.applyFilter
 
 /**
  * Per-novel chapter sort / filter / display settings, packed into [Novel.chapterFlags]. Its own layout
@@ -82,13 +84,6 @@ fun Novel.effectiveBookmarkedFilter(prefs: NovelPreferences): Long =
 fun Novel.effectiveDownloadedFilter(prefs: NovelPreferences): Long =
     if (usesLocalFilter) downloadedFilter else prefs.defaultChapterFilterDownloaded().get()
 
-/**
- * The downloaded filter the chapter list and reader apply: downloaded only while the global Downloaded
- * only switch is on, as manga's `Manga.downloadedFilter` is. Never saved: the novel's own setting stays
- * [effectiveDownloadedFilter], so it comes back when the switch goes off.
- */
-fun Novel.appliedDownloadedFilter(prefs: NovelPreferences, downloadedOnly: Boolean): Long =
-    if (downloadedOnly) NovelChapterFlags.SHOW_DOWNLOADED else effectiveDownloadedFilter(prefs)
 fun Novel.effectiveHideChapterTitles(prefs: NovelPreferences): Boolean =
     if (usesLocalDisplay) hideChapterTitles else prefs.defaultChapterHideTitles().get()
 
@@ -125,28 +120,11 @@ fun List<NovelChapter>.sortedAndFiltered(
     marks: GroupMarks,
     downloadedOnly: Boolean,
 ): List<NovelChapter> {
-    val read = novel.effectiveReadFilter(prefs)
-    val bookmarked = novel.effectiveBookmarkedFilter(prefs)
-    val downloaded = novel.appliedDownloadedFilter(prefs, downloadedOnly)
+    val filters = novel.readerChapterFilters(prefs, downloadedOnly)
     val filtered = filter { ch ->
-        val isRead = marks.isRead(ch.id, ch.read)
-        val isBookmarked = marks.isBookmarked(ch.id, ch.bookmark)
-        val readOk = when (read) {
-            NovelChapterFlags.SHOW_UNREAD -> !isRead
-            NovelChapterFlags.SHOW_READ -> isRead
-            else -> true
-        }
-        val bookmarkOk = when (bookmarked) {
-            NovelChapterFlags.SHOW_BOOKMARKED -> isBookmarked
-            NovelChapterFlags.SHOW_NOT_BOOKMARKED -> !isBookmarked
-            else -> true
-        }
-        val downloadOk = when (downloaded) {
-            NovelChapterFlags.SHOW_DOWNLOADED -> ch.id in downloadedChapterIds
-            NovelChapterFlags.SHOW_NOT_DOWNLOADED -> ch.id !in downloadedChapterIds
-            else -> true
-        }
-        readOk && bookmarkOk && downloadOk
+        applyFilter(filters.unread) { !marks.isRead(ch.id, ch.read) } &&
+            applyFilter(filters.bookmarked) { marks.isBookmarked(ch.id, ch.bookmark) } &&
+            applyFilter(filters.downloaded) { ch.id in downloadedChapterIds }
     }
     val sorted = filtered.sortedWith(readingOrderComparator(novel, prefs))
     return if (novel.effectiveSortDescending(prefs)) sorted.reversed() else sorted

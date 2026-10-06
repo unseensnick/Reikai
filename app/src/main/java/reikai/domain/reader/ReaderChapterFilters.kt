@@ -4,8 +4,8 @@ import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapterFlags
-import reikai.domain.novel.model.appliedDownloadedFilter
 import reikai.domain.novel.model.effectiveBookmarkedFilter
+import reikai.domain.novel.model.effectiveDownloadedFilter
 import reikai.domain.novel.model.effectiveReadFilter
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.manga.model.Manga
@@ -13,7 +13,10 @@ import tachiyomi.domain.manga.model.applyFilter
 
 /** An entry's chapter-list filters, each [TriState.ENABLED_IS] to keep only chapters that are unread,
  *  bookmarked or downloaded, and [TriState.ENABLED_NOT] to keep only those that are not. */
-data class ChapterListFilters(val unread: TriState, val bookmarked: TriState, val downloaded: TriState)
+data class ChapterListFilters(val unread: TriState, val bookmarked: TriState, val downloaded: TriState) {
+    val isActive: Boolean
+        get() = unread != TriState.DISABLED || bookmarked != TriState.DISABLED || downloaded != TriState.DISABLED
+}
 
 /** The manga's own filters, read raw as the reader always has: the global downloaded-only switch is
  *  applied to the reader's list separately. */
@@ -27,24 +30,40 @@ fun Manga.readerChapterFilters() = ChapterListFilters(
     },
 )
 
-fun Novel.readerChapterFilters(prefs: NovelPreferences, downloadedOnly: Boolean) = ChapterListFilters(
-    unread = triState(effectiveReadFilter(prefs), NovelChapterFlags.SHOW_UNREAD, NovelChapterFlags.SHOW_READ),
-    bookmarked = triState(
-        effectiveBookmarkedFilter(prefs),
-        NovelChapterFlags.SHOW_BOOKMARKED,
-        NovelChapterFlags.SHOW_NOT_BOOKMARKED,
-    ),
-    downloaded = triState(
-        appliedDownloadedFilter(prefs, downloadedOnly),
-        NovelChapterFlags.SHOW_DOWNLOADED,
-        NovelChapterFlags.SHOW_NOT_DOWNLOADED,
-    ),
+fun Novel.readerChapterFilters(prefs: NovelPreferences, downloadedOnly: Boolean) = novelChapterListFilters(
+    read = effectiveReadFilter(prefs),
+    bookmarked = effectiveBookmarkedFilter(prefs),
+    downloaded = effectiveDownloadedFilter(prefs),
+    downloadedOnly = downloadedOnly,
 )
 
-private fun triState(flag: Long, whenIs: Long, whenNot: Long) = when (flag) {
+/**
+ * A novel's chapter-list filters from its flag values. The global Downloaded only switch forces the
+ * downloaded filter on, as manga's `Manga.downloadedFilter` does; the forced value is never saved, so the
+ * novel's own setting comes back when the switch goes off.
+ */
+fun novelChapterListFilters(read: Long, bookmarked: Long, downloaded: Long, downloadedOnly: Boolean) =
+    ChapterListFilters(
+        unread = read.toTriState(NovelChapterFlags.SHOW_UNREAD, NovelChapterFlags.SHOW_READ),
+        bookmarked = bookmarked.toTriState(NovelChapterFlags.SHOW_BOOKMARKED, NovelChapterFlags.SHOW_NOT_BOOKMARKED),
+        downloaded = if (downloadedOnly) {
+            TriState.ENABLED_IS
+        } else {
+            downloaded.toTriState(NovelChapterFlags.SHOW_DOWNLOADED, NovelChapterFlags.SHOW_NOT_DOWNLOADED)
+        },
+    )
+
+private fun Long.toTriState(whenIs: Long, whenNot: Long) = when (this) {
     whenIs -> TriState.ENABLED_IS
     whenNot -> TriState.ENABLED_NOT
     else -> TriState.DISABLED
+}
+
+/** The inverse of the mapping [novelChapterListFilters] reads, for writing a filter page's pick back. */
+fun TriState.toFlag(whenIs: Long, whenNot: Long): Long = when (this) {
+    TriState.DISABLED -> 0L
+    TriState.ENABLED_IS -> whenIs
+    TriState.ENABLED_NOT -> whenNot
 }
 
 /**

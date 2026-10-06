@@ -232,6 +232,7 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
         NovelDetailsDialog.ChapterSettings -> NovelChapterSettingsDialog(
             sorting = state.sorting,
             sortDescending = state.sortDescending,
+            filters = state.chapterFilters,
             readFilter = state.readFilter,
             bookmarkedFilter = state.bookmarkedFilter,
             downloadedFilter = state.downloadedFilter,

@@ -38,7 +38,7 @@ The queue screen stacks two separately owned lists. In the All view a manga card
 
 **The download index.** The two download folders stay separate (`downloads` and `novel_downloads`). The novel cache has what the manga cache has: an index saved between launches with the time it was last scanned, the first-scan indexing banner, and Reindex downloads in Settings and a backup restore rebuilding it. `DownloadIndexRules`, which both caches call, holds the rescan interval and the half-written-file rule. Deleting a novel's last downloaded chapter removes its folder, and its source's folder once empty, as manga does.
 
-**Downloaded only.** Both readers page over `downloadedOrCurrent`, the downloaded chapters plus the one being read, while download-ahead walks the unfiltered list. The novel details list and filter sheet follow the switch through `appliedDownloadedFilter`, as manga's do through `Manga.downloadedFilter`, without saving it over the novel's own filter.
+**Downloaded only.** Both readers page over `downloadedOrCurrent`, the downloaded chapters plus the one being read, while download-ahead walks the unfiltered list. The novel details list and filter sheet follow the switch through `novelChapterListFilters`, as manga's do through `Manga.downloadedFilter`, without saving it over the novel's own filter.
 
 **Download-ahead.** Both readers pick the chapters through `chaptersToDownloadAhead`, and both run in incognito, which keeps history out and not downloads. They differ on one gate, kept on purpose (owner ruling, 2026-09-24): manga downloads ahead only when the current chapter was read from disk and the next is downloaded too (Mihon's `ReaderViewModel.downloadNextChapters`), because a streamed chapter's page loads share the source with the download and would stutter; a novel chapter is one request, so the novel reader has no such gate. The settings note saying the current and next chapter must be downloaded sits under Manga only, for that reason. Neither reader drops a chapter already on disk from what it hands the queue: both managers drop it on enqueue, as Mihon's `Downloader.queueChapters` does.
 
@@ -60,7 +60,7 @@ The queue screen stacks two separately owned lists. In the All view a manga card
 - `reikai/novel/download/NovelDownloadManager.kt`, `NovelDownload.kt`, `NovelDownloadNotifier.kt`, `NovelDownloadCache.kt`: the novel downloader, its notification and its index.
 - `reikai/domain/download/SeriesCompletions.kt`, `DownloadIndexRules.kt`, `DownloadFolderRename.kt`: the completed counts, the index rules and the title-rename folder rule both downloaders share.
 - `reikai/novel/download/NovelDownloadPacing.kt`, `eu/kanade/presentation/more/settings/screen/novel/NovelSourceDelaysScreen.kt`: pacing and its per-source screen.
-- `reikai/domain/reader/DuplicateChapters.kt` (`downloadedOrCurrent`), `reikai/domain/novel/model/NovelChapterFlags.kt` (`appliedDownloadedFilter`): Downloaded only.
+- `reikai/domain/reader/DuplicateChapters.kt` (`downloadedOrCurrent`), `reikai/domain/reader/ReaderChapterFilters.kt` (`novelChapterListFilters`): Downloaded only.
 - `reikai/presentation/components/ContentTypeBadge.kt`: the type badge, shared with Browse.
 
 ## Status

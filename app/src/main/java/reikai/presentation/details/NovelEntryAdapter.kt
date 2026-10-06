@@ -94,8 +94,7 @@ class NovelEntryAdapter(
             ),
             mergeSources = mergeSources,
             selectedSourceId = selectedSourceNovelId,
-            hasActiveFilter = readFilter != 0L || bookmarkedFilter != 0L || downloadedFilter != 0L ||
-                downloadedFilterLocked,
+            hasActiveFilter = chapterFilters.isActive,
             isRefreshing = isRefreshing,
             selection = EntrySelection.selectedAmong(selection, chapters.map { it.id }),
             resumeChapterId = resumeChapter?.id,

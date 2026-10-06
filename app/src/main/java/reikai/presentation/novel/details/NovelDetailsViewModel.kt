@@ -102,6 +102,8 @@ import reikai.domain.novel.ownersOf
 import reikai.domain.novel.text.NovelWords
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
+import reikai.domain.reader.ChapterListFilters
+import reikai.domain.reader.novelChapterListFilters
 import reikai.domain.source.healedCover
 import reikai.domain.source.keptCover
 import reikai.domain.track.EntryTrackPorts
@@ -754,14 +756,7 @@ class NovelDetailsViewModel(
     private fun maybeFetchPage(novel: Novel, pageKey: String) {
         val src = source ?: return
         val loaded = state.value as? NovelDetailsState.Loaded
-        if (loaded != null &&
-            (
-                loaded.readFilter != 0L || loaded.bookmarkedFilter != 0L || loaded.downloadedFilter != 0L ||
-                    loaded.downloadedFilterLocked
-                )
-        ) {
-            return
-        }
+        if (loaded?.chapterFilters?.isActive == true) return
         if (!triedPages.add(pageKey)) return
         viewModelScope.launchIO {
             state.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = true) ?: it }
@@ -1598,6 +1593,10 @@ sealed interface NovelDetailsState {
             LibraryPreferences.ChapterSwipeAction.Disabled,
     ) : NovelDetailsState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
+
+        /** The filters the list applies, with the Downloaded only switch folded in. */
+        val chapterFilters: ChapterListFilters
+            get() = novelChapterListFilters(readFilter, bookmarkedFilter, downloadedFilter, downloadedFilterLocked)
 
         /** A chapter's download state: a live queue state if present, else DOWNLOADED / NOT_DOWNLOADED
          *  from the on-disk cache. */

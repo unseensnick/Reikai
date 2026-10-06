@@ -24,6 +24,8 @@ import reikai.domain.novel.model.NovelChapterFlags.SHOW_NOT_BOOKMARKED
 import reikai.domain.novel.model.NovelChapterFlags.SHOW_NOT_DOWNLOADED
 import reikai.domain.novel.model.NovelChapterFlags.SHOW_READ
 import reikai.domain.novel.model.NovelChapterFlags.SHOW_UNREAD
+import reikai.domain.reader.ChapterListFilters
+import reikai.domain.reader.toFlag
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
@@ -38,6 +40,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 fun NovelChapterSettingsDialog(
     sorting: Long,
     sortDescending: Boolean,
+    filters: ChapterListFilters,
     readFilter: Long,
     bookmarkedFilter: Long,
     downloadedFilter: Long,
@@ -85,19 +88,18 @@ fun NovelChapterSettingsDialog(
                 .verticalScroll(rememberScrollState()),
         ) {
             when (page) {
-                // Under the global Downloaded only switch the filter is forced on and not editable, as
-                // manga's is. The other two rows still hand back the novel's own setting, never the forced one.
+                // Under the global Downloaded only switch the filter shows forced on and is not editable, as
+                // manga's is. The other two rows hand back the novel's own setting, never the forced one.
                 0 -> FilterPage(
-                    downloadFilter = (if (downloadedFilterLocked) SHOW_DOWNLOADED else downloadedFilter)
-                        .toTriState(SHOW_DOWNLOADED, SHOW_NOT_DOWNLOADED),
+                    downloadFilter = filters.downloaded,
                     onDownloadFilterChanged = { state: TriState ->
                         onFilterChange(readFilter, bookmarkedFilter, state.toFlag(SHOW_DOWNLOADED, SHOW_NOT_DOWNLOADED))
                     }.takeUnless { downloadedFilterLocked },
-                    unreadFilter = readFilter.toTriState(SHOW_UNREAD, SHOW_READ),
+                    unreadFilter = filters.unread,
                     onUnreadFilterChanged = {
                         onFilterChange(it.toFlag(SHOW_UNREAD, SHOW_READ), bookmarkedFilter, downloadedFilter)
                     },
-                    bookmarkedFilter = bookmarkedFilter.toTriState(SHOW_BOOKMARKED, SHOW_NOT_BOOKMARKED),
+                    bookmarkedFilter = filters.bookmarked,
                     onBookmarkedFilterChanged = {
                         onFilterChange(readFilter, it.toFlag(SHOW_BOOKMARKED, SHOW_NOT_BOOKMARKED), downloadedFilter)
                     },
@@ -111,16 +113,4 @@ fun NovelChapterSettingsDialog(
             }
         }
     }
-}
-
-private fun Long.toTriState(isFlag: Long, notFlag: Long): TriState = when (this) {
-    isFlag -> TriState.ENABLED_IS
-    notFlag -> TriState.ENABLED_NOT
-    else -> TriState.DISABLED
-}
-
-private fun TriState.toFlag(isFlag: Long, notFlag: Long): Long = when (this) {
-    TriState.DISABLED -> 0L
-    TriState.ENABLED_IS -> isFlag
-    TriState.ENABLED_NOT -> notFlag
 }

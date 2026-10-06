@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
+import reikai.domain.novel.model.NovelChapterFlags
 import tachiyomi.core.common.preference.TriState
 
 /**
@@ -49,5 +50,34 @@ class ReaderChapterFiltersTest {
         val downloadedOnly = noFilters.copy(downloaded = TriState.ENABLED_IS)
 
         flags.isForwardEligible(Row(1L), skipRead = false, skipFiltered = true, filters = downloadedOnly) shouldBe true
+    }
+
+    @Test
+    fun `the Downloaded only switch shows a novel's downloaded filter forced on`() {
+        val filters = novelChapterListFilters(0L, 0L, NovelChapterFlags.SHOW_NOT_DOWNLOADED, downloadedOnly = true)
+
+        filters.downloaded shouldBe TriState.ENABLED_IS
+    }
+
+    @Test
+    fun `a novel's show-read flag reads as the unread filter's not state`() {
+        novelChapterListFilters(NovelChapterFlags.SHOW_READ, 0L, 0L, downloadedOnly = false).unread shouldBe
+            TriState.ENABLED_NOT
+    }
+
+    @Test
+    fun `a list filtered only by the Downloaded only switch counts as filtered`() {
+        novelChapterListFilters(0L, 0L, 0L, downloadedOnly = true).isActive shouldBe true
+    }
+
+    @Test
+    fun `a list with no filter on counts as unfiltered`() {
+        novelChapterListFilters(0L, 0L, 0L, downloadedOnly = false).isActive shouldBe false
+    }
+
+    @Test
+    fun `a picked bookmarked state writes back the novel's own flag`() {
+        TriState.ENABLED_NOT.toFlag(NovelChapterFlags.SHOW_BOOKMARKED, NovelChapterFlags.SHOW_NOT_BOOKMARKED) shouldBe
+            NovelChapterFlags.SHOW_NOT_BOOKMARKED
     }
 }
