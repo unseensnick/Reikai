@@ -360,25 +360,24 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerKeepEmbeddedCss(),
                     title = stringResource(MR.strings.pref_keep_embedded_css),
                     subtitle = stringResource(MR.strings.pref_keep_embedded_css_summary),
-                ).takeIf { renderingMode != NovelRenderingMode.NATIVE },
+                ).takeIf { renderingMode.rendersMarkup },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerKeepEmbeddedJs(),
                     title = stringResource(MR.strings.pref_keep_embedded_js),
                     subtitle = stringResource(MR.strings.pref_keep_embedded_js_summary),
-                ).takeIf { renderingMode != NovelRenderingMode.NATIVE },
-                // Only the WebView renderer honours these two.
+                ).takeIf { renderingMode.rendersMarkup },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSourceCssPriority(),
                     title = stringResource(MR.strings.pref_source_css_priority),
                     subtitle = stringResource(MR.strings.pref_source_css_priority_summary),
-                ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW },
+                ).takeIf { renderingMode.rendersMarkup },
                 // The font switch only edits the reader's own overrides, and a chapter whose styling
                 // wins gets none of them, so under that it would do nothing.
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerUseOriginalFonts(),
                     title = stringResource(MR.strings.pref_use_original_fonts),
                     subtitle = stringResource(MR.strings.pref_use_original_fonts_summary),
-                ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW && !sourceCssPriority },
+                ).takeIf { renderingMode.rendersMarkup && !sourceCssPriority },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerShowRawHtml(),
                     title = stringResource(MR.strings.pref_novel_show_raw_html),
@@ -391,17 +390,16 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_novel_regex_rules_summary),
                     onClick = { navigator.push(NovelRegexRulesScreen()) },
                 ),
-                // Only a WebView page has a stylesheet and a script to add them to.
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_novel_css_snippets),
                     subtitle = stringResource(MR.strings.pref_novel_css_snippets_summary),
                     onClick = { navigator.push(NovelCodeSnippetsScreen(NovelSnippetKind.CSS)) },
-                ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW },
+                ).takeIf { renderingMode.rendersMarkup },
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_novel_js_snippets),
                     subtitle = stringResource(MR.strings.pref_novel_js_snippets_summary),
                     onClick = { navigator.push(NovelCodeSnippetsScreen(NovelSnippetKind.JS)) },
-                ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW },
+                ).takeIf { renderingMode.rendersMarkup },
             ),
         )
     }

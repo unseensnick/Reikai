@@ -291,8 +291,7 @@ private fun ColumnScope.NovelChapterTextRows(preferences: NovelPreferences) {
             defaultValue = wordsPref.defaultValue(),
         )
     }
-    // Only a WebView page has a stylesheet and fonts of the chapter's own to keep.
-    if (renderingMode != NovelRenderingMode.WEBVIEW) return
+    if (!renderingMode.rendersMarkup) return
     CheckboxItem(
         label = stringResource(MR.strings.pref_keep_embedded_css),
         pref = preferences.readerKeepEmbeddedCss(),
