@@ -18,6 +18,8 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.novel.model.NovelWithChapterCount
+import reikai.domain.source.healedCover
+import reikai.domain.source.keptCover
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
@@ -91,10 +93,15 @@ class NovelRepositoryImpl(
         database.novelsQueries.findByUrlAndSource(url, source, ::mapNovel).subscribeToOneOrNull()
 
     override suspend fun insertOrGet(novel: Novel): Novel? {
-        getByUrlAndSource(novel.url, novel.source)?.let { return it }
-        // A writer that stored the same novel since the read above wins, and this insert stores nothing
-        insert(novel)
-        return getByUrlAndSource(novel.url, novel.source)
+        val listed = novel.copy(thumbnailUrl = keptCover(null, novel.thumbnailUrl))
+        val stored = getByUrlAndSource(listed.url, listed.source) ?: run {
+            // A writer that stored the same novel since the read above wins, and this insert stores nothing
+            insert(listed)
+            getByUrlAndSource(listed.url, listed.source)
+        } ?: return null
+        val cover = healedCover(stored.thumbnailUrl, listed.thumbnailUrl) ?: return stored
+        val healed = update(NovelUpdate(stored.id) { thumbnailUrl = cover })
+        return if (healed) stored.copy(thumbnailUrl = cover) else stored
     }
 
     override suspend fun insert(novel: Novel): Long? = try {

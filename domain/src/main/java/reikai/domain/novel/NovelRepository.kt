@@ -72,9 +72,10 @@ interface NovelRepository {
 
     /**
      * Get-or-insert by (url, source): return the stored row if one exists, else insert [novel] and
-     * return it. The single funnel that prevents duplicate library rows (mirrors the manga side's
-     * `networkToLocalManga`). Callers must route through this with a fresh call rather than deciding
-     * insert-vs-update from a cached value.
+     * return it. The single funnel that prevents duplicate library rows. A listing placeholder cover is
+     * never stored, and a real one repairs a stored row without one; twin of `NetworkToLocalManga`,
+     * pinned by ListedCoverConformanceTest. Callers must route through this with a fresh call rather
+     * than deciding insert-vs-update from a cached value.
      */
     suspend fun insertOrGet(novel: Novel): Novel?
 
