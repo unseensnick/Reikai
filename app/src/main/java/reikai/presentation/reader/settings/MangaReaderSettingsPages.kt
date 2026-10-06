@@ -1,6 +1,5 @@
 package reikai.presentation.reader.settings
 
-import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -12,7 +11,6 @@ import androidx.compose.runtime.remember
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.domain.manga.model.readingMode
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
@@ -20,9 +18,6 @@ import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
-import eu.kanade.tachiyomi.util.system.hasDisplayCutout
-import reikai.domain.reader.ChapterTitleFormat
-import reikai.presentation.reader.ReaderRanges
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -186,23 +181,14 @@ internal fun ColumnScope.MangaAppearancePage(viewModel: ReaderSettingsViewModel)
             )
         }
     }
-    val titleFormat by preferences.chapterTitleFormat.collectAsState()
-    SettingsChipRow(MR.strings.pref_chapter_title_format) {
-        ChapterTitleFormat.entries.forEach {
-            FilterChip(
-                selected = titleFormat == it,
-                onClick = { preferences.chapterTitleFormat.set(it) },
-                label = { Text(stringResource(it.titleRes)) },
-            )
-        }
-    }
-    CheckboxItem(label = stringResource(MR.strings.pref_show_page_number), pref = preferences.showPageNumber)
-    CheckboxItem(label = stringResource(MR.strings.pref_fullscreen), pref = preferences.fullscreen)
-    val isFullscreen by preferences.fullscreen.collectAsState()
-    if (LocalActivity.current?.hasDisplayCutout() == true && isFullscreen) {
-        CheckboxItem(label = stringResource(MR.strings.pref_cutout_short), pref = preferences.drawUnderCutout)
-    }
-    CheckboxItem(label = stringResource(MR.strings.pref_keep_screen_on), pref = preferences.keepScreenOn)
+    ReaderPageRows(
+        titleFormat = preferences.chapterTitleFormat,
+        progressLabel = MR.strings.pref_show_page_number,
+        showProgress = preferences.showPageNumber,
+        fullscreen = preferences.fullscreen,
+        drawUnderCutout = preferences.drawUnderCutout,
+        keepScreenOn = preferences.keepScreenOn,
+    )
     CheckboxItem(
         label = stringResource(MR.strings.pref_always_show_chapter_transition),
         pref = preferences.alwaysShowChapterTransition,
@@ -324,18 +310,7 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel) {
         }
     }
     if (verticalNavigatorModes.isNotEmpty()) {
-        CheckboxItem(
-            label = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left),
-            pref = preferences.verticalNavigatorOnLeft,
-        )
-        val verticalNavigatorHeight by preferences.verticalNavigatorHeight.collectAsState()
-        SliderItem(
-            label = stringResource(MR.strings.pref_vertical_navigator_height),
-            value = verticalNavigatorHeight,
-            valueRange = ReaderRanges.railHeightPercent,
-            steps = ReaderRanges.railHeightSteps,
-            onChange = { preferences.verticalNavigatorHeight.set(it) },
-        )
+        ReaderRailRows(onLeft = preferences.verticalNavigatorOnLeft, height = preferences.verticalNavigatorHeight)
     }
 }
 

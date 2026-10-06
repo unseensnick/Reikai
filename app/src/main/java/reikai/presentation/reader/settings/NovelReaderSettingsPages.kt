@@ -1,6 +1,5 @@
 package reikai.presentation.reader.settings
 
-import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,7 +38,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
-import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
@@ -49,7 +47,6 @@ import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.novel.tts.baseLanguages
 import reikai.domain.novel.tts.inLanguages
-import reikai.domain.reader.ChapterTitleFormat
 import reikai.novel.font.NovelFont
 import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.StepperItem
@@ -226,28 +223,14 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
     }
 
     HeadingItem(MR.strings.pref_category_page)
-    val titleFormatPref = preferences.readerChapterTitleFormat()
-    val titleFormat by titleFormatPref.collectAsState()
-    SettingsChipRow(MR.strings.pref_chapter_title_format) {
-        ChapterTitleFormat.entries.forEach {
-            FilterChip(
-                selected = titleFormat == it,
-                onClick = { titleFormatPref.set(it) },
-                label = { Text(stringResource(it.titleRes)) },
-            )
-        }
-    }
-    CheckboxItem(
-        label = stringResource(MR.strings.pref_show_reading_progress),
-        pref = preferences.readerShowProgressPercentage(),
+    ReaderPageRows(
+        titleFormat = preferences.readerChapterTitleFormat(),
+        progressLabel = MR.strings.pref_show_reading_progress,
+        showProgress = preferences.readerShowProgressPercentage(),
+        fullscreen = preferences.readerFullscreen(),
+        drawUnderCutout = preferences.readerDrawUnderCutout(),
+        keepScreenOn = preferences.readerKeepScreenOn(),
     )
-    // The novel reader's own pair, which the manga tab shows for its reader in the same place.
-    CheckboxItem(label = stringResource(MR.strings.pref_fullscreen), pref = preferences.readerFullscreen())
-    val isFullscreen by preferences.readerFullscreen().collectAsState()
-    if (LocalActivity.current?.hasDisplayCutout() == true && isFullscreen) {
-        CheckboxItem(label = stringResource(MR.strings.pref_cutout_short), pref = preferences.readerDrawUnderCutout())
-    }
-    CheckboxItem(label = stringResource(MR.strings.pref_keep_screen_on), pref = preferences.readerKeepScreenOn())
     val seamless by preferences.readerSeamlessChapters().collectAsState()
     if (seamless) {
         CheckboxItem(
@@ -343,19 +326,7 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
         CheckboxItem(label = stringResource(MR.strings.pref_novel_use_rail), pref = preferences.readerUseRail())
         val useRail by preferences.readerUseRail().collectAsState()
         if (useRail) {
-            CheckboxItem(
-                label = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left),
-                pref = preferences.readerRailOnLeft(),
-            )
-            val railHeight by preferences.readerRailHeight().collectAsState()
-            SliderItem(
-                value = railHeight,
-                valueRange = ReaderRanges.railHeightPercent,
-                steps = ReaderRanges.railHeightSteps,
-                label = stringResource(MR.strings.pref_vertical_navigator_height),
-                onChange = preferences.readerRailHeight()::set,
-                pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            )
+            ReaderRailRows(onLeft = preferences.readerRailOnLeft(), height = preferences.readerRailHeight())
         }
     }
     val volumeKeys by preferences.readerUseVolumeButtons().collectAsState()

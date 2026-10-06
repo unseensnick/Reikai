@@ -1,5 +1,6 @@
 package reikai.presentation.reader.settings
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -23,11 +24,13 @@ import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import kotlinx.coroutines.flow.Flow
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Palette
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.reader.ChapterTitleFormat
 import reikai.novel.font.NovelFont
 import reikai.presentation.icons.Contrast
 import reikai.presentation.icons.RecordVoiceOver
@@ -39,6 +42,7 @@ import reikai.presentation.reader.ReaderTextSettings
 import reikai.presentation.reader.ViewportAutoScroll
 import reikai.presentation.reader.autoScrollSpeedLabel
 import reikai.util.scaled
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.SettingsChipRow
@@ -203,4 +207,51 @@ internal fun ColumnScope.EntryRotationRow(flagValue: Int?, onChange: (ReaderOrie
             )
         }
     }
+}
+
+/**
+ * What the screen around the page shows, the same rows in the same order for either reader. Only the
+ * progress label differs: manga counts pages, a novel shows a percentage.
+ */
+@Composable
+internal fun ColumnScope.ReaderPageRows(
+    titleFormat: Preference<ChapterTitleFormat>,
+    progressLabel: StringResource,
+    showProgress: Preference<Boolean>,
+    fullscreen: Preference<Boolean>,
+    drawUnderCutout: Preference<Boolean>,
+    keepScreenOn: Preference<Boolean>,
+) {
+    val selectedFormat by titleFormat.collectAsState()
+    SettingsChipRow(MR.strings.pref_chapter_title_format) {
+        ChapterTitleFormat.entries.forEach {
+            FilterChip(
+                selected = selectedFormat == it,
+                onClick = { titleFormat.set(it) },
+                label = { Text(stringResource(it.titleRes)) },
+            )
+        }
+    }
+    CheckboxItem(label = stringResource(progressLabel), pref = showProgress)
+    CheckboxItem(label = stringResource(MR.strings.pref_fullscreen), pref = fullscreen)
+    val isFullscreen by fullscreen.collectAsState()
+    if (LocalActivity.current?.hasDisplayCutout() == true && isFullscreen) {
+        CheckboxItem(label = stringResource(MR.strings.pref_cutout_short), pref = drawUnderCutout)
+    }
+    CheckboxItem(label = stringResource(MR.strings.pref_keep_screen_on), pref = keepScreenOn)
+}
+
+/** Which side the rail sits on and how tall it is, once the reader's own gate has shown the rail. */
+@Composable
+internal fun ColumnScope.ReaderRailRows(onLeft: Preference<Boolean>, height: Preference<Int>) {
+    CheckboxItem(label = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left), pref = onLeft)
+    val railHeight by height.collectAsState()
+    SliderItem(
+        value = railHeight,
+        valueRange = ReaderRanges.railHeightPercent,
+        steps = ReaderRanges.railHeightSteps,
+        label = stringResource(MR.strings.pref_vertical_navigator_height),
+        onChange = height::set,
+        pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+    )
 }
