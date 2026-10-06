@@ -3,6 +3,7 @@ package reikai.domain.recommendation.taste
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.kitsu.Kitsu
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
+import eu.kanade.tachiyomi.data.track.kitsu.toKitsuStatus
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import tachiyomi.core.common.preference.Preference
 
@@ -30,20 +31,10 @@ class KitsuLibraryFetcher(
         remoteId = mangaId,
         title = title,
         score = normalizeTrackerScore(ratingTwenty, 20),
-        status = mapStatus(status),
+        // Upper-cased because the JSON:API reported the status enum in lower case, GraphQL in upper.
+        status = kitsu.trackStatusOfRemote(status.uppercase()) { it.toKitsuStatus().rawValue },
         tags = tags.toTagKeys(),
         malId = malId,
         anilistId = anilistId,
     )
-
-    // Lower-cased because GraphQL reports the status enum in upper case where the JSON:API reported
-    // it lower, and both spellings mean the same thing.
-    private fun mapStatus(raw: String): TrackStatus = when (raw.lowercase()) {
-        "current" -> TrackStatus.READING
-        "completed" -> TrackStatus.COMPLETED
-        "on_hold" -> TrackStatus.ON_HOLD
-        "dropped" -> TrackStatus.DROPPED
-        "planned" -> TrackStatus.PLAN_TO_READ
-        else -> TrackStatus.UNKNOWN
-    }
 }

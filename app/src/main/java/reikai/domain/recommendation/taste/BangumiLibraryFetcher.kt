@@ -3,6 +3,7 @@ package reikai.domain.recommendation.taste
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.bangumi.Bangumi
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionItem
+import eu.kanade.tachiyomi.data.track.bangumi.toApiStatus
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import tachiyomi.core.common.preference.Preference
 
@@ -31,16 +32,7 @@ class BangumiLibraryFetcher(
         remoteId = subjectId,
         title = subject?.nameCn?.ifBlank { subject.name } ?: subject?.name.orEmpty(),
         score = normalizeTrackerScore(rate, 10),
-        status = mapStatus(type),
+        status = bangumi.trackStatusOfRemote(type) { it.toApiStatus() },
         tags = subject?.tags.orEmpty().map { it.name }.toTagKeys(),
     )
-
-    private fun mapStatus(type: Int): TrackStatus = when (type) {
-        1 -> TrackStatus.PLAN_TO_READ
-        2 -> TrackStatus.COMPLETED
-        3 -> TrackStatus.READING
-        4 -> TrackStatus.ON_HOLD
-        5 -> TrackStatus.DROPPED
-        else -> TrackStatus.UNKNOWN
-    }
 }

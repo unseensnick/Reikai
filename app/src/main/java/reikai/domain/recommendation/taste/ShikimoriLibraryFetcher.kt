@@ -3,6 +3,7 @@ package reikai.domain.recommendation.taste
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.shikimori.Shikimori
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserRate
+import eu.kanade.tachiyomi.data.track.shikimori.toShikimoriStatus
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import tachiyomi.core.common.preference.Preference
 
@@ -34,17 +35,8 @@ class ShikimoriLibraryFetcher(
             remoteId = remoteId,
             title = manga.name,
             score = normalizeTrackerScore(score, 10),
-            status = mapStatus(status),
+            status = shikimori.trackStatusOfRemote(status) { it.toShikimoriStatus() },
             tags = manga.genres.map { it.name }.toTagKeys(),
         )
-    }
-
-    private fun mapStatus(raw: String?): TrackStatus = when (raw) {
-        "watching", "rewatching" -> TrackStatus.READING
-        "completed" -> TrackStatus.COMPLETED
-        "on_hold" -> TrackStatus.ON_HOLD
-        "dropped" -> TrackStatus.DROPPED
-        "planned" -> TrackStatus.PLAN_TO_READ
-        else -> TrackStatus.UNKNOWN
     }
 }

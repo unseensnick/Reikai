@@ -3,6 +3,7 @@ package reikai.domain.recommendation.taste
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.anilist.Anilist
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALLibraryEntry
+import eu.kanade.tachiyomi.data.track.anilist.toApiStatus
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import tachiyomi.core.common.preference.Preference
 
@@ -31,7 +32,7 @@ class AnilistLibraryFetcher(
         remoteId = media.id,
         title = media.title.userPreferred,
         score = normalizeTrackerScore(scoreRaw, 100),
-        status = mapStatus(status),
+        status = anilist.trackStatusOfRemote(status) { it.toApiStatus().rawValue },
         tags = collectTags(),
         // Cross-tracker dedup keys: malId via AniList's Media.idMal (often null for manhwa/manhua);
         // anilistId is our own remote id so a Kitsu entry's anilist mapping can join on the 2nd key.
@@ -41,13 +42,4 @@ class AnilistLibraryFetcher(
 
     private fun ALLibraryEntry.collectTags(): List<String> =
         (media.genres + media.tags.map { it.name }).toTagKeys()
-
-    private fun mapStatus(raw: String?): TrackStatus = when (raw) {
-        "CURRENT", "REPEATING" -> TrackStatus.READING
-        "COMPLETED" -> TrackStatus.COMPLETED
-        "PAUSED" -> TrackStatus.ON_HOLD
-        "DROPPED" -> TrackStatus.DROPPED
-        "PLANNING" -> TrackStatus.PLAN_TO_READ
-        else -> TrackStatus.UNKNOWN
-    }
 }
