@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.create.creators
 
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
@@ -9,6 +8,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSearchTag
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTitle
 import eu.kanade.tachiyomi.data.backup.models.customInfo
 import eu.kanade.tachiyomi.data.backup.models.toBackupChapter
+import eu.kanade.tachiyomi.data.backup.models.toBackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.toBackupTracking
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import kotlinx.coroutines.flow.first
@@ -120,17 +120,8 @@ class MangaBackupCreator(
     }
 
     override suspend fun customInfo(entry: Manga, backup: BackupManga) {
-        customMangaInfoRepository.getByMangaIdAsFlow(entry.id).first()?.let { info ->
-            backup.customInfo = BackupCustomInfo(
-                title = info.title,
-                author = info.author,
-                artist = info.artist,
-                description = info.description,
-                genre = info.genre,
-                status = info.status,
-                thumbnailUrl = info.thumbnailUrl,
-            )
-        }
+        customMangaInfoRepository.getByMangaIdAsFlow(entry.id).first()
+            ?.let { backup.customInfo = it.toBackupCustomInfo() }
     }
     // RK <--
 }

@@ -6,7 +6,6 @@ package eu.kanade.tachiyomi.data.backup.create.creators
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
-import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
@@ -16,6 +15,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.customInfo
+import eu.kanade.tachiyomi.data.backup.models.toBackupCustomInfo
 import kotlinx.coroutines.flow.first
 import reikai.data.backup.BackupEntryParts
 import reikai.data.backup.mergeGroupRefs
@@ -102,17 +102,8 @@ class NovelBackupCreator(
     }
 
     override suspend fun customInfo(entry: Novel, backup: BackupNovel) {
-        customNovelInfoRepository.getByNovelIdAsFlow(entry.id).first()?.let { info ->
-            backup.customInfo = BackupCustomInfo(
-                title = info.title,
-                author = info.author,
-                artist = info.artist,
-                description = info.description,
-                genre = info.genre,
-                status = info.status,
-                thumbnailUrl = info.thumbnailUrl,
-            )
-        }
+        customNovelInfoRepository.getByNovelIdAsFlow(entry.id).first()
+            ?.let { backup.customInfo = it.toBackupCustomInfo() }
     }
 
     private suspend fun backupNovelCategories(): List<BackupNovelCategory> {

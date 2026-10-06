@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.LegacyCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.customInfo
+import eu.kanade.tachiyomi.data.backup.models.toBackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -279,16 +280,7 @@ class MangaCustomInfoRestorer : CustomInfoRestorer {
         val repository = mockk<CustomMangaInfoRepository> {
             coEvery { set(any()) } answers {
                 val info = firstArg<CustomMangaInfo>()
-                written += info.mangaId to
-                    BackupCustomInfo(
-                        info.title,
-                        info.author,
-                        info.artist,
-                        info.description,
-                        info.genre,
-                        info.status,
-                        info.thumbnailUrl,
-                    )
+                written += info.mangaId to info.toBackupCustomInfo()
             }
         }
         MangaRestoreHarness.create().use { harness ->
@@ -339,16 +331,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
         val repository = mockk<CustomNovelInfoRepository> {
             coEvery { set(any()) } answers {
                 val info = firstArg<CustomNovelInfo>()
-                written += info.novelId to
-                    BackupCustomInfo(
-                        info.title,
-                        info.author,
-                        info.artist,
-                        info.description,
-                        info.genre,
-                        info.status,
-                        info.thumbnailUrl,
-                    )
+                written += info.novelId to info.toBackupCustomInfo()
             }
         }
         val novels = mockk<NovelRepository>(relaxed = true) {

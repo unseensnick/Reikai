@@ -3,6 +3,7 @@
 package eu.kanade.tachiyomi.data.backup.models
 
 import kotlinx.serialization.protobuf.ProtoBuf
+import reikai.domain.entry.EntryCustomInfo
 
 /**
  * Numbered as Komikku and Yōkai number them on their BackupManga (803 is skipped in both), so custom
@@ -29,6 +30,9 @@ data class BackupCustomInfo(
     val status: Long? = null,
     val thumbnailUrl: String? = null,
 )
+
+fun EntryCustomInfo.toBackupCustomInfo() =
+    BackupCustomInfo(title, author, artist, description, genre, status, thumbnailUrl)
 
 /**
  * Null when the entry carries no custom info. Status 0 is Unknown, which the editor never stores as an
