@@ -332,7 +332,7 @@ class AnilistApi(
 
     companion object {
         private const val CLIENT_ID = "16329"
-        private const val API_URL = "https://graphql.anilist.co/" // RK: the raw library pull
+        const val API_URL = "https://graphql.anilist.co/" // RK: the raw library pull and the recommendations
 
         fun authUrl(): Uri = "https://anilist.co/api/v2/oauth/authorize".toUri().buildUpon()
             .appendQueryParameter("client_id", CLIENT_ID)

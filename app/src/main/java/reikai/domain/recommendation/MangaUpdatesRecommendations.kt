@@ -1,5 +1,7 @@
 package reikai.domain.recommendation
 
+import eu.kanade.tachiyomi.data.track.Tracker
+import eu.kanade.tachiyomi.data.track.mangaupdates.MangaUpdatesApi
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
@@ -22,11 +24,9 @@ import reikai.domain.recommendation.dto.MUSeriesResponse
  */
 class MangaUpdatesRecommendations(
     private val client: OkHttpClient,
-    override val trackerId: Long,
+    tracker: Tracker,
     override val json: Json,
-) : TrackerRecommendations() {
-
-    override val trackerName: String = "MangaUpdates"
+) : TrackerRecommendations(tracker) {
 
     override suspend fun getRecsById(remoteId: Long): List<RelatedMangaCandidate> =
         fetchSeries(remoteId).toCandidates()
@@ -74,7 +74,7 @@ class MangaUpdatesRecommendations(
     }
 
     companion object {
-        private const val ENDPOINT = "https://api.mangaupdates.com/v1/"
+        private const val ENDPOINT = "${MangaUpdatesApi.BASE_URL}/v1/"
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }

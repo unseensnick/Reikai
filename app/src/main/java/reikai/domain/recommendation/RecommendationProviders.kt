@@ -4,6 +4,13 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.data.track.anilist.Anilist
+import eu.kanade.tachiyomi.data.track.anilist.AnilistApi
+import eu.kanade.tachiyomi.data.track.mangaupdates.MangaUpdates
+import eu.kanade.tachiyomi.data.track.mangaupdates.MangaUpdatesApi
+import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeList
+import eu.kanade.tachiyomi.data.track.shikimori.Shikimori
+import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.interceptor.rateLimitHost
 import kotlinx.serialization.json.Json
@@ -33,22 +40,22 @@ class RecommendationProviders(
      */
     val client: OkHttpClient by lazy {
         networkHelper.client.newBuilder()
-            .rateLimitHost("https://graphql.anilist.co", permits = 85, period = 1.minutes)
-            .rateLimitHost("https://api.jikan.moe", permits = 3, period = 1.seconds)
-            .rateLimitHost("https://api.jikan.moe", permits = 58, period = 1.minutes)
-            .rateLimitHost("https://api.mangaupdates.com", permits = 30, period = 1.minutes)
-            .rateLimitHost("https://shikimori.io", permits = 2, period = 1.seconds)
-            .rateLimitHost("https://shikimori.io", permits = 60, period = 1.minutes)
+            .rateLimitHost(AnilistApi.API_URL, permits = 85, period = 1.minutes)
+            .rateLimitHost(MyAnimeListRecommendations.JIKAN_URL, permits = 3, period = 1.seconds)
+            .rateLimitHost(MyAnimeListRecommendations.JIKAN_URL, permits = 58, period = 1.minutes)
+            .rateLimitHost(MangaUpdatesApi.BASE_URL, permits = 30, period = 1.minutes)
+            .rateLimitHost(ShikimoriApi.BASE_URL, permits = 2, period = 1.seconds)
+            .rateLimitHost(ShikimoriApi.BASE_URL, permits = 60, period = 1.minutes)
             .build()
     }
 
     /** The recs provider for a tracker id, or null if that tracker has no recommendations endpoint
      *  (Kitsu, Bangumi). */
-    fun forTracker(trackerId: Long): TrackerRecommendations? = when (trackerId) {
-        trackerManager.aniList.id -> AnilistRecommendations(client, trackerId, json)
-        trackerManager.myAnimeList.id -> MyAnimeListRecommendations(client, trackerId, json)
-        trackerManager.mangaUpdates.id -> MangaUpdatesRecommendations(client, trackerId, json)
-        trackerManager.shikimori.id -> ShikimoriRecommendations(client, trackerId, json)
+    fun forTracker(trackerId: Long): TrackerRecommendations? = when (val tracker = trackerManager.get(trackerId)) {
+        is Anilist -> AnilistRecommendations(client, tracker, json)
+        is MyAnimeList -> MyAnimeListRecommendations(client, tracker, json)
+        is MangaUpdates -> MangaUpdatesRecommendations(client, tracker, json)
+        is Shikimori -> ShikimoriRecommendations(client, tracker, json)
         else -> null
     }
 }

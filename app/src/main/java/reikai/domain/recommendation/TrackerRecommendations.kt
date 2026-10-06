@@ -1,5 +1,6 @@
 package reikai.domain.recommendation
 
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.serialization.json.Json
 
@@ -11,15 +12,16 @@ import kotlinx.serialization.json.Json
  * authenticated client, which would throw for a logged-out user. Candidates are tagged
  * [RECOMMENDS_SOURCE]: their URL fits no installed extension, so a tap routes through global search.
  */
-abstract class TrackerRecommendations {
+abstract class TrackerRecommendations(private val tracker: Tracker) {
 
     /** `parseAs` is a context function, so call sites wrap it in `with(json) { ... }`. */
     protected abstract val json: Json
 
-    abstract val trackerName: String
+    /** The tracker's own name, the one Settings shows, so the origin label reads the same. */
+    val trackerName: String get() = tracker.name
 
     /** The tracker's stable id (from `TrackerManager`), stamped onto every candidate for id matching. */
-    abstract val trackerId: Long
+    val trackerId: Long get() = tracker.id
 
     abstract suspend fun getRecsById(remoteId: Long): List<RelatedMangaCandidate>
 

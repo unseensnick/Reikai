@@ -307,7 +307,7 @@ class ShikimoriApi(
     )
 
     companion object {
-        private const val BASE_URL = "https://shikimori.io"
+        const val BASE_URL = "https://shikimori.io" // RK: public, the recommendations share it
         private const val API_URL = "$BASE_URL/api"
         private const val OAUTH_URL = "$BASE_URL/oauth/token"
 

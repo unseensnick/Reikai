@@ -1,5 +1,7 @@
 package reikai.domain.recommendation
 
+import eu.kanade.tachiyomi.data.track.Tracker
+import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
@@ -21,11 +23,9 @@ import reikai.domain.recommendation.dto.SMRecsManga
  */
 class ShikimoriRecommendations(
     private val client: OkHttpClient,
-    override val trackerId: Long,
+    tracker: Tracker,
     override val json: Json,
-) : TrackerRecommendations() {
-
-    override val trackerName: String = "Shikimori"
+) : TrackerRecommendations(tracker) {
 
     private val headers = Headers.headersOf("User-Agent", REIKAI_TRACKER_USER_AGENT)
 
@@ -66,7 +66,7 @@ class ShikimoriRecommendations(
     )
 
     companion object {
-        private const val BASE_URL = "https://shikimori.io"
+        private const val BASE_URL = ShikimoriApi.BASE_URL
         private const val API_URL = "$BASE_URL/api"
     }
 }

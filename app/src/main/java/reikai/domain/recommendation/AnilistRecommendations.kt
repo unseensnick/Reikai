@@ -1,5 +1,7 @@
 package reikai.domain.recommendation
 
+import eu.kanade.tachiyomi.data.track.Tracker
+import eu.kanade.tachiyomi.data.track.anilist.AnilistApi
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
@@ -25,11 +27,9 @@ import reikai.domain.recommendation.dto.ALRecsTitle
  */
 class AnilistRecommendations(
     private val client: OkHttpClient,
-    override val trackerId: Long,
+    tracker: Tracker,
     override val json: Json,
-) : TrackerRecommendations() {
-
-    override val trackerName: String = "AniList"
+) : TrackerRecommendations(tracker) {
 
     override suspend fun getRecsById(remoteId: Long): List<RelatedMangaCandidate> {
         val payload = buildJsonObject {
@@ -126,7 +126,7 @@ class AnilistRecommendations(
             .filter { it.isNotBlank() }
 
     companion object {
-        private const val ENDPOINT = "https://graphql.anilist.co/"
+        private const val ENDPOINT = AnilistApi.API_URL
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
         private val QUERY_BY_ID = """

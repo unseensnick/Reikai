@@ -23,7 +23,7 @@ class ShikimoriRecommendationsTest {
                 .body("[]".toResponseBody("application/json".toMediaType())).build()
         }.build()
 
-        ShikimoriRecommendations(client, 1L, Json { ignoreUnknownKeys = true }).getRecsById(1L)
+        ShikimoriRecommendations(client, fakeTracker(), Json { ignoreUnknownKeys = true }).getRecsById(1L)
 
         recorded!!.header("User-Agent") shouldBe REIKAI_TRACKER_USER_AGENT
     }

@@ -230,7 +230,7 @@ class MangaUpdatesApi(
     }
 
     companion object {
-        private const val BASE_URL = "https://api.mangaupdates.com"
+        const val BASE_URL = "https://api.mangaupdates.com" // RK: public, the recommendations share it
 
         private val CONTENT_TYPE = "application/json".toMediaType()
     }
