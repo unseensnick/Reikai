@@ -21,8 +21,8 @@ import tachiyomi.core.common.util.lang.launchIO
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Browse-level state shared by the Reikai Sources and Extensions tab wrappers: the sticky
- * content-type filter (one key, so both tabs stay in sync), the Browse search query, and the
+ * Browse-level state shared by the Reikai Sources, Extensions and Migration tab wrappers: the sticky
+ * content-type filter (one key, so the tabs stay in sync), the Browse search query, and the
  * extension update counts that feed the Extensions tab badges. Kicks the cache-gated plugin update
  * check on Browse open so the badge is fresh without the user opening the Novels chip.
  */

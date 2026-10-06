@@ -511,7 +511,8 @@ them off the neutral row style, so no composable reads the preference.
 - **A multi-source list shows each half as it lands (owner, 2026-08-27).** The shared loading flag
   was true while any provider was still null, so a slow plugin repo held back manga rows that were
   ready. It is now true only while every active provider is, with `hasPending` keeping a half still
-  on its way from reading as "nothing found".
+  on its way from reading as "nothing found". The rule is written once, in `ProviderLoad` and
+  `ProviderList` (`ProviderLoad.kt`), which the Sources, Extensions and Migration engines share.
 - **A verb that recovers its payload from the live dialog is broken by the dialog closing.** Found
   after the takeover, by pressing buttons rather than reading code. `EntryDuplicateDialog`,
   `EntryRemoveDialog` and Mihon's `ChangeCategoryDialog` all call `onDismissRequest()` before the

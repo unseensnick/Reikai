@@ -42,6 +42,7 @@ import mihon.icons.materialsymbols.rounded.Numbers
 import mihon.icons.materialsymbols.rounded.SortByAlpha
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
+import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.components.NovelSourceIcon
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
@@ -68,7 +69,7 @@ import tachiyomi.presentation.core.util.plus
  * replaced builder and screen are deleted (see the off-path manifest).
  */
 @Composable
-fun Screen.reikaiMigrateSourceTab(): TabContent {
+fun Screen.reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
     val uriHandler = LocalUriHandler.current
     val navigator = LocalNavigator.currentOrThrow
     val mangaModel = metroViewModel<MigrateSourceViewModel>()
@@ -94,7 +95,7 @@ fun Screen.reikaiMigrateSourceTab(): TabContent {
             Column {
                 ContentTypeFilterChips(
                     selected = state.contentType,
-                    onSelect = engine::setContentType,
+                    onSelect = browseViewModel::setContentType,
                 )
                 when {
                     state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))

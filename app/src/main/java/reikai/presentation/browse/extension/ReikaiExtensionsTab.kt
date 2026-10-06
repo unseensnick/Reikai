@@ -150,7 +150,7 @@ fun Screen.reikaiExtensionsTab(
             Column {
                 ContentTypeFilterChips(
                     selected = state.contentType,
-                    onSelect = engine::setContentType,
+                    onSelect = browseViewModel::setContentType,
                     // Show where the pending updates are: a count on the Manga / Novels chip. The All
                     // chip stays clean; the tab badge already carries the combined total.
                     badges = mapOf(

@@ -26,6 +26,8 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.includes
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelExtensionFormat
+import reikai.presentation.browse.ProviderList
+import reikai.presentation.browse.ProviderLoad
 import reikai.presentation.browse.debouncedBrowseQuery
 import tachiyomi.core.common.util.lang.launchIO
 import kotlin.time.Duration.Companion.seconds
@@ -59,13 +61,11 @@ class SourcesEngine(
     ) { rowsPerProvider, contentType, query ->
         val active = providers.indices.filter { providers[it].shows(contentType) }
         val shown = active.flatMap { rowsPerProvider[it].orEmpty() }.filter { matchesSourceQuery(it, query) }
+        val load = ProviderLoad.of(active.map { rowsPerProvider[it] })
         State(
             contentType = contentType,
-            // One loading state over the active providers: a chip must never be gated on a list it
-            // is not showing. Only while nothing has answered, so a half that is still loading no
-            // longer holds back the half that is ready.
-            isLoading = active.all { rowsPerProvider[it] == null },
-            hasPending = active.any { rowsPerProvider[it] == null },
+            isLoading = load.isLoading,
+            hasPending = load.hasPending,
             items = sectionSources(shown),
         )
     }
@@ -77,10 +77,6 @@ class SourcesEngine(
         .combine(sourcePreferences.hideSourceLatestButton.changes()) { state, hide -> state.copy(showLatest = !hide) }
         .combine(query) { state, typed -> state.copy(query = typed) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
-
-    fun setContentType(contentType: ContentType) {
-        sourcePreferences.browseContentType.set(contentType)
-    }
 
     fun togglePin(row: BrowseSourceRow) = providerFor(row).togglePin(row)
 
@@ -122,17 +118,13 @@ class SourcesEngine(
     data class State(
         val contentType: ContentType = ContentType.ALL,
         val isLoading: Boolean = true,
-        /** A content type that has not answered yet, so the list is showing part of itself. */
-        val hasPending: Boolean = true,
-        val items: List<SourcesListItem> = emptyList(),
+        override val hasPending: Boolean = true,
+        override val items: List<SourcesListItem> = emptyList(),
         val dialog: SourceOptionsDialog? = null,
         /** Whether a row that supports Latest shows its button. */
         val showLatest: Boolean = true,
         val query: String? = null,
-    ) {
-        // A half still on its way must not read as "nothing found".
-        val isEmpty get() = items.isEmpty() && !hasPending
-
+    ) : ProviderList {
         val isSearching get() = !query.isNullOrBlank()
 
         /** Novel sources of more than one packaging are on screen, so each row names its own. */

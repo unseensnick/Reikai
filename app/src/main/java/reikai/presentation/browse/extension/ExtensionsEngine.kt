@@ -22,6 +22,8 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.includes
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelExtensionFormat
+import reikai.presentation.browse.ProviderList
+import reikai.presentation.browse.ProviderLoad
 import reikai.presentation.browse.debouncedBrowseQuery
 import kotlin.time.Duration.Companion.seconds
 
@@ -53,15 +55,14 @@ class ExtensionsEngine(
         // A provider serving both types is active under either chip, so its rows are filtered too.
         val rows = active.flatMap { snapshots[it].rows.orEmpty() }.filter { contentType.includes(it.key.contentType) }
         val shown = rows.filter { matchesExtensionQuery(it, query) }
+        val load = ProviderLoad.of(active.map { snapshots[it].rows })
         State(
             contentType = contentType,
             query = query,
+            isLoading = load.isLoading,
+            hasPending = load.hasPending,
             // One value each over the active providers: a chip must never be gated on a list it is
             // not showing, which is what a flag per content type lets happen.
-            // Only while nothing has answered: the light-novel half waits on network, and holding
-            // the whole list back for it hid manga extensions that were ready immediately.
-            isLoading = active.all { snapshots[it].rows == null },
-            hasPending = active.any { snapshots[it].rows == null },
             isRefreshing = active.any { snapshots[it].isRefreshing },
             hasRepos = active.any { i -> snapshots[i].reposFor.any { contentType.includes(it) } },
             // Only where a row on screen installs through the system, so a plugin-only Novels list
@@ -81,10 +82,6 @@ class ExtensionsEngine(
         // answer to what is in the field rather than to what the list last filtered on.
         .combine(query) { state, typed -> state.copy(query = typed) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
-
-    fun setContentType(contentType: ContentType) {
-        sourcePreferences.browseContentType.set(contentType)
-    }
 
     fun refresh() = activeProviders().forEach { it.refresh() }
 
@@ -121,17 +118,14 @@ class ExtensionsEngine(
         val contentType: ContentType = ContentType.ALL,
         val query: String? = null,
         val isLoading: Boolean = true,
-        /** A content type that has not answered yet, so the list is showing part of itself. */
-        val hasPending: Boolean = true,
+        override val hasPending: Boolean = true,
         val isRefreshing: Boolean = false,
         val hasRepos: Boolean = true,
         val needsInstallPermission: Boolean = false,
         /** Novel rows of more than one packaging are on screen, so each row names its own. */
         val showsFormat: Boolean = false,
-        val items: List<ExtensionsListItem> = emptyList(),
-    ) {
-        // A half still on its way must not read as "nothing found".
-        val isEmpty get() = items.isEmpty() && !hasPending
+        override val items: List<ExtensionsListItem> = emptyList(),
+    ) : ProviderList {
         val isSearching get() = !query.isNullOrBlank()
     }
 

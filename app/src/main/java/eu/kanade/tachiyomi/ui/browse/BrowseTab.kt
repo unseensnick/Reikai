@@ -82,7 +82,7 @@ data object BrowseTab : Tab {
             feedTab.takeUnless { feedFirst },
             reikaiExtensionsTab(extensionsViewModel, browseViewModel),
             // RK: chip-switched manga + light-novel migrate-source list.
-            reikaiMigrateSourceTab(),
+            reikaiMigrateSourceTab(browseViewModel),
         )
 
         val state = rememberPagerState { tabs.size }

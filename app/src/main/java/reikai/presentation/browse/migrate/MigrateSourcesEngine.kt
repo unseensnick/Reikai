@@ -23,6 +23,8 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.includes
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelExtensionFormat
+import reikai.presentation.browse.ProviderList
+import reikai.presentation.browse.ProviderLoad
 import tachiyomi.core.common.preference.getAndSet
 import kotlin.time.Duration.Companion.seconds
 
@@ -49,13 +51,11 @@ class MigrateSourcesEngine(
         mihonSourcePreferences.migrationSortingDirection.changes(),
     ) { rowsPerProvider, contentType, mode, direction ->
         val active = providers.indices.filter { providers[it].shows(contentType) }
+        val load = ProviderLoad.of(active.map { rowsPerProvider[it] })
         State(
             contentType = contentType,
-            // One loading state over the active providers: a chip must never be gated on a list it
-            // is not showing. Only while nothing has answered, so a half that is still loading no
-            // longer holds back the half that is ready.
-            isLoading = active.all { rowsPerProvider[it] == null },
-            hasPending = active.any { rowsPerProvider[it] == null },
+            isLoading = load.isLoading,
+            hasPending = load.hasPending,
             items = active.flatMap { rowsPerProvider[it].orEmpty() }
                 .sortedWith(compareMigrateRows(mode, direction)),
             sortingMode = mode,
@@ -66,10 +66,6 @@ class MigrateSourcesEngine(
         // the chip or either sort preference changes.
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
-
-    fun setContentType(contentType: ContentType) {
-        sourcePreferences.browseContentType.set(contentType)
-    }
 
     // Both toggles read the preference, never state.value: the shared state answers its seed while
     // nothing is subscribed, so reading it here would flip the sort back to the default.
@@ -98,15 +94,11 @@ class MigrateSourcesEngine(
     data class State(
         val contentType: ContentType = ContentType.ALL,
         val isLoading: Boolean = true,
-        /** A content type that has not answered yet, so the list is showing part of itself. */
-        val hasPending: Boolean = true,
-        val items: List<BrowseMigrateRow> = emptyList(),
+        override val hasPending: Boolean = true,
+        override val items: List<BrowseMigrateRow> = emptyList(),
         val sortingMode: SetMigrateSorting.Mode = SetMigrateSorting.Mode.ALPHABETICAL,
         val sortingDirection: SetMigrateSorting.Direction = SetMigrateSorting.Direction.ASCENDING,
-    ) {
-        // A half still on its way must not read as "nothing found".
-        val isEmpty get() = items.isEmpty() && !hasPending
-
+    ) : ProviderList {
         /** Novel sources of more than one packaging are listed, so each row names its own. */
         val showsFormat: Boolean = NovelExtensionFormat.tellsApart(items.map { it.format })
     }

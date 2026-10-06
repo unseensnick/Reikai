@@ -103,7 +103,7 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
             Column {
                 ContentTypeFilterChips(
                     selected = state.contentType,
-                    onSelect = engine::setContentType,
+                    onSelect = browseViewModel::setContentType,
                 )
                 when {
                     state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
