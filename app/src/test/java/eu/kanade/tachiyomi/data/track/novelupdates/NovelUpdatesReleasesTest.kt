@@ -9,6 +9,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 
+private typealias Releases = suspend ((NovelUpdatesRelease) -> Boolean) -> List<NovelUpdatesRelease>
+
 class NovelUpdatesReleasesTest {
 
     private val release = { id: String, name: String -> NovelUpdatesRelease(id, name) }
@@ -54,29 +56,73 @@ class NovelUpdatesReleasesTest {
             listOf(release("11", "c1"), release("12", "c2"))
     }
 
+    // The nth ask answers the nth list, staying on the last; [asked] records the series asked for.
+    private class Site(private vararg val lists: List<NovelUpdatesRelease>) {
+        val asked = mutableListOf<String>()
+        val held = HeldReleases { novelId ->
+            asked += novelId
+            lists[minOf(asked.size, lists.size) - 1]
+        }
+    }
+
+    private fun pickFrom(site: Site, novelId: String): Releases = { matches -> site.held.matching(novelId, matches) }
+
+    private val notFetched: Releases = { error("not fetched") }
+
     @Test
     fun `the release the read chapter links to is ticked`() = runTest {
-        pickRelease(2.0, setOf("12"), { error("not fetched") }, numberOf) shouldBe "12"
+        pickRelease(2.0, setOf("12"), notFetched, numberOf) shouldBe "12"
     }
 
     @Test
     fun `read chapters linking to two releases tick neither`() = runTest {
-        pickRelease(2.0, setOf("12", "22"), { error("not fetched") }, numberOf).shouldBeNull()
+        pickRelease(2.0, setOf("12", "22"), notFetched, numberOf).shouldBeNull()
     }
 
     @Test
     fun `without a link the site's only release of that number is ticked`() = runTest {
-        pickRelease(2.0, emptySet(), { listOf(release("11", "c1"), release("12", "c2")) }, numberOf) shouldBe "12"
+        val site = Site(listOf(release("11", "c1"), release("12", "c2")))
+        pickRelease(2.0, emptySet(), pickFrom(site, "7"), numberOf) shouldBe "12"
     }
 
     @Test
     fun `two groups' releases of that number tick neither`() = runTest {
-        pickRelease(2.0, emptySet(), { listOf(release("12", "c2"), release("22", "c2")) }, numberOf).shouldBeNull()
+        val site = Site(listOf(release("12", "c2"), release("22", "c2")))
+        pickRelease(2.0, emptySet(), pickFrom(site, "7"), numberOf).shouldBeNull()
     }
 
     @Test
     fun `an unnumbered chapter never ticks a release by number`() = runTest {
-        pickRelease(-1.0, emptySet(), { listOf(release("9", "Prologue")) }, numberOf).shouldBeNull()
+        pickRelease(-1.0, emptySet(), notFetched, numberOf).shouldBeNull()
+    }
+
+    @Test
+    fun `a run of reads of one series asks the site for its releases once`() = runTest {
+        val site = Site(listOf(release("11", "c1"), release("12", "c2")))
+        pickRelease(1.0, emptySet(), pickFrom(site, "7"), numberOf)
+        pickRelease(2.0, emptySet(), pickFrom(site, "7"), numberOf)
+        site.asked shouldBe listOf("7")
+    }
+
+    @Test
+    fun `a release posted since the list was held is found by asking again`() = runTest {
+        val site = Site(listOf(release("11", "c1")), listOf(release("11", "c1"), release("12", "c2")))
+        pickRelease(1.0, emptySet(), pickFrom(site, "7"), numberOf)
+        pickRelease(2.0, emptySet(), pickFrom(site, "7"), numberOf) shouldBe "12"
+    }
+
+    @Test
+    fun `a number the site has no release for asks it once, not twice`() = runTest {
+        val site = Site(listOf(release("11", "c1")))
+        pickRelease(3.0, emptySet(), pickFrom(site, "7"), numberOf)
+        site.asked shouldBe listOf("7")
+    }
+
+    @Test
+    fun `another series asks for its own releases`() = runTest {
+        val site = Site(listOf(release("11", "c1")), listOf(release("81", "c1")))
+        pickRelease(1.0, emptySet(), pickFrom(site, "7"), numberOf)
+        pickRelease(1.0, emptySet(), pickFrom(site, "8"), numberOf) shouldBe "81"
     }
 
     @Test

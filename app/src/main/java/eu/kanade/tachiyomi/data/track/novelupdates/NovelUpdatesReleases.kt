@@ -30,19 +30,36 @@ internal fun parseReleases(document: Document): List<NovelUpdatesRelease> =
 
 /**
  * Which release to bookmark for chapter [number]: the one the read chapter links to when that is a single
- * release, as the extension marks; else the site's only release numbered [number], when [releases]
- * can be fetched; else none, since bookmarking a guess marks the wrong group's post.
+ * release, as the extension marks; else the site's only release numbered [number], which [releases]
+ * answers given the match; else none, since bookmarking a guess marks the wrong group's post.
  */
 internal suspend fun pickRelease(
     number: Double,
     readReleaseIds: Set<String>,
-    releases: suspend () -> List<NovelUpdatesRelease>,
+    releases: suspend (matches: (NovelUpdatesRelease) -> Boolean) -> List<NovelUpdatesRelease>,
     numberOf: (String) -> Double,
 ): String? {
     readReleaseIds.singleOrNull()?.let { return it }
     // An unnumbered chapter matches the site's every unnumbered release, a prologue or a side story.
     if (readReleaseIds.isNotEmpty() || number <= 0) return null
-    return releases().filter { numberOf(it.name) == number }.singleOrNull()?.id
+    return releases { numberOf(it.name) == number }.singleOrNull()?.id
+}
+
+/**
+ * The last series' release list, held so a run of reads asks the site for it once. Releases are only
+ * ever added, so a held list goes stale only by what it lacks: a pick it holds no release for asks again.
+ */
+internal class HeldReleases(private val fetch: suspend (novelId: String) -> List<NovelUpdatesRelease>) {
+    @Volatile
+    private var held: Pair<String, List<NovelUpdatesRelease>>? = null
+
+    /** The series' releases [matches] accepts: the held list's when it has any, else a fresh list's. */
+    suspend fun matching(novelId: String, matches: (NovelUpdatesRelease) -> Boolean): List<NovelUpdatesRelease> {
+        held?.takeIf { it.first == novelId }?.second?.filter(matches)?.ifEmpty { null }?.let { return it }
+        val fresh = fetch(novelId)
+        held = novelId to fresh
+        return fresh.filter(matches)
+    }
 }
 
 /**

@@ -65,6 +65,8 @@ class NovelUpdates(id: Long) :
 
     private val api by lazy { NovelUpdatesApi(client) }
 
+    private val releases = HeldReleases { api.releases(it) }
+
     override fun getLogo(): Int = R.drawable.brand_novelupdates
 
     override val supportsNovels = true
@@ -298,7 +300,7 @@ class NovelUpdates(id: Long) :
         readIds: Set<String>,
     ) {
         try {
-            val releaseId = pickRelease(number, readIds, { api.releases(novelId) }) {
+            val releaseId = pickRelease(number, readIds, { releases.matching(novelId, it) }) {
                 ChapterRecognition.parseChapterNumber(track.title, it)
             } ?: return
             api.bookmarkRelease(novelId, releaseId)

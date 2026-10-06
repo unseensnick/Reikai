@@ -37,18 +37,29 @@ class NovelUpdatesPushTest {
 
     private lateinit var appScope: InjektScope
 
+    private val askedFor = mutableListOf<String>()
+
     private fun chapter(novelId: Long, number: Int) = NovelChapter(
         id = novelId * 1000 + number, novelId = novelId, url = "", name = "", read = true, bookmark = false,
         lastTextProgress = 0L, chapterNumber = number.toDouble(), sourceOrder = number.toLong(), dateFetch = 0L,
         dateUpload = 0L, page = "",
     )
 
-    // The note reads progress 5 (plus WordPress's trailing 0) and every write lands.
+    private fun releaseRow(number: Int) =
+        """<li class="sp_li_chp"><a href="//www.novelupdates.com/group/g/"></a>""" +
+            """<a href="//www.novelupdates.com/extnu/${10 + number}/">Chapter $number</a></li>"""
+
+    // The note reads progress 5 (plus WordPress's trailing 0), chapters 6 and 7 are posted, every write lands.
     private val site = OkHttpClient.Builder().addInterceptor { chain ->
         val request = chain.request()
         val form = request.body as? FormBody
         val action = form?.let { f -> (0 until f.size).firstOrNull { f.name(it) == "action" }?.let(f::value) }
-        val body = if (action == "wi_notestagsfic") """{"notes":"total chapters read: 5","tags":""}0""" else ""
+        action?.let { askedFor += it }
+        val body = when (action) {
+            "wi_notestagsfic" -> """{"notes":"total chapters read: 5","tags":""}0"""
+            "nd_getchapters" -> "<ol>${releaseRow(6)}${releaseRow(7)}</ol>"
+            else -> ""
+        }
         Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
             .body(body.toResponseBody("text/html".toMediaType())).build()
     }.build()
@@ -97,6 +108,16 @@ class NovelUpdatesPushTest {
         val pushed = NovelUpdates(TrackerManager.NOVELUPDATES).pushUnread(track(5.0), listOf(chapter(SOURCE_A, 5)))
 
         pushed?.last_chapter_read shouldBe 4.0
+    }
+
+    @Test
+    fun `a run of reads asks the site for the series' releases once`() = runTest {
+        val tracker = NovelUpdates(TrackerManager.NOVELUPDATES)
+
+        tracker.update(track(6.0), didReadChapter = true)
+        tracker.update(track(7.0), didReadChapter = true)
+
+        askedFor.count { it == "nd_getchapters" } shouldBe 1
     }
 
     private companion object {
