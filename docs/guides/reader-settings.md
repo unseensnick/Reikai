@@ -341,7 +341,7 @@ How far into a chapter you have to read before the next one appears below it. A 
 What the reader's bar calls the open chapter: its **Name**, its **Number**, or **Number and name**.
 
 #### Default rotation <Badge type="info" text="Free" />
-How the screen is oriented. It offers the same choices as the manga reader apart from Reverse portrait.
+How the screen is oriented. It offers the same choices as the manga reader.
 
 #### Fullscreen <Badge type="info" text="On" />
 Lets the page extend under the status and navigation bars.

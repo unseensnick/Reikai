@@ -161,6 +161,9 @@ interface ReaderProvider {
      */
     val orientation: Flow<Int>
 
+    /** [orientation] resolved through [resolveOrientation] against this type's own default rotation. */
+    val resolvedOrientation: Flow<Int>
+
     fun setOrientation(flagValue: Int)
 
     /** Each type has its own keep-screen-on preference, which either reader's bar can toggle. */

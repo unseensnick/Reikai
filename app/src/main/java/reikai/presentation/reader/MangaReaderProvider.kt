@@ -268,6 +268,9 @@ class MangaReaderProvider(
     override val orientation: Flow<Int> = viewModel.state
         .map { it.manga?.readerOrientation?.toInt() ?: ReaderOrientation.DEFAULT.flagValue }
 
+    override val resolvedOrientation: Flow<Int> =
+        combine(orientation, readerPreferences.defaultOrientationType.changes(), ::resolveOrientation)
+
     override val keepScreenOn: Flow<Boolean> = readerPreferences.keepScreenOn.changes()
 
     override fun setOrientation(flagValue: Int) =

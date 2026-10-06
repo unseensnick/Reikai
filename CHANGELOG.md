@@ -286,7 +286,7 @@ agent under Settings -> Advanced.
 - **Auto-scroll in either reader now pauses while your finger is on the screen or a sheet is open over the page, and scrubbing the chapter pauses it a moment instead of turning it off.**
 - **Novel auto-scroll now starts by itself only when Settings -> Novel reader -> Start auto-scroll when opening a chapter is on, which it is if you had left auto-scroll on.** The bottom bar button and the Controls tab start or stop it without changing that setting.
 - **Novel chapters now follow manga's delete settings: finishing one in the reader no longer deletes it under "After manually marked as read", and one "After reading automatically delete" removes stays downloaded until you leave the reader.**
-- **The reader's quick reading-mode menu now highlights the mode you are reading in, and just opening it no longer sets that mode for the series.**
+- **The reader's quick reading-mode and rotation menus now highlight the mode you are reading in, and just opening one no longer sets that mode for the series.**
 - **The manga reader's chapter list now shows the page you stopped on in a chapter you have started, as the details screen does.**
 - **With Theme based on cover on, the novel reader's bars now take the novel's cover colours, as manga's do.**
 - **The novel reader's button bar now starts with text size and theme buttons, unless you have already chosen its buttons.**
@@ -355,6 +355,7 @@ agent under Settings -> Advanced.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, like manga.**
 - **Share on a novel's details page now sits in the menu, as on manga.**
 - **Novel text size now goes from 10 to 40, and line spacing from 0.8x to 5x.**
+- **Settings -> Novel reader -> Default rotation now offers Reverse portrait, as the manga reader does.**
 
 #### Fixed
 

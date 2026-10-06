@@ -580,6 +580,7 @@ class ReaderActivity : BaseActivity() {
                 is ReaderDialog.OrientationSelect -> {
                     ReaderOrientationDialog(
                         currentOrientation = engine.orientation.collectAsState().value,
+                        resolvedOrientation = engine.resolvedOrientation.collectAsState().value,
                         onChange = {
                             engine.setOrientation(it)
                             menuToggleToast?.cancel()

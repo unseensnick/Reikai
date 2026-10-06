@@ -1025,6 +1025,8 @@ private class FakeReaderProvider(
 
     override val orientation = MutableStateFlow(0)
 
+    override val resolvedOrientation = MutableStateFlow(0)
+
     override val keepScreenOn = MutableStateFlow(false)
 
     override val textSettings: ReaderTextSettings? = null

@@ -252,6 +252,14 @@ class ReaderEngine(
     val orientation: StateFlow<Int> =
         provider.orientation.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderOrientation.DEFAULT.flagValue)
 
+    /** What the window actually rotates to, which the picker highlights for an entry following the default. */
+    val resolvedOrientation: StateFlow<Int> =
+        provider.resolvedOrientation.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            ReaderOrientation.DEFAULT.flagValue,
+        )
+
     fun setOrientation(flagValue: Int) = provider.setOrientation(flagValue)
 
     val keepScreenOn: StateFlow<Boolean> =

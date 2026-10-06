@@ -21,7 +21,7 @@ import eu.kanade.presentation.reader.components.ModeSelectionDialog
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
-import reikai.presentation.reader.ReadingModeApply
+import reikai.presentation.reader.ModeSelectionApply
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SettingsIconGrid
 import tachiyomi.presentation.core.components.material.IconToggleButton
@@ -65,14 +65,14 @@ private fun DialogContent(
     onChangeReadingMode: (ReadingMode) -> Unit,
     onDismissRequest: () -> Unit, // RK
 ) {
-    // RK: the reader's own tap, kept apart from the highlighted mode in use, see ReadingModeApply
+    // RK: the reader's own tap, kept apart from the highlighted mode in use, see ModeSelectionApply
     var picked by remember { mutableStateOf<ReadingMode?>(null) }
 
     ModeSelectionDialog(
         onUseDefault = { onChangeReadingMode(ReadingMode.DEFAULT) }.takeIf { readingMode != ReadingMode.DEFAULT },
         // RK: an untouched Apply writes nothing and just closes
         onApply = {
-            ReadingModeApply.modeToApply(picked, readingMode)?.let(onChangeReadingMode) ?: onDismissRequest()
+            ModeSelectionApply.modeToApply(picked, readingMode)?.let(onChangeReadingMode) ?: onDismissRequest()
         },
     ) {
         SettingsIconGrid(MR.strings.pref_category_reading_mode) {

@@ -16,21 +16,22 @@ import tachiyomi.presentation.core.components.SettingsIconGrid
 import tachiyomi.presentation.core.components.material.IconToggleButton
 import tachiyomi.presentation.core.i18n.stringResource
 
-private val OrientationsWithoutDefault = ReaderOrientation.entries - ReaderOrientation.DEFAULT
-
 /**
  * Orientation picker for the reader's rotation button, both content types. Takes the entry's own flag
  * and hands one back, so the caller owns where it is stored; Mihon's `OrientationSelectDialog`, which
- * read the manga off a settings model, was deleted for it.
+ * read the manga off a settings model, was deleted for it. The grid highlights [resolvedOrientation],
+ * since Default has no tile, and Apply writes only a tile the reader tapped, see [ModeSelectionApply].
  */
 @Composable
 fun ReaderOrientationDialog(
     currentOrientation: Int,
+    resolvedOrientation: Int,
     onChange: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val current = ReaderOrientation.fromPreference(currentOrientation)
-    var selected by remember { mutableStateOf(current) }
+    val resolved = ReaderOrientation.fromPreference(resolvedOrientation)
+    var picked by remember { mutableStateOf<ReaderOrientation?>(null) }
     AdaptiveSheet(onDismissRequest = onDismiss) {
         ModeSelectionDialog(
             onUseDefault = {
@@ -38,15 +39,15 @@ fun ReaderOrientationDialog(
                 onDismiss()
             }.takeIf { current != ReaderOrientation.DEFAULT },
             onApply = {
-                onChange(selected.flagValue)
+                ModeSelectionApply.modeToApply(picked, current)?.let { onChange(it.flagValue) }
                 onDismiss()
             },
         ) {
             SettingsIconGrid(MR.strings.rotation_type) {
-                items(OrientationsWithoutDefault) { mode ->
+                items(readerOrientationChoices) { mode ->
                     IconToggleButton(
-                        checked = mode == selected,
-                        onCheckedChange = { selected = mode },
+                        checked = mode == (picked ?: resolved),
+                        onCheckedChange = { picked = mode },
                         modifier = Modifier.fillMaxWidth(),
                         imageVector = mode.icon,
                         title = stringResource(mode.stringRes),

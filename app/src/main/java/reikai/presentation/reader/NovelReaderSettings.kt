@@ -1,7 +1,6 @@
 package reikai.presentation.reader
 
 import dev.icerock.moko.resources.StringResource
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTextAlign
@@ -37,8 +36,6 @@ data class NovelReaderSettings(
     /** The per-novel reader orientation `flagValue` (0 = Default, i.e. follow the global default).
      *  Drives the settings sheet's current selection. */
     val orientation: Int,
-    /** [orientation] resolved against the global default: the concrete orientation the reader applies. */
-    val resolvedOrientation: Int,
     // How the renderers place, mark and follow the spoken paragraph (ReadAloudSurface).
     val ttsScrollToTop: Boolean,
     val ttsHighlight: Boolean,
@@ -71,7 +68,6 @@ data class NovelReaderSettings(
     companion object {
         /** The settings as stored now, for a novel whose own orientation flag is [orientation]. */
         fun read(preferences: NovelPreferences, orientation: Int): NovelReaderSettings = with(preferences) {
-            val defaultOrientation = readerDefaultOrientation().get()
             NovelReaderSettings(
                 fontSize = readerFontSize().get(),
                 lineHeight = readerLineSpacing().get(),
@@ -90,8 +86,6 @@ data class NovelReaderSettings(
                 textColor = readerTextColor().get(),
                 keepScreenOn = readerKeepScreenOn().get(),
                 orientation = orientation,
-                resolvedOrientation =
-                if (orientation == ReaderOrientation.DEFAULT.flagValue) defaultOrientation else orientation,
                 ttsScrollToTop = readerTtsScrollToTop().get(),
                 ttsHighlight = readerTtsHighlight().get(),
                 ttsHighlightStyle = readerTtsHighlightStyle().get(),
@@ -134,7 +128,6 @@ data class NovelReaderSettings(
                 readerBackgroundColor().changes(),
                 readerTextColor().changes(),
                 readerKeepScreenOn().changes(),
-                readerDefaultOrientation().changes(),
                 readerTtsScrollToTop().changes(),
                 readerTtsHighlight().changes(),
                 readerTtsHighlightStyle().changes(),

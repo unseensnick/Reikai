@@ -224,6 +224,9 @@ class NovelReaderProvider(
 
     override val orientation: Flow<Int> = viewModel.settings.map { it.orientation }
 
+    override val resolvedOrientation: Flow<Int> =
+        combine(orientation, novelPreferences.readerDefaultOrientation().changes(), ::resolveOrientation)
+
     override val keepScreenOn: Flow<Boolean> = viewModel.settings.map { it.keepScreenOn }
 
     override fun setOrientation(flagValue: Int) = viewModel.setOrientation(flagValue)
@@ -313,8 +316,7 @@ class NovelReaderProvider(
         }
         // Manga locks the window from updateViewer, deferred behind the shared-element transition; a
         // novel launch runs neither, so it follows its own resolved orientation from here.
-        viewModel.settings
-            .map { it.resolvedOrientation }
+        resolvedOrientation
             .distinctUntilChanged()
             .onEach(host::setOrientation)
             .launchIn(host.lifecycleScope)

@@ -23,7 +23,6 @@ internal val readerTestSettings = NovelReaderSettings(
     textColor = "#eeeeee",
     keepScreenOn = false,
     orientation = 0,
-    resolvedOrientation = 0,
     ttsScrollToTop = false,
     ttsHighlight = true,
     ttsHighlightStyle = TtsHighlightStyle.BACKGROUND,

@@ -8,7 +8,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
@@ -17,6 +16,7 @@ import reikai.domain.reader.ChapterTitleFormat
 import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.autoScrollSpeedPreference
 import reikai.presentation.reader.readerBottomButtonsPreference
+import reikai.presentation.reader.readerOrientationChoices
 import reikai.presentation.reader.volumeKeyScrollPreference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -97,7 +97,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.defaultOrientationType,
-                    entries = ReaderOrientation.entries.drop(1)
+                    entries = readerOrientationChoices // RK: one list for both readers
                         .associate { it.flagValue to stringResource(it.stringRes) },
                     title = stringResource(MR.strings.pref_rotation_type),
                 ),
