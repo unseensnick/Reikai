@@ -112,6 +112,21 @@ class NetworkWaitConformanceTest {
             half.fetches shouldBe 2
         }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
+    fun `a chapter failing off Wi-Fi with Wi-Fi only on waits for Wi-Fi to fetch again`(half: NetworkWaitHalf) =
+        conformance(half) {
+            half.start(this, wifiOnly = true)
+            tick()
+            half.network = MOBILE
+            tick()
+            half.failFetchInFlight()
+
+            tick()
+
+            half.fetches shouldBe 1
+        }
+
     private fun TestScope.tick() {
         advanceTimeBy(TICK_MS)
         runCurrent()

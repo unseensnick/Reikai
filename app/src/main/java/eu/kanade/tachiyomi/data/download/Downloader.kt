@@ -169,7 +169,7 @@ class Downloader(
                 .filter { it.status == Download.State.DOWNLOADING }
                 .forEach { it.status = Download.State.QUEUE }
             isPaused = true
-            notifier.onNetworkPause()
+            notifier.onNetworkPause(reason)
             return
         }
         // RK <--

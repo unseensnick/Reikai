@@ -546,6 +546,7 @@ agent under Settings -> Advanced.
 - **Extensions now install and update only from a repo whose signing key matches, though a repo with no key, such as a third-party IReader repo, still updates the extensions no keyed repo signs (partly from Mihon).** A download signed with any other key is refused.
 - **Browse -> Extensions now names the repo each extension and plugin comes from, and an install that fails says why and offers a retry (partly from Mihon).** When repos with different keys list the same extension, each is shown so either can be installed. Upstream: mihonapp/mihon#3955.
 - **Novel downloads left waiting in the queue now wait for Resume when the app opens, as manga's do, though ones cut off by closing the app still resume.**
+- **A manga download paused for a lost connection or by Wi-Fi only now says why in its notification, as a novel download does.**
 - **Deleting a download by hand now always deletes, even in a category under Settings -> Downloads -> Excluded categories, and a novel's now respects Allow deleting bookmarked chapters.** Excluded categories still hold back automatic deletion after reading.
 - **Tapping an installed light-novel plugin in Browse -> Extensions now opens its page, with its version, repo, settings, website and an Uninstall that asks first, replacing the row's delete button.** A long press offers removal, under Available both gestures install, and a failed plugin opens the reason.
 - **An installed extension or novel extension app that fails to load now still gets its updates, under Updates with an update button (partly from Mihon).** An update is often what gets it working again.
@@ -562,6 +563,7 @@ agent under Settings -> Advanced.
 - **Paused novel downloads now stay paused when the queue is reordered or sorted, no longer fail the chapter being retried, and carry on when resumed straight away.**
 - **A novel chapter that failed to download can now be retried, by Resume or its Retry button in the download queue, and stays queued after a restart, as a manga chapter does.**
 - **Manga downloads queued without a connection now start on their own once it returns, as novel downloads do.**
+- **A novel chapter that fails while off Wi-Fi with Settings -> Downloads -> Only on Wi-Fi turned on now waits for Wi-Fi instead of retrying over mobile data.**
 - **Pausing manga downloads from the notification now leaves a paused notification to resume from (partly from Mihon).** Upstream: mihonapp/mihon#2791.
 - **Retrying a failed manga chapter, from the download queue or the reader's chapter list, now downloads it again at once, even while other chapters are downloading.**
 - **Extensions from a store that cannot be reached no longer show as Orphaned or lose their update badges.**

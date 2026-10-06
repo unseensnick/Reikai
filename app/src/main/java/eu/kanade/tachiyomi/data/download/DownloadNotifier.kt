@@ -136,8 +136,8 @@ class DownloadNotifier(
     /**
      * Show notification when download is paused.
      */
-    // RK: [id] is the worker's own progress id for a network pause, see onNetworkPause
-    fun onPaused(id: Int = Notifications.ID_DOWNLOAD_CHAPTER_PAUSED) {
+    // RK: [id] is the worker's own progress id for a network pause, see onNetworkPause, and [reason] why it waits
+    fun onPaused(id: Int = Notifications.ID_DOWNLOAD_CHAPTER_PAUSED, reason: String? = null) {
         // The progress id belongs to the download worker's foreground service, which takes the
         // notification with it when the worker stops
         context.notify(
@@ -145,7 +145,7 @@ class DownloadNotifier(
             Notifications.CHANNEL_DOWNLOADER_PROGRESS,
         ) {
             setContentTitle(context.stringResource(MR.strings.chapter_paused))
-            setContentText(context.stringResource(MR.strings.download_notifier_download_paused))
+            setContentText(reason ?: context.stringResource(MR.strings.download_notifier_download_paused)) // RK
             setSmallIcon(R.drawable.ic_pause_24dp)
             setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
             setOnlyAlertOnce(true)
@@ -173,11 +173,12 @@ class DownloadNotifier(
 
     /**
      * A network pause keeps the worker running, so its paused notice takes the worker's own id, and
-     * replaces the one an earlier user pause left rather than sitting beside it.
+     * replaces the one an earlier user pause left rather than sitting beside it. It says [reason], as the
+     * novel drain's does.
      */
-    fun onNetworkPause() {
+    fun onNetworkPause(reason: String) {
         context.cancelNotification(Notifications.ID_DOWNLOAD_CHAPTER_PAUSED)
-        onPaused(Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS)
+        onPaused(Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS, reason)
     }
     // RK <--
 

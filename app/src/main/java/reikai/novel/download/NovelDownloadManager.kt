@@ -24,6 +24,7 @@ import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import reikai.domain.download.SeriesCompletions
 import reikai.domain.download.deletableDownloads
+import reikai.domain.download.downloadNetworkIssue
 import reikai.domain.download.hasRoomToDownload
 import reikai.domain.download.movesDownloadFolder
 import reikai.domain.manga.AdultContentChecker
@@ -376,42 +377,19 @@ class NovelDownloadManager(
                     _downloadingNovelId.value = null
                     break
                 }
-                // A lost connection (airplane mode, dropped network) isn't a download failure: pause and
-                // wait for it to return instead of erroring chapters, mirroring the Wi-Fi-only pause below.
-                if (!context.activeNetworkState().isOnline) {
+                // No network, or Wi-Fi only off Wi-Fi, pauses the drain instead of failing chapters, with the
+                // worker kept foreground as manga's is. Re-pick afterwards: the queue may have changed meanwhile.
+                if (networkIssue() != null) {
+                    // Nothing is downloading, so the UI should read Queued, not Downloading.
                     _downloadingNovelId.value = null
-                    while (!context.activeNetworkState().isOnline && hasQueued()) {
-                        val pending = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
-                        val status = context.stringResource(MR.strings.download_notifier_no_network)
-                        onProgress(NovelDownloadProgress.Paused(done, pending, status))
-                        delay(WIFI_RECHECK_MS)
-                    }
+                    awaitNetwork(done, onProgress)
                     continue
-                }
-                // Honor the shared "download only over Wi-Fi" preference: pause (don't drop) the drain
-                // while it's on and we're off Wi-Fi, and resume on its own once Wi-Fi is back. The worker
-                // stays foreground showing a "no Wi-Fi" notice, mirroring the manga DownloadJob (which keeps
-                // its worker alive and watches the network) instead of ending with the queue stuck.
-                if (downloadPreferences.downloadOnlyOverWifi.get() && !context.activeNetworkState().isWifi) {
-                    // Paused off Wi-Fi: nothing is downloading, so the UI should read Queued, not Downloading.
-                    _downloadingNovelId.value = null
-                    while (
-                        downloadPreferences.downloadOnlyOverWifi.get() &&
-                        !context.activeNetworkState().isWifi &&
-                        hasQueued()
-                    ) {
-                        val pending = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
-                        val status = context.stringResource(MR.strings.download_notifier_text_only_wifi)
-                        onProgress(NovelDownloadProgress.Paused(done, pending, status))
-                        delay(WIFI_RECHECK_MS)
-                    }
-                    continue // re-pick the next chapter: the queue may have changed while we waited
                 }
                 setState(next.chapterId, NovelDownload.State.DOWNLOADING)
                 _downloadingNovelId.value = next.novelId
                 val novel = novelRepo.getById(next.novelId)
                 val chapter = chapterRepo.getById(next.chapterId)
-                val total = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
+                val total = pendingTotal(done)
                 // Asked only while the adult switch is on, as manga's downloader asks, since the verdict can wait on the extension scan.
                 val isAdult = novel != null && securityPreferences.hideAdultNotificationContent.get() &&
                     novel.id in adultChecker.adultNovelIdsAmong(listOf(novel))
@@ -450,8 +428,8 @@ class NovelDownloadManager(
                     }
                     if (ok) break
                     // A drop mid-download is a pause, not a failure: stop retrying and let the top-of-loop
-                    // connectivity check wait it out, instead of spending retries and erroring the chapter.
-                    if (!context.activeNetworkState().isOnline) {
+                    // network check wait it out, instead of spending retries (off Wi-Fi too) and erroring it.
+                    if (networkIssue() != null) {
                         connectionLost = true
                         break
                     }
@@ -506,8 +484,22 @@ class NovelDownloadManager(
         }
     }
 
-    // A wait for the network ends once nothing is left to fetch, so an emptied paused queue ends the drain.
+    private fun networkIssue() =
+        downloadNetworkIssue(context.activeNetworkState(), downloadPreferences.downloadOnlyOverWifi.get())
+
+    // Ends once nothing is left to fetch too, so an emptied paused queue ends the drain.
+    private suspend fun awaitNetwork(done: Int, onProgress: (NovelDownloadProgress) -> Unit) {
+        while (hasQueued()) {
+            val issue = networkIssue() ?: return
+            onProgress(NovelDownloadProgress.Paused(done, pendingTotal(done), context.stringResource(issue)))
+            delay(NETWORK_RECHECK_MS)
+        }
+    }
+
     private fun hasQueued() = _queueState.value.any { it.state == NovelDownload.State.QUEUE }
+
+    // Failed chapters stay queued but are not counted: only Resume runs them again.
+    private fun pendingTotal(done: Int) = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
 
     private fun setState(chapterId: Long, state: NovelDownload.State, failure: String? = null) {
         _queueState.update { q ->
@@ -520,7 +512,7 @@ class NovelDownloadManager(
          *  with exponential backoff (2s, 4s, 8s), the manga Downloader's schedule for one page image. */
         private const val MAX_RETRIES = 3
 
-        /** How often to re-check connectivity while a "download only over Wi-Fi" drain is paused off Wi-Fi. */
-        private const val WIFI_RECHECK_MS = 5_000L
+        /** How often a drain paused for the network checks it again. */
+        private const val NETWORK_RECHECK_MS = 5_000L
     }
 }

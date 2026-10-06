@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
+import reikai.domain.download.downloadNetworkIssue
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.i18n.R
 import kotlin.time.Duration.Companion.seconds
@@ -88,14 +90,11 @@ class DownloadJob(context: Context, workerParams: WorkerParameters) : CoroutineW
         return Result.success()
     }
 
+    // RK: the rule is the kernel the novel drain pauses on too
     private fun networkIssue(): String? {
         val state = applicationContext.activeNetworkState()
-        return when {
-            !state.isOnline -> applicationContext.getString(R.string.download_notifier_no_network)
-            downloadPreferences.downloadOnlyOverWifi.get() && !state.isWifi ->
-                applicationContext.getString(R.string.download_notifier_text_only_wifi)
-            else -> null
-        }
+        return downloadNetworkIssue(state, downloadPreferences.downloadOnlyOverWifi.get())
+            ?.let { applicationContext.stringResource(it) }
     }
 
     companion object {

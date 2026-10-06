@@ -44,8 +44,10 @@ import reikai.novel.download.NovelDownloadJob
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
+import tachiyomi.i18n.MR
 
 /**
  * A user pause leaves one Paused notice that outlives its worker, and resuming without a network
@@ -81,6 +83,18 @@ class PausedNoticeConformanceTest {
         half.notices shouldBe 1
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
+    fun `a queue waiting for a network says why in its notice`(half: PausedNoticeHalf) = conformance(half) {
+        half.start(this)
+        tick()
+        half.pause(this)
+
+        half.resumeOffline(this)
+
+        half.noticeTexts() shouldBe listOf(NO_NETWORK)
+    }
+
     companion object {
         @JvmStatic
         fun halves() = listOf(MangaPausedNoticeHalf(), NovelPausedNoticeHalf())
@@ -93,9 +107,19 @@ private fun TestScope.tick() {
     runCurrent()
 }
 
+private const val NO_NETWORK = "no network"
+
+/** Over the shade's stand-in for every string, so the no-network reason reads as itself. */
+private fun stubNoNetworkText() {
+    every { any<Context>().stringResource(MR.strings.download_notifier_no_network) } returns NO_NETWORK
+}
+
 interface PausedNoticeHalf : AutoCloseable {
     /** How many download notices the shade shows. */
     val notices: Int
+
+    /** What each download notice in the shade says. */
+    fun noticeTexts(): List<CharSequence?>
 
     /** Queues one chapter and runs the engine's worker, whose fetch then hangs. */
     suspend fun start(test: TestScope)
@@ -115,8 +139,11 @@ class MangaPausedNoticeHalf : PausedNoticeHalf {
 
     override val notices get() = shade.shown.size
 
+    override fun noticeTexts() = shade.shown.keys.map(shade::textOf)
+
     override suspend fun start(test: TestScope) {
         shade = FakeNotificationShade()
+        stubNoNetworkText()
         val f = DownloadWorkerFixture(test) { context ->
             DownloadNotifier(context, SecurityPreferences(InMemoryPreferenceStore())) {
                 mockk { coEvery { adultIdsAmong(any()) } returns emptySet() }
@@ -174,8 +201,11 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
 
     override val notices get() = shade.shown.size
 
+    override fun noticeTexts() = shade.shown.keys.map(shade::textOf)
+
     override suspend fun start(test: TestScope) {
         shade = FakeNotificationShade()
+        stubNoNetworkText()
         mockkStatic(Context::activeNetworkState)
         every { any<Context>().activeNetworkState() } answers { network }
         // The launch restore runs on IO, which here is the test's own clock.

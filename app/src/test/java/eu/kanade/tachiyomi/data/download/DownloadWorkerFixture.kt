@@ -36,7 +36,6 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StorageManager
-import tachiyomi.i18n.R
 import java.io.IOException
 
 /**
@@ -94,8 +93,6 @@ class DownloadWorkerFixture(
         mockkStatic(WORKER_EXTENSIONS)
         coEvery { any<CoroutineWorker>().setForegroundSafely() } answers { events += "foreground" }
         every { app.applicationContext } returns app
-        every { app.getString(R.string.download_notifier_no_network) } returns "no network"
-        every { app.getString(R.string.download_notifier_text_only_wifi) } returns "only wifi"
     }
 
     val downloader by lazy {
@@ -111,7 +108,7 @@ class DownloadWorkerFixture(
             getTracks = mockk(),
             store = mockk<DownloadStore>(relaxed = true) { coEvery { restore() } coAnswers { restored.await() } },
             notifier = notifierFor?.invoke(app) ?: mockk<DownloadNotifier>(relaxed = true) {
-                every { onNetworkPause() } answers { events += "paused" }
+                every { onNetworkPause(any()) } answers { events += "paused" }
             },
         )
     }

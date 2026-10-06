@@ -31,11 +31,26 @@ class FakeNotificationShade : AutoCloseable {
 
     private val builtBy = mutableMapOf<Notification, NotificationCompat.Builder>()
 
+    private val contentTexts = mutableMapOf<NotificationCompat.Builder, CharSequence?>()
+
+    /** The text the notification shown under [id] carries. */
+    fun textOf(id: Int): CharSequence? = shown[id]?.let(contentTexts::get)
+
     init {
         mockkStatic(NOTIFICATION_EXTENSIONS)
         every { any<Context>().notificationBuilder(any(), any()) } answers {
             val notification = mockk<Notification>()
-            val builder = mockk<NotificationCompat.Builder>(relaxed = true) { every { build() } returns notification }
+            val builder = mockk<NotificationCompat.Builder>(relaxed = true)
+            every { builder.build() } returns notification
+            // The novel notifier chains its calls on one builder, so each returns the builder itself.
+            every { builder.clearActions() } returns builder
+            every { builder.addAction(any<Int>(), any(), any()) } returns builder
+            every { builder.setContentTitle(any()) } returns builder
+            every { builder.setProgress(any(), any(), any()) } returns builder
+            every { builder.setContentText(any()) } answers {
+                contentTexts[builder] = firstArg()
+                builder
+            }
             builtBy[notification] = builder
             thirdArg<(NotificationCompat.Builder.() -> Unit)?>()?.invoke(builder)
             builder
