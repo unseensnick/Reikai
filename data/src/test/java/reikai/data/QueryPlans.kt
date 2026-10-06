@@ -1,5 +1,6 @@
 package reikai.data
 
+import app.cash.sqldelight.Query
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
@@ -16,8 +17,22 @@ fun SqlDriver.queryPlan(sql: String): List<String> =
         parameters = 0,
     ).value
 
-/** Hands every query to [inner], keeping the SQL it was given, so a test can plan what a repository ran. */
-class RecordingDriver(private val inner: SqlDriver, private val issued: MutableList<String>) : SqlDriver by inner {
+/**
+ * Hands every query to [inner], keeping the SQL it was given, so a test can plan what a repository ran,
+ * and the tables each subscribed query listens to, since a write to any of them re-runs it.
+ */
+class RecordingDriver(
+    private val inner: SqlDriver,
+    private val issued: MutableList<String> = mutableListOf(),
+) : SqlDriver by inner {
+
+    val listened = mutableSetOf<String>()
+
+    override fun addListener(vararg queryKeys: String, listener: Query.Listener) {
+        listened += queryKeys
+        inner.addListener(*queryKeys, listener = listener)
+    }
+
     override fun <R> executeQuery(
         identifier: Int?,
         sql: String,

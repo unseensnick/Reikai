@@ -679,6 +679,7 @@ agent under Settings -> Advanced.
 - Opening a source while the app is still starting now waits for the extension list instead of reading a half-built one, for manga and novels (partly from Mihon, mihonapp/mihon#3869).
 - The manga reader no longer drops a page-turn signal or a preloaded chapter when it is busy, and cancelled novel plugin checks, font downloads and update runs stop instead of being logged as failures.
 - Browse, global search and the feed no longer re-read every stored novel each time a novel is saved.
+- The Migrate tab and its per-source list no longer re-read the whole novel library every time a chapter changes.
 - A series' page no longer rebuilds its chapter list when another series updates.
 - Deleting many downloaded novel chapters now does its disk, index and saved-queue work once per batch.
 - The novel updates feed reads its newest chapters through an index instead of reading and sorting every library chapter on each refresh.

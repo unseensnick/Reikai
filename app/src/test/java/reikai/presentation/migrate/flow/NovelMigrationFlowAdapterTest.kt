@@ -5,6 +5,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
@@ -176,6 +178,18 @@ class NovelMigrationFlowAdapterTest {
         adapter.resolve(hit("/title"))
 
         coVerify(exactly = 0) { source.parseNovel(any()) }
+    }
+
+    @Test
+    fun `a source's favorites list in title order, ignoring case`() = runTest {
+        val adapter = adapter(
+            novelRepository = mockk {
+                every { getFavoritesBySourceAsFlow("plugin") } returns
+                    flowOf(listOf("beta", "Alpha").map { Novel.create().copy(source = "plugin", title = it) })
+            },
+        )
+
+        adapter.favorites("plugin").first().map { it.title } shouldBe listOf("Alpha", "beta")
     }
 
     private fun hit(path: String) = MigrationCandidate(

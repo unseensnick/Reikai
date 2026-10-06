@@ -18,8 +18,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.model.LibraryNovel
-import reikai.domain.novel.model.Novel
 import reikai.novel.install.LnPluginHarness
 
 class MigrateNovelSourcesViewModelTest {
@@ -41,7 +39,7 @@ class MigrateNovelSourcesViewModelTest {
     fun `an installed plugin's source is never listed as not installed`() = runTest {
         coEvery { harness.host.loadPlugin(any(), any(), any(), any()) } returns LnPluginHarness.info("plugin")
         val repository = mockk<NovelRepository> {
-            every { getLibraryNovelAsFlow() } returns flowOf(listOf(libraryNovel(source = "plugin")))
+            every { getSourcesWithLibraryNovelAsFlow() } returns flowOf(listOf("plugin" to 1L))
         }
         val model = MigrateNovelSourcesViewModel(repository, harness.manager, harness.prefs)
 
@@ -50,16 +48,4 @@ class MigrateNovelSourcesViewModelTest {
 
         rows.single().isInstalled shouldBe true
     }
-
-    private fun libraryNovel(source: String) = LibraryNovel(
-        novel = Novel.create().copy(source = source),
-        categories = emptyList(),
-        totalChapters = 0,
-        readCount = 0,
-        bookmarkCount = 0,
-        downloadCount = 0,
-        latestUpload = 0,
-        chapterFetchedAt = 0,
-        lastRead = 0,
-    )
 }

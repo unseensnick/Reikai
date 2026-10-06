@@ -9,19 +9,9 @@ class MigrateNovelSourcesTest {
     private fun id(name: String) = LnSourceIdentity(name = name)
 
     @Test
-    fun `counts favorited novels per source`() {
-        val rows = buildNovelMigrateSources(
-            sourceIdsPerNovel = listOf("a", "a", "b"),
-            installed = mapOf("a" to id("Alpha"), "b" to id("Bravo")),
-            cached = emptyMap(),
-        )
-        rows.associate { it.id to it.count } shouldBe mapOf("a" to 2, "b" to 1)
-    }
-
-    @Test
     fun `resolves name and icon from the installed source`() {
         val rows = buildNovelMigrateSources(
-            sourceIdsPerNovel = listOf("a"),
+            countsPerSource = listOf("a" to 1L),
             installed = mapOf("a" to LnSourceIdentity(name = "Alpha", iconUrl = "http://i/a.png")),
             cached = mapOf("a" to id("Stale")),
         )
@@ -31,7 +21,7 @@ class MigrateNovelSourcesTest {
     @Test
     fun `falls back to the last-known cache when the plugin is uninstalled`() {
         val rows = buildNovelMigrateSources(
-            sourceIdsPerNovel = listOf("a"),
+            countsPerSource = listOf("a" to 1L),
             installed = emptyMap(),
             cached = mapOf("a" to LnSourceIdentity(name = "Alpha", iconUrl = "http://i/a.png")),
         )
@@ -42,7 +32,7 @@ class MigrateNovelSourcesTest {
     @Test
     fun `falls back to the raw plugin id when never seen`() {
         val rows = buildNovelMigrateSources(
-            sourceIdsPerNovel = listOf("novelbin"),
+            countsPerSource = listOf("novelbin" to 1L),
             installed = emptyMap(),
             cached = emptyMap(),
         )
@@ -53,7 +43,7 @@ class MigrateNovelSourcesTest {
     @Test
     fun `marks installed only when the source is currently registered`() {
         val rows = buildNovelMigrateSources(
-            sourceIdsPerNovel = listOf("a", "b"),
+            countsPerSource = listOf("a" to 1L, "b" to 1L),
             installed = mapOf("a" to id("Alpha")),
             cached = mapOf("b" to id("Bravo")),
         )

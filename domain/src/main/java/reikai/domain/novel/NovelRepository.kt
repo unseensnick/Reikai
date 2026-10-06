@@ -28,6 +28,12 @@ interface NovelRepository {
      */
     fun getSourcesWithNonLibraryNovelAsFlow(): Flow<List<Pair<String, Long>>>
 
+    /** Reactive favorited novels of [source], read from the novels table alone. */
+    fun getFavoritesBySourceAsFlow(source: String): Flow<List<Novel>>
+
+    /** Reactive (source id, favorited novel count) pairs for the Browse Migrate list. */
+    fun getSourcesWithLibraryNovelAsFlow(): Flow<List<Pair<String, Long>>>
+
     /**
      * Delete non-favorite novels of [sources]; with [keepReadNovels] true, rows with progress (a
      * read chapter or a mid-chapter position) survive. Chapters and other child rows go via FK

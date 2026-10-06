@@ -63,6 +63,12 @@ FROM novels
 WHERE favorite_at IS NOT NULL
 ORDER BY title;
 
+findFavoritesBySource:
+SELECT *
+FROM novels
+WHERE favorite_at IS NOT NULL
+AND source = :source;
+
 -- Novel twin of manga.sq getReadMangaNotInLibrary (last_text_progress replaces last_page_read).
 -- Backs the read-entries backup option, so read history survives e.g. a replace-migration that
 -- unfavorited the old novel.
@@ -81,6 +87,14 @@ getSourcesWithNonLibraryNovel:
 SELECT source, COUNT(*) AS novel_count
 FROM novels
 WHERE favorite_at IS NULL
+GROUP BY source;
+
+-- Favorited novels per source, for the Browse Migrate list. Reads this table alone, so a chapter,
+-- history or category write does not re-run it as it would the library view.
+getSourcesWithLibraryNovel:
+SELECT source, COUNT(*) AS novel_count
+FROM novels
+WHERE favorite_at IS NOT NULL
 GROUP BY source;
 
 -- Novel twin of manga.sq deleteNonLibraryManga. The keep-read guard mirrors

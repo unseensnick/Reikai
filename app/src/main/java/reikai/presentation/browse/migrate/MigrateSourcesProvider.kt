@@ -53,7 +53,7 @@ class NovelMigrateSourcesProvider(private val model: MigrateNovelSourcesViewMode
                 // Normalised like the Sources list, so a plugin naming its language in that
                 // language still renders a language name here.
                 lang = source.lang.toLangCode(),
-                count = source.count.toLong(),
+                count = source.count,
                 isStub = !source.isInstalled,
                 source = source,
                 format = source.format,

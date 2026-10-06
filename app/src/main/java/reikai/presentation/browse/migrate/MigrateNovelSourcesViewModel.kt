@@ -39,16 +39,16 @@ class MigrateNovelSourcesViewModel(
 
     /** Sources holding favourites, unsorted: the shared migrate list orders both types at once. */
     val sources: StateFlow<List<NovelMigrateSource>?> = combine(
-        novelRepository.getLibraryNovelAsFlow(),
+        novelRepository.getSourcesWithLibraryNovelAsFlow(),
         sourceManager.loadedSources(),
         novelPreferences.seenNovelSources().changes(),
-    ) { libraryNovels, installedSources, cached ->
+    ) { counts, installedSources, cached ->
         val installed = installedSources.associate {
             it.id to LnSourceIdentity(name = it.name, iconUrl = it.iconUrl, lang = it.lang)
         }
         val formats = installedSources.associate { it.id to it.format }
         buildNovelMigrateSources(
-            sourceIdsPerNovel = libraryNovels.map { it.novel.source },
+            countsPerSource = counts,
             installed = installed,
             cached = cached,
         ).map { it.copy(format = formats[it.id]) }
@@ -65,24 +65,24 @@ data class NovelMigrateSource(
     val name: String,
     val iconUrl: String?,
     val lang: String,
-    val count: Int,
+    val count: Long,
     val isInstalled: Boolean,
     /** How the source is packaged; null for one not installed, which names none. */
     val format: NovelExtensionFormat? = null,
 )
 
 /**
- * Pure core: turn one source id per favorited novel into per-source rows with counts, resolving each
+ * Pure core: turn (source id, favorited novel count) pairs into per-source rows, resolving each
  * id's display identity as installed -> cached -> raw id. [installed] are the currently registered
  * sources; [cached] the last-known identities that survive an uninstall. A row with neither falls
  * back to its plugin id as the name and a null icon (the row's icon slot renders a book placeholder).
  */
 internal fun buildNovelMigrateSources(
-    sourceIdsPerNovel: List<String>,
+    countsPerSource: List<Pair<String, Long>>,
     installed: Map<String, LnSourceIdentity>,
     cached: Map<String, LnSourceIdentity>,
 ): List<NovelMigrateSource> {
-    return sourceIdsPerNovel.groupingBy { it }.eachCount().map { (id, count) ->
+    return countsPerSource.map { (id, count) ->
         val identity = installed[id] ?: cached[id]
         NovelMigrateSource(
             id = id,

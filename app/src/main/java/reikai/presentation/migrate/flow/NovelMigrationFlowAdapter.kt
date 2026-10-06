@@ -126,10 +126,8 @@ class NovelMigrationFlowAdapter(
     }
 
     override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> {
-        return novelRepository.getLibraryNovelAsFlow().map { list ->
+        return novelRepository.getFavoritesBySourceAsFlow(sourceKey).map { list ->
             list.asSequence()
-                .map { it.novel }
-                .filter { it.source == sourceKey }
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
                 .map { novel ->
                     MigrationFavorite(

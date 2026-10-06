@@ -51,6 +51,13 @@ class NovelRepositoryImpl(
         database.novelsQueries.getSourcesWithNonLibraryNovel { source, count -> source to count }
             .subscribeToList()
 
+    override fun getFavoritesBySourceAsFlow(source: String): Flow<List<Novel>> =
+        database.novelsQueries.findFavoritesBySource(source, ::mapNovel).subscribeToList()
+
+    override fun getSourcesWithLibraryNovelAsFlow(): Flow<List<Pair<String, Long>>> =
+        database.novelsQueries.getSourcesWithLibraryNovel { source, count -> source to count }
+            .subscribeToList()
+
     override suspend fun deleteNonLibraryNovels(sources: List<String>, keepReadNovels: Boolean) {
         database.novelsQueries.deleteNonLibraryNovel(sources, if (keepReadNovels) 1L else 0L)
     }
