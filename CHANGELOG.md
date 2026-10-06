@@ -414,6 +414,7 @@ agent under Settings -> Advanced.
 
 #### Fixed
 
+- **Some extensions no longer crash the app while searching or browsing (from Mihon).** Upstream: mihonapp/mihon#4027.
 - **Global search no longer crashes on a result a source lists twice, leaves a finished source spinning, or searches fewer sources when run just after the app opens.**
 - **Manga sources that work out their pages with JavaScript now show those pages again, where some chapters opened empty or failed to load.**
 - **Browsing a source or opening a series while offline now says "No Internet connection" instead of a raw host error, on manga and novels.** The manga reader's failed pages say it too.
