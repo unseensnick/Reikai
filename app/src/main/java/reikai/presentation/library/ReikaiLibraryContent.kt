@@ -16,9 +16,6 @@ import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.library.components.GlobalSearchItem
-import eu.kanade.presentation.library.components.MangaComfortableGridItem
-import eu.kanade.presentation.library.components.MangaCompactGridItem
-import eu.kanade.presentation.library.components.MangaListItem
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId
 import reikai.presentation.browse.catalogue.AdaptiveGridMinCellWidth
@@ -241,68 +238,14 @@ fun ReikaiLibraryContent(
                             key = { "reikai_cell_${bucket.key}_${it.entryId.contentType}_${it.entryId.rawId}" },
                             contentType = { cellContentType },
                         ) { libraryItem ->
-                            val manga = libraryItem.libraryManga.manga
-                            val isSelected = libraryItem.entryId in selection
-                            val coverData = libraryCoverModel(libraryItem) // NovelCover for novels, else MangaCover
-                            val onClick = { onClickManga(bucket, libraryItem) }
-                            val onLongClick = { onLongClickManga(bucket, libraryItem) }
-                            // Show the play button only when there's something unread (matches the pager).
-                            val onContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
-                                { onClickContinueReading(libraryItem) }
-                            } else {
-                                null
-                            }
-
-                            when (displayMode) {
-                                LibraryDisplayMode.List -> MangaListItem(
-                                    coverData = coverData,
-                                    title = manga.title,
-                                    onClick = onClick,
-                                    onLongClick = onLongClick,
-                                    onClickContinueReading = onContinueReading,
-                                    // Capped at half the row so a merged entry's badges leave the title room
-                                    badgeStart = { LibraryCoverStartBadges(libraryItem) },
-                                    badgeEnd = { LibraryCoverEndBadges(libraryItem) },
-                                    isSelected = isSelected,
-                                )
-                                LibraryDisplayMode.ComfortableGrid -> MangaComfortableGridItem(
-                                    coverData = coverData,
-                                    title = manga.title,
-                                    onClick = onClick,
-                                    onLongClick = onLongClick,
-                                    onClickContinueReading = onContinueReading,
-                                    isSelected = isSelected,
-                                    // Both groups share one measured width so neither can overdraw the other
-                                    coverBadgeStart = { LibraryCoverStartBadges(libraryItem) },
-                                    coverBadgeEnd = { LibraryCoverEndBadges(libraryItem) },
-                                )
-                                // Panorama: same uniform Book-height cell, wide covers shown whole (letterboxed).
-                                LibraryDisplayMode.ComfortableGridPanorama -> ReikaiComfortableGridPanoramaItem(
-                                    coverData = coverData,
-                                    title = manga.title,
-                                    onClick = onClick,
-                                    onLongClick = onLongClick,
-                                    onClickContinueReading = onContinueReading,
-                                    isSelected = isSelected,
-                                    // Both groups share one measured width so neither can overdraw the other
-                                    coverBadgeStart = { LibraryCoverStartBadges(libraryItem) },
-                                    coverBadgeEnd = { LibraryCoverEndBadges(libraryItem) },
-                                )
-                                // Compact grid (with title) and cover-only grid (title null) share a cell.
-                                LibraryDisplayMode.CompactGrid,
-                                LibraryDisplayMode.CoverOnlyGrid,
-                                -> MangaCompactGridItem(
-                                    coverData = coverData,
-                                    title = manga.title.takeIf { displayMode is LibraryDisplayMode.CompactGrid },
-                                    onClick = onClick,
-                                    onLongClick = onLongClick,
-                                    onClickContinueReading = onContinueReading,
-                                    isSelected = isSelected,
-                                    // Both groups share one measured width so neither can overdraw the other
-                                    coverBadgeStart = { LibraryCoverStartBadges(libraryItem) },
-                                    coverBadgeEnd = { LibraryCoverEndBadges(libraryItem) },
-                                )
-                            }
+                            LibraryItemCell(
+                                item = libraryItem,
+                                displayMode = displayMode,
+                                isSelected = libraryItem.entryId in selection,
+                                onClick = { onClickManga(bucket, libraryItem) },
+                                onLongClick = { onLongClickManga(bucket, libraryItem) },
+                                onClickContinueReading = onClickContinueReading,
+                            )
                         }
                     }
                 }

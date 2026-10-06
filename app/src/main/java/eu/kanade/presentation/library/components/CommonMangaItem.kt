@@ -23,6 +23,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -31,6 +33,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -54,17 +57,18 @@ object CommonMangaItemDefaults {
 }
 
 private val ContinueReadingButtonSizeSmall = 28.dp
-
-// RK: internal so the net-new Reikai panorama cell (reikai.presentation.library) can reuse them
-internal val ContinueReadingButtonSizeLarge = 32.dp
+private val ContinueReadingButtonSizeLarge = 32.dp
 
 private val ContinueReadingButtonIconSizeSmall = 16.dp
-internal val ContinueReadingButtonIconSizeLarge = 20.dp
+private val ContinueReadingButtonIconSizeLarge = 20.dp
 
-internal val ContinueReadingButtonGridPadding = 6.dp
+private val ContinueReadingButtonGridPadding = 6.dp
 private val ContinueReadingButtonListSpacing = 8.dp
 
-internal const val GRID_SELECTED_COVER_ALPHA = 0.76f
+internal const val GRID_SELECTED_COVER_ALPHA = 0.76f // RK: internal, RecommendationGridItem dims its cover alike
+
+// RK: Komikku's value; a cover at or below this height/width ratio is wide enough to letterbox
+private const val RATIO_SWITCH_TO_PANORAMA = 0.75f
 
 /**
  * Layout of grid list item with title overlaying the cover.
@@ -187,7 +191,14 @@ fun MangaComfortableGridItem(
     coverBadgeStart: (@Composable RowScope.() -> Unit)? = null,
     coverBadgeEnd: (@Composable RowScope.() -> Unit)? = null,
     onClickContinueReading: (() -> Unit)? = null,
+    // RK -->
+    // Panorama shows a wide cover whole instead of cropped, in the same Book-ratio cell. The ratio is
+    // measured on every load, since a mode switch keeps the loaded image and fires no new load.
+    usePanoramaCover: Boolean = false,
 ) {
+    val coverRatio = remember { mutableFloatStateOf(1f) }
+    val coverIsWide = usePanoramaCover && coverRatio.floatValue <= RATIO_SWITCH_TO_PANORAMA
+    // RK <--
     GridItemSelectable(
         isSelected = isSelected,
         onClick = onClick,
@@ -201,6 +212,13 @@ fun MangaComfortableGridItem(
                             .fillMaxWidth()
                             .alpha(if (isSelected) GRID_SELECTED_COVER_ALPHA else coverAlpha),
                         data = coverData,
+                        // RK -->
+                        scale = if (coverIsWide) ContentScale.Fit else ContentScale.Crop,
+                        onSuccess = {
+                            val image = it.result.image
+                            coverRatio.floatValue = image.height.toFloat() / image.width
+                        },
+                        // RK <--
                     )
                 },
                 badgesStart = coverBadgeStart,
@@ -232,7 +250,7 @@ fun MangaComfortableGridItem(
 /**
  * Common cover layout to add contents to be drawn on top of the cover.
  */
-// RK: internal so the net-new Reikai panorama cell can reuse this Book-ratio cover box
+// RK: internal so RecommendationGridItem can reuse this Book-ratio cover box
 @Composable
 internal fun MangaGridCover(
     modifier: Modifier = Modifier,
@@ -266,7 +284,7 @@ internal fun MangaGridCover(
     }
 }
 
-// RK: internal so the net-new Reikai panorama cell can reuse it
+// RK: internal so RecommendationGridItem can reuse it
 @Composable
 internal fun GridItemTitle(
     title: String,
@@ -290,7 +308,7 @@ internal fun GridItemTitle(
 /**
  * Wrapper for grid items to handle selection state, click and long click.
  */
-// RK: internal so the net-new Reikai panorama cell can reuse it
+// RK: internal so RecommendationGridItem can reuse it
 @Composable
 internal fun GridItemSelectable(
     isSelected: Boolean,
@@ -394,9 +412,8 @@ fun MangaListItem(
     }
 }
 
-// RK: internal so the net-new Reikai panorama cell can reuse it
 @Composable
-internal fun ContinueReadingButton(
+private fun ContinueReadingButton(
     size: Dp,
     iconSize: Dp,
     onClick: () -> Unit,

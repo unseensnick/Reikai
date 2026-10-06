@@ -7,9 +7,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId // RK
-import reikai.presentation.library.LibraryCoverEndBadges // RK
-import reikai.presentation.library.LibraryCoverStartBadges // RK
-import reikai.presentation.library.libraryCoverModel // RK
+import reikai.presentation.library.LibraryItemCell // RK
+import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 
 @Composable
@@ -37,21 +36,14 @@ internal fun LibraryCompactGrid(
             items = items,
             contentType = { "library_compact_grid_item" },
         ) { libraryItem ->
-            val manga = libraryItem.libraryManga.manga
-            MangaCompactGridItem(
-                isSelected = libraryItem.entryId in selection, // RK
-                title = manga.title.takeIf { showTitle },
-                coverData = libraryCoverModel(libraryItem), // RK: NovelCover for novels, else MangaCover
-                // RK: both groups share one measured width so neither can overdraw the other
-                coverBadgeStart = { LibraryCoverStartBadges(libraryItem) },
-                coverBadgeEnd = { LibraryCoverEndBadges(libraryItem) },
-                onLongClick = { onLongClick(libraryItem) },
+            // RK: one cell for both content types and both library views
+            LibraryItemCell(
+                item = libraryItem,
+                displayMode = if (showTitle) LibraryDisplayMode.CompactGrid else LibraryDisplayMode.CoverOnlyGrid,
+                isSelected = libraryItem.entryId in selection,
                 onClick = { onClick(libraryItem) },
-                onClickContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
-                    { onClickContinueReading(libraryItem) }
-                } else {
-                    null
-                },
+                onLongClick = { onLongClick(libraryItem) },
+                onClickContinueReading = onClickContinueReading,
             )
         }
     }

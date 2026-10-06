@@ -22,7 +22,6 @@ import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId // RK
 import reikai.presentation.library.LibraryBucket // RK
-import reikai.presentation.library.ReikaiLibraryComfortableGridPanorama // RK
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.EmptyScreen
@@ -108,9 +107,10 @@ fun LibraryPager(
                     onGlobalSearchClicked = onGlobalSearchClicked,
                 )
             }
-            LibraryDisplayMode.ComfortableGrid -> {
+            LibraryDisplayMode.ComfortableGrid, LibraryDisplayMode.ComfortableGridPanorama -> { // RK
                 LibraryComfortableGrid(
                     items = items,
+                    usePanoramaCover = displayMode is LibraryDisplayMode.ComfortableGridPanorama, // RK
                     columns = columns,
                     contentPadding = contentPadding,
                     selection = selection,
@@ -121,21 +121,6 @@ fun LibraryPager(
                     onGlobalSearchClicked = onGlobalSearchClicked,
                 )
             }
-            // RK -->
-            LibraryDisplayMode.ComfortableGridPanorama -> {
-                ReikaiLibraryComfortableGridPanorama(
-                    items = items,
-                    columns = columns,
-                    contentPadding = contentPadding,
-                    selection = selection,
-                    onClick = onClickManga,
-                    onLongClick = onLongClickManga,
-                    onClickContinueReading = onClickContinueReading,
-                    searchQuery = searchQuery,
-                    onGlobalSearchClicked = onGlobalSearchClicked,
-                )
-            }
-            // RK <--
         }
     }
 }

@@ -10,7 +10,6 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.novelResultCover
 import reikai.novel.host.NovelItem
-import reikai.presentation.library.ReikaiComfortableGridPanoramaItem
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
@@ -74,7 +73,7 @@ fun EntryBrowseGridCell(
             onLongClick = onLongClick,
             isSelected = isSelected,
         )
-        LibraryDisplayMode.ComfortableGridPanorama -> ReikaiComfortableGridPanoramaItem(
+        LibraryDisplayMode.ComfortableGrid, LibraryDisplayMode.ComfortableGridPanorama -> MangaComfortableGridItem(
             coverData = ui.cover,
             title = ui.title,
             coverAlpha = coverAlpha,
@@ -82,15 +81,7 @@ fun EntryBrowseGridCell(
             onClick = onClick,
             onLongClick = onLongClick,
             isSelected = isSelected,
-        )
-        LibraryDisplayMode.ComfortableGrid -> MangaComfortableGridItem(
-            coverData = ui.cover,
-            title = ui.title,
-            coverAlpha = coverAlpha,
-            coverBadgeStart = { InLibraryBadge(enabled = ui.favorite) },
-            onClick = onClick,
-            onLongClick = onLongClick,
-            isSelected = isSelected,
+            usePanoramaCover = displayMode is LibraryDisplayMode.ComfortableGridPanorama,
         )
     }
 }

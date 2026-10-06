@@ -9,9 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId // RK
-import reikai.presentation.library.LibraryCoverEndBadges // RK
-import reikai.presentation.library.LibraryCoverStartBadges // RK
-import reikai.presentation.library.libraryCoverModel // RK
+import reikai.presentation.library.LibraryItemCell // RK
+import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.util.plus
@@ -46,21 +45,14 @@ internal fun LibraryList(
             items = items,
             contentType = { "library_list_item" },
         ) { libraryItem ->
-            val manga = libraryItem.libraryManga.manga
-            MangaListItem(
-                isSelected = libraryItem.entryId in selection, // RK
-                title = manga.title,
-                coverData = libraryCoverModel(libraryItem), // RK: NovelCover for novels, else MangaCover
-                // RK: capped at half the row so a merged entry's badges cannot crowd out the title
-                badgeStart = { LibraryCoverStartBadges(libraryItem) },
-                badgeEnd = { LibraryCoverEndBadges(libraryItem) },
-                onLongClick = { onLongClick(libraryItem) },
+            // RK: one cell for both content types and both library views
+            LibraryItemCell(
+                item = libraryItem,
+                displayMode = LibraryDisplayMode.List,
+                isSelected = libraryItem.entryId in selection,
                 onClick = { onClick(libraryItem) },
-                onClickContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
-                    { onClickContinueReading(libraryItem) }
-                } else {
-                    null
-                },
+                onLongClick = { onLongClick(libraryItem) },
+                onClickContinueReading = onClickContinueReading,
             )
         }
     }

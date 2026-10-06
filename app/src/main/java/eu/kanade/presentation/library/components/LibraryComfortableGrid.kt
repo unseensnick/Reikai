@@ -7,14 +7,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId // RK
-import reikai.presentation.library.LibraryCoverEndBadges // RK
-import reikai.presentation.library.LibraryCoverStartBadges // RK
-import reikai.presentation.library.libraryCoverModel // RK
+import reikai.presentation.library.LibraryItemCell // RK
+import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 
 @Composable
 internal fun LibraryComfortableGrid(
     items: List<LibraryItem>,
+    usePanoramaCover: Boolean, // RK: Reikai's panorama mode, which letterboxes a wide cover
     columns: Int,
     contentPadding: PaddingValues,
     selection: Set<EntryId>, // RK: neutral identity, a manga and a novel can share a row id
@@ -36,21 +36,18 @@ internal fun LibraryComfortableGrid(
             items = items,
             contentType = { "library_comfortable_grid_item" },
         ) { libraryItem ->
-            val manga = libraryItem.libraryManga.manga
-            MangaComfortableGridItem(
-                isSelected = libraryItem.entryId in selection, // RK
-                title = manga.title,
-                coverData = libraryCoverModel(libraryItem), // RK: NovelCover for novels, else MangaCover
-                // RK: both groups share one measured width so neither can overdraw the other
-                coverBadgeStart = { LibraryCoverStartBadges(libraryItem) },
-                coverBadgeEnd = { LibraryCoverEndBadges(libraryItem) },
-                onLongClick = { onLongClick(libraryItem) },
-                onClick = { onClick(libraryItem) },
-                onClickContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
-                    { onClickContinueReading(libraryItem) }
+            // RK: one cell for both content types and both library views
+            LibraryItemCell(
+                item = libraryItem,
+                displayMode = if (usePanoramaCover) {
+                    LibraryDisplayMode.ComfortableGridPanorama
                 } else {
-                    null
+                    LibraryDisplayMode.ComfortableGrid
                 },
+                isSelected = libraryItem.entryId in selection,
+                onClick = { onClick(libraryItem) },
+                onLongClick = { onLongClick(libraryItem) },
+                onClickContinueReading = onClickContinueReading,
             )
         }
     }

@@ -38,7 +38,7 @@ Net-new Reikai code (`reikai.*`, own files, no fence needed):
 - `app/src/main/java/reikai/presentation/library/ReikaiLibraryCategoryHeader.kt`: the single-list category header (sort indicator, refresh, select-all circle).
 - `app/src/main/java/reikai/presentation/library/ReikaiFastScrollGrid.kt`, `ReikaiCategoryPickerSheet.kt`, `ReikaiLibraryBadges.kt`, `ReikaiLibrarySettings.kt`, `ReikaiLibraryState.kt`: supporting renderer pieces, the picker sheet, badges, settings glue, and the single-list state.
 - `app/src/main/java/reikai/presentation/library/LibraryDynamicGrouping.kt`, `LibraryGroup.kt`, `LibraryBucket.kt`, `ReikaiCategorySort.kt`: dynamic grouping (synthetic buckets over the sealed `LibraryBucket`) and category sort order.
-- `app/src/main/java/reikai/presentation/library/ReikaiComfortableGridPanoramaItem.kt`, `ReikaiLibraryComfortableGridPanorama.kt`: the panorama display mode.
+- `app/src/main/java/reikai/presentation/library/LibraryItemCell.kt`: the one library cell both views draw; the panorama display mode is a `usePanoramaCover` flag on Mihon's comfortable grid cell.
 - `domain/src/main/java/reikai/domain/category/ReikaiCategoryHidden.kt`, `CategoryFilter.kt`: the hidden-category flag bit and the category include/exclude filter.
 - `app/src/main/java/reikai/domain/library/updateerror/`: `LibraryUpdateError.kt` (model), `LibraryUpdateErrorRepository.kt`, `LibraryUpdateErrorInteractors.kt`.
 - `data/src/main/java/reikai/data/library/updateerror/LibraryUpdateErrorRepositoryImpl.kt`: the repository impl over the injected `Database`.

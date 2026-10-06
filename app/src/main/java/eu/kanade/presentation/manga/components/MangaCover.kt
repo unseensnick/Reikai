@@ -31,7 +31,7 @@ enum class MangaCover(val ratio: Float) {
         shape: Shape = MaterialTheme.shapes.extraSmall,
         onClick: (() -> Unit)? = null,
         // RK: scale + load callback let the panorama display mode letterbox wide covers and measure
-        // each cover's real aspect ratio at load (see reikai.presentation.library panorama cell).
+        // each cover's real aspect ratio at load (see MangaComfortableGridItem's usePanoramaCover).
         scale: ContentScale = ContentScale.Crop,
         onSuccess: ((AsyncImagePainter.State.Success) -> Unit)? = null,
     ) {
