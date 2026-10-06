@@ -77,6 +77,7 @@ class EntryDetailsScreenStateTest {
         hasViewedDownloads = false,
         showChapterNumberOnly = false,
         seedColor = null,
+        webPage = null,
     )
 
     private companion object {

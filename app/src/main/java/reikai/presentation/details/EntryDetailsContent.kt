@@ -48,9 +48,9 @@ private const val HIDDEN_CHAPTER_ALPHA = 0.4f
 
 /**
  * Navigation and per-type actions the shared details body cannot express through [EntryDetailsBehavior]:
- * opening the reader, share / WebView intents, the per-type filter-settings sheet, and the manga-only
- * capability taps (related cards, page previews, gallery viewer). Each screen builds one and passes it in;
- * a manga-only slot's callback is simply absent for novels.
+ * opening the reader, the per-type filter-settings sheet, and the manga-only capability taps (related
+ * cards, page previews, gallery viewer). Each screen builds one and passes it in; a manga-only slot's
+ * callback is simply absent for novels. The web actions are the body's own, from [EntryWebPage].
  */
 data class EntryDetailsNavigation(
     val navigateUp: () -> Unit,
@@ -58,14 +58,9 @@ data class EntryDetailsNavigation(
     /** Header title / author / artist tap: a global search, scoped to this entry's type. */
     val onGlobalSearch: (query: String) -> Unit,
     val onTagSearch: (String) -> Unit,
-    val onCopyTag: (String) -> Unit,
     val onTracking: () -> Unit,
     val onEditNotes: () -> Unit,
     val onOpenFilterSettings: () -> Unit,
-    /** Share item in the toolbar overflow. */
-    val onToolbarShare: (() -> Unit)? = null,
-    val onOpenWebView: (() -> Unit)? = null,
-    val onOpenWebViewLong: (() -> Unit)? = null,
     val onMigrate: (() -> Unit)? = null,
     /** Smart update's interval editor; null hides the button's action, as for an entry not in the library. */
     val onEditInterval: (() -> Unit)? = null,
@@ -111,6 +106,7 @@ fun EntryDetailsContent(
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     nav: EntryDetailsNavigation,
 ) {
+    val web = rememberEntryWebActions(state.webPage, state.details.header.title)
     if (isTabletUi) {
         EntryDetailsLargeContent(
             behavior,
@@ -119,6 +115,7 @@ fun EntryDetailsContent(
             chapterSwipeStartAction,
             chapterSwipeEndAction,
             nav,
+            web,
         )
     } else {
         EntryDetailsSmallContent(
@@ -128,6 +125,7 @@ fun EntryDetailsContent(
             chapterSwipeStartAction,
             chapterSwipeEndAction,
             nav,
+            web,
         )
     }
 }
@@ -140,6 +138,7 @@ private fun EntryDetailsSmallContent(
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     nav: EntryDetailsNavigation,
+    web: EntryWebActions,
 ) {
     val listState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
@@ -159,7 +158,7 @@ private fun EntryDetailsSmallContent(
         fabIsResume = state.hasStarted,
         onFabClick = { state.resumeChapterId?.let(nav.onOpenChapter) },
         topBar = { titleAlpha, backgroundAlpha ->
-            EntryDetailsToolbar(state, behavior, nav, titleAlpha, backgroundAlpha)
+            EntryDetailsToolbar(state, behavior, nav, web, titleAlpha, backgroundAlpha)
         },
         bottomActionMenu = { EntryDetailsSelectionBar(state, behavior, fillFraction = 1f) },
     ) { appBarPadding ->
@@ -167,6 +166,7 @@ private fun EntryDetailsSmallContent(
             state,
             behavior,
             nav,
+            web,
             isTabletUi = false,
             appBarPadding = appBarPadding,
             onAddToLibrary = onAddToLibrary,
@@ -187,6 +187,7 @@ private fun EntryDetailsLargeContent(
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     nav: EntryDetailsNavigation,
+    web: EntryWebActions,
 ) {
     val chapterListState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
@@ -206,7 +207,7 @@ private fun EntryDetailsLargeContent(
         fabIsResume = state.hasStarted,
         onFabClick = { state.resumeChapterId?.let(nav.onOpenChapter) },
         topBar = { modifier ->
-            EntryDetailsToolbar(state, behavior, nav, { 1f }, { 1f }, modifier)
+            EntryDetailsToolbar(state, behavior, nav, web, { 1f }, { 1f }, modifier)
         },
         bottomActionMenu = { EntryDetailsSelectionBar(state, behavior, fillFraction = 0.5f) },
         startContent = { appBarPadding ->
@@ -214,6 +215,7 @@ private fun EntryDetailsLargeContent(
                 state,
                 behavior,
                 nav,
+                web,
                 isTabletUi = true,
                 appBarPadding = appBarPadding,
                 onAddToLibrary = onAddToLibrary,
@@ -234,6 +236,7 @@ private fun EntryDetailsToolbar(
     state: EntryDetailsScreenState.Loaded,
     behavior: EntryDetailsBehavior,
     nav: EntryDetailsNavigation,
+    web: EntryWebActions,
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
     modifier: Modifier = Modifier,
@@ -248,7 +251,7 @@ private fun EntryDetailsToolbar(
         onClickEditCategory = { behavior.showChangeCategoryDialog() }.takeIf { state.details.favorite },
         onClickEditInfo = { behavior.showEditInfoDialog() }.takeIf { state.details.favorite },
         onClickEditNotes = nav.onEditNotes,
-        onClickShare = nav.onToolbarShare,
+        onClickShare = web.share,
         onClickManageSources = { behavior.showManageSourcesDialog() }.takeIf { state.isMerged },
         onClickMigrate = nav.onMigrate,
         onClickDownload = if (state.chaptersDownloadable) behavior::runDownloadAction else null,
@@ -312,6 +315,7 @@ private fun LazyListScope.entryInfoBlock(
     state: EntryDetailsScreenState.Loaded,
     behavior: EntryDetailsBehavior,
     nav: EntryDetailsNavigation,
+    web: EntryWebActions,
     isTabletUi: Boolean,
     appBarPadding: Dp,
     onAddToLibrary: () -> Unit,
@@ -329,10 +333,10 @@ private fun LazyListScope.entryInfoBlock(
         onTrackingClicked = nav.onTracking,
         onEditCategory = { behavior.showChangeCategoryDialog() }.takeIf { state.details.favorite },
         onEditIntervalClicked = nav.onEditInterval,
-        onWebViewClicked = nav.onOpenWebView,
-        onWebViewLongClicked = nav.onOpenWebViewLong,
+        onWebViewClicked = web.openWebView,
+        onWebViewLongClicked = web.copyUrl,
         onTagSearch = nav.onTagSearch,
-        onCopyTagToClipboard = nav.onCopyTag,
+        onCopyTagToClipboard = web.copyTag,
         onEditNotes = nav.onEditNotes,
         // Namespaced, grouped tag chips for the active source's gallery metadata (or its namespaced genre).
         searchMetadataChips = gallery?.let { SearchMetadataChips(it.metadata, it.sourceId, it.rawGenre, it.tagQuery) },

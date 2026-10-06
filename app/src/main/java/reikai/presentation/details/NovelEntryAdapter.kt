@@ -103,6 +103,7 @@ class NovelEntryAdapter(
             hasViewedDownloads = downloadFolderOwner != null,
             showChapterNumberOnly = hideChapterTitles,
             seedColor = seedColor,
+            webPage = webPage,
         )
     }
 

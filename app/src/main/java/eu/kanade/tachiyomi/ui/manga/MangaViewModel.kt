@@ -130,6 +130,7 @@ import reikai.presentation.details.EntryManageSourceInfo
 import reikai.presentation.details.EntryMergeActionHost
 import reikai.presentation.details.EntryMergeGroupHost
 import reikai.presentation.details.EntryMergeSource
+import reikai.presentation.details.EntryWebPage
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
@@ -141,6 +142,8 @@ import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.details.scanlatorFilterView
 import reikai.presentation.details.scanlatorWrites
+import reikai.presentation.details.shownWebPages
+import reikai.presentation.details.webPageIn
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
@@ -479,6 +482,10 @@ class MangaViewModel(
                 }
         }
         observeExhRootRedirect()
+        // The shown member's web page, asked of the extension off the main thread as upstream's assist link was.
+        viewModelScope.launchIO {
+            state.shownWebPages().collectLatest { page -> updateSuccessState { it.copy(webPage = page) } }
+        }
         // RK <--
 
         viewModelScope.launchIO {
@@ -538,6 +545,8 @@ class MangaViewModel(
                     // RK: seed the custom-info overlay so it shows on first render (before the reactive
                     // collector fires), same pattern as the scanlator seeds above.
                     customInfo = getCustomMangaInfo.subscribe(mangaId).first(),
+                    // RK: seeded so the web actions show on first render rather than popping in
+                    webPage = manga.webPageIn(source),
                 )
             }
 
@@ -1884,6 +1893,8 @@ class MangaViewModel(
             // RK: page-preview thumbnails (adult sources) + how many rows to show (0 = off).
             val pagePreviewsState: PagePreviewState = PagePreviewState.Unused,
             val previewsRowCount: Int = 0,
+            // RK: the shown member's web page (shownWebPages), null hiding WebView, Share and Copy link
+            val webPage: EntryWebPage? = null,
         ) : State {
             // RK -->
             // EH/EXH galleries are tags-as-content with no description, so default the info box

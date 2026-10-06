@@ -44,7 +44,6 @@ import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog
-import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.follows.MangaDexFollowsScreen
 import exh.source.getMainSource
@@ -75,6 +74,7 @@ import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelSourceFilterSheet
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
+import reikai.presentation.webview.toWebViewScreen
 import tachiyomi.core.common.Constants
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -129,9 +129,6 @@ class EntryCatalogueScreen(
     private var assistUrl: String? = null
 
     override fun onProvideAssistUrl() = assistUrl
-
-    /** The manga source id, or null for a plugin. */
-    private val mangaSourceId: Long? get() = (sourceKey as? SourceKey.Manga)?.id
 
     @Composable
     override fun Content() {
@@ -336,14 +333,7 @@ class EntryCatalogueScreen(
         val onWebViewClick: (String?) -> Unit = f@{ challengeUrl ->
             val url = challengeUrl ?: loaded.webUrl ?: return@f
             pendingWebViewRetry = true
-            navigator.push(
-                WebViewScreen(
-                    url = url,
-                    initialTitle = loaded.sourceName,
-                    sourceId = mangaSourceId,
-                    novelSourceId = (sourceKey as? SourceKey.Novel)?.id,
-                ),
-            )
+            navigator.push(sourceKey.toWebViewScreen(url, loaded.sourceName))
         }
 
         BackHandler(enabled = loaded.selectionMode) { behavior.setSelectionMode(false) }

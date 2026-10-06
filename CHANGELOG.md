@@ -161,7 +161,7 @@ agent under Settings -> Advanced.
 - **A merged series now downloads each chapter once and opens a downloaded copy from any of its sources instead of going online.** Deleting a chapter from the All list removes every source's copy.
 - **A merged series now counts once in new-chapter notifications and the Updates widget, instead of once per source.**
 - **Merged rows in Updates and History now show and change read, bookmark and download state for every source, and Continue reading from History opens the chapter the library would.** An Updates row's download is its own source's copy, since that is the copy it opens.
-- **Selecting a source chip on a merged series now switches the synopsis and tags to that source, and Share and Open in WebView follow it too.** Migrate asks which source to move whichever chip is selected, and your custom title stays visible.
+- **Selecting a source chip on a merged series now switches the synopsis and tags to that source, and Share, Open in WebView, the long-pressed link copy and the assistant's link follow it too.** Migrate asks which source to move whichever chip is selected, and your custom title stays visible.
 - **On a merged manga, the download controls, Share and Open in WebView now follow the selected source chip's own source, so a chip on a missing extension no longer offers them.**
 - **On a merged series, tapping the cover now shows the selected source's cover, and changing the cover is done under the All chip.** Your library shows the group's cover, so an edit made under one source would have looked like it did nothing.
 - **Library search now finds a merged series by any of its sources' names, ids or languages, not only its leading source's.** That includes the search a source chip opens.

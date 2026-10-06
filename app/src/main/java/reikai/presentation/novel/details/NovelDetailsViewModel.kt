@@ -129,6 +129,7 @@ import reikai.presentation.details.EntryMergeActionHost
 import reikai.presentation.details.EntryMergeGroupHost
 import reikai.presentation.details.EntryMergeSource
 import reikai.presentation.details.EntrySourceState
+import reikai.presentation.details.EntryWebPage
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
@@ -136,6 +137,7 @@ import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.offerAddToLibrary
 import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
+import reikai.presentation.details.webPageIn
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
@@ -417,8 +419,8 @@ class NovelDetailsViewModel(
             } else {
                 source = resolved
                 // Asked of the source before the update, since a plugin answers it through its host.
-                val shown = (state.value as? NovelDetailsState.Loaded)?.displayNovel?.url
-                val shownWebUrl = shown?.let { resolved.webUrl(it, isNovel = true) }
+                val shown = (state.value as? NovelDetailsState.Loaded)?.displayNovel
+                val shownPage = shown?.webPageIn(resolved)
                 state.update {
                     // A chip on a sibling already shows that sibling's own source.
                     (it as? NovelDetailsState.Loaded)?.takeIf { l -> l.displayNovel.id == l.novel.id }?.let { l ->
@@ -426,7 +428,7 @@ class NovelDetailsViewModel(
                             sourceName = resolved.name,
                             sourceHasSettings = resolved.settings != null,
                             browsableSourceId = resolved.id,
-                            novelWebUrl = shownWebUrl.takeIf { l.displayNovel.url == shown } ?: l.novelWebUrl,
+                            webPage = if (l.displayNovel.url == shown?.url) shownPage else l.webPage,
                         )
                     } ?: it
                 }
@@ -646,7 +648,7 @@ class NovelDetailsViewModel(
         val resumable = ReadingOrder.of(display.filterNot { it.id in hiddenChapterIds }, sortDescending)
         val resume = ReadingOrder.nextToRead(resumable) { marks.isRead(it.id, it.read) }
         val viewSource = viewedNovelSource(viewNovel.id, anchor.id, siblingSources.value, source)
-        val novelWebUrl = viewSource?.webUrl(viewNovel.url, isNovel = true)
+        val webPage = viewSource?.let { viewNovel.webPageIn(it) }
         val sourceName = viewSource?.name ?: sourceManager.nameOf(viewNovel.source)
         state.update { prev ->
             val loaded = prev as? NovelDetailsState.Loaded
@@ -676,7 +678,7 @@ class NovelDetailsViewModel(
                 hasStarted = chapters.any { marks.isRead(it.id, it.read) },
                 seedColor = loaded?.seedColor,
                 sourceName = sourceName,
-                novelWebUrl = novelWebUrl,
+                webPage = webPage,
                 sourceHasSettings = viewSource?.settings != null,
                 browsableSourceId = viewSource?.id,
                 // Read in here, so a lookup landing mid-rebuild is seen when the update retries.
@@ -1567,10 +1569,9 @@ sealed interface NovelDetailsState {
         /** Cover-derived tint, null until extracted. Always extracted, since edit info tints from it; the
          *  screen applies it only when cover theming is on. */
         val seedColor: Color? = null,
-        /** Resolved source name, and [novelWebUrl], this novel's own page as its source addresses it, for
-         *  WebView and Share. */
+        /** Resolved source name, and [webPage], the viewed member's own page as its source addresses it. */
         val sourceName: String = "",
-        val novelWebUrl: String? = null,
+        val webPage: EntryWebPage? = null,
         /** Whether the viewed source exposes settings; gates the overflow item that opens them. */
         val sourceHasSettings: Boolean = false,
         /** The viewed source's id when its plugin is installed; null hides the header's Browse. */

@@ -46,6 +46,8 @@ sealed interface EntryDetailsScreenState {
         val showChapterNumberOnly: Boolean,
         /** Cover-derived header tint; null when off or not yet extracted. */
         val seedColor: Color?,
+        /** The viewed member's page, which each model resolves off the render path; null hides the web actions. */
+        val webPage: EntryWebPage?,
     ) : EntryDetailsScreenState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
         val isMerged: Boolean get() = mergeSources.size > 1

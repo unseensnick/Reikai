@@ -63,9 +63,8 @@ class ResolveMangaLink(
         webUrl = { source, path -> webUrl(source, path) },
     )
 
-    // An extension's own address rule may throw on a path it did not produce.
     private fun webUrl(source: HttpSource, path: String) =
-        runCatching { source.getMangaUrl(SManga.create().apply { url = path }) }.getOrDefault("")
+        source.mangaUrlOrNull(SManga.create().apply { url = path }).orEmpty()
 
     /**
      * The series at [path] and the chapter paths its page gives, or null when the page is not one: no title

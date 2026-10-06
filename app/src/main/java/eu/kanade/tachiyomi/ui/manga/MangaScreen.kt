@@ -11,14 +11,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.domain.manga.model.hasCustomCover
-import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.manga.ChapterSettingsDialog
 import eu.kanade.presentation.manga.components.ScanlatorFilterDialog
@@ -35,16 +33,11 @@ import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
-import eu.kanade.tachiyomi.ui.webview.WebViewScreen
-import eu.kanade.tachiyomi.util.system.copyToClipboard
-import eu.kanade.tachiyomi.util.system.toShareIntent
-import eu.kanade.tachiyomi.util.system.toast
 import exh.pagepreview.PagePreviewScreen
 import exh.source.configurableSource
 import exh.source.getMainSource
 import exh.ui.metadata.MetadataViewScreen
 import kotlinx.coroutines.launch
-import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo // RK
@@ -70,8 +63,6 @@ import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
 import reikai.presentation.recommendation.relatedDestination
-import tachiyomi.core.common.util.lang.withIOContext
-import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
@@ -109,19 +100,8 @@ class MangaScreen(
         }
 
         val successState = state as MangaViewModel.State.Success
-        val isHttpSource = remember { successState.source is HttpSource }
-
-        LaunchedEffect(successState.manga, viewModel.source) {
-            if (isHttpSource) {
-                try {
-                    withIOContext {
-                        assistUrl = getMangaUrl(viewModel.manga, viewModel.source)
-                    }
-                } catch (e: Exception) {
-                    logcat(LogPriority.ERROR, e) { "Failed to get manga URL" }
-                }
-            }
-        }
+        // RK: the assistant link is the shown member's page, which the model resolves (EntryWebPage)
+        LaunchedEffect(successState.webPage) { assistUrl = successState.webPage?.url }
 
         // RK: load the related-mangas carousel once the screen is open (idempotent per open).
         LaunchedEffect(successState.manga.id) {
@@ -161,7 +141,6 @@ class MangaScreen(
                         onTagSearch = { genre ->
                             scope.launch { performGenreSearch(navigator, genre, successState.shownSource) }
                         },
-                        onCopyTag = { if (it.isNotEmpty()) context.copyToClipboard(it, it) },
                         onTracking = {
                             if (!successState.hasLoggedInTrackers) {
                                 navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
@@ -171,18 +150,6 @@ class MangaScreen(
                         },
                         onEditNotes = { navigator.push(MangaNotesScreen(manga = successState.manga)) },
                         onOpenFilterSettings = viewModel::showSettingsDialog,
-                        // Share lives in the toolbar overflow for manga.
-                        // RK: view-only surfaces (share / WebView / copy URL) follow the selected
-                        // source chip like novels; writes (migrate, covers) stay anchor-scoped.
-                        onToolbarShare = {
-                            shareManga(context, successState.shownManga, successState.shownSource)
-                        }.takeIf { successState.shownSource is HttpSource },
-                        onOpenWebView = {
-                            openMangaInWebView(navigator, successState.shownManga, successState.shownSource)
-                        }.takeIf { successState.shownSource is HttpSource },
-                        onOpenWebViewLong = {
-                            copyMangaUrl(context, successState.shownManga, successState.shownSource)
-                        }.takeIf { successState.shownSource is HttpSource },
                         onMigrate = {
                             // Source picker first, so a merged manga can pick which source to migrate.
                             navigator.push(
@@ -338,39 +305,7 @@ class MangaScreen(
         context.startActivity(ReaderActivity.newIntent(context, chapter.mangaId, chapter.id, page))
     }
 
-    private fun getMangaUrl(manga_: Manga?, source_: Source?): String? {
-        val manga = manga_ ?: return null
-        val source = source_ as? HttpSource ?: return null
-
-        return try {
-            source.getMangaUrl(manga.toSManga())
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    private fun openMangaInWebView(navigator: Navigator, manga_: Manga?, source_: Source?) {
-        getMangaUrl(manga_, source_)?.let { url ->
-            navigator.push(
-                WebViewScreen(
-                    url = url,
-                    initialTitle = manga_?.title,
-                    sourceId = source_?.id,
-                ),
-            )
-        }
-    }
-
-    private fun shareManga(context: Context, manga_: Manga?, source_: Source?) {
-        try {
-            getMangaUrl(manga_, source_)?.let { url ->
-                val intent = url.toUri().toShareIntent(context, type = "text/plain")
-                context.startActivity(intent)
-            }
-        } catch (e: Exception) {
-            context.toast(e.message)
-        }
-    }
+    // RK: getMangaUrl, openMangaInWebView and shareManga moved to EntryWebPage, shared with novels
 
     /**
      * Perform a search using the provided query.
@@ -407,15 +342,7 @@ class MangaScreen(
         )
     }
 
-    /**
-     * Copy Manga URL to Clipboard
-     */
-    private fun copyMangaUrl(context: Context, manga_: Manga?, source_: Source?) {
-        val manga = manga_ ?: return
-        val source = source_ as? HttpSource ?: return
-        val url = source.getMangaUrl(manga.toSManga())
-        context.copyToClipboard(url, url)
-    }
+    // RK: copyMangaUrl moved to EntryWebPage (rememberEntryWebActions), which cannot throw
 }
 
 // RK: seed the shared edit-info dialog from a manga's effective (overlaid) values.

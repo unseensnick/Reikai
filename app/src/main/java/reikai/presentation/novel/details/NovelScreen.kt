@@ -8,7 +8,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -23,10 +22,6 @@ import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
-import eu.kanade.tachiyomi.ui.webview.WebViewScreen
-import eu.kanade.tachiyomi.util.system.copyToClipboard
-import eu.kanade.tachiyomi.util.system.toShareIntent
-import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.data.novel.expectedNextUpdate
@@ -106,31 +101,8 @@ class NovelScreen(
                     viewModel.themeCoverBased
                 },
             ) {
-                // The page Share and WebView open, so a merged novel offers the selected chip's.
-                LaunchedEffect(s.novelWebUrl) { assistUrl = s.novelWebUrl }
-
-                val onWebView: () -> Unit = {
-                    s.novelWebUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                        navigator.push(
-                            WebViewScreen(
-                                url = url,
-                                initialTitle = s.sourceName,
-                                sourceId = null,
-                                novelId = s.displayNovel.id,
-                                novelSourceId = s.browsableSourceId,
-                            ),
-                        )
-                    }
-                }
-                val onShare: () -> Unit = {
-                    s.novelWebUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                        try {
-                            context.startActivity(url.toUri().toShareIntent(context, type = "text/plain"))
-                        } catch (e: Exception) {
-                            context.toast(e.message)
-                        }
-                    }
-                }
+                // The page WebView and Share open, so a merged novel offers the selected chip's.
+                LaunchedEffect(s.webPage) { assistUrl = s.webPage?.url }
 
                 (neutralState as? EntryDetailsScreenState.Loaded)?.let { loaded ->
                     EntryDetailsContent(
@@ -175,7 +147,6 @@ class NovelScreen(
                                     )
                                 }
                             },
-                            onCopyTag = { context.copyToClipboard(it, it) },
                             onTracking = {
                                 if (s.hasLoggedInTrackers) {
                                     viewModel.showTrackDialog()
@@ -187,13 +158,7 @@ class NovelScreen(
                                 navigator.push(NovelNotesScreen(s.novel.id, s.novel.title, s.novel.notes))
                             },
                             onOpenFilterSettings = viewModel::showChapterSettingsDialog,
-                            onToolbarShare = s.novelWebUrl?.let { { onShare() } },
                             onEditInterval = viewModel::showSetFetchIntervalDialog.takeIf { s.novel.favorite },
-                            onOpenWebView = s.novelWebUrl?.let { { onWebView() } },
-                            // Long-press copies the URL, matching the manga action row.
-                            onOpenWebViewLong = s.novelWebUrl?.let { url ->
-                                { context.copyToClipboard(url, url) }
-                            },
                             // Migration only re-homes a library novel, so it shows only when favorited.
                             // Anchor-scoped like manga: migrating must re-home the series, not
                             // whichever source chip happens to be selected.

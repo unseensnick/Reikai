@@ -126,6 +126,9 @@ class MangaEntryAdapter(
             hasViewedDownloads = downloadFolderOwner != null,
             showChapterNumberOnly = manga.displayMode == Manga.CHAPTER_DISPLAY_NUMBER,
             seedColor = seedColor,
+            // Resolved by the model: asking the extension here would run on every tick and blink the
+            // WebView button whenever the adapter is rebuilt.
+            webPage = webPage,
         )
     }
 
