@@ -1,6 +1,7 @@
 package reikai.novel.install
 
 import kotlinx.coroutines.withTimeoutOrNull
+import reikai.util.crashLogNotLoadedEntry
 import reikai.util.runCatchingCancellable
 import kotlin.time.Duration.Companion.seconds
 
@@ -15,18 +16,11 @@ suspend fun novelPluginCrashLogEntries(installer: LnPluginInstaller): List<Strin
     return installer.failures.value.values
         .sortedBy { it.name }
         .map { plugin ->
-            buildString {
-                appendLine("- ${plugin.name} (novel plugin)")
-                appendLine("  Installed: ${plugin.version ?: "?"}")
-                when (val reason = plugin.reason) {
-                    is LnPluginLoadFailure.Reason.Missing ->
-                        append("  Not loaded: Script missing (${reason.message})")
-                    LnPluginLoadFailure.Reason.Malformed -> append("  Not loaded: Malformed")
-                    is LnPluginLoadFailure.Reason.Failed -> {
-                        appendLine("  Not loaded: Failed (${reason.message})")
-                        append(reason.stackTrace.trimEnd().prependIndent("  "))
-                    }
-                }
+            val (reason, stackTrace) = when (val reason = plugin.reason) {
+                is LnPluginLoadFailure.Reason.Missing -> "Script missing (${reason.message})" to null
+                LnPluginLoadFailure.Reason.Malformed -> "Malformed" to null
+                is LnPluginLoadFailure.Reason.Failed -> "Failed (${reason.message})" to reason.stackTrace
             }
+            crashLogNotLoadedEntry("${plugin.name} (novel plugin)", plugin.version ?: "?", reason, stackTrace)
         }
 }

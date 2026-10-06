@@ -18,6 +18,7 @@ import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toLocalDateTime
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.novelPluginCrashLogEntries
+import reikai.util.crashLogNotLoadedEntry
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.lang.withUIContext
 import kotlin.time.Clock
@@ -96,17 +97,14 @@ class CrashLogUtil(
         val notLoadedInfoList = (extensionManager.getNotLoadedExtensions() + novelNotLoaded) // RK
             .sortedBy { it.name }
             .map { extension ->
-                buildString {
-                    appendLine("- ${extension.name}")
-                    appendLine("  Installed: ${extension.versionName} (lib ${extension.libVersion ?: "?"})")
-                    append("  Not loaded: ${extension.reason.description}")
-
-                    val reason = extension.reason
-                    if (reason is Extension.NotLoaded.Reason.Failed) {
-                        appendLine()
-                        append(reason.stackTrace.trimEnd().prependIndent("  "))
-                    }
-                }
+                // RK --> the entry format novel plugins share; an upstream format change goes into the kernel
+                crashLogNotLoadedEntry(
+                    name = extension.name,
+                    installed = "${extension.versionName} (lib ${extension.libVersion ?: "?"})",
+                    reason = extension.reason.description,
+                    stackTrace = (extension.reason as? Extension.NotLoaded.Reason.Failed)?.stackTrace,
+                )
+                // RK <--
             }
 
         // RK --> the novel plugins that did not load, after a first load the crash process has not run yet
