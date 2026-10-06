@@ -69,11 +69,8 @@ class LibraryRowScheduleConformanceTest {
                 chapterFetchedAt = 0,
                 lastRead = 0,
             ).toLibraryItem(
-                downloadBadge = false,
-                unreadBadge = false,
-                languageBadge = false,
+                badgePrefs = LibraryBadgePrefs(false, false, false, false, false),
                 sourceLanguage = "en",
-                sourceBadge = false,
                 sourceIcon = SourceBadge.Generic,
                 sourceName = "src",
             )

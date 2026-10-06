@@ -10,6 +10,7 @@ import reikai.domain.novel.model.Novel
 import reikai.novel.host.LnPluginInfo
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.SourceBadge
 
@@ -24,9 +25,10 @@ class NovelDynamicGroupingTest {
         }
         val sourceManager = mockk<NovelSourceManager>()
         coEvery { sourceManager.langOf(any()) } answers { sources.getValue(firstArg()).lang }
+        val noBadges = LibraryBadgePrefs(false, false, false, false, false)
 
         val feed = novelDynamicGroupingFeed(
-            items = novels.map { it.toLibraryItem(false, false, false, "", false, SourceBadge.Generic, "") },
+            items = novels.map { it.toLibraryItem(noBadges, "", SourceBadge.Generic, "") },
             novelById = novels.associateBy { it.novel.id },
             tracksByRep = emptyMap(),
             loggedInTrackerIds = emptySet(),

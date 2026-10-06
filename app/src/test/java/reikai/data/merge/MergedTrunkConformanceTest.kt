@@ -23,6 +23,7 @@ import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelGroupStitcher
 import reikai.domain.novel.NovelMergeManager
+import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.novels.NovelMergeCollapse
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -196,6 +197,7 @@ class MergedTrunkConformanceTest {
             }
             return MangaMergeCollapse.collapse(
                 items = items,
+                badgePrefs = LibraryBadgePrefs(false, false, false, false, false),
                 membership = groups.getAllMemberships(ContentType.MANGA),
                 mergingEnabled = true,
                 showMergeSourceIcons = false,

@@ -31,8 +31,8 @@ object MangaMergeCollapse {
         mergedCountsByGroup: Map<Long, MergedGroupCounts> = emptyMap(),
         // Group id -> merged chapters with a copy on disk. Absent keeps the members' own sum, as on novels.
         mergedDownloadsByGroup: Map<Long, Int> = emptyMap(),
-        // Mirrors the unread-badge preference, so a merged count never lights a badge the user turned off.
-        showUnreadBadge: Boolean = true,
+        // So a merged count never lights a badge the user turned off.
+        badgePrefs: LibraryBadgePrefs,
         // Group id -> member manga ids in trunk order, only for groups whose per-group source-order
         // override is on. Empty for a group means "no override": rank by the global preferred list instead.
         overrideRankings: Map<Long, List<Long>> = emptyMap(),
@@ -54,7 +54,7 @@ object MangaMergeCollapse {
                 resolveSource = resolveSource,
                 mergedCounts = groupId?.let { mergedCountsByGroup[it] },
                 mergedDownloads = groupId?.let { mergedDownloadsByGroup[it] },
-                showUnreadBadge = showUnreadBadge,
+                badgePrefs = badgePrefs,
                 recognizedChapterCounts = recognizedChapterCounts,
             )
         }
@@ -79,7 +79,7 @@ object MangaMergeCollapse {
         resolveSource: suspend (Long) -> Source,
         mergedCounts: MergedGroupCounts?,
         mergedDownloads: Int?,
-        showUnreadBadge: Boolean,
+        badgePrefs: LibraryBadgePrefs,
         recognizedChapterCounts: Map<Long, Long>,
     ): LibraryItem {
         val primary = subGroup.minWith(rankComparator(overrideOrder, preferredSourceIds, recognizedChapterCounts))
@@ -101,9 +101,8 @@ object MangaMergeCollapse {
             relatedMangaIds = subGroup.map { it.libraryManga.manga.id },
             memberSources = subGroup.map { it.querySource(it.libraryManga.manga.source.toString()) }.distinct(),
             badges = primary.badges.copy(
-                // Zero when the badge is off, which is how every member reports it then.
-                downloadCount = if (subGroup.any { it.badges.downloadCount > 0 }) downloads else 0,
-                unreadCount = if (showUnreadBadge) unread else 0,
+                downloadCount = badgePrefs.downloadBadge(downloads),
+                unreadCount = badgePrefs.unreadBadge(unread),
                 // One badge per distinct source, as novels badge them: two members on one source are
                 // one source to the reader.
                 mergedSources = if (showMergeSourceIcons) {

@@ -60,11 +60,13 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.LibraryFilterSettings
 import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.installedIconsBySite
+import reikai.presentation.library.libraryBadgePrefsFlow
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
@@ -187,13 +189,6 @@ class NovelLibraryViewModel(
         }
     }
 
-    private fun badgePrefsFlow(): Flow<BadgePrefs> = combine(
-        libraryPreferences.downloadBadge.changes(),
-        libraryPreferences.unreadBadge.changes(),
-        libraryPreferences.languageBadge.changes(),
-        reikaiLibraryPreferences.sourceBadge.changes(),
-    ) { download, unread, language, source -> BadgePrefs(download, unread, language, source) }
-
     /** Folds the badge and filter prefs into one flow so the main combine stays at its 5-arg max. Sorting
      *  is LibraryEngine's, so no sort input rides here: it would rebuild this list for nothing. */
     private fun settingsFlow(): Flow<LibrarySettings> {
@@ -223,7 +218,7 @@ class NovelLibraryViewModel(
         // No group-by input: grouping is LibraryEngine's, and re-running this whole pipeline on a
         // group-mode change would rebuild the filtered list for a decision it no longer makes.
         return combine(
-            badgePrefsFlow(),
+            libraryBadgePrefsFlow(libraryPreferences, reikaiLibraryPreferences),
             libraryPreferences.showContinueReadingButton.changes(),
             filterFlow,
             mergeFlow,
@@ -323,11 +318,8 @@ class NovelLibraryViewModel(
             val source = sourceManager.get(rep.novel.source)
             val repSource = querySource(rep.novel.source)
             val item = rep.toLibraryItem(
-                settings.badges.download,
-                settings.badges.unread,
-                settings.badges.language,
+                settings.badges,
                 repSource.language.orEmpty(),
-                sourceBadge = settings.badges.source,
                 sourceIcon = novelSourceBadge(source, iconsBySite),
                 sourceName = repSource.name,
             )
@@ -347,7 +339,7 @@ class NovelLibraryViewModel(
                     memberSources = group.memberIds.mapNotNull { sourceByNovelId[it] }.distinct()
                         .map { querySource(it) },
                     badges = item.badges.copy(
-                        downloadCount = if (settings.badges.download) group.totalDownloadCount.toInt() else 0,
+                        downloadCount = settings.badges.downloadBadge(group.totalDownloadCount.toInt()),
                         mergedSources = memberBadges,
                     ),
                 )
@@ -535,13 +527,6 @@ class NovelLibraryViewModel(
         isLocal = false,
     )
 
-    private data class BadgePrefs(
-        val download: Boolean,
-        val unread: Boolean,
-        val language: Boolean,
-        val source: Boolean,
-    )
-
     private data class MergeSettings(
         val membership: Map<Long, Long>,
         val mergingEnabled: Boolean,
@@ -559,7 +544,7 @@ class NovelLibraryViewModel(
     )
 
     private data class LibrarySettings(
-        val badges: BadgePrefs,
+        val badges: LibraryBadgePrefs,
         val showContinue: Boolean,
         val filter: LibraryFilterSettings,
         val merge: MergeSettings,

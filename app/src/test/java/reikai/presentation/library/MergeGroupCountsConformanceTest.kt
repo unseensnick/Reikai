@@ -183,6 +183,7 @@ class MangaGroupCountCollapse : GroupCountCollapse {
             resolveSource = { Source(id = it, lang = "en", name = "", supportsLatest = false, isStub = false) },
             mergedCountsByGroup = stitched(stitched, counts(total = 1, read = 1)),
             mergedDownloadsByGroup = stitched(stitchedDownloads, 0),
+            badgePrefs = LibraryBadgePrefs(false, false, false, false, false),
         ).single { 1L in it.relatedMangaIds }
     }
 }
@@ -216,11 +217,8 @@ class NovelGroupCountCollapse : GroupCountCollapse {
         // The row the novel library builds from a merged group: the representative's, then the group's
         // deduplicated downloads stamped on, as NovelLibraryViewModel does.
         return group.representative.toLibraryItem(
-            downloadBadge = false,
-            unreadBadge = false,
-            languageBadge = false,
+            badgePrefs = LibraryBadgePrefs(false, false, false, false, false),
             sourceLanguage = "",
-            sourceBadge = false,
             sourceIcon = SourceBadge.Generic,
             sourceName = "",
         ).copy(downloadCount = group.totalDownloadCount.toInt())

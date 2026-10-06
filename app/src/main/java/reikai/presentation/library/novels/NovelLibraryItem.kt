@@ -3,6 +3,7 @@ package reikai.presentation.library.novels
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.model.LibraryNovel
+import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.SourceBadge
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
@@ -16,11 +17,8 @@ import tachiyomi.domain.manga.model.Manga
  * screen model instead).
  */
 fun LibraryNovel.toLibraryItem(
-    downloadBadge: Boolean,
-    unreadBadge: Boolean,
-    languageBadge: Boolean,
+    badgePrefs: LibraryBadgePrefs,
     sourceLanguage: String,
-    sourceBadge: Boolean,
     sourceIcon: SourceBadge,
     sourceName: String,
 ): LibraryItem {
@@ -69,15 +67,14 @@ fun LibraryNovel.toLibraryItem(
         // resolved again at filter time. Lowercased to match how the manga side supplies its own.
         sourceName = sourceName.lowercase(),
         sourceLanguage = sourceLanguage,
-        badges = LibraryItem.Badges(
-            downloadCount = if (downloadBadge) downloadCount.toInt() else 0,
-            unreadCount = if (unreadBadge) unreadCount else 0,
+        badges = badgePrefs.badges(
+            downloadCount = downloadCount.toInt(),
+            unreadCount = unreadCount,
             isLocal = false,
-            sourceLanguage = if (languageBadge) sourceLanguage else "",
-            // The cover's source is always carried (it isn't a visible badge); the source badge honors
-            // the source-badge display toggle, mirroring how the manga side gates `source`.
+            sourceLanguage = sourceLanguage,
+            sourceBadge = sourceIcon,
+            // Always carried: the cover is fetched with it, and it is not a visible badge.
             coverSourceId = n.source,
-            source = if (sourceBadge) sourceIcon else null,
         ),
     )
 }

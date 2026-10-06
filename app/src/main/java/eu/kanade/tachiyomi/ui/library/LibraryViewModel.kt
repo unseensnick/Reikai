@@ -67,6 +67,7 @@ import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
+import reikai.presentation.library.libraryBadgePrefsFlow
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
@@ -331,23 +332,13 @@ class LibraryViewModel(
     // LibraryEngine's assembleLibrary buckets and sorts, over rows from both content types at once, so
     // the category order, the per-category sort override and the empty-category rule live there now.
 
-    private fun getLibraryItemPreferencesFlow(): Flow<ItemPreferences> {
-        return combine(
-            libraryPreferences.downloadBadge.changes(),
-            libraryPreferences.unreadBadge.changes(),
-            libraryPreferences.localBadge.changes(),
-            libraryPreferences.languageBadge.changes(),
-            // RK: the filter preferences left for libraryFilterSettingsFlow, which feeds filterSettings, so
-            //     only Booleans remain and the typed combine replaces upstream's cast-per-slot one.
-            reikaiLibraryPreferences.sourceBadge.changes(), // RK
-            ::ItemPreferences, // RK
-        )
-    }
+    // RK: getLibraryItemPreferencesFlow and ItemPreferences moved to libraryBadgePrefsFlow, the badge
+    //     gates the novel library reads too; the filter preferences live in libraryFilterSettingsFlow.
 
     private fun getFavoritesFlow(): Flow<List<LibraryItem>> {
         return combine(
             getLibraryManga.subscribe(),
-            getLibraryItemPreferencesFlow(),
+            libraryBadgePrefsFlow(libraryPreferences, reikaiLibraryPreferences), // RK
             downloadCache.changes,
             // RK: re-collapse when the merge prefs change
             mergePrefsFlow(),
@@ -373,33 +364,13 @@ class LibraryViewModel(
                     // RK: non-null only for gallery/metadata sources, which selects the tag-search path.
                     metadataSourceName = source.getMainSource<MetadataSource<*, *>>()
                         ?.let { source.getNameForMangaInfo() },
-                    badges = LibraryItem.Badges(
-                        downloadCount = if (preferences.downloadBadge) {
-                            downloadCount
-                        } else {
-                            0
-                        },
-                        unreadCount = if (preferences.unreadBadge) {
-                            manga.unreadCount
-                        } else {
-                            0
-                        },
-                        isLocal = if (preferences.localBadge) {
-                            manga.manga.isLocal()
-                        } else {
-                            false
-                        },
-                        sourceLanguage = if (preferences.languageBadge) {
-                            sourceManager.getOrStub(manga.manga.source).lang
-                        } else {
-                            ""
-                        },
-                        // RK: source/extension icon badge data (null when the source badge is off)
-                        source = if (preferences.sourceBadge) {
-                            SourceBadge.Manga(resolveBadgeSource(manga.manga.source))
-                        } else {
-                            null
-                        },
+                    // RK: the badge gates are libraryBadgePrefsFlow's, shared with the novel row builder
+                    badges = preferences.badges(
+                        downloadCount = downloadCount,
+                        unreadCount = manga.unreadCount,
+                        isLocal = manga.manga.isLocal(),
+                        sourceLanguage = source.lang,
+                        sourceBadge = SourceBadge.Manga(resolveBadgeSource(manga.manga.source)),
                     ),
                 )
             }
@@ -420,7 +391,7 @@ class LibraryViewModel(
                 } else {
                     emptyMap()
                 },
-                showUnreadBadge = preferences.unreadBadge,
+                badgePrefs = preferences,
                 overrideRankings = mergePrefs.overrideRankings,
                 preferredSourceIds = mergePrefs.preferredSources,
                 // RK: the same chapter count the stitch ranks its trunk on, so the row and the details
@@ -712,16 +683,7 @@ class LibraryViewModel(
 
     // RK: updateActiveCategoryIndex moved to LibraryEngine, which persists the settled page per chip
 
-    @Immutable
-    private data class ItemPreferences(
-        val downloadBadge: Boolean,
-        val unreadBadge: Boolean,
-        val localBadge: Boolean,
-        val languageBadge: Boolean,
-        // RK: the filter axes and the release-period gate moved to LibraryFilterSettings, which both
-        //     libraries read through libraryFilterSettingsFlow.
-        val sourceBadge: Boolean, // RK: source/extension icon badge data
-    )
+    // RK: ItemPreferences is LibraryBadgePrefs now (the filter axes are in LibraryFilterSettings)
 
     @Immutable
     data class LibraryData(

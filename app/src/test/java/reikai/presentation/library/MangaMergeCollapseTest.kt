@@ -56,6 +56,8 @@ class MangaMergeCollapseTest {
         preferredSourceIds: List<Long> = emptyList(),
         // Each member's rows all carry distinct recognized numbers unless a test says otherwise.
         recognizedChapterCounts: Map<Long, Long> = items.associate { it.id to it.libraryManga.totalChapters },
+        badgePrefs: LibraryBadgePrefs = LibraryBadgePrefs(true, true, true, true, true),
+        mergedDownloadsByGroup: Map<Long, Int> = emptyMap(),
     ) = MangaMergeCollapse.collapse(
         items,
         membership,
@@ -65,12 +67,39 @@ class MangaMergeCollapseTest {
         overrideRankings = overrideRankings,
         preferredSourceIds = preferredSourceIds,
         recognizedChapterCounts = recognizedChapterCounts,
+        badgePrefs = badgePrefs,
+        mergedDownloadsByGroup = mergedDownloadsByGroup,
     )
 
     @Test
     fun `a single item is returned unchanged`() = runTest {
         val items = listOf(item(1))
         collapse(items) shouldBe items
+    }
+
+    @Test
+    fun `a merged row's download badge shows the group's downloads`() = runTest {
+        collapse(listOf(item(1), item(2)), mapOf(1L to 7L, 2L to 7L), mergedDownloadsByGroup = mapOf(7L to 4))
+            .single().badges.downloadCount shouldBe 4
+    }
+
+    @Test
+    fun `a merged row lights no download badge the user turned off`() = runTest {
+        collapse(
+            listOf(item(1), item(2)),
+            membership = mapOf(1L to 7L, 2L to 7L),
+            mergedDownloadsByGroup = mapOf(7L to 4),
+            badgePrefs = LibraryBadgePrefs(true, true, true, true, true).copy(download = false),
+        ).single().badges.downloadCount shouldBe 0
+    }
+
+    @Test
+    fun `a merged row lights no unread badge the user turned off`() = runTest {
+        collapse(
+            listOf(item(1, unread = 2), item(2, unread = 3)),
+            membership = mapOf(1L to 7L, 2L to 7L),
+            badgePrefs = LibraryBadgePrefs(true, true, true, true, true).copy(unread = false),
+        ).single().badges.unreadCount shouldBe 0L
     }
 
     @Test

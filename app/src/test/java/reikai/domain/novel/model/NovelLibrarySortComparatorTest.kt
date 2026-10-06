@@ -4,6 +4,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
+import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.novels.toLibraryItem
@@ -67,11 +68,8 @@ class NovelLibrarySortComparatorTest {
         return novels
             .map {
                 it.toLibraryItem(
-                    downloadBadge = false,
-                    unreadBadge = false,
-                    languageBadge = false,
+                    badgePrefs = LibraryBadgePrefs(false, false, false, false, false),
                     sourceLanguage = "",
-                    sourceBadge = false,
                     sourceIcon = SourceBadge.Generic,
                     sourceName = "",
                 )

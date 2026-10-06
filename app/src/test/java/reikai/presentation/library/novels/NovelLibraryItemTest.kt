@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
+import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.SourceBadge
 
 class NovelLibraryItemTest {
@@ -22,11 +23,8 @@ class NovelLibraryItemTest {
     )
 
     private fun item(id: Long) = libraryNovel(id).toLibraryItem(
-        downloadBadge = false,
-        unreadBadge = false,
-        languageBadge = false,
+        badgePrefs = LibraryBadgePrefs(false, false, false, false, false),
         sourceLanguage = "en",
-        sourceBadge = false,
         sourceIcon = SourceBadge.Generic,
         sourceName = "Novel Arrow",
     )
@@ -34,6 +32,21 @@ class NovelLibraryItemTest {
     @Test
     fun `row carries the novel's own id, not a negated one`() {
         item(12L).id shouldBe 12L
+    }
+
+    @Test
+    fun `a novel row shows its language badge while that badge is on`() {
+        libraryNovel(12L).toLibraryItem(
+            badgePrefs = LibraryBadgePrefs(false, false, false, true, false),
+            sourceLanguage = "en",
+            sourceIcon = SourceBadge.Generic,
+            sourceName = "Novel Arrow",
+        ).badges.sourceLanguage shouldBe "en"
+    }
+
+    @Test
+    fun `a novel row hides its language badge while that badge is off`() {
+        item(12L).badges.sourceLanguage shouldBe ""
     }
 
     @Test
