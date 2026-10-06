@@ -34,7 +34,6 @@ import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.MergedChapterUnitRepository
-import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.stitchInputChanges
@@ -63,6 +62,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.LibraryFilterSettings
 import reikai.presentation.library.LibraryQuerySource
+import reikai.presentation.library.MergeCollapseInputs
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.installedIconsBySite
@@ -74,6 +74,7 @@ import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.memberIdsOf
+import reikai.presentation.library.mergeCollapseInputsFlow
 import reikai.presentation.library.mergedGroupTracks
 import reikai.presentation.library.novelSourceBadge
 import reikai.presentation.library.sortedByCategoryPref
@@ -200,21 +201,13 @@ class NovelLibraryViewModel(
             trackerManager,
             updateRestrictions = novelPreferences.novelUpdateRestrictions().changes(),
         )
-        val mergeFlow = combine(
-            combine(
-                mergeGroupRepository.getAllMembershipsAsFlow(ContentType.NOVELS),
-                reikaiLibraryPreferences.seriesMergingEnabled.changes(),
-                reikaiLibraryPreferences.showMergeSourceIcons.changes(),
-                mergeGroupRepository.getOverrideRankingsAsFlow(ContentType.NOVELS),
-                reikaiLibraryPreferences.preferredNovelSources.changes(),
-            ) { membership, mergingEnabled, showIcons, overrideRankings, preferredSources ->
-                MergeSettings(membership, mergingEnabled, showIcons, overrideRankings, preferredSources)
-            },
-            // Folded in rather than read while collapsing: reconciliation writes the stitch while the
-            // library is already on screen, and nothing else makes this flow re-emit when it lands.
-            mergedChapterUnitRepository.getGroupCountsAsFlow(ContentType.NOVELS),
-            mergedChapterUnitRepository.getDownloadUnitsAsFlow(ContentType.NOVELS),
-        ) { merge, counts, units -> merge.copy(mergedCounts = counts, downloadUnits = units) }
+        val mergeFlow = mergeCollapseInputsFlow(
+            ContentType.NOVELS,
+            reikaiLibraryPreferences.preferredNovelSources.changes(),
+            reikaiLibraryPreferences,
+            mergeGroupRepository,
+            mergedChapterUnitRepository,
+        )
         // No group-by input: grouping is LibraryEngine's, and re-running this whole pipeline on a
         // group-mode change would rebuild the filtered list for a decision it no longer makes.
         return combine(
@@ -300,8 +293,6 @@ class NovelLibraryViewModel(
         // novels at once. The per-type seams live in the accessors: novels have no local-source concept,
         // and their lewd check is genre-only.
         val filterPrefs = settings.filter.resolve()
-        // novelId -> source id, to resolve each grouped source's icon for the merge badge.
-        val sourceByNovelId = library.associate { it.novel.id to it.novel.source }
         val iconsBySite = installedIconsBySite(sourceManager.getAll())
         // Keyed by the representative's novel id (== the LibraryItem id). The dynamic grouping resolves
         // per-novel metadata (genre / author / source / status) the row cannot carry, and the search
@@ -314,37 +305,9 @@ class NovelLibraryViewModel(
         // Build the shared library row BEFORE filtering and sorting, so both content types reach the
         // shared kernels at the same point in the type chain (the manga library already builds first).
         val allItems = groups.map { group ->
-            val rep = group.representative
-            val source = sourceManager.get(rep.novel.source)
-            val repSource = querySource(rep.novel.source)
-            val item = rep.toLibraryItem(
-                settings.badges,
-                repSource.language.orEmpty(),
-                sourceIcon = novelSourceBadge(source, iconsBySite),
-                sourceName = repSource.name,
-            )
-            if (group.memberIds.size > 1) {
-                // Stamp the merge badge (group member ids) + summed downloads onto the rep.
-                // When the merge-icon setting is on, also resolve each grouped source's badge, an
-                // uninstalled one included, as a manga group keeps its stub member.
-                val memberBadges = if (settings.merge.showSourceIcons) {
-                    group.memberIds.mapNotNull { sourceByNovelId[it] }.distinct()
-                        .map { novelSourceBadge(sourceManager.get(it), iconsBySite) }
-                } else {
-                    emptyList()
-                }
-                item.copy(
-                    downloadCount = group.totalDownloadCount.toInt(),
-                    relatedMangaIds = group.memberIds,
-                    memberSources = group.memberIds.mapNotNull { sourceByNovelId[it] }.distinct()
-                        .map { querySource(it) },
-                    badges = item.badges.copy(
-                        downloadCount = settings.badges.downloadBadge(group.totalDownloadCount.toInt()),
-                        mergedSources = memberBadges,
-                    ),
-                )
-            } else {
-                item
+            // An uninstalled source still gets a badge, as a manga group keeps its stub member.
+            group.toLibraryRow(settings.badges, settings.merge.showSourceIcons, ::querySource) {
+                novelSourceBadge(sourceManager.get(it), iconsBySite)
             }
         }
         // The one filter binding both libraries use. The lewd heuristic's source-name half is manga-only,
@@ -527,27 +490,11 @@ class NovelLibraryViewModel(
         isLocal = false,
     )
 
-    private data class MergeSettings(
-        val membership: Map<Long, Long>,
-        val mergingEnabled: Boolean,
-        val showSourceIcons: Boolean,
-        // Per-group source-order overrides and the global preferred novel-source list, so the collapsed
-        // row leads on the user's chosen trunk. A reorder writes these and re-collapses the library live.
-        val overrideRankings: Map<Long, List<Long>>,
-        val preferredSources: List<String>,
-        /** Per group, the stored stitch's counts. A group absent from the map has not been stitched yet,
-         *  which is not the same as having nothing read or nothing left to read. */
-        val mergedCounts: Map<Long, MergedGroupCounts> = emptyMap(),
-        /** Per group, its member chapters, for the download badge to probe. Rides the flow rather than
-         *  being read per emission: it changes only when a group's chapters do. */
-        val downloadUnits: Map<Long, List<DownloadUnitRow>> = emptyMap(),
-    )
-
     private data class LibrarySettings(
         val badges: LibraryBadgePrefs,
         val showContinue: Boolean,
         val filter: LibraryFilterSettings,
-        val merge: MergeSettings,
+        val merge: MergeCollapseInputs<String>,
     )
 
     data class State(

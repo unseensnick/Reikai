@@ -39,8 +39,9 @@ interface MergedChapterUnitRepository {
      */
     suspend fun getGroupCounts(contentType: ContentType): Map<Long, MergedGroupCounts>
 
-    /** Reactive [getGroupCounts]: re-emits when the stitch or any chapter behind it changes, so a
-     *  badge is not left showing what the group looked like before it was stitched. */
+    /** Reactive [getGroupCounts]: re-emits when the counts change, so a badge is not left showing what
+     *  the group looked like before it was stitched. A write that leaves them as they were emits nothing,
+     *  since every chapter write re-runs the query and the library rebuilds on each emission. */
     fun getGroupCountsAsFlow(contentType: ContentType): Flow<Map<Long, MergedGroupCounts>>
 
     /**
@@ -48,8 +49,8 @@ interface MergedChapterUnitRepository {
      * the file. Whether one is on disk lives on disk, not here, so the count is the caller's to take:
      * it probes these rows and counts the merged chapters that answer.
      *
-     * A flow, not a read: the rows change only when the chapters behind a group do, while the library
-     * re-emits on far more than that, including once per finished download.
+     * A flow, not a read, emitting only when the rows changed: they change only when the chapters behind
+     * a group do, while the library re-emits on far more than that, including once per finished download.
      */
     fun getDownloadUnitsAsFlow(contentType: ContentType): Flow<Map<Long, List<DownloadUnitRow>>>
 
@@ -66,9 +67,10 @@ interface MergedChapterUnitRepository {
      * How many distinct recognized chapter numbers each grouped library manga lists, keyed by manga id:
      * the count the stitch ranks the trunk on, so the collapsed library row leads on the same source the
      * details chapter list does. Read from the chapter rows, so a group not yet stitched has it too. A
-     * manga absent from the map lists no recognized number, which ranks as zero.
+     * manga absent from the map lists no recognized number, which ranks as zero. Emits only when a count
+     * changed, like [getGroupCountsAsFlow].
      */
-    suspend fun getRecognizedChapterCounts(): Map<Long, Long>
+    fun getRecognizedChapterCountsAsFlow(): Flow<Map<Long, Long>>
 
     /**
      * One chapter's place in its group's stitch. [unit] is its position in the merged list, null when

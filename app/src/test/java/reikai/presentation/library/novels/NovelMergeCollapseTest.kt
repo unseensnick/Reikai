@@ -14,7 +14,6 @@ class NovelMergeCollapseTest {
         author: String? = null,
         source: String = "src",
         chapters: Long = 1,
-        downloads: Long = 0,
         dateAdded: Long = 0,
     ) = LibraryNovel(
         novel = Novel.create().copy(
@@ -28,7 +27,7 @@ class NovelMergeCollapseTest {
         totalChapters = chapters,
         readCount = 0,
         bookmarkCount = 0,
-        downloadCount = downloads,
+        downloadCount = 0,
         latestUpload = 0,
         chapterFetchedAt = 0,
         lastRead = 0,
@@ -101,14 +100,5 @@ class NovelMergeCollapseTest {
             preferredSourceIds = listOf("b", "a"),
         )
         result.single().representative.novel.id shouldBe 2L // preferred source wins despite fewer chapters
-    }
-
-    @Test
-    fun `download counts are summed across the group`() {
-        val result = collapse(
-            listOf(libNovel(1, "A", downloads = 2), libNovel(2, "B", downloads = 3)),
-            membership = mapOf(1L to 7L, 2L to 7L),
-        )
-        result.first().totalDownloadCount shouldBe 5L
     }
 }

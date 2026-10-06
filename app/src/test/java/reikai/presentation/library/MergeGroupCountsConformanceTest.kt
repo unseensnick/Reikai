@@ -9,7 +9,7 @@ import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import reikai.presentation.library.novels.NovelMergeCollapse
-import reikai.presentation.library.novels.toLibraryItem
+import reikai.presentation.library.novels.toLibraryRow
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
@@ -207,20 +207,17 @@ class NovelGroupCountCollapse : GroupCountCollapse {
                 lastRead = lastReads[id] ?: 0,
             )
         }
-        val group = NovelMergeCollapse.collapse(
+        return NovelMergeCollapse.collapse(
             library,
             membership,
             mergingEnabled = true,
             mergedCountsByGroup = stitched(stitched, counts(total = 1, read = 1)),
             mergedDownloadsByGroup = stitched(stitchedDownloads, 0),
-        ).single { 1L in it.memberIds }
-        // The row the novel library builds from a merged group: the representative's, then the group's
-        // deduplicated downloads stamped on, as NovelLibraryViewModel does.
-        return group.representative.toLibraryItem(
+        ).single { 1L in it.memberIds }.toLibraryRow(
             badgePrefs = LibraryBadgePrefs(false, false, false, false, false),
-            sourceLanguage = "",
-            sourceIcon = SourceBadge.Generic,
-            sourceName = "",
-        ).copy(downloadCount = group.totalDownloadCount.toInt())
+            showSourceIcons = false,
+            querySource = { LibraryQuerySource(it, name = "", language = "", isLocal = false) },
+            sourceBadge = { SourceBadge.Generic },
+        )
     }
 }

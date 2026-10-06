@@ -7,6 +7,7 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
 import reikai.domain.manga.ChapterAggregation
@@ -57,7 +58,7 @@ class MergedChapterUnitRepositoryImpl(
         groupCountsQuery(contentType).awaitAsList().toMap()
 
     override fun getGroupCountsAsFlow(contentType: ContentType): Flow<Map<Long, MergedGroupCounts>> =
-        groupCountsQuery(contentType).subscribeToList().map { it.toMap() }
+        groupCountsQuery(contentType).subscribeToList().map { it.toMap() }.distinctUntilChanged()
 
     private fun groupCountsQuery(contentType: ContentType) =
         when (contentType) {
@@ -77,7 +78,7 @@ class MergedChapterUnitRepositoryImpl(
             else -> queries.downloadUnitsByGroup { groupId, unit, ownerId, name, scanlator, url ->
                 DownloadUnitRow(groupId, unit!!.toInt(), ownerId, name, scanlator, url)
             }
-        }.subscribeToList().map { rows -> rows.groupBy { it.groupId } }
+        }.subscribeToList().map { rows -> rows.groupBy { it.groupId } }.distinctUntilChanged()
 
     override fun getCopiesAsFlow(
         contentType: ContentType,
@@ -129,10 +130,11 @@ class MergedChapterUnitRepositoryImpl(
             }
         }.subscribeToList().map { rows -> rows.groupBy { it.namedId } }
 
-    override suspend fun getRecognizedChapterCounts(): Map<Long, Long> =
-        queries.recognizedChapterNumbersByManga().awaitAsList()
-            .groupBy({ it.mangaId }, { it.chapterNumber })
-            .mapValues { (_, numbers) -> ChapterAggregation.distinctChapterNumberCount(numbers).toLong() }
+    override fun getRecognizedChapterCountsAsFlow(): Flow<Map<Long, Long>> =
+        queries.recognizedChapterNumbersByManga().subscribeToList().map { rows ->
+            rows.groupBy({ it.mangaId }, { it.chapterNumber })
+                .mapValues { (_, numbers) -> ChapterAggregation.distinctChapterNumberCount(numbers).toLong() }
+        }.distinctUntilChanged()
 
     override suspend fun replaceGroup(
         contentType: ContentType,

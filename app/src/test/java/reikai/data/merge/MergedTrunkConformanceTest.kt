@@ -203,7 +203,8 @@ class MergedTrunkConformanceTest {
                 showMergeSourceIcons = false,
                 resolveSource = { error("source icons are off") },
                 preferredSourceIds = preferred,
-                recognizedChapterCounts = MergedChapterUnitRepositoryImpl(database).getRecognizedChapterCounts(),
+                recognizedChapterCounts = MergedChapterUnitRepositoryImpl(database)
+                    .getRecognizedChapterCountsAsFlow().first(),
             ).single().libraryManga.manga.id
         }
 

@@ -5,16 +5,15 @@ import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.bucketByMergeGroup
 import reikai.domain.merge.sourcePriority
 import reikai.domain.merge.trunkOrder
-import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.model.Source
 
 /**
  * Collapses persisted merge groups so a series favorited from several sources renders as ONE library
- * cover with combined counts: each multi-member bucket keeps one primary stamped with the group ids,
- * the merged download count and the grouped sources. Ungrouped items, and all items when merging is off, pass
- * through. The primary is the trunk the merged chapter list uses ([reikai.domain.manga.ChapterAggregation]),
- * so its `isLocal` follows the chosen source: a local trunk locks Download, a remote one does not.
- * Pure; the caller supplies [membership].
+ * cover with combined counts: each multi-member bucket keeps one primary stamped with the group by
+ * [stampMergedGroup], the rule the novel collapse stamps by too. Ungrouped items, and all items when
+ * merging is off, pass through. The primary is the trunk the merged chapter list uses
+ * ([reikai.domain.manga.ChapterAggregation]), so its `isLocal` follows the chosen source: a local trunk
+ * locks Download, a remote one does not. Pure; the caller supplies [membership].
  */
 object MangaMergeCollapse {
 
@@ -83,41 +82,19 @@ object MangaMergeCollapse {
         recognizedChapterCounts: Map<Long, Long>,
     ): LibraryItem {
         val primary = subGroup.minWith(rankComparator(overrideOrder, preferredSourceIds, recognizedChapterCounts))
-        // The real count is one unit per chapter the group covers, unread only when no source's copy is
-        // read (see merged_chapter_unit.sq). Summing the members instead would double-count every
-        // chapter they share. Falls back to the primary's own count when the stitch has none for the
-        // group, which under-reports rather than inventing a number.
-        val unread = mergedCounts?.unread ?: primary.unreadCount
-        // Downloads count the same way: one per chapter the group holds, however many of its sources
-        // hold it. Null is a group with no counted units, where the sum is the only answer available.
-        val downloads = mergedDownloads ?: subGroup.sumOf { it.downloadCount }
-        return primary.copy(
-            downloadCount = downloads,
-            unreadCount = unread,
-            // LastRead sorts by the most recent read across all members, not just the primary's own, so
-            // reading any source bubbles the merged entry up.
-            libraryManga = primary.libraryManga.copy(lastRead = subGroup.maxOf { it.libraryManga.lastRead })
-                .withGroupCounts(mergedCounts),
-            relatedMangaIds = subGroup.map { it.libraryManga.manga.id },
-            memberSources = subGroup.map { it.querySource(it.libraryManga.manga.source.toString()) }.distinct(),
-            badges = primary.badges.copy(
-                downloadCount = badgePrefs.downloadBadge(downloads),
-                unreadCount = badgePrefs.unreadBadge(unread),
-                // One badge per distinct source, as novels badge them: two members on one source are
-                // one source to the reader.
-                mergedSources = if (showMergeSourceIcons) {
-                    subGroup.map { it.libraryManga.manga.source }.distinct()
-                        .map { SourceBadge.Manga(resolveSource(it)) }
-                } else {
-                    emptyList()
-                },
-            ),
+        return primary.stampMergedGroup(
+            members = subGroup.map {
+                MergedRowMember(it.id, it.libraryManga.manga.source, it.libraryManga.lastRead, it.downloadCount)
+            },
+            counts = mergedCounts,
+            mergedDownloads = mergedDownloads,
+            badgePrefs = badgePrefs,
+            showSourceIcons = showMergeSourceIcons,
+            // A manga row carries its source's search terms itself, so any member on that source answers.
+            querySource = { source ->
+                subGroup.first { it.libraryManga.manga.source == source }.querySource(source.toString())
+            },
+            sourceBadge = { SourceBadge.Manga(resolveSource(it)) },
         )
     }
-
-    // The stitch's own total, read and bookmarked counts, all three from one query so the unread they
-    // imply matches the badge. Started, Bookmarked, the Total chapters sort and the read/total search
-    // terms read these. An unstitched group keeps the primary's own.
-    private fun LibraryManga.withGroupCounts(counts: MergedGroupCounts?): LibraryManga =
-        counts?.let { copy(totalChapters = it.total, readCount = it.read, bookmarkCount = it.bookmarked) } ?: this
 }
