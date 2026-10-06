@@ -306,6 +306,7 @@ agent under Settings -> Advanced.
 - **On a grouped manga, the reader's Open in browser, Open in WebView and Share now use the site the chapter came from.**
 - **Scrolling into the next manga chapter and straight back no longer leaves the bookmark button and Open in WebView acting on the chapter you left.**
 - **Retrying a manga page that failed to load, or is stuck loading, now always fetches it again (partly from Mihon).** Upstream: mihonapp/mihon#3770.
+- **The manga long strip no longer leaves a gap after zooming in a resized or split-screen window (from Mihon).** Upstream: mihonapp/mihon#1721.
 - **Manga chapters from an excluded scanlator now open from History and Updates (from Mihon).** The reader's chapter list still leaves the excluded scanlator's other chapters out.
 - **The novel reader's voice list now follows the read-aloud engine you pick.**
 - **The novel reader's chapter list now opens quickly on a grouped novel.**
