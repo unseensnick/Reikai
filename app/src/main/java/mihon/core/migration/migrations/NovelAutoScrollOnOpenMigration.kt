@@ -26,8 +26,6 @@ class NovelAutoScrollOnOpenMigration(
     override val version: Float = 197f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing stored
-
         runCatching {
             val running = preferenceStore.getBoolean(DEAD_READER_AUTO_SCROLL_KEY, false)
             if (!running.isSet()) return@runCatching

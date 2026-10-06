@@ -27,8 +27,6 @@ class NovelTapLayoutMigration(
     override val version: Float = 194f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing stored
-
         runCatching {
             val tapToScroll = preferenceStore.getBoolean(DEAD_READER_TAP_TO_SCROLL_KEY, false)
             if (!tapToScroll.isSet()) return@runCatching

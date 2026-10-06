@@ -36,8 +36,6 @@ class MigrateNovelCustomCoverKeysMigration(
     override val version: Float = 186f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: no covers yet
-
         val novels = runCatching { novelRepository.getAll() }
             .onFailure { logcat(LogPriority.ERROR, it) { "Novel cover re-key could not read the novels" } }
             .getOrNull()

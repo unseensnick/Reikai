@@ -29,8 +29,6 @@ class SplitNovelReaderPaddingMigration(
     override val version: Float = 191f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing stored
-
         runCatching {
             // An untouched slider stored nothing, so it is left to the new defaults rather than
             // being written back as an explicit value.

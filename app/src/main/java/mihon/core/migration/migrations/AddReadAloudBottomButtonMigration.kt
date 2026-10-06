@@ -29,8 +29,6 @@ class AddReadAloudBottomButtonMigration(
     override val version: Float = 192f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: defaults apply
-
         runCatching {
             if (preferenceStore.getBoolean(DEAD_READER_TTS_ENABLED_KEY, false).get()) {
                 novelPreferences.addReadAloudButtonToCustomisedBar()

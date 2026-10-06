@@ -25,8 +25,6 @@ class RetireLegacyNovelReaderKeysMigration(
     override val version: Float = 193f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing stored
-
         runCatching {
             preferenceStore.getBoolean(DEAD_READER_TTS_ENABLED_KEY, false).delete()
             DEAD_READER_TTS_BUTTON_KEYS.forEach { preferenceStore.getInt(it, Int.MIN_VALUE).delete() }

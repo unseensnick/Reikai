@@ -38,8 +38,6 @@ class CategoryPreferencesContentTypeCleanupMigration(
     override val version: Float = 188f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing to scrub
-
         runCatching {
             val mangaIds = categoryRepository.getAll(CategoryContentType.MANGA).mapTo(HashSet()) { it.id.toString() }
             val novelIds = categoryRepository.getAll(CategoryContentType.NOVEL).mapTo(HashSet()) { it.id.toString() }

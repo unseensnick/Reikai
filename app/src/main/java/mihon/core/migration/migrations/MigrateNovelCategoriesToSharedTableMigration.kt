@@ -38,7 +38,6 @@ class MigrateNovelCategoriesToSharedTableMigration(
     override val version: Float = 187f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing to migrate
         // The migrator stamps its version only once the whole chain resolves, so a kill later in the
         // chain runs this again. The flag swap cannot tell a translated value from an untranslated one,
         // so only a marker makes the second run a no-op.

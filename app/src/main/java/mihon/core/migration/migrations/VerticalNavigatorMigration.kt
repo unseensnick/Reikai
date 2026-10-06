@@ -22,15 +22,16 @@ class VerticalNavigatorMigration(
     override val version: Float = 181f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        // RK: upstream guards `previousVersion == 24` (its single 24->25 bump). Reikai upgraders cross
-        // from any prior code, so guard on "this is an upgrade, not a fresh install" instead.
-        if (migrationContext.previousVersion != 0) {
-            val oldVerticalNavigator = preferenceStore.getBoolean("pref_webtoon_vertical_navigator", true)
-            if (oldVerticalNavigator.get()) {
-                readerPreferences.verticalNavigator.set(setOf(ReadingMode.WEBTOON, ReadingMode.CONTINUOUS_VERTICAL))
-            }
-            if (oldVerticalNavigator.isSet()) oldVerticalNavigator.delete()
+        // RK -->
+        // Upstream guards `previousVersion == 24` (its single 24->25 bump). Reikai upgraders cross from
+        // any prior code, and a fresh install never runs a version-gated migration (InitialMigrationStrategy),
+        // so every run here is an upgrade.
+        val oldVerticalNavigator = preferenceStore.getBoolean("pref_webtoon_vertical_navigator", true)
+        if (oldVerticalNavigator.get()) {
+            readerPreferences.verticalNavigator.set(setOf(ReadingMode.WEBTOON, ReadingMode.CONTINUOUS_VERTICAL))
         }
+        if (oldVerticalNavigator.isSet()) oldVerticalNavigator.delete()
+        // RK <--
 
         val oldVerticalNavigatorOnLeft = preferenceStore.getBoolean("pref_webtoon_vertical_navigator_on_left", false)
         if (oldVerticalNavigatorOnLeft.isSet()) {

@@ -46,14 +46,4 @@ class SplitNovelReaderPaddingMigrationTest {
 
         novelPreferences.readerMarginTop().isSet() shouldBe false
     }
-
-    @Test
-    @DisplayName("a fresh install carries nothing over")
-    fun freshInstallDoesNothing() = runTest {
-        store.getInt(DEAD_READER_PADDING_KEY, 0).set(40)
-
-        migration.invoke(MigrationContext(dryrun = false, previousVersion = 0))
-
-        novelPreferences.readerMarginTop().isSet() shouldBe false
-    }
 }

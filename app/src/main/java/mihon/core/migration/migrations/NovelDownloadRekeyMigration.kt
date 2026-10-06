@@ -42,8 +42,6 @@ class NovelDownloadRekeyMigration(
     override val version: Float = 182f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing to move
-
         val root = storageManager.getNovelDownloadsDirectory() ?: return@withIOContext true
         // The upgrade's dedupe (51.sqm) runs before this and deletes the rows it merges away, recording them
         val novelSurvivors = runCatching { mergedDuplicates.getAll() }.getOrDefault(emptyList())

@@ -49,15 +49,4 @@ class AddReadAloudBottomButtonMigrationTest {
 
         novelPreferences.readerBottomButtons().isSet() shouldBe false
     }
-
-    @Test
-    @DisplayName("a fresh install writes nothing")
-    fun freshInstallDoesNothing() = runTest {
-        store.getBoolean(DEAD_READER_TTS_ENABLED_KEY, false).set(true)
-        novelPreferences.readerBottomButtons().set(customised)
-
-        migration.invoke(MigrationContext(dryrun = false, previousVersion = 0))
-
-        novelPreferences.readerBottomButtons().get() shouldBe customised
-    }
 }

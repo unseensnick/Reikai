@@ -44,8 +44,6 @@ class MigrateMergePrefsToGroupsMigration(
     override val version: Float = 189f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing to migrate
-
         runCatching {
             val candidates = getFavorites.await().map { MergeGroupReconstruction.Candidate(it.id, it.title, it.author) }
             val groups = reconstruct(ContentType.MANGA, candidates, prefs.mangaManualMerges, prefs.mangaManualUnmerges)

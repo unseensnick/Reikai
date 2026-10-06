@@ -31,7 +31,6 @@ class SetupCategorySortOverrideMigration(
     override val version: Float = 183f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        if (migrationContext.previousVersion == 0) return@withIOContext false
         // The migrator stamps its version only once the whole chain resolves, so a kill later in the
         // chain runs this again, and by then a category the user reset to the global sort looks exactly
         // like one this has not marked yet: only a marker tells them apart.
