@@ -130,6 +130,7 @@ import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
+import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.novel.browse.NovelLibraryAdder
@@ -812,9 +813,8 @@ class NovelDetailsViewModel(
         updateLoaded { it.copy(dialog = NovelDetailsDialog.SourceSettings(viewed)) }
     }
 
-    // Shared split / remove / reorder actions. Novels write favorite-only (so the merge-undo keeps the
-    // original dateAdded) and propagate tracker links onto each member before a split. selectSource +
-    // showManageSourcesDialog stay below: their bodies genuinely diverge.
+    // Shared split / remove / reorder actions. selectSource + showManageSourcesDialog stay below: their
+    // bodies genuinely diverge.
     private val mergeActions = EntryMergeActionHost(
         scope = viewModelScope,
         snackbarHostState = snackbarHostState,
@@ -823,7 +823,8 @@ class NovelDetailsViewModel(
         anchorId = { anchorNovelId },
         mergeManager = mergeManager,
         dismissDialog = ::dismissDialog,
-        setFavorite = { ids, favorite -> ids.forEach { updateNovel.awaitUpdateFavorite(it, favorite) } },
+        removal = removeNovelsFromLibrary,
+        offerToDeleteDownloads = ::promptDeleteDownloadsOnRemoved,
     )
 
     /** Switch the chapter view between the unified list (null) and a single grouped source's list. */
@@ -1013,22 +1014,16 @@ class NovelDetailsViewModel(
 
     fun removeFromLibrary(novelIds: List<Long>) {
         viewModelScope.launchIO {
-            val removed = removeNovelsFromLibrary.await(novelIds)
-            if (removed.isNotEmpty()) promptDeleteDownloadsOnRemoved(removed)
+            promptDeleteDownloadsOnRemoved(removeNovelsFromLibrary.await(novelIds))
         }
     }
 
-    /** Offers to delete the removed novels' downloads once they have left the library. */
     private suspend fun promptDeleteDownloadsOnRemoved(removedIds: List<Long>) {
-        val withDownloads = removedIds.mapNotNull { novelRepo.getById(it) }
-            .filter { downloadManager.getDownloadCount(it) > 0 }
-        if (withDownloads.isEmpty()) return
-        val result = snackbarHostState.showSnackbar(
-            message = context.stringResource(MR.strings.delete_downloads_for_manga),
-            actionLabel = context.stringResource(MR.strings.action_delete),
-            withDismissAction = true,
-        )
-        if (result == SnackbarResult.ActionPerformed) withDownloads.forEach { downloadManager.awaitDeleteNovel(it) }
+        snackbarHostState.offerToDeleteDownloads(
+            context = context,
+            removed = removedIds.mapNotNull { novelRepo.getById(it) },
+            hasDownloads = { downloadManager.getDownloadCount(it) > 0 },
+        ) { downloadManager.awaitDeleteNovel(it) }
     }
 
     /** Proceed with the add after the possible-duplicate dialog's "Add anyway". */

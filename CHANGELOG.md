@@ -176,6 +176,7 @@ agent under Settings -> Advanced.
 - **A hidden chapter of a merged novel now stays hidden, and skipped by the reader, when its source is not installed.**
 - **A merged novel's combined chapter list no longer hides a chapter whose title differs only by a trailing number.**
 - **The heart on a merged series' page now removes the source chip you have selected, and under All asks first with "All grouped sources" ticked, on manga and novels.** Before, it always removed the source you opened the page from.
+- **Removing a source in Manage sources now offers to delete its downloads once its Undo is gone, as the heart on the series' page does.**
 
 ### Updates & History
 

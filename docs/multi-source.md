@@ -124,7 +124,7 @@ On the details screen, open <nav to="overflow"> and tap **Manage sources** to se
 - **Drag to reorder.** The top row leads the group's combined chapter list and carries a **Primary** badge. Reordering applies immediately, and overrides the global **Preferred sources** ranking for this group only.
 - **Reset order** drops that override, so the group falls back to the global ranking again.
 - **Split** detaches a source, the same as long-pressing its chip.
-- **Remove from library** unfavorites a source outright, which deletes its downloaded chapters and covers.
+- **Remove from library** takes a source out of your library, with an **Undo**. Once the Undo is gone, it offers to delete that source's downloads, as the heart does.
 - **Remove all from library** unfavorites every source in the group.
 
 Long-press a row to select several sources and split or remove them together.

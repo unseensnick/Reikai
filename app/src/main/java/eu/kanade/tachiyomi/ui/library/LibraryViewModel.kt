@@ -12,10 +12,8 @@ import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
-import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
-import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
@@ -23,7 +21,6 @@ import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
-import eu.kanade.tachiyomi.util.removeCovers
 import exh.search.SearchEngine
 import exh.source.getMainSource
 import kotlinx.coroutines.Dispatchers
@@ -44,12 +41,12 @@ import mihon.core.common.utils.mutate
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.hiddenKey
-import reikai.domain.entry.EntryId // RK
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.DownloadUnitRow
@@ -61,7 +58,6 @@ import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.stitchInputChanges
-import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.SourceBadge
@@ -97,7 +93,6 @@ import tachiyomi.domain.manga.interactor.GetSearchTags
 import tachiyomi.domain.manga.interactor.GetSearchTitles
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracksPerManga
@@ -124,12 +119,11 @@ class LibraryViewModel(
     private val getNextChapters: GetNextChapters,
     private val getBookmarkedChaptersByMangaId: GetBookmarkedChaptersByMangaId,
     private val setReadStatus: SetReadStatus,
-    private val updateManga: UpdateManga,
-    private val sourceTracker: SourceTrackerDispatcher, // RK
+    // RK: updateManga moved to RemoveMangaFromLibrary, which removeMangas takes out through
     private val setMangaCategories: SetMangaCategories,
     private val preferences: BasePreferences,
     private val libraryPreferences: LibraryPreferences,
-    private val coverCache: CoverCache,
+    // RK: coverCache moved to RemoveMangaFromLibrary
     private val sourceManager: SourceManager,
     private val downloadManager: DownloadManager,
     private val downloadCache: DownloadCache,
@@ -137,6 +131,7 @@ class LibraryViewModel(
     // RK -->
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val mergeManager: MangaMergeManager,
+    private val removeMangaFromLibrary: RemoveMangaFromLibrary,
     private val mergeGroupRepository: MergeGroupRepository,
     // RK: backs the `chapter:` search term's id-set lookup.
     private val chapterRepository: ChapterRepository,
@@ -603,20 +598,8 @@ class LibraryViewModel(
                 mangas
             }
             if (deleteFromLibrary) {
-                // RK: an entry leaving the library keeps its group, so it has to be handed its own
-                //     copy of the group's shared tracker first; the hand-out skips non-favorites.
-                mergeManager.handOutTrackersBeforeRemoval(targets.map { it.id })
-                val toDelete = targets.map {
-                    it.removeCovers(coverCache)
-                    MangaUpdate(it.id) {
-                        favoriteAt = null
-                    }
-                }
-                // RK --> a removal written in bulk, so the source's own tracker is told here, once it landed
-                if (updateManga.awaitAll(toDelete)) {
-                    targets.forEach { sourceTracker.favoriteChanged(EntryId.Manga(it.id), favorite = false) }
-                }
-                // RK <--
+                // RK: the removal every surface and both content types share, in the details heart's order
+                removeMangaFromLibrary.await(targets.map { it.id })
             }
 
             if (deleteChapters) {

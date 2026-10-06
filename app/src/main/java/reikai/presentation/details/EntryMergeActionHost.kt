@@ -8,6 +8,7 @@ import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.merge.MergeManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
@@ -16,11 +17,11 @@ import tachiyomi.i18n.MR
 
 /**
  * The shared source split / remove / reorder actions for a merged entry's details screen, so the
- * snackbar-with-undo logic both details models run lives in one place. The one per-type difference left
- * is [setFavorite]: novels write favorite-only, so a merge-undo restores the original dateAdded.
- * Handing each member its own tracker copy is NOT here; [MergeManager] does it on every path that
- * breaks a group up. [anchorId] is a getter, not a captured value, because the novel model resolves its
- * anchor after construction. selectSource and showManageSourcesDialog stay out: those bodies diverge.
+ * snackbar-with-undo logic both details models run lives in one place. The per-type parts are the
+ * type's [removal] and its [offerToDeleteDownloads]. Handing each member its own tracker copy is NOT
+ * here; [MergeManager] does it on every path that breaks a group up. [anchorId] is a getter, not a
+ * captured value, because the novel model resolves its anchor after construction. selectSource and
+ * showManageSourcesDialog stay out: those bodies diverge.
  */
 class EntryMergeActionHost(
     private val scope: CoroutineScope,
@@ -30,7 +31,8 @@ class EntryMergeActionHost(
     private val anchorId: () -> Long,
     private val mergeManager: MergeManager,
     private val dismissDialog: () -> Unit,
-    private val setFavorite: suspend (ids: List<Long>, favorite: Boolean) -> Unit,
+    private val removal: EntryLibraryRemoval,
+    private val offerToDeleteDownloads: suspend (removedIds: List<Long>) -> Unit,
 ) {
 
     /** Persist a manage-sources drag as the group's source order, then re-read the group: a fresh array
@@ -76,7 +78,11 @@ class EntryMergeActionHost(
         }
     }
 
-    /** Split [targetIds] out and unfavorite them, with an Undo that re-favorites and re-groups. */
+    /**
+     * Split [targetIds] out and take them out of the library, with an Undo that puts both back. Covers
+     * and the downloads offer wait for the Undo window to close, as nothing is deleted while it can still
+     * be undone; leaving the screen closes it.
+     */
     fun removeSourcesFromLibrary(targetIds: List<Long>) {
         if (targetIds.isEmpty()) return
         val prevRelated = group.relatedIds
@@ -85,19 +91,25 @@ class EntryMergeActionHost(
             // Captured before the split, for the same reason as splitSources.
             val snapshot = mergeManager.captureGroup(anchorId())
             mergeManager.removeFromGroup(prevRelated, targetIds)
-            // Unfavorited only AFTER the split, and never in parallel with it: the split hands each
-            // member its own copy of the group's shared tracker binding, and that hand-out skips
-            // non-favorites, so unfavoriting first left everyone without one. Non-cancellable because
-            // a half-done removal is worse than a slow one.
-            withContext(NonCancellable) { setFavorite(targetIds, false) }
+            // Taken out only AFTER the split, and never in parallel with it: the split hands each member
+            // its own copy of the group's shared tracker binding, and that hand-out skips non-favorites.
+            // Non-cancellable because a half-done removal is worse than a slow one.
+            val joined = withContext(NonCancellable) { removal.takeOut(targetIds) }
             // Re-read, for the same reason as splitSources: removing the anchor's own source leaves it
             // ungrouped, and the survivors are the entries the user is NOT looking at.
             group.refresh(anchorId())
-            if (undoRequested(MR.strings.merge_sources_removed)) {
-                // Undo puts the group back as it was and re-favorites the removed sources.
+            var undone = false
+            try {
+                undone = undoRequested(MR.strings.merge_sources_removed)
+            } finally {
+                if (!undone) withContext(NonCancellable) { removal.dropCovers(joined.keys.toList()) }
+            }
+            if (undone) {
                 mergeManager.restoreGroup(snapshot)
                 group.refresh(anchorId())
-                scope.launchNonCancellable { setFavorite(targetIds, true) }
+                scope.launchNonCancellable { removal.restore(joined) }
+            } else {
+                offerToDeleteDownloads(joined.keys.toList())
             }
         }
     }

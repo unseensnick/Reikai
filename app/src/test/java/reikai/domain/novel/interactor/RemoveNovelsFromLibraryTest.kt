@@ -14,12 +14,27 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import java.io.File
 
+/**
+ * The novel half of the library removal; the rule both halves share is pinned by
+ * `EntryLibraryRemovalConformanceTest`. A manga and a novel can carry the same row id, and their
+ * custom covers share one directory.
+ */
 class RemoveNovelsFromLibraryTest {
 
     @TempDir
     lateinit var dir: File
 
-    private val novel = Novel.create().copy(id = 5L, thumbnailUrl = "https://example.org/cover.jpg", favoriteAt = 0L)
+    private val novel = Novel.create().copy(id = 5L, favoriteAt = 100L)
+
+    @Test
+    fun `removing a novel leaves the custom cover of a manga with the same id`() = runTest {
+        val cache = coverCache()
+        val mangaCover = cache.getCustomCoverFile(EntryId.Manga(novel.id)).also { it.writeText("x") }
+
+        removal(cache).await(listOf(novel.id))
+
+        mangaCover.exists() shouldBe true
+    }
 
     private fun coverCache(): CoverCache {
         val context = mockk<Context> {
@@ -28,42 +43,17 @@ class RemoveNovelsFromLibraryTest {
         return CoverCache(context)
     }
 
-    private fun step(coverCache: CoverCache, favoriteWritten: Boolean = true) = RemoveNovelsFromLibrary(
-        mergeManager = mockk(relaxed = true),
-        updateNovel = mockk(relaxed = true) {
-            coEvery { awaitUpdateFavorite(any(), any()) } returns favoriteWritten
-        },
-        novelRepository = mockk<NovelRepository> { coEvery { getById(novel.id) } returns novel },
-        coverCache = coverCache,
-    )
-
-    @Test
-    fun `a removed novel loses its cached library cover`() = runTest {
-        val cache = coverCache()
-        val cover = cache.getCoverFile(novel.thumbnailUrl)!!.also { it.writeText("x") }
-
-        step(cache).await(listOf(novel.id))
-
-        cover.exists() shouldBe false
-    }
-
-    @Test
-    fun `a removed novel loses its custom cover`() = runTest {
-        val cache = coverCache()
-        val custom = cache.getCustomCoverFile(EntryId.Novel(novel.id)).also { it.writeText("x") }
-
-        step(cache).await(listOf(novel.id))
-
-        custom.exists() shouldBe false
-    }
-
-    @Test
-    fun `a novel whose favourite write failed keeps its cover`() = runTest {
-        val cache = coverCache()
-        val cover = cache.getCoverFile(novel.thumbnailUrl)!!.also { it.writeText("x") }
-
-        step(cache, favoriteWritten = false).await(listOf(novel.id))
-
-        cover.exists() shouldBe true
+    private fun removal(coverCache: CoverCache): RemoveNovelsFromLibrary {
+        val repository = mockk<NovelRepository>(relaxed = true) {
+            coEvery { getById(novel.id) } returns novel
+            coEvery { updateAll(any()) } returns true
+        }
+        return RemoveNovelsFromLibrary(
+            mergeManager = mockk(relaxed = true),
+            sourceTracker = mockk(relaxed = true),
+            novelRepository = repository,
+            updateNovel = UpdateNovel(repository, mockk(relaxed = true)),
+            coverCache = coverCache,
+        )
     }
 }

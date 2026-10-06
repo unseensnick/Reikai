@@ -331,7 +331,6 @@ class MangaGroupAddProbe : GroupAddProbe {
         defaultCategoryId: Int,
     ) = MangaLibraryAdder(
         sourceManager = mockk(relaxed = true),
-        coverCache = mockk(relaxed = true),
         libraryPreferences = mockk(relaxed = true) {
             every { defaultCategory } returns mockk { every { get() } returns defaultCategoryId }
         },
@@ -377,7 +376,7 @@ class MangaGroupAddProbe : GroupAddProbe {
         reikaiLibraryPreferences = mockk {
             every { categorySortOrder } returns mockk { every { get() } returns CategorySortOrder.MANUAL }
         },
-        sourceTracker = mockk(relaxed = true),
+        removeMangaFromLibrary = mockk(relaxed = true),
     )
 
     private fun reset() {

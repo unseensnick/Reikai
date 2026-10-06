@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.update
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.CategorySortOrder
+import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.UpdateNovel
@@ -22,6 +23,7 @@ import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.model.MangaWithChapterCount
@@ -74,17 +76,19 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
     }
 
     private val repository = mockk<MangaRepository> {
-        coEvery { update(any()) } answers {
-            val update = firstArg<MangaUpdate>()
-            val row = rows[update.id] ?: return@answers false
-            if (update.isSet(MangaUpdate::favoriteAt) && update.id in refusedFavoriteWrites) return@answers false
-            updates += update
-            if (update.isSet(MangaUpdate::favoriteAt)) {
-                favoriteWrites += update.id
-                insert(row.copy(favoriteAt = update.favoriteAt))
-            }
-            true
+        coEvery { update(any()) } answers { write(firstArg()) }
+        coEvery { updateAll(any()) } answers { firstArg<List<MangaUpdate>>().all(::write) }
+    }
+
+    private fun write(update: MangaUpdate): Boolean {
+        val row = rows[update.id] ?: return false
+        if (update.isSet(MangaUpdate::favoriteAt) && update.id in refusedFavoriteWrites) return false
+        updates += update
+        if (update.isSet(MangaUpdate::favoriteAt)) {
+            favoriteWrites += update.id
+            insert(row.copy(favoriteAt = update.favoriteAt))
         }
+        return true
     }
 
     private val updateManga =
@@ -96,9 +100,10 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
         coEvery { await(any<Long>()) } answers { filed[firstArg()].orEmpty().map(::libraryCategory) }
     }
 
+    private val getManga = mockk<GetManga> { coEvery { await(any<Long>()) } answers { rows[firstArg()] } }
+
     val adder = MangaLibraryAdder(
         sourceManager = mockk(relaxed = true),
-        coverCache = mockk(relaxed = true),
         libraryPreferences = libraryPreferences,
         getCategories = getCategories,
         getDuplicateLibraryManga = mockk {
@@ -106,7 +111,7 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
                 rows.values.filter { it.favorite && it.id in duplicateIds }.map { MangaWithChapterCount(it, 0L) }
             }
         },
-        getManga = mockk { coEvery { await(any<Long>()) } answers { rows[firstArg()] } },
+        getManga = getManga,
         setMangaCategories = mockk { coEvery { await(any(), any()) } answers { filed[firstArg()] = secondArg() } },
         setMangaDefaultChapterFlags = mockk {
             coEvery { await(any()) } answers { chapterDefaultsStamped += firstArg<Manga>().id }
@@ -119,7 +124,13 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
             every { categorySortOrder } returns
                 mockk { every { get() } returns CategorySortOrder.MANUAL }
         },
-        sourceTracker = mockk(relaxed = true),
+        removeMangaFromLibrary = RemoveMangaFromLibrary(
+            mergeManager = mockk(relaxed = true),
+            sourceTracker = mockk(relaxed = true),
+            getManga = getManga,
+            updateManga = updateManga,
+            coverCache = mockk(relaxed = true),
+        ),
     )
 
     companion object {

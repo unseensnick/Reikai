@@ -3,35 +3,36 @@ package reikai.domain.novel.interactor
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import reikai.domain.entry.EntryId
+import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.track.source.SourceTrackerDispatcher
 
-/**
- * Takes novels out of the library, the one step novel details, the library and browse all call. Each
- * keeps its own copy of the group's shared tracker (the hand-out skips non-favourites, so it runs
- * first), and loses its cached library cover and any custom cover, as Mihon's removeCovers does for
- * manga. Returns the ids whose favourite write landed.
- */
+/** [EntryLibraryRemoval] over the novels table. Writes only the library date and the cover stamp. */
 @Inject
 class RemoveNovelsFromLibrary(
-    private val mergeManager: NovelMergeManager,
-    private val updateNovel: UpdateNovel,
+    mergeManager: NovelMergeManager,
+    sourceTracker: SourceTrackerDispatcher,
     private val novelRepository: NovelRepository,
+    private val updateNovel: UpdateNovel,
     private val coverCache: CoverCache,
-) {
+) : EntryLibraryRemoval(mergeManager, sourceTracker) {
 
-    suspend fun await(novelIds: List<Long>): List<Long> {
-        mergeManager.handOutTrackersBeforeRemoval(novelIds)
-        return novelIds.filter { id ->
-            updateNovel.awaitUpdateFavorite(id, favorite = false).also { removed -> if (removed) removeCovers(id) }
-        }
+    override fun entryId(id: Long): EntryId = EntryId.Novel(id)
+
+    override suspend fun favoriteAt(id: Long): Long? = novelRepository.getById(id)?.favoriteAt
+
+    override suspend fun writeFavoriteAt(favoriteAt: Map<Long, Long?>): Boolean =
+        novelRepository.updateAll(favoriteAt.map { (id, at) -> NovelUpdate(id) { this.favoriteAt = at } })
+
+    override suspend fun deleteCovers(id: Long): Boolean {
+        val cover = coverCache.getCoverFile(novelRepository.getById(id)?.thumbnailUrl)
+        val deletedCover = cover?.let { it.exists() && it.delete() } == true
+        return coverCache.deleteCustomCover(EntryId.Novel(id)) || deletedCover
     }
 
-    private suspend fun removeCovers(novelId: Long) {
-        val cover = coverCache.getCoverFile(novelRepository.getById(novelId)?.thumbnailUrl)
-        val deletedCover = cover?.let { it.exists() && it.delete() } == true
-        val deletedCustom = coverCache.deleteCustomCover(EntryId.Novel(novelId))
-        // A new key, so a cover still in memory is not served for the entry once it is re-added.
-        if (deletedCover || deletedCustom) updateNovel.awaitUpdateCoverLastModified(novelId)
+    override suspend fun stampCover(id: Long) {
+        updateNovel.awaitUpdateCoverLastModified(id)
     }
 }

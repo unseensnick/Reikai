@@ -94,6 +94,7 @@ import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.ChapterGap
@@ -132,6 +133,7 @@ import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
+import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.details.scanlatorFilterView
@@ -209,6 +211,7 @@ class MangaViewModel(
     // RK -->
     private val mergeManager: MangaMergeManager,
     private val mangaLibraryAdder: MangaLibraryAdder,
+    private val removeMangaFromLibrary: RemoveMangaFromLibrary,
     private val mergedChapterProvider: MergedChapterProvider,
     private val mangaPreferences: MangaPreferences,
     private val relatedMangasLoader: RelatedMangasLoader,
@@ -660,21 +663,17 @@ class MangaViewModel(
     }
 
     private suspend fun removeNow(targets: List<Manga>) {
-        val removed = targets.filter { mangaLibraryAdder.removeFromLibrary(it) }
-        if (removed.isNotEmpty()) withUIContext { promptDeleteDownloadsOnRemoved(removed) }
+        promptDeleteDownloadsOnRemoved(removeMangaFromLibrary.await(targets.map { it.id }))
     }
 
-    private fun promptDeleteDownloadsOnRemoved(removed: List<Manga>) {
-        viewModelScope.launch {
-            if (removed.none { downloadManager.getDownloadCount(it) > 0 }) return@launch
-            val result = snackbarHostState.showSnackbar(
-                message = context.stringResource(MR.strings.delete_downloads_for_manga),
-                actionLabel = context.stringResource(MR.strings.action_delete),
-                withDismissAction = true,
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                removed.forEach { downloadManager.deleteManga(it, sourceManager.getOrStub(it.source)) }
-            }
+    // On the page's own scope: the account removal reaches here on an app-wide one.
+    private fun promptDeleteDownloadsOnRemoved(removedIds: List<Long>) {
+        viewModelScope.launchIO {
+            snackbarHostState.offerToDeleteDownloads(
+                context = context,
+                removed = removedIds.map { getMangaAndChapters.awaitManga(it) },
+                hasDownloads = { downloadManager.getDownloadCount(it) > 0 },
+            ) { downloadManager.deleteManga(it, sourceManager.getOrStub(it.source)) }
         }
     }
     // RK <--
@@ -1684,7 +1683,8 @@ class MangaViewModel(
         anchorId = { mangaId },
         mergeManager = mergeManager,
         dismissDialog = ::dismissDialog,
-        setFavorite = { ids, favorite -> ids.forEach { updateManga.awaitUpdateFavorite(it, favorite) } },
+        removal = removeMangaFromLibrary,
+        offerToDeleteDownloads = ::promptDeleteDownloadsOnRemoved,
     )
 
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */

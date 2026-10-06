@@ -179,7 +179,6 @@ class MangaAddDecisionProbe : AddDecisionProbe {
             sourceManager = mockk {
                 coEvery { getOrStub(DUPLICATE_SOURCE) } returns mockk<Source> { every { name } returns SOURCE_NAME }
             },
-            coverCache = mockk(relaxed = true),
             libraryPreferences = mockk(relaxed = true) {
                 every { defaultCategory } returns mockk { every { get() } returns defaultId }
             },
@@ -200,7 +199,7 @@ class MangaAddDecisionProbe : AddDecisionProbe {
             reikaiLibraryPreferences = mockk {
                 every { categorySortOrder } returns mockk { every { get() } returns sortOrder }
             },
-            sourceTracker = mockk(relaxed = true),
+            removeMangaFromLibrary = mockk(relaxed = true),
         )
 
     override suspend fun resolve(userCategories: List<Category>, defaultId: Int): Resolution {

@@ -2,18 +2,15 @@ package reikai.presentation.browse
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.tachiyomi.data.cache.CoverCache
-import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.flow.firstOrNull
 import reikai.domain.category.groupOrDefaultCategoryIds
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
-import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.track.autobind.AutoBindOnAdd
-import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.preference.CheckboxState
@@ -26,21 +23,19 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 
 /**
  * The manga add-to-library orchestration every surface shares: the long-press decision [MangaAddFlow]
- * runs, and the add, group, picker and removal writes details, recents and the bulk add call. The
+ * runs, and the add, group and picker writes details, recents and the bulk add call. The
  * source is resolved per manga ([SourceManager.getOrStub] on `manga.source`), since a global search
  * or a feed spans sources.
  */
 @Inject
 class MangaLibraryAdder(
     private val sourceManager: SourceManager,
-    private val coverCache: CoverCache,
     private val libraryPreferences: LibraryPreferences,
     private val getCategories: GetCategories,
     private val getDuplicateLibraryManga: GetDuplicateLibraryManga,
@@ -53,7 +48,7 @@ class MangaLibraryAdder(
     private val mergeManager: MangaMergeManager,
     private val transactions: Transactions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
-    private val sourceTracker: SourceTrackerDispatcher,
+    private val removeMangaFromLibrary: RemoveMangaFromLibrary,
 ) {
 
     /**
@@ -156,25 +151,9 @@ class MangaLibraryAdder(
         return manga.id
     }
 
-    /**
-     * Take [manga] out of the library, dropping its cached covers, answering whether the write landed.
-     * Only the library state and the cover stamp are written, never the manga as read here, so nothing
-     * read before the write is put back over a newer value (mihon f8fff318b).
-     */
-    suspend fun removeFromLibrary(manga: Manga): Boolean {
-        // Hand this entry its own copy of the group's shared tracker before it leaves; the hand-out
-        // skips non-favorites, so after the write it would miss exactly this entry.
-        mergeManager.handOutTrackersBeforeRemoval(listOf(manga.id))
-        val coverLastModified = manga.removeCovers(coverCache).coverLastModified
-        val update = MangaUpdate(manga.id) {
-            favoriteAt = null
-            if (coverLastModified != manga.coverLastModified) this.coverLastModified = coverLastModified
-        }
-        // Written here rather than through awaitUpdateFavorite, which cannot carry the cover stamp, so the
-        // source's own tracker is told here.
-        return updateManga.await(update).also { updated ->
-            if (updated) sourceTracker.favoriteChanged(EntryId.Manga(manga.id), favorite = false)
-        }
+    /** The long press's remove, through the removal every surface shares. */
+    suspend fun removeFromLibrary(manga: Manga) {
+        removeMangaFromLibrary.await(listOf(manga.id))
     }
 
     suspend fun moveToCategories(manga: Manga, categoryIds: List<Long>) {

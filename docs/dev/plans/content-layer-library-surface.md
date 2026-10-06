@@ -21,7 +21,7 @@ Three phases, lowest-risk first, each independently shippable and on-device veri
 
 **Phase 3: parity and reconciliations.** Unify the collapsed-set representation (the novel side's single `Set<String>` vs the manga side's split real / dynamic sets), reconcile `NovelLibrarySort` against `LibrarySort`, and finalize the lewd gating and label.
 
-**What stays forked, deliberately (the seams).** The manga and novel engines never merge (different domain models, `String` vs `Long` sources, plugin host vs Mihon sources). The merge-collapse helpers stay forked (different output types, a prior locked decision in [merge-component-consolidation.md](merge-component-consolidation.md)). Download-count derivation stays per-type until the separate download-subsystem unification (Road B). These are injected seams, exactly like the details adapters' `resolveSources` / `setFavorite` lambdas.
+**What stays forked, deliberately (the seams).** The manga and novel engines never merge (different domain models, `String` vs `Long` sources, plugin host vs Mihon sources). The merge-collapse helpers stay forked (different output types, a prior locked decision in [merge-component-consolidation.md](merge-component-consolidation.md)). Download-count derivation stays per-type until the separate download-subsystem unification (Road B). These are injected seams, exactly like the details adapters' `resolveSources` lambda.
 
 ## Key files
 
