@@ -5,12 +5,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.presentation.browse.EntryBrowseItemUi
 import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
 import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.browse.components.sourceDetail
+import reikai.presentation.browse.sourceLanguageName
 
 /**
  * One source's migration candidates, under the shared global-search section header and rendering the
@@ -37,7 +37,7 @@ internal fun MigrationCandidateStrip(
     EntrySearchSection(
         title = if (isCurrentSource) "▶ ${strip.sourceName}" else strip.sourceName,
         subtitle = sourceDetail(
-            language = LocaleHelper.getSourceDisplayName(strip.sourceLang, LocalContext.current),
+            language = sourceLanguageName(strip.sourceLang, LocalContext.current),
             format = formatLabel(strip.sourceFormat, showsFormat),
         ).orEmpty(),
         onClick = onBrowseSource,

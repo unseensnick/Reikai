@@ -13,9 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import eu.kanade.presentation.browse.components.BaseBrowseItem
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.browse.components.sourceDetail
+import reikai.presentation.browse.sourceLanguageName
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.presentation.core.components.BadgeGroup
@@ -70,8 +70,7 @@ fun EntryMigrateSourceRow(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val detail = sourceDetail(
-                        language = row.lang.takeIf { it.isNotEmpty() }
-                            ?.let { LocaleHelper.getSourceDisplayName(it, LocalContext.current) },
+                        language = sourceLanguageName(row.lang, LocalContext.current),
                         format = formatLabel(row.format, showsFormat),
                     )
                     if (detail != null) {

@@ -33,8 +33,13 @@ private const val OTHER_LANGUAGE = "other"
 fun browseLanguageLabel(lang: String, context: Context): String =
     LocaleHelper.getSourceDisplayName(lang, context).ifBlank { lang }
 
-/** The language line under a Sources row, led by its flag; left blank, flagless, when Android cannot name it. */
-fun sourceLanguageLabel(lang: String, context: Context): String {
-    val name = LocaleHelper.getSourceDisplayName(lang, context)
-    return if (name.isBlank()) name else "${FlagEmoji.getEmojiLangFlag(lang)} $name"
-}
+/**
+ * A source's language under its name, or null for a source declaring none: Android reads an empty
+ * tag as the device's own language, which would name a language the source never claimed.
+ */
+fun sourceLanguageName(lang: String, context: Context): String? =
+    lang.takeIf { it.isNotBlank() }?.let { browseLanguageLabel(it, context) }
+
+/** The language line under a Sources row, led by its flag; left blank for a source declaring none. */
+fun sourceLanguageLabel(lang: String, context: Context): String =
+    sourceLanguageName(lang, context)?.let { "${FlagEmoji.getEmojiLangFlag(lang)} $it" }.orEmpty()

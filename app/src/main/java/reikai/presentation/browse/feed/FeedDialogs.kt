@@ -19,12 +19,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.domain.source.MAX_FEED_ROWS
 import reikai.domain.source.model.SavedSearch
 import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.components.sourceDetail
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
+import reikai.presentation.browse.sourceLanguageName
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
@@ -52,7 +52,7 @@ fun FeedSourcePickerDialog(
     val labels = remember(matching, context, showsFormat) {
         matching.map { row ->
             val detail = sourceDetail(
-                language = row.lang.takeIf { it.isNotBlank() }?.let { LocaleHelper.getSourceDisplayName(it, context) },
+                language = sourceLanguageName(row.lang, context),
                 format = row.format?.takeIf { showsFormat }?.let { context.stringResource(it.label) },
             )
             if (detail == null) row.name else "${row.name} ($detail)"

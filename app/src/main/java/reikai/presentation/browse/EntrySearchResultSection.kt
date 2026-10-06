@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.browse.components.sourceDetail
@@ -45,7 +44,7 @@ fun SearchResultSection(
         title = row.name,
         subtitle = sourceDetail(
             language = subtitle
-                ?: row.lang.takeIf { it.isNotBlank() }?.let { LocaleHelper.getSourceDisplayName(it, context) },
+                ?: sourceLanguageName(row.lang, context),
             format = formatLabel(row.format, showsFormat),
         ).orEmpty(),
         onClick = { onClickSource(row) },

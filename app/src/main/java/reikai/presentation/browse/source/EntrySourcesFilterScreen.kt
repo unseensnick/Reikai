@@ -23,10 +23,10 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.SourcesFilterViewModel
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.toast
 import reikai.domain.library.ContentType
 import reikai.novel.source.NovelSource
+import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.components.ContentTypeFilterChips
@@ -164,7 +164,7 @@ class EntrySourcesFilterScreen(
                     // Off hides the whole language's sources here and everywhere else.
                     SwitchPreferenceWidget(
                         modifier = Modifier.animateItem(),
-                        title = LocaleHelper.getSourceDisplayName(section.language, context),
+                        title = browseLanguageLabel(section.language, context),
                         checked = section.enabled,
                         onCheckedChanged = { onToggleLanguage(section.language) },
                     )

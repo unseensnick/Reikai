@@ -116,7 +116,7 @@ agent under Settings -> Advanced.
 - **The novel library no longer slows down while you select novels or type in its search.** Search now waits for a short pause first, like the manga library.
 - **Novel library sorting now matches manga: ties stay A to Z under a descending sort, fully-read novels sink under the unread sort, and titles order by your device language.**
 - **Library badges no longer cover the unread count or squeeze the title, on covers and list rows.** A grouped series with 408 unread could read as "4"; the source icons now give way first.
-- **Novels now show their real language code in the library and on Preferred sources, and keep it after their source is uninstalled.** Polish and Portuguese no longer share one "Po" group, and `language:` search and group by language keep working.
+- **Novels now show their real language code in the library, and keep it after their source is uninstalled.** Polish and Portuguese no longer share one "Po" group, and `language:` search and group by language keep working.
 - **A novel whose source is no longer installed now shows the missing-source warning on its library cover, as a manga does.** On a grouped novel the uninstalled source keeps its place among the source icons.
 - **Library search now finds an entry by the title, author, artist, description or genre you set in Edit info.**
 - **The continue button on a novel in the library now follows that novel's chapter filters, as manga does.** Set to bookmarked or downloaded chapters only, it opened the first unread chapter regardless.
@@ -131,7 +131,7 @@ agent under Settings -> Advanced.
 - **The novel library-update and download category filters now include the Default (uncategorized) group, as manga's do.**
 - **Deleting a category now clears it from the library and Updates filters and from your collapsed categories.**
 - **Undo in Settings -> Library -> Edit categories now restores only the categories that delete removed, even after a second delete.**
-- **Settings -> Library -> Preferred sources lists the local source again, starts right under its tabs, and moves a source on every Up or Down tap, on manga and novels.** An uninstalled source used to swallow the tap.
+- **Settings -> Library -> Preferred sources lists the local source again, names each source's language in the order Browse uses, starts right under its tabs, and moves a source on every Up or Down tap, on manga and novels.** An uninstalled source used to swallow the tap.
 - **The library filter icon no longer lights up for a custom-interval filter whose update restriction is off.**
 - **A category you set back to the global sort now stays that way if the app is closed partway through updating from an older version.**
 

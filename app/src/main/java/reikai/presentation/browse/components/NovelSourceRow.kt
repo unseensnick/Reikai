@@ -24,9 +24,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import eu.kanade.presentation.browse.components.BaseBrowseItem
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ChromeReaderMode
+import reikai.presentation.browse.sourceLanguageName
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.theme.header
 import tachiyomi.presentation.core.util.secondaryItemAlpha
@@ -87,11 +87,8 @@ fun NovelSourceRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                val secondary = subtitle ?: listOfNotNull(
-                    lang.takeIf { it.isNotEmpty() }
-                        ?.let { LocaleHelper.getSourceDisplayName(it, LocalContext.current) },
-                    version,
-                ).joinToString(" • ").takeIf { it.isNotEmpty() }
+                val secondary = subtitle ?: listOfNotNull(sourceLanguageName(lang, LocalContext.current), version)
+                    .joinToString(" • ").takeIf { it.isNotEmpty() }
                 if (secondary != null) {
                     Text(
                         modifier = Modifier.secondaryItemAlpha(),

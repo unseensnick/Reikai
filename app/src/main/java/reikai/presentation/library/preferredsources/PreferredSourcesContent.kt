@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -26,6 +27,7 @@ import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.ExpandLess
 import mihon.icons.materialsymbols.rounded.ExpandMore
+import reikai.presentation.browse.sourceLanguageName
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -131,11 +133,13 @@ private fun SourceRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = item.lang.uppercase(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            sourceLanguageName(item.lang, LocalContext.current)?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         trailing()
     }

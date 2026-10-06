@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
+import reikai.presentation.browse.compareBrowseLanguages
 import tachiyomi.core.common.preference.Preference
 
 /** The preferred-sources screen's state, the same for manga and novels. */
@@ -48,7 +49,10 @@ fun preferredSourcesState(ranking: List<String>, sources: List<PreferredSourceIt
     val preferredKeys = preferred.mapTo(HashSet()) { it.key }
     val available = sources
         .filterNot { it.key in preferredKeys }
-        .sortedWith(compareBy({ it.lang }, { it.name.lowercase() }))
+        .sortedWith(
+            Comparator<PreferredSourceItem> { a, b -> compareBrowseLanguages(a.lang, b.lang) }
+                .thenBy { it.name.lowercase() },
+        )
     return PreferredSourcesState.Success(preferred, available)
 }
 

@@ -253,9 +253,8 @@ private fun SourceRow(
             NovelSourceRow(
                 modifier = modifier,
                 name = row.title,
-                // The row hides a language it has none of, so the flagged line is dropped the same way.
                 subtitle = sourceDetail(
-                    language = languageLabel.takeIf { row.lang.isNotEmpty() },
+                    language = languageLabel,
                     format = formatLabel(row.format, showsFormat),
                 ),
                 iconUrl = source.iconUrl,

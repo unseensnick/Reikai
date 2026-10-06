@@ -33,4 +33,15 @@ class PreferredSourceRankingTest {
             available = listOf(PreferredSourceItem("C", "Gamma", "en")),
         )
     }
+
+    @Test
+    fun `available sources follow the Browse language order, Multi first and Other last`() {
+        val sources = listOf(
+            PreferredSourceItem("P", "Pt", "pt"),
+            PreferredSourceItem("L", "Local", "other"),
+            PreferredSourceItem("M", "Multi", "all"),
+        )
+
+        preferredSourcesState(emptyList(), sources).available.map { it.lang } shouldBe listOf("all", "pt", "other")
+    }
 }
