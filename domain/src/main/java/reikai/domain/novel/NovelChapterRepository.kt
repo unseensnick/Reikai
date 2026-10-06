@@ -6,12 +6,12 @@ import reikai.domain.novel.model.NovelChapter
 interface NovelChapterRepository {
     suspend fun getByNovelId(novelId: Long): List<NovelChapter>
 
-    /** Reactive [getByNovelId]: re-emits on any write to this novel's chapters. */
+    /** Reactive [getByNovelId]: emits again only when this novel's chapters change, not on another's write. */
     fun getByNovelIdAsFlow(novelId: Long): Flow<List<NovelChapter>>
 
     /**
-     * Chapters on a single page (transport index "1".."N") or volume label of a paged source, re-emitted on
-     * any write: drives the lazy per-page chapter list.
+     * Chapters on a single page (transport index "1".."N") or volume label of a paged source, emitted again
+     * only when they change: drives the lazy per-page chapter list.
      */
     fun getByNovelIdAndPageAsFlow(novelId: Long, page: String): Flow<List<NovelChapter>>
 

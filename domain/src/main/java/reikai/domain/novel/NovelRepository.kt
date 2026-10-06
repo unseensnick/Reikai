@@ -65,6 +65,7 @@ interface NovelRepository {
     /** The library by source and url, for the browse, search and feed lists; silent on a write outside it. */
     fun getFavoritedKeysAsFlow(): Flow<FavoritedNovels>
 
+    /** The stored novel, emitted again only when its row changes, not on another novel's write. */
     fun getByUrlAndSourceAsFlow(url: String, source: String): Flow<Novel?>
 
     /** The new row's id, or null when the source already lists this novel or the write failed. */

@@ -8,6 +8,7 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import logcat.LogPriority
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.NovelChapter
@@ -27,9 +28,11 @@ class NovelChapterRepositoryImpl(
 
     override fun getByNovelIdAsFlow(novelId: Long): Flow<List<NovelChapter>> =
         database.novel_chaptersQueries.getByNovelId(novelId, ::mapNovelChapter).subscribeToList()
+            .distinctUntilChanged()
 
     override fun getByNovelIdAndPageAsFlow(novelId: Long, page: String): Flow<List<NovelChapter>> =
         database.novel_chaptersQueries.getByNovelIdAndPage(novelId, page, ::mapNovelChapter).subscribeToList()
+            .distinctUntilChanged()
 
     override suspend fun getDistinctPages(novelId: Long): List<String> =
         database.novel_chaptersQueries.getDistinctPages(novelId).awaitAsList()

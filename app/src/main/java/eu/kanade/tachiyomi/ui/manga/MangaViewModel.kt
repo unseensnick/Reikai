@@ -1004,6 +1004,7 @@ class MangaViewModel(
         val sourceManager = sourceManager
         val perSibling = group.ids.map { id ->
             getMangaAndChapters.subscribe(id, applyScanlatorFilter = true)
+                .distinctUntilChanged()
                 .map { (manga, chapters) -> Triple(id, manga, chapters) }
         }
         return combine(perSibling) { siblings ->
@@ -1089,6 +1090,7 @@ class MangaViewModel(
         val perSibling = mutableListOf<Flow<Triple<Long, Manga, List<Chapter>>>>()
         for (id in group.ids) {
             perSibling += getMangaAndChapters.subscribe(id, applyScanlatorFilter = true)
+                .distinctUntilChanged()
                 .map { (manga, chapters) -> Triple(id, manga, chapters) }
         }
         return combine(perSibling) { siblings ->
