@@ -40,6 +40,9 @@ class WebGpuConfig(
     var imageCropBorders = false
         private set
 
+    var imageCropBordersWebtoon = false
+        private set
+
     var navigateToPan = false
         private set
 
@@ -83,17 +86,12 @@ class WebGpuConfig(
 
         readerPreferences.zoomStart.register({ zoomTypeFromPreference(it) }, { imagePropertyChangedListener?.invoke() })
 
-        // RK --> crop borders is two settings, one per reading mode, and this viewer serves both: a
-        // continuous one is what long strip installs under the high quality renderer, so reading the
-        // paged key there left the button, its icon and both settings rows acting on nothing. A type
-        // check, not isContinuous: this runs inside the viewer's constructor, before the subclass has
-        // set its override, so the property still reads false here.
-        val cropBorders = when (viewer) {
-            is WebGpuViewerContinuous -> readerPreferences.cropBordersWebtoon
-            else -> readerPreferences.cropBorders
-        }
-        cropBorders.register({ imageCropBorders = it }, { imagePropertyChangedListener?.invoke() })
-        // RK <--
+        readerPreferences.cropBorders.register({ imageCropBorders = it }, { imagePropertyChangedListener?.invoke() })
+
+        readerPreferences.cropBordersWebtoon.register(
+            { imageCropBordersWebtoon = it },
+            { imagePropertyChangedListener?.invoke() },
+        )
 
         readerPreferences.navigateToPan.register({ navigateToPan = it })
 

@@ -73,10 +73,7 @@ class MangaViewport(
             is WebtoonViewer -> continuous(viewer::autoScrollBy)
             is WebGpuViewerContinuous -> continuous(viewer::autoScrollBy)
             is PagerViewer -> ViewportAutoScroll.Stepped(interval, shownPage, viewer::moveToNext)
-            // WebGPU's next verb walks a right-to-left book backwards, as its PAGE_DOWN key does.
-            is WebGpuViewer -> ViewportAutoScroll.Stepped(interval, shownPage) {
-                if (viewer.isReversed) viewer.moveToPrevious() else viewer.moveToNext()
-            }
+            is WebGpuViewer -> ViewportAutoScroll.Stepped(interval, shownPage, viewer::moveToNext)
             else -> error("No auto-scroll for ${viewer::class}")
         }
     }

@@ -160,14 +160,24 @@ class MangaViewportTest {
         viewer.movedTo shouldBe null
     }
 
-    /** WebGPU's next verb walks a reversed book backwards, so auto-scroll turns it with the other one. */
+    /**
+     * Forward in a right-to-left book is toward the left of the screen. The direction and both verbs
+     * run for real, so this holds whichever of them the adapter calls and whichever applies the
+     * direction, and fails if both do.
+     */
     @Test
-    fun `R2L WebGPU advances with its previous verb`() {
-        val viewer = mockk<WebGpuViewer>(relaxed = true) { every { isReversed } returns true }
+    fun `R2L WebGPU auto-scroll turns toward the left, which is forward`() {
+        val viewer = mockk<WebGpuViewer>(relaxed = true) {
+            every { isReversed } answers { callOriginal() }
+            every { moveToNext() } answers { callOriginal() }
+            every { moveToPrevious() } answers { callOriginal() }
+        }
+        // A mock skips the constructor, so the field the real getter and verbs read is set here.
+        WebGpuViewer::class.java.getDeclaredField("isReversed").apply { isAccessible = true }.setBoolean(viewer, true)
 
         (viewport(viewer).autoScroll as ViewportAutoScroll.Stepped).advance()
 
-        verify { viewer.moveToPrevious() }
+        verify { viewer["moveLeft"]() }
     }
 
     @Test

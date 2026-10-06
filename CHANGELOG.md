@@ -252,7 +252,7 @@ agent under Settings -> Advanced.
 
 #### Added
 
-- **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (from Mihon).** It brings dual page view, page transitions, a display cutout mode, HDR, pages that fill in as they download, and Min width and Gap sliders for the long strip modes. Upstream: mihonapp/mihon#3388.
+- **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (from Mihon).** Adds dual page view, page transitions, a display cutout mode, HDR, pages that fill in as they download, and long strip Min width and Gap sliders. Upstream: mihonapp/mihon#3388, mihonapp/mihon#4029.
 - **The novel reader now reads straight on into the next and previous chapters, which Settings -> Novel reader -> Continuous chapters can switch off.** A marker names each boundary, and Add the next chapter at sets how far in the next one appears, 95% by default.
 - **Manga can now auto-scroll, turning pages on a timer or scrolling long strips smoothly, set up under Settings -> Manga reader.** Start it from the Auto-scroll button on the bottom bar or the reader's Controls tab; it waits on a page that is still loading.
 - **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Every font's row previews itself, and what you add works in both rendering modes.
