@@ -6,6 +6,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -296,6 +297,40 @@ class LibraryEngineTest {
         } finally {
             unmockkStatic("tachiyomi.core.common.i18n.LocalizeKt")
         }
+    }
+
+    /** The toolbar and the grid read a bucket's list every frame, so the overlay pass must run once. */
+    @Test
+    fun `a bucket's display list is built once per assembly`() = runTest {
+        val provider = provider(ContentType.MANGA, rows = listOf(row(1, listOf(11)), row(2, listOf(11))))
+        val assembled = engineOver(listOf(provider), categories = listOf(reading)).assembled.filterNotNull().first()
+        val bucket = assembled.buckets.single()
+
+        assembled.itemsFor(bucket) shouldBeSameInstanceAs assembled.itemsFor(bucket)
+    }
+
+    /** The memo must never outlive its assembly: a custom title edit has to repaint the row. */
+    @Test
+    fun `a custom-info edit alone re-emits the assembly with the overlaid title`() = runTest {
+        val titles = MutableStateFlow(mapOf<Long, String>())
+        val state = MutableStateFlow(screenState)
+        val provider = provider(ContentType.MANGA, rows = listOf(row(1, listOf(11))))
+        every { provider.state } returns state
+        every { provider.overlaid(any()) } answers {
+            val item = firstArg<LibraryItem>()
+            val custom = titles.value[item.id] ?: return@answers item
+            item.copy(libraryManga = item.libraryManga.copy(manga = item.libraryManga.manga.copy(title = custom)))
+        }
+        val engine = engineOver(listOf(provider), categories = listOf(reading))
+        val before = engine.assembled.filterNotNull().first()
+        // Read once, as the tab's first frame does, so a memo is holding the old title.
+        before.itemsFor(before.buckets.single()).single().libraryManga.manga.title shouldBe "Title 1"
+
+        titles.value = mapOf(1L to "Custom")
+        state.value = screenState.copy(overlayKey = titles.value)
+
+        val after = engine.assembled.first { it != null && it !== before }!!
+        after.itemsFor(after.buckets.single()).single().libraryManga.manga.title shouldBe "Custom"
     }
 
     private fun LibraryAssembled.firstEntry() = buckets.firstOrNull()?.let { itemsFor(it).first().entryId }

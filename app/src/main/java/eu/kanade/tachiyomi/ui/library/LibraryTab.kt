@@ -20,6 +20,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -231,23 +232,42 @@ data object LibraryTab : Tab {
         }
         val pagerState = pagerStates.getValue(libraryContentType)
         var hopperTarget by remember { mutableStateOf<Int?>(null) }
-        fun reikaiHeaderIndices(): List<Int> = reikaiCategoryHeaderIndices(
-            buckets = activeBuckets,
-            hasSearchItem = !activeSearchQuery.isNullOrEmpty(),
-            isCollapsed = {
-                reikaiIsCollapsed(
-                    it,
-                    display.reikai.collapsedCategories,
-                    display.reikai.collapsedDynamicCategories,
+        val showAllCategories = display.reikai.showAllCategories
+        val hasSearchItem = !activeSearchQuery.isNullOrEmpty()
+        val collapsedCategories = display.reikai.collapsedCategories
+        val collapsedDynamicCategories = display.reikai.collapsedDynamicCategories
+        // Built once per assembly and collapse state, not per scrolled row; the pager never reads it, so
+        // it does not pay every bucket's overlay pass there.
+        val headerIndices = remember(
+            showAllCategories,
+            assembled,
+            hasSearchItem,
+            collapsedCategories,
+            collapsedDynamicCategories,
+        ) {
+            if (!showAllCategories) {
+                emptyList()
+            } else {
+                reikaiCategoryHeaderIndices(
+                    buckets = activeBuckets,
+                    hasSearchItem = hasSearchItem,
+                    isCollapsed = { reikaiIsCollapsed(it, collapsedCategories, collapsedDynamicCategories) },
+                    itemCount = { activeGetItems(it).size },
                 )
-            },
-            itemCount = { activeGetItems(it).size },
-        )
-        fun currentCategoryIndex(): Int = if (display.reikai.showAllCategories) {
-            reikaiHeaderIndices().indexOfLast { it <= singleListGridState.firstVisibleItemIndex }.coerceAtLeast(0)
-        } else {
-            pagerState.currentPage
+            }
         }
+        // Derived, so the title and the hopper recompose when the section on screen changes rather than
+        // on every scrolled row.
+        val currentCategoryIndexState = remember(showAllCategories, headerIndices, singleListGridState, pagerState) {
+            derivedStateOf {
+                if (showAllCategories) {
+                    headerIndices.indexOfLast { it <= singleListGridState.firstVisibleItemIndex }.coerceAtLeast(0)
+                } else {
+                    pagerState.currentPage
+                }
+            }
+        }
+        fun currentCategoryIndex(): Int = currentCategoryIndexState.value
         // RK: the section Select all / Invert act on. Keyed to the section actually on screen, which in
         // the single-list view means the one scrolled to: there is no pager there, so the stored page
         // index never moves off the first category no matter how far down the list you are.
@@ -264,8 +284,8 @@ data object LibraryTab : Tab {
         val currentRealCategory: () -> Category? = { currentBucket()?.realCategory }
         LaunchedEffect(hopperTarget) {
             val target = hopperTarget ?: return@LaunchedEffect
-            if (display.reikai.showAllCategories) {
-                reikaiHeaderIndices().getOrNull(target)?.let { itemIndex ->
+            if (showAllCategories) {
+                headerIndices.getOrNull(target)?.let { itemIndex ->
                     // Jump instantly to the target category, the way Yōkai's hopper does. Categories
                     // here can hold hundreds of items, so a smooth scroll across them has to compose
                     // everything in between and stutters; an instant jump stays snappy under rapid
@@ -382,8 +402,12 @@ data object LibraryTab : Tab {
                 // Rest = surfaceColorAtElevation(0/3dp) (3dp in selection, mirroring AppBar's
                 // isActionMode); on scroll the toolbar tints to its scrolledContainerColor
                 // (M3 default surfaceContainer), only when it actually collapses (no category tabs).
+                // Derived as M3's TopAppBar reads it, so scrolling recomposes the bar only on the flip.
+                val toolbarOverlapped by remember(scrollBehavior) {
+                    derivedStateOf { scrollBehavior.state.overlappedFraction > 0.01f }
+                }
                 val chipBackground by animateColorAsState(
-                    targetValue = if (!display.showCategoryTabs && scrollBehavior.state.overlappedFraction > 0.01f) {
+                    targetValue = if (!display.showCategoryTabs && toolbarOverlapped) {
                         MaterialTheme.colorScheme.surfaceContainer
                     } else {
                         MaterialTheme.colorScheme.surfaceColorAtElevation(if (activeSelectionMode) 3.dp else 0.dp)

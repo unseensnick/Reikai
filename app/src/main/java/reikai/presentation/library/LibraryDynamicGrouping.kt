@@ -96,6 +96,9 @@ fun normalizeDynamicKey(name: String): String =
     (if (LANG_SPLITTER in name) name.substringBefore(LANG_SPLITTER) + LANG_SPLITTER else name)
         .lowercase().replace(SEPARATOR_RUN, " ").trim()
 
+/** Stored collapse keys in bucket-key form, so a key persisted before normalization still matches. */
+fun Set<String>.normalizedDynamicKeys(): Set<String> = mapTo(HashSet(), ::normalizeDynamicKey)
+
 /**
  * Buckets library items into synthetic groups: by source, language, tag, author, status or tracking
  * status. Generalized over [DynItem] so both libraries share one kernel. Pure: anything needing a
@@ -190,10 +193,9 @@ object LibraryDynamicGrouping {
             buckets.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
         }
 
-        // Step 4: optionally push collapsed groups to the bottom. Stored keys may predate normalization,
-        // so normalize that side too.
+        // Step 4: optionally push collapsed groups to the bottom.
         val finalBuckets = if (collapsedDynamicAtBottom) {
-            val collapsedKeys = collapsedDynamicCategories.mapTo(HashSet(), ::normalizeDynamicKey)
+            val collapsedKeys = collapsedDynamicCategories.normalizedDynamicKeys()
             sorted.filterNot { it.key in collapsedKeys } + sorted.filter { it.key in collapsedKeys }
         } else {
             sorted

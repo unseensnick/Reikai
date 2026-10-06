@@ -144,7 +144,7 @@ class LibraryDynamicGroupingTest {
             languageCodes = mapOf(1L to "ja"),
             languageDisplay = { "日本語" },
         ).keys.single()
-        reikaiIsCollapsed(bucket, emptySet(), setOf("ja⨼⨦⨠japanese")) shouldBe true
+        reikaiIsCollapsed(bucket, emptySet(), setOf("ja⨼⨦⨠japanese").normalizedDynamicKeys()) shouldBe true
     }
 
     @Test

@@ -107,6 +107,7 @@ agent under Settings -> Advanced.
 #### Fixed
 
 - **The app no longer freezes on the Library while light-novel plugins are being set up.** It could hang long enough for Android to offer to close it, most often on a slow or freshly started device.
+- **Scrolling the single-list library no longer stutters in large libraries.**
 - **Typing quickly into the Library, Recents or a source's catalogue search no longer scrambles or drops characters.**
 - **Backing out of the category picker no longer adds a novel anyway, and a failed add no longer leaves a manga or novel filed under a category it never joined.** Nothing is written until the add completes.
 - **Hidden chapters are no longer opened by the library's continue button or Recents, or queued by downloads from a library selection, on manga and novels.** A hidden chapter still opens when it is the only one left unread.

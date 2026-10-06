@@ -1,8 +1,11 @@
 package reikai.presentation.library
 
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.category.model.Category
 
@@ -76,5 +79,14 @@ class LibraryCategoryCollapseTest {
 
         preferences.collapsedCategories.get() to preferences.collapsedDynamicCategories.get() shouldBe
             (emptySet<String>() to emptySet<String>())
+    }
+
+    /** The tab checks collapse with a plain lookup per bucket per frame, so the stored side arrives normalized. */
+    @Test
+    fun `the display state carries stored dynamic keys normalized`() = runTest {
+        val emitting = ReikaiLibraryPreferences(EmittingPreferenceStore())
+        emitting.collapsedDynamicCategories.set(setOf("Sci-Fi"))
+
+        emitting.libraryStateFlow().first().collapsedDynamicCategories shouldBe setOf("sci fi")
     }
 }

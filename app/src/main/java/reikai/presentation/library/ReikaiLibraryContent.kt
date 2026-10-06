@@ -24,15 +24,18 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.presentation.core.util.plus
 
-/** Whether a section is collapsed. The two kinds of bucket use separate preferences. */
+/**
+ * Whether a section is collapsed. The two kinds of bucket use separate preferences. Runs per bucket per
+ * frame, so [collapsedDynamicCategories] comes in normalized ([normalizedDynamicKeys]), as
+ * [ReikaiLibraryState] carries it.
+ */
 fun reikaiIsCollapsed(
     bucket: LibraryBucket,
     collapsedCategories: Set<String>,
     collapsedDynamicCategories: Set<String>,
 ): Boolean = when (bucket) {
     is LibraryBucket.Real -> bucket.key in collapsedCategories
-    // Normalize the stored side too: keys persisted before normalization keep matching.
-    is LibraryBucket.Dynamic -> collapsedDynamicCategories.any { normalizeDynamicKey(it) == bucket.key }
+    is LibraryBucket.Dynamic -> bucket.key in collapsedDynamicCategories
 }
 
 /**
@@ -104,6 +107,7 @@ fun reikaiRowStartIndices(
 @Composable
 fun ReikaiLibraryContent(
     buckets: List<LibraryBucket>,
+    // Read twice per bucket per pass, which is cheap only because [LibraryAssembled.itemsFor] memoizes.
     getItemsForCategory: (LibraryBucket) -> List<LibraryItem>,
     collapsedCategories: Set<String>,
     collapsedDynamicCategories: Set<String>,
@@ -155,17 +159,11 @@ fun ReikaiLibraryContent(
             }
         }
 
-        // Resolve each category's items once per pass and share it: the row-index math needs the
-        // sizes and the grid builder needs the lists, so calling getItemsForCategory in both spots
-        // walked every category's items twice per recomposition. Not remembered across recompositions
-        // on purpose, the lambda reads live library state, so a cached map could serve stale badges.
-        val itemsByBucket = buckets.associateWith(getItemsForCategory)
-
         val rowStartIndices = reikaiRowStartIndices(
             buckets = buckets,
             hasSearchItem = !searchQuery.isNullOrEmpty(),
             isCollapsed = { reikaiIsCollapsed(it, collapsedCategories, collapsedDynamicCategories) },
-            itemCount = { itemsByBucket[it]?.size ?: 0 },
+            itemCount = { getItemsForCategory(it).size },
             columns = columnCount,
         )
 
@@ -201,7 +199,7 @@ fun ReikaiLibraryContent(
                     // Null for a dynamic group, which is what turns the sort / refresh affordances off.
                     val category = bucket.realCategory
                     val collapsed = reikaiIsCollapsed(bucket, collapsedCategories, collapsedDynamicCategories)
-                    val items = itemsByBucket[bucket].orEmpty()
+                    val items = getItemsForCategory(bucket)
 
                     item(
                         span = { GridItemSpan(maxLineSpan) },

@@ -13,6 +13,7 @@ import reikai.domain.library.sortForCategory
 import reikai.domain.library.toSortMode
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The assembly inputs besides the rows and categories. One value each: these describe the list, not a
@@ -92,7 +93,11 @@ class LibraryAssembled(
     private val items: (LibraryBucket) -> List<LibraryItem>,
     private val counts: (LibraryBucket) -> Int? = { null },
 ) {
-    fun itemsFor(bucket: LibraryBucket): List<LibraryItem> = items(bucket)
+    // The toolbar and the grid read these every frame, so each bucket's overlay pass runs once. Safe
+    // because an overlay edit re-emits a new assembly (the provider's overlay key is an assembly input).
+    private val itemsByKey = ConcurrentHashMap<String, List<LibraryItem>>()
+
+    fun itemsFor(bucket: LibraryBucket): List<LibraryItem> = itemsByKey.getOrPut(bucket.key) { items(bucket) }
     fun countFor(bucket: LibraryBucket): Int? = counts(bucket)
 }
 

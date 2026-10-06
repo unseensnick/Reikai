@@ -17,6 +17,7 @@ data class ReikaiLibraryState(
     // hidden categories, collapsed-at-bottom) feed LibraryEngine's own prefs flow instead; carrying
     // them here too left dead fields a future reader could wrongly trust.
     val collapsedCategories: Set<String> = emptySet(),
+    /** Normalized once here, so [reikaiIsCollapsed] is a plain lookup per bucket per frame. */
     val collapsedDynamicCategories: Set<String> = emptySet(),
     val showCategoryInTitle: Boolean = false,
     val showAllCategories: Boolean = true,
@@ -59,7 +60,7 @@ fun ReikaiLibraryPreferences.libraryStateFlow(): Flow<ReikaiLibraryState> = comb
 ) {
     ReikaiLibraryState(
         collapsedCategories = it[0] as Set<String>,
-        collapsedDynamicCategories = it[1] as Set<String>,
+        collapsedDynamicCategories = (it[1] as Set<String>).normalizedDynamicKeys(),
         showCategoryInTitle = it[2] as Boolean,
         showAllCategories = it[3] as Boolean,
         hideHopper = it[4] as Boolean,
@@ -95,9 +96,8 @@ fun ReikaiLibraryPreferences.toggleAllCategoriesCollapsed(buckets: List<LibraryB
     // Dynamic keys compare and clear by normalized form, so pre-normalization entries count as
     // collapsed and expand-all actually removes them.
     val storedDynamic = collapsedDynamicCategories.get()
-    val storedDynamicNormalized = storedDynamic.mapTo(HashSet(), ::normalizeDynamicKey)
     val allCollapsed = collapsedCategories.get().containsAll(defaultKeys) &&
-        storedDynamicNormalized.containsAll(dynamicKeys)
+        storedDynamic.normalizedDynamicKeys().containsAll(dynamicKeys)
     if (allCollapsed) {
         collapsedCategories.set(collapsedCategories.get() - defaultKeys)
         collapsedDynamicCategories.set(
