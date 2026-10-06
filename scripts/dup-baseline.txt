@@ -20,7 +20,6 @@ app/src/main/java/reikai/domain/manga/RemoveMangaFromLibrary.kt	app/src/main/jav
 app/src/main/java/reikai/domain/novel/NovelChapterAggregation.kt	domain/src/main/java/reikai/domain/manga/ChapterAggregation.kt	b68c4663445dff92
 app/src/main/java/reikai/novel/source/TachiyomiNovelSource.kt	app/src/main/java/reikai/novel/source/ireader/IReaderNovelSource.kt	29c26324d163de81
 app/src/main/java/reikai/presentation/browse/catalogue/SavedSearchDialogs.kt	app/src/main/java/reikai/presentation/browse/feed/FeedDialogs.kt	09675367cbee9fc1
-app/src/main/java/reikai/presentation/details/EntryDetailsScaffold.kt	app/src/main/java/reikai/presentation/details/EntryDetailsTwoPaneScaffold.kt	4b2c4c139da865ad
 app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	0abe3a0e2674ad8e
 app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	1c7ccaf49745f4af
 app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	9eba8524505a0ee7
