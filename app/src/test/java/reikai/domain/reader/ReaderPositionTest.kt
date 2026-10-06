@@ -200,4 +200,16 @@ class ReaderPositionTest {
         ChapterProgress.Percent(hundredths = 6200)
             .seekTo(-1f) shouldBe ChapterProgress.Percent(hundredths = 0)
     }
+
+    // The novel reader reports whole percents and stores hundredths; these are the two conversions.
+
+    @Test
+    fun `a whole percent the reader reports is stored as hundredths`() {
+        ChapterProgress.Percent.ofWhole(42) shouldBe ChapterProgress.Percent(hundredths = 4200)
+    }
+
+    @Test
+    fun `a stored position reads as the whole percent below it`() {
+        ChapterProgress.Percent(hundredths = 4299).wholePercent shouldBe 42L
+    }
 }

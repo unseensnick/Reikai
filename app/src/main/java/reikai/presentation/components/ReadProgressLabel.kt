@@ -1,6 +1,7 @@
 package reikai.presentation.components
 
 import dev.icerock.moko.resources.StringResource
+import reikai.domain.reader.ChapterProgress
 import tachiyomi.i18n.MR
 
 /**
@@ -24,4 +25,4 @@ fun pageProgressLabel(lastPageRead: Long, pageCount: Long): Pair<StringResource,
  * claims no progress rather than rounding up to one, and no total is written: a percent carries it.
  */
 fun percentProgressLabel(hundredths: Long): String? =
-    (hundredths / 100L).takeIf { it > 0L }?.let { "$it%" }
+    ChapterProgress.Percent(hundredths).wholePercent.takeIf { it > 0L }?.let { "$it%" }

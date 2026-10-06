@@ -964,9 +964,7 @@ class NovelReaderViewModel(
     /** The shared completion rule, asked in the whole percent this reader reports in, at the threshold
      *  the reader chose. */
     private fun completesChapter(percent: Int): Boolean =
-        ChapterProgress.Percent(
-            hundredths = percent * 100L,
-        ).isChapterComplete(novelPreferences.readerMarkReadPercent().get())
+        ChapterProgress.Percent.ofWhole(percent).isChapterComplete(novelPreferences.readerMarkReadPercent().get())
 
     private suspend fun writeUnwritten(id: Long, clamped: Int) {
         val chapter = writeLock.withLock {
@@ -975,7 +973,7 @@ class NovelReaderViewModel(
             // current chapter's.
             val owner = chapterRepo.getById(id)?.novelId
             if (owner == null || incognito.of(owner)) return@withLock null
-            position?.let { chapterRepo.setLastTextProgress(id, it * 100L) }
+            position?.let { chapterRepo.setLastTextProgress(id, ChapterProgress.Percent.ofWhole(it).hundredths) }
             // Fetched before marking, so the shared interactor still sees it unread.
             chapterRepo.getById(id)
         } ?: return

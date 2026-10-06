@@ -36,7 +36,7 @@ val ChapterProgress.isChapterComplete: Boolean
 /** [isChapterComplete] with a continuous chapter read from [continuousPercent], a whole percent. */
 fun ChapterProgress.isChapterComplete(continuousPercent: Int): Boolean = when (this) {
     is ChapterProgress.Pages -> lastPageRead == pageCount - 1L
-    is ChapterProgress.Percent -> hundredths >= continuousPercent * 100L
+    is ChapterProgress.Percent -> hundredths >= ChapterProgress.Percent.ofWhole(continuousPercent).hundredths
 }
 
 /** Where the thumb sits, 0 at the chapter's start and 1 at its end. */
@@ -71,7 +71,7 @@ val ChapterProgress.isSeekable: Boolean
 val ChapterProgress.leadingLabel: String
     get() = when (this) {
         is ChapterProgress.Pages -> (lastPageRead + 1L).toString()
-        is ChapterProgress.Percent -> "${hundredths / 100L}%"
+        is ChapterProgress.Percent -> "$wholePercent%"
     }
 
 /** The label at the far end, which also sizes the leading slot so it cannot shift as digits grow. */

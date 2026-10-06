@@ -23,5 +23,15 @@ sealed interface ChapterProgress {
     /** Hundredths of a percent, the unit the novel reader stores. */
     data class Percent(val hundredths: Long) : ChapterProgress {
         override val hasStarted: Boolean get() = hundredths > 0L
+
+        /** Rounded down, so a fraction of a percent claims no progress. */
+        val wholePercent: Long get() = hundredths / HUNDREDTHS_PER_PERCENT
+
+        companion object {
+            private const val HUNDREDTHS_PER_PERCENT = 100L
+
+            /** A whole percent, the unit the novel renderers report in. */
+            fun ofWhole(percent: Int): Percent = Percent(percent * HUNDREDTHS_PER_PERCENT)
+        }
     }
 }

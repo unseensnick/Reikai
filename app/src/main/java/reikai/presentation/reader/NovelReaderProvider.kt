@@ -119,7 +119,7 @@ class NovelReaderProvider(
         novelPreferences.readerShowNavigator().changes(),
     ) { percent, settings, neighbours, show ->
         ReaderNavigatorState(
-            progress = ChapterProgress.Percent(percent * 100L),
+            progress = ChapterProgress.Percent.ofWhole(percent),
             shape = when {
                 !show -> ReaderNavigatorShape.None
                 settings.useRail -> ReaderNavigatorShape.Rail
