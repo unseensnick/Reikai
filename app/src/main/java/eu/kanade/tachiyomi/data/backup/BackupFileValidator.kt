@@ -37,7 +37,7 @@ class BackupFileValidator(
         // restore is one, so without this every installed novel source reports as missing.
         novelSourceManager.ensureLoaded()
 
-        val (backupSources, mangaTrackerIds, novelSources, novelSourceNames, novelTrackerIds) = scan(uri)
+        val (backupSources, trackerIds, novelSources, novelSourceNames) = scan(uri)
         // RK <--
 
         val sources = backupSources.associate { it.sourceId to it.name } // RK: streamed
@@ -54,27 +54,20 @@ class BackupFileValidator(
             .distinct()
             .sorted()
 
-        val missingTrackers = mangaTrackerIds // RK: streamed
-            .mapNotNull { trackerManager.get(it.toLong()) }
+        val missingTrackers = trackerIds // RK: streamed, manga and novel ids in one set
+            .mapNotNull { trackerManager.get(it) }
             .filter { !it.isLoggedIn }
             .map { it.name }
             .sorted()
 
-        // RK --> fold in novel sources / trackers the restore can't satisfy, so the pre-restore
-        // warning covers novels too. A missing novel source shows by the name the backup recorded,
-        // or by its id in a backup older than that list; novel trackers reuse the shared tracker manager.
+        // RK --> fold in novel sources the restore can't satisfy, so the pre-restore warning covers
+        // novels too. A missing novel source shows by the name the backup recorded, or by its id in a
+        // backup older than that list.
         val missingNovelSources = novelSources
             .filter { novelSourceManager.get(it) == null }
             .map { novelSourceNames[it]?.ifBlank { null } ?: it }
-        val missingNovelTrackers = novelTrackerIds
-            .mapNotNull { trackerManager.get(it) }
-            .filter { !it.isLoggedIn }
-            .map { it.name }
 
-        return Results(
-            (missingSources + missingNovelSources).distinct().sorted(),
-            (missingTrackers + missingNovelTrackers).distinct().sorted(),
-        )
+        return Results((missingSources + missingNovelSources).distinct().sorted(), missingTrackers)
         // RK <--
     }
 
@@ -96,11 +89,11 @@ class BackupFileValidator(
             BackupProtoReader(context).read(uri) { fieldNumber, data ->
                 when (fieldNumber) {
                     1 -> parser.decodeFromByteArray(BackupManga.serializer(), data)
-                        .tracking.forEach { scanned.mangaTrackerIds.add(it.syncId) }
+                        .tracking.forEach { scanned.trackerIds.add(it.syncId.toLong()) }
                     101 -> scanned.backupSources.add(parser.decodeFromByteArray(BackupSource.serializer(), data))
                     700 -> parser.decodeFromByteArray(BackupNovel.serializer(), data).let { novel ->
                         scanned.novelSources.add(novel.source)
-                        novel.tracking.forEach { scanned.novelTrackerIds.add(it.trackerId) }
+                        novel.tracking.forEach { scanned.trackerIds.add(it.trackerId) }
                     }
                     717 -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
                         scanned.novelSourceNames[it.sourceId] = it.name
@@ -115,11 +108,11 @@ class BackupFileValidator(
 
     private data class Scanned(
         val backupSources: MutableList<BackupSource> = mutableListOf(),
-        val mangaTrackerIds: MutableSet<Int> = mutableSetOf(),
+        // Both content types share one tracker registry, so one id set covers both.
+        val trackerIds: MutableSet<Long> = mutableSetOf(),
         val novelSources: MutableSet<String> = mutableSetOf(),
         // Field 717, absent from a backup made before it existed.
         val novelSourceNames: MutableMap<String, String> = mutableMapOf(),
-        val novelTrackerIds: MutableSet<Long> = mutableSetOf(),
     )
     // RK <--
 
