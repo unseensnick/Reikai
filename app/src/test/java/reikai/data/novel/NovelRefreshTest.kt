@@ -248,6 +248,15 @@ class NovelRefreshTest {
     }
 
     @Test
+    fun `a refreshed paged novel's first page is stored as page one`() = runTest {
+        val novel = storedNovel()
+
+        refresh(novel, PagedSource(oneChapter, mapOf("2" to listOf(chapter("/c/2", 2.0)))))
+
+        rowsFor(novel, "/c/1").map { it.page } shouldBe listOf("1")
+    }
+
+    @Test
     fun `a paged refresh predicts the next update once`() = runTest {
         val source = PagedSource(
             listOf(chapter("/c/1", 1.0)),

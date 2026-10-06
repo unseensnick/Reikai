@@ -145,24 +145,17 @@ suspend fun refreshNovelFromSource(
         details,
     )
 
-    val firstChapters = sourceNovel.chapters.orEmpty()
     // After the details are stored, as manga's sync throws after its details write.
-    if (firstChapters.isEmpty() && merged.totalPages <= 1L) throw NoChaptersException()
+    if (sourceNovel.chapters.isNullOrEmpty() && merged.totalPages <= 1L) throw NoChaptersException()
 
-    var synced: NovelChapterSyncResult? = null
-    if (firstChapters.isNotEmpty()) {
-        // A paged source's first page is page "1"; tag it so the page-"1" query finds these rows.
-        val pageTag = if (sourceNovel.totalPages > 1) "1" else null
-        synced = syncChaptersWithNovelSource(
-            firstChapters,
-            merged,
-            novelChapterRepository,
-            novelRepository,
-            libraryPreferences,
-            page = pageTag,
-            novelDownloadManager = novelDownloadManager,
-        )
-    }
+    var synced = syncFirstPage(
+        sourceNovel,
+        merged,
+        novelChapterRepository,
+        novelRepository,
+        libraryPreferences,
+        novelDownloadManager,
+    )
     if (merged.totalPages > 1L) {
         val walked = walkNovelPages(
             merged,
@@ -227,18 +220,36 @@ suspend fun syncOpenedChapters(
     libraryPreferences: LibraryPreferences,
     novelDownloadManager: NovelDownloadManager? = null,
 ) {
-    val chapters = sourceNovel.chapters.orEmpty()
-    if (chapters.isEmpty()) return
+    val synced = syncFirstPage(
+        sourceNovel,
+        target,
+        novelChapterRepository,
+        novelRepository,
+        libraryPreferences,
+        novelDownloadManager,
+    ) ?: return
+    predictNovelFetchInterval(target, synced.changed, manualFetch = false, novelChapterRepository, novelRepository)
+}
+
+/** Syncs the chapters [sourceNovel] parsed with [novel], or returns null when it parsed none. */
+private suspend fun syncFirstPage(
+    sourceNovel: SourceNovel,
+    novel: Novel,
+    novelChapterRepository: NovelChapterRepository,
+    novelRepository: NovelRepository,
+    libraryPreferences: LibraryPreferences,
+    novelDownloadManager: NovelDownloadManager?,
+): NovelChapterSyncResult? {
+    val chapters = sourceNovel.chapters?.takeIf { it.isNotEmpty() } ?: return null
     // A paged source's first page is page "1"; tag it so the page-"1" query finds these rows.
     val pageTag = if (sourceNovel.totalPages > 1) "1" else null
-    val synced = syncChaptersWithNovelSource(
+    return syncChaptersWithNovelSource(
         chapters,
-        target,
+        novel,
         novelChapterRepository,
         novelRepository,
         libraryPreferences,
         page = pageTag,
         novelDownloadManager = novelDownloadManager,
     )
-    predictNovelFetchInterval(target, synced.changed, manualFetch = false, novelChapterRepository, novelRepository)
 }
