@@ -45,8 +45,6 @@ import reikai.domain.novel.NovelTextAlign
 import reikai.domain.novel.tts.TtsColorPreset
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
-import reikai.domain.novel.tts.baseLanguages
-import reikai.domain.novel.tts.inLanguages
 import reikai.novel.font.NovelFont
 import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.StepperItem
@@ -80,7 +78,6 @@ import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-import java.util.Locale
 
 /*
  * The novel half of the reader's settings sheet, in tsundoku's look: the rows a reader adjusts while
@@ -595,16 +592,12 @@ private fun EngineRow(preferences: NovelPreferences, options: TtsOptions) {
     val defaultLabel = stringResource(MR.strings.label_default)
     PickerRow(
         labelRes = MR.strings.pref_tts_engine,
-        value = if (engine.isEmpty()) {
-            defaultLabel
-        } else {
-            options.engines.firstOrNull { it.packageName == engine }?.label ?: engine
-        },
+        value = options.engineLabel(engine, defaultLabel),
         onClick = { picking = true },
     )
     if (picking) {
         ListPickerDialog(MR.strings.pref_tts_engine, onDismiss = { picking = false }) {
-            (listOf("" to defaultLabel) + options.engines.map { it.packageName to it.label }).forEach { (name, label) ->
+            options.engineEntries(defaultLabel).forEach { (name, label) ->
                 RadioItem(label = label, selected = name == engine) {
                     preferences.setReaderTtsEngine(name)
                     picking = false
@@ -619,17 +612,12 @@ private fun EngineRow(preferences: NovelPreferences, options: TtsOptions) {
 private fun VoiceLanguagesRow(preferences: NovelPreferences, options: TtsOptions) {
     val languagesPref = preferences.readerTtsLanguages()
     val selected by languagesPref.collectAsState()
-    val languages = remember(options.voices) {
-        options.voices.baseLanguages()
-            .map { code -> code to Locale.forLanguageTag(code).displayLanguage.ifBlank { code } }
-            .sortedBy { it.second }
-    }
+    val languages = remember(options) { options.languageNames() }
     if (languages.size <= 1) return
     var picking by remember { mutableStateOf(false) }
     PickerRow(
         labelRes = MR.strings.pref_tts_languages,
-        value = languages.filter { it.first in selected }.joinToString { it.second }
-            .ifEmpty { stringResource(MR.strings.all) },
+        value = options.languagesLabel(selected).ifEmpty { stringResource(MR.strings.all) },
         onClick = { picking = true },
     )
     if (picking) {
@@ -653,24 +641,15 @@ private fun VoiceRow(preferences: NovelPreferences, options: TtsOptions) {
     val defaultLabel = stringResource(MR.strings.label_default)
     PickerRow(
         labelRes = MR.strings.pref_tts_voice,
-        // Looked up in every voice: one picked before the language filter changed still plays.
-        value = if (voice.isEmpty()) {
-            defaultLabel
-        } else {
-            options.voices.firstOrNull { it.name == voice }?.displayName ?: voice
-        },
+        value = options.voiceLabel(voice, defaultLabel),
         onClick = { picking = true },
     )
     if (picking) {
-        val shown = remember(options.voices, languages) { options.voices.inLanguages(languages) }
+        val shown = remember(options, languages, defaultLabel) { options.voiceEntries(languages, defaultLabel) }
         ListPickerDialog(MR.strings.pref_tts_voice, onDismiss = { picking = false }) {
-            RadioItem(label = defaultLabel, selected = voice.isEmpty()) {
-                voicePref.set("")
-                picking = false
-            }
-            shown.forEach {
-                RadioItem(label = it.displayName, selected = it.name == voice) {
-                    voicePref.set(it.name)
+            shown.forEach { (name, label) ->
+                RadioItem(label = label, selected = name == voice) {
+                    voicePref.set(name)
                     picking = false
                 }
             }

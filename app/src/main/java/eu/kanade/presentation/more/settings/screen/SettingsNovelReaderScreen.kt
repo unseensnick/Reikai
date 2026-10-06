@@ -27,8 +27,6 @@ import reikai.domain.novel.NovelTextAlign
 import reikai.domain.novel.tts.TtsColorPreset
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
-import reikai.domain.novel.tts.baseLanguages
-import reikai.domain.novel.tts.inLanguages
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.novel.content.NovelSnippetKind
 import reikai.presentation.components.ColorPickerDialog
@@ -47,7 +45,6 @@ import reikai.util.scaled
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-import java.util.Locale
 import tachiyomi.core.common.preference.Preference as PreferenceStoreEntry
 
 /**
@@ -98,24 +95,18 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val options = if (indexing) TtsOptions() else rememberTtsOptions(context, engine).value
 
         val defaultLabel = stringResource(MR.strings.label_default)
-        val languages = remember(options.voices) {
-            options.voices.baseLanguages()
-                .map { code -> code to Locale.forLanguageTag(code).displayLanguage.ifBlank { code } }
-                .sortedBy { it.second }
-                .toMap()
-        }
-        val voiceNames = remember(options.voices) { options.voices.associate { it.name to it.displayName } }
-        val shownVoices = remember(options.voices, selectedLanguages) {
-            options.voices.inLanguages(selectedLanguages).associate { it.name to it.displayName }
+        val languages = remember(options) { options.languageNames() }
+        val shownVoices = remember(options, selectedLanguages, defaultLabel) {
+            options.voiceEntries(selectedLanguages, defaultLabel)
         }
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_read_aloud),
             preferenceItems = listOfNotNull(
                 Preference.PreferenceItem.ListPreference(
                     preference = enginePref,
-                    entries = mapOf("" to defaultLabel) + options.engines.associate { it.packageName to it.label },
+                    entries = options.engineEntries(defaultLabel),
                     title = stringResource(MR.strings.pref_tts_engine),
-                    subtitleProvider = { value, entries -> entries[value] ?: value },
+                    subtitleProvider = { value, _ -> options.engineLabel(value, defaultLabel) },
                     // Stored through the helper, which also clears a voice the new engine does not offer.
                     onValueChanged = {
                         novelPreferences.setReaderTtsEngine(it)
@@ -126,19 +117,15 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerTtsLanguages(),
                     entries = languages,
                     title = stringResource(MR.strings.pref_tts_languages),
-                    subtitleProvider = { values, entries ->
-                        values.mapNotNull { entries[it] }.joinToString().ifEmpty { stringResource(MR.strings.all) }
+                    subtitleProvider = { values, _ ->
+                        options.languagesLabel(values).ifEmpty { stringResource(MR.strings.all) }
                     },
                 ).takeIf { indexing || languages.size > 1 },
                 Preference.PreferenceItem.ListPreference(
                     preference = voicePref,
-                    entries = mapOf("" to defaultLabel) + shownVoices,
+                    entries = shownVoices,
                     title = stringResource(MR.strings.pref_tts_voice),
-                    // Looked up in every voice, not the filtered ones: a voice picked before the filter
-                    // changed still plays, so it should still read by its name.
-                    subtitleProvider = { value, _ ->
-                        if (value.isEmpty()) defaultLabel else voiceNames[value] ?: value
-                    },
+                    subtitleProvider = { value, _ -> options.voiceLabel(value, defaultLabel) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = rate,
