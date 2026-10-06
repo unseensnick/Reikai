@@ -9,9 +9,11 @@ import reikai.domain.novel.model.NovelChapter
 
 /**
  * Novel chapters queued for deletion when the reader closes, the novel twin of Mihon's
- * [eu.kanade.tachiyomi.data.download.DownloadPendingDeleter]. Persisted so a queue a process death cut
- * short is deleted on the next close. Only ids are kept; the rows are read back when the queue runs.
- * Its own file rather than a preference, so a backup never carries it to another device.
+ * [eu.kanade.tachiyomi.data.download.DownloadPendingDeleter], pinned by
+ * [reikai.domain.reader.chapterToDeleteBehind], which picks the chapter both readers queue. Persisted
+ * so a queue a process death cut short is deleted on the next close. Only ids are kept; the rows are
+ * read back when the queue runs. Its own file rather than a preference, so a backup never carries it
+ * to another device.
  */
 @Inject
 @SingleIn(AppScope::class)
