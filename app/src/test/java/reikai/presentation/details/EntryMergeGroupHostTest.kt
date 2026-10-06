@@ -37,6 +37,7 @@ class EntryMergeGroupHostTest {
         mergeManager = manager,
         initialIds = longArrayOf(1L),
         anchorChanges = anchorChanges,
+        onSourceChange = { _, _ -> },
         resolveSources = resolveSources,
     )
 

@@ -15,20 +15,21 @@ import reikai.domain.merge.DetailsRemoval
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
+import reikai.domain.merge.viewedMembers
 import tachiyomi.core.common.util.lang.launchIO
 
 /**
  * The shared read side of a merged entry's details screen: the group ids, the selected-source chip,
  * the membership observer keeping them live, and the source-switcher chips. Mirrors the write-side
- * [EntryMergeActionHost]. Two per-type differences are injected: [anchorChanges] emits the anchor id
- * whenever the anchor changes, and [resolveSources] maps the grouped ids to chips,
- * owning the not-merged case so the novel side can clear its sibling map. [observe] is called from
- * each model's init once its fields are set, never here, since the closures capture model state.
+ * [EntryMergeActionHost]. Per type: [anchorChanges] emits the anchor id, [onSourceChange] hears of a
+ * chip flip, and [resolveSources] maps the ids to chips, owning the not-merged case so the novel side
+ * can clear its sibling map. [observe] runs from each model's init, since the closures capture its state.
  */
 class EntryMergeGroupHost(
     private val mergeManager: EntryMergeManager,
     initialIds: LongArray,
     private val anchorChanges: Flow<Long>,
+    private val onSourceChange: (from: Long?, to: Long?) -> Unit,
     private val resolveSources: suspend (LongArray) -> List<EntryMergeSource>,
 ) {
 
@@ -54,6 +55,9 @@ class EntryMergeGroupHost(
             bookmark: (T) -> Boolean,
             onDisk: () -> Set<Long>,
         ) = GroupChapterFlags(mergeScope, pooled, shown, stitch, id, read, bookmark, onDisk)
+
+        /** The entries this view shows, which Clear downloads and the scanlator filter reach. */
+        fun viewedIds(anchorId: Long): List<Long> = viewedMembers(ids.asList(), selected, anchorId)
     }
 
     private val _state = MutableStateFlow(GroupState(initialIds, selected = null))
@@ -107,9 +111,23 @@ class EntryMergeGroupHost(
     }
 
     /** Show one grouped source's chapters, or pass null for the unified ("All") list. An id that is
-     *  not in the group is refused rather than stored, for the same reason [setRelated] prunes. */
+     *  not in the group is refused rather than stored, for the same reason [setRelated] prunes, and a
+     *  re-tap of the chip in view does nothing: neither tells the model of a flip. */
     fun selectSource(entryId: Long?) {
+        val current = _state.value
+        if (entryId != null && entryId !in current.ids) return
+        if (entryId == current.selected) return
+        // Before the write, so no list is built for the new chip with the old chip's selection or page.
+        onSourceChange(current.selected, entryId)
         _state.update { it.copy(selected = entryId?.takeIf { id -> id in it.ids }) }
+    }
+
+    /** What Clear downloads names and deletes, from one snapshot so the wording and the delete agree. */
+    fun clearDownloadsTarget(anchorId: Long): ClearDownloadsTarget = _state.value.let { group ->
+        ClearDownloadsTarget(
+            sourceName = group.selected?.let { id -> chipsOf(group).firstOrNull { it.id == id }?.sourceName },
+            ids = group.viewedIds(anchorId),
+        )
     }
 
     /** The heart's remove for [openedId] over the group and chip in view, the one call both models make. */

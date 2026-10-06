@@ -332,7 +332,7 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabl
         )
         NovelDetailsDialog.TrackSheet -> EntryDetailsDialog.TrackSheet(EntryId.Novel(novel.id), novel.title)
         is NovelDetailsDialog.DeleteChapters -> EntryDetailsDialog.DeleteChapters(d.chapters.map { it.id })
-        is NovelDetailsDialog.ClearDownloads -> EntryDetailsDialog.ClearDownloads(d.sourceName)
+        is NovelDetailsDialog.ClearDownloads -> EntryDetailsDialog.ClearDownloads(d.target)
         is NovelDetailsDialog.RemoveFromLibrary -> EntryDetailsDialog.RemoveFromLibrary(d.removal)
         else -> null
     }

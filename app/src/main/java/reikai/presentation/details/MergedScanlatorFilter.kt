@@ -1,13 +1,5 @@
 package reikai.presentation.details
 
-/**
- * The manga whose scanlator filter the details page reads and writes: the chip's source on its own,
- * or every source of a merged series under All, since the unified list shows all their chapters and
- * each source's exclusions only ever hide its own.
- */
-fun scanlatorTargets(group: EntryMergeGroupHost.GroupState): List<Long> =
-    group.selected?.let(::listOf) ?: group.ids.toList()
-
 /** What the scanlator filter lists, and which of those it shows as hidden. */
 data class ScanlatorFilterView(val available: Set<String>, val excluded: Set<String>)
 

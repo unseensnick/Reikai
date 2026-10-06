@@ -62,9 +62,8 @@ sealed interface EntryDetailsDialog {
      *  when it is next due. [editable] is whether the release-period restriction is on, as the choice needs. */
     data class SetFetchInterval(val interval: Int, val nextUpdate: Instant?, val editable: Boolean) : EntryDetailsDialog
 
-    /** Confirm clearing downloads. [sourceName] names the one source being cleared, or is null when
-     *  the unified view is on and every grouped source goes. */
-    data class ClearDownloads(val sourceName: String?) : EntryDetailsDialog
+    /** Confirm clearing downloads, [target] captured when it opened. */
+    data class ClearDownloads(val target: ClearDownloadsTarget) : EntryDetailsDialog
 
     /** The heart's remove asking about every grouped source, [removal] captured when it opened. */
     data class RemoveFromLibrary(val removal: DetailsRemoval) : EntryDetailsDialog
@@ -187,9 +186,9 @@ fun Screen.EntryDetailsDialogHost(
             onValueChanged = behavior::setFetchInterval.takeIf { dialog.editable },
         )
         is EntryDetailsDialog.ClearDownloads -> ClearDownloadsDialog(
-            sourceName = dialog.sourceName,
+            sourceName = dialog.target.sourceName,
             onDismissRequest = onDismissRequest,
-            onConfirm = behavior::clearDownloads,
+            onConfirm = { behavior.clearDownloads(dialog.target.ids) },
         )
         is EntryDetailsDialog.RemoveFromLibrary -> RemoveFromLibraryDialog(
             groupedSourceCount = dialog.removal.groupIds.size,

@@ -20,8 +20,8 @@ import tachiyomi.i18n.MR
  * snackbar-with-undo logic both details models run lives in one place. The per-type parts are the
  * type's [removal] and its [offerToDeleteDownloads]. Handing each member its own tracker copy is NOT
  * here; [MergeManager] does it on every path that breaks a group up. [anchorId] is a getter, not a
- * captured value, because the novel model resolves its anchor after construction. selectSource and
- * showManageSourcesDialog stay out: those bodies diverge.
+ * captured value, because the novel model resolves its anchor after construction. The chip switch is
+ * [EntryMergeGroupHost.selectSource]; showManageSourcesDialog stays out, since its bodies diverge.
  */
 class EntryMergeActionHost(
     private val scope: CoroutineScope,

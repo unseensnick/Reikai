@@ -4,23 +4,13 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
 /**
- * A merged manga's scanlator filter: under All it covers every source, since the unified list shows
- * all their chapters; on a chip it covers that source alone; and saving applies only what changed.
+ * A merged manga's scanlator filter over the sources on screen (DetailsChipViewConformanceTest pins
+ * which those are): what it lists, and that saving applies only what changed.
  */
 class MergedScanlatorFilterTest {
 
     private val available = mapOf(1L to setOf("Alpha", "Beta"), 2L to setOf("Beta", "Gamma"))
     private val excluded = mapOf(1L to setOf("Alpha"), 2L to setOf("Gamma"))
-
-    @Test
-    fun `under All the filter covers every source of the group`() {
-        scanlatorTargets(EntryMergeGroupHost.GroupState(longArrayOf(1L, 2L), selected = null)) shouldBe listOf(1L, 2L)
-    }
-
-    @Test
-    fun `on a chip the filter covers that source alone`() {
-        scanlatorTargets(EntryMergeGroupHost.GroupState(longArrayOf(1L, 2L), selected = 2L)) shouldBe listOf(2L)
-    }
 
     @Test
     fun `a scanlator only a sibling has is listed under All`() {

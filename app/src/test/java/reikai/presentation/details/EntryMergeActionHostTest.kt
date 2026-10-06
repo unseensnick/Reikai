@@ -52,6 +52,7 @@ class EntryMergeActionHostTest {
             mergeManager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(any()) } returns longArrayOf(3L) },
             initialIds = longArrayOf(1L, 2L, 3L),
             anchorChanges = emptyFlow(),
+            onSourceChange = { _, _ -> },
         ) { emptyList() },
         anchorId = { 3L },
         mergeManager = mockk<MergeManager>(relaxed = true) {

@@ -22,7 +22,7 @@ class DetailsRemovalConformanceTest {
     private suspend fun host(type: ContentType, selected: Long? = null): EntryMergeGroupHost {
         val group = mapOf(OPENED to GROUP, SIBLING to GROUP, OTHER to GROUP)
         val managers = TestMergeManagers(mapOf(type to group), mergingOn = true)
-        val host = EntryMergeGroupHost(managers.of(type), longArrayOf(OPENED), emptyFlow()) { emptyList() }
+        val host = EntryMergeGroupHost(managers.of(type), longArrayOf(OPENED), emptyFlow(), { _, _ -> }) { emptyList() }
         host.seed(OPENED)
         host.selectSource(selected)
         return host

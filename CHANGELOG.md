@@ -228,6 +228,7 @@ agent under Settings -> Advanced.
 - **Set as default in a novel's chapter settings now asks first and can apply the settings to your whole library, as manga's does.**
 - **A novel opened from a source, a search or the feed now shows its synopsis expanded on a phone, as manga does.**
 - **Sorting a chapter list "By source" now really follows that source's own listing, on manga and novels.** Pick "By chapter number" for the old order.
+- **Switching a merged manga's source chip now clears your chapter selection, as novels already did.**
 
 #### Fixed
 

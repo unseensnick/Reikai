@@ -7,6 +7,9 @@ import androidx.compose.runtime.Composable
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
+/** The entries Clear downloads deletes, and the one source it names, or null when it names none. */
+data class ClearDownloadsTarget(val sourceName: String?, val ids: List<Long>)
+
 /**
  * Confirms clearing an entry's downloaded chapters. [sourceName] names the one grouped source being
  * cleared, or is null when the unified view is on and every source goes. Only files are removed:

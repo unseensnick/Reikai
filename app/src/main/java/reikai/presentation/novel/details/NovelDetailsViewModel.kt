@@ -121,6 +121,7 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.DuplicatePrompt
+import reikai.presentation.details.ClearDownloadsTarget
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryManageSourceInfo
@@ -267,6 +268,11 @@ class NovelDetailsViewModel(
             .filterNotNull()
             .onEach { anchorNovelId = it.id }
             .map { it.id },
+        onSourceChange = { from, to ->
+            chapterSelection = EntrySelection.afterChipFlip(chapterSelection, from, to)
+            updateLoaded { it.copy(selection = chapterSelection.selection) }
+            pageIndex.value = 0
+        },
         resolveSources = { ids -> resolveMergeSources(ids) },
     )
 
@@ -796,22 +802,16 @@ class NovelDetailsViewModel(
     private fun downloadFolderOwnerOf(viewed: Novel?, group: List<Novel>, anchor: Novel): Novel? =
         downloadFolderOwner(viewed, group, { it.id == anchor.id }, { downloadManager.getDownloadCount(it) > 0 })
 
-    /** Clears downloads for what the screen shows: the selected chip alone, else every grouped source. */
+    /** Clears downloads for what the screen shows ([EntryMergeGroupHost.clearDownloadsTarget]). */
     fun showClearDownloadsDialog() {
-        val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        val chipName = loaded.selectedSourceNovelId
-            ?.let { id -> loaded.mergeSources.firstOrNull { it.id == id }?.sourceName }
-        updateLoaded { it.copy(dialog = NovelDetailsDialog.ClearDownloads(chipName)) }
+        updateLoaded {
+            it.copy(dialog = NovelDetailsDialog.ClearDownloads(mergeGroup.clearDownloadsTarget(it.novel.id)))
+        }
     }
 
-    fun clearDownloads() {
-        val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        val grouped = mergeGroup.relatedIds.toList()
-        val ids: List<Long> = loaded.selectedSourceNovelId?.let { listOf(it) }
-            ?: grouped.takeIf { it.size > 1 }
-            ?: listOf(loaded.novel.id)
+    fun clearDownloads(novelIds: List<Long>) {
         viewModelScope.launchNonCancellable {
-            ids.forEach { id -> novelRepo.getById(id)?.let { downloadManager.awaitDeleteNovel(it) } }
+            novelIds.forEach { id -> novelRepo.getById(id)?.let { downloadManager.awaitDeleteNovel(it) } }
         }
     }
 
@@ -823,8 +823,8 @@ class NovelDetailsViewModel(
         updateLoaded { it.copy(dialog = NovelDetailsDialog.SourceSettings(viewed)) }
     }
 
-    // Shared split / remove / reorder actions. selectSource + showManageSourcesDialog stay below: their
-    // bodies genuinely diverge.
+    // Shared split / remove / reorder actions. showManageSourcesDialog stays below: its body genuinely
+    // diverges.
     private val mergeActions = EntryMergeActionHost(
         scope = viewModelScope,
         snackbarHostState = snackbarHostState,
@@ -838,12 +838,7 @@ class NovelDetailsViewModel(
     )
 
     /** Switch the chapter view between the unified list (null) and a single grouped source's list. */
-    fun selectSource(novelId: Long?) {
-        if (mergeGroup.selectedSource == novelId) return
-        clearSelection()
-        pageIndex.value = 0
-        mergeGroup.selectSource(novelId)
-    }
+    fun selectSource(novelId: Long?) = mergeGroup.selectSource(novelId)
 
     /** Header source label: the localized unified ("All") label for the merged all-view, else the source
      *  name. Resolved here (the model has the context) so the neutral-state mapping needs no composable. */
@@ -1637,8 +1632,7 @@ sealed interface NovelDetailsDialog {
         val result: NovelWordDensity? = null,
     ) : NovelDetailsDialog
 
-    /** Confirm clearing downloads; sourceName is the chip being viewed, null in the unified view. */
-    data class ClearDownloads(val sourceName: String?) : NovelDetailsDialog
+    data class ClearDownloads(val target: ClearDownloadsTarget) : NovelDetailsDialog
     data class RemoveFromLibrary(val removal: DetailsRemoval) : NovelDetailsDialog
     data object FullCover : NovelDetailsDialog
     data class ManageSources(

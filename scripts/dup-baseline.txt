@@ -21,8 +21,8 @@ app/src/main/java/reikai/domain/novel/NovelChapterAggregation.kt	domain/src/main
 app/src/main/java/reikai/novel/source/TachiyomiNovelSource.kt	app/src/main/java/reikai/novel/source/ireader/IReaderNovelSource.kt	29c26324d163de81
 app/src/main/java/reikai/presentation/browse/catalogue/SavedSearchDialogs.kt	app/src/main/java/reikai/presentation/browse/feed/FeedDialogs.kt	09675367cbee9fc1
 app/src/main/java/reikai/presentation/details/EntryDetailsScaffold.kt	app/src/main/java/reikai/presentation/details/EntryDetailsTwoPaneScaffold.kt	4b2c4c139da865ad
-app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	03c6e7efc75b48ed
 app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	0abe3a0e2674ad8e
+app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	1c7ccaf49745f4af
 app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	9eba8524505a0ee7
 app/src/main/java/reikai/presentation/library/EntryDisplayPage.kt	app/src/main/java/reikai/presentation/library/ReikaiLibrarySettings.kt	3747b29f5d50de9e
 app/src/main/java/reikai/presentation/library/MangaLibraryAdapter.kt	app/src/main/java/reikai/presentation/library/NovelLibraryAdapter.kt	9f4fe78029d2a134

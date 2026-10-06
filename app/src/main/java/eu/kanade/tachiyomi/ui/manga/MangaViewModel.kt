@@ -124,6 +124,7 @@ import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.addEntry
 import reikai.presentation.browse.finishAdd
 import reikai.presentation.components.pageProgressLabel
+import reikai.presentation.details.ClearDownloadsTarget
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryManageSourceInfo
@@ -139,7 +140,6 @@ import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.details.scanlatorFilterView
-import reikai.presentation.details.scanlatorTargets
 import reikai.presentation.details.scanlatorWrites
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.selection.EntrySelection
@@ -296,6 +296,10 @@ class MangaViewModel(
         mergeManager = mergeManager,
         initialIds = longArrayOf(mangaId),
         anchorChanges = flowOf(mangaId),
+        onSourceChange = { from, to ->
+            chapterSelection = EntrySelection.afterChipFlip(chapterSelection, from, to)
+            updateSuccessState { it.withChapterSelection() }
+        },
         resolveSources = { ids -> buildMergeSources(ids) },
     )
 
@@ -401,14 +405,14 @@ class MangaViewModel(
         }
 
         // RK --> the filter covers the sources on screen: the chip's, or every source of a merged series
-        // under All, whose unified list shows all their chapters (see scanlatorTargets). Started once the
+        // under All, whose unified list shows all their chapters (see GroupState.viewedIds). Started once the
         // page has loaded: an earlier value finds no state to land in, and the load's own seed is only the
         // opened entry's, which the distinct stream would then never correct.
         viewModelScope.launchIO {
             state.first { it is State.Success }
             mergeGroup.state
                 .flatMapLatest { group ->
-                    val targets = scanlatorTargets(group)
+                    val targets = group.viewedIds(mangaId)
                     val perTarget = targets.map { id ->
                         combine(
                             getAvailableScanlators.subscribe(id),
@@ -837,31 +841,19 @@ class MangaViewModel(
         downloadFolderOwner(viewed, group.toList(), { it.id == mangaId }, { downloadManager.getDownloadCount(it) > 0 })
     // RK <--
 
-    // RK --> Clear downloads for what the screen shows: the selected chip alone, else the whole group.
+    // RK --> Clear downloads for what the screen shows (EntryMergeGroupHost.clearDownloadsTarget).
     //        Distinct from promptDeleteDownloadsOnRemoved, which covers the entries a remove took out.
     fun showClearDownloadsDialog() {
-        val state = successState ?: return
-        val chipName = state.mergeDisplayManga?.let { state.mergeDisplaySource?.name }
-        updateSuccessState { it.copy(dialog = Dialog.ClearDownloads(chipName)) }
+        updateSuccessState { it.copy(dialog = Dialog.ClearDownloads(mergeGroup.clearDownloadsTarget(mangaId))) }
     }
 
-    fun clearDownloads() {
+    fun clearDownloads(mangaIds: List<Long>) {
         viewModelScope.launchNonCancellable {
-            viewedManga().forEach { downloadManager.deleteManga(it, sourceManager.getOrStub(it.source)) }
+            mangaIds.map { getMangaAndChapters.awaitManga(it) }
+                .forEach { downloadManager.deleteManga(it, sourceManager.getOrStub(it.source)) }
         }
     }
-
-    private suspend fun viewedManga(): List<Manga> =
-        successState?.mergeDisplayManga?.let { listOf(it) } ?: groupManga()
     // RK <--
-
-    /** RK: every source of the merge group, the screen's own manga when it stands alone. Resolved from
-     *  the group rather than the screen's map, which a selected source chip narrows to that one chip. */
-    private suspend fun groupManga(): List<Manga> {
-        val ids = mergeGroup.relatedIds
-        val state = successState ?: return emptyList()
-        return if (ids.size <= 1) listOf(state.manga) else ids.map { getMangaAndChapters.awaitManga(it) }
-    }
 
     // RK: the picker's confirm owes both writes the add deferred, in the shared order, so backing out
     // of the picker adds nothing and a failed favorite leaves no categories behind. A group add's
@@ -1588,8 +1580,8 @@ class MangaViewModel(
         ) : Dialog
         data class DeleteChapters(val chapters: List<Chapter>) : Dialog
 
-        // RK: confirm clearing downloads; sourceName is the chip being viewed, null in the unified view.
-        data class ClearDownloads(val sourceName: String?) : Dialog
+        // RK: confirm clearing downloads, the target captured when it opened
+        data class ClearDownloads(val target: ClearDownloadsTarget) : Dialog
 
         // RK: the adder's whole prompt in place of duplicates, so its groups, labels and grouping offer reach
         // the shared dialog as one value
@@ -1664,7 +1656,7 @@ class MangaViewModel(
         tracker.getMangaMetadata(track)
 
     // RK: shared source split / remove / reorder actions (the snackbar-with-undo logic both details
-    // models run). selectSource + showManageSourcesDialog stay here: their bodies genuinely diverge.
+    // models run). showManageSourcesDialog stays here: its body genuinely diverges.
     private val mergeActions = EntryMergeActionHost(
         scope = viewModelScope,
         snackbarHostState = snackbarHostState,
@@ -1678,9 +1670,7 @@ class MangaViewModel(
     )
 
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */
-    fun selectSource(sourceMangaId: Long?) {
-        mergeGroup.selectSource(sourceMangaId)
-    }
+    fun selectSource(sourceMangaId: Long?) = mergeGroup.selectSource(sourceMangaId)
 
     /** Header source label: the localized unified ("All") label for the merged all-view, else the active
      *  source's display name. Resolved here (the model has the context) so MangaEntryAdapter's neutral-state
@@ -1838,7 +1828,7 @@ class MangaViewModel(
     fun setExcludedScanlators(excludedScanlators: Set<String>) {
         // RK --> written to each source on screen, applying only what the dialog changed
         val shown = successState?.excludedScanlators ?: return
-        val targets = scanlatorTargets(mergeGroup.state.value)
+        val targets = mergeGroup.state.value.viewedIds(mangaId)
         viewModelScope.launchIO {
             val current = targets.associateWith { getExcludedScanlators.await(it) }
             scanlatorWrites(targets, current, shown, excludedScanlators).forEach { (id, excluded) ->

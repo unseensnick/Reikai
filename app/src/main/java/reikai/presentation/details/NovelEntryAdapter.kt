@@ -235,8 +235,8 @@ class NovelEntryAdapter(
         model.showClearDownloadsDialog()
     }
 
-    override fun clearDownloads() {
-        model.clearDownloads()
+    override fun clearDownloads(entryIds: List<Long>) {
+        model.clearDownloads(entryIds)
     }
 
     override fun setFetchInterval(days: Int) {

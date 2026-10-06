@@ -45,8 +45,8 @@ interface EntryDetailsBehavior {
      *  source when the unified view is on. */
     fun showClearDownloadsDialog()
 
-    /** Confirm that clear. Chapters, read state and history are untouched; only files are removed. */
-    fun clearDownloads()
+    /** Confirm that clear for [entryIds]. Chapters, read state and history are untouched; only files are removed. */
+    fun clearDownloads(entryIds: List<Long>)
 
     /** Sets smart update's interval to [days], or back to the predicted one for 0. */
     fun setFetchInterval(days: Int)
