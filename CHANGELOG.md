@@ -680,6 +680,7 @@ agent under Settings -> Advanced.
 - A series' page no longer rebuilds its chapter list when another series updates.
 - Deleting many downloaded novel chapters now does its disk, index and saved-queue work once per batch.
 - The novel updates feed reads its newest chapters through an index instead of reading and sorting every library chapter on each refresh.
+- Checking adult content sources for newer gallery versions finds chapters through an index instead of reading every stored chapter.
 - One rule now turns a novel chapter's picture and link addresses into full ones, for both readers and downloads.
 - The in-app browser, the Cloudflare bypass and the tracker sign-in browser now present one browser identity (from Mihon, mihonapp/mihon#3678), and Shikimori recommendations identify as Reikai like the other Shikimori calls.
 - Kitsu tracking, the taste profile and Fill from tracker now use only Kitsu's newer API (partly from Mihon, mihonapp/mihon#3792), and Shikimori progress goes through its own update endpoint (from Mihon, mihonapp/mihon#3810).

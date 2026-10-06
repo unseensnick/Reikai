@@ -1,0 +1,4 @@
+-- The adult-gallery version reconciliation looks chapters up by url alone, once per chapter of a chain,
+-- and UNIQUE(manga_id, remote_url) leads with the entry, so without this every lookup scans the table.
+-- Komikku carries the same index; Mihon has no url-only query and so none.
+CREATE INDEX chapter_remote_url_index ON chapter(remote_url);
