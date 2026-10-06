@@ -13,7 +13,6 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import mihon.domain.manga.model.toDomainManga
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.domain.source.interactor.UpdateMangaFromRemote
@@ -21,6 +20,7 @@ import mihon.feature.migration.list.search.SmartSourceSearchEngine
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.source.listedManga
 import reikai.presentation.migrate.PickMember
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -188,9 +188,9 @@ class MangaMigrationFlowAdapter(
         sourceKey: String,
     ): List<MigrationCandidate> {
         val source = catalogueSource(sourceKey) ?: return emptyList()
-        val found = source.getSearchManga(1, query, source.getFilterList()).mangas
-            .map { it.toDomainManga(source.id) }
-            .distinctBy { it.url }
+        // Filtered before the store, which heals a stored row's cover even on a favourite: a search must
+        // never write the entry's own row.
+        val found = source.getSearchManga(1, query, source.getFilterList()).listedManga(source.id)
             .filterNot { entry.isOwnListing(sourceKey, it.url) }
         return networkToLocalManga(found).map { it.toCandidate(sourceKey) }
     }

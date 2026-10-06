@@ -1,6 +1,7 @@
 package reikai.presentation.browse
 
 import cafe.adriel.voyager.core.screen.Screen
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import exh.metadata.metadata.RaisedSearchMetadata
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
@@ -13,12 +14,15 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.SourceKey
+import reikai.domain.source.listedManga
 import reikai.novel.host.NovelItem
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryBrowseRowContent
 import reikai.presentation.browse.catalogue.mapState
 import reikai.presentation.novel.browse.NovelAddFlow
 import reikai.presentation.novel.details.NovelScreen
+import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 
 // The one result row every browse surface draws, built here for each content type: a catalogue page,
@@ -45,6 +49,15 @@ fun liveMangaRow(listed: Manga, stored: Flow<Manga?>): EntryBrowseRow =
             it to null
         },
     )
+
+/** A manga source's page as result rows, made local first so each row can follow its stored manga. */
+suspend fun storedMangaRows(
+    page: MangasPage,
+    sourceId: Long,
+    networkToLocalManga: NetworkToLocalManga,
+    getManga: GetManga,
+): List<EntryBrowseRow> =
+    networkToLocalManga(page.listedManga(sourceId)).map { liveMangaRow(it, getManga.subscribe(it.url, it.source)) }
 
 /** A novel result, in the library while [favorited] holds its source and path. */
 fun novelBrowseRow(item: NovelItem, sourceId: String, favorited: StateFlow<FavoritedNovels>): EntryBrowseRow =

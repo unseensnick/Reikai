@@ -8,11 +8,10 @@ import eu.kanade.tachiyomi.source.Source
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import mihon.domain.manga.model.toDomainManga
 import reikai.presentation.browse.MangaAddFlow
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.catalogue.EntryBrowseRow
-import reikai.presentation.browse.liveMangaRow
+import reikai.presentation.browse.storedMangaRows
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.source.service.SourceManager
@@ -67,11 +66,7 @@ abstract class SearchViewModel(
         val page = withContext(coroutineDispatcher) {
             source.getSearchManga(1, query, source.getFilterList())
         }
-        return page.mangas
-            .map { it.toDomainManga(source.id) }
-            .distinctBy { it.url }
-            .let { networkToLocalManga(it) }
-            .map { liveMangaRow(it, getManga.subscribe(it.url, it.source)) }
+        return storedMangaRows(page, source.id, networkToLocalManga, getManga)
     }
     // RK <--
 

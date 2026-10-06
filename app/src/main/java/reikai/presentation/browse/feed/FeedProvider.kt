@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import mihon.domain.manga.model.toDomainManga
 import reikai.domain.library.ContentType
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.GetEnabledNovelSources
@@ -22,8 +21,8 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
-import reikai.presentation.browse.liveMangaRow
 import reikai.presentation.browse.novelBrowseRow
+import reikai.presentation.browse.storedMangaRows
 import reikai.presentation.novel.browse.NovelSavedSearchRun
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -99,12 +98,7 @@ class MangaFeedProvider(
             source.supportsLatest -> source.getLatestUpdates(1)
             else -> source.getPopularManga(1)
         }
-        // Made local before they are shown, so each row can follow its stored manga.
-        return page.mangas
-            .map { it.toDomainManga(source.id) }
-            .distinctBy { it.url }
-            .let { networkToLocalManga(it) }
-            .map { liveMangaRow(it, getManga.subscribe(it.url, it.source)) }
+        return storedMangaRows(page, source.id, networkToLocalManga, getManga)
     }
 
     private fun toRow(source: Source) = BrowseSearchRow(
