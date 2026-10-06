@@ -16,6 +16,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import reikai.data.novel.NovelStatusCode
+import reikai.data.novel.toNovel
 import reikai.novel.registry.LnRegistry
 import reikai.novel.source.buildOptions
 import reikai.novel.source.defaultFilterValues
@@ -371,6 +373,27 @@ class HeadlessJsIntegrationTest {
         """.trimIndent()
 
         assertTrue(host.loadPlugin("web-storage-flag-test", plugin).webStorageUtilized)
+    }
+
+    /**
+     * LNReader's newer statuses (plugins c432ad8) reach a stored novel as the shared status each reads as.
+     * The host's NovelStatus lacked them, so a plugin naming one sent no status at all. Inline plugin: no network.
+     */
+    @Test
+    fun aPluginsNewerStatusesReadAsSharedOnes() = runBlocking {
+        val host = LnPluginHost(context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        val plugin = """
+            var NovelStatus = require('@libs/novelStatus').NovelStatus;
+            module.exports.default = {
+              id: 'status-test', name: 'T', site: 'https://example.org', version: '1.0.0',
+              parseNovel: async function (path) { return { path: path, name: 'T', status: NovelStatus[path] }; },
+            };
+        """.trimIndent()
+        host.loadPlugin("status-test", plugin)
+
+        val codes = listOf("Inactive", "STUB").map { host.parseNovel("status-test", it).toNovel("status-test").status }
+
+        assertEquals(listOf(NovelStatusCode.ON_HIATUS, NovelStatusCode.LICENSED).map(Int::toLong), codes)
     }
 
     /**

@@ -777,6 +777,9 @@
     PublishingFinished: "Publishing Finished",
     Cancelled: "Cancelled",
     OnHiatus: "On Hiatus",
+    // A member missing here reaches a plugin as undefined, dropping the status and any filter option naming it.
+    STUB: "STUB",
+    Inactive: "Inactive",
   });
   // Member NAMES must mirror LNReader's FilterTypes enum: compiled plugins look a type up by name
   // (`i.FilterTypes.CheckboxGroup`), so a missing/renamed member resolves to undefined and that filter

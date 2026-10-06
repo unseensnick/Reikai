@@ -33,8 +33,11 @@ object NovelStatusCode {
         ON_HIATUS to "On Hiatus",
     )
 
-    fun fromString(status: String?): Int =
-        names.entries.firstOrNull { it.value == status?.trim() }?.key ?: UNKNOWN
+    // LNReader's Inactive and STUB have no code in manga's table, so each reads as the nearest one.
+    private val codes = names.entries.associate { (code, word) -> word to code } +
+        mapOf("Inactive" to ON_HIATUS, "STUB" to LICENSED)
+
+    fun fromString(status: String?): Int = codes[status?.trim()] ?: UNKNOWN
 
     /** [code] in a source's words, for a source that states it as a number; null when unknown. */
     fun toSourceString(code: Int): String? = names[code]

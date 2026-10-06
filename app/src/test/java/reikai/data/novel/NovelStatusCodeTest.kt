@@ -22,6 +22,13 @@ class NovelStatusCodeTest {
         NovelStatusCode.toSourceString(code) shouldBe null
     }
 
+    // LNReader's two newer words fold onto the shared table, which manga's codes bound.
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("foldedWords")
+    fun `a newer LNReader status reads as the nearest shared one`(word: String, code: Int) {
+        NovelStatusCode.fromString(word) shouldBe code
+    }
+
     // Shared library and details code reads a novel's status through manga's table.
     @ParameterizedTest(name = "{0}")
     @MethodSource("codePairs")
@@ -30,6 +37,12 @@ class NovelStatusCodeTest {
     }
 
     companion object {
+        @JvmStatic
+        fun foldedWords() = listOf(
+            Arguments.of("Inactive", NovelStatusCode.ON_HIATUS),
+            Arguments.of("STUB", NovelStatusCode.LICENSED),
+        )
+
         @JvmStatic
         fun codePairs() = listOf(
             Arguments.of(NovelStatusCode.UNKNOWN, SManga.UNKNOWN),

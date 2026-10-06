@@ -354,6 +354,7 @@ agent under Settings -> Advanced.
 - **The novel reader, resuming and next-chapter downloads now follow the order you sorted a novel's chapter list into.**
 - **Time spent reading a novel now keeps counting after you switch away and come back.**
 - **Ongoing novels from some light-novel sources no longer show as Completed or get skipped by library updates.** Refresh an affected novel to correct the status it was saved with.
+- **Light novels a source marks Inactive or Stub now show On hiatus or Licensed instead of Unknown.** A source's Inactive status filter shows up again too.
 - **A novel library update no longer undoes a change you make to one of its novels while it runs, such as removing it from the library or editing its notes.**
 - **Pulling down to refresh a novel now downloads its new chapters when Download new chapters is on, as it does for manga.**
 - **Opening a downloaded novel chapter no longer freezes the reader while it loads, most of all on chapters with pictures.**
