@@ -63,8 +63,7 @@ import tachiyomi.presentation.core.util.secondaryItemAlpha
 
 /**
  * Content-agnostic header data for the shared [EntryInfoBox]. [coverModel] is a coil model (a `Manga`
- * or a [NovelCover]), so each content type feeds its own object. [isStubSource] is false for content
- * types that cannot have one (novels).
+ * or a [NovelCover]), so each content type feeds its own object.
  */
 data class EntryHeaderUi(
     val coverModel: Any,
@@ -73,31 +72,31 @@ data class EntryHeaderUi(
     val artist: String?,
     val status: Long,
     val sourceName: String,
-    val isStubSource: Boolean,
+    /** The viewed member's source; the download gate reads it too (EntryDetailsScreenState.Loaded). */
+    val sourceState: EntrySourceState,
     /** The library query for the viewed source's entries; null where [sourceName] labels a merged group. */
     val sourceQuery: String?,
 )
 
-fun Manga.toEntryHeader(sourceName: String, isStubSource: Boolean, sourceQuery: String?) = EntryHeaderUi(
+fun Manga.toEntryHeader(sourceName: String, sourceState: EntrySourceState, sourceQuery: String?) = EntryHeaderUi(
     coverModel = this,
     title = title,
     author = author,
     artist = artist,
     status = status,
     sourceName = sourceName,
-    isStubSource = isStubSource,
+    sourceState = sourceState,
     sourceQuery = sourceQuery,
 )
 
-fun Novel.toEntryHeader(sourceName: String, sourceQuery: String?) = EntryHeaderUi(
+fun Novel.toEntryHeader(sourceName: String, sourceState: EntrySourceState, sourceQuery: String?) = EntryHeaderUi(
     coverModel = asNovelCover(),
     title = title,
     author = author,
     artist = artist,
     status = status,
     sourceName = sourceName,
-    // stub sources are a manga-extension concept; novels never have one
-    isStubSource = false,
+    sourceState = sourceState,
     sourceQuery = sourceQuery,
 )
 
@@ -391,7 +390,7 @@ private fun ColumnScope.EntryContentInfo(
                 maxLines = 1,
             )
             DotSeparatorText()
-            if (header.isStubSource) {
+            if (header.sourceState == EntrySourceState.Missing) {
                 Icon(
                     imageVector = MaterialSymbols.Rounded.Warning,
                     contentDescription = null,

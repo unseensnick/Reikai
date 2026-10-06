@@ -127,6 +127,7 @@ import reikai.presentation.details.EntryManageSourceInfo
 import reikai.presentation.details.EntryMergeActionHost
 import reikai.presentation.details.EntryMergeGroupHost
 import reikai.presentation.details.EntryMergeSource
+import reikai.presentation.details.EntrySourceState
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
@@ -226,6 +227,10 @@ class NovelDetailsViewModel(
     /** Resolved once the plugin host loads it; source-dependent ops defer until set. */
     @Volatile
     private var source: NovelSource? = null
+
+    /** Set once the plugin host answered that the opened novel's plugin is not installed. */
+    @Volatile
+    private var anchorSourceMissing = false
 
     /** A first-open fetch (no stored chapters) runs at most once. */
     private var firstFetchTried = false
@@ -390,10 +395,17 @@ class NovelDetailsViewModel(
             runCatchingCancellable { installer.ensureLoaded() }
             val resolved = sourceManager.get(sourceId)
             if (resolved == null) {
+                // Set before the update, so a rebuild racing it reads the flag on its retry.
+                anchorSourceMissing = true
                 if (state.value !is NovelDetailsState.Loaded) {
                     state.value = NovelDetailsState.Failed(
                         context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId)),
                     )
+                }
+                state.update {
+                    (it as? NovelDetailsState.Loaded)?.takeIf { l -> l.displayNovel.id == l.novel.id }
+                        ?.copy(sourceState = EntrySourceState.Missing)
+                        ?: it
                 }
             } else {
                 source = resolved
@@ -628,6 +640,7 @@ class NovelDetailsViewModel(
         val resume = ReadingOrder.nextToRead(resumable) { marks.isRead(it.id, it.read) }
         val viewSource = viewedNovelSource(viewNovel.id, anchor.id, siblingSources.value, source)
         val novelWebUrl = viewSource?.webUrl(viewNovel.url, isNovel = true)
+        val sourceName = viewSource?.name ?: sourceManager.nameOf(viewNovel.source)
         state.update { prev ->
             val loaded = prev as? NovelDetailsState.Loaded
             NovelDetailsState.Loaded(
@@ -655,11 +668,12 @@ class NovelDetailsViewModel(
                 resumeChapter = resume,
                 hasStarted = chapters.any { marks.isRead(it.id, it.read) },
                 seedColor = loaded?.seedColor,
-                // An uninstalled plugin shows its own id, as its chip does.
-                sourceName = viewSource?.name ?: viewNovel.source,
+                sourceName = sourceName,
                 novelWebUrl = novelWebUrl,
                 sourceHasSettings = viewSource?.settings != null,
                 browsableSourceId = viewSource?.id,
+                // Read in here, so a lookup landing mid-rebuild is seen when the update retries.
+                sourceState = novelSourceState(viewSource, viewNovel.id == anchor.id, anchorSourceMissing),
                 sorting = anchor.effectiveSorting(novelPreferences),
                 sortDescending = sortDescending,
                 readFilter = anchor.effectiveReadFilter(novelPreferences),
@@ -1564,6 +1578,8 @@ sealed interface NovelDetailsState {
         val sourceHasSettings: Boolean = false,
         /** The viewed source's id when its plugin is installed; null hides the header's Browse. */
         val browsableSourceId: String? = null,
+        /** Whether the viewed member's plugin is installed; see [novelSourceState]. */
+        val sourceState: EntrySourceState = EntrySourceState.Installed,
         // Resolved (per-novel or global-default) chapter view settings.
         val sorting: Long = NovelChapterFlags.SORTING_SOURCE,
         val sortDescending: Boolean = true,
@@ -1640,3 +1656,16 @@ sealed interface NovelDetailsDialog {
  */
 internal fun <S> viewedNovelSource(viewedId: Long, anchorId: Long, siblings: Map<Long, S>, anchorSource: S?): S? =
     siblings[viewedId] ?: anchorSource.takeIf { viewedId == anchorId }
+
+/**
+ * A sibling's plugins are looked up before its chip can be picked, so no source there means missing.
+ * The anchor's is looked up after the page first loads, so it counts as missing only once [anchorMissing].
+ */
+internal fun <S> novelSourceState(viewedSource: S?, isAnchorView: Boolean, anchorMissing: Boolean): EntrySourceState =
+    if (viewedSource == null &&
+        (!isAnchorView || anchorMissing)
+    ) {
+        EntrySourceState.Missing
+    } else {
+        EntrySourceState.Installed
+    }

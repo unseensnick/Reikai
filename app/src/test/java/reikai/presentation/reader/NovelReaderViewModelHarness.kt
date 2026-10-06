@@ -16,6 +16,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -107,10 +108,20 @@ class NovelReaderViewModelHarness private constructor(
     /** One permit per plugin host load, which a details screen asks for just before it names a group's chips. */
     val pluginLoads = Semaphore(0)
 
+    /** Completed by a test to let plugin loads finish; already complete unless [holdPluginLoads] replaced it. */
+    @Volatile
+    private var pluginLoadGate = CompletableDeferred(Unit)
+
+    /** Holds every plugin load until the returned gate completes, as a slow plugin host does on a device. */
+    fun holdPluginLoads(): CompletableDeferred<Unit> = CompletableDeferred<Unit>().also { pluginLoadGate = it }
+
     // Plugins are fetched and evaluated by the installer, which is the network; a registered fake
     // source stands in for what it would have loaded.
     private val installer = mockk<LnPluginInstaller>(relaxed = true) {
-        coEvery { ensureLoaded() } answers { pluginLoads.release() }
+        coEvery { ensureLoaded() } coAnswers {
+            pluginLoadGate.await()
+            pluginLoads.release()
+        }
     }
     private val sourceManager = NovelSourceManager(
         installer = { installer },
@@ -374,6 +385,7 @@ class NovelReaderViewModelHarness private constructor(
      */
     suspend fun close() {
         diskProbeGate?.open()
+        pluginLoadGate.complete(Unit)
         viewModels.clear()
         withContext(NonCancellable) { modelJobs.joinAll() }
         driver.close()

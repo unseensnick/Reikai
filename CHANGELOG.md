@@ -161,6 +161,7 @@ agent under Settings -> Advanced.
 - **A merged series now counts once in new-chapter notifications and the Updates widget, instead of once per source.**
 - **Merged rows in Updates and History now show and change read, bookmark and download state for every source, and Continue reading from History opens the chapter the library would.** An Updates row's download is its own source's copy, since that is the copy it opens.
 - **Selecting a source chip on a merged series now switches the synopsis and tags to that source, and Share and Open in WebView follow it too.** Migrate asks which source to move whichever chip is selected, and your custom title stays visible.
+- **On a merged manga, the download controls, Share and Open in WebView now follow the selected source chip's own source, so a chip on a missing extension no longer offers them.**
 - **On a merged series, tapping the cover now shows the selected source's cover, and changing the cover is done under the All chip.** Your library shows the group's cover, so an edit made under one source would have looked like it did nothing.
 - **Library search now finds a merged series by any of its sources' names, ids or languages, not only its leading source's.** That includes the search a source chip opens.
 - **A merged series' library cover, title and badge now come from the same source its chapter list leads with.**
@@ -233,6 +234,7 @@ agent under Settings -> Advanced.
 - **A series whose site shows a placeholder until its cover loads now keeps its real cover.** A series already stuck on the placeholder takes its cover back from its source's listing.
 - **Refreshing a manga no longer blanks its author, artist, description or status when its source sends none.**
 - **Removing a novel from the library on its page now offers to delete its downloaded chapters, as manga does.** Removing a novel from anywhere also clears its saved cover, a custom one included.
+- **A novel's page now warns when its plugin is uninstalled, names the plugin as it was last seen and hides downloads, as a manga's page does for a missing extension.**
 - **When two manga chapters share a number, upload date or name, Resume, Continue reading and Download next now pick the one the reader opens next.**
 - **The full-screen cover viewer, Save and Share now use the cover URL you set in Edit info.**
 - **Reset all in Edit info now also clears a cover you set by hand, on manga and novels.**

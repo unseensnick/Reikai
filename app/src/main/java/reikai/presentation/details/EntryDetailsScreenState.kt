@@ -19,6 +19,8 @@ sealed interface EntryDetailsScreenState {
     @Immutable
     data class Loaded(
         val entryId: EntryId,
+        /** The member the page shows: the selected chip's, else the anchor's own [entryId]. */
+        val viewedEntryId: Long,
         /** Header + action row + description data (shared with [entryInfoItems]). */
         val details: EntryDetailsUiState,
         val chapters: EntryChapterListUiState,
@@ -37,8 +39,6 @@ sealed interface EntryDetailsScreenState {
         val resumeChapterId: Long?,
         /** At least one chapter is read, so the FAB reads "Resume" rather than "Start". */
         val hasStarted: Boolean,
-        /** Downloads apply to this entry (false for a local/stub source); gates the download UI. */
-        val chaptersDownloadable: Boolean,
         /** A viewed member holds files on disk, so Open folder and Clear downloads have something to act
          *  on. Answered by each adapter through [downloadFolderOwner], never from the rows. */
         val hasViewedDownloads: Boolean,
@@ -49,7 +49,24 @@ sealed interface EntryDetailsScreenState {
     ) : EntryDetailsScreenState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
         val isMerged: Boolean get() = mergeSources.size > 1
+
+        /** Downloads go through the viewed member's own source, so only an installed one gates them on. */
+        val chaptersDownloadable: Boolean get() = details.header.sourceState == EntrySourceState.Installed
+
+        /** A custom cover lands on the entry the library renders, so only the anchor's may be edited. */
+        val isCoverAnchored: Boolean get() = viewedEntryId == entryId.rawId
     }
+}
+
+/** What the viewed member's source is: the header warns on [Missing], and only [Installed] downloads. */
+enum class EntrySourceState {
+    Installed,
+
+    /** Manga's local source, whose files are the series itself. Novels have no local source. */
+    Local,
+
+    /** Uninstalled: a manga stub source, or a novel whose plugin or extension is gone. */
+    Missing,
 }
 
 /** One grouped source in the merge switcher chips + manage-sources dialog. [id] is the member

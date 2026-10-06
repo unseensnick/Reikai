@@ -6,7 +6,7 @@ import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
-import eu.kanade.tachiyomi.source.isLocalOrStub
+import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import eu.kanade.tachiyomi.ui.manga.MangaViewModel
@@ -29,6 +29,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.track.model.Track
+import tachiyomi.source.local.isLocal
 
 /**
  * Adapts the live [MangaViewModel] to the neutral [EntryDetailsBehavior]. Mihon's model stays
@@ -61,15 +62,15 @@ class MangaEntryAdapter(
         val shown = shownEntry(manga, siblingChip(), { it.withCustomInfo(customInfo) }) { entry, own ->
             entry.copy(thumbnailUrl = own.thumbnailUrl)
         }
-        val displaySource = mergeDisplaySource ?: source
         // The inline carousel shows only for inline placement; in-menu still loads the pool, just hides it.
         val showInlineRelated = !model.recommendationsInMenu && (relatedLoading || relatedItems.isNotEmpty())
         return EntryDetailsScreenState.Loaded(
             entryId = EntryId.Manga(manga.id),
+            viewedEntryId = shownManga.id,
             details = EntryDetailsUiState(
                 header = shown.toEntryHeader(
                     sourceName = model.headerSourceName(this),
-                    isStubSource = displaySource is StubSource,
+                    sourceState = shownSource.entrySourceState(),
                     sourceQuery = model.headerSourceQuery(this),
                 ),
                 favorite = manga.favorite,
@@ -109,10 +110,10 @@ class MangaEntryAdapter(
                 // Always present for manga: the chips render from a namespaced genre even before the
                 // metadata object loads, and return nothing for a normal manga.
                 mangaGallery = MangaGalleryCapability(
-                    sourceId = displaySource.id,
+                    sourceId = shownSource.id,
                     rawGenre = shown.genre,
                     metadata = galleryMetadata,
-                    tagQuery = displaySource.getMainSource<MetadataSource<*, *>>()?.let { it::tagSearchQuery },
+                    tagQuery = shownSource.getMainSource<MetadataSource<*, *>>()?.let { it::tagSearchQuery },
                 ),
             ),
             mergeSources = mergeSources,
@@ -122,7 +123,6 @@ class MangaEntryAdapter(
             selection = visibleSelection(),
             resumeChapterId = model.getNextUnreadChapter()?.id,
             hasStarted = chapters.any { it.isRead },
-            chaptersDownloadable = !source.isLocalOrStub(),
             hasViewedDownloads = downloadFolderOwner != null,
             showChapterNumberOnly = manga.displayMode == Manga.CHAPTER_DISPLAY_NUMBER,
             seedColor = seedColor,
@@ -248,13 +248,10 @@ class MangaEntryAdapter(
 
     override fun coverKey(): String = (shownCover()?.id ?: 0L).toString()
 
-    override fun isCoverAnchored(): Boolean = successState()?.siblingChip() == null
-
     /** The selected chip's entry when it is not the anchor's own; null on the unified view. */
     private fun MangaViewModel.State.Success.siblingChip(): Manga? = mergeDisplayManga?.takeIf { it.id != manga.id }
 
-    /** The entry whose cover the page is showing: the selected chip's, falling back to the group's. */
-    private fun shownCover(): Manga? = successState()?.let { it.mergeDisplayManga ?: it.manga }
+    private fun shownCover(): Manga? = successState()?.shownManga
     override fun showEditInfoDialog() {
         model.showEditMangaInfoDialog()
     }
@@ -316,6 +313,13 @@ class MangaEntryAdapter(
     override fun refresh() {
         model.fetchAllFromSource()
     }
+}
+
+/** How the page classifies the manga source it shows: local first, since a local source is never a stub. */
+internal fun Source.entrySourceState(): EntrySourceState = when {
+    isLocal() -> EntrySourceState.Local
+    this is StubSource -> EntrySourceState.Missing
+    else -> EntrySourceState.Installed
 }
 
 /** Manga page-preview thumbnails (adult sources). Filled only when the source actually supplies previews. */

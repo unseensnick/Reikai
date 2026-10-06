@@ -117,6 +117,8 @@ fun Screen.EntryDetailsDialogHost(
             )
             val cover by coverViewModel.coverModel.collectAsStateWithLifecycle()
             val isCoverEditable by coverViewModel.isCoverEditable.collectAsStateWithLifecycle()
+            val page by behavior.state.collectAsStateWithLifecycle()
+            val isCoverAnchored = (page as? EntryDetailsScreenState.Loaded)?.isCoverAnchored == true
             if (cover != null) {
                 val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
                     if (uri != null) coverViewModel.editCover(context, uri)
@@ -130,7 +132,7 @@ fun Screen.EntryDetailsDialogHost(
                     // Null hides Edit and Delete: for an entry that cannot keep a custom cover, and for
                     // a chip's sibling, since a custom cover has to land on the entry the library
                     // renders, so it is only offered where the group's own cover is the one on screen.
-                    onEditClick = if (isCoverEditable && behavior.isCoverAnchored()) {
+                    onEditClick = if (isCoverEditable && isCoverAnchored) {
                         { action: EditCoverAction ->
                             when (action) {
                                 EditCoverAction.EDIT -> getContent.launch("image/*")

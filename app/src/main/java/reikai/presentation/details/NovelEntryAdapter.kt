@@ -58,9 +58,11 @@ class NovelEntryAdapter(
         }
         return EntryDetailsScreenState.Loaded(
             entryId = EntryId.Novel(novel.id),
+            viewedEntryId = displayNovel.id,
             details = EntryDetailsUiState(
                 header = display.toEntryHeader(
                     sourceName = model.headerSourceName(this),
+                    sourceState = sourceState,
                     sourceQuery = model.headerSourceQuery(this),
                 ),
                 favorite = novel.favorite,
@@ -98,8 +100,6 @@ class NovelEntryAdapter(
             selection = EntrySelection.selectedAmong(selection, chapters.map { it.id }),
             resumeChapterId = resumeChapter?.id,
             hasStarted = hasStarted,
-            // Novels have no local/stub source concept, so downloads always apply.
-            chaptersDownloadable = true,
             hasViewedDownloads = downloadFolderOwner != null,
             showChapterNumberOnly = hideChapterTitles,
             seedColor = seedColor,
@@ -200,13 +200,12 @@ class NovelEntryAdapter(
     override fun coverKey(): String = coverArgs().let { (url, source) -> "$url|$source" }
 
     /** Follows the source chip like manga, so the cover matches the page. Editing is gated by
-     *  isCoverAnchored instead, since a custom cover must land on the entry the library renders. */
+     *  EntryDetailsScreenState.Loaded.isCoverAnchored instead, since a custom cover must land on the
+     *  entry the library renders. */
     private fun coverArgs(): Pair<String, String> {
-        val shown = loadedState()?.let { it.displayNovel ?: it.novel }
+        val shown = loadedState()?.displayNovel
         return shown?.url.orEmpty() to shown?.source.orEmpty()
     }
-    override fun isCoverAnchored(): Boolean =
-        loadedState()?.let { it.selectedSourceNovelId == null || it.selectedSourceNovelId == it.novel.id } != false
 
     private fun loadedState(): NovelDetailsState.Loaded? = model.state.value as? NovelDetailsState.Loaded
     override fun showEditInfoDialog() {

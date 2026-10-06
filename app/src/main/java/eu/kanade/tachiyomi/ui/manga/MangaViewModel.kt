@@ -1683,7 +1683,7 @@ class MangaViewModel(
         if (headerNamesWholeGroup(state.mergeSources.size, state.selectedSourceMangaId)) {
             context.stringResource(MR.strings.merge_unified)
         } else {
-            (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
+            state.shownSource.getNameForMangaInfo()
         }
 
     /** The library query for the header's source, or null where the header names the whole merged group. */
@@ -1691,7 +1691,7 @@ class MangaViewModel(
         if (headerNamesWholeGroup(state.mergeSources.size, state.selectedSourceMangaId)) {
             null
         } else {
-            sourceKeyQuery((state.mergeDisplaySource ?: state.source).id.toString())
+            sourceKeyQuery(state.shownSource.id.toString())
         }
 
     /** The localized "Page N" resume hint for a started-but-unread chapter, else null. Resolved here (needs
@@ -1905,6 +1905,11 @@ class MangaViewModel(
             // Whose queued downloads the rows follow. A merged series lists chapters of every source
             // it shows, so matching [manga] alone left a sibling source's row on a stale mark.
             fun showsChaptersOf(mangaId: Long) = mangaId == manga.id || mangaId in mergedMangaById
+
+            // The member the page shows, and its source: the selected chip's, else the anchor's. Writes
+            // (favourite, tracking, migrate) stay on [manga].
+            val shownManga: Manga get() = mergeDisplayManga ?: manga
+            val shownSource: Source get() = mergeDisplaySource ?: source
             // RK <--
 
             val processedChapters by lazy {

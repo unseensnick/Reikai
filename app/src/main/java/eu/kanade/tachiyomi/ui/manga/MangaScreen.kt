@@ -159,8 +159,7 @@ class MangaScreen(
                         onGlobalSearch = { scope.launch { performSearch(navigator, it, global = true) } },
                         // The viewed source, since the tags on screen are the selected chip's.
                         onTagSearch = { genre ->
-                            val viewedSource = successState.mergeDisplaySource ?: successState.source
-                            scope.launch { performGenreSearch(navigator, genre, viewedSource) }
+                            scope.launch { performGenreSearch(navigator, genre, successState.shownSource) }
                         },
                         onCopyTag = { if (it.isNotEmpty()) context.copyToClipboard(it, it) },
                         onTracking = {
@@ -176,26 +175,14 @@ class MangaScreen(
                         // RK: view-only surfaces (share / WebView / copy URL) follow the selected
                         // source chip like novels; writes (migrate, covers) stay anchor-scoped.
                         onToolbarShare = {
-                            shareManga(
-                                context,
-                                successState.mergeDisplayManga ?: viewModel.manga,
-                                successState.mergeDisplaySource ?: viewModel.source,
-                            )
-                        }.takeIf { isHttpSource },
+                            shareManga(context, successState.shownManga, successState.shownSource)
+                        }.takeIf { successState.shownSource is HttpSource },
                         onOpenWebView = {
-                            openMangaInWebView(
-                                navigator,
-                                successState.mergeDisplayManga ?: viewModel.manga,
-                                successState.mergeDisplaySource ?: viewModel.source,
-                            )
-                        }.takeIf { isHttpSource },
+                            openMangaInWebView(navigator, successState.shownManga, successState.shownSource)
+                        }.takeIf { successState.shownSource is HttpSource },
                         onOpenWebViewLong = {
-                            copyMangaUrl(
-                                context,
-                                successState.mergeDisplayManga ?: viewModel.manga,
-                                successState.mergeDisplaySource ?: viewModel.source,
-                            )
-                        }.takeIf { isHttpSource },
+                            copyMangaUrl(context, successState.shownManga, successState.shownSource)
+                        }.takeIf { successState.shownSource is HttpSource },
                         onMigrate = {
                             // Source picker first, so a merged manga can pick which source to migrate.
                             navigator.push(
@@ -231,32 +218,27 @@ class MangaScreen(
                         },
                         // The viewed source, and null on a stub: there is no catalogue to open for an
                         // extension that is not installed.
-                        onBrowseSource = (successState.mergeDisplaySource ?: successState.source)
+                        onBrowseSource = successState.shownSource
                             .takeIf { !it.isLocalOrStub() }
                             ?.let { source -> { navigator.push(EntryCatalogueScreen(SourceKey.Manga(source.id))) } },
                         onOpenFolder = { scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) } },
                         // The viewed source, as the metadata viewer resolves it, so a merged entry
                         // opens the settings of the source its chip is showing.
-                        onOpenSourceSettings = (successState.mergeDisplaySource ?: successState.source)
+                        onOpenSourceSettings = successState.shownSource
                             .takeIf { it.configurableSource() != null }
                             ?.let { source -> { navigator.push(SourcePreferencesScreen(source.id)) } },
                         // Gallery metadata viewer, only for adult/metadata sources; follows the viewed source
                         // (the selected chip), so enhanced-MangaDex "More info" shows even when the merge is
                         // anchored on a non-metadata source.
                         onMetadataViewer = {
-                            val displayManga = successState.mergeDisplayManga ?: successState.manga
-                            val displaySource = successState.mergeDisplaySource ?: successState.source
                             navigator.push(
                                 MetadataViewScreen(
-                                    mangaId = displayManga.id,
-                                    sourceId = displaySource.id,
+                                    mangaId = successState.shownManga.id,
+                                    sourceId = successState.shownSource.id,
                                     seedColor = successState.seedColor?.toArgb(),
                                 ),
                             )
-                        }.takeIf {
-                            (successState.mergeDisplaySource ?: successState.source)
-                                .getMainSource<MetadataSource<*, *>>() != null
-                        },
+                        }.takeIf { successState.shownSource.getMainSource<MetadataSource<*, *>>() != null },
                     ),
                 )
             }
