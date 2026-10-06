@@ -30,6 +30,26 @@ object ReleaseInterval {
         )
     }
 
+    /** [window], or [today]'s when it is (0, 0), which callers pass to mean "now". */
+    fun windowOrToday(window: Pair<Long, Long>, today: LocalDate, zone: TimeZone): Pair<Long, Long> =
+        if (window.first == 0L && window.second == 0L) window(today, zone) else window
+
+    /**
+     * Whether a sync that left the chapter list unchanged still predicts again: when asked for by hand,
+     * when the entry was never predicted, or when its prediction has fallen behind [window]. A changed
+     * list always predicts.
+     */
+    fun needsPrediction(
+        manualFetch: Boolean,
+        fetchInterval: Int,
+        nextUpdate: Long,
+        window: Pair<Long, Long>,
+    ): Boolean = manualFetch || fetchInterval == 0 || nextUpdate < window.first
+
+    /** The interval the user set, which is negative and kept as it is, else the one [predict] calculates. */
+    inline fun userOrPredicted(fetchInterval: Int, predict: () -> Int): Int =
+        fetchInterval.takeIf { it < 0 } ?: predict()
+
     /**
      * The median gap between the latest release days, one entry of [uploadDates] and [fetchDates] per
      * chapter. Upload dates are used when three or more are known, fetch dates otherwise, else a week.

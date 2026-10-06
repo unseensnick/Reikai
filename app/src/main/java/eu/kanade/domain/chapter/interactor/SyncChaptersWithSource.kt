@@ -18,6 +18,7 @@ import reikai.domain.chapter.ArrivingChapter
 import reikai.domain.chapter.StoredChapter
 import reikai.domain.chapter.chapterArrivals
 import reikai.domain.chapter.remoteUploadDate
+import reikai.domain.library.ReleaseInterval
 import tachiyomi.data.chapter.ChapterSanitizer
 import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
 import tachiyomi.domain.chapter.model.Chapter
@@ -135,7 +136,8 @@ class SyncChaptersWithSource(
 
         // Return if there's nothing to add, delete, or update to avoid unnecessary db transactions.
         if (newChapters.isEmpty() && removedChapters.isEmpty() && updatedChapters.isEmpty()) {
-            if (manualFetch || manga.fetchInterval == 0 || manga.nextUpdate < fetchWindow.first) {
+            // RK: the re-predict rule is ReleaseInterval's, which the novel sync calls too
+            if (ReleaseInterval.needsPrediction(manualFetch, manga.fetchInterval, manga.nextUpdate, fetchWindow)) {
                 updateManga.awaitUpdateFetchInterval(
                     manga,
                     timeZone,

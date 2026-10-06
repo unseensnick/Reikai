@@ -23,15 +23,16 @@ class FetchInterval(
         timeZone: TimeZone,
         window: Pair<Long, Long>,
     ): MangaUpdate {
-        val interval = manga.fetchInterval.takeIf { it < 0 } ?: calculateInterval(
-            chapters = getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true),
-            zone = timeZone,
-        )
-        val currentWindow = if (window.first == 0L && window.second == 0L) {
-            getWindow(Clock.System.now().toLocalDateTime(timeZone).date, timeZone)
-        } else {
-            window
+        // RK --> keeping a user-set interval and reading (0, 0) as today are ReleaseInterval rules novels call too
+        val interval = ReleaseInterval.userOrPredicted(manga.fetchInterval) {
+            calculateInterval(
+                chapters = getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true),
+                zone = timeZone,
+            )
         }
+        val currentWindow =
+            ReleaseInterval.windowOrToday(window, Clock.System.now().toLocalDateTime(timeZone).date, timeZone)
+        // RK <--
         val nextUpdate = calculateNextUpdate(manga, interval, dateTime, timeZone, currentWindow)
 
         return MangaUpdate(manga.id) {

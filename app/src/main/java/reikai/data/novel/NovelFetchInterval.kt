@@ -24,17 +24,11 @@ suspend fun updateNovelFetchInterval(
     zone: TimeZone = TimeZone.currentSystemDefault(),
     now: LocalDateTime = Clock.System.now().toLocalDateTime(zone),
 ) {
-    val interval = novel.fetchInterval.takeIf { it < 0 } ?: run {
+    val interval = ReleaseInterval.userOrPredicted(novel.fetchInterval) {
         val chapters = novelChapterRepository.getByNovelId(novel.id)
         ReleaseInterval.calculate(chapters.map { it.dateUpload }, chapters.map { it.dateFetch }, zone)
     }
-    val currentWindow = if (window.first == 0L &&
-        window.second == 0L
-    ) {
-        ReleaseInterval.window(now.date, zone)
-    } else {
-        window
-    }
+    val currentWindow = ReleaseInterval.windowOrToday(window, now.date, zone)
     val nextUpdate = ReleaseInterval.nextUpdate(novel.nextUpdate, novel.lastUpdate, interval, now, zone, currentWindow)
     novelRepository.update(
         NovelUpdate(novel.id) {
@@ -57,7 +51,7 @@ suspend fun predictNovelFetchInterval(
     novelRepository: NovelRepository,
     window: Pair<Long, Long> = Pair(0, 0),
 ) {
-    if (listChanged || manualFetch || novel.fetchInterval == 0 || novel.nextUpdate < window.first) {
+    if (listChanged || ReleaseInterval.needsPrediction(manualFetch, novel.fetchInterval, novel.nextUpdate, window)) {
         updateNovelFetchInterval(novel, novelChapterRepository, novelRepository, window)
     }
 }
