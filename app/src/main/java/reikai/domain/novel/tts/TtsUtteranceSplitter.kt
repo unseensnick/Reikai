@@ -1,6 +1,6 @@
 package reikai.domain.novel.tts
 
-import java.text.BreakIterator
+import reikai.domain.novel.text.TextSegments
 import java.util.Locale
 
 /** A piece of a paragraph to speak, and where it sits in that paragraph: [start] until [end]. */
@@ -10,9 +10,8 @@ data class TtsPiece(val text: String, val start: Int, val end: Int)
  * Breaks a paragraph into pieces a speech engine will speak. An utterance past the engine's maximum
  * fails, often later through `onError` rather than at `speak`, so a long paragraph goes out as several.
  *
- * Built on [BreakIterator] rather than on a punctuation list: its sentence instance is locale
- * correct, and its line instance segments Chinese, Japanese, Thai and Khmer by dictionary, which is
- * the text that has no spaces to break at. The cap is never exceeded, whatever the text.
+ * Sentences first, then [TextSegments.lines] for one longer than the cap, which segments Chinese,
+ * Japanese, Thai and Khmer by dictionary. The cap is never exceeded, whatever the text.
  */
 object TtsUtteranceSplitter {
 
@@ -49,13 +48,13 @@ object TtsUtteranceSplitter {
             }
         }
 
-        for ((start, end) in segments(BreakIterator.getSentenceInstance(locale), text, lead, trail)) {
+        for ((start, end) in TextSegments.sentences(text, lead, trail, locale)) {
             if (end - start <= maxLength) {
                 append(start, end)
             } else {
                 // Only now, because a sentence that fits should stay whole even where it could break.
                 flush()
-                segments(BreakIterator.getLineInstance(locale), text, start, end).forEach { (s, e) -> append(s, e) }
+                TextSegments.lines(text, start, end, locale).forEach { (s, e) -> append(s, e) }
             }
             if (bySentence) flush()
         }
@@ -69,19 +68,6 @@ object TtsUtteranceSplitter {
         while (s < e && text[s] <= ' ') s++
         while (e > s && text[e - 1] <= ' ') e--
         return if (s < e) TtsPiece(text.substring(s, e), s, e) else null
-    }
-
-    private fun segments(iterator: BreakIterator, text: String, from: Int, to: Int): List<Pair<Int, Int>> {
-        iterator.setText(text.substring(from, to))
-        val out = mutableListOf<Pair<Int, Int>>()
-        var start = iterator.first()
-        var end = iterator.next()
-        while (end != BreakIterator.DONE) {
-            out.add(from + start to from + end)
-            start = end
-            end = iterator.next()
-        }
-        return out
     }
 
     /** The last resort, for a run with no break opportunity in it at all. Steps back off a leading

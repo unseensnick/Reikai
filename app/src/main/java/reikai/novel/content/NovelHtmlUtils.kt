@@ -117,7 +117,8 @@ object NovelHtmlUtils {
         Regex("<br>\\s*<br>\\s*(?=</?p[> ])|(?<=</?p>)\\s*<br>\\s*<br>\\s*", RegexOption.IGNORE_CASE)
     private val loneBreakBesideParagraphRegex =
         Regex("<br>\\s*(?=</?p[> ])|(?<=</?p>)\\s*<br>\\s*", RegexOption.IGNORE_CASE)
-    private val tagOrEntityRegex = Regex("<[^>]*>|&#?[A-Za-z0-9]+;")
+    val entityRegex = Regex("&#?[A-Za-z0-9]+;")
+    private val tagOrEntityRegex = Regex("<[^>]*>|${entityRegex.pattern}")
 
     /**
      * Sources pad chapters with blank paragraphs and stacked line breaks, which read as gaps the

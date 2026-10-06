@@ -66,11 +66,28 @@ class NovelContentPipelineTest {
             InMemoryPreference("ln_reader_auto_split_text", true, false),
             InMemoryPreference("ln_reader_auto_split_word_count", 20, 50),
         )
-        val wall = (1..6).joinToString(" ") { List(20) { "word" }.joinToString(" ") + "." }
+        val wall = (1..6).joinToString(" ") { List(20) { "Word" }.joinToString(" ") + "." }
 
         val processed = NovelContentPipeline.process("<p>$wall</p>", config("/book/ch1.html", seeded))
 
         // Breaks rather than paragraph tags, so a split stays valid inside a div-based chapter.
+        processed.text shouldContain "<br><br>"
+    }
+
+    /** A full stop followed by a lower-case letter is not a sentence end, so lowercasing first left no break. */
+    @Test
+    fun `auto-split still breaks a wall of text that force lowercase changes`() = runTest {
+        val seeded = preferencesWith(
+            InMemoryPreference("ln_reader_auto_split_text", true, false),
+            InMemoryPreference("ln_reader_auto_split_word_count", 20, 50),
+        )
+        val wall = (1..6).joinToString(" ") { List(20) { "Word" }.joinToString(" ") + "." }
+
+        val processed = NovelContentPipeline.process(
+            "<p>$wall</p>",
+            config("/book/ch1.html", seeded).copy(forceLowercase = true),
+        )
+
         processed.text shouldContain "<br><br>"
     }
 

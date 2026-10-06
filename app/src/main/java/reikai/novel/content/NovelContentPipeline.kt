@@ -4,7 +4,7 @@ import androidx.annotation.WorkerThread
 
 /**
  * Stage order is user-visible and fixed: strip title, normalize, remove extra spacing, regex
- * replacements, lowercase, auto-split, sanitize. Each stage sees what the previous one produced (a
+ * replacements, auto-split, lowercase, sanitize. Each stage sees what the previous one produced (a
  * regex rule matches post-normalization markup, auto-split counts words after those rules ran), so
  * reordering changes the rendered output for some chapters.
  */
@@ -33,16 +33,18 @@ object NovelContentPipeline {
 
         content = NovelRegexReplacements.apply(content, config.regexRulesJson)
 
-        if (config.forceLowercase) {
-            content = if (plainTextMode) content.lowercase() else NovelHtmlUtils.lowercaseText(content)
-        }
-
+        // Before lowercasing, which would hide every sentence end: a full stop followed by a lower-case
+        // word is not one.
         if (config.autoSplit) {
             content = NovelTextSplitter.splitText(
                 text = content,
                 wordCount = config.autoSplitWordCount,
                 isHtml = !plainTextMode,
             )
+        }
+
+        if (config.forceLowercase) {
+            content = if (plainTextMode) content.lowercase() else NovelHtmlUtils.lowercaseText(content)
         }
 
         if (!plainTextMode) {

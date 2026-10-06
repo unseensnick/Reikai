@@ -13,8 +13,9 @@ import org.junit.jupiter.params.provider.ValueSource
  */
 class NovelTextSplitterTest {
 
+    // Capitalised: a full stop followed by a lower-case word is no sentence end to the sentence rule.
     private fun sentences(count: Int, wordsEach: Int): String =
-        (1..count).joinToString(" ") { List(wordsEach) { "word" }.joinToString(" ") + "." }
+        (1..count).joinToString(" ") { List(wordsEach) { "Word" }.joinToString(" ") + "." }
 
     @Test
     fun `a word count of zero leaves the text alone`() {
@@ -35,6 +36,15 @@ class NovelTextSplitterTest {
         val split = NovelTextSplitter.splitText(text, wordCount = 25, isHtml = false)
 
         split.split("\n\n").first().split(" ").size shouldBe 40
+    }
+
+    /** A paragraph break already follows the last sentence, so a second one would leave a gap. */
+    @Test
+    fun `the last sentence gets no break`() {
+        val text = sentences(count = 2, wordsEach = 20)
+
+        NovelTextSplitter.splitText(text, wordCount = 20, isHtml = false) shouldBe
+            "${sentences(count = 1, wordsEach = 20)}\n\n ${sentences(count = 1, wordsEach = 20)}"
     }
 
     @Test
@@ -100,6 +110,72 @@ class NovelTextSplitterTest {
         val html = "<$tag>${sentences(count = 1, wordsEach = 25)}\nline two</$tag>"
 
         NovelTextSplitter.splitText(html, wordCount = 20, isHtml = true) shouldBe html
+    }
+
+    /** Chinese and Japanese put no space between words, so a whitespace count saw one word per paragraph. */
+    @Test
+    fun `an unspaced chinese wall is split by sentence`() {
+        val sentence = "我们今天去了学校。"
+        val text = sentence.repeat(10)
+
+        val split = NovelTextSplitter.splitText(text, wordCount = 20, isHtml = false)
+
+        split.split("\n\n") shouldBe listOf(sentence.repeat(3), sentence.repeat(3), sentence.repeat(3), sentence)
+    }
+
+    @Test
+    fun `a sentence ending inside a closing quote breaks after the quote`() {
+        val sentence = List(20) { "Word" }.joinToString(" ") + ".\""
+        val text = List(4) { sentence }.joinToString(" ")
+
+        val split = NovelTextSplitter.splitText(text, wordCount = 25, isHtml = false)
+
+        split.split("\n\n").first() shouldBe "$sentence $sentence"
+    }
+
+    @Test
+    fun `a japanese sentence keeps its closing bracket before the break`() {
+        val sentence = "「今日は学校に行きました。」"
+        val text = sentence.repeat(4)
+
+        val split = NovelTextSplitter.splitText(text, wordCount = 20, isHtml = false)
+
+        split.split("\n\n").first() shouldBe sentence.repeat(2)
+    }
+
+    /** An entity-escaped quote is the same quote: the break goes after it, never between it and its sentence. */
+    @Test
+    fun `an escaped closing quote stays with its sentence`() {
+        val sentence = List(20) { "Word" }.joinToString(" ") + ".&quot;"
+        val html = "<p>" + List(4) { sentence }.joinToString(" ") + "</p>"
+
+        val split = NovelTextSplitter.splitText(html, wordCount = 25, isHtml = true)
+
+        split shouldContain "$sentence $sentence<br><br>"
+    }
+
+    /** Inline markup is not a sentence end, so bold text in the middle of a sentence cannot move the break. */
+    @Test
+    fun `a sentence running across inline markup breaks only after its end`() {
+        val sentence = "Word word <b>bold word</b> " + List(16) { "word" }.joinToString(" ") + "."
+        val html = "<p>" + List(4) { sentence }.joinToString(" ") + "</p>"
+
+        val split = NovelTextSplitter.splitText(html, wordCount = 25, isHtml = true)
+
+        split shouldBe "<p>$sentence $sentence<br><br> $sentence $sentence</p>"
+    }
+
+    /**
+     * A page lays out a source's line break as a space. Android's sentence rule ends a sentence at a
+     * newline and the JDK's only at a paragraph separator, so the separator stands in for both here.
+     */
+    @Test
+    fun `a line break in the html source does not end a sentence`() {
+        val wrapped = List(25) { "Word" }.joinToString(" ") + " " + List(5) { "word" }.joinToString(" ") + "."
+        val html = "<p>$wrapped ${sentences(count = 1, wordsEach = 5)}</p>"
+
+        NovelTextSplitter.splitText(html, wordCount = 20, isHtml = true) shouldBe
+            "<p>$wrapped<br><br> ${sentences(count = 1, wordsEach = 5)}</p>"
     }
 
     /** The count restarts after a verbatim block, so prose before it cannot break the prose after early. */
