@@ -6,9 +6,9 @@ import kotlinx.datetime.minus
 import kotlin.time.Clock
 
 /**
- * The bound on the Reikai-owned recents feeds (novel updates and both newly-added lanes): three months
- * back, at most this many rows. Mihon's manga updates feed writes the same bound as literals, left in
- * place so its file stays upstream's.
+ * The bound on the Reikai-owned recents feeds (novel updates, both newly-added lanes and the combined
+ * widget's novels): three months back, at most this many rows. Mihon's manga updates feed writes the
+ * same bound as literals, left in place so its file stays upstream's.
  */
 const val RECENTS_FEED_LIMIT = 500L
 private const val RECENTS_FEED_MONTHS = 3L

@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdateWithRelations
+import reikai.domain.recents.RECENTS_FEED_LIMIT
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.domain.updates.model.UpdatesWithRelations
 import tachiyomi.presentation.widget.BaseUpdatesGridGlanceWidget
@@ -28,7 +29,7 @@ internal fun unifiedWidgetUpdates(
         getUpdates.subscribe(read = false, after = after),
         novelRepository.getFilteredNovelUpdatesAsFlow(
             after = after,
-            limit = NOVEL_ROW_LIMIT,
+            limit = RECENTS_FEED_LIMIT,
             unread = true,
             started = null,
             bookmarked = null,
@@ -38,6 +39,3 @@ internal fun unifiedWidgetUpdates(
         ::UnifiedWidgetUpdates,
     )
 }
-
-// GetUpdates caps the manga half at the same count.
-private const val NOVEL_ROW_LIMIT = 500L

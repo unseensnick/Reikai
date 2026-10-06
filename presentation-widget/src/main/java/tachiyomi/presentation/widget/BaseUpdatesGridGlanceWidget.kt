@@ -2,12 +2,10 @@ package tachiyomi.presentation.widget
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.os.Build
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.Dp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.ImageProvider
@@ -20,16 +18,6 @@ import androidx.glance.background
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
 import androidx.glance.unit.ColorProvider
-import coil3.annotation.ExperimentalCoilApi
-import coil3.asDrawable
-import coil3.executeBlocking
-import coil3.imageLoader
-import coil3.request.CachePolicy
-import coil3.request.ImageRequest
-import coil3.request.transformations
-import coil3.size.Precision
-import coil3.size.Scale
-import coil3.transform.RoundedCornersTransformation
 import dev.zacsweers.metro.HasMemberInjections
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
@@ -40,6 +28,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import mihon.core.metro.metroGraph
 import mihon.presentation.widget.di.PresentationWidgetGraph
+import reikai.presentation.widget.loadWidgetCover
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.interactor.GetUpdates
@@ -112,7 +101,7 @@ abstract class BaseUpdatesGridGlanceWidget : GlanceAppWidget() {
         }
     }
 
-    @OptIn(ExperimentalCoilApi::class)
+    // RK --> the cover request, opt-in and corner radius included, moved to the shared loadWidgetCover
     private suspend fun List<UpdatesWithRelations>.prepareData(
         context: Context,
         rowCount: Int,
@@ -121,42 +110,28 @@ abstract class BaseUpdatesGridGlanceWidget : GlanceAppWidget() {
         // Resize to cover size
         val widthPx = CoverWidth.value.toInt().dpToPx
         val heightPx = CoverHeight.value.toInt().dpToPx
-        val roundPx = context.resources.getDimension(R.dimen.appwidget_inner_radius)
         return withIOContext {
             this@prepareData
                 .distinctBy { it.mangaId }
                 .take(rowCount * columnCount)
                 .map { updatesView ->
-                    val request = ImageRequest.Builder(context)
-                        .data(
-                            MangaCover(
-                                mangaId = updatesView.mangaId,
-                                sourceId = updatesView.sourceId,
-                                isMangaFavorite = true,
-                                url = updatesView.coverData.url,
-                                lastModified = updatesView.coverData.lastModified,
-                            ),
-                        )
-                        .memoryCachePolicy(CachePolicy.DISABLED)
-                        .precision(Precision.EXACT)
-                        .size(widthPx, heightPx)
-                        .scale(Scale.FILL)
-                        .let {
-                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                                it.transformations(RoundedCornersTransformation(roundPx))
-                            } else {
-                                it // Handled by system
-                            }
-                        }
-                        .build()
-                    val bitmap = context.imageLoader.executeBlocking(request)
-                        .image
-                        ?.asDrawable(context.resources)
-                        ?.toBitmap()
+                    val bitmap = loadWidgetCover(
+                        context,
+                        MangaCover(
+                            mangaId = updatesView.mangaId,
+                            sourceId = updatesView.sourceId,
+                            isMangaFavorite = true,
+                            url = updatesView.coverData.url,
+                            lastModified = updatesView.coverData.lastModified,
+                        ),
+                        widthPx,
+                        heightPx,
+                    )
                     Pair(updatesView.mangaId, bitmap)
                 }
         }
     }
+    // RK <--
 
     companion object {
         val DateLimit: Instant

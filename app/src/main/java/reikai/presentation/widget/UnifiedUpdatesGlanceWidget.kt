@@ -3,13 +3,11 @@ package reikai.presentation.widget
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
@@ -40,26 +38,16 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import coil3.annotation.ExperimentalCoilApi
-import coil3.asDrawable
-import coil3.executeBlocking
-import coil3.imageLoader
-import coil3.request.CachePolicy
-import coil3.request.ImageRequest
-import coil3.request.transformations
-import coil3.size.Precision
-import coil3.size.Scale
-import coil3.transform.RoundedCornersTransformation
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.util.system.dpToPx
 import kotlinx.coroutines.flow.combine
 import mihon.app.di.appGraph
 import reikai.domain.entry.withCustomInfo
-import reikai.domain.library.ContentType
-import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.manga.MangaMergeManager
+import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.dedupeByMergeGroup
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
@@ -105,9 +93,9 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
     @Inject private lateinit var getCustomNovelInfo: GetCustomNovelInfo
 
     // A merge group is one series, so it gets one cover here as it gets one library row.
-    @Inject private lateinit var mergeGroupRepository: MergeGroupRepository
+    @Inject private lateinit var mangaMergeManager: MangaMergeManager
 
-    @Inject private lateinit var reikaiLibraryPreferences: ReikaiLibraryPreferences
+    @Inject private lateinit var novelMergeManager: NovelMergeManager
 
     override val sizeMode = SizeMode.Exact
 
@@ -170,7 +158,6 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
      * split evenly); a type with no updates renders a skeleton grid instead of collapsing, so the widget
      * stays balanced whatever is new.
      */
-    @OptIn(ExperimentalCoilApi::class)
     private suspend fun prepareSections(
         context: Context,
         updates: UnifiedWidgetUpdates,
@@ -184,22 +171,13 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
         val mangaCoverOverlay = customManga.associateBy { it.mangaId }
         // Dedupe per series, then per merge group so a series grouped across sources draws one cover, then
         // give each section half the rows.
-        val (mangaGroups, novelGroups) = withIOContext {
-            if (reikaiLibraryPreferences.seriesMergingEnabled.get()) {
-                mergeGroupRepository.getAllMemberships(ContentType.MANGA) to
-                    mergeGroupRepository.getAllMemberships(ContentType.NOVELS)
-            } else {
-                emptyMap<Long, Long>() to emptyMap()
-            }
-        }
-        val novelRows = updates.novel.distinctBy { it.novelId }.dedupeByMergeGroup(novelGroups) { it.novelId }
-        val mangaRows = updates.manga.distinctBy { it.mangaId }.dedupeByMergeGroup(mangaGroups) { it.mangaId }
+        val novelRows = updates.novel.onePerSeries(novelMergeManager) { it.novelId }
+        val mangaRows = updates.manga.onePerSeries(mangaMergeManager) { it.mangaId }
         val perSectionRows = (rowCount / 2).coerceAtLeast(1)
         val cap = perSectionRows * columnCount
 
         val widthPx = CoverWidth.value.toInt().dpToPx
         val heightPx = CoverHeight.value.toInt().dpToPx
-        val roundPx = context.resources.getDimension(R.dimen.appwidget_inner_radius)
 
         return withIOContext {
             val novelCovers = novelRows
@@ -207,7 +185,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
                 .map { row ->
                     val cover = row.withCustomInfo(novelCoverOverlay[row.novelId]).coverData
                     WidgetCover(
-                        bitmap = loadCover(context, cover, widthPx, heightPx, roundPx),
+                        bitmap = loadWidgetCover(context, cover, widthPx, heightPx),
                         intent = novelIntent(context, row),
                     )
                 }
@@ -222,7 +200,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
                         lastModified = row.coverData.lastModified,
                     )
                     WidgetCover(
-                        bitmap = loadCover(context, cover, widthPx, heightPx, roundPx),
+                        bitmap = loadWidgetCover(context, cover, widthPx, heightPx),
                         intent = mangaIntent(context, row.mangaId),
                     )
                 }
@@ -230,26 +208,9 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
         }
     }
 
-    @OptIn(ExperimentalCoilApi::class)
-    private fun loadCover(context: Context, model: Any, widthPx: Int, heightPx: Int, roundPx: Float): Bitmap? {
-        val request = ImageRequest.Builder(context)
-            .data(model)
-            .memoryCachePolicy(CachePolicy.DISABLED)
-            .precision(Precision.EXACT)
-            .size(widthPx, heightPx)
-            .scale(Scale.FILL)
-            .let {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                    it.transformations(RoundedCornersTransformation(roundPx))
-                } else {
-                    it
-                }
-            }
-            .build()
-        return context.imageLoader.executeBlocking(request)
-            .image
-            ?.asDrawable(context.resources)
-            ?.toBitmap()
+    private suspend fun <T> List<T>.onePerSeries(mergeManager: EntryMergeManager, id: (T) -> Long): List<T> {
+        val rows = distinctBy(id)
+        return rows.dedupeByMergeGroup(withIOContext { mergeManager.groupIdsFor(rows.map(id)) }, id)
     }
 
     private fun mangaIntent(context: Context, mangaId: Long) =
