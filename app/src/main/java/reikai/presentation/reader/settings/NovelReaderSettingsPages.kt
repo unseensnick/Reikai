@@ -36,6 +36,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import reikai.domain.novel.NovelPreferences
@@ -63,6 +65,7 @@ import reikai.presentation.reader.TtsOptions
 import reikai.presentation.reader.builtInReaderFonts
 import reikai.presentation.reader.readerBackgroundColorInt
 import reikai.presentation.reader.readerFontLabel
+import reikai.presentation.reader.readerFontSummary
 import reikai.presentation.reader.readerTextColorInt
 import reikai.presentation.reader.readerThemeShown
 import reikai.presentation.reader.rememberTtsOptions
@@ -459,25 +462,28 @@ private fun MarginStepper(pref: Preference<Int>, labelRes: StringResource) {
     )
 }
 
-/** The one choice that sets no font, so it says what the reader uses instead, as the fonts screen does. */
+/** A radio row laid out as [RadioItem] lays one out, with room for the line [readerFontSummary] gives. */
 @Composable
-private fun DefaultFontItem(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun FontItem(label: String, summary: String?, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = SettingsItemsPaddings.Vertical),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = stringResource(MR.strings.pref_novel_font_default_summary),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
         RadioButton(selected = selected, onClick = null)
+        Column {
+            Text(text = label, style = MaterialTheme.typography.bodyMedium)
+            if (summary != null) {
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -500,11 +506,12 @@ private fun FontRow(pref: Preference<String>, installedFonts: suspend () -> List
                     pref.set(font.family)
                     picking = false
                 }
-                if (font.family.isEmpty()) {
-                    DefaultFontItem(defaultLabel, selected = family.isEmpty(), onClick = select)
-                } else {
-                    RadioItem(label = font.name, selected = font.family == family, onClick = select)
-                }
+                FontItem(
+                    label = readerFontLabel(font.family, defaultLabel),
+                    summary = readerFontSummary(font.family)?.let { stringResource(it) },
+                    selected = font.family == family,
+                    onClick = select,
+                )
             }
         }
     }
@@ -666,14 +673,22 @@ private fun PickerRow(labelRes: StringResource, value: String, onClick: () -> Un
             .clickable(onClick = onClick)
             .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = SettingsItemsPaddings.Vertical),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
             text = stringResource(labelRes),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f),
         )
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false).padding(start = 12.dp),
+        )
     }
 }
 

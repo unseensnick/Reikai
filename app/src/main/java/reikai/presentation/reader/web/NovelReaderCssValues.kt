@@ -1,8 +1,8 @@
 package reikai.presentation.reader.web
 
+import reikai.novel.font.ReaderFontSource
 import reikai.novel.font.fontDisplayName
-import reikai.novel.font.isGenericFont
-import reikai.novel.font.isSupportedFontFile
+import reikai.novel.font.readerFontSource
 import reikai.presentation.reader.readerColorOrNull
 import reikai.presentation.reader.readerDarkPreset
 
@@ -35,7 +35,7 @@ fun cssFontFamily(value: String): String =
  * valid in a family name, so the page uses the readable name the picker shows.
  */
 fun cssFontName(family: String): String =
-    cssFontFamily(if (isSupportedFontFile(family)) fontDisplayName(family) else family)
+    cssFontFamily(if (readerFontSource(family) is ReaderFontSource.UserFile) fontDisplayName(family) else family)
 
 /**
  * [family] as a `font-family` value. A name is quoted, because unquoted it has to be a run of
@@ -44,7 +44,7 @@ fun cssFontName(family: String): String =
  * Safe inside the quotes because [cssFontFamily] drops quotes and backslashes.
  */
 fun cssFontFamilyValue(family: String): String {
-    if (isGenericFont(family)) return family
+    if (readerFontSource(family) is ReaderFontSource.Generic) return family
     val name = cssFontName(family)
     return if (name.isEmpty()) "" else "'$name'"
 }

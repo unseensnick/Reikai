@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.Typeface
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -49,7 +50,11 @@ import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Folder
 import mihon.icons.materialsymbols.roundedfilled.CheckCircle
 import reikai.novel.font.GoogleFont
+import reikai.novel.font.ReaderFontSource
+import reikai.novel.font.readerFontSource
 import reikai.presentation.reader.builtInReaderFonts
+import reikai.presentation.reader.readerFontLabel
+import reikai.presentation.reader.readerFontSummary
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -116,13 +121,9 @@ class NovelFontsScreen : Screen() {
                 }
                 item { SectionHeader(stringResource(MR.strings.novel_font_section_built_in)) }
                 items(builtInReaderFonts, key = { "b:${it.family}" }) { font ->
-                    val isDefault = font.family.isEmpty()
                     FontRow(
-                        // The one row whose name does not describe it: it sets no font at all, so it
-                        // is the only one that needs saying what happens instead.
-                        label = if (isDefault) stringResource(MR.strings.pref_novel_font_default) else font.name,
-                        subtitle = stringResource(MR.strings.pref_novel_font_default_summary)
-                            .takeIf { isDefault },
+                        label = readerFontLabel(font.family, stringResource(MR.strings.pref_novel_font_default)),
+                        subtitle = readerFontSummary(font.family)?.let { stringResource(it) },
                         preview = assetPreview(context, font.family),
                         selected = state.selected == font.family,
                         onClick = { viewModel.select(font.family) },
@@ -196,18 +197,13 @@ class NovelFontsScreen : Screen() {
  */
 @Composable
 private fun assetPreview(context: Context, family: String): FontFamily? = remember(family) {
-    if (family.isEmpty()) return@remember null
-    genericPreview(family)?.let { return@remember it }
-    runCatching {
-        FontFamily(Font(path = "fonts/$family.ttf", assetManager = context.assets))
-    }.getOrNull()
-}
-
-private fun genericPreview(family: String): FontFamily? = when (family) {
-    "serif" -> FontFamily.Serif
-    "sans-serif" -> FontFamily.SansSerif
-    "monospace" -> FontFamily.Monospace
-    else -> null
+    when (val source = readerFontSource(family)) {
+        ReaderFontSource.SourceDefault, is ReaderFontSource.UserFile -> null
+        is ReaderFontSource.Generic -> FontFamily(Typeface(source.family.typeface))
+        is ReaderFontSource.Bundled -> runCatching {
+            FontFamily(Font(path = source.assetPath, assetManager = context.assets))
+        }.getOrNull()
+    }
 }
 
 /** The same for a font the user added, from the readable copy the screen model resolved off-thread. */

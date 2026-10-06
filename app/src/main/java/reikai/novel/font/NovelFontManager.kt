@@ -151,10 +151,11 @@ class NovelFontManager(
     fun typeface(fileName: String): Typeface? =
         typefaces.computeIfAbsent(fileName) { CachedFace(resolveTypeface(it)) }.typeface
 
-    /** Resolves [fileName] off the caller's thread, so the render that needs it finds it cached. */
-    suspend fun warm(fileName: String) {
-        if (!isSupportedFontFile(fileName) || typefaces.containsKey(fileName)) return
-        withContext(Dispatchers.IO) { typeface(fileName) }
+    /** Resolves [family] off the caller's thread when it is a user's file, so the render that needs it
+     *  finds it cached. */
+    suspend fun warm(family: String) {
+        if (readerFontSource(family) !is ReaderFontSource.UserFile || typefaces.containsKey(family)) return
+        withContext(Dispatchers.IO) { typeface(family) }
     }
 
     private fun resolveTypeface(fileName: String): Typeface? {

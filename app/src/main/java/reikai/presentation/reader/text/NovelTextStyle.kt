@@ -11,8 +11,8 @@ import android.widget.TextView
 import logcat.LogPriority
 import reikai.domain.novel.NovelTextAlign
 import reikai.novel.font.NovelFontManager
-import reikai.novel.font.isGenericFont
-import reikai.novel.font.isSupportedFontFile
+import reikai.novel.font.ReaderFontSource
+import reikai.novel.font.readerFontSource
 import reikai.presentation.reader.NovelReaderSettings
 import reikai.presentation.reader.readerTextColorInt
 import tachiyomi.core.common.util.system.logcat
@@ -103,28 +103,16 @@ object NovelTextStyle {
         }
     }
 
-    /**
-     * Four kinds of family share one preference: empty for the source's own, a generic CSS name, a
-     * bundled asset key, or the file name of one the user added, which is the only one with a suffix.
-     * The asset cache is here because a chapter builds one view per 6000 characters.
-     */
-    private fun typefaceFor(context: Context, fontManager: NovelFontManager, family: String): Typeface {
-        if (family.isBlank()) return Typeface.DEFAULT
-        if (isGenericFont(family)) {
-            return when (family) {
-                "serif" -> Typeface.SERIF
-                "monospace" -> Typeface.MONOSPACE
-                else -> Typeface.SANS_SERIF
-            }
+    /** The asset cache is here because a chapter builds one view per 6000 characters. */
+    private fun typefaceFor(context: Context, fontManager: NovelFontManager, family: String): Typeface =
+        when (val source = readerFontSource(family)) {
+            ReaderFontSource.SourceDefault -> Typeface.DEFAULT
+            is ReaderFontSource.Generic -> source.family.typeface
+            is ReaderFontSource.UserFile -> fontManager.typeface(source.fileName) ?: Typeface.DEFAULT
+            is ReaderFontSource.Bundled -> typefaceCache.getOrPut(source.assetPath) {
+                runCatching { Typeface.createFromAsset(context.assets, source.assetPath) }
+                    .onFailure { logcat(LogPriority.WARN, it) { "Missing reader font asset: $family" } }
+                    .getOrNull()
+            } ?: Typeface.DEFAULT
         }
-        if (isSupportedFontFile(family)) {
-            return fontManager.typeface(family) ?: Typeface.DEFAULT
-        }
-        val cached = typefaceCache.getOrPut(family) {
-            runCatching { Typeface.createFromAsset(context.assets, "fonts/$family.ttf") }
-                .onFailure { logcat(LogPriority.WARN, it) { "Missing reader font asset: $family" } }
-                .getOrNull()
-        }
-        return cached ?: Typeface.DEFAULT
-    }
 }

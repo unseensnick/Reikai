@@ -1,12 +1,17 @@
 package reikai.presentation.reader
 
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTextAlign
 import reikai.domain.novel.tts.TtsHighlightStyle
+import reikai.novel.font.GenericFontFamily
+import reikai.novel.font.ReaderFontSource
 import reikai.novel.font.fontDisplayName
+import reikai.novel.font.readerFontSource
 import reikai.presentation.reader.web.NovelWebSnippets
+import tachiyomi.i18n.MR
 
 /**
  * Resolved reader display settings, read by both rendering modes: the WebView mode reads the CSS
@@ -196,11 +201,7 @@ fun readerThemeShown(followSystem: Boolean, isDark: Boolean, background: String,
 data class ReaderFont(val family: String, val name: String)
 
 /** The three families Android guarantees, offered above the bundled faces. */
-private val readerGenericFonts = listOf(
-    ReaderFont("sans-serif", "Sans serif"),
-    ReaderFont("serif", "Serif"),
-    ReaderFont("monospace", "Monospace"),
-)
+private val readerGenericFonts = GenericFontFamily.entries.map { ReaderFont(it.css, it.label) }
 
 /** Bundled fonts from LNReader (Default + 9 families shipped under assets/fonts/). */
 private val readerFonts = listOf(
@@ -222,8 +223,15 @@ val builtInReaderFonts: List<ReaderFont> = readerFonts.take(1) + readerGenericFo
 
 /** A font's name as every screen shows it: [defaultLabel] for the source's own, else a built-in's name,
  *  else the name of the file the user added. */
-fun readerFontLabel(family: String, defaultLabel: String): String = if (family.isEmpty()) {
+fun readerFontLabel(family: String, defaultLabel: String): String = if (isSourceDefaultFont(family)) {
     defaultLabel
 } else {
     builtInReaderFonts.firstOrNull { it.family == family }?.name ?: fontDisplayName(family)
 }
+
+/** The line under a font's name in every font list. Only the default sets no font, so only it says what
+ *  draws instead. */
+fun readerFontSummary(family: String): StringResource? =
+    MR.strings.pref_novel_font_default_summary.takeIf { isSourceDefaultFont(family) }
+
+private fun isSourceDefaultFont(family: String) = readerFontSource(family) == ReaderFontSource.SourceDefault

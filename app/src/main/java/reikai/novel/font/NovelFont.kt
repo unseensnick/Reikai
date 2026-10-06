@@ -1,5 +1,7 @@
 package reikai.novel.font
 
+import android.graphics.Typeface
+
 /**
  * A font the user added, identified by its file name rather than a `content://` URI.
  *
@@ -53,6 +55,33 @@ fun isSfntHeader(header: ByteArray): Boolean {
  * directly. Android's own alias table folds Arial into sans-serif and Georgia and Times New Roman
  * into serif, so those are not offered: they would be extra rows that draw the same three faces.
  */
-val GENERIC_FONT_FAMILIES = listOf("sans-serif", "serif", "monospace")
+enum class GenericFontFamily(val css: String, val label: String) {
+    SANS_SERIF("sans-serif", "Sans serif"),
+    SERIF("serif", "Serif"),
+    MONOSPACE("monospace", "Monospace"),
+    ;
 
-fun isGenericFont(family: String): Boolean = family in GENERIC_FONT_FAMILIES
+    /** The face Android gives the name, which the native renderer and the fonts screen preview both draw. */
+    val typeface: Typeface
+        get() = when (this) {
+            SANS_SERIF -> Typeface.SANS_SERIF
+            SERIF -> Typeface.SERIF
+            MONOSPACE -> Typeface.MONOSPACE
+        }
+}
+
+/** Where a stored reader family is drawn from. One preference holds all four kinds. */
+sealed interface ReaderFontSource {
+    data object SourceDefault : ReaderFontSource
+    data class Generic(val family: GenericFontFamily) : ReaderFontSource
+    data class UserFile(val fileName: String) : ReaderFontSource
+    data class Bundled(val assetPath: String) : ReaderFontSource
+}
+
+/** A user's file is the only kind with a suffix; anything else unknown is a bundled asset key. */
+fun readerFontSource(family: String): ReaderFontSource = when {
+    family.isBlank() -> ReaderFontSource.SourceDefault
+    isSupportedFontFile(family) -> ReaderFontSource.UserFile(family)
+    else -> GenericFontFamily.entries.firstOrNull { it.css == family }?.let { ReaderFontSource.Generic(it) }
+        ?: ReaderFontSource.Bundled("fonts/$family.ttf")
+}
