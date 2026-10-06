@@ -17,6 +17,7 @@ import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.feature.migration.list.search.SmartSourceSearchEngine
+import reikai.data.manga.toSourceChapters
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.manga.MangaMergeManager
@@ -24,7 +25,6 @@ import reikai.domain.source.listedManga
 import reikai.presentation.migrate.PickMember
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
-import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -240,14 +240,11 @@ class MangaMigrationFlowAdapter(
         val fetched = runCatchingCancellable {
             source.getMangaUpdate(manga.toSManga(), emptyList(), fetchDetails = false, fetchChapters = true).chapters
         }.getOrNull()
-        // Counted as the sync stores them, which keeps one row per url.
-        val listed = fetched?.distinctBy { it.url }
+        val listed = fetched?.toSourceChapters(manga, source)
         if (listed.isNullOrEmpty()) return null
         return candidate.copy(
             chapterCount = listed.size,
-            latestChapter = listed.latestChapterNumber {
-                ChapterRecognition.parseChapterNumber(manga.title, it.name, it.chapter_number.toDouble())
-            },
+            latestChapter = listed.latestChapterNumber { it.chapterNumber },
         )
     }
 

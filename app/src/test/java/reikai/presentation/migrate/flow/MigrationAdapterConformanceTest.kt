@@ -1,12 +1,12 @@
 package reikai.presentation.migrate.flow
 
 import eu.kanade.tachiyomi.extension.ExtensionManager
-import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
+import eu.kanade.tachiyomi.source.online.HttpSource
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -96,6 +96,15 @@ class MigrationAdapterConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a peek takes the number the source gives a chapter over its name`(probe: Probe) = runTest {
+        val adapter = probe.adapter(listing = listOf("/t"), chapters = 0, sourceChapters = listOf("/c1", NUMBERED_URL))
+        val hit = adapter.candidates(probe.entry(onSource = probe.oldSource), "q", probe.target).single()
+
+        adapter.peekCounts(hit)?.latestChapter shouldBe SOURCE_NUMBER
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `an entry from an uninstalled source is still named`(probe: Probe) = runTest {
         probe.adapter().loadEntries(listOf(ENTRY_ID)).single().sourceName shouldBe OLD_NAME
     }
@@ -105,6 +114,11 @@ class MigrationAdapterConformanceTest {
         const val PICK_ID = 2L
         const val OWN_URL = "/own"
         const val OLD_NAME = "Old source"
+
+        // The source numbers this chapter itself, whatever its name says: a manga source in its
+        // prepare hook, the last place its contract can fix a listed chapter, a novel source as it lists it.
+        const val NUMBERED_URL = "/extra"
+        const val SOURCE_NUMBER = 42.0
 
         @JvmStatic
         fun probes() = listOf(MangaProbe, NovelProbe)
@@ -149,7 +163,7 @@ object MangaProbe : Probe {
     override fun adapter(listing: List<String>, chapters: Int, sourceChapters: List<String>): MigrationFlowAdapter {
         val rows = mutableMapOf(stored.id to stored, picked.id to picked)
         var synced = false
-        val catalogue = mockk<CatalogueSource>(relaxed = true) {
+        val catalogue = mockk<HttpSource>(relaxed = true) {
             every { id } returns 2L
             every { name } returns "Target"
             every { getFilterList() } returns FilterList()
@@ -172,6 +186,13 @@ object MangaProbe : Probe {
                         }
                     },
                 )
+            }
+            @Suppress("DEPRECATION")
+            every { prepareNewChapter(any(), any()) } answers {
+                val chapter = firstArg<SChapter>()
+                if (chapter.url == MigrationAdapterConformanceTest.NUMBERED_URL) {
+                    chapter.chapter_number = MigrationAdapterConformanceTest.SOURCE_NUMBER.toFloat()
+                }
             }
         }
         return MangaMigrationFlowAdapter(
@@ -251,7 +272,12 @@ object NovelProbe : Probe {
                 NovelItemsPage(listing.map { NovelItem(it, it, null) }, CatalogueEnd.Reported(false))
             coEvery { parseNovel(any()) } answers {
                 synced = true
-                SourceNovel(firstArg(), chapters = sourceChapters.map { ChapterItem("Chapter ${it.drop(2)}", it) })
+                SourceNovel(
+                    firstArg(),
+                    chapters = sourceChapters.map {
+                        ChapterItem("Chapter ${it.drop(2)}", it, chapterNumber = numberOf(it))
+                    },
+                )
             }
         }
         val sourceManager = NovelSourceManager(
@@ -293,6 +319,9 @@ object NovelProbe : Probe {
             installer = mockk(relaxed = true),
         )
     }
+
+    private fun numberOf(url: String) =
+        MigrationAdapterConformanceTest.SOURCE_NUMBER.takeIf { url == MigrationAdapterConformanceTest.NUMBERED_URL }
 
     override fun entry(onSource: String) = MigrationEntry(
         id = EntryId.Novel(stored.id),

@@ -1,31 +1,26 @@
 package eu.kanade.domain.chapter.interactor
 
 import dev.zacsweers.metro.Inject
-import eu.kanade.domain.chapter.model.copyFromSChapter
-import eu.kanade.domain.chapter.model.toSChapter
 import eu.kanade.domain.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SChapter
-import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import reikai.data.manga.toSourceChapters
 import reikai.domain.chapter.ArrivingChapter
 import reikai.domain.chapter.StoredChapter
 import reikai.domain.chapter.chapterArrivals
 import reikai.domain.chapter.remoteUploadDate
 import reikai.domain.library.ReleaseInterval
-import tachiyomi.data.chapter.ChapterSanitizer
 import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterRemoteUpdate
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.chapter.repository.ChapterRepository
-import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.source.local.isLocal
@@ -65,39 +60,19 @@ class SyncChaptersWithSource(
         val now = Clock.System.now().toLocalDateTime(timeZone)
         val nowMillis = now.toInstant(timeZone).toEpochMilliseconds()
 
-        val sourceChapters = rawSourceChapters
-            .distinctBy { it.url }
-            .mapIndexed { i, sChapter ->
-                Chapter.create()
-                    .copyFromSChapter(sChapter)
-                    .copy(name = with(ChapterSanitizer) { sChapter.name.sanitize(manga.title) })
-                    .copy(mangaId = manga.id, sourceOrder = i.toLong())
-            }
+        // RK --> the prepare hook, both url dedupes and number recognition run in toSourceChapters, the
+        // list as a sync stores it, which the migration count peek reads too
+        val sourceChapters = rawSourceChapters.toSourceChapters(manga, source)
+        val sourceUrls = sourceChapters.mapTo(mutableSetOf()) { it.url }
+        // RK <--
 
         val dbChapters = chapterRepository.getChapterByMangaId(manga.id)
         val dbChaptersByUrl = dbChapters.associateBy { it.url }
 
         val newChapters = mutableListOf<Chapter>()
         val updatedChapters = mutableListOf<ChapterRemoteUpdate>()
-        val sourceUrls = mutableSetOf<String>()
 
-        for (sourceChapter in sourceChapters) {
-            var chapter = sourceChapter
-
-            // Update metadata from source if necessary.
-            if (source is HttpSource) {
-                val sChapter = chapter.toSChapter()
-                @Suppress("DEPRECATION")
-                source.prepareNewChapter(sChapter, manga.toSManga())
-                chapter = chapter.copyFromSChapter(sChapter)
-            }
-
-            if (!sourceUrls.add(chapter.url)) continue
-
-            // Recognize chapter number for the chapter.
-            val chapterNumber = ChapterRecognition.parseChapterNumber(manga.title, chapter.name, chapter.chapterNumber)
-            chapter = chapter.copy(chapterNumber = chapterNumber)
-
+        for (chapter in sourceChapters) { // RK: already prepared and recognized
             val dbChapter = dbChaptersByUrl[chapter.url]
 
             if (dbChapter == null) {
