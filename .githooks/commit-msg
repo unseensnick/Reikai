@@ -64,7 +64,8 @@ case "$subject" in
     # refs/ sits beside the main worktree, and a linked worktree's own root is somewhere else.
     mihon_clone="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/../refs/mihon"
     if [ -d "$mihon_clone" ]; then
-      head=$(git -C "$mihon_clone" rev-parse HEAD 2>/dev/null || echo "")
+      # Cleared, since git exports an absolute GIT_DIR to a hook in a linked worktree and -C would not win.
+      head=$(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git -C "$mihon_clone" rev-parse HEAD 2>/dev/null || echo "")
       if [ ! -f "$stamp" ]; then
         errors+=("off-path check not run; use: pwsh scripts/off-path-check.ps1 -MihonBase <last-synced>")
       else

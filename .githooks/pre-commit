@@ -143,6 +143,9 @@ fi
 # the next sync never learns upstream touched it.
 # refs/ sits beside the main worktree, and a linked worktree's own root is somewhere else.
 mihon_clone="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/../refs/mihon"
+# Git exports GIT_DIR and GIT_INDEX_FILE to a hook, and in a linked worktree GIT_DIR is absolute, so a
+# bare `git -C` at the clone reads this repository instead (a Reikai file then looks like Mihon's).
+mihon_git() { env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git -C "$mihon_clone" "$@"; }
 manifest="docs/dev/off-path-manifest.md"
 if [ -f "$manifest" ]; then
   # Every row still describes reality: the file stays deleted and the replacement exists. Shared
@@ -160,7 +163,7 @@ if [ -f "$manifest" ]; then
       git diff --cached --name-status --diff-filter=R | awk '{ print $2 }'
     )
     for path in $deleted; do
-      git -C "$mihon_clone" cat-file -e "HEAD:$path" 2>/dev/null || continue
+      mihon_git cat-file -e "HEAD:$path" 2>/dev/null || continue
       if ! grep -qF "| $path |" "$manifest"; then
         echo "off-path manifest: '$path' leaves this tree while Mihon still has it, with no manifest row."
         echo "  Add a row (path | mihon | replacement) so the next sync is told when upstream changes it."
@@ -182,7 +185,7 @@ rk_files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.kt' '*.kts' '*
 if [ -n "$rk_files" ] && [ -d "$mihon_clone" ]; then
   rk_strays=""
   for f in $rk_files; do
-    git -C "$mihon_clone" cat-file -e "HEAD:$f" 2>/dev/null && continue
+    mihon_git cat-file -e "HEAD:$f" 2>/dev/null && continue
     git show "HEAD:$f" 2>/dev/null | grep -qE "$rk_marker" && continue
     hits=$(git diff --cached -U0 -- "$f" | grep -E '^\+' | grep -vE '^\+\+\+' | grep -E "$rk_marker" || true)
     [ -n "$hits" ] && rk_strays="$rk_strays$f"$'\n'"$hits"$'\n'
