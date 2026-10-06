@@ -68,6 +68,8 @@ suspend fun syncChaptersWithNovelSource(
             chapterNumber = sourceChapter.chapterNumber,
             sourceOrder = sourceChapter.sourceOrder,
             page = sourceChapter.page,
+            // A source that stops naming a group keeps the stored one, as manga's coalescing update does.
+            scanlator = sourceChapter.scanlator ?: dbChapter.scanlator,
         )
         if (updated != dbChapter) {
             toChange.add(updated)

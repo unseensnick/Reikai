@@ -44,7 +44,7 @@ WHERE C.user_read = 0
 AND ES.scanlator IS NULL
 AND C.manga_id NOT IN (SELECT mangaId FROM groupJudged);
 
--- Novel twin. No scanlator join: novels have no scanlators.
+-- Novel twin. No scanlator join: novels offer no scanlator filter.
 getNovelIdsWithUnread:
 WITH
 unitCopies AS (

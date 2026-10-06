@@ -122,7 +122,7 @@ class RecentsUnreadRepositoryTest {
         unread(probe) shouldBe setOf(1L)
     }
 
-    /** Novels have no scanlators, so this rule has no novel case. */
+    /** Novels offer no scanlator filter, so this rule has no novel case. */
     @Test
     fun `a manga whose only unread chapter is by an excluded scanlator has nothing left`() = runTest {
         val manga = unreadProbes().first()
@@ -173,7 +173,7 @@ class RecentsUnreadRepositoryTest {
         signalsAcross(probe, probe.writeMembership) shouldBe 2
     }
 
-    /** Novels have no scanlators, so this input has no novel case. */
+    /** Novels offer no scanlator filter, so this input has no novel case. */
     @Test
     fun `an excluded scanlator write reaches the manga signal`() = runTest {
         signalsAcross(writeProbes().first()) { it.excluded_scanlatorQueries.insert(99L, "hidden") } shouldBe 2

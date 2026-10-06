@@ -93,6 +93,12 @@ class NovelSourceConformanceTest {
 
     @ParameterizedTest
     @EnumSource(Kind::class, names = ["APP", "IREADER"])
+    fun `a chapter's group is kept`(kind: Kind) = runTest {
+        source(kind).parseNovel("novel").chapters.orEmpty().first().scanlator shouldBe "Group"
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class, names = ["APP", "IREADER"])
     fun `a chapter with no upload date has none`(kind: Kind) = runTest {
         source(kind).parseNovel("novel").chapters.orEmpty().last().releaseTime shouldBe null
     }
@@ -295,7 +301,10 @@ class NovelSourceConformanceTest {
         every { getListings() } returns listOf(listing)
         coEvery { getMangaDetails(any(), any()) } returns MangaInfo(key = "novel", title = "Novel")
         coEvery { getChapterList(any(), any()) } returns
-            listOf(ChapterInfo(key = "c1", name = "1", dateUpload = UPLOADED), ChapterInfo(key = "c2", name = "2"))
+            listOf(
+                ChapterInfo(key = "c1", name = "1", dateUpload = UPLOADED, scanlator = "Group"),
+                ChapterInfo(key = "c2", name = "2"),
+            )
         coEvery { getPageList(any(), any()) } returns listOf(Text("a\u0000b"))
         coEvery { getMangaList(listing, 2) } returns
             MangasPageInfo(listOf(MangaInfo(key = "last", title = "last")), false)
@@ -324,7 +333,16 @@ class NovelSourceConformanceTest {
         every { supportsLatest } returns false
         every { getFilterList() } returns FilterList()
         coEvery { getMangaUpdate(any(), any(), any(), any()) } answers {
-            SMangaUpdate(firstArg(), listOf(chapter("c2"), chapter("c1").apply { date_upload = UPLOADED }))
+            SMangaUpdate(
+                firstArg(),
+                listOf(
+                    chapter("c2"),
+                    chapter("c1").apply {
+                        date_upload = UPLOADED
+                        scanlator = "Group"
+                    },
+                ),
+            )
         }
         coEvery { getPageList(any()) } returns listOf(Page(0, "c1"))
         coEvery { fetchPageText(any()) } returns "<p>a\u0000b</p>"

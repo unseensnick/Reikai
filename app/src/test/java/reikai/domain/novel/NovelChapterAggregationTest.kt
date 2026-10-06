@@ -166,8 +166,8 @@ class NovelChapterAggregationTest {
 
     @Test
     fun `keeps every trunk chapter even when two share a title`() {
-        // Novels have no scanlator variants, so two distinct trunk chapters with the same title text
-        // must both survive (the bug was collapsing the trunk against itself).
+        // The novel stitch collapses no source's own rows, so two distinct trunk chapters with the same
+        // title text must both survive (the bug was collapsing the trunk against itself).
         val trunk = listOf(
             chapter(1L, 1.0, "Interlude"),
             chapter(1L, 2.0, "Story"),

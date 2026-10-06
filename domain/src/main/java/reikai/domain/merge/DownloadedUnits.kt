@@ -2,8 +2,8 @@ package reikai.domain.merge
 
 /**
  * One member chapter of a merge group, carrying what a download probe needs to find its file: the
- * folder name is built from the chapter's own name, scanlator and url under its own entry. Novels
- * have no scanlator and pass null.
+ * folder name is built from the chapter's own name, scanlator and url under its own entry. A novel's
+ * download name carries no scanlator, so novels pass null.
  */
 data class DownloadUnitRow(
     val groupId: Long,

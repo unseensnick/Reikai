@@ -181,6 +181,7 @@ class NovelReaderViewModelHarness private constructor(
         page: String = "",
         url: String = "/chapter/$novelId/$number",
         sourceOrder: Long = number.toLong(),
+        scanlator: String? = null,
     ): SeededChapter {
         val chapter = NovelChapter(
             id = -1L,
@@ -195,6 +196,7 @@ class NovelReaderViewModelHarness private constructor(
             dateFetch = 0L,
             dateUpload = 0L,
             page = page,
+            scanlator = scanlator,
         )
         return SeededChapter(chapterRepo.insert(chapter)!!, url)
     }

@@ -1187,7 +1187,7 @@ class NovelReaderViewModel(
             skipDuplicates = novelPreferences.readerSkipDuplicateChapters().get(),
             numberOf = { it.chapterNumber },
             idOf = { it.id },
-            originOf = { null },
+            originOf = { it.scanlator },
             ownerOf = { it.novelId },
         )
     }
@@ -1402,8 +1402,7 @@ internal fun NovelChapter.toReaderChapterRow(
 ) = ReaderChapterRow(
     id = id,
     title = name,
-    // A novel has no scanlator, so the only subtitle is which source a merged group's chapter is from.
-    subtitle = chapterSubtitle(sourceNames[novelId]),
+    subtitle = chapterSubtitle(sourceNames[novelId], scanlator),
     dateUpload = dateUpload,
     readProgress = percentProgressLabel(lastTextProgress),
     read = flags.isRead(this),

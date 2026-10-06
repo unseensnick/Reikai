@@ -121,4 +121,6 @@ fun ChapterItem.toNovelChapter(
     dateFetch = now,
     dateUpload = NovelDateParser.parse(releaseTime, now),
     page = page.orEmpty(),
+    // Manga's rule (copyFromSChapter): trimmed, and blank means none.
+    scanlator = scanlator?.let(NovelTextSanitizer::decodeEntities)?.trim()?.ifEmpty { null },
 )

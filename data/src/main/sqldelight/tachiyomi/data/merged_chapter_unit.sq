@@ -271,7 +271,7 @@ FROM (
 ) AS G
 GROUP BY G.group_id;
 
--- Novel twin. No scanlator join: novels have no scanlators (see novelLibraryView).
+-- Novel twin. No scanlator join: novels offer no scanlator filter (see novelLibraryView).
 countsByGroupNovel:
 SELECT
     group_id AS groupId,
@@ -329,7 +329,7 @@ AND C.remote_scanlator = ES.scanlator
 WHERE U.unit IS NOT NULL
 AND ES.scanlator IS NULL;
 
--- Novel twin. No scanlator join, and none stored: novels have none (see novelLibraryView).
+-- Novel twin. No scanlator join, and none selected: a novel's download name carries none.
 downloadUnitsByGroupNovel:
 SELECT U.group_id AS groupId, U.unit AS unit, C.novel_id AS ownerId, C.name, C.url
 FROM merged_novel_chapter_unit U
@@ -363,7 +363,7 @@ AND C.remote_scanlator = ES.scanlator
 WHERE U1.chapter_id IN :chapterIds
 AND (U2.chapter_id = U1.chapter_id OR (M.user_favorite_at IS NOT NULL AND ES.scanlator IS NULL));
 
--- Novel twin, with no scanlator to exclude.
+-- Novel twin, with no scanlator filter to apply.
 copiesOfNovelChapters:
 SELECT U1.chapter_id AS namedId, U2.chapter_id AS copyId, U2.unit AS unit, U2.copy_order AS copyOrder,
     C.novel_id AS ownerId, N.title AS ownerTitle, N.source AS ownerSource, C.name, C.url

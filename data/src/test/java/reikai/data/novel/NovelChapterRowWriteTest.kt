@@ -47,6 +47,7 @@ class NovelChapterRowWriteTest {
     private fun NovelChapter.everyColumnChanged() = copy(
         novelId = 2L, url = "other-url", name = "other", read = true, bookmark = true, lastTextProgress = 55L,
         chapterNumber = 9.5, sourceOrder = 4L, dateFetch = 3000L, dateUpload = 4000L, page = "2",
+        scanlator = "Group",
     )
 
     @Test

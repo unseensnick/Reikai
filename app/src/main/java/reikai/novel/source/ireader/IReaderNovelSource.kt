@@ -192,5 +192,6 @@ class IReaderNovelSource(
         path = key,
         releaseTime = releaseTimeOf(dateUpload),
         chapterNumber = chapterNumberOf(number),
+        scanlator = scanlator,
     )
 }

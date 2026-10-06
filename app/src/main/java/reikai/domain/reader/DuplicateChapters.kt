@@ -3,8 +3,8 @@ package reikai.domain.reader
 /**
  * Drop same-numbered duplicate chapters WITHIN one entry, which a source produces by listing a chapter
  * twice or under several scanlators. Of each set the chapter being read wins, then a [prefer]red one
- * (a forward step may land on it), the same origin as the current chapter first (a scanlator; a novel
- * has none), then the first. Dropping them rather than stepping over them keeps the chapter sheet,
+ * (a forward step may land on it), the same origin (scanlator) as the current chapter first, then
+ * the first. Dropping them rather than stepping over them keeps the chapter sheet,
  * download-ahead and delete-after-read counting the chapters the reader will stop on. [ownerOf] keeps
  * the pass inside one entry: across a merge group a number identifies nothing.
  */

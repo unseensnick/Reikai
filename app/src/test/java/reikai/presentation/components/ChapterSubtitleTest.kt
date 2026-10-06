@@ -16,7 +16,7 @@ class ChapterSubtitleTest {
 
     @Test
     fun `a merged novel chapter names its source alone`() {
-        chapterSubtitle("NovelUpdates") shouldBe "NovelUpdates"
+        chapterSubtitle("NovelUpdates", null) shouldBe "NovelUpdates"
     }
 
     @Test
@@ -26,7 +26,7 @@ class ChapterSubtitleTest {
 
     @Test
     fun `an unmerged novel chapter says nothing rather than drawing an empty line`() {
-        chapterSubtitle(null) shouldBe null
+        chapterSubtitle(null, null) shouldBe null
     }
 
     @Test

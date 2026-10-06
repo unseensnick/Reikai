@@ -141,7 +141,7 @@ internal fun ColumnScope.FilterPage(
     onUnreadFilterChanged: (TriState) -> Unit,
     bookmarkedFilter: TriState,
     onBookmarkedFilterChanged: (TriState) -> Unit,
-    // RK: the scanlator parameters moved to ChapterSettingsDialog's page 0, since novels have no scanlators
+    // RK: the scanlator parameters moved to ChapterSettingsDialog's page 0, since novels offer no scanlator filter
 ) {
     TriStateItem(
         label = stringResource(MR.strings.label_downloaded),

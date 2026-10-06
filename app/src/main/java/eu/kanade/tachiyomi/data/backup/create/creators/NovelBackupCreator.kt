@@ -164,6 +164,7 @@ private fun NovelChapter.toBackupNovelChapter() = BackupNovelChapter(
     dateFetch = this.dateFetch,
     dateUpload = this.dateUpload,
     page = this.page,
+    scanlator = this.scanlator,
 )
 
 private fun NovelTrack.toBackupNovelTracking() = BackupNovelTracking(

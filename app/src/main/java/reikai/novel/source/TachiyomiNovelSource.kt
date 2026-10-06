@@ -156,5 +156,6 @@ class TachiyomiNovelSource(
         path = url,
         releaseTime = releaseTimeOf(date_upload),
         chapterNumber = chapterNumberOf(chapter_number),
+        scanlator = scanlator,
     )
 }

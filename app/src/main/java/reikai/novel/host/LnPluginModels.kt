@@ -1,8 +1,13 @@
 package reikai.novel.host
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonTransformingSerializer
+import kotlinx.serialization.json.contentOrNull
 
 /**
  * Kotlin mirrors of the lnreader Plugin types (see refs/lnreader-plugins/src/types/plugin.ts).
@@ -60,7 +65,22 @@ data class ChapterItem(
     val releaseTime: String? = null,
     val chapterNumber: Double? = null,
     val page: String? = null,
+    /** The chapter's translation group. A plugin may name several, joined as LNReader joins them. */
+    @Serializable(with = ScanlatorSerializer::class)
+    val scanlator: String? = null,
 )
+
+// LNReader's ChapterQueries rule for `string | string[]`: an array is `filter(Boolean).join(', ')`. Any
+// other shape reads as no group, so an off-spec field cannot fail the whole chapter list.
+private object ScanlatorSerializer : JsonTransformingSerializer<String>(String.serializer()) {
+    override fun transformDeserialize(element: JsonElement): JsonElement = when (element) {
+        is JsonPrimitive -> element
+        is JsonArray -> JsonPrimitive(
+            element.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.ifEmpty { null } }.joinToString(", "),
+        )
+        else -> JsonPrimitive("")
+    }
+}
 
 @Serializable
 data class SourceNovel(

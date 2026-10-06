@@ -68,8 +68,8 @@ object NovelMergeCollapse {
     private fun LibraryNovel.withGroupCounts(counts: MergedGroupCounts?): LibraryNovel =
         counts?.let { copy(totalChapters = it.total, readCount = it.read, bookmarkCount = it.bookmarked) } ?: this
 
-    // The stitch's [trunkOrder]. totalChapters is the novel stitch's own count: novels have no scanlator
-    // variants to collapse, so they rank on rows where manga needs the recognized-number count.
+    // The stitch's [trunkOrder]. totalChapters is the novel stitch's own count: it collapses no scanlator
+    // variants, so novels rank on rows where manga needs the recognized-number count.
     private fun rankComparator(
         overrideOrder: List<Long>,
         preferredSourceIds: List<String>,

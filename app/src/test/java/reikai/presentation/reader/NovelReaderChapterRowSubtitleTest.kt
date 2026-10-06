@@ -15,7 +15,7 @@ import reikai.domain.novel.model.NovelChapter
  */
 class NovelReaderChapterRowSubtitleTest {
 
-    private fun chapter(id: Long, novelId: Long) = NovelChapter(
+    private fun chapter(id: Long, novelId: Long, scanlator: String? = null) = NovelChapter(
         id = id,
         novelId = novelId,
         url = "/$id",
@@ -28,6 +28,7 @@ class NovelReaderChapterRowSubtitleTest {
         dateFetch = 0,
         dateUpload = 0,
         page = "",
+        scanlator = scanlator,
     )
 
     private fun flags(vararg chapters: NovelChapter) = GroupChapterFlags(
@@ -47,6 +48,15 @@ class NovelReaderChapterRowSubtitleTest {
         val row = c.toReaderChapterRow(mapOf(10L to "NovelUpdates"), emptyMap(), flags(c))
 
         row.subtitle shouldBe "NovelUpdates"
+    }
+
+    @Test
+    fun `a single-source novel chapter row reads its group`() {
+        val c = chapter(id = 1, novelId = 10, scanlator = "Group")
+
+        val row = c.toReaderChapterRow(emptyMap(), emptyMap(), flags(c))
+
+        row.subtitle shouldBe "Group"
     }
 
     @Test

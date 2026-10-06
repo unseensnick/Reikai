@@ -44,14 +44,20 @@ class NovelChapterSyncTest {
         dateFetch: Long = 0L,
         id: Long = 1L,
         dateUpload: Long = 0L,
+        scanlator: String? = null,
     ) = NovelChapter(
         id = id, novelId = 1L, url = url, name = "name", read = read, bookmark = bookmark,
         lastTextProgress = 0L, chapterNumber = number, sourceOrder = 0L, dateFetch = dateFetch,
-        dateUpload = dateUpload, page = "",
+        dateUpload = dateUpload, page = "", scanlator = scanlator,
     )
 
-    private fun srcItem(url: String, number: Double, name: String = "name", releaseTime: String? = null) =
-        ChapterItem(name = name, path = url, chapterNumber = number, releaseTime = releaseTime)
+    private fun srcItem(
+        url: String,
+        number: Double,
+        name: String = "name",
+        releaseTime: String? = null,
+        scanlator: String? = null,
+    ) = ChapterItem(name = name, path = url, chapterNumber = number, releaseTime = releaseTime, scanlator = scanlator)
 
     private class Synced(
         val result: NovelChapterSyncResult,
@@ -99,6 +105,20 @@ class NovelChapterSyncTest {
     @Test
     fun `a source that stops dating a chapter leaves the stored row alone`() = runTest {
         val db = listOf(dbChapter("/c/5", number = 5.0, dateUpload = 5_000L))
+
+        sync(db, listOf(srcItem("/c/5", number = 5.0))).result.changed shouldBe false
+    }
+
+    @Test
+    fun `a source naming a new group updates the stored chapter`() = runTest {
+        val db = listOf(dbChapter("/c/5", number = 5.0, scanlator = "Old"))
+
+        sync(db, listOf(srcItem("/c/5", number = 5.0, scanlator = "New"))).changed.single().scanlator shouldBe "New"
+    }
+
+    @Test
+    fun `a source that stops naming a group leaves the stored row alone`() = runTest {
+        val db = listOf(dbChapter("/c/5", number = 5.0, scanlator = "Group"))
 
         sync(db, listOf(srcItem("/c/5", number = 5.0))).result.changed shouldBe false
     }

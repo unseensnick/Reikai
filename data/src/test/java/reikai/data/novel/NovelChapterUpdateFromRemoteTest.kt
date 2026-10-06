@@ -66,6 +66,15 @@ class NovelChapterUpdateFromRemoteTest {
     }
 
     @Test
+    fun `a sync stores the group a source now names on a chapter`() = runTest {
+        val regrouped = repository.getById(2L)!!.copy(scanlator = "Group")
+
+        repository.updateFromRemote(emptyList(), emptyList(), listOf(regrouped))
+
+        repository.getById(2L)!!.scanlator shouldBe "Group"
+    }
+
+    @Test
     fun `a sync whose update fails leaves nothing of the sync behind`() = runTest {
         driver.execute(
             null,

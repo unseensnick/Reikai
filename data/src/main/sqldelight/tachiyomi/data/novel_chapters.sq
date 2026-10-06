@@ -1,12 +1,12 @@
 import kotlin.Boolean;
 
--- Parallel of chapters. Three divergences from the manga chapter table:
--- 1. No `scanlator` (novels don't have scanlator groups).
--- 2. `last_text_progress` replaces `last_page_read` + `pages_left`. Scroll progress in hundredths of a
+-- Parallel of chapters. Two divergences from the manga chapter table:
+-- 1. `last_text_progress` replaces `last_page_read` + `pages_left`. Scroll progress in hundredths of a
 --    percent (0..10000), though the reader writes and resumes it in whole-percent steps.
--- 3. `page` labels the volume / section / arc a chapter belongs to (e.g. "Volume 3"). Used by
+-- 2. `page` labels the volume / section / arc a chapter belongs to (e.g. "Volume 3"). Used by
 --    paged-novel sources whose chapter lists span multiple endpoints; empty string when the
 --    source doesn't expose this metadata.
+-- `scanlator` is the translation group the source names, as on manga's table (53.sqm).
 CREATE TABLE novel_chapters(
     _id INTEGER NOT NULL PRIMARY KEY,
     novel_id INTEGER NOT NULL,
@@ -21,6 +21,7 @@ CREATE TABLE novel_chapters(
     date_upload INTEGER NOT NULL,
     page TEXT NOT NULL DEFAULT '',
     is_downloaded INTEGER AS Boolean NOT NULL DEFAULT 0,
+    scanlator TEXT,
     FOREIGN KEY(novel_id) REFERENCES novels (_id)
     ON DELETE CASCADE
 );
@@ -69,8 +70,8 @@ WHERE url = :url AND novel_id = :novelId
 LIMIT 1;
 
 insert:
-INSERT INTO novel_chapters (novel_id, url, name, read, bookmark, last_text_progress, chapter_number, source_order, date_fetch, date_upload, page)
-VALUES (:novelId, :url, :name, :read, :bookmark, :lastTextProgress, :chapterNumber, :sourceOrder, :dateFetch, :dateUpload, :page);
+INSERT INTO novel_chapters (novel_id, url, name, read, bookmark, last_text_progress, chapter_number, source_order, date_fetch, date_upload, page, scanlator)
+VALUES (:novelId, :url, :name, :read, :bookmark, :lastTextProgress, :chapterNumber, :sourceOrder, :dateFetch, :dateUpload, :page, :scanlator);
 
 update:
 UPDATE novel_chapters SET
@@ -84,7 +85,8 @@ UPDATE novel_chapters SET
     source_order = coalesce(:sourceOrder, source_order),
     date_fetch = coalesce(:dateFetch, date_fetch),
     date_upload = coalesce(:dateUpload, date_upload),
-    page = coalesce(:page, page)
+    page = coalesce(:page, page),
+    scanlator = coalesce(:scanlator, scanlator)
 WHERE _id = :chapterId;
 
 delete:

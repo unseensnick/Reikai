@@ -56,8 +56,8 @@ object NovelChapterAggregation {
             order.startSource()
             val isTrunk = index == 0
             for (chapter in source.chapters) {
-                // Keep every trunk chapter (no intra-source collapse: novels have no scanlator
-                // variants, so distinct rows that happen to share a title are still distinct).
+                // Keep every trunk chapter: the novel stitch collapses no source's own rows, so two
+                // sharing a title stay two, a multi-branch source's group copies included (parked.md).
                 if (isTrunk) {
                     order.place(chapter)
                     continue
@@ -96,7 +96,7 @@ object NovelChapterAggregation {
         memberRanking: List<Long> = emptyList(),
     ): List<Long> = rank(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking).map { it.novelId }
 
-    // The shared trunk order, counting rows: novels have no scanlator variants to collapse.
+    // The shared trunk order, counting rows: the novel stitch collapses no scanlator variants.
     private fun rank(
         chaptersByNovel: Map<Long, List<NovelChapter>>,
         sourceIdByNovel: Map<Long, String>,

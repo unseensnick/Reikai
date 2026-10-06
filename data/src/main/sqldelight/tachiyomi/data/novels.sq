@@ -5,7 +5,7 @@ import kotlin.collections.List;
 
 -- Parallel of mangas. Held disjoint from the manga table because the source-id space differs
 -- (lnreader plugin.id is a String; Tachiyomi extension source ids are Long), the reader is
--- text-based (no `viewer` flags), and there are no scanlators. Fields with direct manga
+-- text-based (no `viewer` flags), and there is no excluded-scanlator list. Fields with direct manga
 -- analogues are named identically so view code and tracker hooks port with minimal diff.
 --
 -- `total_pages` supports paged-novel sources (Royal Road volumes, some Japanese sources) where a

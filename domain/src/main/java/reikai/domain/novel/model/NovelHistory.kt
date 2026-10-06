@@ -19,8 +19,8 @@ data class NovelHistoryWithRelations(
     val readDuration: Long,
     val coverData: NovelCover,
     // The recents read lane acts on the chapter this row names, so it carries that chapter's own
-    // state and the values its download state is looked up by. No scanlator on this side, and
-    // progress is a hundredths scroll percent where the manga twin counts pages.
+    // state and the values its download state is looked up by. No scanlator, which a novel's download
+    // name does not carry, and progress is a hundredths scroll percent where the manga twin counts pages.
     val chapterName: String,
     val chapterUrl: String,
     val read: Boolean,

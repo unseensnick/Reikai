@@ -14,8 +14,8 @@ SELECT
     novels.cover_last_modified,
     novel_chapters.chapter_number AS chapterNumber,
 -- Twin of historyView's block: the read lane acts on the chapter it names, so the row carries that
--- chapter's own state and the values its download state is looked up by. This side has no scanlator,
--- and progress is a hundredths scroll percent rather than a page count.
+-- chapter's own state and the values its download state is looked up by. A novel's download name has no
+-- scanlator, and progress is a hundredths scroll percent rather than a page count.
     novel_chapters.name AS chapterName,
     novel_chapters.url AS chapterUrl,
     novel_chapters.read,

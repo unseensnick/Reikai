@@ -98,7 +98,7 @@ sealed interface EntryChapterListItem {
         val id: Long,
         val name: String,
         /** The row's one subtitle line, as the reader's chapter list does it: in a merged group the
-         *  source leads, then the scanlator where the type has one. Null when there is neither. */
+         *  source leads, then the chapter's scanlator. Null when there is neither. */
         val subtitle: String?,
         val read: Boolean,
         val bookmark: Boolean,

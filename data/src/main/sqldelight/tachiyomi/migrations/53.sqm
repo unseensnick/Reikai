@@ -1,0 +1,3 @@
+-- The translation group a source names on a chapter, as manga's chapter table stores it. Null for every
+-- existing row until its next refresh fills it in.
+ALTER TABLE novel_chapters ADD COLUMN scanlator TEXT;

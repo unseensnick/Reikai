@@ -91,7 +91,8 @@ class NovelChapterRepositoryImpl(
             database.novel_chaptersQueries.update(
                 novelId = null, url = null, name = chapter.name, read = null, bookmark = null,
                 lastTextProgress = null, chapterNumber = chapter.chapterNumber, sourceOrder = chapter.sourceOrder,
-                dateFetch = null, dateUpload = chapter.dateUpload, page = chapter.page, chapterId = chapter.id,
+                dateFetch = null, dateUpload = chapter.dateUpload, page = chapter.page,
+                scanlator = chapter.scanlator, chapterId = chapter.id,
             )
         }
         stored
@@ -102,7 +103,7 @@ class NovelChapterRepositoryImpl(
         database.novel_chaptersQueries.update(
             novelId = null, url = null, name = null, read = null, bookmark = null,
             lastTextProgress = progress, chapterNumber = null, sourceOrder = null,
-            dateFetch = null, dateUpload = null, page = null, chapterId = id,
+            dateFetch = null, dateUpload = null, page = null, scanlator = null, chapterId = id,
         )
         true
     } catch (e: Exception) {
@@ -116,7 +117,7 @@ class NovelChapterRepositoryImpl(
                 database.novel_chaptersQueries.update(
                     novelId = null, url = null, name = null, read = null, bookmark = bookmark,
                     lastTextProgress = null, chapterNumber = null, sourceOrder = null,
-                    dateFetch = null, dateUpload = null, page = null, chapterId = id,
+                    dateFetch = null, dateUpload = null, page = null, scanlator = null, chapterId = id,
                 )
             }
         }
@@ -134,7 +135,7 @@ class NovelChapterRepositoryImpl(
                     novelId = null, url = null, name = null, read = read, bookmark = null,
                     lastTextProgress = if (!read) 0L else null,
                     chapterNumber = null, sourceOrder = null,
-                    dateFetch = null, dateUpload = null, page = null, chapterId = id,
+                    dateFetch = null, dateUpload = null, page = null, scanlator = null, chapterId = id,
                 )
             }
         }
@@ -158,6 +159,7 @@ class NovelChapterRepositoryImpl(
             dateFetch = chapter.dateFetch,
             dateUpload = chapter.dateUpload,
             page = chapter.page,
+            scanlator = chapter.scanlator,
         )
         return database.novel_chaptersQueries.selectLastInsertedRowId().awaitAsOne()
     }
@@ -175,6 +177,7 @@ class NovelChapterRepositoryImpl(
             dateFetch = chapter.dateFetch,
             dateUpload = chapter.dateUpload,
             page = chapter.page,
+            scanlator = chapter.scanlator,
             chapterId = chapter.id,
         )
     }

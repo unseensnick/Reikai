@@ -68,7 +68,7 @@ class MergedTrunkConformanceTest {
     fun `with no ranking set the library leads on the stitch's trunk`(type: ContentType) = runTest {
         val side = side(type)
         // The larger member lists most of its chapters under a scanlator the user hides, which is a
-        // display choice the stitch does not see. Novels have no scanlators, so theirs are all shown.
+        // display choice the stitch does not see. Novels offer no scanlator filter, so theirs are all shown.
         side.entry(id = LARGER, source = 100L, chapters = 10, hidden = 8)
         side.entry(id = SMALLER, source = 200L, chapters = 5)
         groups.createGroup(type, listOf(LARGER, SMALLER))

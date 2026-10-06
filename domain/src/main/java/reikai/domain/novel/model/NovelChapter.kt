@@ -4,11 +4,9 @@ import androidx.compose.runtime.Immutable
 import java.io.Serializable
 
 /**
- * Domain mirror of the `novel_chapters` table. Two divergences from manga chapter semantics:
- *
- * - No `scanlator` (novels don't have scanlator groups).
- * - [lastTextProgress] replaces the manga side's `lastPageRead`. Scroll progress in hundredths of a
- *   percent (0..10000), though the reader writes and resumes it in whole-percent steps.
+ * Domain mirror of the `novel_chapters` table. [lastTextProgress] replaces the manga side's
+ * `lastPageRead`: scroll progress in hundredths of a percent (0..10000), though the reader writes and
+ * resumes it in whole-percent steps.
  */
 @Immutable
 data class NovelChapter(
@@ -28,4 +26,6 @@ data class NovelChapter(
      * paged sources; empty string when the source doesn't expose it.
      */
     val page: String,
+    /** The translation group the source names, as manga's `scanlator`; null when it names none. */
+    val scanlator: String? = null,
 ) : Serializable

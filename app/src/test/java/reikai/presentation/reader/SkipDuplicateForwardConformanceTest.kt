@@ -24,6 +24,9 @@ class SkipDuplicateForwardConformanceTest {
     interface Probe {
         /** Whether the next chapter from 4 is the unread copy of 5. */
         suspend fun nextIsTheUnreadCopy(scope: TestScope): Boolean
+
+        /** Of chapter 5's copies from groups y (listed first) and x, whether the step from 4 (x) reaches x's. */
+        suspend fun nextIsTheSameGroupsCopy(scope: TestScope): Boolean
     }
 
     @BeforeEach
@@ -36,6 +39,12 @@ class SkipDuplicateForwardConformanceTest {
     @MethodSource("probes")
     fun `a forward step reaches the unread copy of a duplicated chapter`(probe: Probe) = runTest {
         probe.nextIsTheUnreadCopy(this) shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a forward step keeps to the current chapter's group`(probe: Probe) = runTest {
+        probe.nextIsTheSameGroupsCopy(this) shouldBe true
     }
 
     companion object {
@@ -59,6 +68,18 @@ class SkipDuplicateForwardConformanceTest {
                     state.viewerChapters?.nextChapter?.chapter?.id == unread.id
                 }
             }
+
+        override suspend fun nextIsTheSameGroupsCopy(scope: TestScope): Boolean =
+            MangaReaderViewModelHarness.create().use { harness ->
+                val manga = harness.manga(1L, source = 100L, title = "Series")
+                harness.chapter(40L, manga, 4.0, scanlator = "x")
+                harness.chapter(50L, manga, 5.0, scanlator = "y", order = 951L)
+                val same = harness.chapter(51L, manga, 5.0, scanlator = "x", order = 950L)
+                harness.chapter(60L, manga, 6.0, scanlator = "x")
+                harness.open(manga, chapterId = 40L, preferences = mapOf("skip_dupe" to true)) { _, state ->
+                    state.viewerChapters?.nextChapter?.chapter?.id == same.id
+                }
+            }
     }
 
     class NovelProbe : Probe {
@@ -77,6 +98,20 @@ class SkipDuplicateForwardConformanceTest {
                 scope.advanceUntilIdle()
 
                 model.chapterNeighbours.value.next == unread.id
+            }
+
+        override suspend fun nextIsTheSameGroupsCopy(scope: TestScope): Boolean =
+            NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+                val novel = harness.novel(harness.source("alpha"))
+                val four = harness.chapter(novel, 4.0, scanlator = "x")
+                harness.chapter(novel, 5.0, scanlator = "y")
+                val same = harness.chapter(novel, 5.0, url = "/chapter/$novel/5-x", sourceOrder = 6L, scanlator = "x")
+                harness.chapter(novel, 6.0, sourceOrder = 7L, scanlator = "x")
+                harness.novelPreferences.readerSkipDuplicateChapters().set(true)
+                val model = harness.open(novel, four.id)
+                scope.advanceUntilIdle()
+
+                model.chapterNeighbours.value.next == same.id
             }
     }
 }

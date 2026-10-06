@@ -184,7 +184,7 @@ interface RecentsProvider : RecentsBehavior {
 /**
  * An affordance one content type's half of the surface either has or does not, asked of the providers
  * behind the chip so shared code never names a type. [UPCOMING] is Mihon's release calendar, which
- * reads the manga library alone; [SCANLATOR_FILTER] is the excluded-scanlators switch, and a novel
- * chapter has no scanlator. What no provider behind the chip answers is hidden, never drawn inert.
+ * reads the manga library alone; [SCANLATOR_FILTER] is the excluded-scanlators switch, which novels do
+ * not offer. What no provider behind the chip answers is hidden, never drawn inert.
  */
 enum class RecentsTypeCapability { UPCOMING, SCANLATOR_FILTER }

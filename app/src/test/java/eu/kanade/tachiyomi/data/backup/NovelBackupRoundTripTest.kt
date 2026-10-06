@@ -14,6 +14,8 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Test
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
@@ -21,6 +23,7 @@ import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelChapter
 
 class NovelBackupRoundTripTest {
 
@@ -141,5 +144,32 @@ class NovelBackupRoundTripTest {
         chapter.url shouldBe "c1"
         chapter.read shouldBe true
         chapter.lastTextProgress shouldBe 4200L
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    @Test
+    fun `a chapter's group survives a backup and its restore`() = runTest {
+        val stored = NovelChapter(
+            id = 7L, novelId = 1L, url = "c1", name = "Chapter 1", read = false, bookmark = false,
+            lastTextProgress = 0L, chapterNumber = 1.0, sourceOrder = 0L, dateFetch = 0L, dateUpload = 0L,
+            page = "", scanlator = "Group",
+        )
+        val creator = NovelBackupCreator(
+            novelRepository = mockk(),
+            novelChapterRepository = mockk { coEvery { getByNovelId(1L) } returns listOf(stored) },
+            categoryRepository = mockk(),
+            novelTrackRepository = mockk(),
+            mergeGroupRepository = mockk(),
+            customNovelInfoRepository = mockk(),
+            novelHistoryRepository = mockk(),
+            novelSourceManager = mockk(),
+        )
+        val backup = BackupNovel(source = "s1", url = "u")
+        creator.chapters(novel(1, "u", "s1"), backup)
+
+        val wire = ProtoBuf.encodeToByteArray(BackupNovelChapter.serializer(), backup.chapters.single())
+
+        ProtoBuf.decodeFromByteArray(BackupNovelChapter.serializer(), wire).toChapterImpl(novelId = 42)
+            .scanlator shouldBe "Group"
     }
 }

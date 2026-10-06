@@ -330,6 +330,7 @@ agent under Settings -> Advanced.
 - **Adding a duplicate novel now gives you a one-tap Migrate, moving progress, categories, cover and tracking to the new source.**
 - **Clear database now also removes novels that aren't in your library.** Novel sources get their own rows, and the keep-read toggle protects novels with reading progress, like manga.
 - **A novel's chapter list can now be sorted alphabetically, the fourth sort manga already had, and a newly picked sort starts ascending, as on manga.**
+- **Light novel chapters now show their translation group on the details page and in the reader's chapter list.**
 - **Settings -> Novel reader can now set how far into a chapter a novel counts it as read, from 50% to 100%.** It stays at 97% until you change it.
 - **Settings -> Novel reader can now swap the vertical chapter navigator for a horizontal slider above the bar's buttons.**
 - **The novel web page reader can now add your own CSS and JavaScript snippets to every chapter, under Settings -> Novel reader.** JavaScript snippets restored from a backup come back switched off.
