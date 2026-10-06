@@ -9,9 +9,9 @@ import androidx.core.app.NotificationManagerCompat // RK
 import androidx.core.net.toUri
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.chapter.interactor.SetReadStatus
-import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
+import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreWorker
 import eu.kanade.tachiyomi.data.download.DownloadManager
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.system.cancelNotification
@@ -22,7 +22,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
-import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.Novel
@@ -102,7 +102,7 @@ class NotificationReceiver : BroadcastReceiver() {
             ACTION_PAUSE_NOVEL_DOWNLOADS -> novelDownloadManager().pauseDownloads()
             ACTION_RESUME_NOVEL_DOWNLOADS -> novelDownloadManager().startDownloads()
             // RK: cancel the background novel library update
-            ACTION_CANCEL_NOVEL_LIBRARY_UPDATE -> NovelUpdateJob.stop(context)
+            ACTION_CANCEL_NOVEL_LIBRARY_UPDATE -> NovelUpdateWorker.stop(context)
             // Open reader activity
             ACTION_OPEN_CHAPTER -> {
                 openChapter(
@@ -237,7 +237,7 @@ class NotificationReceiver : BroadcastReceiver() {
      * @param context context of application
      */
     private fun cancelRestore(context: Context) {
-        BackupRestoreJob.stop(context.workManager)
+        BackupRestoreWorker.stop(context.workManager)
     }
 
     /**
@@ -246,7 +246,7 @@ class NotificationReceiver : BroadcastReceiver() {
      * @param context context of application
      */
     private fun cancelLibraryUpdate(context: Context) {
-        LibraryUpdateJob.stop(context)
+        LibraryUpdateWorker.stop(context)
     }
 
     /**

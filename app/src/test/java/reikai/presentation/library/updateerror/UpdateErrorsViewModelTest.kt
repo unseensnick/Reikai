@@ -2,7 +2,7 @@ package reikai.presentation.library.updateerror
 
 import android.content.Context
 import androidx.work.WorkManager
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.util.system.workManager
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -21,7 +21,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.library.ContentType
 
 class UpdateErrorsViewModelTest {
@@ -35,8 +35,8 @@ class UpdateErrorsViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         mockkStatic(WORK_MANAGER_EXTENSIONS)
         every { context.workManager } returns workManager
-        mockkObject(LibraryUpdateJob.Companion, NovelUpdateJob.Companion)
-        every { NovelUpdateJob.startNow(workManager, null) } answers {
+        mockkObject(LibraryUpdateWorker.Companion, NovelUpdateWorker.Companion)
+        every { NovelUpdateWorker.startNow(workManager, null) } answers {
             novelStarted = true
             true
         }
@@ -44,21 +44,21 @@ class UpdateErrorsViewModelTest {
 
     @AfterEach
     fun tearDown() {
-        unmockkObject(LibraryUpdateJob.Companion, NovelUpdateJob.Companion)
+        unmockkObject(LibraryUpdateWorker.Companion, NovelUpdateWorker.Companion)
         unmockkStatic(WORK_MANAGER_EXTENSIONS)
         Dispatchers.resetMain()
     }
 
     @Test
     fun `an already running manga update still reports the novel one started`() = runTest {
-        every { LibraryUpdateJob.startNow(workManager, null) } returns false
+        every { LibraryUpdateWorker.startNow(workManager, null) } returns false
 
         viewModel(ContentType.ALL).retry(context) shouldBe true
     }
 
     @Test
     fun `a started manga update does not skip the novel one`() = runTest {
-        every { LibraryUpdateJob.startNow(workManager, null) } returns true
+        every { LibraryUpdateWorker.startNow(workManager, null) } returns true
 
         viewModel(ContentType.ALL).retry(context)
 
@@ -67,15 +67,15 @@ class UpdateErrorsViewModelTest {
 
     @Test
     fun `updates refused on both libraries report nothing started`() = runTest {
-        every { LibraryUpdateJob.startNow(workManager, null) } returns false
-        every { NovelUpdateJob.startNow(workManager, null) } returns false
+        every { LibraryUpdateWorker.startNow(workManager, null) } returns false
+        every { NovelUpdateWorker.startNow(workManager, null) } returns false
 
         viewModel(ContentType.ALL).retry(context) shouldBe false
     }
 
     @Test
     fun `the Manga chip leaves the novel update alone`() = runTest {
-        every { LibraryUpdateJob.startNow(workManager, null) } returns true
+        every { LibraryUpdateWorker.startNow(workManager, null) } returns true
         val viewModel = viewModel(ContentType.MANGA)
         viewModel.state.first { it is UpdateErrorsScreenState.Success }
 

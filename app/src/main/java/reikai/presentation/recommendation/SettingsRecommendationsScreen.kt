@@ -12,7 +12,7 @@ import eu.kanade.presentation.more.settings.screen.SearchableSettings
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
 import mihon.app.di.appGraph
-import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
+import reikai.data.recommendation.taste.TrackerLibraryRefreshWorker
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.TrackerToggle
@@ -121,7 +121,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
         // Re-read whenever the manual pull starts or ends, so the summary updates as it lands. withIOContext
         // because a produceState body runs on Main, and this is one DB read per tracker.
         val lastRefreshSummary by produceState("", neverLabel) {
-            TrackerLibraryRefreshJob.isRunningFlow(context).collect {
+            TrackerLibraryRefreshWorker.isRunningFlow(context).collect {
                 value = withIOContext { buildLastRefreshSummary(repository, fetchers, neverLabel) }
             }
         }
@@ -146,7 +146,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
                     ),
                     title = stringResource(MR.strings.pref_tracker_library_auto_refresh),
                     onValueChanged = {
-                        TrackerLibraryRefreshJob.setupTask(context, it)
+                        TrackerLibraryRefreshWorker.setupTask(context, it)
                         true
                     },
                 ),
@@ -156,7 +156,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
                     subtitle = lastRefreshSummary.ifBlank { stringResource(MR.strings.pref_refresh_now_summary) },
                     onClick = {
                         context.toast(
-                            if (TrackerLibraryRefreshJob.startNow(context)) {
+                            if (TrackerLibraryRefreshWorker.startNow(context)) {
                                 MR.strings.pref_refresh_now_started
                             } else {
                                 MR.strings.pref_refresh_now_cooldown

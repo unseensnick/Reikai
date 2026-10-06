@@ -59,7 +59,7 @@ Net-new Reikai code (under `reikai.*`):
 - [reikai/presentation/browse/EntryBrowseGridCell.kt](../../../app/src/main/java/reikai/presentation/browse/EntryBrowseGridCell.kt): the shared grid cell both content types render through (novels map in via `NovelItem.toEntryBrowseUi`); also used by novel global search and the migration target picker.
 - [reikai/presentation/browse/globalsearch/EntryGlobalSearchScreen.kt](../../../app/src/main/java/reikai/presentation/browse/globalsearch/EntryGlobalSearchScreen.kt) + [NovelGlobalSearchViewModel.kt](../../../app/src/main/java/reikai/presentation/novel/globalsearch/NovelGlobalSearchViewModel.kt): cross-source search, one screen over both types.
 - [reikai/domain/source/ReikaiSourcePreferences.kt](../../../app/src/main/java/reikai/domain/source/ReikaiSourcePreferences.kt): `browseContentType`, `pinnedNovelSources`, `novelBrowseDisplayMode`, the global-search "has results" key.
-- [reikai/data/novel/update/LnPluginUpdateJob.kt](../../../app/src/main/java/reikai/data/novel/update/LnPluginUpdateJob.kt): periodic plugin-update check + notification.
+- [reikai/data/novel/update/LnPluginUpdateWorker.kt](../../../app/src/main/java/reikai/data/novel/update/LnPluginUpdateWorker.kt): periodic plugin-update check + notification.
 
 Mihon files patched (`// RK` islands):
 

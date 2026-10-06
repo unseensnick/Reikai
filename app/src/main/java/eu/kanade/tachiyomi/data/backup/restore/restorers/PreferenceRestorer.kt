@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.data.backup.restore.restorers
 import android.content.Context
 import android.util.Log
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
+import eu.kanade.tachiyomi.data.backup.create.BackupCreateWorker
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
@@ -14,12 +14,12 @@ import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.LongPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.source.sourcePreferences
 import exh.eh.EHentaiUpdateWorker
 import reikai.data.backup.AppPreferenceCarry
-import reikai.data.novel.update.NovelUpdateJob
-import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
+import reikai.data.novel.update.NovelUpdateWorker
+import reikai.data.recommendation.taste.TrackerLibraryRefreshWorker
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.GetNovelCategories
@@ -63,11 +63,11 @@ class PreferenceRestorer(
         }
         // RK <--
 
-        LibraryUpdateJob.setupTask(context)
-        BackupCreateJob.setupTask(context)
+        LibraryUpdateWorker.setupTask(context)
+        BackupCreateWorker.setupTask(context)
         // RK --> Reikai's periodic jobs read their restored interval only when set up
-        NovelUpdateJob.setupTask(context)
-        TrackerLibraryRefreshJob.setupTask(context)
+        NovelUpdateWorker.setupTask(context)
+        TrackerLibraryRefreshWorker.setupTask(context)
         EHentaiUpdateWorker.setupTask(context)
         // RK <--
     }

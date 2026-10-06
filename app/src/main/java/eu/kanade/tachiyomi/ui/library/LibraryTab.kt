@@ -65,7 +65,7 @@ import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.TravelExplore
-import reikai.data.track.TrackerRefreshJob
+import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.sortForCategory
@@ -412,7 +412,7 @@ data object LibraryTab : Tab {
                         // RK: library-wide tracker refresh, both content types at once, so it does not
                         // follow the chip. A snackbar reports the two states the user can act on.
                         onClickRefreshTrackers = {
-                            val started = TrackerRefreshJob.startNow(context)
+                            val started = TrackerRefreshWorker.startNow(context)
                             scope.launch {
                                 snackbarHostState.showSnackbar(
                                     context.stringResource(

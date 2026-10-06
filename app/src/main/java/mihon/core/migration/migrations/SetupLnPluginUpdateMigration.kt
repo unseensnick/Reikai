@@ -6,11 +6,11 @@ import dev.zacsweers.metro.ContributesIntoSet
 import dev.zacsweers.metro.Inject
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
-import reikai.data.novel.update.LnPluginUpdateJob
+import reikai.data.novel.update.LnPluginUpdateWorker
 
 /**
  * Schedules the periodic light-novel plugin update check on install and on each app upgrade, mirroring
- * [SetupLibraryUpdateMigration]. Idempotent via [LnPluginUpdateJob.setupTask]'s unique-work policy.
+ * [SetupLibraryUpdateMigration]. Idempotent via [LnPluginUpdateWorker.setupTask]'s unique-work policy.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)
@@ -20,7 +20,7 @@ class SetupLnPluginUpdateMigration(
     override val version: Float = Migration.ALWAYS
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean {
-        LnPluginUpdateJob.setupTask(context)
+        LnPluginUpdateWorker.setupTask(context)
         return true
     }
 }

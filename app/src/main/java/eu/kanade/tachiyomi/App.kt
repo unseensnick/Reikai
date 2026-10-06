@@ -70,6 +70,7 @@ import reikai.data.coil.NovelCoverFactory
 import reikai.data.coil.NovelCoverKeyer
 import reikai.data.coil.NovelImageFetcher
 import reikai.data.coil.NovelImageKeyer
+import reikai.data.work.RenamedWorkers
 import reikai.data.work.WorkerStartFailures
 import reikai.presentation.widget.UnifiedUpdatesWidgetManager
 import tachiyomi.core.common.i18n.stringResource
@@ -116,8 +117,10 @@ class App :
 
     // RK --> WorkManager starts on demand from this, since its default start has no handler for a job
     // that throws while it is built (reikai.data.work.WorkerStartFailures). The manifest removes the default.
+    // RenamedWorkers still runs work an older build queued under a retired *Job class name.
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
+            .setWorkerFactory(RenamedWorkers)
             .setWorkerInitializationExceptionHandler(
                 WorkerStartFailures { tag, workerName ->
                     val notice = notificationBuilder(Notifications.CHANNEL_COMMON) {

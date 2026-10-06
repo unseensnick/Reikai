@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
-import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
@@ -167,7 +167,7 @@ class NovelRecentsAdapter(
 
     override val lastUpdated: Flow<Long> = novelPreferences.novelLibraryUpdateLastTimestamp().changes()
 
-    override val updating: Flow<Boolean> = NovelUpdateJob.isRunningFlow(application)
+    override val updating: Flow<Boolean> = NovelUpdateWorker.isRunningFlow(application)
 
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Novel)
@@ -294,7 +294,7 @@ class NovelRecentsAdapter(
     override suspend fun clearHistory(): Boolean = historyModel?.removeAllHistory() == true
 
     // Straight to the job, the twin of the manga side and for the same two reasons.
-    override fun refresh(): Boolean = NovelUpdateJob.startNow(application.workManager)
+    override fun refresh(): Boolean = NovelUpdateWorker.startNow(application.workManager)
 
     override suspend fun detailsScreen(entry: EntryId): Screen? {
         val novelId = (entry as? EntryId.Novel)?.rawId ?: return null

@@ -6,15 +6,15 @@ import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import exh.GalleryAdder
 import exh.eh.EHentaiUpdateHelper
 import exh.eh.EHentaiUpdateWorker
-import exh.favorites.EhFavoritesBackupJob
-import exh.md.MangaDexSyncJob
+import exh.favorites.EhFavoritesBackupWorker
+import exh.md.MangaDexSyncWorker
 import exh.pref.DelegateSourcePreferences
 import exh.source.ExhPreferences
 import exh.uconfig.EHConfigurator
 import exh.ui.login.EhLoginActivity
 import mihon.core.migration.migrations.MergedDuplicateCarryMigration
-import reikai.data.novel.update.NovelUpdateJob
-import reikai.data.track.TrackerRefreshJob
+import reikai.data.novel.update.NovelUpdateWorker
+import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.extension.ExtensionUpdateCounts
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -23,7 +23,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.RepairNovelDetails
-import reikai.domain.novel.track.NovelDelayedTrackingUpdateJob
+import reikai.domain.novel.track.NovelDelayedTrackingUpdateWorker
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteLibraryRepository
@@ -31,7 +31,7 @@ import reikai.domain.recommendation.taste.TrackerLibraryFetcher
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.track.KitsuEntryIdCopies
 import reikai.novel.download.NovelDownloadCache
-import reikai.novel.download.NovelDownloadJob
+import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
 import reikai.novel.source.NovelSourceManager
@@ -60,13 +60,13 @@ import tachiyomi.domain.manga.interactor.InsertFlatMetadata
  * `context.appGraph.x`; keeping them here leaves `AppGraph` close enough to Mihon's to sync by hunk.
  */
 interface ReikaiGraph {
-    fun inject(novelDownloadJob: NovelDownloadJob)
-    fun inject(novelUpdateJob: NovelUpdateJob)
-    fun inject(trackerRefreshJob: TrackerRefreshJob)
+    fun inject(novelDownloadWorker: NovelDownloadWorker)
+    fun inject(novelUpdateWorker: NovelUpdateWorker)
+    fun inject(trackerRefreshWorker: TrackerRefreshWorker)
     fun inject(eHentaiUpdateWorker: EHentaiUpdateWorker)
-    fun inject(ehFavoritesBackupJob: EhFavoritesBackupJob)
-    fun inject(mangaDexSyncJob: MangaDexSyncJob)
-    fun inject(novelDelayedTrackingUpdateJob: NovelDelayedTrackingUpdateJob)
+    fun inject(ehFavoritesBackupWorker: EhFavoritesBackupWorker)
+    fun inject(mangaDexSyncWorker: MangaDexSyncWorker)
+    fun inject(novelDelayedTrackingUpdateWorker: NovelDelayedTrackingUpdateWorker)
 
     // Mihon's own widgets inject through PresentationWidgetGraph, contributed from presentation-widget.
     fun inject(unifiedUpdatesGlanceWidget: UnifiedUpdatesGlanceWidget)

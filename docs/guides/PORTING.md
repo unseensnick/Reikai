@@ -128,7 +128,7 @@ Fixed:
 - **Light novels were missing from `getting-started.md` entirely**, which is the page a new user
   reads first. Novel repos are added from the same Repos screen, where **Add repo** works out which
   kind an address is, and the plugins install from the Extensions tab beside manga extensions.
-- **Smart updates reach novels, the Upcoming calendar does not.** `NovelUpdateJob` applies all four
+- **Smart updates reach novels, the Upcoming calendar does not.** `NovelUpdateWorker` applies all four
   skip rules through the same `smartUpdateSkip` kernel as manga, predicting a novel's next chapter
   from its own chapter history, but the calendar stays manga-only by owner ruling. The pages say so.
 - **The pre-Android-8 leftovers**, now that `minSdk` is 26: the WebView table's "Android 6 and

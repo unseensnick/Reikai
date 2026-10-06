@@ -4,14 +4,14 @@ import android.content.Context
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
-import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
+import eu.kanade.tachiyomi.data.backup.create.BackupCreateWorker
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.interceptor.FLARESOLVERR_URL_KEY
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
@@ -32,8 +32,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.backup.AppPreferenceCarry
-import reikai.data.novel.update.NovelUpdateJob
-import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
+import reikai.data.novel.update.NovelUpdateWorker
+import reikai.data.recommendation.taste.TrackerLibraryRefreshWorker
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.DEAD_READER_AUTO_SCROLL_KEY
@@ -81,17 +81,29 @@ class PreferenceRestorerTest {
     /** All five are WorkManager scheduling the restore does on its way out, which needs a real app. */
     @BeforeEach
     fun stubTheJobs() {
-        mockkObject(LibraryUpdateJob, BackupCreateJob, NovelUpdateJob, TrackerLibraryRefreshJob, EHentaiUpdateWorker)
-        every { LibraryUpdateJob.setupTask(any(), any()) } returns Unit
-        every { BackupCreateJob.setupTask(any(), any()) } returns Unit
-        every { NovelUpdateJob.setupTask(any(), any()) } returns Unit
-        every { TrackerLibraryRefreshJob.setupTask(any(), any()) } returns Unit
+        mockkObject(
+            LibraryUpdateWorker,
+            BackupCreateWorker,
+            NovelUpdateWorker,
+            TrackerLibraryRefreshWorker,
+            EHentaiUpdateWorker,
+        )
+        every { LibraryUpdateWorker.setupTask(any(), any()) } returns Unit
+        every { BackupCreateWorker.setupTask(any(), any()) } returns Unit
+        every { NovelUpdateWorker.setupTask(any(), any()) } returns Unit
+        every { TrackerLibraryRefreshWorker.setupTask(any(), any()) } returns Unit
         every { EHentaiUpdateWorker.setupTask(any(), any()) } returns Unit
     }
 
     @AfterEach
     fun releaseTheJobs() {
-        unmockkObject(LibraryUpdateJob, BackupCreateJob, NovelUpdateJob, TrackerLibraryRefreshJob, EHentaiUpdateWorker)
+        unmockkObject(
+            LibraryUpdateWorker,
+            BackupCreateWorker,
+            NovelUpdateWorker,
+            TrackerLibraryRefreshWorker,
+            EHentaiUpdateWorker,
+        )
     }
 
     /** A job reads its interval only when set up, so one left alone keeps running on the pre-restore one. */
@@ -390,10 +402,10 @@ class PreferenceRestorerTest {
 
         @JvmStatic
         fun rearmedJobs() = listOf(
-            Arguments.of("novel updates", { c: Context -> verify { NovelUpdateJob.setupTask(c, null) } }),
+            Arguments.of("novel updates", { c: Context -> verify { NovelUpdateWorker.setupTask(c, null) } }),
             Arguments.of(
                 "the tracker library refresh",
-                { c: Context -> verify { TrackerLibraryRefreshJob.setupTask(c, null) } },
+                { c: Context -> verify { TrackerLibraryRefreshWorker.setupTask(c, null) } },
             ),
             Arguments.of(
                 "adult gallery updates",

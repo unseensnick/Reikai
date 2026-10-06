@@ -34,7 +34,7 @@ import tachiyomi.domain.source.service.SourceManager
  * later is pushed by [EHentai.onFavorited], which every add path reaches. Never removes anything
  * from the account.
  */
-class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerParameters) :
+class EhFavoritesBackupWorker(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
     private val graph: AppGraph = context.metroGraph()
@@ -116,7 +116,7 @@ class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerPar
             context.workManager.enqueueUniqueWork(
                 TAG,
                 ExistingWorkPolicy.KEEP,
-                OneTimeWorkRequestBuilder<EhFavoritesBackupJob>()
+                OneTimeWorkRequestBuilder<EhFavoritesBackupWorker>()
                     .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                     .addTag(TAG)
                     .build(),

@@ -9,7 +9,7 @@ import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.source.model.SourceNotInstalledException
 import tachiyomi.i18n.MR
 
-/** A library update's failure for one entry as Mihon's `LibraryUpdateJob` words it; the manga and novel
+/** A library update's failure for one entry as Mihon's `LibraryUpdateWorker` words it; the manga and novel
  *  jobs both ask here. */
 context(context: Context)
 fun Throwable.updateFailureMessage(): String? = when (this) {

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test
  * How Mihon's worker runs the downloader through a network wait. Waiting it out and fetching again is
  * the rule both engines share, pinned by NetworkWaitConformanceTest; this is the manga worker's own part.
  */
-class DownloadJobTest {
+class DownloadWorkerTest {
 
     private fun workerTest(body: suspend TestScope.(DownloadWorkerFixture) -> Unit) = runTest {
         DownloadWorkerFixture(this).use { body(it) }

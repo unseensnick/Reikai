@@ -6,11 +6,11 @@ import dev.zacsweers.metro.ContributesIntoSet
 import dev.zacsweers.metro.Inject
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
-import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.novel.update.NovelUpdateWorker
 
 /**
  * Schedules the periodic light-novel chapter-update check on install and on each app upgrade, mirroring
- * [SetupLibraryUpdateMigration]. Idempotent: [NovelUpdateJob.setupTask] reads the stored interval and
+ * [SetupLibraryUpdateMigration]. Idempotent: [NovelUpdateWorker.setupTask] reads the stored interval and
  * either (re)enqueues the unique periodic work or cancels it when the interval is 0 (off).
  */
 @Inject
@@ -21,7 +21,7 @@ class SetupNovelUpdateMigration(
     override val version: Float = Migration.ALWAYS
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean {
-        NovelUpdateJob.setupTask(context)
+        NovelUpdateWorker.setupTask(context)
         return true
     }
 }

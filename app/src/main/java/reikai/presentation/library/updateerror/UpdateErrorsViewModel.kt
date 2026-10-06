@@ -11,14 +11,14 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
-import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.library.ContentType
 import reikai.domain.library.includes
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
@@ -152,8 +152,8 @@ class UpdateErrorsViewModel(
         // Every start is attempted before asking whether any began, so a running manga update cannot
         // short-circuit the novel one.
         val started = buildList {
-            if (type.includes(ContentType.MANGA)) add(LibraryUpdateJob.startNow(context.workManager))
-            if (type.includes(ContentType.NOVELS)) add(NovelUpdateJob.startNow(context.workManager))
+            if (type.includes(ContentType.MANGA)) add(LibraryUpdateWorker.startNow(context.workManager))
+            if (type.includes(ContentType.NOVELS)) add(NovelUpdateWorker.startNow(context.workManager))
         }
         return started.any { it }
     }

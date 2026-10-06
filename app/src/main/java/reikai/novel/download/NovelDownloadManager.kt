@@ -54,7 +54,7 @@ import kotlin.random.Random
  * App-scoped, text-only download engine for light-novel chapters. One sequential queue writes a self-contained HTML
  * file per chapter under a stable-name path ([NovelDownloadProvider]), and "downloaded" is decided from a disk scan
  * ([NovelDownloadCache]), so downloads survive reinstall, restore and storage moves. Draining runs inside
- * [NovelDownloadJob], a foreground worker, so downloads survive backgrounding. Each chapter's source is resolved
+ * [NovelDownloadWorker], a foreground worker, so downloads survive backgrounding. Each chapter's source is resolved
  * from its `novelId`, so the entry points work from a cold background process.
  */
 @Inject
@@ -96,7 +96,7 @@ class NovelDownloadManager(
 
     /** True while the drain worker is running (drives the queue FAB's Pause/Resume); false when the
      *  user paused or the queue is idle. Mirrors the manga DownloadManager.isDownloaderRunning. */
-    val isDownloaderRunning: Flow<Boolean> get() = NovelDownloadJob.isRunningFlow(context)
+    val isDownloaderRunning: Flow<Boolean> get() = NovelDownloadWorker.isRunningFlow(context)
 
     /** Chapters finished per novel while it stayed queued, read by the download queue's cards. */
     val completions = SeriesCompletions()
@@ -163,13 +163,13 @@ class NovelDownloadManager(
         // Adding downloads implies wanting them, so clear any user pause and (re)start the drain.
         sourcePreferences.novelDownloadsPaused.set(false)
         dismissPausedNotification()
-        NovelDownloadJob.start(context)
+        NovelDownloadWorker.start(context)
     }
 
     /** Stop the running job and clear the entire pending queue. Already-downloaded chapters (files +
      *  flags) are kept; only what's still queued is discarded. */
     fun cancelAllDownloads() {
-        NovelDownloadJob.stop(context)
+        NovelDownloadWorker.stop(context)
         sourcePreferences.novelDownloadsPaused.set(false)
         synchronized(storeLock) {
             _queueState.value = emptyList()
@@ -189,7 +189,7 @@ class NovelDownloadManager(
     fun pauseDownloads() {
         sourcePreferences.novelDownloadsPaused.set(true)
         _downloadingNovelId.value = null
-        NovelDownloadJob.stop(context)
+        NovelDownloadWorker.stop(context)
     }
 
     val isPausedByUser: Boolean get() = sourcePreferences.novelDownloadsPaused.get()
@@ -198,7 +198,7 @@ class NovelDownloadManager(
     fun startDownloads() {
         sourcePreferences.novelDownloadsPaused.set(false)
         dismissPausedNotification()
-        NovelDownloadJob.start(context)
+        NovelDownloadWorker.start(context)
     }
 
     /** Drop chapters from the pending queue without deleting any downloaded file/flag (the chip's
@@ -353,7 +353,7 @@ class NovelDownloadManager(
     }
 
     /**
-     * Drain the queue sequentially until empty. Called by [NovelDownloadJob]; the worker stays
+     * Drain the queue sequentially until empty. Called by [NovelDownloadWorker]; the worker stays
      * foreground for the duration. Waits for the launch restore first, so a worker WorkManager reschedules
      * after a restart sees the saved queue. [onProgress] reports the chapter being downloaded, or why the
      * drain is paused.

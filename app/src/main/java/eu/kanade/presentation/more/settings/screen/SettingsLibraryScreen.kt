@@ -13,11 +13,11 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
-import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.library.preferredsources.PreferredSourcesScreen
@@ -85,7 +85,7 @@ object SettingsLibraryScreen : SearchableSettings {
             preferenceItems = updateScheduleRows(
                 novelPreferences.libraryUpdateInterval(),
                 novelPreferences.libraryUpdateDeviceRestrictions(),
-                NovelUpdateJob::setupTask,
+                NovelUpdateWorker::setupTask,
             ) + listOf(
                 // Categories + Smart update are ungated (always shown), matching the manga Global-update
                 // group where only the device-restriction row is gated on interval > 0.
@@ -247,7 +247,7 @@ object SettingsLibraryScreen : SearchableSettings {
             preferenceItems = updateScheduleRows(
                 libraryPreferences.autoUpdateInterval,
                 libraryPreferences.autoUpdateDeviceRestrictions,
-                LibraryUpdateJob::setupTask,
+                LibraryUpdateWorker::setupTask,
             ) + listOf(
                 categoryFilterPreference(
                     allCategories,

@@ -179,7 +179,7 @@ A `popularNovels` call (the others are analogous):
 | `install/LnPluginInstaller.kt` | `installFromUrl` / `uninstall` / `ensureLoaded` / `loadInstalled` / `fetchRepo`, plus the top-level `canonicalizePluginUrl` and per-URL storage-scope derivation. Owns the app-scoped host's load lifecycle. |
 | `registry/LnRegistry.kt` | `LnRegistry.parse()` and the `LnRegistryEntry` DTO for an lnreader `plugins.min.json`. |
 | `network/NovelRequestHeaders.kt` | `deviceWebViewUserAgent` + the `applyNovelDefaults` request-builder extension the bridge applies. Covers and chapter pictures take their headers from `NovelImageRequests` instead. |
-| `download/` | `NovelDownloadManager`, `NovelDownloadJob`, `NovelDownloadProvider`, `NovelDownloadStore`, `NovelDownloadNotifier`, `NovelDownload`, `NovelChapterImageInliner`. |
+| `download/` | `NovelDownloadManager`, `NovelDownloadWorker`, `NovelDownloadProvider`, `NovelDownloadStore`, `NovelDownloadNotifier`, `NovelDownload`, `NovelChapterImageInliner`. |
 | `update/` | `LnPluginUpdateChecker`, `LnPluginVersion` (plugin-version comparison for update checks). |
 
 ### Domain + data (`app/src/main/java/reikai/domain/novel/`, `app/src/main/java/reikai/data/novel/`)
@@ -190,7 +190,7 @@ Immutable domain models live in `reikai/domain/novel/model/` (`Novel.kt`, `Novel
 `installedPluginUrls()`, `installedPluginMetadata()`, `addedRepoUrls()`). Repo implementations and
 SQLDelight-row mappers live in `reikai/data/novel/` (`NovelRepositoryImpl`, `NovelChapterRepositoryImpl`,
 `NovelTrackRepositoryImpl`, `NovelHistoryRepositoryImpl`, `NovelCategoryRepositoryImpl`, `NovelMapper`,
-`NovelMapping`, plus the update jobs `NovelUpdateJob` / `LnPluginUpdateJob`).
+`NovelMapping`, plus the update jobs `NovelUpdateWorker` / `LnPluginUpdateWorker`).
 
 ### Presentation (`app/src/main/java/reikai/presentation/`)
 

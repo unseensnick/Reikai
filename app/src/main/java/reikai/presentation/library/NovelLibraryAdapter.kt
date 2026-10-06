@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -94,7 +94,7 @@ class NovelLibraryAdapter(
     override val trackKey: Flow<Any?> =
         model.state.map { it.trackerMeans to it.tracksByRep }.distinctUntilChanged()
 
-    override val updating: Flow<Boolean> = NovelUpdateJob.isRunningFlow(context)
+    override val updating: Flow<Boolean> = NovelUpdateWorker.isRunningFlow(context)
 
     override fun trackerMeans(): Map<Long, Double> = model.state.value.trackerMeans
 
@@ -127,7 +127,7 @@ class NovelLibraryAdapter(
         model.search(query)
     }
 
-    override fun refresh(category: Category?) = NovelUpdateJob.startNow(context.workManager, category)
+    override fun refresh(category: Category?) = NovelUpdateWorker.startNow(context.workManager, category)
 
     // Each verb takes the neutral selection and hands the model only the raw ids of its own content
     // type, so a mixed selection never reaches a provider that cannot act on it.

@@ -23,7 +23,7 @@ Mechanism:
 - **Extension repos** are read from the old `extension_repos` table (which Mihon's migration `11.sqm` would normally convert, but the whole chain was skipped, so it is still present) and converted to the current `extension_store` schema, mirroring that migration (`index_url = base_url + "/repo.json"`, legacy flag set). They restore via `RestoreOptions(extensionStores = true)`. Extensions themselves are not reinstalled: they are separate packages that survive an in-place update and are rediscovered at startup.
 - **Merges land flat.** Merge groups live in SharedPreferences keyed by id, which survive the in-place update, but the reset reassigns ids, so the stale id pairs would collide and wrongly group (or hide) unrelated entries. The importer clears all merge/unmerge prefs and disables same-title auto-merge, so the migrated library shows every entry in all its categories. The user re-merges in-app. This is migration-only (it runs solely from the legacy-DB path), so a normal restore on a fresh install is untouched.
 - **Reset** moves `tachiyomi.db` (and its `-wal`/`-shm`) to `tachiyomi.db.yokai.bak` so a failed extraction still stops the crash and the original data stays recoverable.
-- **Restore** writes the backup to a temp `.tachibk` (gzipped protobuf, same as `BackupCreator`) and enqueues `BackupRestoreJob` once DI and the fresh DB are ready, with a one-time toast.
+- **Restore** writes the backup to a temp `.tachibk` (gzipped protobuf, same as `BackupCreator`) and enqueues `BackupRestoreWorker` once DI and the fresh DB are ready, with a one-time toast.
 
 Because the crash happens at query time before anything writes, an already-bricked 0.1.0/0.1.1 install still has its Yōkai tables intact, so updating to the fixed build recovers it.
 
@@ -34,7 +34,7 @@ The importer's own files were deleted in `ee9f91749`; read them from history bef
 - `app/src/main/java/reikai/data/legacy/LegacyYokaiDbImporter.kt` (deleted): detection, extraction, backup write, DB-aside.
 - `app/src/main/java/eu/kanade/tachiyomi/App.kt`: its two `// RK` islands in `onCreate` were deleted with the importer (`prepareIfLegacyDb` before the DB is first opened, restore enqueue with `extensionStores = true` at the end).
 - `i18n/.../base/strings.xml`: `legacy_import_notice`, deleted with the importer.
-- Reuses `eu.kanade.tachiyomi.data.backup.models.*`, `BackupRestoreJob`, `RestoreOptions`, `ReikaiLibraryPreferences`.
+- Reuses `eu.kanade.tachiyomi.data.backup.models.*`, `BackupRestoreWorker`, `RestoreOptions`, `ReikaiLibraryPreferences`.
 
 ## Status
 

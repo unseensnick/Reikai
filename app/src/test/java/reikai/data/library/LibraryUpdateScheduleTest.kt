@@ -1,8 +1,14 @@
 package reikai.data.library
 
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
+import java.util.UUID
 
 class LibraryUpdateScheduleTest {
 
@@ -33,7 +39,45 @@ class LibraryUpdateScheduleTest {
         shouldDeferAutoUpdate(sdkInt = 28, WIFI_ONLY, unreadable, isManualRunning = false) shouldBe false
     }
 
+    @Test
+    fun `stopping the scheduled update puts its schedule back`() {
+        var rescheduled = 0
+
+        stopLibraryUpdate(running(AUTO), TAG, AUTO) { rescheduled++ }
+
+        rescheduled shouldBe 1
+    }
+
+    @Test
+    fun `stopping a pulled update leaves the schedule alone`() {
+        var rescheduled = 0
+
+        stopLibraryUpdate(running(MANUAL), TAG, AUTO) { rescheduled++ }
+
+        rescheduled shouldBe 0
+    }
+
+    @Test
+    fun `stopping cancels the running update by its id`() {
+        val workManager = running(MANUAL)
+
+        stopLibraryUpdate(workManager, TAG, AUTO) {}
+
+        verify { workManager.cancelWorkById(RUNNING_ID) }
+    }
+
+    /** A work manager whose one running update carries [kind] beside the shared tag. */
+    private fun running(kind: String) = mockk<WorkManager>(relaxed = true) {
+        every { getWorkInfos(any()) } returns mockk {
+            every { get() } returns listOf(WorkInfo(RUNNING_ID, WorkInfo.State.RUNNING, setOf(TAG, kind)))
+        }
+    }
+
     private companion object {
         val WIFI_ONLY = setOf(DEVICE_ONLY_ON_WIFI)
+        const val TAG = "LibraryUpdate"
+        const val AUTO = "LibraryUpdate-auto"
+        const val MANUAL = "LibraryUpdate-manual"
+        val RUNNING_ID: UUID = UUID.randomUUID()
     }
 }

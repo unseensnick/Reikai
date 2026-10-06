@@ -8,9 +8,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import dev.zacsweers.metro.Inject
@@ -44,6 +42,7 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
 import reikai.data.library.shouldDeferLibraryUpdate
+import reikai.data.library.stopLibraryUpdate
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
@@ -83,7 +82,7 @@ import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.Clock
 
 @OptIn(ExperimentalAtomicApi::class)
-class LibraryUpdateJob(private val context: Context, workerParams: WorkerParameters) :
+class LibraryUpdateWorker(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
     private val graph: AppGraph = context.metroGraph()
@@ -506,7 +505,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
                 val restrictions = preferences.autoUpdateDeviceRestrictions.get()
                 // RK: built in LibraryUpdateSchedule.kt, which the novel updater shares
                 val request =
-                    libraryUpdatePeriodicRequest<LibraryUpdateJob>(interval, restrictions, TAG, WORK_NAME_AUTO)
+                    libraryUpdatePeriodicRequest<LibraryUpdateWorker>(interval, restrictions, TAG, WORK_NAME_AUTO)
 
                 context.workManager.enqueueUniquePeriodicWork(
                     WORK_NAME_AUTO,
@@ -531,7 +530,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
                 KEY_CATEGORY to category?.id,
             )
             // RK: built in LibraryUpdateSchedule.kt, which the novel updater shares
-            val request = libraryUpdateManualRequest<LibraryUpdateJob>(TAG, WORK_NAME_MANUAL, inputData)
+            val request = libraryUpdateManualRequest<LibraryUpdateWorker>(TAG, WORK_NAME_MANUAL, inputData)
             workManager.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
 
             return true
@@ -550,7 +549,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
          * the only way to reach the solver's no-window path on a real trigger.
          */
         fun startDelayed(workManager: WorkManager, delaySeconds: Long) {
-            val request = OneTimeWorkRequestBuilder<LibraryUpdateJob>()
+            val request = OneTimeWorkRequestBuilder<LibraryUpdateWorker>()
                 .addTag(TAG)
                 .addTag(WORK_NAME_MANUAL)
                 .setInitialDelay(delaySeconds, TimeUnit.SECONDS)
@@ -559,21 +558,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         }
         // RK <--
 
-        fun stop(context: Context) {
-            val workManager = context.workManager
-            val workQuery = WorkQuery.Builder.fromTags(listOf(TAG))
-                .addStates(listOf(WorkInfo.State.RUNNING))
-                .build()
-            workManager.getWorkInfos(workQuery).get()
-                // Should only return one work but just in case
-                .forEach {
-                    workManager.cancelWorkById(it.id)
-
-                    // Re-enqueue cancelled scheduled work
-                    if (it.tags.contains(WORK_NAME_AUTO)) {
-                        setupTask(context)
-                    }
-                }
-        }
+        // RK: the rule lives in LibraryUpdateSchedule.kt, which the novel updater shares
+        fun stop(context: Context) = stopLibraryUpdate(context.workManager, TAG, WORK_NAME_AUTO) { setupTask(context) }
     }
 }

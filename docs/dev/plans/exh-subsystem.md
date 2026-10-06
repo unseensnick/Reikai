@@ -19,7 +19,7 @@ Mechanism:
 - **Tags + search + viewer.** The full E-Hentai tag catalogue (`exh/eh/tags/`) drives browse-side `namespace:tag` autocomplete; saved galleries' tags feed library tag search; `MetadataViewScreen` renders the captured `EHentaiSearchMetadata` as a read-only info panel reachable from gallery details.
 - **Account config (uconfig).** `EHConfigurator` / `EhUConfigBuilder` push image-quality, Hentai@Home, and tag-threshold choices to the E-Hentai server profile and persist the session. Surfaced in `SettingsEhScreen` (its own top-level Settings category, gated by the pref).
 - **Favorited-gallery update checker.** `EHentaiUpdateWorker` (WorkManager) re-checks favorited EH galleries for a newer version and reconciles the version chain locally via the disk-backed `EHentaiUpdateHelper` (merging chapters, read state, history, categories). EH galleries are deliberately excluded from the normal library sweep (see below), so this is their only update path.
-- **Favorites backup (one-way).** `EhFavoritesBackupJob` pushes the library's EH galleries to the account's favorites (a chosen slot, throttled via `ThrottleManager`), under its own progress notification (`ID_EHENTAI_BACKUP_PROGRESS`), since sharing the update checker's id let either job's finish cancel the other's. It is a backup, not a sync: it never pulls account -> library. See Decisions.
+- **Favorites backup (one-way).** `EhFavoritesBackupWorker` pushes the library's EH galleries to the account's favorites (a chosen slot, throttled via `ThrottleManager`), under its own progress notification (`ID_EHENTAI_BACKUP_PROGRESS`), since sharing the update checker's id let either job's finish cancel the other's. It is a backup, not a sync: it never pulls account -> library. See Decisions.
 
 ### Reikai integration islands (`// RK`)
 
@@ -27,7 +27,7 @@ These are the Mihon-file edits that wire the subsystem in (grep `// RK`):
 
 - `AndroidSourceManager`: the `currentDelegatedSources` map and `nHentaiDelegatedSourceIds` runtime derivation; the blacklist skip for stock-EH ids.
 - `ExtensionManager`: reactive blacklist filter hiding the stock E-Hentai extension while built-in EH is on (`BlacklistedSources`).
-- `LibraryUpdateJob`: a `filterNot` dropping `LIBRARY_UPDATE_EXCLUDED_SOURCES` (all EH/ExH language ids + Pururin) and the derived nHentai ids from the sweep, so saved galleries are not re-fetched on every refresh (rate-limit / ban risk).
+- `LibraryUpdateWorker`: a `filterNot` dropping `LIBRARY_UPDATE_EXCLUDED_SOURCES` (all EH/ExH language ids + Pururin) and the derived nHentai ids from the sweep, so saved galleries are not re-fetched on every refresh (rate-limit / ban risk).
 - `MangaViewModel` / `MangaScreen`: the remove-from-account confirm dialog, the metadata-viewer entry point, and Komikku's root redirect (`observeExhRootRedirect`, behind its debug toggle). The add-side backup is not here: `EHentai` is a `SourceTracker`, so every add path reaches it (see Decisions).
 - `exh/assets/BuiltInSourceLogo`: which bundled logo a built-in source (E-Hentai and ExHentai in every language, Pururin, nhentai) draws, and whether it sits on a white tile, since none ships an extension icon. Browse's `SourceIcon` (one `// RK` island) and the library cover badge (`ReikaiLibraryBadges`) each keep their own geometry and read the logo from it.
 
@@ -38,7 +38,7 @@ These are the Mihon-file edits that wire the subsystem in (grep `// RK`):
 - Metadata model + viewer: `source-api/.../exh/metadata/metadata/EHentaiSearchMetadata.kt`; `app/src/main/java/exh/ui/metadata/`.
 - Update checker: `app/src/main/java/exh/eh/` (`EHentaiUpdateWorker`, `EHentaiUpdateHelper`, `EHentaiUpdateNotifier`).
 - Account config: `app/src/main/java/exh/uconfig/`; settings in `SettingsEhScreen` + `EhLoginActivity`.
-- Favorites backup: `app/src/main/java/exh/favorites/` (`EhFavoritesBackupJob`), throttled by `app/src/main/java/exh/util/ThrottleManager.kt`.
+- Favorites backup: `app/src/main/java/exh/favorites/` (`EhFavoritesBackupWorker`), throttled by `app/src/main/java/exh/util/ThrottleManager.kt`.
 - Tag catalogue: `app/src/main/java/exh/eh/tags/`.
 - Debug menu: `app/src/main/java/exh/debug/` (`DebugToggles`, `DebugFunctions`, `SettingsDebugScreen`, `DebugModeOverlay`, `HiddenCover`); its database side is `DebugDatabaseRepository` over `debug.sq`.
 

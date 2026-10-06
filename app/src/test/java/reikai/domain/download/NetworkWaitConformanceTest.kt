@@ -35,8 +35,8 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.FakeSharedPreferences
-import reikai.novel.download.NovelDownloadJob
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -210,8 +210,8 @@ class NovelNetworkWaitHalf : NetworkWaitHalf {
     }
 
     override suspend fun start(test: TestScope, wifiOnly: Boolean) {
-        mockkObject(NovelDownloadJob.Companion)
-        every { NovelDownloadJob.start(any()) } just runs
+        mockkObject(NovelDownloadWorker.Companion)
+        every { NovelDownloadWorker.start(any()) } just runs
         mockkStatic(Context::activeNetworkState)
         every { any<Context>().activeNetworkState() } answers { network }
         // The launch restore runs on IO, which here is the test's own clock.
@@ -249,7 +249,7 @@ class NovelNetworkWaitHalf : NetworkWaitHalf {
     }
 
     override fun close() {
-        unmockkObject(NovelDownloadJob.Companion)
+        unmockkObject(NovelDownloadWorker.Companion)
         unmockkStatic(Context::activeNetworkState)
         unmockkStatic(Dispatchers::class)
     }

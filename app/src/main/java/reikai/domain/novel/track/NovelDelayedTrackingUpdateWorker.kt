@@ -1,4 +1,4 @@
-package eu.kanade.domain.track.service
+package reikai.domain.novel.track
 
 import android.content.Context
 import androidx.work.BackoffPolicy
@@ -9,51 +9,50 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import dev.zacsweers.metro.Inject
-import eu.kanade.domain.track.interactor.TrackChapter
-import eu.kanade.domain.track.store.DelayedTrackingStore
 import eu.kanade.tachiyomi.util.system.workManager
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
+import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.track.drainDelayedTracking
-import tachiyomi.domain.track.interactor.GetTracks
 import java.util.concurrent.TimeUnit
 
-class DelayedTrackingUpdateJob(private val context: Context, workerParams: WorkerParameters) :
+/**
+ * Drains the novel tracking queue through the same kernel as Mihon's manga job. A class of its own
+ * because WorkManager keys unique work by tag, and the two queues retry independently.
+ */
+class NovelDelayedTrackingUpdateWorker(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
+
+    @Inject private lateinit var getNovelTracks: GetNovelTracks
+
+    @Inject private lateinit var trackNovelChapter: TrackNovelChapter
+
+    @Inject private lateinit var delayedTrackingStore: NovelDelayedTrackingStore
 
     private val graph: AppGraph = context.metroGraph()
 
-    @Inject lateinit var getTracks: GetTracks
-
-    @Inject lateinit var trackChapter: TrackChapter
-
-    @Inject lateinit var delayedTrackingStore: DelayedTrackingStore
-
-    // RK: injected in init rather than at the top of doWork, see metro-di-migration.md "Workers inject".
     init {
         graph.inject(this)
     }
 
-    // RK --> the drain is the drainDelayedTracking kernel the novel job runs too; port upstream changes there
     override suspend fun doWork(): Result = drainDelayedTracking(
         runAttemptCount = runAttemptCount,
         items = delayedTrackingStore::getItems,
         remove = delayedTrackingStore::remove,
-        trackOf = { getTracks.awaitOne(it) },
+        trackOf = { getNovelTracks.awaitOne(it) },
     ) { track, lastChapterRead ->
-        trackChapter.await(context, track.mangaId, lastChapterRead, setupJobOnFailure = false)
+        trackNovelChapter.await(context, track.novelId, lastChapterRead, setupJobOnFailure = false)
     }
-    // RK <--
 
     companion object {
-        private const val TAG = "DelayedTrackingUpdate"
+        private const val TAG = "NovelDelayedTrackingUpdate"
 
         fun setupTask(context: Context) {
             val constraints = Constraints(
                 requiredNetworkType = NetworkType.CONNECTED,
             )
 
-            val request = OneTimeWorkRequestBuilder<DelayedTrackingUpdateJob>()
+            val request = OneTimeWorkRequestBuilder<NovelDelayedTrackingUpdateWorker>()
                 .setConstraints(constraints)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
                 .addTag(TAG)

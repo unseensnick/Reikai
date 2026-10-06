@@ -8,7 +8,7 @@ import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -175,7 +175,7 @@ class MangaRecentsAdapter(
 
     override val lastUpdated: Flow<Long> = libraryPreferences.lastUpdatedTimestamp.changes()
 
-    override val updating: Flow<Boolean> = LibraryUpdateJob.isRunningFlow(application)
+    override val updating: Flow<Boolean> = LibraryUpdateWorker.isRunningFlow(application)
 
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Manga)
@@ -308,7 +308,7 @@ class MangaRecentsAdapter(
 
     // Straight to the job rather than through the updates model, which only wraps this same call in a
     // snackbar event the shell now owns. It also lets a surface with no updated lane still refresh.
-    override fun refresh(): Boolean = LibraryUpdateJob.startNow(application.workManager)
+    override fun refresh(): Boolean = LibraryUpdateWorker.startNow(application.workManager)
 
     override suspend fun detailsScreen(entry: EntryId): Screen? =
         (entry as? EntryId.Manga)?.let { MangaScreen(it.rawId) }

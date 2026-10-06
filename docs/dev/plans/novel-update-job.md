@@ -23,7 +23,7 @@ Interval and device restrictions (only on Wi-Fi, only when charging, only on an 
 
 ### Mechanism
 
-The worker is `NovelUpdateJob`, a `CoroutineWorker` registered with WorkManager ([app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt](../../../app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt)). It is the explicit novel analog of Mihon's `LibraryUpdateJob`.
+The worker is `NovelUpdateWorker`, a `CoroutineWorker` registered with WorkManager ([app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt](../../../app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt)). It is the explicit novel analog of Mihon's `LibraryUpdateWorker`.
 
 Scheduling lives in the companion object, over the rules the manga job uses too, in `LibraryUpdateSchedule.kt` ([app/src/main/java/reikai/data/library/LibraryUpdateSchedule.kt](../../../app/src/main/java/reikai/data/library/LibraryUpdateSchedule.kt)). `setupTask` reads the interval from `NovelPreferences.libraryUpdateInterval()` (0 = off) and enqueues `libraryUpdatePeriodicRequest` as unique periodic work, or cancels it when the interval is 0; its constraints come from the device-restriction preferences (`DEVICE_ONLY_ON_WIFI`, `DEVICE_NETWORK_NOT_METERED`, `DEVICE_CHARGING`). `startNow` enqueues `libraryUpdateManualRequest`, which carries the manual tag. A scheduled run checks `shouldDeferLibraryUpdate` first and retries later while a manual run is going, or, below Android 9 where the Wi-Fi network request does not apply, while a Wi-Fi-only update is off Wi-Fi. A run that throws fails rather than retrying, as the manga job's does. `stop` cancels the currently running drain by tag while preserving the periodic schedule.
 
@@ -57,10 +57,10 @@ The "Light novel updates" group is built by `getNovelUpdateGroup` in `SettingsLi
 
 ## Key files
 
-- [app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt](../../../app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt): the worker: WorkManager scheduling (`setupTask` / `startNow` / `stop`), `updateNovels`, `checkNovel`, the auto-download path.
+- [app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt](../../../app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt): the worker: WorkManager scheduling (`setupTask` / `startNow` / `stop`), `updateNovels`, `checkNovel`, the auto-download path.
 - [app/src/main/java/reikai/data/library/LibraryUpdateSchedule.kt](../../../app/src/main/java/reikai/data/library/LibraryUpdateSchedule.kt): `shouldDeferAutoUpdate`, the periodic and manual request builders and the constraints, shared with the manga job and pinned by `LibraryUpdateScheduleTest`.
 - [app/src/main/java/reikai/domain/library/SmartUpdateSkip.kt](../../../app/src/main/java/reikai/domain/library/SmartUpdateSkip.kt): `smartUpdateSkip`, the smart-update rules shared with the manga job, and `LibraryNovel.smartUpdateFacts`.
-- [app/src/main/java/reikai/data/novel/NovelRefresh.kt](../../../app/src/main/java/reikai/data/novel/NovelRefresh.kt): `refreshNovelFromSource`, the shared per-novel re-parse + page-1 sync + page-walk helper, reused by `NovelUpdateJob.checkNovel` and `NovelDetailsViewModel.refreshNovel`.
+- [app/src/main/java/reikai/data/novel/NovelRefresh.kt](../../../app/src/main/java/reikai/data/novel/NovelRefresh.kt): `refreshNovelFromSource`, the shared per-novel re-parse + page-1 sync + page-walk helper, reused by `NovelUpdateWorker.checkNovel` and `NovelDetailsViewModel.refreshNovel`.
 - [domain/src/main/java/reikai/domain/source/KeptDetail.kt](../../../domain/src/main/java/reikai/domain/source/KeptDetail.kt): what a refresh keeps of a stored detail its source sends nothing for, the rule the manga refresh calls too, pinned by `UnsentDetailConformanceTest`.
 - [app/src/main/java/reikai/data/novel/update/NovelUpdateNotifier.kt](../../../app/src/main/java/reikai/data/novel/update/NovelUpdateNotifier.kt): progress, result and error notifications on novel-specific channels.
 - [app/src/main/java/reikai/data/notification/NewChaptersDescription.kt](../../../app/src/main/java/reikai/data/notification/NewChaptersDescription.kt): the one rule both update notifiers name their chapters by, plus the title cap a collapsed group needs.

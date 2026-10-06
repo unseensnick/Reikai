@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.BuildConfig
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.interceptor.FlareSolverrTestFailure
 import eu.kanade.tachiyomi.network.interceptor.FlareSolverrTestResult
@@ -120,7 +120,7 @@ fun bypassPreferenceItems(networkPreferences: NetworkPreferences): List<Preferen
                 "job starts a process with no activity, which is the solver's real no-window trigger",
             visible = BuildConfig.DEBUG,
             onClick = {
-                LibraryUpdateJob.startDelayed(context.workManager, delaySeconds = 60)
+                LibraryUpdateWorker.startDelayed(context.workManager, delaySeconds = 60)
                 context.toast("Library update queued for 60s, kill the app now")
             },
         ),

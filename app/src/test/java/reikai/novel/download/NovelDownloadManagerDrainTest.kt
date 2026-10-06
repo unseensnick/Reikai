@@ -92,8 +92,8 @@ class NovelDownloadManagerDrainTest {
 
     @BeforeEach
     fun setUp() {
-        mockkObject(NovelDownloadJob.Companion)
-        every { NovelDownloadJob.start(any()) } just runs
+        mockkObject(NovelDownloadWorker.Companion)
+        every { NovelDownloadWorker.start(any()) } just runs
         mockkStatic(Context::activeNetworkState)
         every { any<Context>().activeNetworkState() } returns NetworkState(true, true, true)
         mockkStatic(Dispatchers::class)
@@ -118,7 +118,7 @@ class NovelDownloadManagerDrainTest {
 
     @AfterEach
     fun tearDown() {
-        unmockkObject(NovelDownloadJob.Companion)
+        unmockkObject(NovelDownloadWorker.Companion)
         unmockkStatic(Context::activeNetworkState)
         unmockkStatic(Dispatchers::class)
     }

@@ -163,7 +163,7 @@ class Downloader(
         // A transient failure (no network, or wifi-only while on mobile data) shouldn't error the
         // in-flight chapter and strand the progress notification. Re-queue it and show the
         // resumable Paused notification instead of a dead-end warning, matching Yokai's graceful
-        // pause. DownloadJob keeps its network monitor alive and resumes when connectivity returns.
+        // pause. DownloadWorker keeps its network monitor alive and resumes when connectivity returns.
         if (reason != null) {
             queueState.value
                 .filter { it.status == Download.State.DOWNLOADING }

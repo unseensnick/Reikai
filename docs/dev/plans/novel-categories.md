@@ -34,7 +34,7 @@ The library's Display sheet (sort, filter, display mode, badges, categories tabs
 
 ### Light-novel plugin update detection
 
-Manga extensions get a "needs updating" badge; light-novel plugins now get the same signal. `LnPluginUpdateChecker` diffs each added registry's latest plugin `version` against the version stored at install time, using a single version comparator, and returns the outdated list (`app/src/main/java/reikai/novel/update/LnPluginUpdateChecker.kt`). Individual repo fetch failures do not fail the batch, so one down registry never hides updates from the others. `runIfStale()` wraps the diff with a 6-hour cache, run at app launch (`MainActivity`, beside the extension check) and on Browse open; a WorkManager job (`LnPluginUpdateJob`, 12h interval, 1h flex, network required) runs the same check on its own schedule, writes the Browse-tab badge count, and posts a notification listing the outdated plugins (`app/src/main/java/reikai/data/novel/update/LnPluginUpdateJob.kt`). The notice goes through `LnPluginUpdateNotifier`, which follows Mihon's extension notice: no plugin names under Hide notification content, and cleared once no plugin is pending.
+Manga extensions get a "needs updating" badge; light-novel plugins now get the same signal. `LnPluginUpdateChecker` diffs each added registry's latest plugin `version` against the version stored at install time, using a single version comparator, and returns the outdated list (`app/src/main/java/reikai/novel/update/LnPluginUpdateChecker.kt`). Individual repo fetch failures do not fail the batch, so one down registry never hides updates from the others. `runIfStale()` wraps the diff with a 6-hour cache, run at app launch (`MainActivity`, beside the extension check) and on Browse open; a WorkManager job (`LnPluginUpdateWorker`, 12h interval, 1h flex, network required) runs the same check on its own schedule, writes the Browse-tab badge count, and posts a notification listing the outdated plugins (`app/src/main/java/reikai/data/novel/update/LnPluginUpdateWorker.kt`). The notice goes through `LnPluginUpdateNotifier`, which follows Mihon's extension notice: no plugin names under Hide notification content, and cleared once no plugin is pending.
 
 ## Key files
 
@@ -59,7 +59,7 @@ Library host (shared, `// RK` islands):
 
 LN plugin update detection:
 - `app/src/main/java/reikai/novel/update/LnPluginUpdateChecker.kt`: the version diff + `runIfStale` cache.
-- `app/src/main/java/reikai/data/novel/update/LnPluginUpdateJob.kt`: the periodic WorkManager check + notification + badge count.
+- `app/src/main/java/reikai/data/novel/update/LnPluginUpdateWorker.kt`: the periodic WorkManager check + notification + badge count.
 
 ## Status
 

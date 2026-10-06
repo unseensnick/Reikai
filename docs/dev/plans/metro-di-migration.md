@@ -311,7 +311,7 @@ registrations that moved into the graph alongside them.
 
 **Phase 3 is three commits, not one** (owner, 2026-08-17). Entry points cannot convert until their
 dependencies are graph-constructible, and the dependency graph does not respect the ownership split:
-`LibraryUpdateJob` is upstream-tracked and injects four Reikai-owned types, and 8 of the 15 workers
+`LibraryUpdateWorker` is upstream-tracked and injects four Reikai-owned types, and 8 of the 15 workers
 inject Reikai types directly. So 3a annotates and moves the upstream-tracked app classes, 3b does the
 Reikai-owned ones (re-scoped from a tidy-up to a prerequisite, and now including the two `exh`
 classes in `core/common`), and 3c converts the entry points.
@@ -337,8 +337,8 @@ state.
 
 **Workers inject in an `init` block, not at the top of `doWork`.** They were eager property
 initializers before, so `init` preserves the old semantics, and it removes the hazard that WorkManager
-can call `getForegroundInfo` before `doWork`: `NovelDownloadJob` reads an injected field there.
-Upstream's own `LibraryUpdateJob` has the shape this avoids.
+can call `getForegroundInfo` before `doWork`: `NovelDownloadWorker` reads an injected field there.
+Upstream's own `LibraryUpdateWorker` has the shape this avoids.
 
 **Two install paths are still untested across the whole port** (2026-08-18): fresh install and upgrade
 from a shipped build. Every device pass so far ran on one emulator with existing state. The upgrade
@@ -781,9 +781,9 @@ it was written up as: all three types were already built once here, by `Download
 1. `source-api/.../util/RxExtension.kt` deleted. Public extension-lib surface.
 2. `ConfigurableSource` switches `Injekt.get<Application>()` to `Injekt.get<Context>()`. Safe here:
    `AppModule` already registered both.
-3. WorkManager threaded explicitly (`BackupRestoreJob.isRunning/start/stop` and
-   `LibraryUpdateJob.startNow` take a `WorkManager`), which ripples into five call sites and is
-   inconsistent upstream, since `LibraryUpdateJob.stop` still takes a `Context`.
+3. WorkManager threaded explicitly (`BackupRestoreWorker.isRunning/start/stop` and
+   `LibraryUpdateWorker.startNow` take a `WorkManager`), which ripples into five call sites and is
+   inconsistent upstream, since `LibraryUpdateWorker.stop` still takes a `Context`.
 4. `NetworkPreferences` swaps `verboseLoggingDefault: Boolean = false` for `@IsDebugBuild`.
    Behaviour-neutral here: `PreferenceModule` already passed `isDebugBuildType`.
 5. `AndroidPreferenceStore` loses its `SharedPreferences` default parameter.
@@ -795,9 +795,9 @@ it was written up as: all three types were already built once here, by `Download
    with `isAutoBackup` moved to first position.
 9. `MangaCoverViewModel` is created from the screen's `mangaId` rather than
    `successState.manga.id`, which changes which value wins after a migration.
-10. Worker injection point is inconsistent upstream: `DownloadJob` injects in `init`, the others on
+10. Worker injection point is inconsistent upstream: `DownloadWorker` injects in `init`, the others on
     the first line of `doWork()`. Copying the wrong one gives an uninitialized-property crash in
-    `getForegroundInfo`, which WorkManager may call before `doWork`. Upstream's own `LibraryUpdateJob`
+    `getForegroundInfo`, which WorkManager may call before `doWork`. Upstream's own `LibraryUpdateWorker`
     has exactly that shape after the migration, so it is a pattern to fix rather than copy.
 11. `AppBindings.providesSqlDriver` drops the `lock` plus `WeakReference<SqlDriver>` guard that mihon
     `f8e82b932` added to fix a "database is locked" crash, and that we still carry at

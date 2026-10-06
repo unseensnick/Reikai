@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
  * badge count and posts the update notice through [reikai.novel.update.LnPluginUpdateNotifier], on
  * the cadence the Yōkai fork used (12h, 1h flex, network required).
  */
-class LnPluginUpdateJob(
+class LnPluginUpdateWorker(
     context: Context,
     workerParams: WorkerParameters,
 ) : CoroutineWorker(context, workerParams) {
@@ -48,7 +48,7 @@ class LnPluginUpdateJob(
         private const val TAG = "LnPluginUpdate"
 
         fun setupTask(context: Context) {
-            val request = PeriodicWorkRequestBuilder<LnPluginUpdateJob>(
+            val request = PeriodicWorkRequestBuilder<LnPluginUpdateWorker>(
                 12,
                 TimeUnit.HOURS,
                 1,

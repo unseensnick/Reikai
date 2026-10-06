@@ -43,7 +43,7 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import exh.eh.EHentaiUpdateWorker
 import exh.eh.EHentaiUpdaterStats
-import exh.favorites.EhFavoritesBackupJob
+import exh.favorites.EhFavoritesBackupWorker
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.source.EH_PACKAGE
 import exh.source.ExhPreferences
@@ -218,7 +218,7 @@ object SettingsEhScreen : SearchableSettings {
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.eh_back_up_favorites_now),
                     visible = exhentaiEnabled,
-                    onClick = { EhFavoritesBackupJob.startNow(context) },
+                    onClick = { EhFavoritesBackupWorker.startNow(context) },
                 ),
             ),
         )

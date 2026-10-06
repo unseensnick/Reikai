@@ -58,9 +58,9 @@ import tachiyomi.i18n.MR
 /**
  * Two-way MangaDex sync worker: imports the account's follows into the library, or pushes library
  * favorites back as READING follows. One-shot, driven from the MangaDex settings screen. Re-typed
- * from Komikku's LibraryUpdateJob.syncFollows / pushFavorites.
+ * from Komikku's LibraryUpdateWorker.syncFollows / pushFavorites.
  */
-class MangaDexSyncJob(private val context: Context, workerParams: WorkerParameters) :
+class MangaDexSyncWorker(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
     private val graph: AppGraph = context.metroGraph()
@@ -319,7 +319,7 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
          */
         fun startNow(context: Context, target: Target): Boolean {
             if (context.workManager.isRunning(TAG)) return false
-            val request = OneTimeWorkRequestBuilder<MangaDexSyncJob>()
+            val request = OneTimeWorkRequestBuilder<MangaDexSyncWorker>()
                 .addTag(TAG)
                 .setInputData(workDataOf(KEY_TARGET to target.name))
                 .build()

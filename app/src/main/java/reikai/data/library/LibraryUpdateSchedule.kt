@@ -12,6 +12,9 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import androidx.work.WorkQuery
 import eu.kanade.tachiyomi.util.system.isConnectedToWifi
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.workManager
@@ -20,7 +23,7 @@ import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETW
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
 import java.util.concurrent.TimeUnit
 
-// When and how the manga and novel library updates are scheduled, in Mihon's LibraryUpdateJob shape.
+// When and how the manga and novel library updates are scheduled, in Mihon's LibraryUpdateWorker shape.
 // Only the worker class, its tags and whose restriction preference is read differ between the two.
 
 /**
@@ -64,6 +67,18 @@ inline fun <reified W : ListenableWorker> libraryUpdateManualRequest(
     .addTag(manualTag)
     .setInputData(inputData)
     .build()
+
+/**
+ * Cancels the running update by id rather than by name, so a pulled update leaves the schedule alone.
+ * Cancelling the scheduled run ends its periodic request too, so [reschedule] puts that one back.
+ */
+fun stopLibraryUpdate(workManager: WorkManager, tag: String, autoTag: String, reschedule: () -> Unit) {
+    val running = WorkQuery.Builder.fromTags(listOf(tag)).addStates(listOf(WorkInfo.State.RUNNING)).build()
+    workManager.getWorkInfos(running).get().forEach {
+        workManager.cancelWorkById(it.id)
+        if (autoTag in it.tags) reschedule()
+    }
+}
 
 fun libraryUpdateConstraints(restrictions: Set<String>): Constraints {
     val networkType = if (DEVICE_NETWORK_NOT_METERED in restrictions) NetworkType.UNMETERED else NetworkType.CONNECTED

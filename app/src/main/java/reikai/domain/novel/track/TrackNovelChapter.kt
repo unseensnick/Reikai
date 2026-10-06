@@ -15,7 +15,7 @@ import tachiyomi.core.common.util.lang.withNonCancellableContext
  * Novel twin of [eu.kanade.domain.track.interactor.TrackChapter], pinned by the [pushChapterProgress]
  * kernel both call: pushes a freshly read chapter number to every bound, logged-in tracker that is
  * behind, persisting to `novel_tracks`. On failure the update is queued in [NovelDelayedTrackingStore]
- * for [NovelDelayedTrackingUpdateJob] to retry when online. Merge-aware via [GetNovelTracks.awaitGroup]:
+ * for [NovelDelayedTrackingUpdateWorker] to retry when online. Merge-aware via [GetNovelTracks.awaitGroup]:
  * a track bound on one source of a merged novel still advances when a sibling source's chapter is read,
  * since the reader keys on the chapter's own novel id, which differs across the group.
  */
@@ -52,7 +52,7 @@ class TrackNovelChapter(
                         } catch (e: Exception) {
                             delayedTrackingStore.add(track.id, chapterNumber)
                             if (setupJobOnFailure) {
-                                NovelDelayedTrackingUpdateJob.setupTask(context)
+                                NovelDelayedTrackingUpdateWorker.setupTask(context)
                             }
                             throw e
                         }

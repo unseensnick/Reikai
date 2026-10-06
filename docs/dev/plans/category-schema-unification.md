@@ -117,7 +117,7 @@ both sides, unchanged.
   `reikai.domain.novel.model.NovelCategory` (and its `toCategory()`), the novel category interactors,
   and `NovelCategoryScreenModel`.
 - Boundary crossings: `LibraryPreferences`, `DownloadPreferences`, `NovelPreferences` (the six novel
-  category-id prefs), `LibraryUpdateJob`, `NovelUpdateJob`, and `CategoryPreferencesCleanupMigration`
+  category-id prefs), `LibraryUpdateWorker`, `NovelUpdateWorker`, and `CategoryPreferencesCleanupMigration`
   (the remap template).
 - Backup: `BackupCategory`, `BackupNovelCategory`, `CategoriesBackupCreator`, `CategoriesRestorer`,
   `NovelRestorer`.

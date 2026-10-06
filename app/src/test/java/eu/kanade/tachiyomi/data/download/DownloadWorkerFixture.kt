@@ -39,7 +39,7 @@ import tachiyomi.domain.storage.service.StorageManager
 import java.io.IOException
 
 /**
- * Mihon's [DownloadJob] over the real [Downloader] and [DownloadManager], all on [test]'s scheduler. Only
+ * Mihon's [DownloadWorker] over the real [Downloader] and [DownloadManager], all on [test]'s scheduler. Only
  * the network, WorkManager, the disk and the source are faked; a fetch hangs until [failFetchInFlight].
  * The notifier is a stub recording into [events] unless [notifierFor] builds a real one.
  */
@@ -86,8 +86,8 @@ class DownloadWorkerFixture(
         Dispatchers.setMain(UnconfinedTestDispatcher(test.testScheduler))
         mockkStatic(Dispatchers::class)
         every { Dispatchers.IO } returns StandardTestDispatcher(test.testScheduler)
-        mockkObject(DownloadJob.Companion)
-        every { DownloadJob.start(any()) } answers { events += "enqueued" }
+        mockkObject(DownloadWorker.Companion)
+        every { DownloadWorker.start(any()) } answers { events += "enqueued" }
         mockkStatic(Context::activeNetworkState)
         every { any<Context>().activeNetworkState() } answers { network }
         mockkStatic(WORKER_EXTENSIONS)
@@ -141,13 +141,13 @@ class DownloadWorkerFixture(
     fun startWorker(): Deferred<ListenableWorker.Result> {
         val graph = mockk<AppGraph>()
         // Stubbed outside a mockk block, where the names below bind to the graph's own accessors.
-        every { graph.inject(any<DownloadJob>()) } answers {
-            firstArg<DownloadJob>().setField("downloader", downloader)
-            firstArg<DownloadJob>().setField("downloadPreferences", downloadPreferences)
+        every { graph.inject(any<DownloadWorker>()) } answers {
+            firstArg<DownloadWorker>().setField("downloader", downloader)
+            firstArg<DownloadWorker>().setField("downloadPreferences", downloadPreferences)
         }
         @Suppress("UNCHECKED_CAST")
         every { (app as GraphProvider<AppGraph>).graph } returns graph
-        return test.backgroundScope.async { DownloadJob(app, mockk(relaxed = true)).doWork() }
+        return test.backgroundScope.async { DownloadWorker(app, mockk(relaxed = true)).doWork() }
     }
 
     /** Fails the fetch in flight, as a dropped connection eventually does; nothing once it was cancelled. */
@@ -159,13 +159,13 @@ class DownloadWorkerFixture(
         downloader.pause()
         Dispatchers.resetMain()
         unmockkStatic(Dispatchers::class)
-        unmockkObject(DownloadJob.Companion)
+        unmockkObject(DownloadWorker.Companion)
         unmockkStatic(Context::activeNetworkState)
         unmockkStatic(WORKER_EXTENSIONS)
     }
 
-    private fun DownloadJob.setField(name: String, value: Any) {
-        DownloadJob::class.java.getDeclaredField(name).apply { isAccessible = true }.set(this, value)
+    private fun DownloadWorker.setField(name: String, value: Any) {
+        DownloadWorker::class.java.getDeclaredField(name).apply { isAccessible = true }.set(this, value)
     }
 
     companion object {

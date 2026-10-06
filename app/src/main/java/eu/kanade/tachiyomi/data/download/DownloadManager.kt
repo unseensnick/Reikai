@@ -64,7 +64,7 @@ class DownloadManager(
     suspend fun awaitQueueRestored() = downloader.awaitQueueRestored()
 
     val isDownloaderRunning
-        get() = DownloadJob.isRunningFlow(context)
+        get() = DownloadWorker.isRunningFlow(context)
 
     /**
      * Starts the download worker, which runs the downloader.
@@ -72,7 +72,7 @@ class DownloadManager(
     fun startDownloads() {
         if (downloader.isRunning) return
 
-        DownloadJob.start(context)
+        DownloadWorker.start(context)
     }
 
     /**
@@ -322,7 +322,7 @@ class DownloadManager(
             }
         }
         // RK: a paused queue emptied one series at a time has nothing left to resume, so clear and stop:
-        // DownloadJob waits out a network pause until stop() clears it
+        // DownloadWorker waits out a network pause until stop() clears it
         else if (queueState.value.isEmpty()) {
             clearQueue()
         }

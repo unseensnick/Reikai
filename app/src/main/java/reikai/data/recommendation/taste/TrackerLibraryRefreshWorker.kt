@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit
  * the manual Refresh now, so that pull outlives the settings screen. Independent of the in-app
  * `refreshIfStale` bootstrap, which keeps the cache fresh during normal use.
  */
-class TrackerLibraryRefreshJob(
+class TrackerLibraryRefreshWorker(
     context: Context,
     workerParams: WorkerParameters,
 ) : CoroutineWorker(context, workerParams) {
@@ -51,7 +51,7 @@ class TrackerLibraryRefreshJob(
             val interval = prefInterval ?: context.appGraph.reikaiRecommendationPreferences
                 .trackerLibraryAutoRefreshHours.get()
             if (interval > 0) {
-                val request = PeriodicWorkRequestBuilder<TrackerLibraryRefreshJob>(
+                val request = PeriodicWorkRequestBuilder<TrackerLibraryRefreshWorker>(
                     interval.toLong(),
                     TimeUnit.HOURS,
                 )
@@ -68,7 +68,7 @@ class TrackerLibraryRefreshJob(
         fun startNow(context: Context): Boolean {
             if (context.workManager.isRunning(MANUAL_WORK_NAME)) return false
             if (!context.appGraph.refreshTrackerLibrary.tryStartManual()) return false
-            val request = OneTimeWorkRequestBuilder<TrackerLibraryRefreshJob>()
+            val request = OneTimeWorkRequestBuilder<TrackerLibraryRefreshWorker>()
                 .addTag(MANUAL_WORK_NAME)
                 .build()
             context.workManager.enqueueUniqueWork(MANUAL_WORK_NAME, ExistingWorkPolicy.KEEP, request)

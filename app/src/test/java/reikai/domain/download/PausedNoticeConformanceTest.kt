@@ -40,8 +40,8 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.FakeSharedPreferences
-import reikai.novel.download.NovelDownloadJob
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.i18n.stringResource
@@ -214,18 +214,18 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
         mockkStatic(WORKER_EXTENSIONS)
         coEvery { any<CoroutineWorker>().setForegroundSafely() } just runs
         val graph = mockk<AppGraph>()
-        every { graph.inject(any<NovelDownloadJob>()) } answers {
-            firstArg<NovelDownloadJob>().setField("manager", manager)
-            firstArg<NovelDownloadJob>().setField("securityPreferences", securityPreferences)
+        every { graph.inject(any<NovelDownloadWorker>()) } answers {
+            firstArg<NovelDownloadWorker>().setField("manager", manager)
+            firstArg<NovelDownloadWorker>().setField("securityPreferences", securityPreferences)
         }
         @Suppress("UNCHECKED_CAST")
         every { (app as GraphProvider<AppGraph>).graph } returns graph
         // WorkManager runs the worker a start enqueues, and cancels it on a stop.
-        mockkObject(NovelDownloadJob.Companion)
-        every { NovelDownloadJob.start(any()) } answers {
-            worker = test.backgroundScope.launch { NovelDownloadJob(app, mockk(relaxed = true)).doWork() }
+        mockkObject(NovelDownloadWorker.Companion)
+        every { NovelDownloadWorker.start(any()) } answers {
+            worker = test.backgroundScope.launch { NovelDownloadWorker(app, mockk(relaxed = true)).doWork() }
         }
-        every { NovelDownloadJob.stop(any()) } answers { worker?.cancel() }
+        every { NovelDownloadWorker.stop(any()) } answers { worker?.cancel() }
         val downloadPreferences = DownloadPreferences(InMemoryPreferenceStore())
         manager = NovelDownloadManager(
             context = app,
@@ -260,15 +260,15 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
     }
 
     override fun close() {
-        unmockkObject(NovelDownloadJob.Companion)
+        unmockkObject(NovelDownloadWorker.Companion)
         unmockkStatic(Context::activeNetworkState)
         unmockkStatic(Dispatchers::class)
         unmockkStatic(WORKER_EXTENSIONS)
         if (::shade.isInitialized) shade.close()
     }
 
-    private fun NovelDownloadJob.setField(name: String, value: Any) {
-        NovelDownloadJob::class.java.getDeclaredField(name).apply { isAccessible = true }.set(this, value)
+    private fun NovelDownloadWorker.setField(name: String, value: Any) {
+        NovelDownloadWorker::class.java.getDeclaredField(name).apply { isAccessible = true }.set(this, value)
     }
 
     private companion object {

@@ -7,9 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import dev.zacsweers.metro.Inject
@@ -37,6 +35,7 @@ import mihon.core.migration.Migrator
 import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
 import reikai.data.library.shouldDeferLibraryUpdate
+import reikai.data.library.stopLibraryUpdate
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
@@ -79,12 +78,12 @@ import kotlin.time.Clock
 
 /**
  * Periodic background check for new chapters in favorited light novels, the novel analog of Mihon's
- * [eu.kanade.tachiyomi.data.library.LibraryUpdateJob]: a configurable WorkManager schedule that
+ * [eu.kanade.tachiyomi.data.library.LibraryUpdateWorker]: a configurable WorkManager schedule that
  * re-parses each favorite, syncs its chapter list, optionally auto-downloads the new chapters, and
  * posts progress and result notifications. Per-novel logic is the shared [refreshNovelFromSource], the
  * same helper the details refresh uses; new chapters are what its syncs report as new.
  */
-class NovelUpdateJob(
+class NovelUpdateWorker(
     private val context: Context,
     workerParams: WorkerParameters,
 ) : CoroutineWorker(context, workerParams) {
@@ -148,7 +147,7 @@ class NovelUpdateJob(
         val restrictions = preferences.libraryUpdateDeviceRestrictions().get()
         if (shouldDeferLibraryUpdate(restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)) return Result.retry()
         setForegroundSafely()
-        // Stamp the run start for the Updates "Last updated" line (matches manga LibraryUpdateJob).
+        // Stamp the run start for the Updates "Last updated" line (matches manga LibraryUpdateWorker).
         preferences.novelLibraryUpdateLastTimestamp().set(System.currentTimeMillis())
         return try {
             val categoryId = inputData.getLong(KEY_CATEGORY, -1L)
@@ -315,7 +314,7 @@ class NovelUpdateJob(
         private const val WORK_NAME_MANUAL = "NovelLibraryUpdate-manual"
         private const val KEY_CATEGORY = "category"
 
-        /** Twin of `LibraryUpdateJob.isRunningFlow`, over the one rule in [workRunningFlow]. */
+        /** Twin of `LibraryUpdateWorker.isRunningFlow`, pinned by [workRunningFlow], the one rule both read. */
         fun isRunningFlow(context: Context): Flow<Boolean> = context.workRunningFlow(TAG)
 
         /** (Re)schedule or cancel the periodic check from the stored interval (0 = off). Idempotent. */
@@ -324,7 +323,8 @@ class NovelUpdateJob(
             val interval = prefInterval ?: preferences.libraryUpdateInterval().get()
             if (interval > 0) {
                 val restrictions = preferences.libraryUpdateDeviceRestrictions().get()
-                val request = libraryUpdatePeriodicRequest<NovelUpdateJob>(interval, restrictions, TAG, WORK_NAME_AUTO)
+                val request =
+                    libraryUpdatePeriodicRequest<NovelUpdateWorker>(interval, restrictions, TAG, WORK_NAME_AUTO)
                 context.workManager.enqueueUniquePeriodicWork(
                     WORK_NAME_AUTO,
                     ExistingPeriodicWorkPolicy.UPDATE,
@@ -345,25 +345,11 @@ class NovelUpdateJob(
                 return false
             }
             val inputData = workDataOf(KEY_CATEGORY to (category?.id ?: -1L))
-            val request = libraryUpdateManualRequest<NovelUpdateJob>(TAG, WORK_NAME_MANUAL, inputData)
+            val request = libraryUpdateManualRequest<NovelUpdateWorker>(TAG, WORK_NAME_MANUAL, inputData)
             wm.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
             return true
         }
 
-        /** Cancel the currently-running check by id (so the periodic schedule survives), re-enqueuing
-         *  the auto schedule if that was what got cancelled. Mirrors the manga LibraryUpdateJob. */
-        fun stop(context: Context) {
-            val wm = context.workManager
-            val workQuery = WorkQuery.Builder.fromTags(listOf(TAG))
-                .addStates(listOf(WorkInfo.State.RUNNING))
-                .build()
-            wm.getWorkInfos(workQuery).get()
-                .forEach {
-                    wm.cancelWorkById(it.id)
-                    if (it.tags.contains(WORK_NAME_AUTO)) {
-                        setupTask(context)
-                    }
-                }
-        }
+        fun stop(context: Context) = stopLibraryUpdate(context.workManager, TAG, WORK_NAME_AUTO) { setupTask(context) }
     }
 }

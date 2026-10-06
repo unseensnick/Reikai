@@ -7,7 +7,7 @@ import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
 import eu.kanade.presentation.manga.DownloadAction
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.library.LibraryViewModel
@@ -96,7 +96,7 @@ class MangaLibraryAdapter(
     override val trackKey: Flow<Any?> =
         model.state.map { it.libraryData.tracksMap to it.libraryData.loggedInTrackerIds }.distinctUntilChanged()
 
-    override val updating: Flow<Boolean> = LibraryUpdateJob.isRunningFlow(context)
+    override val updating: Flow<Boolean> = LibraryUpdateWorker.isRunningFlow(context)
 
     override fun trackerMeans(): Map<Long, Double> {
         val data = model.state.value.libraryData
@@ -133,7 +133,7 @@ class MangaLibraryAdapter(
         model.search(query)
     }
 
-    override fun refresh(category: Category?) = LibraryUpdateJob.startNow(context.workManager, category)
+    override fun refresh(category: Category?) = LibraryUpdateWorker.startNow(context.workManager, category)
 
     // Each verb takes the neutral selection and hands the model only the raw ids of its own content
     // type, so a mixed selection never reaches a provider that cannot act on it.

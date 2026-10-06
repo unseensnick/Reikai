@@ -77,7 +77,7 @@ End with one short sentence: accurate or inaccurate, convention-clean or not.
 
 For each finding:
 - **File:Line**: exact location.
-- **Issue**: be specific ("doc says `NovelUpdateJob.setupTask` reads `LibraryPreferences`, source shows `NovelPreferences`").
+- **Issue**: be specific ("doc says `NovelUpdateWorker.setupTask` reads `LibraryPreferences`, source shows `NovelPreferences`").
 - **Fix**: concrete rewrite or addition.
 - **Confidence**: 0 to 100.
 

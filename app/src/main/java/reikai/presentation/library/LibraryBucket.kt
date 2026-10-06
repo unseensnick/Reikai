@@ -11,7 +11,7 @@ import tachiyomi.domain.category.model.Category
  *
  * A dynamic bucket used to be a [Category] with a negative id, so five hand-written guards were all
  * that kept one out of a category write, and the first bucket of every grouping sat on id -1, which
- * NovelUpdateJob reads as "update the whole library". [realCategory] replaces those guards.
+ * NovelUpdateWorker reads as "update the whole library". [realCategory] replaces those guards.
  */
 @Immutable
 sealed interface LibraryBucket {

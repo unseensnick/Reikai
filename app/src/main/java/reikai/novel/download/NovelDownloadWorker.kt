@@ -25,10 +25,10 @@ import reikai.util.workRunningFlow
  * progress notification) while [NovelDownloadManager.runQueue] downloads chapter text, so downloads
  * survive backgrounding; WorkManager re-runs it after a restart, where [NovelDownloadManager] restores
  * the persisted queue and resumes. Sibling of the manga
- * [eu.kanade.tachiyomi.data.download.DownloadJob]; [NovelDownloadManager] applies the offline and
+ * [eu.kanade.tachiyomi.data.download.DownloadWorker]; [NovelDownloadManager] applies the offline and
  * Wi-Fi-only pauses.
  */
-class NovelDownloadJob(context: Context, workerParams: WorkerParameters) :
+class NovelDownloadWorker(context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
     private val graph: AppGraph = context.metroGraph()
@@ -80,7 +80,7 @@ class NovelDownloadJob(context: Context, workerParams: WorkerParameters) :
         /** Start (or reuse) the downloader. KEEP so adding chapters to a running drain doesn't restart
          *  it; the running loop picks up the newly-queued items. */
         fun start(context: Context) {
-            val request = OneTimeWorkRequestBuilder<NovelDownloadJob>()
+            val request = OneTimeWorkRequestBuilder<NovelDownloadWorker>()
                 .addTag(TAG)
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()

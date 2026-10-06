@@ -12,7 +12,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
-import exh.md.MangaDexSyncJob
+import exh.md.MangaDexSyncWorker
 import exh.md.utils.MdUtil
 import mihon.app.di.appGraph
 import tachiyomi.i18n.MR
@@ -84,21 +84,21 @@ object SettingsMangaDexScreen : SearchableSettings {
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_mangadex_sync_follows_to_library),
                 subtitle = stringResource(MR.strings.pref_mangadex_sync_follows_to_library_summary),
-                onClick = { startSync(context, trackerManager, MangaDexSyncJob.Target.SYNC_FOLLOWS) },
+                onClick = { startSync(context, trackerManager, MangaDexSyncWorker.Target.SYNC_FOLLOWS) },
             ),
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_mangadex_push_favorites_to_mangadex),
                 subtitle = stringResource(MR.strings.pref_mangadex_push_favorites_to_mangadex_summary),
-                onClick = { startSync(context, trackerManager, MangaDexSyncJob.Target.PUSH_FAVORITES) },
+                onClick = { startSync(context, trackerManager, MangaDexSyncWorker.Target.PUSH_FAVORITES) },
             ),
         )
     }
 
     // Both sync actions need the MDList account; nudge the user to Tracking if not signed in yet.
-    private fun startSync(context: Context, trackerManager: TrackerManager, target: MangaDexSyncJob.Target) {
+    private fun startSync(context: Context, trackerManager: TrackerManager, target: MangaDexSyncWorker.Target) {
         if (!trackerManager.mdList.isLoggedIn) {
             context.toast(MR.strings.pref_mangadex_sign_in_required)
-        } else if (MangaDexSyncJob.startNow(context, target)) {
+        } else if (MangaDexSyncWorker.startNow(context, target)) {
             context.toast(MR.strings.pref_mangadex_sync_started)
         } else {
             context.toast(MR.strings.pref_mangadex_sync_already_running)

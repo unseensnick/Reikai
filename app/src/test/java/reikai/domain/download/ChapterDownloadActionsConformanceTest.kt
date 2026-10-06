@@ -5,11 +5,11 @@ import android.content.Context
 import com.hippo.unifile.UniFile
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
-import eu.kanade.tachiyomi.data.download.DownloadJob
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadNotifier
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.download.DownloadStore
+import eu.kanade.tachiyomi.data.download.DownloadWorker
 import eu.kanade.tachiyomi.data.download.Downloader
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.model.SChapter
@@ -56,8 +56,8 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.FakeSharedPreferences
 import reikai.novel.download.NovelDownload
-import reikai.novel.download.NovelDownloadJob
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -82,8 +82,8 @@ class ChapterDownloadActionsConformanceTest {
     @BeforeEach
     fun setUp() {
         // Starting either worker needs WorkManager, which is not under test; each half records the asks.
-        mockkObject(NovelDownloadJob.Companion)
-        mockkObject(DownloadJob.Companion)
+        mockkObject(NovelDownloadWorker.Companion)
+        mockkObject(DownloadWorker.Companion)
         mockkStatic(Context::activeNetworkState)
         every { any<Context>().activeNetworkState() } returns NetworkState(true, true, true)
         // Mihon's Downloader restores its saved queue on the main dispatcher as it is built.
@@ -93,8 +93,8 @@ class ChapterDownloadActionsConformanceTest {
     @AfterEach
     fun tearDown() {
         Dispatchers.resetMain()
-        unmockkObject(NovelDownloadJob.Companion)
-        unmockkObject(DownloadJob.Companion)
+        unmockkObject(NovelDownloadWorker.Companion)
+        unmockkObject(DownloadWorker.Companion)
         unmockkStatic(Context::activeNetworkState)
     }
 
@@ -273,7 +273,7 @@ class MangaDownloadActionsHalf : DownloadActionsHalf {
 
     // Built inside the test: its constructor launches on the main dispatcher the test installs.
     private val downloader by lazy {
-        every { DownloadJob.start(any()) } answers { startAsked = true }
+        every { DownloadWorker.start(any()) } answers { startAsked = true }
         Downloader(
             context = context,
             provider = provider,
@@ -423,7 +423,7 @@ class NovelDownloadActionsHalf : DownloadActionsHalf {
     }
 
     override suspend fun queue(ids: List<Long>) {
-        every { NovelDownloadJob.start(any()) } answers { startAsked = true }
+        every { NovelDownloadWorker.start(any()) } answers { startAsked = true }
         manager.downloadChapters(ids.map(::chapter))
     }
 

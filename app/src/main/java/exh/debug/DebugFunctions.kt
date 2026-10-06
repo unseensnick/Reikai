@@ -6,7 +6,7 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.domain.source.interactor.GetEnabledSources
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.backup.models.Backup
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.util.system.workManager
 import exh.eh.EHentaiUpdateWorker
 import exh.metadata.metadata.EHentaiSearchMetadata
@@ -23,7 +23,7 @@ import mihon.core.migration.MigrationJobFactory
 import mihon.core.migration.MigrationStrategyFactory
 import mihon.core.migration.Migrator
 import mihon.domain.source.interactor.UpdateMangaFromRemote
-import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.debug.DebugDatabaseRepository
 import reikai.presentation.browse.MangaLibraryAdder
 import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
@@ -191,8 +191,8 @@ class DebugFunctions(
 
     // Both library updaters, since Reikai updates manga and novels in separate jobs.
     fun killLibraryJobs() {
-        LibraryUpdateJob.stop(context)
-        NovelUpdateJob.stop(context)
+        LibraryUpdateWorker.stop(context)
+        NovelUpdateWorker.stop(context)
     }
 
     private suspend fun runMigrations(fromVersion: Int): Boolean {

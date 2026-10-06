@@ -94,7 +94,7 @@ deletion and the per-host lock all run either way.
   clears only when that one is finishing or destroyed, so backgrounding the app does not reach the
   no-window path; the activity is still alive and the windowed path runs against an off-screen decor
   view.
-- `app/.../data/library/LibraryUpdateJob.kt`: `startDelayed`, debug-only, the only way to reach an
+- `app/.../data/library/LibraryUpdateWorker.kt`: `startDelayed`, debug-only, the only way to reach an
   activity-less process by hand.
 - `NetworkPreferences.enableTurnstileSolver` and `enableTurnstileBackgroundSolver`,
   `reikai/presentation/settings/BypassPreferences.kt`, `strings.xml`: the two switches and their
@@ -141,7 +141,7 @@ WebView data cleared between each.** The same global search over the same four h
 | 16 | real background update, after the extraction | 1 of 1 solved in 226ms, in a process with no activity |
 
 Round 5 is the one that is not a forced branch. A delayed one-time update was queued, the app was
-killed during the delay, and `WM-WorkerWrapper` started `LibraryUpdateJob` in a fresh process at
+killed during the delay, and `WM-WorkerWrapper` started `LibraryUpdateWorker` in a fresh process at
 12:12:32. The solver logged `arming without a window` 1.5 seconds later with both spike overrides
 off, which can only mean `ForegroundActivity.current` was null, and `aquareader.org` went
 interactive, was pressed and was accepted 1.2 seconds later.
@@ -243,7 +243,7 @@ real interactive challenge and pressed it headless.
 **Reaching that trigger by hand needs a delay, and the reason is worth keeping.** An update holds a
 foreground service, which makes the process unkillable, and force-stopping instead cancels every
 scheduled job that could restart it, so there is nothing left to fire. Nothing runs during an initial
-delay, so the app can be killed there. `LibraryUpdateJob.startDelayed` plus the Networking row that
+delay, so the app can be killed there. `LibraryUpdateWorker.startDelayed` plus the Networking row that
 calls it exist only for this. Also ruled out on the way: `cmd jobscheduler run -f` on the periodic
 job, which WorkManager refuses with "executed before schedule"; a `BOOT_COMPLETED` broadcast, which
 shell may not send; a provider query, which is not exported; and a reinstall, which never woke it.
@@ -364,7 +364,7 @@ all, but interactive rounds only started arriving after the VPN exit changed.
 - **The three surviving spike rows are permanent, and the bisect harness was not.** The harness
   answered its question and then rotted, so it went; an audit found three defects in it that nothing
   had noticed because nothing used it. The other three stay: `forceHeadless` and `forceNoWatch`
-  reach branches a current device cannot otherwise enter, and `LibraryUpdateJob.startDelayed` is the
+  reach branches a current device cannot otherwise enter, and `LibraryUpdateWorker.startDelayed` is the
   only route to an activity-less process, with four alternatives measured closed. `forceNoWatch`
   earned its keep twice over when a real WebView 124 behaved identically to the forced branch, which
   makes it a verified stand-in rather than an assumed one. This is a ruling, not a backlog item, so

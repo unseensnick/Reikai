@@ -1,17 +1,17 @@
 # Cross-file token clones in reikai/ and exh/ that predate scripts/dup-check.ps1 or were kept on
 # purpose. One per line: file A, file B, hash of the normalised tokens (tab-separated). Regenerate
 # with: pwsh scripts/dup-check.ps1 -UpdateBaseline, and say in the commit why a new one is kept.
-app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/exh/md/MangaDexSyncJob.kt	943d0a5dd1973047
-app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt	d6bc9e4d169381b2
-app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshJob.kt	2c29e37627a0b44e
-app/src/main/java/exh/md/MangaDexSyncJob.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt	1730026bbb3617ab
-app/src/main/java/exh/md/MangaDexSyncJob.kt	app/src/main/java/reikai/data/track/TrackerRefreshJob.kt	2c29e37627a0b44e
+app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/exh/md/MangaDexSyncWorker.kt	943d0a5dd1973047
+app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	d6bc9e4d169381b2
+app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2c29e37627a0b44e
+app/src/main/java/exh/md/MangaDexSyncWorker.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	1730026bbb3617ab
+app/src/main/java/exh/md/MangaDexSyncWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2c29e37627a0b44e
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	641ac41df85d3292
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	7c09e819292482f9
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	7c15383f860befb5
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	abfb0aee4c193079
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	f95131f6c1c7530a
-app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt	app/src/main/java/reikai/data/track/TrackerRefreshJob.kt	2ec218252f58acee
+app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2ec218252f58acee
 app/src/main/java/reikai/domain/library/ReikaiLibraryPreferences.kt	app/src/main/java/reikai/domain/recommendation/ReikaiRecommendationPreferences.kt	09165fda2d9f7232
 app/src/main/java/reikai/domain/library/updateerror/LibraryUpdateErrorInteractors.kt	app/src/main/java/reikai/domain/novel/updateerror/NovelUpdateErrorInteractors.kt	2f49a3018a725c47
 app/src/main/java/reikai/domain/manga/MangaGroupStitcher.kt	app/src/main/java/reikai/domain/novel/NovelGroupStitcher.kt	921901091f325374

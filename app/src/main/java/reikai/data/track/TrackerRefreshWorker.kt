@@ -52,7 +52,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * runs on a schedule per source, while this is one rate-limited network call per bound tracker per entry, so
  * attaching it would multiply every update's remote traffic invisibly.
  */
-class TrackerRefreshJob(
+class TrackerRefreshWorker(
     private val context: Context,
     workerParams: WorkerParameters,
 ) : CoroutineWorker(context, workerParams) {
@@ -193,7 +193,7 @@ class TrackerRefreshJob(
         /** Starts a refresh, or returns false when one is already running. */
         fun startNow(context: Context): Boolean {
             if (isRunning(context)) return false
-            val request = OneTimeWorkRequestBuilder<TrackerRefreshJob>()
+            val request = OneTimeWorkRequestBuilder<TrackerRefreshWorker>()
                 .addTag(WORK_NAME)
                 .build()
             context.workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request)
@@ -220,7 +220,7 @@ internal suspend fun refreshTargets(
     }
 }
 
-/** Progress and result notifications for [TrackerRefreshJob], on the shared library channels. */
+/** Progress and result notifications for [TrackerRefreshWorker], on the shared library channels. */
 private class TrackerRefreshNotifier(
     private val context: Context,
     cancelIntent: PendingIntent,

@@ -35,8 +35,8 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.FakeSharedPreferences
-import reikai.novel.download.NovelDownloadJob
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.download.NovelDownloadWorker
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -97,7 +97,7 @@ interface EmptiedQueueHalf {
 }
 
 /**
- * Mihon's downloader, paused by a lost network, has stopped its job, and DownloadJob waits while it stays
+ * Mihon's downloader, paused by a lost network, has stopped its job, and DownloadWorker waits while it stays
  * paused; only its stop() clears the pause, so stop() being asked is the manga answer. The pause kind is
  * the same state.
  */
@@ -186,11 +186,11 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
         val downloadPreferences = DownloadPreferences(InMemoryPreferenceStore())
         downloadPreferences.downloadOnlyOverWifi.set(pause == EmptiedPausedQueueConformanceTest.Pause.OFF_WIFI)
         val online = pause == EmptiedPausedQueueConformanceTest.Pause.OFF_WIFI
-        mockkObject(NovelDownloadJob.Companion)
+        mockkObject(NovelDownloadWorker.Companion)
         mockkStatic(Context::activeNetworkState)
         mockkStatic(Dispatchers::class)
         try {
-            every { NovelDownloadJob.start(any()) } just runs
+            every { NovelDownloadWorker.start(any()) } just runs
             every { any<Context>().activeNetworkState() } returns NetworkState(online, online, false)
             every { Dispatchers.IO } returns StandardTestDispatcher(test.testScheduler)
             val manager = NovelDownloadManager(
@@ -231,7 +231,7 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
 
             return drain.isCompleted
         } finally {
-            unmockkObject(NovelDownloadJob.Companion)
+            unmockkObject(NovelDownloadWorker.Companion)
             unmockkStatic(Context::activeNetworkState)
             unmockkStatic(Dispatchers::class)
         }
