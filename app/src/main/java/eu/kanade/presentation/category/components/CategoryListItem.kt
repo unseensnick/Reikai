@@ -26,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import eu.kanade.presentation.category.contentTypeLabel
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.DragHandle
@@ -37,6 +36,7 @@ import mihon.icons.materialsymbols.rounded.Visibility
 import mihon.icons.materialsymbols.rounded.VisibilityOff
 import mihon.icons.materialsymbols.roundedfilled.CheckCircle
 import reikai.domain.category.isHidden
+import reikai.presentation.category.categoryContentTypeLabel
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -106,7 +106,7 @@ fun ReorderableCollectionItemScope.CategoryListItem(
             ) {
                 Text(text = category.name)
                 Text(
-                    text = stringResource(category.contentTypeLabel),
+                    text = stringResource(categoryContentTypeLabel(category.contentType)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.Role
 import eu.kanade.core.preference.asToggleableState
 import eu.kanade.presentation.category.visualName
 import reikai.domain.category.CategoryContentType
+import reikai.presentation.category.categoryContentTypeLabel
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -129,12 +130,7 @@ private fun CategoryContentTypeOptions(
     selected: Long,
     onSelect: (Long) -> Unit,
 ) {
-    val options = listOf(
-        CategoryContentType.UNIVERSAL to MR.strings.category_content_type_all,
-        CategoryContentType.MANGA to MR.strings.category_content_type_manga,
-        CategoryContentType.NOVEL to MR.strings.category_content_type_novels,
-    )
-    options.forEach { (type, labelRes) ->
+    listOf(CategoryContentType.UNIVERSAL, CategoryContentType.MANGA, CategoryContentType.NOVEL).forEach { type ->
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -148,7 +144,7 @@ private fun CategoryContentTypeOptions(
         ) {
             RadioButton(selected = selected == type, onClick = null)
             Text(
-                text = stringResource(labelRes),
+                text = stringResource(categoryContentTypeLabel(type)),
                 modifier = Modifier.padding(start = MaterialTheme.padding.small),
             )
         }

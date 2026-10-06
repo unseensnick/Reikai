@@ -3,7 +3,6 @@ package reikai.presentation.category
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
-import eu.kanade.presentation.category.contentTypeLabel
 import reikai.domain.category.CategoryContentType
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
@@ -48,7 +47,7 @@ fun CategoryTriStateRows(
             label = category.name.ifBlank { defaultLabel },
             state = states[category.id] ?: TriState.DISABLED,
             onClick = { next -> states[category.id] = next },
-            subtitle = stringResource(category.contentTypeLabel).takeIf { restricted },
+            subtitle = stringResource(categoryContentTypeLabel(category.contentType)).takeIf { restricted },
         )
     }
 }
