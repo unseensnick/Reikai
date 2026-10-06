@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
+import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.network.NetworkPreferences
@@ -40,6 +41,7 @@ import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.upcoming.service.UpcomingPreferences
 
 /**
  * The category-id settings name categories by the id they had on the device that made the backup, so a
@@ -71,6 +73,7 @@ class CategoryPreferenceRestoreTest {
         NovelPreferences(store),
         ReikaiLibraryPreferences(store),
         ReikaiSourcePreferences(store),
+        UpcomingPreferences(store),
     )
 
     private val restorer = PreferenceRestorer(
@@ -256,6 +259,25 @@ class CategoryPreferenceRestoreTest {
         )
 
         collapsed.get() shouldBe setOf("200", "300")
+    }
+
+    @Test
+    fun `the Upcoming category filter maps through its names`() = runTest {
+        val upcoming = UpcomingPreferences(store).filterIncludedCategories
+
+        restore(reikaiCategories, BackupPreference(upcoming.key(), StringPreferenceValue("11,12")))
+
+        upcoming.get() shouldBe listOf(100L, 200L)
+    }
+
+    @Test
+    fun `the Upcoming category filter merges into the live one like the category sets`() = runTest {
+        val upcoming = UpcomingPreferences(store).filterIncludedCategories
+        upcoming.set(listOf(100L))
+
+        restore(reikaiCategories, BackupPreference(upcoming.key(), StringPreferenceValue("12,11,99")))
+
+        upcoming.get() shouldBe listOf(100L, 200L)
     }
 
     /** The Backup field 2 of each app, alone. */

@@ -58,6 +58,7 @@ class CategoryActions(
             categoryId = category.id,
             defaultCategoryPreferences = categoryIdPreferences.defaultsFor(category.contentType),
             categorySetPreferences = categoryIdPreferences.setsFor(category.contentType),
+            categoryListPreferences = categoryIdPreferences.listsFor(category.contentType),
         )
         true
     } catch (e: Exception) {
@@ -118,4 +119,10 @@ private fun CategoryIdPreferences.setsFor(contentType: Long) = when (contentType
     CategoryContentType.MANGA -> mangaSets + sharedSets
     CategoryContentType.NOVEL -> novelSets + sharedSets
     else -> mangaSets + novelSets + sharedSets
+}
+
+/** The lists are the manga Upcoming calendar's, so a novel-only category is never in one. */
+private fun CategoryIdPreferences.listsFor(contentType: Long) = when (contentType) {
+    CategoryContentType.NOVEL -> emptyList()
+    else -> mangaLists
 }

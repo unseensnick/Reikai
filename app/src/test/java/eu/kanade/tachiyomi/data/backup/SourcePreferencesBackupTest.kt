@@ -134,7 +134,7 @@ class SourcePreferencesBackupTest {
             context = mockk(),
             getCategories = mockk(),
             preferenceStore = store,
-            categoryIdPreferences = mockk(),
+            categoryIdPreferences = mockk(relaxed = true),
             getNovelCategories = mockk(),
             appPreferenceCarry = mockk(),
         )

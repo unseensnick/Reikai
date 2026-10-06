@@ -39,10 +39,22 @@ class DeleteCategoryCleanupTest {
             categoryId = 2L,
             defaultCategoryPreferences = listOf(FakePreference(-1)),
             categorySetPreferences = listOf(includeSet, excludeSet, unrelatedSet),
+            categoryListPreferences = emptyList(),
         )
 
         listOf(includeSet.get(), excludeSet.get(), unrelatedSet.get()) shouldBe
             listOf(setOf("1", "3"), emptySet(), setOf("5"))
+    }
+
+    @Test
+    fun `scrubs only the deleted id from every list preference`() = runTest {
+        coEvery { repository.getUnfiltered() } returns emptyList()
+        val includeList = FakePreference(listOf(1L, 2L, 3L))
+        val unrelatedList = FakePreference(listOf(5L))
+
+        deleteCategoryAndCleanup(repository, 2L, emptyList(), emptyList(), listOf(includeList, unrelatedList))
+
+        listOf(includeList.get(), unrelatedList.get()) shouldBe listOf(listOf(1L, 3L), listOf(5L))
     }
 
     @Test
@@ -51,8 +63,8 @@ class DeleteCategoryCleanupTest {
         val namesDeleted = FakePreference(-1).apply { set(2) }
         val namesOther = FakePreference(-1).apply { set(5) }
 
-        deleteCategoryAndCleanup(repository, 2L, listOf(namesDeleted), emptyList())
-        deleteCategoryAndCleanup(repository, 2L, listOf(namesOther), emptyList())
+        deleteCategoryAndCleanup(repository, 2L, listOf(namesDeleted), emptyList(), emptyList())
+        deleteCategoryAndCleanup(repository, 2L, listOf(namesOther), emptyList(), emptyList())
 
         listOf(namesDeleted.isSet(), namesOther.get()) shouldBe listOf(false, 5)
     }
@@ -64,7 +76,7 @@ class DeleteCategoryCleanupTest {
         val mangaDefault = FakePreference(-1).apply { set(2) }
         val novelDefault = FakePreference(-1).apply { set(2) }
 
-        deleteCategoryAndCleanup(repository, 2L, listOf(mangaDefault, novelDefault), emptyList())
+        deleteCategoryAndCleanup(repository, 2L, listOf(mangaDefault, novelDefault), emptyList(), emptyList())
 
         listOf(mangaDefault.isSet(), novelDefault.isSet()) shouldBe listOf(false, false)
     }
@@ -75,7 +87,7 @@ class DeleteCategoryCleanupTest {
         val orderedIds = slot<List<Long>>()
         coEvery { repository.updateAllOrders(capture(orderedIds)) } just Runs
 
-        deleteCategoryAndCleanup(repository, 2L, listOf(FakePreference(-1)), emptyList())
+        deleteCategoryAndCleanup(repository, 2L, listOf(FakePreference(-1)), emptyList(), emptyList())
 
         orderedIds.captured shouldBe listOf(1L, 3L, 4L)
     }
@@ -87,7 +99,7 @@ class DeleteCategoryCleanupTest {
         val orderedIds = slot<List<Long>>()
         coEvery { repository.updateAllOrders(capture(orderedIds)) } just Runs
 
-        deleteCategoryAndCleanup(repository, 2L, listOf(FakePreference(-1)), emptyList())
+        deleteCategoryAndCleanup(repository, 2L, listOf(FakePreference(-1)), emptyList(), emptyList())
 
         orderedIds.captured shouldBe listOf(1L, 3L)
     }
@@ -96,7 +108,7 @@ class DeleteCategoryCleanupTest {
     fun `deletes the category row`() = runTest {
         coEvery { repository.getUnfiltered() } returns emptyList()
 
-        deleteCategoryAndCleanup(repository, 7L, listOf(FakePreference(-1)), emptyList())
+        deleteCategoryAndCleanup(repository, 7L, listOf(FakePreference(-1)), emptyList(), emptyList())
 
         coVerify { repository.delete(7L) }
     }

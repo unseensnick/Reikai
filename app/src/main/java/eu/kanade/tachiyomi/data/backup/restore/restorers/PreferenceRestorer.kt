@@ -29,6 +29,7 @@ import reikai.domain.category.translateCategoryId
 import reikai.novel.source.pluginStorageScope
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
+import tachiyomi.core.common.preference.getLongArray
 import tachiyomi.core.common.preference.plusAssign
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
@@ -117,6 +118,7 @@ class PreferenceRestorer(
         val shared = CategoryIdTranslation { manga.translate(it) ?: novel.translate(it) }
         val translations by lazy {
             categoryIdPreferences.mangaSets.associate { it.key() to manga } +
+                categoryIdPreferences.mangaLists.associate { it.key() to manga } +
                 categoryIdPreferences.sharedSets.associate { it.key() to shared } +
                 categoryIdPreferences.novelSets.associate { it.key() to novel } +
                 mapOf(
@@ -157,7 +159,9 @@ class PreferenceRestorer(
                     }
                     is StringPreferenceValue -> {
                         if (prefs[key] is String?) {
-                            preferenceStore.getString(key).set(value.value)
+                            // RK: a category-id list translates like the category sets below
+                            val restored = restoreCategoryList(key, value.value, preferenceStore, translations)
+                            if (!restored) preferenceStore.getString(key).set(value.value)
                         }
                     }
                     is BooleanPreferenceValue -> {
@@ -199,6 +203,22 @@ class PreferenceRestorer(
 
         if (ids.isNotEmpty()) {
             preferenceStore.getStringSet(key) += ids
+        }
+        return true
+    }
+
+    // RK: Mihon's comma-joined category-id lists (getLongArray), merged into the live list like the sets
+    private fun restoreCategoryList(
+        key: String,
+        value: String,
+        preferenceStore: PreferenceStore,
+        translations: Map<String, CategoryIdTranslation>,
+    ): Boolean {
+        val translation = translations[key] ?: return false
+        val ids = value.split(",").mapNotNull { translation.translate(it)?.toLong() }
+        if (ids.isNotEmpty()) {
+            val preference = preferenceStore.getLongArray(key, emptyList())
+            preference.set((preference.get() + ids).distinct())
         }
         return true
     }

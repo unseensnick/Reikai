@@ -12,12 +12,13 @@ import tachiyomi.core.common.preference.PreferenceStore
  * A preference store whose [Preference.changes] actually emits. `InMemoryPreferenceStore`'s does not:
  * its flow yields nothing at all, so anything combining two preference flows never produces a value
  * and a test reads the seed instead of the derivation. Values are held as they are handed over, with
- * no serialization round trip, which is all an engine test needs.
+ * no serialization round trip, which is all an engine test needs; only [getAll] serializes, below.
  */
 class EmittingPreferenceStore : PreferenceStore {
 
     private val flows = mutableMapOf<String, MutableStateFlow<Any?>>()
     private val written = mutableSetOf<String>()
+    private val serializers = mutableMapOf<String, (Any?) -> String>()
 
     @Suppress("UNCHECKED_CAST")
     private fun <T> pref(key: String, defaultValue: T): Preference<T> =
@@ -45,7 +46,11 @@ class EmittingPreferenceStore : PreferenceStore {
         defaultValue: T,
         serializer: (T) -> String,
         deserializer: (String) -> T,
-    ): Preference<T> = pref(key, defaultValue)
+    ): Preference<T> {
+        @Suppress("UNCHECKED_CAST")
+        serializers[key] = { serializer(it as T) }
+        return pref(key, defaultValue)
+    }
 
     override fun <T> getObjectFromInt(
         key: String,
@@ -61,7 +66,10 @@ class EmittingPreferenceStore : PreferenceStore {
         deserializer: (String) -> T?,
     ): Preference<Set<T>> = pref(key, defaultValue)
 
-    override fun getAll(): Map<String, *> = flows.mapValues { it.value.value }
+    // SharedPreferences reports an object preference as the string it stores, and a backup restore
+    // checks that type before writing, so reporting the object would turn the restore away.
+    override fun getAll(): Map<String, *> =
+        flows.mapValues { (key, flow) -> serializers[key]?.invoke(flow.value) ?: flow.value }
 
     private class Emitting<T>(
         private val key: String,

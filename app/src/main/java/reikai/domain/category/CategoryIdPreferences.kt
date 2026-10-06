@@ -10,14 +10,15 @@ import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.upcoming.service.UpcomingPreferences
 
 /**
- * The one list of every preference that stores a category id, split by content type. The cleanup
- * migration, both category-delete paths and backup restore all read this list, so a new category-id
- * preference is declared here once and every cleanup path picks it up for the right content type.
+ * The one list of every preference that stores a category id, split by content type. A category delete
+ * and a backup restore read every list here, so a new category-id preference is declared once and both
+ * pick it up for the right content type. The one-time cleanup migration scrubs the defaults and sets only,
+ * since the Upcoming lists arrived after it shipped.
  *
- * Excluded on purpose: manga's `lastUsedCategory` is a library tab index (app-state, never backed up),
- * not a category id.
+ * Excluded on purpose: manga's `lastUsedCategory` is a library tab index (app-state), not a category id.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -27,6 +28,7 @@ class CategoryIdPreferences(
     novelPreferences: NovelPreferences,
     reikaiLibraryPreferences: ReikaiLibraryPreferences,
     reikaiSourcePreferences: ReikaiSourcePreferences,
+    upcomingPreferences: UpcomingPreferences,
 ) {
 
     /** Manga default-category preference: a single id, or -1 for "prompt on favorite". */
@@ -39,6 +41,12 @@ class CategoryIdPreferences(
         downloadPreferences.removeExcludeCategories,
         downloadPreferences.downloadNewChapterCategories,
         downloadPreferences.downloadNewChapterCategoriesExclude,
+    )
+
+    /** Every manga preference holding a list of category ids (Mihon's `getLongArray`). */
+    val mangaLists: List<Preference<List<Long>>> = listOf(
+        upcomingPreferences.filterIncludedCategories,
+        upcomingPreferences.filterExcludedCategories,
     )
 
     /**

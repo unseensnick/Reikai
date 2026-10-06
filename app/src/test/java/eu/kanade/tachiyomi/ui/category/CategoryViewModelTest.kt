@@ -26,6 +26,7 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.upcoming.service.UpcomingPreferences
 
 class CategoryViewModelTest {
 
@@ -43,6 +44,7 @@ class CategoryViewModelTest {
     private val store = EmittingPreferenceStore()
     private val libraryPreferences = LibraryPreferences(store)
     private val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
+    private val upcomingPreferences = UpcomingPreferences(store)
     private val actions = CategoryActions(
         categoryRepository = repository,
         categoryIdPreferences = CategoryIdPreferences(
@@ -51,6 +53,7 @@ class CategoryViewModelTest {
             NovelPreferences(store),
             reikaiLibraryPreferences,
             ReikaiSourcePreferences(store),
+            upcomingPreferences,
         ),
         libraryPreferences = libraryPreferences,
         renameCategory = mockk(),
@@ -132,6 +135,18 @@ class CategoryViewModelTest {
         model.commitPendingDelete(events.undoBatches().single())
 
         reikaiLibraryPreferences.collapsedCategories.get() shouldBe setOf(b.id.toString())
+    }
+
+    @Test
+    fun `committing a delete drops the category from the Upcoming filter`() = runTest {
+        val events = mutableListOf<CategoryEvent>()
+        val model = model(events)
+        upcomingPreferences.filterIncludedCategories.set(listOf(a.id, b.id))
+        model.deleteCategory(a)
+
+        model.commitPendingDelete(events.undoBatches().single())
+
+        upcomingPreferences.filterIncludedCategories.get() shouldBe listOf(b.id)
     }
 
     private fun List<CategoryEvent>.undoBatches() = filterIsInstance<CategoryEvent.ShowUndoSnackbar>().map { it.batch }

@@ -6,15 +6,17 @@ import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
  * Delete a category, renumber every remaining row, and scrub the deleted id from the category-id
- * preferences the caller passes: both libraries' for a universal category, or the id is left stranded.
- * Renumbering covers the whole table, since both libraries read universal rows and renumbering one
- * alone would reorder them against the other's positions. Throws on a DB failure, for the caller to map.
+ * preferences the caller passes (defaults, sets and lists): both libraries' for a universal category, or
+ * the id is left stranded. Renumbering covers the whole table, since both libraries read universal rows
+ * and renumbering one alone would reorder them against the other's positions. Throws on a DB failure,
+ * for the caller to map.
  */
 suspend fun deleteCategoryAndCleanup(
     categoryRepository: CategoryRepository,
     categoryId: Long,
     defaultCategoryPreferences: List<Preference<Int>>,
     categorySetPreferences: List<Preference<Set<String>>>,
+    categoryListPreferences: List<Preference<List<Long>>>,
 ) {
     categoryRepository.delete(categoryId)
 
@@ -28,6 +30,9 @@ suspend fun deleteCategoryAndCleanup(
         .filter { it.get() == categoryId.toInt() }
         .forEach { it.delete() }
     scrubCategoryIdFromSetPrefs(categoryId, categorySetPreferences)
+    categoryListPreferences
+        .filter { categoryId in it.get() }
+        .forEach { it.set(it.get() - categoryId) }
 
     categoryRepository.updateAllOrders(orderedIds = orderedIds)
 }
