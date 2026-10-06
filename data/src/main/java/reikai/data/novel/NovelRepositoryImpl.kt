@@ -8,7 +8,10 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import logcat.LogPriority
+import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
@@ -78,8 +81,11 @@ class NovelRepositoryImpl(
             mapper = ::mapNovelUpdate,
         ).subscribeToList()
 
-    override fun getAllAsFlow(): Flow<List<Novel>> =
-        database.novelsQueries.findAll(::mapNovel).subscribeToList()
+    // Every novels-table write re-runs the query, browsed rows included; distinct keeps those from reaching a list.
+    override fun getFavoritedKeysAsFlow(): Flow<FavoritedNovels> =
+        database.novelsQueries.findFavorites(::mapNovel).subscribeToList()
+            .map(FavoritedNovels::of)
+            .distinctUntilChanged()
 
     override fun getByUrlAndSourceAsFlow(url: String, source: String): Flow<Novel?> =
         database.novelsQueries.findByUrlAndSource(url, source, ::mapNovel).subscribeToOneOrNull()

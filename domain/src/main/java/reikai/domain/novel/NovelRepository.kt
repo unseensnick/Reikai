@@ -1,7 +1,6 @@
 package reikai.domain.novel
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
@@ -62,10 +61,9 @@ interface NovelRepository {
         includedCategories: List<Long>,
         excludedCategories: List<Long>,
     ): Flow<List<NovelUpdateWithRelations>>
-    fun getAllAsFlow(): Flow<List<Novel>>
 
-    /** The library by source and url, for the browse, search and feed lists; derived from [getAllAsFlow]. */
-    fun getFavoritedKeysAsFlow(): Flow<FavoritedNovels> = getAllAsFlow().map(FavoritedNovels::of)
+    /** The library by source and url, for the browse, search and feed lists; silent on a write outside it. */
+    fun getFavoritedKeysAsFlow(): Flow<FavoritedNovels>
 
     fun getByUrlAndSourceAsFlow(url: String, source: String): Flow<Novel?>
 
