@@ -1,6 +1,7 @@
 package reikai.presentation.library
 
 import reikai.domain.entry.EntryId
+import reikai.domain.library.CategorySortOrder
 
 /**
  * Minimal per-item view the dynamic grouping needs, decoupled from the manga / novel domain types so
@@ -71,7 +72,7 @@ object LibraryDynamicGrouping {
         unknownLabel: String,
         notTrackedLabel: String,
         ungroupedLabel: String = "",
-        categorySortOrder: Int = 0,
+        categorySortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
         sourceMeta: Map<EntryId, Pair<String, String>> = emptyMap(),
         trackStatuses: Map<EntryId, String> = emptyMap(),
         languageCodes: Map<EntryId, String> = emptyMap(),
@@ -129,7 +130,7 @@ object LibraryDynamicGrouping {
         // reverses and off / A->Z is alphabetical by label.
         val sorted = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
             buckets.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { trackingStatusOrder(it.label) })
-        } else if (categorySortOrder == 2) {
+        } else if (categorySortOrder == CategorySortOrder.Z_TO_A) {
             buckets.sortedByDescending { it.label.lowercase() }
         } else {
             buckets.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })

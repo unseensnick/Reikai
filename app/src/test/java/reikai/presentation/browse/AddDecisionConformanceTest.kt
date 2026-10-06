@@ -11,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.library.CategorySortOrder
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.novel.NovelMergeManager
@@ -120,7 +121,7 @@ class AddDecisionConformanceTest {
         probe.picker(
             userCategories = listOf(category(3L, "Zeta"), category(4L, "Alpha")),
             current = emptyList(),
-            sortOrder = 1,
+            sortOrder = CategorySortOrder.A_TO_Z,
         ) shouldBe listOf(4L to false, 3L to false)
     }
 
@@ -154,7 +155,7 @@ interface AddDecisionProbe {
     suspend fun picker(
         userCategories: List<Category>,
         current: List<Category>,
-        sortOrder: Int = 0,
+        sortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
     ): List<Pair<Long, Boolean>>
 
     /** The prompt this type's adder raises with one possible duplicate in the library, or with none. */
@@ -171,7 +172,7 @@ class MangaAddDecisionProbe : AddDecisionProbe {
         userCategories: List<Category>,
         defaultId: Int,
         current: List<Category>,
-        sortOrder: Int = 0,
+        sortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
         duplicates: List<MangaWithChapterCount> = emptyList(),
     ) =
         MangaLibraryAdder(
@@ -208,7 +209,7 @@ class MangaAddDecisionProbe : AddDecisionProbe {
         return Resolution(ids, wroteCategories)
     }
 
-    override suspend fun picker(userCategories: List<Category>, current: List<Category>, sortOrder: Int) =
+    override suspend fun picker(userCategories: List<Category>, current: List<Category>, sortOrder: CategorySortOrder) =
         adder(userCategories, defaultId = -1, current = current, sortOrder = sortOrder)
             .categoryPickerSelection(mangaId = 1L)
             .map { it.value.id to (it is CheckboxState.State.Checked) }
@@ -234,7 +235,7 @@ class NovelAddDecisionProbe : AddDecisionProbe {
         userCategories: List<Category>,
         defaultId: Int,
         current: List<Category>,
-        sortOrder: Int = 0,
+        sortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
         duplicates: List<NovelWithChapterCount> = emptyList(),
     ) =
         NovelLibraryAdder(
@@ -271,7 +272,7 @@ class NovelAddDecisionProbe : AddDecisionProbe {
         return Resolution(ids, wroteCategories)
     }
 
-    override suspend fun picker(userCategories: List<Category>, current: List<Category>, sortOrder: Int) =
+    override suspend fun picker(userCategories: List<Category>, current: List<Category>, sortOrder: CategorySortOrder) =
         adder(userCategories, defaultId = -1, current = current, sortOrder = sortOrder)
             .categoryPickerPrompt(novelId = 1L)
             .map { it.value.id to it.isChecked }

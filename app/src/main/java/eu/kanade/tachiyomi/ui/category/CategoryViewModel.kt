@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import reikai.domain.category.categoriesForContentType
+import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.category.CategoryActions
@@ -254,8 +255,8 @@ sealed interface CategoryScreenState {
         // RK: every category's name, including the ones the chip is hiding; the duplicate-name check
         // is about the table, not about what is on screen.
         val allNames: List<String> = emptyList(),
-        // RK: 0 = manual (drag to reorder); 1/2 = A->Z / Z->A (drag disabled, sorted to match)
-        val categorySortOrder: Int = 0,
+        // RK: drag to reorder only under MANUAL; the alphabetical orders override it
+        val categorySortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
         // RK: ids selected in multi-select mode; non-empty means the action-mode toolbar is showing
         val selection: Set<Long> = emptySet(),
         // RK: the library the list is narrowed to; All lists every category

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.library.CategorySortOrder
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.UpdateNovel
@@ -114,7 +115,10 @@ class FakeMangaLibrary(userCategories: List<Category> = emptyList(), defaultCate
         autoBindOnAdd = mockk { every { manga(any(), any()) } answers { trackersBound += firstArg<Manga>().id } },
         mergeManager = mockk(relaxed = true) { coEvery { groupIdsFor(any()) } returns emptyMap() },
         transactions = PassThroughTransactions,
-        reikaiLibraryPreferences = mockk { every { categorySortOrder } returns mockk { every { get() } returns 0 } },
+        reikaiLibraryPreferences = mockk {
+            every { categorySortOrder } returns
+                mockk { every { get() } returns CategorySortOrder.MANUAL }
+        },
         sourceTracker = mockk(relaxed = true),
     )
 
@@ -180,7 +184,10 @@ class FakeNovelLibrary(userCategories: List<Category> = emptyList(), defaultCate
         novelPreferences = novelPreferences,
         mergeManager = mockk(relaxed = true) { coEvery { groupIdsFor(any()) } returns emptyMap() },
         transactions = PassThroughTransactions,
-        reikaiLibraryPreferences = mockk { every { categorySortOrder } returns mockk { every { get() } returns 0 } },
+        reikaiLibraryPreferences = mockk {
+            every { categorySortOrder } returns
+                mockk { every { get() } returns CategorySortOrder.MANUAL }
+        },
         autoBindOnAdd = mockk(relaxed = true),
         removeNovelsFromLibrary = mockk {
             coEvery { await(any()) } answers {

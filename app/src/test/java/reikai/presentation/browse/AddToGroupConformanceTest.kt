@@ -11,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.library.CategorySortOrder
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
@@ -374,7 +375,7 @@ class MangaGroupAddProbe : GroupAddProbe {
         },
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = mockk {
-            every { categorySortOrder } returns mockk { every { get() } returns 0 }
+            every { categorySortOrder } returns mockk { every { get() } returns CategorySortOrder.MANUAL }
         },
         sourceTracker = mockk(relaxed = true),
     )
@@ -507,7 +508,7 @@ class NovelGroupAddProbe : GroupAddProbe {
         },
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = mockk {
-            every { categorySortOrder } returns mockk { every { get() } returns 0 }
+            every { categorySortOrder } returns mockk { every { get() } returns CategorySortOrder.MANUAL }
         },
         autoBindOnAdd = mockk {
             every { novel(any()) } answers { trackersBound = true }

@@ -30,6 +30,7 @@ import reikai.domain.category.categoriesForContentType
 import reikai.domain.category.categoryDiff
 import reikai.domain.entry.EntryId
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
+import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -299,7 +300,7 @@ class LibraryEngine(
         val sort: LibrarySort,
         val seed: Int,
         val showHidden: Boolean,
-        val categorySortOrder: Int,
+        val categorySortOrder: CategorySortOrder,
         val showCounts: Boolean,
     )
 
@@ -313,7 +314,7 @@ class LibraryEngine(
         val sort: LibrarySort,
         val seed: Long,
         val showHidden: Boolean,
-        val categorySortOrder: Int,
+        val categorySortOrder: CategorySortOrder,
         val showCounts: Boolean,
         val groupBy: Int,
         val collapsedDynamic: Set<String>,

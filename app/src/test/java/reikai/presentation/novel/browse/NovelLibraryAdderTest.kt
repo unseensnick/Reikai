@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.library.CategorySortOrder
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.SetNovelCategories
@@ -76,7 +77,7 @@ class NovelLibraryAdderTest {
         mergeManager = mergeManager,
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = mockk {
-            every { categorySortOrder } returns mockk { every { get() } returns 0 }
+            every { categorySortOrder } returns mockk { every { get() } returns CategorySortOrder.MANUAL }
         },
         autoBindOnAdd = mockk(relaxed = true),
         removeNovelsFromLibrary = mockk(relaxed = true),

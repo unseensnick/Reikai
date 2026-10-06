@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.entry.EntryId
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
+import reikai.domain.library.CategorySortOrder
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
@@ -58,7 +59,7 @@ class LibraryAssemblyTest {
 
     private fun inputs(
         showHidden: Boolean = false,
-        categorySortOrder: Int = 0,
+        categorySortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
         sort: LibrarySort = LibrarySort.default,
         seed: Long = 0,
     ) = LibraryAssemblyInputs(
@@ -248,7 +249,7 @@ class LibraryAssemblyTest {
                 category(10, order = 1, name = "Zeta"),
                 system,
             ),
-            inputs = inputs(categorySortOrder = 1),
+            inputs = inputs(categorySortOrder = CategorySortOrder.A_TO_Z),
             fields = fields,
         )
         result.map { it.first.categoryId } shouldBe listOf(0L, 20L, 10L)

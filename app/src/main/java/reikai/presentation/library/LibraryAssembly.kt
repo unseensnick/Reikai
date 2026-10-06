@@ -3,6 +3,7 @@ package reikai.presentation.library
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.category.isHidden
 import reikai.domain.entry.EntryId
+import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.librarySortComparator
@@ -19,8 +20,8 @@ data class LibraryAssemblyInputs(
     val globalSort: LibrarySort,
     val randomSeed: Long,
     val showHiddenCategories: Boolean,
-    /** The category-sort-order pref (0 manual, 1 A-Z, 2 Z-A), applied via [reikaiSortCategories]. */
-    val categorySortOrder: Int,
+    /** Applied via [reikaiSortCategories]. */
+    val categorySortOrder: CategorySortOrder,
 )
 
 /**

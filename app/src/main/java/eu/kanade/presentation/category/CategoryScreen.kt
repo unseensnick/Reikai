@@ -30,6 +30,7 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.SelectAll
+import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
 import sh.calvin.reorderable.ReorderableItem
@@ -68,7 +69,7 @@ fun CategoryScreen(
     // RK: in selection mode the drag handle is hidden (selection-tap shouldn't fight a drag-grab), and
     // so is it under a content-type chip: a drop index comes from the list on screen while the reorder
     // renumbers the whole table, so dragging inside a narrowed list would land the row elsewhere.
-    val reorderable = state.categorySortOrder == 0 &&
+    val reorderable = state.categorySortOrder == CategorySortOrder.MANUAL &&
         !state.selectionMode &&
         state.contentType == ContentType.ALL
     Scaffold(
@@ -149,7 +150,7 @@ fun CategoryScreen(
                         reorderable = reorderable,
                         // RK: the move menu renumbers the whole list to an end, which is also an end of any
                         // narrowed list, so only the manual order and selection gate it, never the chip.
-                        movable = state.categorySortOrder == 0 && !state.selectionMode,
+                        movable = state.categorySortOrder == CategorySortOrder.MANUAL && !state.selectionMode,
                         selection = state.selection,
                         selectionMode = state.selectionMode,
                         onToggleSelection = onToggleSelection,

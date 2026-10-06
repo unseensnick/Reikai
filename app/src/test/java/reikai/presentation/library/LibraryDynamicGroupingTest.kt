@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
+import reikai.domain.library.CategorySortOrder
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 
@@ -26,7 +27,7 @@ class LibraryDynamicGroupingTest {
             listOf(libraryManga(1), libraryManga(2)),
             LibraryGroup.BY_SOURCE,
             sourceMeta = mapOf(1L to ("Alpha" to 1L), 2L to ("Beta" to 2L)),
-            categorySortOrder = 2,
+            categorySortOrder = CategorySortOrder.Z_TO_A,
         )
         result.keys.map { it.label } shouldContainExactly listOf("Beta", "Alpha")
     }
@@ -37,7 +38,7 @@ class LibraryDynamicGroupingTest {
             listOf(libraryManga(1), libraryManga(2)),
             LibraryGroup.BY_STATUS,
             statusNames = mapOf(1L to "Ongoing", 2L to "Completed"),
-            categorySortOrder = 1,
+            categorySortOrder = CategorySortOrder.A_TO_Z,
         )
         result.keys.map { it.label } shouldContainExactly listOf("Completed", "Ongoing")
     }
@@ -50,7 +51,7 @@ class LibraryDynamicGroupingTest {
             LibraryGroup.BY_TRACK_STATUS,
             trackStatuses = mapOf(1L to "Completed", 2L to "Reading"),
             trackingStatusOrder = { mapOf("Reading" to "1", "Completed" to "5")[it] ?: "9" },
-            categorySortOrder = 1,
+            categorySortOrder = CategorySortOrder.A_TO_Z,
         )
         result.keys.map { it.label } shouldContainExactly listOf("Reading", "Completed")
     }
@@ -63,7 +64,7 @@ class LibraryDynamicGroupingTest {
             LibraryGroup.BY_TRACK_STATUS,
             trackStatuses = mapOf(1L to "Completed", 2L to "Reading"),
             trackingStatusOrder = { mapOf("Reading" to "1", "Completed" to "5")[it] ?: "9" },
-            categorySortOrder = 2,
+            categorySortOrder = CategorySortOrder.Z_TO_A,
         )
         result.keys.map { it.label } shouldContainExactly listOf("Reading", "Completed")
     }
@@ -333,7 +334,7 @@ class LibraryDynamicGroupingTest {
         trackingStatusOrder: (String) -> String = { it },
         collapsedDynamicCategories: Set<String> = emptySet(),
         collapsedDynamicAtBottom: Boolean = false,
-        categorySortOrder: Int = 0,
+        categorySortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
     ): Map<LibraryBucket.Dynamic, List<Long>> = LibraryDynamicGrouping.build(
         items = library.map { DynItem(EntryId.Manga(it.manga.id), it.manga.genre, it.manga.author, it.manga.artist) },
         groupType = groupType,

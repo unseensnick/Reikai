@@ -41,8 +41,12 @@ class ReikaiLibraryPreferences(
     /** Push collapsed dynamic groups to the bottom of the list. */
     val collapsedDynamicAtBottom: Preference<Boolean> = preferenceStore.getBoolean("collapsed_dynamic_at_bottom", false)
 
-    /** Category list ordering: 0 = manual (Category.order), 1 = A→Z, 2 = Z→A. */
-    val categorySortOrder: Preference<Int> = preferenceStore.getInt("pref_category_sort_order", 0)
+    val categorySortOrder: Preference<CategorySortOrder> = preferenceStore.getObjectFromInt(
+        key = "pref_category_sort_order",
+        defaultValue = CategorySortOrder.MANUAL,
+        serializer = CategorySortOrder::stored,
+        deserializer = CategorySortOrder::fromStored,
+    )
 
     // endregion
 

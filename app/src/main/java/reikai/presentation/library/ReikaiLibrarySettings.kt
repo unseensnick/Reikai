@@ -6,6 +6,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
+import reikai.domain.library.CategorySortOrder
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
@@ -21,12 +22,6 @@ import tachiyomi.presentation.core.util.collectAsState
  * Follows Mihon's settings idiom (preferences read in the composable via `collectAsState`), consistent
  * with the rest of the settings sheet.
  */
-
-private val categorySortOrders = listOf(
-    MR.strings.category_sort_off to 0,
-    MR.strings.category_sort_a_to_z to 1,
-    MR.strings.category_sort_z_to_a to 2,
-)
 
 private val hopperLongPressActions = listOf(
     MR.strings.hopper_action_search to 0,
@@ -46,11 +41,11 @@ fun ColumnScope.ReikaiCategoriesPage(viewModel: LibrarySettingsViewModel) {
     HeadingItem(MR.strings.categories)
     val categorySortOrder by viewModel.reikaiLibraryPreferences.categorySortOrder.collectAsState()
     SettingsChipRow(MR.strings.pref_category_sort_order) {
-        categorySortOrders.forEach { (labelRes, value) ->
+        CategorySortOrder.entries.forEach { order ->
             FilterChip(
-                selected = categorySortOrder == value,
-                onClick = { viewModel.setCategorySortOrder(value) },
-                label = { Text(stringResource(labelRes)) },
+                selected = categorySortOrder == order,
+                onClick = { viewModel.setCategorySortOrder(order) },
+                label = { Text(stringResource(order.titleRes)) },
             )
         }
     }
