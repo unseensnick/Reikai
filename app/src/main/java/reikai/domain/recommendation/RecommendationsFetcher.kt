@@ -2,15 +2,9 @@ package reikai.domain.recommendation
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.TrackerManager
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
-import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.model.Track
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Fans a single related-mangas request out across the tracker recommendation endpoints and pushes each
@@ -57,25 +51,10 @@ class RecommendationsFetcher(
         title: String,
         pushResults: suspend (List<RelatedMangaCandidate>) -> Unit,
     ) {
-        runCatching { withTimeout(REQUEST_TIMEOUT) { provider.fetch(remoteId, title) } }
-            .onSuccess { results -> if (results.isNotEmpty()) pushResults(results) }
-            .onFailure { e ->
-                when (e) {
-                    // A slow tracker is dropped silently so it can't gate the carousel.
-                    is TimeoutCancellationException -> Unit
-                    // A real cancellation (screen closed) must propagate, not be logged as a failure,
-                    // so structured concurrency unwinds cleanly.
-                    is CancellationException -> throw e
-                    else -> {
-                        logcat(LogPriority.WARN, e) { "Tracker recommendations fetch failed (${provider.trackerName})" }
-                    }
-                }
-            }
-    }
-
-    companion object {
-        /** Per-tracker hard cap: long enough for AniList GraphQL on a slow link, short enough that one
-         *  hung tracker doesn't gate the carousel's load-complete signal for ~30s on the socket timeout. */
-        private val REQUEST_TIMEOUT = 15.seconds
+        cappedRecommendationCall({ "Tracker recommendations fetch failed (${provider.trackerName})" }) {
+            provider.fetch(remoteId, title)
+        }
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { pushResults(it) }
     }
 }

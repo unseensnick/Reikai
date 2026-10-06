@@ -5,19 +5,16 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withTimeout
 import logcat.LogPriority
 import reikai.domain.recommendation.taste.TasteCandidateFetcher
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.model.Track
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Orchestrates the related-mangas carousel: candidates from every stream are deduped into one
@@ -117,27 +114,15 @@ class RelatedMangasLoader(
                 }
                 .map { (track, provider) ->
                     async {
-                        try {
-                            track.trackerId to
-                                withTimeout(MEDIA_CONTEXT_TIMEOUT) { provider.getMediaContext(track.remoteId) }
-                        } catch (e: TimeoutCancellationException) {
-                            null
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Throwable) {
-                            logcat(LogPriority.WARN, e) { "Media context fetch failed (${provider.trackerName})" }
-                            null
-                        }
+                        cappedRecommendationCall({ "Media context fetch failed (${provider.trackerName})" }) {
+                            provider.getMediaContext(track.remoteId)
+                        }?.let { track.trackerId to it }
                     }
                 }
                 .awaitAll()
                 .filterNotNull()
                 .toMap()
         }
-
-    companion object {
-        private val MEDIA_CONTEXT_TIMEOUT = 15.seconds
-    }
 
     /**
      * Mutex-guarded dedup + agreement bookkeeping shared by both streams. [add] returns a fresh

@@ -5,19 +5,14 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.QuerySanitizer.sanitize
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
-import logcat.LogPriority
 import reikai.domain.recommendation.EnabledRecommendationStreams
 import reikai.domain.recommendation.RecommendationOrigin
 import reikai.domain.recommendation.RecommendationProviders
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.TrackerRecommendations
-import tachiyomi.core.common.util.system.logcat
-import kotlin.time.Duration.Companion.seconds
+import reikai.domain.recommendation.cappedRecommendationCall
 
 /**
  * Taste-driven extra candidates, pushed into the shared accumulator alongside the source-native and
@@ -78,18 +73,12 @@ class TasteCandidateFetcher(
         coroutineScope {
             tags.forEach { tag ->
                 launch {
-                    runCatching {
-                        withTimeout(REQUEST_TIMEOUT) {
-                            source.getSearchManga(1, tag.sanitize(), FilterList()).mangas
-                        }
+                    cappedRecommendationCall({ "Tag-search candidate fetch failed for \"$tag\"" }) {
+                        source.getSearchManga(1, tag.sanitize(), FilterList()).mangas
                     }
-                        .onSuccess { mangas ->
-                            if (mangas.isNotEmpty()) {
-                                pushResults(mangas.map { candidate(source, it, RecommendationOrigin.TagSearch(tag)) })
-                            }
-                        }
-                        .onFailure {
-                            handleFailure(it) { "Tag-search candidate fetch failed for \"$tag\"" }
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { mangas ->
+                            pushResults(mangas.map { candidate(source, it, RecommendationOrigin.TagSearch(tag)) })
                         }
                 }
             }
@@ -104,16 +93,12 @@ class TasteCandidateFetcher(
         coroutineScope {
             seeds.forEach { seed ->
                 launch {
-                    runCatching { withTimeout(REQUEST_TIMEOUT) { provider.getRecsById(seed.remoteId) } }
-                        .onSuccess { recs ->
-                            if (recs.isNotEmpty()) {
-                                pushResults(recs.map { it.withOrigin(RecommendationOrigin.CrossRec(seed.title)) })
-                            }
-                        }
-                        .onFailure {
-                            handleFailure(it) {
-                                "Cross-recommendation candidate fetch failed for \"${seed.title}\""
-                            }
+                    cappedRecommendationCall({ "Cross-recommendation candidate fetch failed for \"${seed.title}\"" }) {
+                        provider.getRecsById(seed.remoteId)
+                    }
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { recs ->
+                            pushResults(recs.map { it.withOrigin(RecommendationOrigin.CrossRec(seed.title)) })
                         }
                 }
             }
@@ -123,16 +108,6 @@ class TasteCandidateFetcher(
     private fun candidate(source: CatalogueSource, manga: SManga, origin: RecommendationOrigin) =
         RelatedMangaCandidate(sourceId = source.id, manga = manga, origin = origin)
 
-    private fun handleFailure(e: Throwable, message: () -> String) {
-        when (e) {
-            // A slow source search shouldn't gate the carousel.
-            is TimeoutCancellationException -> Unit
-            // A real cancellation (screen closed) must propagate so structured concurrency unwinds.
-            is CancellationException -> throw e
-            else -> logcat(LogPriority.WARN, e) { message() }
-        }
-    }
-
     companion object {
         const val TASTE_TOP_TAG_COUNT = 3
 
@@ -141,10 +116,6 @@ class TasteCandidateFetcher(
 
         /** Hard cap on favorites consulted per load, bounding the source call count. */
         const val MAX_FAVORITES = 5
-
-        /** Per-call hard cap; matches [reikai.domain.recommendation.RecommendationsFetcher] so a hung
-         *  source request can't gate the carousel's load-complete signal. */
-        private val REQUEST_TIMEOUT = 15.seconds
     }
 }
 
