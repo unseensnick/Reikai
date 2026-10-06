@@ -56,8 +56,6 @@ object SettingsBrowseScreen : SearchableSettings {
         // RK: page previews are a source capability (four sources implement PagePreviewSource), so the
         // row lives with sources rather than with the app-wide look it used to sit under.
         val uiPreferences = remember { context.appGraph.uiPreferences }
-        val previewsRowCount by uiPreferences.previewsRowCount.changes()
-            .collectAsState(uiPreferences.previewsRowCount.get())
 
         val reposCount by getExtensionStoreCountAsFlow().collectAsState(0)
         val novelRepoUrls by novelPreferences.addedRepoUrls().changes()
@@ -78,11 +76,10 @@ object SettingsBrowseScreen : SearchableSettings {
                         subtitle = stringResource(MR.strings.pref_hide_source_latest_button_summary),
                     ),
                     Preference.PreferenceItem.SliderPreference(
-                        value = previewsRowCount,
+                        preference = uiPreferences.previewsRowCount,
                         valueRange = 0..10,
                         title = stringResource(MR.strings.pref_previews_row_count),
                         subtitle = stringResource(MR.strings.pref_previews_row_count_summary),
-                        onValueChanged = { uiPreferences.previewsRowCount.set(it) },
                     ),
                     // RK <--
                     // RK --> one Repos screen for extension stores and LN plugin repos, so one count of both

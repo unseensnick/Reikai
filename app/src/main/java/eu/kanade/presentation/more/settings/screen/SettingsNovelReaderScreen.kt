@@ -84,8 +84,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val pitchPref = novelPreferences.readerTtsPitch().scaled(ReaderRanges.TENTHS)
         val engine by enginePref.collectAsState()
         val selectedLanguages by novelPreferences.readerTtsLanguages().collectAsState()
-        val rate by ratePref.collectAsState()
-        val pitch by pitchPref.collectAsState()
         val highlight by novelPreferences.readerTtsHighlight().collectAsState()
         val keepInView by novelPreferences.readerTtsKeepInView().collectAsState()
         val highlightStyle by novelPreferences.readerTtsHighlightStyle().collectAsState()
@@ -128,18 +126,16 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     subtitleProvider = { value, _ -> options.voiceLabel(value, defaultLabel) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = rate,
+                    preference = ratePref,
                     valueRange = NovelTextRanges.readAloudRateTenths,
                     title = stringResource(MR.strings.pref_tts_rate),
-                    valueString = tenthsLabel(rate, "%.1fx"),
-                    onValueChanged = { ratePref.set(it) },
+                    valueText = { tenthsLabel(it, "%.1fx") },
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = pitch,
+                    preference = pitchPref,
                     valueRange = NovelTextRanges.readAloudPitchTenths,
                     title = stringResource(MR.strings.pref_tts_pitch),
-                    valueString = tenthsLabel(pitch, "%.1f"),
-                    onValueChanged = { pitchPref.set(it) },
+                    valueText = { tenthsLabel(it, "%.1f") },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerTtsAutoPageAdvance(),
@@ -225,12 +221,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
      */
     @Composable
     private fun getTextDisplayGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
-        val indentPref = novelPreferences.readerParagraphIndent().scaled(ReaderRanges.TENTHS)
-        val spacingPref = novelPreferences.readerParagraphSpacing().scaled(ReaderRanges.TENTHS)
-        val lineSpacingPref = novelPreferences.readerLineSpacing().scaled(ReaderRanges.TENTHS)
-        val indent by indentPref.collectAsState()
-        val spacing by spacingPref.collectAsState()
-        val lineSpacing by lineSpacingPref.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val fontFamily by novelPreferences.readerFontFamily().collectAsState()
@@ -250,11 +240,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     onClick = { navigator.push(NovelFontsScreen()) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = lineSpacing,
+                    preference = novelPreferences.readerLineSpacing().scaled(ReaderRanges.TENTHS),
                     valueRange = NovelTextRanges.lineHeightTenths,
                     title = stringResource(MR.strings.pref_novel_line_spacing),
-                    valueString = tenthsLabel(lineSpacing, "%.1fx"),
-                    onValueChanged = { lineSpacingPref.set(it) },
+                    valueText = { tenthsLabel(it, "%.1fx") },
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerTextAlign(),
@@ -266,20 +255,18 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 marginRow(novelPreferences.readerMarginLeft(), MR.strings.pref_margin_left),
                 marginRow(novelPreferences.readerMarginRight(), MR.strings.pref_margin_right),
                 Preference.PreferenceItem.SliderPreference(
-                    value = indent,
+                    preference = novelPreferences.readerParagraphIndent().scaled(ReaderRanges.TENTHS),
                     valueRange = NovelTextRanges.paragraphIndentTenths,
                     title = stringResource(MR.strings.pref_paragraph_indent),
                     subtitle = stringResource(MR.strings.pref_paragraph_indent_summary),
-                    valueString = tenthsLabel(indent, "%.1fem"),
-                    onValueChanged = { indentPref.set(it) },
+                    valueText = { tenthsLabel(it, "%.1fem") },
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = spacing,
+                    preference = novelPreferences.readerParagraphSpacing().scaled(ReaderRanges.TENTHS),
                     valueRange = NovelTextRanges.paragraphSpacingTenths,
                     title = stringResource(MR.strings.pref_paragraph_spacing),
                     subtitle = stringResource(MR.strings.pref_paragraph_spacing_summary),
-                    valueString = tenthsLabel(spacing, "%.1fem"),
-                    onValueChanged = { spacingPref.set(it) },
+                    valueText = { tenthsLabel(it, "%.1fem") },
                 ),
             ),
         )
@@ -290,16 +277,12 @@ object SettingsNovelReaderScreen : SearchableSettings {
     private fun marginRow(
         preference: PreferenceStoreEntry<Int>,
         titleRes: StringResource,
-    ): Preference.PreferenceItem.SliderPreference {
-        val value by preference.collectAsState()
-        return Preference.PreferenceItem.SliderPreference(
-            value = value,
-            valueRange = NovelTextRanges.marginDp,
-            title = stringResource(titleRes),
-            valueString = "${value}dp",
-            onValueChanged = { preference.set(it) },
-        )
-    }
+    ) = Preference.PreferenceItem.SliderPreference(
+        preference = preference,
+        valueRange = NovelTextRanges.marginDp,
+        title = stringResource(titleRes),
+        valueText = { "${it}dp" },
+    )
 
     /**
      * How a chapter's markup is processed before it is rendered, in the order the pipeline applies
@@ -311,7 +294,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val navigator = LocalNavigator.currentOrThrow
         val renderingMode by novelPreferences.readerRenderingMode().collectAsState()
         val autoSplitEnabled by novelPreferences.readerAutoSplitText().collectAsState()
-        val autoSplitWordCount by novelPreferences.readerAutoSplitWordCount().collectAsState()
         val sourceCssPriority by novelPreferences.readerSourceCssPriority().collectAsState()
 
         return Preference.PreferenceGroup(
@@ -337,11 +319,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_auto_split_text_summary),
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = autoSplitWordCount,
+                    preference = novelPreferences.readerAutoSplitWordCount(),
                     valueRange = NovelTextRanges.autoSplitWords,
                     steps = 0,
                     title = stringResource(MR.strings.pref_auto_split_word_count),
-                    onValueChanged = { novelPreferences.readerAutoSplitWordCount().set(it) },
                 ).takeIf { autoSplitEnabled },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerKeepEmbeddedCss(),
@@ -395,14 +376,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
     private fun getReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
         val renderingMode by novelPreferences.readerRenderingMode().collectAsState()
         val seamless by novelPreferences.readerSeamlessChapters().collectAsState()
-        val autoLoadNextAtPref = novelPreferences.readerAutoLoadNextAt()
-        val autoLoadNextAt by autoLoadNextAtPref.collectAsState()
         val fullscreen by novelPreferences.readerFullscreen().collectAsState()
         val tapLayout by novelPreferences.readerTapLayout().collectAsState()
-        val markReadPercentPref = novelPreferences.readerMarkReadPercent()
-        val markReadPercent by markReadPercentPref.collectAsState()
-        val bottomZoneHeightPref = novelPreferences.readerTapBottomZoneHeight()
-        val bottomZoneHeight by bottomZoneHeightPref.collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reading),
@@ -432,11 +407,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_always_show_chapter_transition),
                 ).takeIf { seamless },
                 Preference.PreferenceItem.SliderPreference(
-                    value = autoLoadNextAt,
+                    preference = novelPreferences.readerAutoLoadNextAt(),
                     valueRange = NovelTextRanges.autoLoadNextAtPercent,
                     title = stringResource(MR.strings.pref_novel_auto_load_next_at),
-                    valueString = "$autoLoadNextAt%",
-                    onValueChanged = { autoLoadNextAtPref.set(it) },
+                    valueText = { "$it%" },
                 ).takeIf { seamless },
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerChapterTitleFormat(),
@@ -481,11 +455,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_read_with_tapping_inverted),
                 ).takeIf { tapLayout != NovelTapLayout.DISABLED && tapLayout.invertModes.size > 1 },
                 Preference.PreferenceItem.SliderPreference(
-                    value = bottomZoneHeight,
+                    preference = novelPreferences.readerTapBottomZoneHeight(),
                     valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
                     title = stringResource(MR.strings.pref_tap_bottom_zone_height),
-                    valueString = "$bottomZoneHeight%",
-                    onValueChanged = { bottomZoneHeightPref.set(it) },
+                    valueText = { "$it%" },
                 ).takeIf { tapLayout == NovelTapLayout.BOTTOM },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSwipeGestures(),
@@ -504,11 +477,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_skip_dupe_chapters),
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = markReadPercent,
+                    preference = novelPreferences.readerMarkReadPercent(),
                     valueRange = 50..100,
                     title = stringResource(MR.strings.pref_novel_mark_read_percent),
-                    valueString = "$markReadPercent%",
-                    onValueChanged = { markReadPercentPref.set(it) },
+                    valueText = { "$it%" },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerMarkReadOnSkip(),
@@ -534,8 +506,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val useVolumeButtonsPref = novelPreferences.readerUseVolumeButtons()
         val useVolumeButtons by useVolumeButtonsPref.collectAsState()
         // Gated on the rail alone, unlike the manga screen's pair: a novel has no reading mode to pick it.
-        val railHeightPref = novelPreferences.readerRailHeight()
-        val railHeight by railHeightPref.collectAsState()
         val useRail by novelPreferences.readerUseRail().collectAsState()
         val showNavigator by novelPreferences.readerShowNavigator().collectAsState()
 
@@ -580,11 +550,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left),
                 ).takeIf { showNavigator && useRail },
                 Preference.PreferenceItem.SliderPreference(
-                    value = railHeight,
+                    preference = novelPreferences.readerRailHeight(),
                     valueRange = ReaderRanges.railHeightPercent,
                     steps = ReaderRanges.railHeightSteps,
                     title = stringResource(MR.strings.pref_vertical_navigator_height),
-                    onValueChanged = { railHeightPref.set(it) },
                 ).takeIf { showNavigator && useRail },
             ),
         )

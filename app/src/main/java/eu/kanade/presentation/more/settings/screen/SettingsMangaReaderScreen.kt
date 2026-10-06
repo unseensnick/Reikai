@@ -143,12 +143,6 @@ object SettingsMangaReaderScreen : SearchableSettings {
     private fun getEInkGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
         val flashPageState by readerPreferences.flashOnPageChange.collectAsState()
 
-        val flashMillisPref = readerPreferences.flashDurationMillis
-        val flashMillis by flashMillisPref.collectAsState()
-
-        val flashIntervalPref = readerPreferences.flashPageInterval
-        val flashInterval by flashIntervalPref.collectAsState()
-
         val flashColorPref = readerPreferences.flashColor
 
         return Preference.PreferenceGroup(
@@ -160,20 +154,18 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_flash_page_summ),
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = flashMillis / ReaderPreferences.MILLI_CONVERSION,
-                    valueRange = 1..15,
+                    preference = readerPreferences.flashDurationMillis,
+                    valueRange = ReaderPreferences.MILLI_CONVERSION.let { it..it * 15 step it },
                     title = stringResource(MR.strings.pref_flash_duration),
-                    valueString = stringResource(MR.strings.pref_flash_duration_summary, flashMillis),
+                    valueText = { stringResource(MR.strings.pref_flash_duration_summary, it) },
                     enabled = flashPageState,
-                    onValueChanged = { flashMillisPref.set(it * ReaderPreferences.MILLI_CONVERSION) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = flashInterval,
+                    preference = readerPreferences.flashPageInterval,
                     valueRange = 1..10,
                     title = stringResource(MR.strings.pref_flash_page_interval),
-                    valueString = pluralStringResource(MR.plurals.pref_pages, flashInterval, flashInterval),
+                    valueText = { pluralStringResource(MR.plurals.pref_pages, it, it) },
                     enabled = flashPageState,
-                    onValueChanged = { flashIntervalPref.set(it) },
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = flashColorPref,
@@ -192,10 +184,6 @@ object SettingsMangaReaderScreen : SearchableSettings {
 
     @Composable
     private fun getReadingGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
-        // RK: collected for the preload and auto-scroll interval sliders
-        val preloadSizePref = readerPreferences.preloadSize
-        val preloadSize by preloadSizePref.collectAsState()
-        val autoScrollInterval by readerPreferences.autoScrollInterval.collectAsState() // RK
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reading),
             preferenceItems = listOf(
@@ -228,23 +216,21 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_preserve_reading_position_summary),
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = preloadSize,
+                    preference = readerPreferences.preloadSize,
                     valueRange = 1..20,
                     title = stringResource(MR.strings.pref_reader_preload_size),
-                    valueString = pluralStringResource(MR.plurals.pref_pages, preloadSize, preloadSize),
-                    onValueChanged = { preloadSizePref.set(it) },
+                    valueText = { pluralStringResource(MR.plurals.pref_pages, it, it) },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.autoScrollOnOpen,
                     title = stringResource(MR.strings.pref_auto_scroll_on_open),
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = autoScrollInterval,
+                    preference = readerPreferences.autoScrollInterval,
                     valueRange = ReaderRanges.autoScrollIntervalSeconds,
                     title = stringResource(MR.strings.pref_auto_scroll_interval),
                     subtitle = stringResource(MR.strings.pref_auto_scroll_paged_only),
-                    valueString = stringResource(MR.strings.seconds_short, autoScrollInterval),
-                    onValueChanged = { readerPreferences.autoScrollInterval.set(it) },
+                    valueText = { stringResource(MR.strings.seconds_short, it) },
                 ),
                 autoScrollSpeedPreference(
                     readerPreferences.autoScrollSpeed,
@@ -362,14 +348,10 @@ object SettingsMangaReaderScreen : SearchableSettings {
         val navModePref = readerPreferences.navigationModeWebtoon
         val dualPageSplitPref = readerPreferences.dualPageSplitWebtoon
         val rotateToFitPref = readerPreferences.dualPageRotateToFitWebtoon
-        val webtoonSidePaddingPref = readerPreferences.webtoonSidePadding
-        val continuousMinWidthPref = readerPreferences.continuousMinWidth // RK
 
         val navMode by navModePref.collectAsState()
         val dualPageSplit by dualPageSplitPref.collectAsState()
         val rotateToFit by rotateToFitPref.collectAsState()
-        val webtoonSidePadding by webtoonSidePaddingPref.collectAsState()
-        val continuousMinWidth by continuousMinWidthPref.collectAsState() // RK
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.webtoon_viewer),
@@ -396,21 +378,19 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 // RK --> Min width under the high quality renderer, upstream's side padding otherwise
                 if (highQualityRenderer) {
                     Preference.PreferenceItem.SliderPreference(
-                        value = continuousMinWidth,
+                        preference = readerPreferences.continuousMinWidth,
                         valueRange = 1..100,
                         title = stringResource(MR.strings.pref_continuous_minwidth),
-                        valueString = numberFormat.format(continuousMinWidth / 100f),
-                        onValueChanged = { continuousMinWidthPref.set(it) },
+                        valueText = { numberFormat.format(it / 100f) },
                     )
                 } else {
                     Preference.PreferenceItem.SliderPreference(
-                        value = webtoonSidePadding,
+                        preference = readerPreferences.webtoonSidePadding,
                         valueRange = ReaderPreferences.let {
                             it.WEBTOON_PADDING_MIN..it.WEBTOON_PADDING_MAX
                         },
                         title = stringResource(MR.strings.pref_webtoon_side_padding),
-                        valueString = numberFormat.format(webtoonSidePadding / 100f),
-                        onValueChanged = { webtoonSidePaddingPref.set(it) },
+                        valueText = { numberFormat.format(it / 100f) },
                     )
                 },
                 // RK <--
@@ -477,8 +457,6 @@ object SettingsMangaReaderScreen : SearchableSettings {
 
         val verticalNavigator by readerPreferences.verticalNavigator.collectAsState()
         val showNavigator by readerPreferences.showNavigator.collectAsState() // RK
-        val verticalNavigatorHeightPref = readerPreferences.verticalNavigatorHeight
-        val verticalNavigatorHeight by verticalNavigatorHeightPref.collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_reader_navigation),
@@ -518,11 +496,10 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     enabled = showNavigator && verticalNavigator.isNotEmpty(), // RK
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = verticalNavigatorHeight,
+                    preference = readerPreferences.verticalNavigatorHeight,
                     valueRange = ReaderRanges.railHeightPercent, // RK
                     steps = ReaderRanges.railHeightSteps, // RK
                     title = stringResource(MR.strings.pref_vertical_navigator_height),
-                    onValueChanged = { verticalNavigatorHeightPref.set(it) },
                     enabled = showNavigator && verticalNavigator.isNotEmpty(), // RK
                 ),
             ),

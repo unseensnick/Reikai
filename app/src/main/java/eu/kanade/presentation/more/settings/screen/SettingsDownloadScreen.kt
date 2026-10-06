@@ -41,8 +41,6 @@ object SettingsDownloadScreen : SearchableSettings {
         val allCategories by getCategories.subscribe().collectAsState(initial = emptyList())
 
         val downloadPreferences = remember { context.appGraph.downloadPreferences }
-        val parallelSourceLimit by downloadPreferences.parallelSourceLimit.collectAsState()
-        val parallelPageLimit by downloadPreferences.parallelPageLimit.collectAsState()
         // RK: light-novel download options
         val novelPreferences = remember { context.appGraph.novelPreferences }
         val getNovelCategories = remember { context.appGraph.getNovelCategories }
@@ -63,17 +61,15 @@ object SettingsDownloadScreen : SearchableSettings {
                 subtitle = stringResource(MR.strings.split_tall_images_summary),
             ),
             Preference.PreferenceItem.SliderPreference(
-                value = parallelSourceLimit,
+                preference = downloadPreferences.parallelSourceLimit,
                 valueRange = 1..10,
                 title = stringResource(MR.strings.pref_download_concurrent_sources),
-                onValueChanged = { downloadPreferences.parallelSourceLimit.set(it) },
             ),
             Preference.PreferenceItem.SliderPreference(
-                value = parallelPageLimit,
+                preference = downloadPreferences.parallelPageLimit,
                 valueRange = 1..15,
                 title = stringResource(MR.strings.pref_download_concurrent_pages),
                 subtitle = stringResource(MR.strings.pref_download_concurrent_pages_summary),
-                onValueChanged = { downloadPreferences.parallelPageLimit.set(it) },
             ),
             // RK --> duplicated manga/novel download options, split into content-type sub-groups so each
             // row reads clean and the two never drift (the manga/novel builders are parameter-identical).

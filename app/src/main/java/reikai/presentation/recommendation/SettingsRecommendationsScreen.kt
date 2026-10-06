@@ -193,8 +193,6 @@ object SettingsRecommendationsScreen : SearchableSettings {
     @Composable
     private fun rerankingGroup(prefs: ReikaiRecommendationPreferences): Preference.PreferenceGroup {
         val rerank by prefs.enableRecommendationRerank.collectAsState()
-        val style by prefs.recommendationStyle.collectAsState()
-        val serendipity by prefs.serendipity.collectAsState()
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_recommendation_reranking),
             preferenceItems = listOf(
@@ -204,20 +202,18 @@ object SettingsRecommendationsScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_enable_recommendation_rerank_summary),
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = style,
+                    preference = prefs.recommendationStyle,
                     title = stringResource(MR.strings.pref_recommendation_style),
-                    valueString = "$style%",
+                    valueText = { "$it%" },
                     valueRange = 0..100,
                     enabled = rerank,
-                    onValueChanged = { prefs.recommendationStyle.set(it) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = serendipity,
+                    preference = prefs.serendipity,
                     title = stringResource(MR.strings.pref_serendipity),
-                    valueString = "$serendipity%",
+                    valueText = { "$it%" },
                     valueRange = 0..100,
                     enabled = rerank,
-                    onValueChanged = { prefs.serendipity.set(it) },
                 ),
             ),
         )
