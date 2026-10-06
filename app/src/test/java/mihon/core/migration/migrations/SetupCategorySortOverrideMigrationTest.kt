@@ -30,6 +30,13 @@ class SetupCategorySortOverrideMigrationTest {
     private val migration = SetupCategorySortOverrideMigration(libraryPreferences, categories, store)
 
     @Test
+    fun `a category sorted apart from the global keeps its sort as an override`() = runTest {
+        migration.invoke(MigrationContext(dryrun = false, previousVersion = 182))
+
+        (flags and CATEGORY_SORT_CUSTOMIZED) shouldBe CATEGORY_SORT_CUSTOMIZED
+    }
+
+    @Test
     fun `a second run keeps a category the user reset to the global sort`() = runTest {
         migration.invoke(MigrationContext(dryrun = false, previousVersion = 182))
         // Reset to global clears only the override bit and leaves the old sort in the flags.

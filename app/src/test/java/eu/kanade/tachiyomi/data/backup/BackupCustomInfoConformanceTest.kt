@@ -111,6 +111,12 @@ class BackupCustomInfoConformanceTest {
     }
 
     @Test
+    fun `a backup written now marks its category flags as carrying the sort-override bit`() = runTest {
+        // Without the marker a restore takes the flags for Mihon's and marks every sort apart from the global.
+        writeBackup().backupSortOverridesStored.shouldNotBeNull()
+    }
+
+    @Test
     fun `a backup names the source of each novel it carries without loading the plugins`() = runTest {
         writeBackup().backupNovelSources shouldBe listOf(BackupNovelSource(name = "Novel source", sourceId = "src"))
     }

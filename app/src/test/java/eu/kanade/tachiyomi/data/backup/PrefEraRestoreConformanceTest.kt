@@ -1,7 +1,5 @@
 package eu.kanade.tachiyomi.data.backup
 
-import android.content.Context
-import android.net.Uri
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
@@ -12,25 +10,18 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
-import eu.kanade.tachiyomi.data.backup.restore.BackupRestorer
 import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
-import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import reikai.domain.db.PassThroughTransactions
-import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.PrefEraGrouping
-import reikai.domain.merge.ReconcileMergedChapters
-import tachiyomi.core.common.preference.InMemoryPreferenceStore
 
 /**
  * What a restore hands each type's merge rebuild from the backup file itself: a backup without the
@@ -76,12 +67,6 @@ class PrefEraRestoreConformanceTest {
     }
 
     private suspend fun restore(type: Type, backup: Backup): PrefEraGrouping<*>? {
-        val uri = mockk<Uri>()
-        val context = mockk<Context>(relaxed = true) {
-            every { contentResolver.openInputStream(uri) } answers {
-                ProtoBuf.encodeToByteArray(Backup.serializer(), backup).inputStream()
-            }
-        }
         val mangaEra = slot<PrefEraGrouping<BackupMangaSourceRef>?>()
         val novelEra = slot<PrefEraGrouping<BackupNovelSourceRef>?>()
         val mangaRestorer = mockk<MangaRestorer>(relaxed = true) {
@@ -90,32 +75,12 @@ class PrefEraRestoreConformanceTest {
         val novelRestorer = mockk<NovelRestorer>(relaxed = true) {
             coEvery { restoreMerges(any(), captureNullable(novelEra)) } returns Unit
         }
-        val reconcile = mockk<ReconcileMergedChapters> {
-            coEvery { afterPass<Unit>(any()) } coAnswers { firstArg<suspend () -> Unit>().invoke() }
-        }
-        BackupRestorer(
-            notifier = mockk(relaxed = true),
-            isSync = false,
-            context = context,
-            downloadCache = mockk(relaxed = true),
-            categoriesRestorer = mockk(relaxed = true),
-            preferenceRestorer = mockk(relaxed = true),
-            extensionStoreRestorer = mockk(relaxed = true),
+        restoreEncoded(
+            backup,
+            RestoreOptions(libraryEntries = true, categories = false, appSettings = false),
             mangaRestorer = mangaRestorer,
-            parser = ProtoBuf,
             novelRestorer = novelRestorer,
-            extensionRestorer = mockk(relaxed = true),
-            feedRestorer = mockk(relaxed = true),
-            novelPluginRestorer = mockk(relaxed = true),
-            reconcileMergedChapters = reconcile,
-            novelDownloadCache = mockk(relaxed = true),
-            adultContentChecker = mockk {
-                coEvery { adultIdsAmong(any()) } returns emptySet()
-                coEvery { adultNovelIdsAmong(any()) } returns emptySet()
-            },
-            transactions = PassThroughTransactions,
-            reikaiLibraryPreferences = ReikaiLibraryPreferences(InMemoryPreferenceStore()),
-        ).restore(uri, RestoreOptions(libraryEntries = true, categories = false, appSettings = false))
+        )
         return when (type) {
             Type.MANGA -> mangaEra.captured
             Type.NOVELS -> novelEra.captured

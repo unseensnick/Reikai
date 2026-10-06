@@ -30,6 +30,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
+import eu.kanade.tachiyomi.data.backup.models.BackupSortOverridesStored
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import kotlinx.coroutines.CancellationException
@@ -176,11 +177,16 @@ class BackupCreator(
                     writeEach(out, 715, BackupSavedSearch.serializer(), feedBackupCreator.savedSearches())
                     writeEach(out, 716, BackupFeedRow.serializer(), feedBackupCreator.feedRows())
                 }
-                // Not through writeEach: the marker alone is not content, so the empty-backup guard ignores it.
+                // Not through writeEach: a marker alone is not content, so the empty-backup guard ignores it.
                 BackupProtoWriter.writeField(
                     out,
                     718,
                     parser.encodeToByteArray(BackupMergeGroupsStored.serializer(), BackupMergeGroupsStored()),
+                )
+                BackupProtoWriter.writeField(
+                    out,
+                    719,
+                    parser.encodeToByteArray(BackupSortOverridesStored.serializer(), BackupSortOverridesStored()),
                 )
 
                 gzipOut.flush()

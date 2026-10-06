@@ -170,7 +170,12 @@ class BackupRestorer(
             // the categories job to those two restorers to await; we await it once here instead, because
             // the novel stream below needs the same wait and would have to be threaded separately.
             if (options.categories) {
-                restoreCategories(summary.backupCategories, summary.backupNovelCategories).join()
+                restoreCategories(
+                    summary.backupCategories,
+                    summary.backupNovelCategories,
+                    summary.sortOverridesStored,
+                    summary.backupPreferences.takeIf { options.appSettings },
+                ).join()
             }
             // RK: kept, so the plugin restore below can wait for the plugin and repo URLs this writes
             val appPreferences = if (options.appSettings) {
@@ -249,6 +254,7 @@ class BackupRestorer(
         val backupMangaUnmerges = mutableListOf<BackupMangaMergeGroup>()
         val backupNovelUnmerges = mutableListOf<BackupNovelMergeGroup>()
         var mergeGroupsStored = false
+        var sortOverridesStored = false
         var mangaCount = 0
         var novelCount = 0
 
@@ -277,6 +283,7 @@ class BackupRestorer(
                 712 -> backupMangaUnmerges.add(parser.decodeFromByteArray(BackupMangaMergeGroup.serializer(), data))
                 703 -> backupNovelUnmerges.add(parser.decodeFromByteArray(BackupNovelMergeGroup.serializer(), data))
                 718 -> mergeGroupsStored = true
+                719 -> sortOverridesStored = true
             }
         }
 
@@ -297,6 +304,7 @@ class BackupRestorer(
             backupFeedRows = backupFeedRows,
             novelSourceNames = novelSourceNames,
             mergeGroupsStored = mergeGroupsStored,
+            sortOverridesStored = sortOverridesStored,
             backupMangaUnmerges = backupMangaUnmerges,
             backupNovelUnmerges = backupNovelUnmerges,
         )
@@ -322,6 +330,8 @@ class BackupRestorer(
         val novelSourceNames: Map<String, String>,
         // False for a 0.3.x backup, whose same-title groups were never stored; the unmerges are its own.
         val mergeGroupsStored: Boolean,
+        // False for a backup written before the sort-override bit, whose flags alone hold each category's sort.
+        val sortOverridesStored: Boolean,
         val backupMangaUnmerges: List<BackupMangaMergeGroup>,
         val backupNovelUnmerges: List<BackupNovelMergeGroup>,
     ) {
@@ -399,12 +409,21 @@ class BackupRestorer(
 
     private fun CoroutineScope.restoreCategories(
         backupCategories: List<BackupCategory>,
-        // RK: before the app settings, so both content types' category-id settings translate inline
+        // RK -->
+        // before the app settings, so both content types' category-id settings translate inline
         backupNovelCategories: List<BackupNovelCategory>,
+        sortOverridesStored: Boolean,
+        restoredPreferences: List<BackupPreference>?,
+        // RK <--
     ) = launch {
         ensureActive()
-        categoriesRestorer(backupCategories)
-        novelRestorer.restoreCategories(backupNovelCategories) // RK
+        categoriesRestorer(backupCategories, sortOverridesStored, restoredPreferences) // RK
+        // RK -->
+        novelRestorer.restoreCategories(backupNovelCategories)
+        if (backupCategories.isNotEmpty() || backupNovelCategories.isNotEmpty()) {
+            categoriesRestorer.restoreCategorizedDisplay()
+        }
+        // RK <--
 
         val progress = restoreProgress.incrementAndFetch()
         notifier.showRestoreProgress(

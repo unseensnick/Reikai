@@ -41,4 +41,6 @@ data class Backup(
     // RK: present when 711 and 702 hold every merge group; without it the backup is 0.3.x's, whose
     // same-title groups restore rebuilds from its favourites, 712 / 703 and its auto-merge settings.
     @ProtoNumber(718) var backupMergeGroupsStored: BackupMergeGroupsStored? = null,
+    // RK: present when the category flags carry the sort-override bit; Mihon and Reikai before 0.3.0 wrote none.
+    @ProtoNumber(719) var backupSortOverridesStored: BackupSortOverridesStored? = null,
 )

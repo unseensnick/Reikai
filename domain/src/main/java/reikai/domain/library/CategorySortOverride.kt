@@ -24,6 +24,14 @@ fun canOverrideSort(category: Category): Boolean = !category.isSystemCategory
 fun isSortOverridden(category: Category): Boolean =
     canOverrideSort(category) && category.flags and CATEGORY_SORT_CUSTOMIZED != 0L
 
+/**
+ * [flags] written before the override bit existed, marked as an override when their sort differs from
+ * [global]: back then a category kept its own sort in its flags alone. The upgrade migration and the
+ * restore of a backup from before the bit both read old flags through this.
+ */
+fun markLegacySortOverride(flags: Long, global: LibrarySort): Long =
+    if (LibrarySort.valueOf(flags) != global) flags or CATEGORY_SORT_CUSTOMIZED else flags
+
 /** The sort [category] uses: its own decoded flags when overridden, else the [global] library sort. */
 fun sortForCategory(category: Category, global: LibrarySort): LibrarySort =
     if (isSortOverridden(category)) LibrarySort.valueOf(category.flags) else global

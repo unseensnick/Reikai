@@ -5,12 +5,11 @@ import dev.zacsweers.metro.ContributesIntoSet
 import dev.zacsweers.metro.Inject
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
-import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
+import reikai.domain.library.markLegacySortOverride
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.category.repository.CategoryRepository
-import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -41,16 +40,10 @@ class SetupCategorySortOverrideMigration(
 
         if (libraryPreferences.categorizedDisplaySettings.get()) {
             val global = libraryPreferences.sortingMode.get()
-            categoryRepository.getAll()
-                .filter {
-                    LibrarySort.valueOf(it.flags) != global && (it.flags and CATEGORY_SORT_CUSTOMIZED) == 0L
-                }
-                .forEach { category ->
-                    categoryRepository.updateFlags(
-                        categoryId = category.id,
-                        flags = category.flags or CATEGORY_SORT_CUSTOMIZED,
-                    )
-                }
+            categoryRepository.getAll().forEach { category ->
+                val marked = markLegacySortOverride(category.flags, global)
+                if (marked != category.flags) categoryRepository.updateFlags(categoryId = category.id, flags = marked)
+            }
         }
         done.set(true)
         return@withIOContext true

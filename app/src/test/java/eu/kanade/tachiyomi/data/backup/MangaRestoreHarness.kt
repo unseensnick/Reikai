@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.backup
 import app.cash.sqldelight.async.coroutines.awaitAsOne
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
+import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.mockk.mockk
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.MergeGroupRepository
@@ -68,6 +69,17 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
         mergeGroups: MergeGroupRepository = mockk(relaxed = true),
         customInfo: CustomMangaInfoRepository = this.customInfo,
     ) = mangaRestorer(database, mergeGroups, customInfo)
+
+    /** The novel restore over this database's categories, the rest of it relaxed. */
+    fun novelCategoryRestorer() = NovelRestorer(
+        novelRepository = mockk(relaxed = true),
+        novelChapterRepository = mockk(relaxed = true),
+        categoryRepository = categories,
+        novelTrackRepository = mockk(relaxed = true),
+        restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
+        setCustomNovelInfo = mockk(relaxed = true),
+        novelHistoryRepository = mockk(relaxed = true),
+    )
 
     /** Stores a bare device copy under a chosen [id], for a test that pins the id a restore writes under. */
     suspend fun insertBare(id: Long, url: String, source: Long) {
