@@ -72,6 +72,7 @@ import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.Visibility
 import mihon.icons.materialsymbols.rounded.VisibilityOff
+import reikai.presentation.components.RevealableSecureTextField
 import reikai.presentation.settings.resetToDefaultPreference
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
@@ -567,34 +568,9 @@ object SettingsTrackingScreen : SearchableSettings {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
 
-                    var hideToken by remember { mutableStateOf(true) }
-                    OutlinedSecureTextField(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .semantics { contentType = ContentType.Password },
+                    RevealableSecureTextField(
                         state = token,
-                        label = { Text(text = stringResource(tokenStringRes)) },
-                        trailingIcon = {
-                            IconButton(onClick = { hideToken = !hideToken }) {
-                                Icon(
-                                    imageVector = if (hideToken) {
-                                        MaterialSymbols.Rounded.Visibility
-                                    } else {
-                                        MaterialSymbols.Rounded.VisibilityOff
-                                    },
-                                    contentDescription = null,
-                                )
-                            }
-                        },
-                        textObfuscationMode = if (hideToken) {
-                            TextObfuscationMode.Hidden
-                        } else {
-                            TextObfuscationMode.Visible
-                        },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Done,
-                        ),
+                        label = stringResource(tokenStringRes),
                         isError = inputError && !processing,
                     )
 

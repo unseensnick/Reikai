@@ -6,33 +6,22 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Visibility
-import mihon.icons.materialsymbols.rounded.VisibilityOff
+import reikai.presentation.components.RevealableSecureTextField
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -54,7 +43,6 @@ fun FlareSolverrLoginDialog(
 ) {
     val username = rememberTextFieldState(currentUsername)
     val password = rememberTextFieldState(currentPassword)
-    var hidePassword by remember { mutableStateOf(true) }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -77,34 +65,7 @@ fun FlareSolverrLoginDialog(
                     lineLimits = TextFieldLineLimits.SingleLine,
                 )
 
-                OutlinedSecureTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { contentType = ContentType.Password },
-                    state = password,
-                    label = { Text(text = stringResource(MR.strings.password)) },
-                    trailingIcon = {
-                        IconButton(onClick = { hidePassword = !hidePassword }) {
-                            Icon(
-                                imageVector = if (hidePassword) {
-                                    MaterialSymbols.Rounded.Visibility
-                                } else {
-                                    MaterialSymbols.Rounded.VisibilityOff
-                                },
-                                contentDescription = null,
-                            )
-                        }
-                    },
-                    textObfuscationMode = if (hidePassword) {
-                        TextObfuscationMode.Hidden
-                    } else {
-                        TextObfuscationMode.Visible
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done,
-                    ),
-                )
+                RevealableSecureTextField(state = password, label = stringResource(MR.strings.password))
             }
         },
         // One full-width row so Clear sits in the bottom-left corner and the actions stay at the
