@@ -1,6 +1,5 @@
 package eu.kanade.presentation.category.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +23,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
@@ -42,6 +40,7 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.selectedBackground
 
 @Composable
 fun ReorderableCollectionItemScope.CategoryListItem(
@@ -70,10 +69,9 @@ fun ReorderableCollectionItemScope.CategoryListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                // RK --> a long-press enters selection; in selection mode a tap toggles. The selected
-                // row is tinted so multi-select reads at a glance.
+                // RK --> a long-press enters selection; in selection mode a tap toggles
                 .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-                .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                .selectedBackground(selected)
                 // RK <--
                 .padding(vertical = MaterialTheme.padding.small)
                 .padding(

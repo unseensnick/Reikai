@@ -101,6 +101,7 @@ agent under Settings -> Advanced.
 - **A category you collapse now stays collapsed on both the Manga and Novels chips, and after a restart.** In the novel library it used to spring back open whenever you left.
 - **Novels whose source has no icon now show a same-site source's icon or the generic source badge, as manga do.**
 - **An empty novel library now links to the getting-started guide.**
+- **Selected cards in Settings -> Library -> Edit categories now use the same highlight as every other selection.**
 
 #### Fixed
 
