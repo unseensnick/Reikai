@@ -6,6 +6,7 @@ import exh.search.Namespace
 import exh.search.QueryComponent
 import exh.search.Text
 import reikai.domain.entry.EntryId
+import reikai.presentation.library.GallerySearchIndex
 import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.SourceBadge
 import tachiyomi.domain.library.model.LibraryManga
@@ -19,12 +20,6 @@ data class LibraryItem(
     // RK: ids of every source-manga collapsed into this entry (size > 1 means it is a merge group).
     // List (not LongArray) so the data-class equality the library StateFlow relies on still holds.
     val relatedMangaIds: List<Long> = emptyList(),
-    // RK: the gallery's indexed EXH tags (E-Hentai/nHentai/etc.), for library tag search. Null for
-    // ordinary manga that have no captured metadata.
-    val searchTags: List<SearchTag>? = null,
-    // RK: the gallery's indexed alt-titles (japanese / english / short), so a tag-search term can
-    // match a title variant other than the displayed one. Null for ordinary manga.
-    val searchTitles: List<SearchTitle>? = null,
     // RK: neutral identity for the shared content layer's decision sites (cover model, badges,
     // selection). Every cross-type comparison keys on this, never on `id`, since a manga and a novel
     // can carry the same row id. Defaults to the manga id; NovelLibraryItem.toLibraryItem sets the
@@ -49,15 +44,21 @@ data class LibraryItem(
     // structured grammar (namespace:tag, wildcards, exclusion, exact), which the AST has no equivalent
     // for. The caller (LibraryViewModel's search filter) ORs the two grammars for positive queries and
     // ANDs them for exclusion-only ones, because an excluded component this grammar cannot resolve
-    // passes vacuously and an OR would then keep rows the AST kernel excluded.
-    fun matchesMetadataQuery(parsedQuery: List<QueryComponent>): Boolean =
-        parsedQuery.all { matchesComponent(it, metadataSourceName.orEmpty()) }
+    // passes vacuously and an OR would then keep rows the AST kernel excluded. The gallery's tags and
+    // alt-titles come from gallerySearchIndexFor, read per search rather than carried on every row.
+    fun matchesMetadataQuery(parsedQuery: List<QueryComponent>, index: GallerySearchIndex): Boolean =
+        parsedQuery.all { matchesComponent(it, index.tags[id], index.titles[id]) }
 
     // Match one parsed query component against this entry, honouring its excluded flag. A Namespace
     // checks the indexed tags (namespace + optional tag pattern); a Text matches across the entry's
     // title, author, artist, description, source name, genres, tags and alt-titles.
-    private fun matchesComponent(component: QueryComponent, sourceName: String): Boolean {
+    private fun matchesComponent(
+        component: QueryComponent,
+        searchTags: List<SearchTag>?,
+        searchTitles: List<SearchTitle>?,
+    ): Boolean {
         val manga = libraryManga.manga
+        val sourceName = metadataSourceName.orEmpty()
         val matched = when (component) {
             is Namespace -> {
                 val tag = component.tag

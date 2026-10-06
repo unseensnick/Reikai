@@ -67,6 +67,7 @@ import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
+import reikai.presentation.library.gallerySearchIndexFor
 import reikai.presentation.library.libraryBadgePrefsFlow
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryFilterSettingsFlow
@@ -213,12 +214,18 @@ class LibraryViewModel(
                         // OR (either grammar can find a row); exclusion-only queries AND (each
                         // grammar removes what it understands).
                         val hasPositive = parsedQuery.any { !it.excluded }
+                        val gallery = gallerySearchIndexFor(
+                            searchQuery,
+                            items,
+                            getSearchTags::awaitAll,
+                            getSearchTitles::awaitAll,
+                        )
                         items.filter { m ->
                             val kernel = libraryQueryMatches(queryNode, m, queryFields)
                             when {
                                 m.metadataSourceName == null -> kernel
-                                hasPositive -> kernel || m.matchesMetadataQuery(parsedQuery)
-                                else -> kernel && m.matchesMetadataQuery(parsedQuery)
+                                hasPositive -> kernel || m.matchesMetadataQuery(parsedQuery, gallery)
+                                else -> kernel && m.matchesMetadataQuery(parsedQuery, gallery)
                             }
                         }
                     }
@@ -343,10 +350,6 @@ class LibraryViewModel(
             // RK: re-collapse when the merge prefs change
             mergePrefsFlow(),
         ) { libraryManga, preferences, _, mergePrefs ->
-            // RK: one batch query each for every gallery's EXH tags + alt-titles (empty for
-            //     libraries without adult metadata), keyed by manga id for LibraryItem.matches.
-            val tagsByManga = getSearchTags.awaitAll().groupBy { it.mangaId }
-            val titlesByManga = getSearchTitles.awaitAll().groupBy { it.mangaId }
             val items = libraryManga.map { manga ->
                 // RK: resolve the download count once (it walks the download-cache tree); reused for the
                 //     field and the badge instead of two identical traversals per manga per emit.
@@ -356,8 +359,6 @@ class LibraryViewModel(
                     libraryManga = manga,
                     downloadCount = downloadCount,
                     unreadCount = manga.unreadCount,
-                    searchTags = tagsByManga[manga.id],
-                    searchTitles = titlesByManga[manga.id],
                     isLocal = manga.manga.isLocal(),
                     sourceName = source.name.lowercase(),
                     sourceLanguage = source.lang,

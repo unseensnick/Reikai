@@ -37,17 +37,20 @@ Mechanism:
   misread as a namespace. Since the unified search grammar landed, a gallery entry answers BOTH
   grammars: positive queries OR the two (either can find a row), exclusion-only queries AND them
   (each grammar removes what it understands).
-- Tags and titles are batch-loaded once per library build (one query each) onto `LibraryItem`,
-  and the query is parsed once per search (cached), not per entry.
+- Tags and titles are read (one query each) only while a search is active over a library holding a
+  gallery, into a `GallerySearchIndex` the matcher looks each row up in, and the query is parsed
+  once per search, not per entry.
 
 ## Key files
 
 - `app/src/main/java/exh/search/` (net-new): `SearchEngine.parseQuery`, `Text.asRegex`, and the
   component types.
-- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryItem.kt`: `matchesMetadataQuery(parsedQuery)`
+- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryItem.kt`: `matchesMetadataQuery(parsedQuery, index)`
   evaluates the tag grammar per entry (`matchesComponent`); the old plain-string `matches` fallback is gone.
 - `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryViewModel.kt`: parses once and passes
-  the components in; batch-loads `searchTitles` alongside `searchTags`.
+  the components and the index in.
+- `app/src/main/java/reikai/presentation/library/GallerySearchIndex.kt`: `gallerySearchIndexFor`,
+  which reads the tag and title tables only for a search over a library holding a gallery.
 - `data/.../search_titles.sq` + `GetSearchTitles.awaitAll()` + `MangaMetadataRepository.getAllTitles()`:
   a `selectAll` query so titles batch-load like tags (no migration, query-only change).
 - Tests: `app/src/test/java/exh/search/SearchEngineTest.kt`.
