@@ -130,6 +130,7 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.DuplicatePrompt
+import reikai.presentation.details.AddToLibraryOffer
 import reikai.presentation.details.ClearDownloadsTarget
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
@@ -143,7 +144,6 @@ import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
-import reikai.presentation.details.offerAddToLibrary
 import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
 import reikai.presentation.details.webPageIn
@@ -238,6 +238,7 @@ class NovelDetailsViewModel(
 
     /** Hosts the merge split/remove Undo snackbars; wired into the details Scaffold. */
     val snackbarHostState = SnackbarHostState()
+    private val addToLibraryOffer = AddToLibraryOffer(snackbarHostState, context)
 
     /** Resolved once the plugin host loads it; source-dependent ops defer until set. */
     @Volatile
@@ -1405,15 +1406,9 @@ class NovelDetailsViewModel(
         promptAddToLibraryOnFirstDownload()
     }
 
-    /** After the first download of a not-yet-favorited novel (typically opened from browse), offer to
-     *  add it to the library, once per screen, as manga's startDownload does through the same prompt. */
     private fun promptAddToLibraryOnFirstDownload() {
-        val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        if (loaded.novel.favorite || loaded.hasPromptedToAddBefore) return
-        updateLoaded { it.copy(hasPromptedToAddBefore = true) }
         viewModelScope.launchIO {
-            snackbarHostState.offerAddToLibrary(
-                context,
+            addToLibraryOffer.afterDownload(
                 isInLibrary = { (state.value as? NovelDetailsState.Loaded)?.novel?.favorite != false },
                 add = ::toggleFavorite,
             )
@@ -1599,9 +1594,6 @@ sealed interface NovelDetailsState {
         val selection: Set<Long> = emptySet(),
         val resumeChapter: NovelChapter? = null,
         val hasStarted: Boolean = false,
-        /** True once the first-download "add to library?" prompt has shown this session, so a
-         *  non-favorite novel is asked only once (mirrors manga's hasPromptedToAddBefore). */
-        val hasPromptedToAddBefore: Boolean = false,
         /** Cover-derived tint, null until extracted. Always extracted, since edit info tints from it; the
          *  screen applies it only when cover theming is on. */
         val seedColor: Color? = null,

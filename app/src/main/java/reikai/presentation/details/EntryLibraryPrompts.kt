@@ -5,6 +5,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Mihon's details-heart prompt after a removal: offers to delete the downloads of the [removed] entries
@@ -27,14 +28,21 @@ suspend fun <T> SnackbarHostState.offerToDeleteDownloads(
 }
 
 /**
- * Mihon's prompt after the first download of an entry outside the library. [isInLibrary] is read again
- * on Add, since the entry may have joined the library while the snackbar was up.
+ * Mihon's prompt after the first download of an entry outside the library, asked once per details
+ * screen. The screen's model holds it rather than its state, which a rebuild replaces.
  */
-suspend fun SnackbarHostState.offerAddToLibrary(context: Context, isInLibrary: () -> Boolean, add: () -> Unit) {
-    val result = showSnackbar(
-        message = context.stringResource(MR.strings.snack_add_to_library),
-        actionLabel = context.stringResource(MR.strings.action_add),
-        withDismissAction = true,
-    )
-    if (result == SnackbarResult.ActionPerformed && !isInLibrary()) add()
+class AddToLibraryOffer(private val host: SnackbarHostState, private val context: Context) {
+
+    private val asked = AtomicBoolean(false)
+
+    /** [isInLibrary] is read again on Add, since the entry may have joined the library meanwhile. */
+    suspend fun afterDownload(isInLibrary: () -> Boolean, add: () -> Unit) {
+        if (isInLibrary() || !asked.compareAndSet(false, true)) return
+        val result = host.showSnackbar(
+            message = context.stringResource(MR.strings.snack_add_to_library),
+            actionLabel = context.stringResource(MR.strings.action_add),
+            withDismissAction = true,
+        )
+        if (result == SnackbarResult.ActionPerformed && !isInLibrary()) add()
+    }
 }

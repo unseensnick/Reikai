@@ -127,6 +127,7 @@ import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.addEntry
 import reikai.presentation.browse.finishAdd
 import reikai.presentation.components.pageProgressLabel
+import reikai.presentation.details.AddToLibraryOffer
 import reikai.presentation.details.ClearDownloadsTarget
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
@@ -140,7 +141,6 @@ import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.loadThenRenderOn
-import reikai.presentation.details.offerAddToLibrary
 import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
@@ -248,6 +248,7 @@ class MangaViewModel(
 ) : ViewModel() {
 
     val snackbarHostState = SnackbarHostState()
+    private val addToLibraryOffer = AddToLibraryOffer(snackbarHostState, context) // RK
 
     val state: StateFlow<State>
         field = MutableStateFlow<State>(State.Loading)
@@ -1261,7 +1262,7 @@ class MangaViewModel(
         chapters: List<Chapter>,
         startNow: Boolean,
     ) {
-        val successState = successState ?: return
+        successState ?: return // RK
 
         viewModelScope.launchNonCancellable {
             if (startNow) {
@@ -1271,13 +1272,8 @@ class MangaViewModel(
                 downloadChapters(chapters)
             }
 
-            if (!isFavorited && !successState.hasPromptedToAddBefore) {
-                updateSuccessState { state ->
-                    state.copy(hasPromptedToAddBefore = true)
-                }
-                // RK: the prompt is written once with novels
-                snackbarHostState.offerAddToLibrary(context, isInLibrary = { isFavorited }) { toggleFavorite() }
-            }
+            // RK: the prompt and its once-per-screen rule are written once with novels
+            addToLibraryOffer.afterDownload(isInLibrary = { isFavorited }) { toggleFavorite() }
         }
     }
 
@@ -1917,7 +1913,7 @@ class MangaViewModel(
             val hasLoggedInTrackers: Boolean = false,
             val isRefreshingData: Boolean = false,
             val dialog: Dialog? = null,
-            val hasPromptedToAddBefore: Boolean = false,
+            // RK: hasPromptedToAddBefore moved to AddToLibraryOffer, shared with novels
             val hideMissingChapters: Boolean = false,
             // RK: hide/unhide chapters. showHidden is the transient reveal toggle; hiddenChapterIds are
             // the currently-shown hidden rows (for dimming), only populated while showing hidden.

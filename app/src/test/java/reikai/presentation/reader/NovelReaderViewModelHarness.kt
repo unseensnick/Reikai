@@ -177,9 +177,12 @@ class NovelReaderViewModelHarness private constructor(
     fun source(id: String, name: String = id): FakeNovelSource =
         FakeNovelSource(id, name).also(sourceManager::register)
 
-    suspend fun novel(source: FakeNovelSource, title: String = "Novel"): Long {
+    suspend fun novel(source: FakeNovelSource, title: String = "Novel", inLibrary: Boolean = true): Long {
         val url = "/novel/${source.id}/$title"
-        return novelRepo.insert(Novel.create().copy(source = source.id, url = url, title = title, favoriteAt = 0L))!!
+        val favoriteAt = 0L.takeIf { inLibrary }
+        return novelRepo.insert(
+            Novel.create().copy(source = source.id, url = url, title = title, favoriteAt = favoriteAt),
+        )!!
     }
 
     /**

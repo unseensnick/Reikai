@@ -19,6 +19,7 @@ class EntryLibraryPromptsTest {
 
     private val context = mockk<Context>(relaxed = true)
     private val host = SnackbarHostState()
+    private val offer = AddToLibraryOffer(host, context)
     private val deleted = mutableListOf<String>()
     private var added = 0
     private var inLibrary = false
@@ -81,6 +82,26 @@ class EntryLibraryPromptsTest {
         added shouldBe 0
     }
 
+    @Test
+    fun `a later download on the same screen asks nothing`() = runTest {
+        offerAdd()
+        host.currentSnackbarData!!.dismiss()
+        runCurrent()
+
+        offerAdd()
+
+        host.currentSnackbarData.shouldBeNull()
+    }
+
+    @Test
+    fun `an entry already in the library is never asked`() = runTest {
+        inLibrary = true
+
+        offerAdd()
+
+        host.currentSnackbarData.shouldBeNull()
+    }
+
     private fun TestScope.offerDelete(removed: List<String>, withDownloads: Set<String>) {
         backgroundScope.launch {
             host.offerToDeleteDownloads(context, removed, hasDownloads = { it in withDownloads }) { deleted += it }
@@ -89,7 +110,7 @@ class EntryLibraryPromptsTest {
     }
 
     private fun TestScope.offerAdd() {
-        backgroundScope.launch { host.offerAddToLibrary(context, isInLibrary = { inLibrary }) { added++ } }
+        backgroundScope.launch { offer.afterDownload(isInLibrary = { inLibrary }) { added++ } }
         runCurrent()
     }
 }
