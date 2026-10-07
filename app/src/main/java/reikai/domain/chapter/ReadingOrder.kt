@@ -26,6 +26,13 @@ object ReadingOrder {
         return if (hidden.isEmpty()) inReadingOrder else shown + hidden
     }
 
+    /**
+     * Where a resume opens: [nextToRead] over [hiddenLast]. The library's continue button and a series
+     * page's Resume both ask this, so a hidden chapter opens only when nothing else is unread.
+     */
+    fun <T> resumeAt(inReadingOrder: List<T>, isHidden: (T) -> Boolean, isRead: (T) -> Boolean): T? =
+        nextToRead(hiddenLast(inReadingOrder, isHidden), isRead)
+
     /** Everything read before [isPointer], empty when the pointer is not in the list at all. */
     fun <T> before(inReadingOrder: List<T>, isPointer: (T) -> Boolean): List<T> {
         val pointer = inReadingOrder.indexOfFirst(isPointer)

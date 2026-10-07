@@ -110,7 +110,7 @@ agent under Settings -> Advanced.
 - **Scrolling the single-list library no longer stutters in large libraries.**
 - **Typing quickly into the Library, Recents or a source's catalogue search no longer scrambles or drops characters.**
 - **Backing out of the category picker no longer adds a novel anyway, and a failed add no longer leaves a manga or novel filed under a category it never joined.** Nothing is written until the add completes.
-- **Hidden chapters are no longer opened by the library's continue button or Recents, or queued by downloads from a library selection, on manga and novels.** A hidden chapter still opens when it is the only one left unread.
+- **Hidden chapters are no longer opened by the library's continue button, a series' Resume button or Recents, or queued by downloads from a library selection, on manga and novels.** A hidden chapter still opens when it is the only one left unread.
 - **Searching from another screen, Open random entry, Update category and a second tap on the Library button now act on the library chip you are looking at, not always on manga.**
 - **In the single-list view, library actions now act on the category you have scrolled to instead of the first one.** That covers Select all, Invert selection, Update category, Open random entry and the hopper's long-press sort.
 - **Bulk actions on selected novels now always run to the end, even if the app closes mid-action, as manga's do.** That covers marking read, changing categories, downloading and removing.

@@ -395,6 +395,7 @@ class MangaViewModel(
                             hasHiddenChapters = hidden.hasHiddenChapters,
                             hiddenChapterIds = hidden.hiddenChapterIds,
                             gapPresent = hidden.gapPresent,
+                            resumeChapter = hidden.resumeChapter,
                             mergedMangaById = mc.mangaBySource,
                             mergeDisplayManga = mc.displayManga,
                             mergeDisplaySource = mc.displaySource,
@@ -530,6 +531,7 @@ class MangaViewModel(
                     hasHiddenChapters = hidden.hasHiddenChapters,
                     hiddenChapterIds = hidden.hiddenChapterIds,
                     gapPresent = hidden.gapPresent,
+                    resumeChapter = hidden.resumeChapter,
                     availableScanlators = getAvailableScanlators.await(mangaId),
                     excludedScanlators = getExcludedScanlators.await(mangaId),
                     isRefreshingData = needRefreshInfo || needRefreshChapter,
@@ -1115,8 +1117,8 @@ class MangaViewModel(
 
     // Hide/unhide chapters (manga twin of the novel details mechanism). The hidden set is a pref of
     // restore-stable "<source>|<chapterUrl>" keys; it filters Success.chapters at assembly, so hidden
-    // chapters also drop from the resume FAB and download-all (which read that list). The in-app manga
-    // reader excludes them too (ReaderViewModel.chapterList), so next/prev navigation skips hidden.
+    // chapters also drop from download-all, and Resume opens one only when nothing else is unread. The
+    // in-app manga reader excludes them too (ReaderViewModel.chapterList), so next/prev skips hidden.
 
     private data class HiddenChapters(
         val chapters: List<ChapterList.Item>,
@@ -1124,6 +1126,7 @@ class MangaViewModel(
         val hasHiddenChapters: Boolean,
         val hiddenChapterIds: Set<Long>,
         val gapPresent: ChapterGap.Present,
+        val resumeChapter: Chapter?,
     )
 
     /** Drop hidden chapters from [items] unless the user is temporarily showing them, and compute the
@@ -1140,7 +1143,16 @@ class MangaViewModel(
         val view = resolveHiddenChapterView(items, hidden, showHiddenFlow.value, keyOf)
         val hiddenChapterIds = hiddenChapterIdsIn(view.visible, hidden, view.showHidden, keyOf) { it.id }
         val gapPresent = items.map { it.chapter }.gapPresent()
-        return HiddenChapters(view.visible, view.showHidden, view.hasHidden, hiddenChapterIds, gapPresent)
+        // Over every row, hidden ones last, which only this step still has.
+        val resumeChapter = items.getNextUnread(manga) { keyOf(it) in hidden }
+        return HiddenChapters(
+            view.visible,
+            view.showHidden,
+            view.hasHidden,
+            hiddenChapterIds,
+            gapPresent,
+            resumeChapter,
+        )
     }
 
     fun hideSelected() {
@@ -1235,11 +1247,8 @@ class MangaViewModel(
      * Returns the next unread chapter or null if everything is read.
      */
     fun getNextUnreadChapter(): Chapter? {
-        val successState = successState ?: return null
-        // RK: never resume into a hidden chapter, even while temporarily showing hidden ones.
-        return successState.chapters
-            .filterNot { it.id in successState.hiddenChapterIds }
-            .getNextUnread(successState.manga)
+        // RK: picked when the list is built, the one step that still has the hidden rows.
+        return successState?.resumeChapter
     }
 
     // RK -->
@@ -1918,6 +1927,8 @@ class MangaViewModel(
             // RK: the numbers the missing-chapter markers count against, taken before hidden rows and the
             // filters drop any, so hiding a chapter never makes a gap.
             val gapPresent: ChapterGap.Present = ChapterGap.Present.NONE,
+            // RK: where Resume opens, hidden chapters last (getNextUnread); null when everything is read.
+            val resumeChapter: Chapter? = null,
             // RK: the manga's custom-info overlay (null = none), applied at the display layer via
             // Manga.withCustomInfo. Never folded into the raw `manga` field above, which stays
             // source-accurate for tracker search, refresh, duplicate detection, downloads, etc.

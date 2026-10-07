@@ -636,7 +636,8 @@ class NovelDetailsViewModel(
     ) {
         viewRows = chapters
         val hidden = hiddenChaptersPref.get()
-        val view = shownRows(anchor, chapters, hidden, downloadedChapterIds, marks)
+        val rows = shownRows(anchor, chapters, hidden, downloadedChapterIds, marks)
+        val view = rows.view
         val hasHiddenChapters = view.hasHidden
         val showHidden = view.showHidden
         val display = view.visible
@@ -654,10 +655,6 @@ class NovelDetailsViewModel(
         } else {
             buildNovelChapterListEntries(display, sortDescending, present, isHiddenRow)
         }
-        // Over the rows on screen, in the order the reader walks them, so the button opens what Next
-        // would reach. Hidden rows are never resumed into, even while they are being shown.
-        val resumable = ReadingOrder.of(display.filterNot { it.id in hiddenChapterIds }, sortDescending)
-        val resume = ReadingOrder.nextToRead(resumable) { marks.isRead(it.id, it.read) }
         val viewSource = viewedNovelSource(viewNovel.id, anchor.id, siblingSources.value, source)
         val webPage = viewSource?.let { viewNovel.webPageIn(it) }
         val sourceName = viewSource?.name ?: sourceManager.nameOf(viewNovel.source)
@@ -685,7 +682,7 @@ class NovelDetailsViewModel(
                 customInfo = currentCustomInfo,
                 dialog = loaded?.dialog,
                 selection = retainChapterSelection(display),
-                resumeChapter = resume,
+                resumeChapter = rows.resume,
                 hasStarted = chapters.any { marks.isRead(it.id, it.read) },
                 seedColor = loaded?.seedColor,
                 sourceName = sourceName,
@@ -1300,7 +1297,7 @@ class NovelDetailsViewModel(
         val siblings = group.ids.filter { it != viewNovel.id }.flatMap { chapterRepo.getByNovelId(it) }
         val flags = group.novelRowFlags(chapters + siblings, chapters, mergedChapterProvider.stitchOf(viewNovel.id))
         val hidden = hiddenChaptersPref.get()
-        return shownRows(loaded.novel, chapters, hidden, flags.downloadedIds, flags.marks).visible
+        return shownRows(loaded.novel, chapters, hidden, flags.downloadedIds, flags.marks).view.visible
     }
 
     private fun shownRows(

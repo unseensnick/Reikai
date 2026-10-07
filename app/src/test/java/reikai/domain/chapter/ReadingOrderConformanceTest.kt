@@ -179,7 +179,7 @@ class ReadingOrderConformanceTest {
                     downloadedChapterIds = emptySet(),
                     marks = GroupMarks.NONE,
                     downloadedOnly = false,
-                ).visible
+                ).view.visible
             },
             id = { it.id },
             isRead = { it.read },

@@ -133,8 +133,7 @@ class GetNextNovelChapter(
             { it.bookmark },
         ) { downloadedIds(pooled, novels) }
         val listed = listedByFilters(novelId, group.chapters, flags, downloadedOnly)
-        val shown = ReadingOrder.hiddenLast(listed, hiddenAmong(pooled))
-        return ReadingOrder.nextToRead(shown, flags::isRead)
+        return ReadingOrder.resumeAt(listed, hiddenAmong(pooled), flags::isRead)
     }
 
     /**

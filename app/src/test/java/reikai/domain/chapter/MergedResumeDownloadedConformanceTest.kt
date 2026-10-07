@@ -52,7 +52,7 @@ class MergedResumeDownloadedConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("cases")
-    fun `continue resumes a chapter whose only copy on disk is another source's`(case: LibraryResumeCase) =
+    fun `continue resumes a chapter whose only copy on disk is another source's`(case: ResumeCase) =
         runTest {
             case.resume(emptySet()) shouldBe 1L
         }
@@ -64,7 +64,7 @@ class MergedResumeDownloadedConformanceTest {
         private val stitch = listOf(ChapterUnit(1L, 0, 0), ChapterUnit(21L, 0, 1), ChapterUnit(2L, 1, 0))
         private val onDisk = setOf(21L)
 
-        private val manga = LibraryResumeCase("manga") {
+        private val manga = ResumeCase("manga") {
             val leading = Manga.create().copy(id = 1L, source = 7L, title = "Leading")
             val other = Manga.create().copy(id = 2L, source = 8L, title = "Other")
             fun chapter(id: Long, owner: Manga, number: Double) = Chapter.create().copy(
@@ -92,7 +92,7 @@ class MergedResumeDownloadedConformanceTest {
             group.chapters.getNextUnread(manga = leading, downloadManager, group)?.id
         }
 
-        private val novel = LibraryResumeCase("novel") {
+        private val novel = ResumeCase("novel") {
             fun chapter(id: Long, novelId: Long, number: Double) = NovelChapter(
                 id = id,
                 novelId = novelId,

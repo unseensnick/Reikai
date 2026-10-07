@@ -42,7 +42,7 @@ fun List<Chapter>.getNextUnread(
     // RK <--
     // RK: the order the reader pages in, asked the question novels resume by, hidden chapters last.
     val isHidden = { chapter: Chapter -> chapter.hiddenKey(ownerOf(chapter)) in hiddenKeys }
-    return ReadingOrder.nextToRead(ReadingOrder.hiddenLast(shown.inReadingOrder(manga), isHidden)) {
+    return ReadingOrder.resumeAt(shown.inReadingOrder(manga), isHidden) {
         flags.isRead(it) // RK
     }
 }
@@ -50,7 +50,14 @@ fun List<Chapter>.getNextUnread(
 /**
  * Gets next unread chapter with filters and sorting applied
  */
-fun List<ChapterList.Item>.getNextUnread(manga: Manga): Chapter? {
-    // RK: as above, through the reader's order. Filtered on the item, whose read flag spans the group.
-    return applyFilters(manga).filterNot { it.isRead }.map { it.chapter }.toList().inReadingOrder(manga).firstOrNull()
+// RK --> as above, through the reader's order, hidden chapters last. Read on the item, whose flag spans
+// the group.
+fun List<ChapterList.Item>.getNextUnread(manga: Manga, isHidden: (ChapterList.Item) -> Boolean): Chapter? {
+    val shown = applyFilters(manga).associateBy { it.id }
+    return ReadingOrder.resumeAt(
+        shown.values.map { it.chapter }.inReadingOrder(manga),
+        isHidden = { isHidden(shown.getValue(it.id)) },
+        isRead = { shown.getValue(it.id).isRead },
+    )
 }
+// RK <--
