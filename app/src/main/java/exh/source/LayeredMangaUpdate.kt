@@ -23,8 +23,16 @@ suspend fun DelegatedHttpSource.layeredMangaUpdate(
 ): SMangaUpdate {
     val own = delegate.getMangaUpdate(manga, chapters, fetchDetails, fetchChapters)
     if (!fetchDetails) return own
-    // A details parse leaves the url unset, and the metadata keys its row on it.
-    val base = own.manga.also { it.url = manga.url }
+    // A details parse may leave the url and title unset, and the metadata keys its row on the url
+    // and copies the title, so both fall back to the stored entry.
+    val base = own.manga.also {
+        it.url = manga.url
+        try {
+            it.title
+        } catch (_: UninitializedPropertyAccessException) {
+            it.title = manga.title
+        }
+    }
     val response = client.newCall(detailsRequest(manga)).awaitSuccess()
     return SMangaUpdate(parseOver(base, response), own.chapters)
 }
