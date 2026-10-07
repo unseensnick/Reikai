@@ -15,9 +15,9 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
+import reikai.domain.reader.ChapterProgress
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
-import reikai.presentation.components.percentProgressLabel
 import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.presentation.novel.details.NovelDetailsState
 import reikai.presentation.novel.details.NovelDetailsViewModel
@@ -121,7 +121,7 @@ class NovelEntryAdapter(
                 bookmark = loaded.marks.isBookmarked(chapter.id, chapter.bookmark),
                 dateUpload = chapter.dateUpload,
                 chapterNumber = chapter.chapterNumber,
-                readProgress = percentProgressLabel(chapter.lastTextProgress).takeIf { !chapter.read },
+                progress = ChapterProgress.Percent(chapter.lastTextProgress).takeIf { !chapter.read },
                 downloadState = loaded.downloadStateOf(chapter.id),
                 downloadProgress = 0,
             )

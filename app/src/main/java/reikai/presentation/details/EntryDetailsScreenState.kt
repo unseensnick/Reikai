@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.Color
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.entry.EntryId
+import reikai.domain.reader.ChapterProgress
+import reikai.presentation.selection.ChapterMarks
 
 /**
  * The neutral details screen state both content types produce, so the shared details UI can render manga
@@ -128,18 +130,17 @@ sealed interface EntryChapterListItem {
         /** The row's one subtitle line, as the reader's chapter list does it: in a merged group the
          *  source leads, then the chapter's scanlator. Null when there is neither. */
         val subtitle: String?,
-        val read: Boolean,
-        val bookmark: Boolean,
+        override val read: Boolean,
+        override val bookmark: Boolean,
         val dateUpload: Long,
         val chapterNumber: Double,
-        /** Pre-formatted resume hint ("42%" for novels, "Page 3" for manga); null when read or unstarted.
-         *  Each adapter formats its own, so the neutral layer never sees page index vs scroll percent. */
-        val readProgress: String?,
+        /** Where reading stopped, in the engine's own unit; null once read. */
+        override val progress: ChapterProgress?,
         /** Resolved download state (queue state, else disk membership); the adapter does the resolution. */
         val downloadState: Download.State,
         /** Live download percent for the spinner; 0 for novels (no per-chapter progress). */
         val downloadProgress: Int,
-    ) : EntryChapterListItem {
+    ) : EntryChapterListItem, ChapterMarks {
         val isRecognizedNumber: Boolean get() = isRecognizedChapterNumber(chapterNumber)
     }
 

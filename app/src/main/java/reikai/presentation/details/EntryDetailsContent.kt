@@ -32,14 +32,15 @@ import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.manga.components.PagePreviews
 import eu.kanade.presentation.manga.components.SearchMetadataChips
 import eu.kanade.presentation.util.formatChapterNumber
-import eu.kanade.tachiyomi.data.download.model.Download
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.ExpandMore
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.MergeSourceChips
+import reikai.presentation.components.readProgressLabel
 import reikai.presentation.novel.details.novelPageText
 import reikai.presentation.recommendation.RelatedMangaCarousel
+import reikai.presentation.selection.chapterSelectionOffers
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -293,23 +294,18 @@ private fun EntryDetailsSelectionBar(
     val selected = state.chapters.items
         .filterIsInstance<EntryChapterListItem.Chapter>()
         .filter { it.id in state.selection }
+    val offers = chapterSelectionOffers(selected, selected.map { it.downloadState })
     MangaBottomActionMenu(
         visible = selected.isNotEmpty(),
         modifier = modifier.fillMaxWidth(fillFraction),
-        onBookmarkClicked = { behavior.bookmarkSelected(true) }
-            .takeIf { selected.any { !it.bookmark } },
-        onRemoveBookmarkClicked = { behavior.bookmarkSelected(false) }
-            .takeIf { selected.isNotEmpty() && selected.all { it.bookmark } },
-        onMarkAsReadClicked = { behavior.markSelectedRead(true) }
-            .takeIf { selected.any { !it.read } },
-        onMarkAsUnreadClicked = { behavior.markSelectedRead(false) }
-            .takeIf { selected.any { it.read || it.readProgress != null } },
-        onMarkPreviousAsReadClicked = { behavior.markPreviousRead() }
-            .takeIf { selected.size == 1 },
-        onDownloadClicked = { behavior.downloadSelected() }
-            .takeIf { state.chaptersDownloadable && selected.any { it.downloadState != Download.State.DOWNLOADED } },
-        onDeleteClicked = { behavior.deleteSelected() }
-            .takeIf { selected.any { it.downloadState == Download.State.DOWNLOADED } },
+        onBookmarkClicked = { behavior.bookmarkSelected(true) }.takeIf { offers.bookmark },
+        onRemoveBookmarkClicked = { behavior.bookmarkSelected(false) }.takeIf { offers.removeBookmark },
+        onMarkAsReadClicked = { behavior.markSelectedRead(true) }.takeIf { offers.markRead },
+        onMarkAsUnreadClicked = { behavior.markSelectedRead(false) }.takeIf { offers.markUnread },
+        onMarkPreviousAsReadClicked = { behavior.markPreviousRead() }.takeIf { selected.size == 1 },
+        // A local or stub source has nothing to fetch, which upstream says by passing no download action.
+        onDownloadClicked = { behavior.downloadSelected() }.takeIf { state.chaptersDownloadable && offers.download },
+        onDeleteClicked = { behavior.deleteSelected() }.takeIf { offers.delete },
     )
 }
 
@@ -476,7 +472,7 @@ private fun LazyListScope.entryChapterItems(
                             relativeDateText(chapter.dateUpload)
                         else -> null
                     },
-                    readProgress = chapter.readProgress,
+                    readProgress = readProgressLabel(chapter.progress),
                     scanlator = chapter.subtitle,
                     read = chapter.read,
                     bookmark = chapter.bookmark,

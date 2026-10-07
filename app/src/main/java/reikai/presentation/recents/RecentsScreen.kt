@@ -69,7 +69,9 @@ import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.HeaderTabRow
 import reikai.presentation.components.LibraryUpdatePullRefresh
 import reikai.presentation.components.libraryRefreshMessage
+import reikai.presentation.components.readProgressLabel
 import reikai.presentation.migrate.flow.EntryMigrateFor
+import reikai.presentation.selection.chapterSelectionOffers
 import reikai.presentation.updates.EntryUpdatesRow
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
@@ -930,25 +932,17 @@ private fun RecentsBottomBar(
         val state = target?.state ?: engine.rowUi(item).state
         state to engine.downloadUi(item, target)?.state?.invoke()
     }
-    val chapters = perRow.mapNotNull { it.first }
-    val downloads = perRow.map { it.second }
+    val offers = chapterSelectionOffers(perRow.mapNotNull { it.first }, perRow.map { it.second })
     MangaBottomActionMenu(
         visible = selected.isNotEmpty(),
         modifier = Modifier.fillMaxWidth(),
-        onBookmarkClicked = { onAct { engine.setBookmarkSelection(it, true) } }
-            .takeIf { chapters.any { chapter -> !chapter.bookmark } },
-        // Guarded on non-empty, unlike its five siblings: `all` is vacuously true over nothing, so a
-        // selection that answers for no chapter would offer this one action and no other.
+        onBookmarkClicked = { onAct { engine.setBookmarkSelection(it, true) } }.takeIf { offers.bookmark },
         onRemoveBookmarkClicked = { onAct { engine.setBookmarkSelection(it, false) } }
-            .takeIf { chapters.isNotEmpty() && chapters.all { chapter -> chapter.bookmark } },
-        onMarkAsReadClicked = { onAct { engine.markReadSelection(it, true) } }
-            .takeIf { chapters.any { chapter -> !chapter.read } },
-        onMarkAsUnreadClicked = { onAct { engine.markReadSelection(it, false) } }
-            .takeIf { offersMarkUnread(chapters) },
-        onDownloadClicked = { onAct { engine.downloadSelection(it) } }
-            .takeIf { offersDownload(downloads) },
-        onDeleteClicked = onDeleteDownloads
-            .takeIf { downloads.any { it == Download.State.DOWNLOADED } },
+            .takeIf { offers.removeBookmark },
+        onMarkAsReadClicked = { onAct { engine.markReadSelection(it, true) } }.takeIf { offers.markRead },
+        onMarkAsUnreadClicked = { onAct { engine.markReadSelection(it, false) } }.takeIf { offers.markUnread },
+        onDownloadClicked = { onAct { engine.downloadSelection(it) } }.takeIf { offers.download },
+        onDeleteClicked = onDeleteDownloads.takeIf { offers.delete },
     )
 }
 

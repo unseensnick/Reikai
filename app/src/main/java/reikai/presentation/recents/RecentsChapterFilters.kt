@@ -1,7 +1,6 @@
 package reikai.presentation.recents
 
 import androidx.compose.runtime.Immutable
-import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.entry.EntryId
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.manga.model.applyFilter
@@ -75,20 +74,3 @@ data class RecentsRowGate(
         fun needsUnread(showRead: Boolean, mode: RecentsMode): Boolean = !showRead && mode.isCombined
     }
 }
-
-/**
- * Whether reading has begun, which a read chapter satisfies by having been read: a row hides its
- * progress once the chapter is read, so the progress alone would call every finished chapter unopened.
- */
-internal val RecentsChapterState.hasStarted: Boolean
-    get() = read || progress?.hasStarted == true
-
-/** The bulk bar's Mark as unread: offered where a selected chapter has something to undo. */
-internal fun offersMarkUnread(chapters: List<RecentsChapterState>): Boolean = chapters.any { it.hasStarted }
-
-/**
- * The bulk bar's Download: offered where a selected chapter is not on disk yet, finished or not, as
- * each row's own control and upstream's Updates bar both do.
- */
-internal fun offersDownload(downloads: List<Download.State?>): Boolean =
-    downloads.any { it != null && it != Download.State.DOWNLOADED }

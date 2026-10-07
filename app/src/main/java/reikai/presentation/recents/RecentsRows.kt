@@ -49,9 +49,7 @@ import mihon.icons.materialsymbols.rounded.ExpandLess
 import mihon.icons.materialsymbols.rounded.ExpandMore
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import mihon.icons.materialsymbols.roundedfilled.Circle
-import reikai.domain.reader.ChapterProgress
-import reikai.presentation.components.pageProgressLabel
-import reikai.presentation.components.percentProgressLabel
+import reikai.presentation.components.readProgressLabel
 import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ListGroupHeader
@@ -367,21 +365,6 @@ fun RecentsSectionFooter(onClick: () -> Unit, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.primary,
         )
     }
-}
-
-/**
- * How far into a chapter reading stopped, written out in whichever unit the engine behind it counts.
- * One definition: the two feeds and the two row shapes each carried their own before, so a rounding
- * or a hide-at-zero rule could differ by content type without anyone reading both. The rules
- * themselves live in [pageProgressLabel] / [percentProgressLabel], which the details chapter list
- * calls too.
- */
-@Composable
-fun readProgressLabel(progress: ChapterProgress?): String? = when (progress) {
-    null -> null
-    is ChapterProgress.Pages -> pageProgressLabel(progress.lastPageRead, progress.pageCount)
-        ?.let { (resource, args) -> stringResource(resource, *args) }
-    is ChapterProgress.Percent -> percentProgressLabel(progress.hundredths)
 }
 
 /**

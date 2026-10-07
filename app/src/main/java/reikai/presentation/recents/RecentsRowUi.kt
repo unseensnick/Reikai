@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.selection.ChapterMarks
 
 /**
  * What one recents row draws, answered by the provider that owns the entry so the shared layer never
@@ -88,10 +89,10 @@ fun RecentsLane.chapterLabel(name: String, number: Double): RecentsChapterUi = w
  */
 @Immutable
 data class RecentsChapterState(
-    val read: Boolean,
-    val bookmark: Boolean,
-    val progress: ChapterProgress?,
-)
+    override val read: Boolean,
+    override val bookmark: Boolean,
+    override val progress: ChapterProgress?,
+) : ChapterMarks
 
 /**
  * A chapter's state, carrying the one rule both feeds share: progress shows only where reading

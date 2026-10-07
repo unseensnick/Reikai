@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo
+import reikai.domain.reader.ChapterProgress
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
 import reikai.presentation.selection.EntrySelection
@@ -138,7 +139,7 @@ class MangaEntryAdapter(
             bookmark = isBookmarked,
             dateUpload = chapter.dateUpload,
             chapterNumber = chapter.chapterNumber,
-            readProgress = model.readProgressLabel(chapter),
+            progress = ChapterProgress.Pages(chapter.lastPageRead, chapter.pageCount).takeIf { !chapter.read },
             downloadState = downloadState,
             downloadProgress = downloadProgress,
         )
