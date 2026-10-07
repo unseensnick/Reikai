@@ -655,6 +655,7 @@ agent under Settings -> Advanced.
 - **Restoring a backup now schedules automatic light-novel updates, adult-source updates and the tracker library refresh straight away.**
 - **Novel reading time you cleared from History now survives a backup and restore, so Stats keeps its total, as for manga.**
 - **Restoring a backup that lists a chapter or its history twice now restores it once, adding up the reading time and keeping the latest read, on manga and novels (from Mihon).**
+- **Opening a backup file from a file manager now opens the Restore screen.** It used to close the app straight away.
 
 ### App
 
