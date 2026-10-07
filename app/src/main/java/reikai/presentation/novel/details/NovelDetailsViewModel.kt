@@ -927,16 +927,12 @@ class NovelDetailsViewModel(
             state.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
             try {
                 // Every source is refreshed even after one fails, and the first failure is shown, as on manga.
-                var firstError: Exception? = null
+                var firstError: Throwable? = null
                 val toDownload = mutableListOf<NovelChapter>()
-                suspend fun refreshOrKeep(novel: Novel, src: suspend () -> NovelSource): Novel? = try {
-                    refreshNovel(src(), novel, toDownload)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    if (firstError == null) firstError = e
-                    null
-                }
+                suspend fun refreshOrKeep(novel: Novel, src: suspend () -> NovelSource): Novel? =
+                    runCatchingCancellable { refreshNovel(src(), novel, toDownload) }
+                        .onFailure { if (firstError == null) firstError = it }
+                        .getOrNull()
                 // Refresh the anchor first (its refreshed novel drives the viewed-page fix below), then
                 // every other grouped source so the unified list picks up new chapters everywhere. A missing
                 // anchor source is reported as manga's stub is; a sibling's is skipped, or an unrelated

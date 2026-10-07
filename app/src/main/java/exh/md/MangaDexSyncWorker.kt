@@ -41,6 +41,7 @@ import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -274,7 +275,7 @@ class MangaDexSyncWorker(private val context: Context, workerParams: WorkerParam
             currentCoroutineContext().ensureActive()
             val name = shownName(manga)
             showProgress(name, i, favourites.size)
-            try {
+            runCatchingCancellable {
                 val tracks = getTracks.await(manga.id)
                 var tracker = tracks.firstOrNull { it.trackerId == TrackerManager.MDLIST }
                     ?: trackerManager.mdList.createInitialTracker(manga).toDomainTrack(idRequired = false)
@@ -285,11 +286,9 @@ class MangaDexSyncWorker(private val context: Context, workerParams: WorkerParam
                     upsertTrack.await(updated.toDomainTrack(idRequired = false)!!)
                     pushed++
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
+            }.onFailure {
                 failed += name
-                logcat(LogPriority.WARN, e) { "MangaDex library sync: failed ${manga.title}" }
+                logcat(LogPriority.WARN, it) { "MangaDex library sync: failed ${manga.title}" }
             }
         }
         return SyncResult(pushed, failed = failed)

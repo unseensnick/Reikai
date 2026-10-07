@@ -5,13 +5,13 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.util.system.toast
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.presentation.track.trackerErrorMessage
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 
@@ -31,12 +31,10 @@ class RemoteFirstRemoval internal constructor(private val context: Context, priv
     /** [name] is who the remote call went to, for the failure toast. */
     fun launch(name: String, alsoRemote: Boolean, remote: suspend () -> Unit, local: suspend () -> Unit) {
         scope.launch {
-            try {
+            runCatchingCancellable {
                 if (alsoRemote) remote()
                 local()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
+            }.onFailure { e ->
                 logcat(LogPriority.ERROR, e) { "Failed to remove from $name" }
                 withUIContext { context.toast(context.trackerErrorMessage(name, e)) }
             }

@@ -8,10 +8,10 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkerParameters
 import eu.kanade.tachiyomi.util.system.workManager
-import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.novel.update.LnPluginUpdateChecker
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.TimeUnit
 
@@ -27,14 +27,12 @@ class LnPluginUpdateWorker(
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        return try {
+        return runCatchingCancellable {
             val graph = applicationContext.appGraph
             val updates = graph.lnPluginUpdateChecker.checkAndRecord()
             if (updates.isNotEmpty()) graph.lnPluginUpdateNotifier.promptUpdates(updates.map { it.entry.name })
             Result.success()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
+        }.getOrElse { e ->
             // Only an unexpected failure lands here: check() already logs and skips a registry that
             // cannot be fetched or parsed. Logged so a retry on WorkManager backoff is not invisible.
             logcat(LogPriority.ERROR, e) { "LN plugin update check failed" }

@@ -8,12 +8,12 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.launchIO
 import java.util.Locale
@@ -66,13 +66,10 @@ class SettingsDebugViewModel(
     fun run(function: Function) {
         viewModelScope.launchIO {
             state.update { it.copy(running = true) }
-            val text = try {
-                "Function returned result:\n\n${function.function.callSuspend(functions)}"
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                "Function threw exception:\n\n${Log.getStackTraceString(e)}"
-            }
+            val text = runCatchingCancellable { function.function.callSuspend(functions) }.fold(
+                onSuccess = { "Function returned result:\n\n$it" },
+                onFailure = { "Function threw exception:\n\n${Log.getStackTraceString(it)}" },
+            )
             state.update { it.copy(running = false, result = Result(function.label, text)) }
         }
     }

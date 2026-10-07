@@ -3,7 +3,6 @@ package reikai.domain.track.source
 import eu.kanade.tachiyomi.source.SourceTracker
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -11,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.entry.EntryId
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
 /** An entry as a source's own tracker sees it, read fresh from the library when a call is made. */
@@ -157,23 +157,12 @@ class SourceTrackerKernel(
     }
 
     // Nothing thrown here may leave the scope: an uncaught failure there takes the app down.
-    private suspend fun loadOrNull(entry: EntryId): TrackedEntry? = try {
-        loader.load(entry)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        logcat(LogPriority.ERROR, e) { "Could not read $entry for its source's tracker" }
-        null
-    }
+    private suspend fun loadOrNull(entry: EntryId): TrackedEntry? = runCatchingCancellable { loader.load(entry) }
+        .onFailure { logcat(LogPriority.ERROR, it) { "Could not read $entry for its source's tracker" } }
+        .getOrNull()
 
     private suspend fun reporting(tracked: TrackedEntry, call: suspend TrackedEntry.() -> Unit) {
-        try {
-            tracked.call()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            onFailure(tracked.trackerName, e)
-        }
+        runCatchingCancellable { tracked.call() }.onFailure { onFailure(tracked.trackerName, it) }
     }
 
     companion object {

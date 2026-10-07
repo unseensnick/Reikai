@@ -2,10 +2,10 @@ package reikai.novel.source
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
-import kotlinx.coroutines.CancellationException
 import reikai.domain.source.CataloguePaging
 import reikai.domain.source.catalogueRefreshKey
 import reikai.novel.host.NovelItem
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.data.source.NoResultsException
 
@@ -39,16 +39,12 @@ abstract class BaseNovelPagingSource(
     override suspend fun load(params: LoadParams<Long>): LoadResult<Long, NovelItem> {
         val page = params.key ?: 1
 
-        return try {
+        return runCatchingCancellable {
             val fetched = withIOContext { requestNextPage(page.toInt()) }
             val taken = paging.take(page, params is LoadParams.Refresh, fetched.items, fetched.end)
                 ?: throw NoResultsException()
             LoadResult.Page(data = taken.fresh, prevKey = null, nextKey = taken.nextKey)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            LoadResult.Error(e)
-        }
+        }.getOrElse { LoadResult.Error(it) }
     }
 
     override fun getRefreshKey(state: PagingState<Long, NovelItem>): Long? = state.catalogueRefreshKey()

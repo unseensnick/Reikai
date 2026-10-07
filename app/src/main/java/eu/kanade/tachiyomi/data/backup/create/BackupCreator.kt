@@ -33,7 +33,6 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
 import eu.kanade.tachiyomi.data.backup.models.BackupSortOverridesStored
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.yield
 import kotlinx.serialization.SerializationStrategy
@@ -47,6 +46,7 @@ import reikai.data.backup.backupEntries
 import reikai.data.backup.mergeGroupRefs
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.backup.service.BackupPreferences
@@ -289,13 +289,8 @@ class BackupCreator(
 
     // getMangaById throws on a missing row rather than returning null, so a stale id would abort the
     // whole backup instead of dropping the one entry it belongs to.
-    private suspend fun mangaOrNull(id: Long): Manga? = try {
-        mangaRepository.getMangaById(id)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (_: Exception) {
-        null
-    }
+    private suspend fun mangaOrNull(id: Long): Manga? =
+        runCatchingCancellable { mangaRepository.getMangaById(id) }.getOrNull()
     // RK <--
 
     private suspend fun backupExtensionStores(options: BackupOptions): List<BackupExtensionStore> {

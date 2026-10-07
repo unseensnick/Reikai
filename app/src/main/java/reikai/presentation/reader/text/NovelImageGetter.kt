@@ -36,6 +36,7 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.data.coil.NovelImage
 import reikai.novel.content.NovelChapterAddress
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
@@ -400,9 +401,9 @@ class NovelImageGetter(
 
     /**
      * The picture, or null when it could not be had. A [retry] reads no cache, as the manga reader's page
-     * retry forces a download.
+     * retry forces a download. A viewport teardown cancels every outstanding image, which is not a failure.
      */
-    private suspend fun fetch(imageUrl: String, retry: Boolean = false): Drawable? = try {
+    private suspend fun fetch(imageUrl: String, retry: Boolean = false): Drawable? = runCatchingCancellable {
         val cache = if (retry) CachePolicy.WRITE_ONLY else CachePolicy.ENABLED
         val request = ImageRequest.Builder(context)
             .data(NovelImage(imageUrl, sourceId))
@@ -414,14 +415,7 @@ class NovelImageGetter(
             .precision(Precision.INEXACT)
             .build()
         context.imageLoader.execute(request).image?.asDrawable(context.resources)
-    } catch (e: CancellationException) {
-        // A viewport teardown cancels every outstanding image, and reporting each as a
-        // failure buried real ones. Rethrown so the coroutine still ends cancelled.
-        throw e
-    } catch (e: Exception) {
-        logcat(LogPriority.DEBUG, e) { "Failed to load a chapter image" }
-        null
-    }
+    }.onFailure { logcat(LogPriority.DEBUG, it) { "Failed to load a chapter image" } }.getOrNull()
 
     /**
      * In the picture's place, as the page draws one (reader.js). Its height differs from the stand-in's, so

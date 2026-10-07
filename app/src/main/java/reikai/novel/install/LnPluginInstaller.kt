@@ -7,7 +7,6 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.awaitSuccess
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -32,6 +31,7 @@ import reikai.novel.registry.fetchEach
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelChapterStylesheet
 import reikai.novel.source.NovelSourceManager
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.ConcurrentHashMap
 
@@ -185,7 +185,7 @@ class LnPluginInstaller(
      */
     private suspend fun loadUrl(url: String, metadata: LnInstalledPluginMetadata?): LnPluginSource? {
         if (url !in prefs.installedPluginUrls().get()) return null
-        val loaded = try {
+        val loaded = runCatchingCancellable {
             val stored = loader.installed(url)
             val src = stored ?: downloadMissingScript(url)
             val info = host.loadPlugin(scopeIdFromUrl(url), src, metadata?.iconUrl, metadata?.lang)
@@ -196,13 +196,8 @@ class LnPluginInstaller(
             } else {
                 loader.installedStylesheet(url)?.let(::NovelChapterStylesheet)
             }
-            Result.success(LnPluginSource(host, info, stylesheet))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            logcat(LogPriority.ERROR, e) { "loadInstalled: failed for $url" }
-            Result.failure(e)
-        }
+            LnPluginSource(host, info, stylesheet)
+        }.onFailure { logcat(LogPriority.ERROR, it) { "loadInstalled: failed for $url" } }
         return registryMutex.withLock {
             if (url !in prefs.installedPluginUrls().get()) return@withLock null
             loaded.onSuccess { source ->
@@ -239,11 +234,7 @@ class LnPluginInstaller(
      */
     private suspend fun refreshStylesheet(pluginUrl: String, cssUrl: String?): NovelChapterStylesheet? {
         val css = cssUrl?.let {
-            try {
-                loader.download(it)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Throwable) {
+            runCatchingCancellable { loader.download(it) }.getOrElse { e ->
                 logcat(LogPriority.WARN, e) { "plugin stylesheet download failed: $it" }
                 return loader.installedStylesheet(pluginUrl)?.let(::NovelChapterStylesheet)
             }
@@ -258,13 +249,8 @@ class LnPluginInstaller(
      * reinstalls it by hand. Trust is unchanged: the URL is one the user installed. A fetch that fails
      * still reports the script as missing.
      */
-    private suspend fun downloadMissingScript(url: String): String = try {
-        loader.download(url)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Throwable) {
-        throw LnPluginScriptMissingException(url, e)
-    }
+    private suspend fun downloadMissingScript(url: String): String =
+        runCatchingCancellable { loader.download(url) }.getOrElse { throw LnPluginScriptMissingException(url, it) }
 
     /**
      * Records the version a plugin reports for itself, which is the one actually running. The repo's

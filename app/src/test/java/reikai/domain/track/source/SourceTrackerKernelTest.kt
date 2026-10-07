@@ -162,6 +162,22 @@ class SourceTrackerKernelTest {
     }
 
     @Test
+    fun `an entry whose read throws an Error is skipped without taking the scope down`() = runTest {
+        val other = EntryId.Novel(2)
+        // An extension built against another API throws a LinkageError, which is no Exception.
+        val kernel = SourceTrackerKernel(
+            backgroundScope,
+            { if (it == entry) throw NoSuchMethodError("stale extension") else tracked(it, tracker) },
+        ) { name, _ -> failures += name }
+        kernel.chaptersChanged(entry, listOf(1L), read = true)
+        kernel.chaptersChanged(other, listOf(1L), read = true)
+
+        pastDebounce()
+
+        tracker.calls shouldBe listOf("read e2 [c1]")
+    }
+
+    @Test
     fun `a source without chapter tracking is not told about chapters`() = runTest {
         val tracker = RecordingTracker(supportsChapterTracking = false)
         kernel(tracker).chaptersChanged(entry, listOf(1L), read = true)

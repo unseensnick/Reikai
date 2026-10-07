@@ -24,7 +24,6 @@ import eu.kanade.tachiyomi.source.online.RandomMangaSource
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.source.eHentaiSourceIds
 import exh.source.getMainSource
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -46,6 +45,7 @@ import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.catalogue.BrowseColumns
 import reikai.presentation.browse.catalogue.trackBrowseColumns
 import reikai.presentation.browse.catalogue.trackDisplayMode
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -273,8 +273,7 @@ open class BrowseSourceViewModel(
         viewModelScope.launchIO {
             // A random-endpoint error (rate limit, transient 5xx, dropped connection) must not crash
             // the app; the button just does nothing on failure.
-            val id = runCatching { source?.getMainSource<RandomMangaSource>()?.fetchRandomMangaUrl() }
-                .onFailure { if (it is CancellationException) throw it }
+            val id = runCatchingCancellable { source?.getMainSource<RandomMangaSource>()?.fetchRandomMangaUrl() }
                 .getOrNull()
                 ?: return@launchIO
             state.update { it.copy(randomMangaTarget = "id:$id") }

@@ -55,7 +55,6 @@ import exh.util.nullIfBlank
 import exh.util.trimAll
 import exh.util.trimOrNull
 import exh.util.urlImportFetchSearchMangaSuspend
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -83,6 +82,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
+import reikai.util.runCatchingCancellable
 import uy.kohesive.injekt.injectLazy
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -647,15 +647,12 @@ class EHentai(
     private suspend fun retryFavoritesRequest(block: suspend () -> Unit) {
         var lastError: Throwable? = null
         repeat(FAVORITES_RETRY_ATTEMPTS) { attempt ->
-            try {
-                block()
-                return
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                lastError = e
-                if (attempt < FAVORITES_RETRY_ATTEMPTS - 1) delay(FAVORITES_RETRY_DELAY_MS)
-            }
+            runCatchingCancellable { block() }
+                .onSuccess { return }
+                .onFailure {
+                    lastError = it
+                    if (attempt < FAVORITES_RETRY_ATTEMPTS - 1) delay(FAVORITES_RETRY_DELAY_MS)
+                }
         }
         throw lastError ?: IllegalStateException("E-Hentai favorites request failed")
     }

@@ -17,10 +17,10 @@ import reikai.domain.novel.NovelRepository
 import reikai.novel.download.NovelChapterSaver
 import reikai.novel.download.NovelChapterSaver.SaveResult
 import reikai.novel.download.NovelDownloadManager
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
-import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Applies a page the user loaded in the in-app browser to a stored novel, through its source's
@@ -93,12 +93,7 @@ class NovelPageFetcher(
     enum class ChapterFromPage { SAVED, NO_TEXT, NAME_TAKEN, UNREADABLE }
 
     // A source's parser runs on a page it did not request, so a failure is reported, never thrown.
-    private suspend fun <T> attempt(block: suspend () -> T): T? = try {
-        withIOContext { block() }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        logcat(LogPriority.ERROR, e) { "Could not use the page" }
-        null
-    }
+    private suspend fun <T> attempt(block: suspend () -> T): T? = runCatchingCancellable { withIOContext { block() } }
+        .onFailure { logcat(LogPriority.ERROR, it) { "Could not use the page" } }
+        .getOrNull()
 }

@@ -10,7 +10,6 @@ import ireader.core.source.model.DeepLink
 import ireader.core.source.model.Listing
 import ireader.core.source.model.MangaInfo
 import ireader.core.source.model.MangasPageInfo
-import kotlinx.coroutines.CancellationException
 import reikai.data.coil.extensionIconUrl
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.source.CatalogueEnd
@@ -139,15 +138,7 @@ class IReaderNovelSource(
     private suspend fun chapterHtml(chapterPath: String, commands: List<Command<*>>): String {
         val pages = source.getPageList(ChapterInfo(key = chapterPath, name = ""), commands)
         val html = pages.toChapterHtml { page ->
-            (source as? HttpSource)?.let {
-                try {
-                    it.getPage(page)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    null
-                }
-            }
+            (source as? HttpSource)?.let { runCatchingCancellable { it.getPage(page) }.getOrNull() }
         }
         return NovelTextSanitizer.stripInvalidChars(html)
     }

@@ -6,13 +6,13 @@ import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.tachiyomi.source.SourceTracker
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
-import kotlinx.coroutines.CancellationException
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.track.site.OwnedSites
 import reikai.novel.source.NovelSourceManager
+import reikai.util.runCatchingCancellable
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.repository.ChapterRepository
@@ -39,13 +39,7 @@ class SourceTrackedEntries(
 
     private suspend fun loadManga(id: Long): TrackedEntry? {
         // The repository throws for a row that is gone rather than answering null.
-        val manga = try {
-            mangaRepository.getMangaById(id)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            return null
-        }
+        val manga = runCatchingCancellable { mangaRepository.getMangaById(id) }.getOrNull() ?: return null
         val source = sourceManager.get(manga.source) ?: return null
         val tracker = source as? SourceTracker ?: return null
         return TrackedEntry(

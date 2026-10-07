@@ -9,7 +9,6 @@ import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import reikai.data.track.MetadataAccess
@@ -19,6 +18,7 @@ import reikai.domain.novel.track.UnreadPushTracker
 import reikai.domain.track.autobind.AutoBindEntry
 import reikai.domain.track.autobind.AutoBindTracker
 import reikai.domain.track.site.OwnedSites
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.i18n.MR
@@ -299,16 +299,12 @@ class NovelUpdates(id: Long) :
         number: Double,
         readIds: Set<String>,
     ) {
-        try {
+        runCatchingCancellable {
             val releaseId = pickRelease(number, readIds, { releases.matching(novelId, it) }) {
                 ChapterRecognition.parseChapterNumber(track.title, it)
             } ?: return
             api.bookmarkRelease(novelId, releaseId)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logcat(LogPriority.WARN, e) { "Could not mark a NovelUpdates release" }
-        }
+        }.onFailure { logcat(LogPriority.WARN, it) { "Could not mark a NovelUpdates release" } }
     }
 
     /** The site release ids of the read chapters numbered [number]. */

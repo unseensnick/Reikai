@@ -11,8 +11,8 @@ import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.ownersOf
 import reikai.novel.content.NovelHtmlUtils
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
-import kotlin.coroutines.cancellation.CancellationException
 
 /** [onDisk] is what a pass reads, [total] every chapter in the scope, for the share it covers. */
 data class NovelDownloadedChapters(val onDisk: List<NovelChapter>, val total: Int)
@@ -43,16 +43,13 @@ class NovelDownloadedTexts(
         val owners = novelRepository.ownersOf(chapters)
         for (chapter in chapters) {
             currentCoroutineContext().ensureActive()
-            val text = try {
+            val text = runCatchingCancellable {
                 owners[chapter.novelId]?.let { downloadManager().getChapterText(it, chapter) }?.let { stored ->
                     Jsoup.parse(NovelHtmlUtils.normalizeContentForHtml(stored, chapter.url)).body().text()
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logcat(LogPriority.WARN, e) { "Could not read the downloaded text of ${chapter.name}" }
-                null
             }
+                .onFailure { logcat(LogPriority.WARN, it) { "Could not read the downloaded text of ${chapter.name}" } }
+                .getOrNull()
             onChapter(chapter, text)
         }
     }

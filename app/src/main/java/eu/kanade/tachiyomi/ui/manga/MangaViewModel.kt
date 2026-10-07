@@ -151,6 +151,7 @@ import reikai.presentation.details.webPageIn
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -783,14 +784,11 @@ class MangaViewModel(
 
     private suspend fun favoritedRootOf(manga: Manga, chapters: List<Chapter>): Long? {
         if (chapters.isEmpty() || !manga.isEhBasedManga()) return null
-        val accepted = try {
+        val accepted = runCatchingCancellable {
             updateHelper.findAcceptedRootAndDiscardOthers(manga.source, chapters)?.first
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Error loading accepted chapter chain" }
-            null
-        } ?: return null
+        }
+            .onFailure { logcat(LogPriority.ERROR, it) { "Error loading accepted chapter chain" } }
+            .getOrNull() ?: return null
         return accepted.manga.id.takeIf { it != manga.id && accepted.manga.favorite }
     }
 

@@ -32,7 +32,6 @@ import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -49,6 +48,7 @@ import reikai.domain.merge.MergeGroupReconstruction
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.novel.download.NovelDownloadCache
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
@@ -497,13 +497,7 @@ class BackupRestorer(
 
     // RK: run a post-loop restore phase, recording a failure instead of taking the whole restore down.
     private suspend fun restoreIsolated(phase: String, block: suspend () -> Unit) {
-        try {
-            block()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            errors.add(Date() to "$phase: ${e.message}")
-        }
+        runCatchingCancellable { block() }.onFailure { errors.add(Date() to "$phase: ${it.message}") }
     }
 
     private fun CoroutineScope.restoreAppPreferences(

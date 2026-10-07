@@ -3,13 +3,13 @@ package reikai.domain.recommendation.taste
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
 /**
@@ -77,10 +77,9 @@ class RefreshTrackerLibrary(
         coroutineScope {
             targets.map { fetcher ->
                 async {
-                    runCatching { fetcher.fetchLibrary() }
+                    runCatchingCancellable { fetcher.fetchLibrary() }
                         .onSuccess { repository.replaceTracker(fetcher.trackerId, it, now) }
                         .onFailure { e ->
-                            if (e is CancellationException) throw e
                             logcat(LogPriority.WARN, e) { "Tracker library pull failed (${fetcher.trackerId})" }
                         }
                 }

@@ -3,7 +3,6 @@ package reikai.novel.registry
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -99,13 +98,8 @@ class LnRepoRegistries(
 
     /** Adds [repoUrl] only if it reads as a registry, keeping what it fetched so it is not downloaded twice. */
     suspend fun add(repoUrl: String): Result<Unit> = mutex.withLock {
-        val entries = try {
-            fetcher.fetchRepo(repoUrl)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            return@withLock Result.failure(e)
-        }
+        val entries = runCatchingCancellable { fetcher.fetchRepo(repoUrl) }
+            .getOrElse { return@withLock Result.failure(it) }
         loaded.value = loaded.value.orEmpty() + (repoUrl to LnRepoResult.Reached(entries))
         prefs.addedRepoUrls().set(prefs.addedRepoUrls().get() + repoUrl)
         rememberIcons(entries)

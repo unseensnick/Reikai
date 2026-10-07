@@ -11,11 +11,11 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkerParameters
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.workManager
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import mihon.app.di.appGraph
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
+import reikai.util.runCatchingCancellable
 import reikai.util.workRunningFlow
 import java.util.concurrent.TimeUnit
 
@@ -31,13 +31,8 @@ class TrackerLibraryRefreshWorker(
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        return try {
-            applicationContext.appGraph.refreshTrackerLibrary.await()
-            Result.success()
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            Result.retry()
-        }
+        return runCatchingCancellable { applicationContext.appGraph.refreshTrackerLibrary.await() }
+            .fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
     }
 
     companion object {
