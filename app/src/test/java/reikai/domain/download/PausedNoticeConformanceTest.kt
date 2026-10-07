@@ -143,6 +143,22 @@ class PausedNoticeConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("halves")
+    fun `a waiting queue's new reason survives the service posting its last request`(half: PausedNoticeHalf) =
+        conformance(half) {
+            half.network = OFFLINE
+            half.start(this)
+            tick()
+
+            half.network = MOBILE
+            tick()
+            // Another worker going foreground makes the service post this worker's last request again.
+            half.postForegroundNotice()
+
+            half.noticeTexts() shouldBe listOf(NO_WIFI)
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
     fun `a queue waiting for a network shows a paused notice`(half: PausedNoticeHalf) = conformance(half) {
         half.network = OFFLINE
         half.start(this)
@@ -164,11 +180,13 @@ private fun TestScope.tick() {
 }
 
 private const val NO_NETWORK = "no network"
+private const val NO_WIFI = "no wifi"
 private const val PAUSED = "paused"
 
-/** Over the shade's stand-in for every string, so the no-network reason and the paused title read as themselves. */
+/** Over the shade's stand-in for every string, so the two reasons and the paused title read as themselves. */
 private fun stubNoNetworkText() {
     every { any<Context>().stringResource(MR.strings.download_notifier_no_network) } returns NO_NETWORK
+    every { any<Context>().stringResource(MR.strings.download_notifier_text_only_wifi) } returns NO_WIFI
     every { any<Context>().stringResource(MR.strings.chapter_paused) } returns PAUSED
 }
 

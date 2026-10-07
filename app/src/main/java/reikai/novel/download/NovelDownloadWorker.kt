@@ -42,11 +42,15 @@ class NovelDownloadWorker(context: Context, workerParams: WorkerParameters) :
     @Inject private lateinit var securityPreferences: SecurityPreferences
     private val notifier = NovelDownloadNotifier(context, securityPreferences)
 
+    // The waiting notice this worker last handed its service, which posts it again whenever another worker
+    // goes foreground, so a newer reason must reach the service too or that post brings the old one back.
+    private var requestedPause: NovelDownloadProgress.Paused? = null
+
     override suspend fun getForegroundInfo(): ForegroundInfo {
         // The service may post this after the drain's own notice, so one starting off the network says why here too.
+        requestedPause = manager.networkPause()
         val notification = notifier.progress(
-            manager.networkPause()
-                ?: NovelDownloadProgress.Downloading(0, manager.queueState.value.size, "", isAdult = false),
+            requestedPause ?: NovelDownloadProgress.Downloading(0, manager.queueState.value.size, "", isAdult = false),
         )
         val id = Notifications.ID_NOVEL_DOWNLOADER
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -60,7 +64,10 @@ class NovelDownloadWorker(context: Context, workerParams: WorkerParameters) :
         setForegroundSafely()
         return try {
             manager.runQueue(
-                onProgress = notifier::show,
+                onProgress = { progress ->
+                    notifier.show(progress)
+                    if (progress is NovelDownloadProgress.Paused && progress != requestedPause) setForegroundSafely()
+                },
                 onError = notifier::onError,
             )
             Result.success()

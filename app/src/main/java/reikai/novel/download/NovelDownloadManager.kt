@@ -363,7 +363,7 @@ class NovelDownloadManager(
      * drain is paused.
      */
     suspend fun runQueue(
-        onProgress: (NovelDownloadProgress) -> Unit,
+        onProgress: suspend (NovelDownloadProgress) -> Unit,
         onError: (novel: Novel?, chapterName: String?, error: String?, isAdult: Boolean) -> Unit,
     ) = drainLock.withLock {
         try {
@@ -503,7 +503,7 @@ class NovelDownloadManager(
         networkIssue()?.let { NovelDownloadProgress.Paused(context.stringResource(it)) }
 
     // Ends once nothing is left to fetch too, so an emptied paused queue ends the drain.
-    private suspend fun awaitNetwork(onProgress: (NovelDownloadProgress) -> Unit) {
+    private suspend fun awaitNetwork(onProgress: suspend (NovelDownloadProgress) -> Unit) {
         while (hasQueued()) {
             onProgress(networkPause() ?: return)
             delay(NETWORK_RECHECK_MS)
