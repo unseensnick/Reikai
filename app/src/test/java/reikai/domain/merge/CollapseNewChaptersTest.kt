@@ -1,6 +1,7 @@
 package reikai.domain.merge
 
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -95,5 +96,18 @@ class CollapseNewChaptersTest {
         val arrivals = collapseNewChapters(mapOf(3L to listOf(Row(30))), emptyMap(), emptyMap()) { it.id }
 
         arrivals.dedupeKey(30) shouldBe 30L
+    }
+
+    @Test
+    @DisplayName("only the groups that gained chapters have their stitch read")
+    fun readsOnlyTouchedStitches() = runTest {
+        val read = mutableListOf<Long>()
+
+        collapseNewChapters(mapOf(1L to listOf(Row(10))), mapOf(1L to 7L, 2L to 7L, 3L to 8L), { groupId: Long ->
+            read += groupId
+            stitch
+        }) { it.id }
+
+        read shouldBe listOf(7L)
     }
 }

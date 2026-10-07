@@ -707,6 +707,7 @@ agent under Settings -> Advanced.
 - The combined updates widget no longer watches for new chapters while none is placed on the home screen.
 - One rule now turns a novel chapter's picture and link addresses into full ones, for both readers and downloads.
 - One rule now writes the update notifications for manga, novels and galleries.
+- The manga and novel library updates now finish a run through one shared step.
 - The in-app browser, the Cloudflare bypass and the tracker sign-in browser now present one browser identity (from Mihon, mihonapp/mihon#3678), and Shikimori recommendations identify as Reikai like the other Shikimori calls.
 - Kitsu tracking, the taste profile and Fill from tracker now use only Kitsu's newer API (partly from Mihon, mihonapp/mihon#3792), and Shikimori progress goes through its own update endpoint (from Mihon, mihonapp/mihon#3810).
 - The arm64 download is about 30 MB instead of 44 MB, because native libraries are now compressed inside it. The installed app takes a little more space.

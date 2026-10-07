@@ -19,12 +19,10 @@ import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
@@ -32,6 +30,8 @@ import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
+import reikai.data.library.LibraryUpdateRun
+import reikai.data.library.UpdateRunLedger
 import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
 import reikai.data.library.shouldDeferLibraryUpdate
@@ -49,11 +49,6 @@ import reikai.domain.library.ReleaseInterval
 import reikai.domain.library.smartUpdateFacts
 import reikai.domain.library.smartUpdateSkip
 import reikai.domain.manga.AdultContentChecker
-import reikai.domain.merge.CollapsedArrivals
-import reikai.domain.merge.MergeGroupRepository
-import reikai.domain.merge.MergedChapterUnitRepository
-import reikai.domain.merge.ReconcileMergedChapters
-import reikai.domain.merge.collapseNewChapters
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -69,7 +64,6 @@ import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
 import reikai.util.workRunningFlow
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
@@ -122,12 +116,7 @@ class NovelUpdateWorker(
     @Inject private lateinit var deleteNovelUpdateErrors: DeleteNovelUpdateErrors
     private val updateErrorLog = UpdateErrorLog(context)
 
-    // Keeps a merged entry's deduplicated unread count in step with newly fetched chapters
-    @Inject private lateinit var reconcileMergedChapters: ReconcileMergedChapters
-
-    @Inject private lateinit var mergeGroupRepository: MergeGroupRepository
-
-    @Inject private lateinit var mergedChapterUnitRepository: MergedChapterUnitRepository
+    @Inject private lateinit var libraryUpdateRun: LibraryUpdateRun
 
     @Inject private lateinit var securityPreferences: SecurityPreferences
 
@@ -166,31 +155,15 @@ class NovelUpdateWorker(
         }
     }
 
-    private suspend fun updateNovels(categoryId: Long) {
-        // Both outlive the run itself, so a cancelled one still queues what it fetched and still counts
-        // it: those chapters are in the database now and are never new again.
-        val updates = mutableListOf<Pair<Novel, List<NovelChapter>>>()
-        val pendingDownloads = mutableListOf<NovelChapter>()
-        var counted: Int? = null
-        try {
-            val ran = reconcileMergedChapters.afterPass { runUpdate(categoryId, updates, pendingDownloads) }
-            if (ran) counted = announceArrivals(updates, pendingDownloads)
-        } finally {
-            withContext(NonCancellable) {
-                val arrivals = counted ?: updates.sumOf { it.second.size }
-                if (arrivals > 0) libraryPreferences.newUpdatesCount.getAndSet { it + arrivals }
-                if (pendingDownloads.isNotEmpty()) downloadManager.downloadChapters(pendingDownloads)
-            }
-        }
-    }
+    private suspend fun updateNovels(categoryId: Long) = libraryUpdateRun<Novel, NovelChapter>(
+        ContentType.NOVELS,
+        entryId = { it.id },
+        chapterId = { it.id },
+        announce = { notifier.showResults(it) },
+        queueDownloads = { downloads -> downloadManager.downloadChapters(downloads.flatMap { it.second }) },
+    ) { runUpdate(categoryId, it) }
 
-    /** The run itself, which fills [updates] and [pendingDownloads] as it goes. False when it had no
-     *  novel to check. */
-    private suspend fun runUpdate(
-        categoryId: Long,
-        updates: MutableList<Pair<Novel, List<NovelChapter>>>,
-        pendingDownloads: MutableList<NovelChapter>,
-    ): Boolean {
+    private suspend fun runUpdate(categoryId: Long, ledger: UpdateRunLedger<Novel, NovelChapter>) {
         // One load brings every installed plugin into the host; per-novel resolution is then cheap.
         runCatchingCancellable { installer.ensureLoaded() }
             .onFailure { logcat(LogPriority.ERROR, it) { "Could not load the novel plugins" } }
@@ -212,7 +185,7 @@ class NovelUpdateWorker(
             }
             .sortedBy { it.novel.title }
             .map { it.novel }
-        if (favorites.isEmpty()) return false
+        if (favorites.isEmpty()) return
 
         val failed = mutableListOf<UpdateErrorEntry>()
         favorites.forEachIndexed { index, novel ->
@@ -222,10 +195,9 @@ class NovelUpdateWorker(
             try {
                 val newChapters = checkNovel(novel, sourceManager.getOrThrow(novel.source), fetchWindow)
                 if (newChapters.isNotEmpty()) {
-                    updates.add(novel to newChapters)
                     // Queued after the run rather than here, so a merge group's sources cannot each
                     // fetch the same chapter.
-                    pendingDownloads += filterChaptersForDownload.await(novel, newChapters)
+                    ledger.arrived(novel, newChapters, filterChaptersForDownload.await(novel, newChapters))
                 }
                 // A successful check clears any previously recorded error.
                 if (trackErrors) runCatchingCancellable { deleteNovelUpdateErrors.byNovelIds(listOf(novel.id)) }
@@ -251,46 +223,6 @@ class NovelUpdateWorker(
         if (failed.isNotEmpty()) {
             notifier.showUpdateErrors(failed.size, errorFile.getUriCompat(context), trackErrors)
         }
-        return true
-    }
-
-    /**
-     * A finished run's arrivals, counted, announced and downloaded one copy per merged chapter: a
-     * group's sources each report the same chapter, and counting them apart told the user it had
-     * arrived once per source. Reads the stitch, so it runs after the run's reconcile. Returns the
-     * arrivals the badge should carry.
-     */
-    private suspend fun announceArrivals(
-        updates: List<Pair<Novel, List<NovelChapter>>>,
-        pendingDownloads: MutableList<NovelChapter>,
-    ): Int {
-        val announced = if (updates.isEmpty()) {
-            updates
-        } else {
-            val arrivals = collapseNewUpdates(updates)
-            // One download per merged chapter, chosen among the copies this run found eligible rather
-            // than by intersecting with the announced set: eligibility is per entry, so the copy that
-            // may be downloaded is often not the copy the stitch ranks first.
-            val collapsed = pendingDownloads.distinctBy { arrivals.dedupeKey(it.id) }
-            pendingDownloads.clear()
-            pendingDownloads.addAll(collapsed)
-            updates.mapNotNull { (novel, chapters) ->
-                chapters.filter { it.id in arrivals.announced }.takeIf { it.isNotEmpty() }?.let { novel to it }
-            }
-        }
-        notifier.showResults(announced)
-        return announced.sumOf { it.second.size }
-    }
-
-    /** The chapter ids this run should act on, one per merged chapter. The twin of the manga job's,
-     *  over the same kernel. */
-    private suspend fun collapseNewUpdates(updates: List<Pair<Novel, List<NovelChapter>>>): CollapsedArrivals {
-        val newByNovel = updates.associate { (novel, chapters) -> novel.id to chapters }
-        val groupOf = mergeGroupRepository.getAllMemberships(ContentType.NOVELS)
-            .filterKeys { it in newByNovel.keys }
-        val stitches = groupOf.values.distinct()
-            .associateWith { mergedChapterUnitRepository.getStitch(ContentType.NOVELS, it) }
-        return collapseNewChapters(newByNovel, groupOf, stitches) { it.id }
     }
 
     /** Re-parse the novel, store the source's metadata, sync page 1, and walk any newly-opened

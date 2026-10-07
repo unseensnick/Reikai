@@ -21,7 +21,6 @@ import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import exh.source.LIBRARY_UPDATE_EXCLUDED_SOURCES
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -29,7 +28,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
@@ -39,6 +37,8 @@ import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.data.library.LibraryUpdateRun
+import reikai.data.library.UpdateRunLedger
 import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
 import reikai.data.library.shouldDeferLibraryUpdate
@@ -54,14 +54,8 @@ import reikai.domain.library.smartUpdateFacts
 import reikai.domain.library.smartUpdateSkip
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
-import reikai.domain.merge.CollapsedArrivals
-import reikai.domain.merge.MergeGroupRepository
-import reikai.domain.merge.MergedChapterUnitRepository
-import reikai.domain.merge.ReconcileMergedChapters
-import reikai.domain.merge.collapseNewChapters
 import reikai.util.workRunningFlow
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
@@ -117,13 +111,8 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
     @Inject private lateinit var deleteLibraryUpdateErrors: DeleteLibraryUpdateErrors
     private val updateErrorLog = UpdateErrorLog(context)
 
-    // RK: keeps a merged entry's deduplicated unread count in step with newly fetched chapters, and
-    //     collapses a run's new chapters so a merge group counts one arrival rather than one per source
-    @Inject private lateinit var reconcileMergedChapters: ReconcileMergedChapters
-
-    @Inject private lateinit var mergeGroupRepository: MergeGroupRepository
-
-    @Inject private lateinit var mergedChapterUnitRepository: MergedChapterUnitRepository
+    // RK: reconciles the merged stitch after the run and collapses its arrivals, shared with novels
+    @Inject private lateinit var libraryUpdateRun: LibraryUpdateRun
 
     @Inject private lateinit var notifier: LibraryUpdateNotifier
 
@@ -243,25 +232,25 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
      *
      * @return an observable delivering the progress of each update.
      */
-    private suspend fun updateChapterList() {
-        // RK: both outlive the run itself, so a cancelled one still queues what it fetched and still
-        //     counts it. See [finishRun].
-        val newUpdates = CopyOnWriteArrayList<Pair<Manga, Array<Chapter>>>()
-        val pendingDownloads = CopyOnWriteArrayList<Pair<Manga, List<Chapter>>>()
-        var counted: Int? = null
-        try {
-            reconcileMergedChapters.afterPass { runUpdate(newUpdates, pendingDownloads) }
-            counted = collapseArrivals(newUpdates, pendingDownloads)
-        } finally {
-            finishRun(counted, newUpdates, pendingDownloads)
-        }
-    }
+    // RK --> the run's bookkeeping is shared with the novel update job, in LibraryUpdateRun.kt
+    private suspend fun updateChapterList() = libraryUpdateRun<Manga, Chapter>(
+        ContentType.MANGA,
+        entryId = { it.id },
+        chapterId = { it.id },
+        announce = { updates ->
+            notifier.showUpdateNotifications(updates.map { (manga, chapters) -> manga to chapters.toTypedArray() })
+        },
+        queueDownloads = { downloads ->
+            // Queued five wide, as they were when each entry queued its own inside the run.
+            coroutineScope {
+                downloads.map { (manga, chapters) -> async { downloadChapters(manga, chapters) } }.awaitAll()
+            }
+            downloadManager.startDownloads()
+        },
+    ) { runUpdate(it) }
 
-    /** RK: the run itself, which fills [newUpdates] and [pendingDownloads] as it goes. */
-    private suspend fun runUpdate(
-        newUpdates: MutableList<Pair<Manga, Array<Chapter>>>,
-        pendingDownloads: MutableList<Pair<Manga, List<Chapter>>>,
-    ) {
+    private suspend fun runUpdate(ledger: UpdateRunLedger<Manga, Chapter>) {
+        // RK <--
         val semaphore = Semaphore(5)
         val progressCount = AtomicInt(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
@@ -297,12 +286,7 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
                                             //     group's sources cannot each fetch the same chapter.
                                             //     Nothing starts downloading mid-run either way.
                                             val chaptersToDownload = filterChaptersForDownload.await(manga, newChapters)
-                                            if (chaptersToDownload.isNotEmpty()) {
-                                                pendingDownloads.add(manga to chaptersToDownload)
-                                            }
-
-                                            // Convert to the manga that contains new chapters
-                                            newUpdates.add(manga to newChapters.toTypedArray())
+                                            ledger.arrived(manga, newChapters, chaptersToDownload)
                                         }
                                         // RK: a successful check clears any previously recorded error
                                         if (reikaiLibraryPreferences.trackUpdateErrors.get()) {
@@ -352,73 +336,6 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
             )
         }
         // RK <--
-    }
-
-    /**
-     * RK: a finished run's arrivals, counted, announced and downloaded one copy per merged chapter: a
-     * group's sources each report the same chapter, and counting them apart told the user it had
-     * arrived once per source. Reads the stitch, so it runs after the run's reconcile. Returns the
-     * arrivals the badge should carry, null when nothing arrived.
-     */
-    private suspend fun collapseArrivals(
-        newUpdates: List<Pair<Manga, Array<Chapter>>>,
-        pendingDownloads: MutableList<Pair<Manga, List<Chapter>>>,
-    ): Int? {
-        if (newUpdates.isEmpty()) return null
-        val arrivals = collapseNewUpdates(newUpdates)
-        val announced = newUpdates.mapNotNull { (manga, chapters) ->
-            chapters.filter { it.id in arrivals.announced }
-                .takeIf { it.isNotEmpty() }
-                ?.let { manga to it.toTypedArray() }
-        }
-        // Empty when every arrival was a copy of a chapter the group already had, and the summary
-        // reads "for 0 entries" if it is posted anyway.
-        if (announced.isNotEmpty()) notifier.showUpdateNotifications(announced)
-        // One download per merged chapter, chosen among the copies this run found ELIGIBLE rather
-        // than by intersecting with the announced set: eligibility is per entry (its categories,
-        // its own read chapters), so the copy that may be downloaded is often not the copy the
-        // stitch ranks first, and intersecting the two left the chapter downloading from nowhere.
-        val collapsed = pendingDownloads
-            .flatMap { (manga, chapters) -> chapters.map { manga to it } }
-            .distinctBy { (_, chapter) -> arrivals.dedupeKey(chapter.id) }
-            .groupBy({ it.first }, { it.second })
-            .map { (manga, chapters) -> manga to chapters }
-        pendingDownloads.clear()
-        pendingDownloads.addAll(collapsed)
-        return announced.sumOf { it.second.size }
-    }
-
-    /**
-     * RK: what a run owes whether or not it finished. A cancelled run has already written its chapters,
-     * and they are never new again, so its downloads still have to be queued and its arrivals still have
-     * to reach the badge: dropping either loses them for good. Uncollapsed on that path, since the
-     * collapse needs the whole run; [counted] is null exactly then.
-     */
-    private suspend fun finishRun(
-        counted: Int?,
-        newUpdates: List<Pair<Manga, Array<Chapter>>>,
-        pendingDownloads: List<Pair<Manga, List<Chapter>>>,
-    ) = withContext(NonCancellable) {
-        val arrivals = counted ?: newUpdates.sumOf { it.second.size }
-        if (arrivals > 0) libraryPreferences.newUpdatesCount.getAndSet { it + arrivals }
-        if (pendingDownloads.isNotEmpty()) {
-            // Queued five wide, as they were when each entry queued its own inside the run.
-            coroutineScope {
-                pendingDownloads.map { (manga, chapters) -> async { downloadChapters(manga, chapters) } }.awaitAll()
-            }
-            downloadManager.startDownloads()
-        }
-    }
-
-    /** RK: the chapter ids this run should act on, one per merged chapter. Only the groups that
-     *  actually updated are resolved, so a library with no merged entry pays one membership query. */
-    private suspend fun collapseNewUpdates(updates: List<Pair<Manga, Array<Chapter>>>): CollapsedArrivals {
-        val newByManga = updates.associate { (manga, chapters) -> manga.id to chapters.toList() }
-        val groupOf = mergeGroupRepository.getAllMemberships(ContentType.MANGA)
-            .filterKeys { it in newByManga.keys }
-        val stitches = groupOf.values.distinct()
-            .associateWith { mergedChapterUnitRepository.getStitch(ContentType.MANGA, it) }
-        return collapseNewChapters(newByManga, groupOf, stitches) { it.id }
     }
 
     private suspend fun downloadChapters(manga: Manga, chapters: List<Chapter>) {

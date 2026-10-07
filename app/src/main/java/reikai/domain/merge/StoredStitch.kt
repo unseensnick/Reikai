@@ -167,6 +167,19 @@ fun <T> collapseNewChapters(
     return CollapsedArrivals(announced, keyOf)
 }
 
+/** [collapseNewChapters] reading the stitch of only the groups that gained chapters, so a library with
+ *  no merged entry among them reads none. [memberships] is entry id to group id. */
+suspend fun <T> collapseNewChapters(
+    newByEntry: Map<Long, List<T>>,
+    memberships: Map<Long, Long>,
+    stitchOf: suspend (groupId: Long) -> List<ChapterUnit>,
+    id: (T) -> Long,
+): CollapsedArrivals {
+    val groupOf = memberships.filterKeys { it in newByEntry }
+    val stitches = groupOf.values.distinct().associateWith { stitchOf(it) }
+    return collapseNewChapters(newByEntry, groupOf, stitches, id)
+}
+
 /**
  * Every chapter that is the same merged chapter as one of [chapterIds], the given ones included. What
  * an action taken on the merged list has to reach, so marking a chapter read marks the group's copies
