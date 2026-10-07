@@ -20,6 +20,7 @@ import exh.metadata.MetadataUtil
 import exh.metadata.metadata.LanraragiSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
+import exh.source.layeredMangaUpdate
 import exh.util.SourceTagsUtil
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
@@ -79,25 +80,19 @@ class Lanraragi(delegate: HttpSource, val context: Context) :
         return GET(uri.toString(), headers)
     }
 
-    // capture gallery metadata on the details fetch, delegate chapters to the stock source.
     override suspend fun getMangaUpdate(
         manga: SManga,
         chapters: List<SChapter>,
         fetchDetails: Boolean,
         fetchChapters: Boolean,
-    ): SMangaUpdate {
-        val updatedManga = if (fetchDetails) {
-            val response = client.newCall(customMangaDetailsRequest(manga)).awaitSuccess()
-            parseToManga(manga, response)
-        } else {
-            manga
-        }
-        val updatedChapters = if (fetchChapters) {
-            delegate.getMangaUpdate(manga, chapters, fetchDetails = false, fetchChapters = true).chapters
-        } else {
-            chapters
-        }
-        return SMangaUpdate(updatedManga, updatedChapters)
+    ): SMangaUpdate = layeredMangaUpdate(
+        manga,
+        chapters,
+        fetchDetails,
+        fetchChapters,
+        detailsRequest = ::customMangaDetailsRequest,
+    ) { base, response ->
+        parseToManga(base, response)
     }
 
     override suspend fun parseIntoMetadata(metadata: LanraragiSearchMetadata, input: Response) {

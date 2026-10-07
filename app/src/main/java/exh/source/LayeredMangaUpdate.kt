@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
+import okhttp3.Request
 import okhttp3.Response
 
 /**
@@ -17,12 +18,13 @@ suspend fun DelegatedHttpSource.layeredMangaUpdate(
     chapters: List<SChapter>,
     fetchDetails: Boolean,
     fetchChapters: Boolean,
+    detailsRequest: suspend (SManga) -> Request = { mangaDetailsRequest(it) },
     parseOver: suspend (base: SManga, response: Response) -> SManga,
 ): SMangaUpdate {
     val own = delegate.getMangaUpdate(manga, chapters, fetchDetails, fetchChapters)
     if (!fetchDetails) return own
     // A details parse leaves the url unset, and the metadata keys its row on it.
     val base = own.manga.also { it.url = manga.url }
-    val response = client.newCall(mangaDetailsRequest(manga)).awaitSuccess()
+    val response = client.newCall(detailsRequest(manga)).awaitSuccess()
     return SMangaUpdate(parseOver(base, response), own.chapters)
 }

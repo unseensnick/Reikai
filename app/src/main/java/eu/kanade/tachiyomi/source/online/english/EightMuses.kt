@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.source.online.english
 import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
-import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SChapter
@@ -17,6 +16,7 @@ import eu.kanade.tachiyomi.util.asJsoup
 import exh.metadata.metadata.EightMusesSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
+import exh.source.layeredMangaUpdate
 import exh.util.urlImportFetchSearchMangaSuspend
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -32,26 +32,13 @@ class EightMuses(delegate: HttpSource, val context: Context) :
     override fun tagSearchQuery(namespace: String, tag: String) = tag
     override val lang = "en"
 
-    // capture gallery metadata on the details fetch, delegate chapters to the stock source.
-    // URL import (Komikku's fetchSearchManga override) is deferred with GalleryAdder.
     override suspend fun getMangaUpdate(
         manga: SManga,
         chapters: List<SChapter>,
         fetchDetails: Boolean,
         fetchChapters: Boolean,
-    ): SMangaUpdate {
-        val updatedManga = if (fetchDetails) {
-            val response = client.newCall(mangaDetailsRequest(manga)).awaitSuccess()
-            parseToManga(manga, response.asJsoup())
-        } else {
-            manga
-        }
-        val updatedChapters = if (fetchChapters) {
-            delegate.getMangaUpdate(manga, chapters, fetchDetails = false, fetchChapters = true).chapters
-        } else {
-            chapters
-        }
-        return SMangaUpdate(updatedManga, updatedChapters)
+    ): SMangaUpdate = layeredMangaUpdate(manga, chapters, fetchDetails, fetchChapters) { base, response ->
+        parseToManga(base, response.asJsoup())
     }
 
     // resolve a pasted 8muses gallery URL via GalleryAdder; otherwise run a normal search.

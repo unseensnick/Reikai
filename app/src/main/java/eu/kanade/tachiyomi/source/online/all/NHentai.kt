@@ -22,6 +22,7 @@ import exh.metadata.metadata.NHentaiSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
+import exh.source.layeredMangaUpdate
 import exh.util.SourceTagsUtil
 import exh.util.trimOrNull
 import exh.util.urlImportFetchSearchMangaSuspend
@@ -54,25 +55,13 @@ class NHentai(delegate: HttpSource, val context: Context) :
             else -> NHentaiSearchMetadata.TITLE_TYPE_SHORT
         }
 
-    // capture gallery metadata on the details fetch, delegate chapters to the stock source.
     override suspend fun getMangaUpdate(
         manga: SManga,
         chapters: List<SChapter>,
         fetchDetails: Boolean,
         fetchChapters: Boolean,
-    ): SMangaUpdate {
-        val updatedManga = if (fetchDetails) {
-            val response = client.newCall(mangaDetailsRequest(manga)).awaitSuccess()
-            parseToManga(manga, response)
-        } else {
-            manga
-        }
-        val updatedChapters = if (fetchChapters) {
-            delegate.getMangaUpdate(manga, chapters, fetchDetails = false, fetchChapters = true).chapters
-        } else {
-            chapters
-        }
-        return SMangaUpdate(updatedManga, updatedChapters)
+    ): SMangaUpdate = layeredMangaUpdate(manga, chapters, fetchDetails, fetchChapters) { base, response ->
+        parseToManga(base, response)
     }
 
     // resolve a pasted nhentai gallery URL via GalleryAdder; otherwise run a normal search.
