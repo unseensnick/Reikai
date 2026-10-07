@@ -29,9 +29,7 @@ class LnPluginUpdateWorker(
     override suspend fun doWork(): Result {
         return try {
             val graph = applicationContext.appGraph
-            val updates = graph.lnPluginUpdateChecker.check()
-            graph.lnPluginUpdateNotifier.setPendingCount(updates.size)
-            graph.novelPreferences.lastLnPluginCheck().set(System.currentTimeMillis())
+            val updates = graph.lnPluginUpdateChecker.checkAndRecord()
             if (updates.isNotEmpty()) graph.lnPluginUpdateNotifier.promptUpdates(updates.map { it.entry.name })
             Result.success()
         } catch (e: CancellationException) {

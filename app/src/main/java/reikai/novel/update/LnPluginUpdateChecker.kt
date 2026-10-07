@@ -46,19 +46,22 @@ class LnPluginUpdateChecker(
         )
     }
 
+    /** [check], then the Browse badge count and the stamp [runIfStale] gates on, for every caller. */
+    suspend fun checkAndRecord(): List<LnPluginUpdate> {
+        val updates = check()
+        notifier.setPendingCount(updates.size)
+        prefs.lastLnPluginCheck().set(System.currentTimeMillis())
+        return updates
+    }
+
     /**
      * Cache-gated entry point for app launch and Browse open. Skips when the last check was less than
      * 6h ago so launching the app twice in quick succession doesn't hammer every registry.
      */
     suspend fun runIfStale() {
-        val now = System.currentTimeMillis()
         val staleAfter = prefs.lastLnPluginCheck().get() + TimeUnit.HOURS.toMillis(CACHE_HOURS)
-        if (now < staleAfter) return
-        runCatchingCancellable {
-            val updates = check()
-            notifier.setPendingCount(updates.size)
-            prefs.lastLnPluginCheck().set(now)
-        }.onFailure {
+        if (System.currentTimeMillis() < staleAfter) return
+        runCatchingCancellable { checkAndRecord() }.onFailure {
             logcat(LogPriority.WARN, it) { "update-check: runIfStale failed" }
         }
     }
