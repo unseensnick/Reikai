@@ -38,7 +38,6 @@ import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.merge.ReconcileMergedChapters
-import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -52,7 +51,6 @@ import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.InsertFlatMetadata
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.i18n.MR
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.days
 
@@ -180,8 +178,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
                             failedUpdates += UpdateErrorEntry(
                                 title = manga.title,
                                 sourceName = sourceManager.getOrStub(manga.source).toString(),
-                                message = with(context) { (e.cause ?: e).updateFailureMessage() }
-                                    ?: context.stringResource(MR.strings.unknown),
+                                message = with(context) { (e.cause ?: e).updateFailureMessage() },
                             )
                             logcat(LogPriority.ERROR, e) { "Network error while updating EHentai gallery ${manga.id}" }
                         }

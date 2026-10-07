@@ -37,8 +37,10 @@ import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.data.library.EntryCheck
 import reikai.data.library.LibraryUpdateRun
 import reikai.data.library.UpdateRunLedger
+import reikai.data.library.checkUpdateEntry
 import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
 import reikai.data.library.shouldDeferLibraryUpdate
@@ -67,7 +69,6 @@ import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.i18n.MR
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.atomics.AtomicInt
@@ -254,7 +255,8 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
         val semaphore = Semaphore(5)
         val progressCount = AtomicInt(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
-        val failedUpdates = CopyOnWriteArrayList<Pair<Manga, String?>>()
+        val failedUpdates = CopyOnWriteArrayList<Pair<Manga, String>>() // RK: the message is never null now
+        val trackErrors = reikaiLibraryPreferences.trackUpdateErrors.get() // RK: read once per run
         val timeZone = TimeZone.currentSystemDefault()
         val fetchWindow = fetchInterval.getWindow(Clock.System.now().toLocalDateTime(timeZone).date, timeZone)
 
@@ -267,46 +269,31 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
                                 val manga = libraryManga.manga
                                 ensureActive()
 
-                                // Don't continue to update if manga is not in library
-                                if (getManga.await(manga.id)?.favorite != true) {
-                                    return@forEach
-                                }
-
-                                withUpdateNotification(
-                                    currentlyUpdatingManga,
-                                    progressCount,
-                                    manga,
+                                // RK --> the skip, the progress and the error bookkeeping are one step
+                                //        the novel update job takes too
+                                val outcome = checkUpdateEntry(
+                                    stillInLibrary = { getManga.await(manga.id)?.favorite == true },
+                                    progress = {
+                                        withUpdateNotification(currentlyUpdatingManga, progressCount, manga, it)
+                                    },
+                                    trackErrors = trackErrors,
+                                    clearError = { deleteLibraryUpdateErrors.byMangaIds(listOf(manga.id)) },
+                                    recordError = { upsertLibraryUpdateError.await(manga.id, it) },
+                                    failureMessage = { with(context) { it.updateFailureMessage() } },
                                 ) {
-                                    try {
-                                        val newChapters = updateManga(manga, fetchWindow)
-                                            .sortedByDescending { it.sourceOrder }
+                                    // RK <--
+                                    val newChapters = updateManga(manga, fetchWindow)
+                                        .sortedByDescending { it.sourceOrder }
 
-                                        if (newChapters.isNotEmpty()) {
-                                            // RK: queued after the run rather than here, so a merge
-                                            //     group's sources cannot each fetch the same chapter.
-                                            //     Nothing starts downloading mid-run either way.
-                                            val chaptersToDownload = filterChaptersForDownload.await(manga, newChapters)
-                                            ledger.arrived(manga, newChapters, chaptersToDownload)
-                                        }
-                                        // RK: a successful check clears any previously recorded error
-                                        if (reikaiLibraryPreferences.trackUpdateErrors.get()) {
-                                            runCatching { deleteLibraryUpdateErrors.byMangaIds(listOf(manga.id)) }
-                                        }
-                                    } catch (e: Throwable) {
-                                        // RK: the wording is shared with the novel update job
-                                        val errorMessage = with(context) { e.updateFailureMessage() }
-                                        failedUpdates.add(manga to errorMessage)
-                                        // RK: record the failure for the Update errors screen
-                                        if (reikaiLibraryPreferences.trackUpdateErrors.get()) {
-                                            runCatching {
-                                                upsertLibraryUpdateError.await(
-                                                    manga.id,
-                                                    errorMessage ?: context.stringResource(MR.strings.unknown),
-                                                )
-                                            }
-                                        }
+                                    if (newChapters.isNotEmpty()) {
+                                        // RK: queued after the run rather than here, so a merge
+                                        //     group's sources cannot each fetch the same chapter.
+                                        //     Nothing starts downloading mid-run either way.
+                                        val chaptersToDownload = filterChaptersForDownload.await(manga, newChapters)
+                                        ledger.arrived(manga, newChapters, chaptersToDownload)
                                     }
                                 }
+                                if (outcome is EntryCheck.Failed) failedUpdates.add(manga to outcome.message) // RK
                             }
                         }
                     }
@@ -324,7 +311,7 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
                 UpdateErrorEntry(
                     title = manga.title,
                     sourceName = sourceManager.getOrStub(manga.source).toString(),
-                    message = message ?: context.stringResource(MR.strings.unknown),
+                    message = message,
                 )
             },
         )
@@ -332,7 +319,7 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
             notifier.showUpdateErrorNotification(
                 failedUpdates.size,
                 errorFile.getUriCompat(context),
-                reikaiLibraryPreferences.trackUpdateErrors.get(),
+                trackErrors,
             )
         }
         // RK <--

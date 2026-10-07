@@ -12,11 +12,11 @@ import tachiyomi.i18n.MR
 /** A library update's failure for one entry as Mihon's `LibraryUpdateWorker` words it; the manga and novel
  *  jobs both ask here. */
 context(context: Context)
-fun Throwable.updateFailureMessage(): String? = when (this) {
+fun Throwable.updateFailureMessage(): String = when (this) {
     is NoChaptersException -> context.stringResource(MR.strings.no_chapters_error)
     // The failure list already names the source, so the message does not repeat it.
     is SourceNotInstalledException -> context.stringResource(MR.strings.loader_not_implemented_error)
-    else -> message
+    else -> message ?: context.stringResource(MR.strings.unknown)
 }
 
 /**

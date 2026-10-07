@@ -129,6 +129,7 @@ agent under Settings -> Advanced.
 - **Grouping the library by source now shows real source names on the category tabs, not the raw internal key.**
 - **Grouping the library by language now names each language as Browse does, with multi-language sources under Multi.**
 - **A new-chapters notification now counts unnumbered chapters in its "and N more", and no longer counts a merged series' repeated chapter number as an extra.**
+- **A novel removed from your library during a library update is no longer checked or announced.**
 - **Library update progress no longer reads one percent low.**
 - **The library update no longer refetches a finished adult-source series you have read, and the series keeps the description and status its source gives it.**
 - **The novel library-update and download category filters now include the Default (uncategorized) group, as manga's do.**

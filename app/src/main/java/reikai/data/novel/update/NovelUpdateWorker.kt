@@ -30,8 +30,10 @@ import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
+import reikai.data.library.EntryCheck
 import reikai.data.library.LibraryUpdateRun
 import reikai.data.library.UpdateRunLedger
+import reikai.data.library.checkUpdateEntry
 import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
 import reikai.data.library.shouldDeferLibraryUpdate
@@ -63,12 +65,10 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
 import reikai.util.workRunningFlow
-import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.i18n.MR
 import kotlin.time.Clock
 
 /**
@@ -190,32 +190,30 @@ class NovelUpdateWorker(
         val failed = mutableListOf<UpdateErrorEntry>()
         favorites.forEachIndexed { index, novel ->
             currentCoroutineContext().ensureActive()
-            // [index] is how many are already done, which is what the bar reports while this one runs.
-            notifier.showProgress(novel, index, favorites.size)
-            try {
+            val outcome = checkUpdateEntry(
+                stillInLibrary = { novelRepo.getById(novel.id)?.favorite == true },
+                // [index] is how many are already done, which is what the bar reports while this one runs;
+                // again once it is done, so the bar actually reaches its end.
+                progress = { check ->
+                    notifier.showProgress(novel, index, favorites.size)
+                    check()
+                    notifier.showProgress(novel, index + 1, favorites.size)
+                },
+                trackErrors = trackErrors,
+                clearError = { deleteNovelUpdateErrors.byNovelIds(listOf(novel.id)) },
+                recordError = { upsertNovelUpdateError.await(novel.id, it) },
+                failureMessage = { with(context) { it.updateFailureMessage() } },
+            ) {
                 val newChapters = checkNovel(novel, sourceManager.getOrThrow(novel.source), fetchWindow)
                 if (newChapters.isNotEmpty()) {
                     // Queued after the run rather than here, so a merge group's sources cannot each
                     // fetch the same chapter.
                     ledger.arrived(novel, newChapters, filterChaptersForDownload.await(novel, newChapters))
                 }
-                // A successful check clears any previously recorded error.
-                if (trackErrors) runCatchingCancellable { deleteNovelUpdateErrors.byNovelIds(listOf(novel.id)) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Throwable) {
-                logcat(LogPriority.ERROR, e) { "Novel update failed: ${novel.title}" }
-                val message = with(context) { e.updateFailureMessage() } ?: context.stringResource(MR.strings.unknown)
-
-                failed += UpdateErrorEntry(novel.title, sourceManager.nameOf(novel.source), message)
-                // Record the failure for the Update errors screen.
-                if (trackErrors) {
-                    runCatchingCancellable { upsertNovelUpdateError.await(novel.id, message) }
-                }
             }
-            // Again once the entry is done, so the bar actually reaches its end; the manga job posts
-            // the same pair around each entry.
-            notifier.showProgress(novel, index + 1, favorites.size)
+            if (outcome is EntryCheck.Failed) {
+                failed += UpdateErrorEntry(novel.title, sourceManager.nameOf(novel.source), outcome.message)
+            }
         }
         // The dump is one file shared with the other updaters, rewritten on every run so a novel that
         // has since updated stops appearing in it.
