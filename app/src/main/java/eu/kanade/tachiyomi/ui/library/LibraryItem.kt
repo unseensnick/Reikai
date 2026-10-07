@@ -1,12 +1,6 @@
 package eu.kanade.tachiyomi.ui.library
 
-import exh.metadata.sql.models.SearchTag
-import exh.metadata.sql.models.SearchTitle
-import exh.search.Namespace
-import exh.search.QueryComponent
-import exh.search.Text
 import reikai.domain.entry.EntryId
-import reikai.presentation.library.GallerySearchIndex
 import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.SourceBadge
 import tachiyomi.domain.library.model.LibraryManga
@@ -39,50 +33,7 @@ data class LibraryItem(
 ) {
     val id: Long = libraryManga.id
 
-    // RK --> tag-search engine for adult/metadata sources. Every entry matches through the query AST
-    // (libraryQueryMatches, which replaced upstream's matcher); a gallery entry ALSO gets this
-    // structured grammar (namespace:tag, wildcards, exclusion, exact), which the AST has no equivalent
-    // for. The caller (LibraryViewModel's search filter) ORs the two grammars for positive queries and
-    // ANDs them for exclusion-only ones, because an excluded component this grammar cannot resolve
-    // passes vacuously and an OR would then keep rows the AST kernel excluded. The gallery's tags and
-    // alt-titles come from gallerySearchIndexFor, read per search rather than carried on every row.
-    fun matchesMetadataQuery(parsedQuery: List<QueryComponent>, index: GallerySearchIndex): Boolean =
-        parsedQuery.all { matchesComponent(it, index.tags[id], index.titles[id]) }
-
-    // Match one parsed query component against this entry, honouring its excluded flag. A Namespace
-    // checks the indexed tags (namespace + optional tag pattern); a Text matches across the entry's
-    // title, author, artist, description, source name, genres, tags and alt-titles.
-    private fun matchesComponent(
-        component: QueryComponent,
-        searchTags: List<SearchTag>?,
-        searchTitles: List<SearchTitle>?,
-    ): Boolean {
-        val manga = libraryManga.manga
-        val sourceName = metadataSourceName.orEmpty()
-        val matched = when (component) {
-            is Namespace -> {
-                val tag = component.tag
-                searchTags?.any {
-                    it.namespace.equals(component.namespace, true) &&
-                        (tag == null || tag.asRegex(component.exact).containsMatchIn(it.name))
-                } ?: false
-            }
-            is Text -> {
-                val regex = component.asRegex(component.exact)
-                regex.containsMatchIn(manga.title) ||
-                    (manga.author?.let { regex.containsMatchIn(it) } ?: false) ||
-                    (manga.artist?.let { regex.containsMatchIn(it) } ?: false) ||
-                    (manga.description?.let { regex.containsMatchIn(it) } ?: false) ||
-                    regex.containsMatchIn(sourceName) ||
-                    (manga.genre?.any { regex.containsMatchIn(it) } ?: false) ||
-                    (searchTags?.any { regex.containsMatchIn(it.name) } ?: false) ||
-                    (searchTitles?.any { regex.containsMatchIn(it.title) } ?: false)
-            }
-            else -> true
-        }
-        return matched != component.excluded
-    }
-    // RK <--
+    // RK: the EXH tag-search matcher moved to LibraryItem.matchesMetadataQuery (GallerySearchIndex.kt).
 
     data class Badges(
         val downloadCount: Int,

@@ -69,6 +69,7 @@ import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
+import reikai.presentation.library.matchesMetadataQuery
 import reikai.presentation.library.memberIds
 import reikai.presentation.library.memberIdsOf
 import reikai.presentation.library.mergeCollapseInputsFlow

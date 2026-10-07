@@ -45,12 +45,12 @@ Mechanism:
 
 - `app/src/main/java/exh/search/` (net-new): `SearchEngine.parseQuery`, `Text.asRegex`, and the
   component types.
-- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryItem.kt`: `matchesMetadataQuery(parsedQuery, index)`
-  evaluates the tag grammar per entry (`matchesComponent`); the old plain-string `matches` fallback is gone.
 - `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryViewModel.kt`: parses once and passes
   the components and the index in.
 - `app/src/main/java/reikai/presentation/library/GallerySearchIndex.kt`: `gallerySearchIndexFor`,
-  which reads the tag and title tables only for a search over a library holding a gallery.
+  which reads the tag and title tables only for a search over a library holding a gallery, and
+  `LibraryItem.matchesMetadataQuery(parsedQuery, index)`, which evaluates the tag grammar per entry
+  (`matchesComponent`); the old plain-string `matches` fallback is gone.
 - `data/.../search_titles.sq` + `GetSearchTitles.awaitAll()` + `MangaMetadataRepository.getAllTitles()`:
   a `selectAll` query so titles batch-load like tags (no migration, query-only change).
 - Tests: `app/src/test/java/exh/search/SearchEngineTest.kt`.
