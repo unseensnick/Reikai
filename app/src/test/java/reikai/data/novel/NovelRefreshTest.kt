@@ -13,6 +13,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -110,6 +111,7 @@ class NovelRefreshTest {
         chapters,
         novels,
         preferences,
+        NoChapterNumberOverrides,
         coverCache,
         novelDownloadManager = downloadManager,
         manualFetch = manualFetch,
@@ -305,6 +307,7 @@ class NovelRefreshTest {
         chapters,
         novels,
         libraryPreferences,
+        NoChapterNumberOverrides,
         page = page,
     )
 
@@ -338,7 +341,14 @@ class NovelRefreshTest {
     }
 
     private suspend fun open(source: PagedSource, path: String = "/opened") =
-        insertOpenedNovel(source.parseNovel(path), source.id, novels, chapters, libraryPreferences)!!
+        insertOpenedNovel(
+            source.parseNovel(path),
+            source.id,
+            novels,
+            chapters,
+            libraryPreferences,
+            NoChapterNumberOverrides,
+        )!!
 
     @Test
     fun `an opened novel is stored outside the library`() = runTest {

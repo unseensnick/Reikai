@@ -28,12 +28,14 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.withContext
 import mihon.domain.extension.model.ContentWarning
+import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.merge.MergedChapterUnitRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -104,6 +106,7 @@ class NovelReaderViewModelHarness private constructor(
     private val chapterRepo = NovelChapterRepositoryImpl(database)
     private val groups = MergeGroupRepositoryImpl(database)
     private val units = MergedChapterUnitRepositoryImpl(database)
+    val numberOverrides = ChapterNumberOverrideRepositoryImpl(database)
 
     /** One permit per plugin host load, which a details screen asks for just before it names a group's chips. */
     val pluginLoads = Semaphore(0)
@@ -349,6 +352,8 @@ class NovelReaderViewModelHarness private constructor(
             ),
             reikaiLibraryPreferences = reikaiLibraryPreferences,
             libraryPreferences = LibraryPreferences(store),
+            chapterNumberOverrides = numberOverrides,
+            editChapterNumber = EditChapterNumber(numberOverrides, ReconcileMergedChapters(units, setOf(stitcher))),
             context = mockk(relaxed = true),
             getCustomNovelInfo = mockk(relaxed = true) { every { subscribe(any()) } returns flowOf(null) },
             setCustomNovelInfo = mockk(relaxed = true),

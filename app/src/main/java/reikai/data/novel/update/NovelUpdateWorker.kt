@@ -42,6 +42,7 @@ import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.category.isUpdateScope
+import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.ReleaseInterval
@@ -109,6 +110,8 @@ class NovelUpdateWorker(
     @Inject private lateinit var preferences: NovelPreferences
 
     @Inject private lateinit var libraryPreferences: LibraryPreferences
+
+    @Inject private lateinit var chapterNumberOverrides: ChapterNumberOverrideRepository
 
     @Inject private lateinit var coverCache: CoverCache
 
@@ -303,6 +306,7 @@ class NovelUpdateWorker(
         chapterRepo,
         novelRepo,
         libraryPreferences,
+        chapterNumberOverrides,
         coverCache,
         novelDownloadManager = downloadManager,
         fetchWindow = fetchWindow,

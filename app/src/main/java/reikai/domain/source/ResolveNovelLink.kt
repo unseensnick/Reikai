@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import reikai.data.novel.insertOpenedNovel
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.sentName
+import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -32,6 +33,7 @@ class ResolveNovelLink(
     private val novelRepository: NovelRepository,
     private val novelChapterRepository: NovelChapterRepository,
     private val libraryPreferences: LibraryPreferences,
+    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val coverCache: CoverCache,
 ) {
 
@@ -42,6 +44,7 @@ class ResolveNovelLink(
         novelRepository: NovelRepository,
         novelChapterRepository: NovelChapterRepository,
         libraryPreferences: LibraryPreferences,
+        chapterNumberOverrides: ChapterNumberOverrideRepository,
         coverCache: CoverCache,
     ) : this(
         {
@@ -51,6 +54,7 @@ class ResolveNovelLink(
         novelRepository,
         novelChapterRepository,
         libraryPreferences,
+        chapterNumberOverrides,
         coverCache,
     )
 
@@ -92,6 +96,7 @@ class ResolveNovelLink(
             novelRepository,
             novelChapterRepository,
             libraryPreferences,
+            chapterNumberOverrides,
         ) ?: return null
         return NovelLinkTarget.Novel(source.id, path)
     }
@@ -119,6 +124,7 @@ class ResolveNovelLink(
                     novelChapterRepository,
                     novelRepository,
                     libraryPreferences,
+                    chapterNumberOverrides,
                     coverCache,
                 )
                 novelChapterRepository.getByUrlAndNovelId(link.chapterPath, novel.id)
@@ -133,5 +139,6 @@ class ResolveNovelLink(
             novelRepository,
             novelChapterRepository,
             libraryPreferences,
+            chapterNumberOverrides,
         )
 }

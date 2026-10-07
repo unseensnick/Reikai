@@ -83,12 +83,15 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.updateerror.refreshFailureMessage
+import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.DownloadCandidates
+import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
@@ -238,6 +241,7 @@ class MangaViewModel(
     private val trackPorts: EntryTrackPorts,
     private val autoBindTrackers: AutoBindTrackers,
     private val remoteFirstRemoval: RemoteFirstRemoval,
+    private val editChapterNumber: EditChapterNumber,
     // RK <--
 ) : ViewModel() {
 
@@ -1161,6 +1165,26 @@ class MangaViewModel(
     fun toggleShowHidden() {
         showHiddenFlow.value = !showHiddenFlow.value
     }
+
+    // The one selected chapter's number dialog, by the rule novels share (EditChapterNumber).
+    fun showChapterNumberDialog() {
+        val chapter = successState?.processedChapters?.singleOrNull { it.selected }?.chapter ?: return
+        viewModelScope.launchIO {
+            val edit = editChapterNumber.edit(
+                ContentType.MANGA,
+                chapter.mangaId,
+                chapter.url,
+                chapter.name,
+                chapter.chapterNumber,
+            )
+            updateSuccessState { it.copy(dialog = Dialog.ChapterNumber(edit)) }
+        }
+    }
+
+    fun saveChapterNumber(edit: ChapterNumberEdit, number: Double?) {
+        viewModelScope.launchNonCancellable { editChapterNumber.save(edit, number) }
+        toggleAllSelection(false)
+    }
     // RK <--
 
     /**
@@ -1590,6 +1614,9 @@ class MangaViewModel(
 
         // RK: confirm clearing downloads, the target captured when it opened
         data class ClearDownloads(val target: ClearDownloadsTarget) : Dialog
+
+        // RK: correct one chapter's number, the chapter read when it opened
+        data class ChapterNumber(val edit: ChapterNumberEdit) : Dialog
 
         // RK: the adder's whole prompt in place of duplicates, so its groups, labels and grouping offer reach
         // the shared dialog as one value

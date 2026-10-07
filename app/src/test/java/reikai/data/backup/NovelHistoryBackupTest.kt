@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.Novel
 import tachiyomi.data.Database
@@ -83,5 +84,6 @@ class NovelHistoryBackupTest {
         customNovelInfoRepository = mockk(),
         novelHistoryRepository = NovelHistoryRepositoryImpl(database),
         novelSourceManager = mockk(),
+        chapterNumberOverrides = NoChapterNumberOverrides,
     )
 }

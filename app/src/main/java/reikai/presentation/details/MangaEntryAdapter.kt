@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo
 import reikai.presentation.components.chapterSubtitle
@@ -224,6 +225,14 @@ class MangaEntryAdapter(
 
     override fun hideSelected() {
         model.hideSelected()
+    }
+
+    override fun showChapterNumberDialog() {
+        model.showChapterNumberDialog()
+    }
+
+    override fun saveChapterNumber(edit: ChapterNumberEdit, number: Double?) {
+        model.saveChapterNumber(edit, number)
     }
     override fun unhideSelected() {
         model.unhideSelected()

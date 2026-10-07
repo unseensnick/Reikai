@@ -2,7 +2,8 @@
 # purpose. One per line: file A, file B, hash of the normalised tokens (tab-separated). Regenerate
 # with: pwsh scripts/dup-check.ps1 -UpdateBaseline, and say in the commit why a new one is kept.
 app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/exh/md/MangaDexSyncWorker.kt	943d0a5dd1973047
-app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	d6bc9e4d169381b2
+app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	1730026bbb3617ab
+app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	25aba8238eba00c1
 app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2c29e37627a0b44e
 app/src/main/java/exh/md/MangaDexSyncWorker.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	1730026bbb3617ab
 app/src/main/java/exh/md/MangaDexSyncWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2c29e37627a0b44e
@@ -17,11 +18,12 @@ app/src/main/java/reikai/domain/library/updateerror/LibraryUpdateErrorInteractor
 app/src/main/java/reikai/domain/manga/MangaGroupStitcher.kt	app/src/main/java/reikai/domain/novel/NovelGroupStitcher.kt	921901091f325374
 app/src/main/java/reikai/domain/manga/PropagateTrackerLinks.kt	app/src/main/java/reikai/domain/novel/track/PropagateNovelTrackerLinks.kt	e388e1016493e46c
 app/src/main/java/reikai/domain/manga/RemoveMangaFromLibrary.kt	app/src/main/java/reikai/domain/novel/interactor/RemoveNovelsFromLibrary.kt	976ebdcb01bdd4ad
+app/src/main/java/reikai/domain/novel/interactor/MigrateNovelUseCase.kt	app/src/main/java/reikai/presentation/library/novels/NovelLibraryViewModel.kt	911483f9f3220bd1
 app/src/main/java/reikai/domain/novel/NovelChapterAggregation.kt	domain/src/main/java/reikai/domain/manga/ChapterAggregation.kt	b68c4663445dff92
 app/src/main/java/reikai/novel/source/TachiyomiNovelSource.kt	app/src/main/java/reikai/novel/source/ireader/IReaderNovelSource.kt	29c26324d163de81
 app/src/main/java/reikai/presentation/browse/catalogue/SavedSearchDialogs.kt	app/src/main/java/reikai/presentation/browse/feed/FeedDialogs.kt	09675367cbee9fc1
-app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	0abe3a0e2674ad8e
 app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	1c7ccaf49745f4af
+app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	8bd53860c36690a8
 app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	9eba8524505a0ee7
 app/src/main/java/reikai/presentation/library/EntryDisplayPage.kt	app/src/main/java/reikai/presentation/library/ReikaiLibrarySettings.kt	3747b29f5d50de9e
 app/src/main/java/reikai/presentation/library/MangaLibraryAdapter.kt	app/src/main/java/reikai/presentation/library/NovelLibraryAdapter.kt	9f4fe78029d2a134

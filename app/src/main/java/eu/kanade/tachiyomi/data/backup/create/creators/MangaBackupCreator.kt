@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import kotlinx.coroutines.flow.first
 import mihon.core.common.extensions.toByteArray
 import reikai.data.backup.BackupEntryParts
+import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import tachiyomi.domain.category.interactor.GetCategories
@@ -43,6 +44,8 @@ class MangaBackupCreator(
     private val getManga: GetManga,
     // RK: merge group members outside the library are backed up so a restored group keeps them.
     private val mergeGroupRepository: MergeGroupRepository,
+    // RK: chapter numbers the user corrected, carried beside the source's own.
+    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
 ) : BackupEntryParts<Manga, BackupManga> { // RK
 
     // RK --> the option gates and the choice of which manga to back up live in the driver shared with
@@ -82,9 +85,12 @@ class MangaBackupCreator(
     }
 
     override suspend fun chapters(entry: Manga, backup: BackupManga) {
+        val overrides = chapterNumberOverrides.getByOwner(ContentType.MANGA, entry.id)
         // Backup all the chapters
         chapterRepository.getChapterByMangaId(entry.id, applyScanlatorFilter = false)
-            .map { it.toBackupChapter() }
+            .map { chapter ->
+                chapter.toBackupChapter().apply { sourceChapterNumber = overrides[chapter.url]?.sourceNumber }
+            }
             .takeUnless { it.isEmpty() }
             ?.let { backup.chapters = it }
     }

@@ -16,6 +16,7 @@ import kotlinx.coroutines.test.runTest
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelChapterRepository
@@ -317,6 +318,7 @@ object NovelProbe : Probe {
             migrateNovel = mockk(),
             mergeManager = mockk(),
             installer = mockk(relaxed = true),
+            chapterNumberOverrides = NoChapterNumberOverrides,
         )
     }
 

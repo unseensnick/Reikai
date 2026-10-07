@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.RestoreMergeGroups
 import tachiyomi.data.Database
@@ -84,6 +85,7 @@ class NovelRestorerChapterReadsTest {
         restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
         setCustomNovelInfo = mockk(relaxed = true),
         novelHistoryRepository = NovelHistoryRepositoryImpl(database),
+        chapterNumberOverrides = NoChapterNumberOverrides,
     ).restore(
         BackupNovel(
             source = "src",

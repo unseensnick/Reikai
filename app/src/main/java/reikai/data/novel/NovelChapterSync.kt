@@ -1,9 +1,12 @@
 package reikai.data.novel
 
 import reikai.domain.chapter.ArrivingChapter
+import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.StoredChapter
+import reikai.domain.chapter.appliedTo
 import reikai.domain.chapter.chapterArrivals
 import reikai.domain.chapter.remoteUploadDate
+import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -30,6 +33,7 @@ suspend fun syncChaptersWithNovelSource(
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     libraryPreferences: LibraryPreferences,
+    numberOverrides: ChapterNumberOverrideRepository,
     page: String? = null,
     novelDownloadManager: NovelDownloadManager? = null,
 ): NovelChapterSyncResult {
@@ -40,7 +44,15 @@ suspend fun syncChaptersWithNovelSource(
 
     val dbChapters = novelChapterRepository.getByNovelId(novelId)
 
-    val sourceChapters = rawSourceChapters.toSourceChapters(novelId, novel.title, page)
+    // A number the user corrected replaces the source's, by the rule the manga sync applies too.
+    val overridden = numberOverrides.getByOwner(ContentType.NOVELS, novelId).appliedTo(
+        rawSourceChapters.toSourceChapters(novelId, novel.title, page),
+        urlOf = { it.url },
+        numberOf = { it.chapterNumber },
+        withNumber = { chapter, number -> chapter.copy(chapterNumber = number) },
+    )
+    numberOverrides.updateSourceNumbers(ContentType.NOVELS, novelId, overridden.moved)
+    val sourceChapters = overridden.chapters
 
     val toAdd = mutableListOf<NovelChapter>()
     val toChange = mutableListOf<NovelChapter>()

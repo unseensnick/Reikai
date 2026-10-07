@@ -31,6 +31,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.LnSourceIdentity
@@ -160,6 +161,7 @@ class BackupCustomInfoConformanceTest {
                     },
                     getManga = mockk(),
                     mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
+                    chapterNumberOverrides = NoChapterNumberOverrides,
                 ),
                 preferenceBackupCreator = mockk(relaxed = true),
                 extensionStoresBackupCreator = mockk(relaxed = true),
@@ -186,6 +188,7 @@ class BackupCustomInfoConformanceTest {
                             }
                         },
                     ),
+                    chapterNumberOverrides = NoChapterNumberOverrides,
                 ),
                 extensionBackupCreator = mockk(relaxed = true),
                 feedBackupCreator = mockk(relaxed = true),
@@ -348,6 +351,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
             setCustomNovelInfo = SetCustomNovelInfo(repository),
             novelHistoryRepository = mockk(relaxed = true),
+            chapterNumberOverrides = NoChapterNumberOverrides,
         )
         backup.backupNovels.forEach {
             restorer.restore(

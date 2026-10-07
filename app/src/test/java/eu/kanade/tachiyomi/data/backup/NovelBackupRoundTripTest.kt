@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
@@ -38,6 +39,7 @@ class NovelBackupRoundTripTest {
         restoreMergeGroups = RestoreMergeGroups(repository, PassThroughTransactions),
         setCustomNovelInfo = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true),
+        chapterNumberOverrides = NoChapterNumberOverrides,
     )
 
     @Test
@@ -61,6 +63,7 @@ class NovelBackupRoundTripTest {
             customNovelInfoRepository = mockk(relaxed = true),
             novelHistoryRepository = mockk(relaxed = true),
             novelSourceManager = mockk(),
+            chapterNumberOverrides = NoChapterNumberOverrides,
         )
         // Library + merges only; skip chapters/categories/tracking/history so no DB is touched.
         val options = BackupOptions(
@@ -163,6 +166,7 @@ class NovelBackupRoundTripTest {
             customNovelInfoRepository = mockk(),
             novelHistoryRepository = mockk(),
             novelSourceManager = mockk(),
+            chapterNumberOverrides = NoChapterNumberOverrides,
         )
         val backup = BackupNovel(source = "s1", url = "u")
         creator.chapters(novel(1, "u", "s1"), backup)

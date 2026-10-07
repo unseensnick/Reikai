@@ -269,6 +269,7 @@ private fun EntryDetailsToolbar(
         onHide = behavior::hideSelected,
         onUnhide = behavior::unhideSelected,
         onToggleShowHidden = behavior::toggleShowHidden,
+        onCorrectChapterNumber = { behavior.showChapterNumberDialog() }.takeIf { state.selection.size == 1 },
         showHidden = state.chapters.showHidden,
         hasHiddenChapters = state.chapters.hasHiddenChapters,
         allHiddenSelected = state.chapters.showHidden && state.selection.isNotEmpty() &&

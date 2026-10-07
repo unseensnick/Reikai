@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
@@ -92,6 +93,7 @@ class NovelRestorerWriteFailureTest {
         restoreMergeGroups = mockk(relaxed = true),
         setCustomNovelInfo = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true),
+        chapterNumberOverrides = NoChapterNumberOverrides,
     )
 
     private val backup = BackupNovel(

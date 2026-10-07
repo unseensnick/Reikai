@@ -16,6 +16,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
+import reikai.domain.chapter.backedUpOverrides
 import reikai.domain.library.ContentType
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.RestoreMergeGroups
@@ -74,6 +75,12 @@ class MangaRestorer(
                 // RK --> adult gallery metadata and custom info, keyed to the restored id in the repository
                 searchMetadata = backupManga.searchMetadata?.toFlatMetadata(),
                 customInfo = backupManga.customInfo?.toCustomMangaInfo(mangaId = 0L),
+                chapterNumberOverrides = backedUpOverrides(
+                    backupManga.chapters,
+                    urlOf = { it.url },
+                    numberOf = { it.chapterNumber.toDouble() },
+                    sourceNumberOf = { it.sourceChapterNumber },
+                ),
                 // RK <--
             )
         }

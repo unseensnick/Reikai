@@ -1,0 +1,100 @@
+-- A chapter number the user corrected, one table per content type, keyed by the chapter's owner and url
+-- so a refresh that deletes and re-adds the row keeps it. The corrected number is written on the chapter
+-- row too; source_number is what the source says, which clearing writes back.
+CREATE TABLE manga_chapter_number_override(
+    manga_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    number REAL NOT NULL,
+    source_number REAL NOT NULL,
+    PRIMARY KEY(manga_id, url),
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE novel_chapter_number_override(
+    novel_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    number REAL NOT NULL,
+    source_number REAL NOT NULL,
+    PRIMARY KEY(novel_id, url),
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+getMangaOverrides:
+SELECT url, number, source_number
+FROM manga_chapter_number_override
+WHERE manga_id = :ownerId;
+
+getNovelOverrides:
+SELECT url, number, source_number
+FROM novel_chapter_number_override
+WHERE novel_id = :ownerId;
+
+-- The first correction keeps the row's number as the source's; a later one only moves the correction.
+setMangaOverride:
+INSERT INTO manga_chapter_number_override(manga_id, url, number, source_number)
+SELECT manga_id, remote_url, :number, remote_chapter_number
+FROM chapter
+WHERE manga_id = :ownerId AND remote_url = :url
+ON CONFLICT(manga_id, url) DO UPDATE SET number = excluded.number;
+
+setNovelOverride:
+INSERT INTO novel_chapter_number_override(novel_id, url, number, source_number)
+SELECT novel_id, url, :number, chapter_number
+FROM novel_chapters
+WHERE novel_id = :ownerId AND url = :url
+ON CONFLICT(novel_id, url) DO UPDATE SET number = excluded.number;
+
+upsertManga:
+INSERT OR REPLACE INTO manga_chapter_number_override(manga_id, url, number, source_number)
+VALUES (:ownerId, :url, :number, :sourceNumber);
+
+upsertNovel:
+INSERT OR REPLACE INTO novel_chapter_number_override(novel_id, url, number, source_number)
+VALUES (:ownerId, :url, :number, :sourceNumber);
+
+deleteManga:
+DELETE FROM manga_chapter_number_override
+WHERE manga_id = :ownerId AND url = :url;
+
+deleteNovel:
+DELETE FROM novel_chapter_number_override
+WHERE novel_id = :ownerId AND url = :url;
+
+-- Every corrected chapter row of the owner takes its correction.
+applyMangaOverrides:
+UPDATE chapter
+SET remote_chapter_number = (
+    SELECT O.number FROM manga_chapter_number_override O
+    WHERE O.manga_id = chapter.manga_id AND O.url = chapter.remote_url
+)
+WHERE manga_id = :ownerId
+AND remote_url IN (SELECT url FROM manga_chapter_number_override WHERE manga_id = :ownerId);
+
+applyNovelOverrides:
+UPDATE novel_chapters
+SET chapter_number = (
+    SELECT O.number FROM novel_chapter_number_override O
+    WHERE O.novel_id = novel_chapters.novel_id AND O.url = novel_chapters.url
+)
+WHERE novel_id = :ownerId
+AND url IN (SELECT url FROM novel_chapter_number_override WHERE novel_id = :ownerId);
+
+clearMangaChapterNumber:
+UPDATE chapter
+SET remote_chapter_number = (
+    SELECT O.source_number FROM manga_chapter_number_override O
+    WHERE O.manga_id = chapter.manga_id AND O.url = chapter.remote_url
+)
+WHERE manga_id = :ownerId AND remote_url = :url
+AND EXISTS (SELECT 1 FROM manga_chapter_number_override WHERE manga_id = :ownerId AND url = :url);
+
+clearNovelChapterNumber:
+UPDATE novel_chapters
+SET chapter_number = (
+    SELECT O.source_number FROM novel_chapter_number_override O
+    WHERE O.novel_id = novel_chapters.novel_id AND O.url = novel_chapters.url
+)
+WHERE novel_id = :ownerId AND url = :url
+AND EXISTS (SELECT 1 FROM novel_chapter_number_override WHERE novel_id = :ownerId AND url = :url);

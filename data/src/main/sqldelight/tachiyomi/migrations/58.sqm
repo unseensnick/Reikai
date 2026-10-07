@@ -1,0 +1,21 @@
+-- A chapter number the user corrected, kept apart from the chapter row so a refresh keeps it (see
+-- data/chapter_number_override.sq).
+CREATE TABLE manga_chapter_number_override(
+    manga_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    number REAL NOT NULL,
+    source_number REAL NOT NULL,
+    PRIMARY KEY(manga_id, url),
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE novel_chapter_number_override(
+    novel_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    number REAL NOT NULL,
+    source_number REAL NOT NULL,
+    PRIMARY KEY(novel_id, url),
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);

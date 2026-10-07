@@ -5,6 +5,8 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.mockk.mockk
+import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
@@ -42,6 +44,7 @@ fun mangaRestorer(
             trackRepository = TrackRepositoryImpl(database),
             mangaMetadataRepository = MangaMetadataRepositoryImpl(database),
             setCustomMangaInfo = SetCustomMangaInfo(customInfo),
+            chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
         ),
         getCategories = GetCategories(CategoryRepositoryImpl(database)),
         fetchInterval = FetchInterval(GetChaptersByMangaId(chapters)),
@@ -79,6 +82,7 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
         restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
         setCustomNovelInfo = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true),
+        chapterNumberOverrides = NoChapterNumberOverrides,
     )
 
     /** Stores a bare device copy under a chosen [id], for a test that pins the id a restore writes under. */

@@ -16,6 +16,7 @@ import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.manga.MangaMergeManager
@@ -841,6 +842,7 @@ class NovelEngine : MigrateEngine {
             transactions = rec,
             sourceTracker = sourceTracker,
             novelHistoryRepository = history,
+            chapterNumberOverrides = NoChapterNumberOverrides,
         )
         val current = Novel.create().copy(
             id = MigrateEngineConformanceTest.SOURCE,

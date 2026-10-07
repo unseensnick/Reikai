@@ -64,6 +64,8 @@ fun EntryToolbar(
     onClickWordCount: (() -> Unit)? = null,
 
     // For action mode
+    // Correct chapter number, non-null only while exactly one chapter is selected.
+    onCorrectChapterNumber: (() -> Unit)? = null,
     actionModeCounter: Int,
     onCancelActionMode: () -> Unit,
     onSelectAll: () -> Unit,
@@ -140,6 +142,14 @@ fun EntryToolbar(
                                     title = stringResource(MR.strings.action_hide),
                                     icon = MaterialSymbols.Rounded.VisibilityOff,
                                     onClick = onHide,
+                                ),
+                            )
+                        }
+                        if (onCorrectChapterNumber != null) {
+                            add(
+                                AppBar.OverflowAction(
+                                    title = stringResource(MR.strings.action_correct_chapter_number),
+                                    onClick = onCorrectChapterNumber,
                                 ),
                             )
                         }

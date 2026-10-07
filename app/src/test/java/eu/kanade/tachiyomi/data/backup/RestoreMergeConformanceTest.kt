@@ -14,6 +14,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelChapterRepository
@@ -426,5 +427,6 @@ class NovelMergeRestorer : MergeRestorer {
         restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
         setCustomNovelInfo = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true),
+        chapterNumberOverrides = NoChapterNumberOverrides,
     )
 }

@@ -29,6 +29,9 @@ class BackupChapter(
     // RK: the chapter's page count, so a restored library keeps "Page: 5/38" instead of falling back
     // to "Page: 5" until every chapter is opened again. 700-range stays clear of Mihon's numbers.
     @ProtoNumber(700) var pageCount: Long = 0,
+    // RK: the source's own number when the user corrected it, the corrected one being chapterNumber, so
+    // a restore keeps the correction and clearing it still finds the source's number. Null when uncorrected.
+    @ProtoNumber(701) var sourceChapterNumber: Double? = null,
 ) {
     fun toChapterImpl(): Chapter {
         return Chapter.create().copy(

@@ -5,6 +5,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import kotlinx.coroutines.flow.StateFlow
+import reikai.domain.chapter.ChapterNumberEdit
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
 
@@ -56,6 +57,14 @@ interface EntryDetailsBehavior {
     fun hideSelected()
     fun unhideSelected()
     fun toggleShowHidden()
+
+    // Chapter number.
+
+    /** Open the number dialog for the one selected chapter. */
+    fun showChapterNumberDialog()
+
+    /** Correct [edit]'s chapter to [number], or put the source's own back for null. */
+    fun saveChapterNumber(edit: ChapterNumberEdit, number: Double?)
 
     // Categories.
     fun showChangeCategoryDialog()

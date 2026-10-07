@@ -18,6 +18,7 @@ import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.DeleteChaptersDialog
 import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.util.Screen
+import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.DetailsRemoval
 import reikai.presentation.components.EntryCoverDialog
@@ -67,6 +68,9 @@ sealed interface EntryDetailsDialog {
 
     /** The heart's remove asking about every grouped source, [removal] captured when it opened. */
     data class RemoveFromLibrary(val removal: DetailsRemoval) : EntryDetailsDialog
+
+    /** Correct one chapter's number, [edit] read when it opened. */
+    data class ChapterNumber(val edit: ChapterNumberEdit) : EntryDetailsDialog
 }
 
 /** One merge source for the manage-sources dialog: id + name + chapter count (for the coverage subtitle). */
@@ -194,6 +198,11 @@ fun Screen.EntryDetailsDialogHost(
             groupedSourceCount = dialog.removal.groupIds.size,
             onDismissRequest = onDismissRequest,
             onConfirm = { behavior.removeFromLibrary(dialog.removal.targets(it)) },
+        )
+        is EntryDetailsDialog.ChapterNumber -> ChapterNumberDialog(
+            edit = dialog.edit,
+            onDismissRequest = onDismissRequest,
+            onSave = { behavior.saveChapterNumber(dialog.edit, it) },
         )
     }
 }

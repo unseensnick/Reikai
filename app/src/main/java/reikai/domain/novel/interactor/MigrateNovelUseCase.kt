@@ -7,6 +7,7 @@ import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.backup.mergedHistory
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
@@ -52,6 +53,7 @@ class MigrateNovelUseCase(
     private val sourceManager: NovelSourceManager,
     private val novelRepository: NovelRepository,
     private val libraryPreferences: LibraryPreferences,
+    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     // So the favorite swap and the merge-group rewrite can share one transaction; see below.
     private val transactions: Transactions,
     private val sourceTracker: SourceTrackerDispatcher,
@@ -95,6 +97,7 @@ class MigrateNovelUseCase(
                     novelChapterRepository,
                     novelRepository,
                     libraryPreferences,
+                    chapterNumberOverrides,
                     coverCache,
                     novelDownloadManager,
                 )

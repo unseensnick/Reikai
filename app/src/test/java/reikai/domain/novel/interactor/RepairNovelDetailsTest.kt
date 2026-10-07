@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.ChapterItem
@@ -173,6 +174,7 @@ class RepairNovelDetailsTest {
                 repository = mockk(relaxed = true),
                 stitchers = emptySet(),
             ),
+            chapterNumberOverrides = NoChapterNumberOverrides,
         )
 
         repair.await()

@@ -162,6 +162,9 @@
     <string name="action_unhide">Unhide</string>
     <string name="action_show_hidden_chapters">Show hidden chapters</string>
     <string name="action_hide_hidden_chapters">Hide hidden chapters</string>
+    <!-- RK: correcting a chapter's number (details selection toolbar, shared by manga + novel) -->
+    <string name="action_correct_chapter_number">Correct chapter number</string>
+    <string name="chapter_number_source">The source says %1$s</string>
     <!-- RK: pref-based merge (manage grouped sources) -->
     <string name="action_manage_sources">Manage sources</string>
     <string name="action_metadata_viewer">Gallery info</string>

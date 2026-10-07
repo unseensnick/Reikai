@@ -16,6 +16,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.mapLibraryNovel
+import reikai.domain.chapter.NoChapterNumberOverrides
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
@@ -77,5 +78,6 @@ class NovelLegacyLastReadRestoreTest {
         restoreMergeGroups = mockk(),
         setCustomNovelInfo = mockk(),
         novelHistoryRepository = NovelHistoryRepositoryImpl(database),
+        chapterNumberOverrides = NoChapterNumberOverrides,
     )
 }

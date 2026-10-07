@@ -7,6 +7,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
@@ -47,6 +48,7 @@ class MigrateNovelUseCaseTest {
         transactions = PassThroughTransactions,
         sourceTracker = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true),
+        chapterNumberOverrides = NoChapterNumberOverrides,
     )
 
     @Test

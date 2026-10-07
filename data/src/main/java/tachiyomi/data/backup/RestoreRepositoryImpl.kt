@@ -20,6 +20,8 @@ import reikai.domain.backup.foldChapterCopies
 import reikai.domain.backup.foldHistoryCopies
 import reikai.domain.backup.mergedHistory
 import reikai.domain.backup.restoredFavoriteAt
+import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.library.ContentType
 import tachiyomi.data.Database
 import tachiyomi.domain.backup.model.RestoredHistory
 import tachiyomi.domain.backup.model.RestoredManga
@@ -46,6 +48,7 @@ class RestoreRepositoryImpl(
     // RK --> the parts of an entry Mihon's backup does not carry
     private val mangaMetadataRepository: MangaMetadataRepository,
     private val setCustomMangaInfo: SetCustomMangaInfo,
+    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     // RK <--
 ) : RestoreRepository {
 
@@ -71,6 +74,7 @@ class RestoreRepositoryImpl(
             mangaRepository.setMangaCategories(manga.id, entry.categoryIds)
         }
         restoreChapters(manga, entry.chapters)
+        chapterNumberOverrides.restore(ContentType.MANGA, manga.id, entry.chapterNumberOverrides) // RK
         restoreTracking(manga, entry.tracks)
         restoreHistory(manga, entry.history)
         restoreExcludedScanlators(manga, entry.excludedScanlators)

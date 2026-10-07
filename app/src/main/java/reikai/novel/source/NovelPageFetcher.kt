@@ -11,6 +11,7 @@ import reikai.data.novel.predictNovelFetchInterval
 import reikai.data.novel.storeRefreshedNovel
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
+import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.download.NovelChapterSaver
@@ -32,6 +33,7 @@ class NovelPageFetcher(
     private val chapterRepo: NovelChapterRepository,
     private val sourceManager: NovelSourceManager,
     private val libraryPreferences: LibraryPreferences,
+    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val coverCache: CoverCache,
     private val saver: NovelChapterSaver,
     private val novelDownloadManager: () -> NovelDownloadManager,
@@ -67,6 +69,7 @@ class NovelPageFetcher(
             chapterRepo,
             novelRepo,
             libraryPreferences,
+            chapterNumberOverrides,
             novelDownloadManager = novelDownloadManager(),
         )
         predictNovelFetchInterval(novel, synced.changed, manualFetch = true, chapterRepo, novelRepo)

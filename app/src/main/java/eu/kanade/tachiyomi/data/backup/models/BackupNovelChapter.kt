@@ -20,6 +20,8 @@ class BackupNovelChapter(
     // page: volume/section label for paged sources; empty when the source doesn't expose it.
     @ProtoNumber(10) var page: String = "",
     @ProtoNumber(11) var scanlator: String? = null,
+    // The source's own number when the user corrected it, as BackupChapter carries it. Null when uncorrected.
+    @ProtoNumber(12) var sourceChapterNumber: Double? = null,
     // No download flag is carried: the on-disk text file isn't in the backup, so downloaded state is
     // rederived from disk by NovelDownloadCache after restore.
 ) {

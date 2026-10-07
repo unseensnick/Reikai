@@ -16,6 +16,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.library.ContentType
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -103,6 +104,7 @@ class GroupMemberBackupConformanceTest {
                 },
                 getManga = GetManga(MangaRepositoryImpl(database)),
                 mergeGroupRepository = groups,
+                chapterNumberOverrides = NoChapterNumberOverrides,
             )
             options.backupEntries(creator).toList().map { it.url to it.favorite }
         } else {
@@ -116,6 +118,7 @@ class GroupMemberBackupConformanceTest {
                 customNovelInfoRepository = mockk(),
                 novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                 novelSourceManager = mockk(),
+                chapterNumberOverrides = NoChapterNumberOverrides,
             )
             options.backupEntries(creator).toList().map { it.url to it.favorite }
         }

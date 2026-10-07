@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.map
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.toNovel
 import reikai.data.novel.toSourceChapters
+import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
@@ -55,6 +56,7 @@ class NovelMigrationFlowAdapter(
     private val novelRepository: NovelRepository,
     private val chapterRepository: NovelChapterRepository,
     private val libraryPreferences: LibraryPreferences,
+    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val coverCache: CoverCache,
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val migrateNovel: MigrateNovelUseCase,
@@ -249,6 +251,7 @@ class NovelMigrationFlowAdapter(
                     chapterRepository,
                     novelRepository,
                     libraryPreferences,
+                    chapterNumberOverrides,
                     coverCache,
                     novelDownloadManager = downloadManager,
                 )

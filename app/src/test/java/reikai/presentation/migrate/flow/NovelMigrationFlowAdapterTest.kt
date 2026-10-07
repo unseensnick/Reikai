@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -65,6 +66,7 @@ class NovelMigrationFlowAdapterTest {
         migrateNovel = mockk(),
         mergeManager = mockk(),
         installer = mockk(),
+        chapterNumberOverrides = NoChapterNumberOverrides,
     )
 
     private val adapter = adapter()

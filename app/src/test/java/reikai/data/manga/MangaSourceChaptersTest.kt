@@ -10,6 +10,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.NoChapterNumberOverrides
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.repository.ChapterRepository
@@ -46,6 +47,7 @@ class MangaSourceChaptersTest {
             updateManga = mockk(relaxed = true),
             getExcludedScanlators = mockk { coEvery { await(any()) } returns emptySet() },
             libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
+            chapterNumberOverrides = NoChapterNumberOverrides,
         ).await(raw, manga, source)
         return added
     }

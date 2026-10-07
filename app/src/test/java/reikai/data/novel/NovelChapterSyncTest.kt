@@ -10,6 +10,7 @@ import io.mockk.unmockkAll
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -97,6 +98,7 @@ class NovelChapterSyncTest {
                     sequenceOf(InMemoryPreference("mark_duplicate_read_chapter_read", markDuplicates, emptySet())),
                 ),
             ),
+            NoChapterNumberOverrides,
             novelDownloadManager = downloadManager,
         )
         return Synced(result, inserted, changed)

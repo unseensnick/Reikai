@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.first
 import reikai.data.backup.BackupEntryParts
 import reikai.data.backup.mergeGroupRefs
 import reikai.domain.category.CategoryContentType
+import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelChapterRepository
@@ -43,6 +44,7 @@ class NovelBackupCreator(
     private val customNovelInfoRepository: CustomNovelInfoRepository,
     private val novelHistoryRepository: NovelHistoryRepository,
     private val novelSourceManager: NovelSourceManager,
+    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
 ) : BackupEntryParts<Novel, BackupNovel> {
 
     suspend fun novelCategories(options: BackupOptions): List<BackupNovelCategory> =
@@ -69,8 +71,9 @@ class NovelBackupCreator(
     override suspend fun base(entry: Novel): BackupNovel = entry.toBackupNovel()
 
     override suspend fun chapters(entry: Novel, backup: BackupNovel) {
+        val overrides = chapterNumberOverrides.getByOwner(ContentType.NOVELS, entry.id)
         novelChapterRepository.getByNovelId(entry.id)
-            .map { it.toBackupNovelChapter() }
+            .map { it.toBackupNovelChapter(sourceNumber = overrides[it.url]?.sourceNumber) }
             .takeUnless(List<BackupNovelChapter>::isEmpty)
             ?.let { backup.chapters = it }
     }
@@ -141,7 +144,7 @@ private fun Novel.toBackupNovel() = BackupNovel(
     viewerFlags = this.viewerFlags,
 )
 
-private fun NovelChapter.toBackupNovelChapter() = BackupNovelChapter(
+private fun NovelChapter.toBackupNovelChapter(sourceNumber: Double?) = BackupNovelChapter(
     url = this.url,
     name = this.name,
     read = this.read,
@@ -153,6 +156,7 @@ private fun NovelChapter.toBackupNovelChapter() = BackupNovelChapter(
     dateUpload = this.dateUpload,
     page = this.page,
     scanlator = this.scanlator,
+    sourceChapterNumber = sourceNumber,
 )
 
 private fun NovelTrack.toBackupNovelTracking() = BackupNovelTracking(

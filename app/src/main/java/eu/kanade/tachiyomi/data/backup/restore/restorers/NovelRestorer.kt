@@ -26,6 +26,8 @@ import reikai.domain.backup.foldHistoryCopies
 import reikai.domain.backup.restoredFavoriteAt
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
+import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.backedUpOverrides
 import reikai.domain.library.ContentType
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.RestoreMergeGroups
@@ -49,6 +51,7 @@ class NovelRestorer(
     private val restoreMergeGroups: RestoreMergeGroups,
     private val setCustomNovelInfo: SetCustomNovelInfo,
     private val novelHistoryRepository: NovelHistoryRepository,
+    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
 ) {
 
     /** Create any novel categories the backup has that the device doesn't, matched by name. */
@@ -78,6 +81,11 @@ class NovelRestorer(
         }
 
         val chapters = restoreChapters(novelId, backupNovel.chapters)
+        chapterNumberOverrides.restore(
+            ContentType.NOVELS,
+            novelId,
+            backedUpOverrides(backupNovel.chapters, { it.url }, { it.chapterNumber }, { it.sourceChapterNumber }),
+        )
         // Predicted from the restored chapters rather than carried in the backup, as manga's restore does.
         novelRepository.getById(novelId)?.let { updateNovelFetchInterval(it, { chapters }, novelRepository) }
         restoreCategoryMembership(novelId, backupNovel.categories, backupCategories)

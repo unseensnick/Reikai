@@ -12,9 +12,12 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import reikai.data.manga.toSourceChapters
 import reikai.domain.chapter.ArrivingChapter
+import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.StoredChapter
+import reikai.domain.chapter.appliedTo
 import reikai.domain.chapter.chapterArrivals
 import reikai.domain.chapter.remoteUploadDate
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReleaseInterval
 import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
 import tachiyomi.domain.chapter.model.Chapter
@@ -35,6 +38,7 @@ class SyncChaptersWithSource(
     private val updateManga: UpdateManga,
     private val getExcludedScanlators: GetExcludedScanlators,
     private val libraryPreferences: LibraryPreferences,
+    private val chapterNumberOverrides: ChapterNumberOverrideRepository, // RK
 ) {
 
     /**
@@ -61,8 +65,16 @@ class SyncChaptersWithSource(
         val nowMillis = now.toInstant(timeZone).toEpochMilliseconds()
 
         // RK --> the prepare hook, both url dedupes and number recognition run in toSourceChapters, the
-        // list as a sync stores it, which the migration count peek reads too
-        val sourceChapters = rawSourceChapters.toSourceChapters(manga, source)
+        // list as a sync stores it, which the migration count peek reads too. A number the user corrected
+        // replaces the source's, by the rule the novel sync applies too.
+        val overridden = chapterNumberOverrides.getByOwner(ContentType.MANGA, manga.id).appliedTo(
+            rawSourceChapters.toSourceChapters(manga, source),
+            urlOf = { it.url },
+            numberOf = { it.chapterNumber },
+            withNumber = { chapter, number -> chapter.copy(chapterNumber = number) },
+        )
+        chapterNumberOverrides.updateSourceNumbers(ContentType.MANGA, manga.id, overridden.moved)
+        val sourceChapters = overridden.chapters
         val sourceUrls = sourceChapters.mapTo(mutableSetOf()) { it.url }
         // RK <--
 

@@ -16,6 +16,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.refreshNovelFromSource
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.SourceNovel
@@ -180,6 +181,7 @@ class NovelRefreshHalf : RefreshHalf {
             NovelChapterRepositoryImpl(database),
             novels,
             LibraryPreferences(InMemoryPreferenceStore()),
+            NoChapterNumberOverrides,
             coverCache = mockk(relaxed = true),
         )
 

@@ -50,7 +50,10 @@ import reikai.data.novel.syncOpenedChapters
 import reikai.data.novel.toNovel
 import reikai.data.novel.updateNovelFetchInterval
 import reikai.data.updateerror.refreshFailureMessage
+import reikai.domain.chapter.ChapterNumberEdit
+import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.DownloadCandidates
+import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.download.downloadStateOf
@@ -58,6 +61,7 @@ import reikai.domain.download.runChapterAction
 import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.DetailsRemoval
@@ -192,6 +196,8 @@ class NovelDetailsViewModel(
     private val mergedChapterProvider: NovelMergedChapterProvider,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val libraryPreferences: LibraryPreferences,
+    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    private val editChapterNumber: EditChapterNumber,
     private val context: Context,
     // Non-destructive custom-info overlay (edits never touch the novels row, so Reset is clean).
     private val getCustomNovelInfo: GetCustomNovelInfo,
@@ -745,11 +751,27 @@ class NovelDetailsViewModel(
     private suspend fun fetchAndSync(src: NovelSource, existing: Novel?): Novel? {
         val sourceNovel = src.parseNovel(existing?.url ?: novelUrl)
         if (existing == null) {
-            return insertOpenedNovel(sourceNovel, src.id, novelRepo, chapterRepo, libraryPreferences, downloadManager)
+            return insertOpenedNovel(
+                sourceNovel,
+                src.id,
+                novelRepo,
+                chapterRepo,
+                libraryPreferences,
+                chapterNumberOverrides,
+                downloadManager,
+            )
         }
         val parsed = sourceNovel.toNovel(sourceId = src.id, favorite = existing.favorite)
         val target = storeRefreshedNovel(existing, parsed, novelRepo, libraryPreferences, downloadManager, coverCache)
-        syncOpenedChapters(sourceNovel, target, novelRepo, chapterRepo, libraryPreferences, downloadManager)
+        syncOpenedChapters(
+            sourceNovel,
+            target,
+            novelRepo,
+            chapterRepo,
+            libraryPreferences,
+            chapterNumberOverrides,
+            downloadManager,
+        )
         return target
     }
 
@@ -771,6 +793,7 @@ class NovelDetailsViewModel(
                         chapterRepo,
                         novelRepo,
                         libraryPreferences,
+                        chapterNumberOverrides,
                         page = pageKey,
                         novelDownloadManager = downloadManager,
                     )
@@ -961,6 +984,7 @@ class NovelDetailsViewModel(
             chapterRepo,
             novelRepo,
             libraryPreferences,
+            chapterNumberOverrides,
             coverCache,
             novelDownloadManager = downloadManager,
             manualFetch = true,
@@ -980,6 +1004,7 @@ class NovelDetailsViewModel(
                         chapterRepo,
                         novelRepo,
                         libraryPreferences,
+                        chapterNumberOverrides,
                         page = key,
                         novelDownloadManager = downloadManager,
                     )
@@ -1224,6 +1249,27 @@ class NovelDetailsViewModel(
 
     fun toggleShowHidden() {
         showHiddenFlow.value = !showHiddenFlow.value
+    }
+
+    /** The one selected chapter's number dialog, by the rule manga shares ([EditChapterNumber]). */
+    fun showChapterNumberDialog() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val chapter = loaded.chapters.filter { it.id in loaded.selection }.singleOrNull() ?: return
+        viewModelScope.launchIO {
+            val edit = editChapterNumber.edit(
+                ContentType.NOVELS,
+                chapter.novelId,
+                chapter.url,
+                chapter.name,
+                chapter.chapterNumber,
+            )
+            updateLoaded { it.copy(dialog = NovelDetailsDialog.ChapterNumber(edit)) }
+        }
+    }
+
+    fun saveChapterNumber(edit: ChapterNumberEdit, number: Double?) {
+        viewModelScope.launchNonCancellable { editChapterNumber.save(edit, number) }
+        clearSelection()
     }
 
     fun markSelectedRead(read: Boolean) = withSelection { chapters -> setRead(chapters, read) }
@@ -1620,6 +1666,8 @@ sealed interface NovelDetailsDialog {
     data class DuplicateNovel(val prompt: DuplicatePrompt<NovelWithChapterCount, String>) : NovelDetailsDialog
 
     data class DeleteChapters(val chapters: List<NovelChapter>) : NovelDetailsDialog
+
+    data class ChapterNumber(val edit: ChapterNumberEdit) : NovelDetailsDialog
 
     data object ChapterSettings : NovelDetailsDialog
     data object SetFetchInterval : NovelDetailsDialog

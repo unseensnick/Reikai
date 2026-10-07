@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.expectedNextUpdate
+import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.NovelChapter
@@ -180,6 +181,14 @@ class NovelEntryAdapter(
 
     override fun hideSelected() {
         model.hideSelected()
+    }
+
+    override fun showChapterNumberDialog() {
+        model.showChapterNumberDialog()
+    }
+
+    override fun saveChapterNumber(edit: ChapterNumberEdit, number: Double?) {
+        model.saveChapterNumber(edit, number)
     }
     override fun unhideSelected() {
         model.unhideSelected()
