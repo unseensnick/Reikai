@@ -1,22 +1,16 @@
 package eu.kanade.domain.track.service
 
 import android.content.Context
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.domain.track.store.DelayedTrackingStore
-import eu.kanade.tachiyomi.util.system.workManager
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import reikai.domain.track.drainDelayedTracking
+import reikai.domain.track.enqueueDelayedTracking
 import tachiyomi.domain.track.interactor.GetTracks
-import java.util.concurrent.TimeUnit
 
 class DelayedTrackingUpdateWorker(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
@@ -48,18 +42,10 @@ class DelayedTrackingUpdateWorker(private val context: Context, workerParams: Wo
     companion object {
         private const val TAG = "DelayedTrackingUpdate"
 
+        // RK --> the request is the enqueueDelayedTracking kernel the novel job uses; port upstream changes there
         fun setupTask(context: Context) {
-            val constraints = Constraints(
-                requiredNetworkType = NetworkType.CONNECTED,
-            )
-
-            val request = OneTimeWorkRequestBuilder<DelayedTrackingUpdateWorker>()
-                .setConstraints(constraints)
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
-                .addTag(TAG)
-                .build()
-
-            context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.REPLACE, request)
+            enqueueDelayedTracking<DelayedTrackingUpdateWorker>(context, TAG)
         }
+        // RK <--
     }
 }

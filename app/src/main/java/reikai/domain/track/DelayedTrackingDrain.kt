@@ -1,10 +1,19 @@
 package reikai.domain.track
 
+import android.content.Context
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
 import androidx.work.ListenableWorker
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequest
+import androidx.work.OneTimeWorkRequestBuilder
 import eu.kanade.domain.track.store.DelayedTrackingStore.DelayedTrackingItem
+import eu.kanade.tachiyomi.util.system.workManager
 import logcat.LogPriority
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
+import java.util.concurrent.TimeUnit
 
 /**
  * One run of a delayed-tracking job: a queued id whose track is gone leaves the queue, the rest are
@@ -39,4 +48,17 @@ suspend fun <T : Any> drainDelayedTracking(
     }
 
     return if (items().isEmpty()) ListenableWorker.Result.success() else ListenableWorker.Result.retry()
+}
+
+/** The retry both delayed-tracking workers schedule: once online, backing off from five minutes. */
+inline fun <reified W : ListenableWorker> delayedTrackingRequest(tag: String): OneTimeWorkRequest =
+    OneTimeWorkRequestBuilder<W>()
+        .setConstraints(Constraints(requiredNetworkType = NetworkType.CONNECTED))
+        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
+        .addTag(tag)
+        .build()
+
+/** A new failure replaces the pending retry, so each queue has at most one, named by its [tag]. */
+inline fun <reified W : ListenableWorker> enqueueDelayedTracking(context: Context, tag: String) {
+    context.workManager.enqueueUniqueWork(tag, ExistingWorkPolicy.REPLACE, delayedTrackingRequest<W>(tag))
 }

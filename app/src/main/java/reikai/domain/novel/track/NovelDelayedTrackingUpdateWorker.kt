@@ -1,20 +1,14 @@
 package reikai.domain.novel.track
 
 import android.content.Context
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.util.system.workManager
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.track.drainDelayedTracking
-import java.util.concurrent.TimeUnit
+import reikai.domain.track.enqueueDelayedTracking
 
 /**
  * Drains the novel tracking queue through the same kernel as Mihon's manga job. A class of its own
@@ -48,17 +42,7 @@ class NovelDelayedTrackingUpdateWorker(private val context: Context, workerParam
         private const val TAG = "NovelDelayedTrackingUpdate"
 
         fun setupTask(context: Context) {
-            val constraints = Constraints(
-                requiredNetworkType = NetworkType.CONNECTED,
-            )
-
-            val request = OneTimeWorkRequestBuilder<NovelDelayedTrackingUpdateWorker>()
-                .setConstraints(constraints)
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
-                .addTag(TAG)
-                .build()
-
-            context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.REPLACE, request)
+            enqueueDelayedTracking<NovelDelayedTrackingUpdateWorker>(context, TAG)
         }
     }
 }
