@@ -36,6 +36,7 @@ import reikai.data.novel.update.NovelUpdateWorker
 import reikai.data.recommendation.taste.TrackerLibraryRefreshWorker
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.novel.DEAD_PLUGINS_NEED_REVALIDATION_KEY
 import reikai.domain.novel.DEAD_READER_AUTO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
@@ -378,16 +379,6 @@ class PreferenceRestorerTest {
         novelPreferences.readerBottomButtons().get() shouldBe customised
     }
 
-    /** The flag is a plain key, so a backup taken after a revalidation carries it as false. */
-    @ParameterizedTest(name = "flag listed {0}")
-    @MethodSource("pluginFlagOrders")
-    @DisplayName("restored plugins are revalidated whatever the backup says about the flag")
-    fun restoredPluginsAreRevalidated(order: String, entries: List<BackupPreference>) = runTest {
-        restorer.restoreApp(entries, backupCategories = null)
-
-        novelPreferences.pluginsNeedRevalidation().get() shouldBe true
-    }
-
     @Test
     @DisplayName("a live preference is still restored")
     fun aLivePreferenceIsRestored() = runTest {
@@ -423,6 +414,7 @@ class PreferenceRestorerTest {
             Arguments.of(ReikaiSourcePreferences.DEAD_DOWNLOAD_CONTENT_TYPE_KEY, StringPreferenceValue("NOVELS")),
             Arguments.of(ReikaiLibraryPreferences.DEAD_LAST_USED_NOVEL_PAGE_KEY, IntPreferenceValue(3)),
             Arguments.of(ReikaiLibraryPreferences.DEAD_LAST_USED_ALL_PAGE_KEY, IntPreferenceValue(3)),
+            Arguments.of(DEAD_PLUGINS_NEED_REVALIDATION_KEY, BooleanPreferenceValue(true)),
         ) + DEAD_READER_TTS_BUTTON_KEYS.map { Arguments.of(it, IntPreferenceValue(120)) }
 
         @JvmStatic
@@ -440,19 +432,16 @@ class PreferenceRestorerTest {
                     NovelPreferences(store).readerKeepEmbeddedJs().key(),
                     BooleanPreferenceValue(true),
                 ),
-            )
-        }
-
-        @JvmStatic
-        fun pluginFlagOrders(): List<Arguments> {
-            val urls = BackupPreference(
-                NovelPreferences.INSTALLED_PLUGIN_URLS_KEY,
-                StringSetPreferenceValue(setOf("https://example.com/plugin.js")),
-            )
-            val flag = BackupPreference(NovelPreferences.PLUGINS_NEED_REVALIDATION_KEY, BooleanPreferenceValue(false))
-            return listOf(
-                Arguments.of("after the urls", listOf(urls, flag)),
-                Arguments.of("before the urls", listOf(flag, urls)),
+                Arguments.of(
+                    "the installed light-novel plugins",
+                    NovelPreferences(store).installedPluginUrls().key(),
+                    StringSetPreferenceValue(setOf("https://example.com/plugin.js")),
+                ),
+                Arguments.of(
+                    "the installed light-novel plugins' records",
+                    NovelPreferences(store).installedPluginMetadata().key(),
+                    StringPreferenceValue("""{"https://example.com/plugin.js":{"pluginId":"p"}}"""),
+                ),
             )
         }
     }

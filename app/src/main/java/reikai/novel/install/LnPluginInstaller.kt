@@ -73,7 +73,7 @@ class LnPluginInstaller(
     private val registryMutex = Mutex()
 
     // Canonical URLs already loaded + registered this process. ensureLoaded retries only the installed
-    // URLs NOT in here, so a plugin whose load failed once (a restored script's download hitting a
+    // URLs NOT in here, so a plugin whose load failed once (a missing script's download hitting a
     // network blip or Cloudflare) heals on the next novel-screen open instead of needing a cold restart.
     private val loadedUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
@@ -106,57 +106,8 @@ class LnPluginInstaller(
 
     // Not marked done when cancelled, so a screen closed mid-load leaves the next lookup to load.
     private suspend fun loadPendingLocked() {
-        // Plugin URLs from a restored backup are untrusted until a currently-added repo vouches
-        // for them; if a repo is unreachable, load nothing this pass so an injected URL can't slip
-        // through, and retry on the next open.
-        val needsTrust = prefs.pluginsNeedRevalidation().get()
-        if (!needsTrust || revalidateInstalledAgainstReposLocked() !is Revalidated.Unreachable) {
-            loadUrlsLocked(prefs.installedPluginUrls().get() - loadedUrls)
-        }
+        loadUrlsLocked(prefs.installedPluginUrls().get() - loadedUrls)
         firstLoadDone = true
-    }
-
-    /**
-     * After a backup restore, keep only installed plugin URLs that a currently-added repo lists in its
-     * registry, and drop the rest. A restored backup can inject arbitrary plugin .js URLs that the
-     * host would auto-load and evaluate, so this is the trust gate: a plugin is trusted only because
-     * it came from a repo the user added. When a repo is unreachable nothing is dropped or loaded and the
-     * caller retries on the next open (fail-closed). Caller must hold [loadMutex].
-     */
-    private suspend fun revalidateInstalledAgainstReposLocked(): Revalidated {
-        val registries = fetchEach(prefs.addedRepoUrls().get())
-        registries.entries.firstOrNull { it.value is LnRepoResult.Unreachable }?.let { (repo, _) ->
-            logcat(LogPriority.WARN) { "plugin revalidation: repo unreachable, retrying next open: $repo" }
-            return Revalidated.Unreachable(repo)
-        }
-        val trusted = registries.values.flatMapTo(HashSet()) { result ->
-            (result as LnRepoResult.Reached).entries.map { canonicalizePluginUrl(it.url) }
-        }
-        val dropped = registryMutex.withLock {
-            val installed = prefs.installedPluginUrls().get()
-            val metadata = prefs.installedPluginMetadata().get()
-            val validated = installed.filterTo(HashSet()) { it in trusted }
-            if (validated.size != installed.size) {
-                prefs.installedPluginUrls().set(validated)
-                prefs.installedPluginMetadata().set(metadata.filterKeys { it in validated })
-            }
-            val seen = prefs.seenNovelSources().get()
-            (installed - validated).map { LnPluginLoadFailure.pluginName(it, seen[metadata[it]?.pluginId]) }
-        }
-        if (dropped.isNotEmpty()) {
-            logcat(LogPriority.WARN) {
-                "plugin revalidation: dropped ${dropped.size} url(s) not vouched by any added repo"
-            }
-        }
-        prefs.pluginsNeedRevalidation().set(false)
-        return Revalidated.Trusted(dropped)
-    }
-
-    private sealed interface Revalidated {
-        /** Safe to load; [dropped] names the restored plugins no added repo lists, which were removed. */
-        data class Trusted(val dropped: List<String>) : Revalidated
-
-        data class Unreachable(val repo: String) : Revalidated
     }
 
     suspend fun installFromUrl(
@@ -203,24 +154,12 @@ class LnPluginInstaller(
      * that previously failed. Individual failures are logged and skipped so one bad URL doesn't block
      * the rest. Prefer [ensureLoaded] for the lazy on-open path.
      */
-    suspend fun loadInstalled(): InstalledLoad = loadMutex.withLock {
-        val revalidated = if (prefs.pluginsNeedRevalidation().get()) revalidateInstalledAgainstReposLocked() else null
-        if (revalidated is Revalidated.Unreachable) return@withLock InstalledLoad(unreachableRepo = revalidated.repo)
-        loadedUrls.clear()
-        InstalledLoad(
-            loaded = loadUrlsLocked(prefs.installedPluginUrls().get()),
-            dropped = (revalidated as? Revalidated.Trusted)?.dropped.orEmpty(),
-        )
+    suspend fun loadInstalled() {
+        loadMutex.withLock {
+            loadedUrls.clear()
+            loadUrlsLocked(prefs.installedPluginUrls().get())
+        }
     }
-
-    /** What [loadInstalled] did, including why a restored plugin list loaded nothing or lost some. */
-    data class InstalledLoad(
-        val loaded: List<LnPluginSource> = emptyList(),
-        /** An added repo that could not be reached, so a restored list stayed untrusted and nothing loaded. */
-        val unreachableRepo: String? = null,
-        /** Restored plugins no added repo lists, by name; they were removed rather than loaded. */
-        val dropped: List<String> = emptyList(),
-    )
 
     /**
      * Load [urls] into the app-scoped host in parallel and register the successes, each from its stored
@@ -234,9 +173,6 @@ class LnPluginInstaller(
         val loaded = coroutineScope {
             urls.map { url -> async { withUrlLocks(listOf(url)) { loadUrl(url, metadata[url]) } } }.awaitAll()
         }.filterNotNull()
-        // Restore revalidation may have dropped installed URLs this pass never loaded.
-        val installed = prefs.installedPluginUrls().get()
-        failures.update { current -> current.filterKeys { it in installed } }
         rememberSeenSources(loaded)
         return loaded
     }
@@ -317,11 +253,10 @@ class LnPluginInstaller(
     }
 
     /**
-     * Fetch the script for an installed plugin this device has none stored for. A backup carries the
-     * URL list but never the scripts, and a cleared data dir loses them, which used to leave the
-     * plugin listed as installed with nothing able to run until the reader reinstalled it by hand.
-     * Trust is unchanged: the URL is one they installed, or one revalidation kept because an added
-     * repo vouches for it. A fetch that fails still reports the script as missing.
+     * Fetch the script for an installed plugin this device has none stored for, which a cleared data dir
+     * loses, so the plugin is not left listed as installed with nothing able to run until the reader
+     * reinstalls it by hand. Trust is unchanged: the URL is one the user installed. A fetch that fails
+     * still reports the script as missing.
      */
     private suspend fun downloadMissingScript(url: String): String = try {
         loader.download(url)

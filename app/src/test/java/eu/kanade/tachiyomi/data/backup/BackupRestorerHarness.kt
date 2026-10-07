@@ -42,9 +42,7 @@ suspend fun restoreEncoded(
         mangaRestorer = mangaRestorer,
         parser = ProtoBuf,
         novelRestorer = novelRestorer,
-        extensionRestorer = mockk(relaxed = true),
         feedRestorer = mockk(relaxed = true),
-        novelPluginRestorer = mockk(relaxed = true),
         reconcileMergedChapters = mockk<ReconcileMergedChapters> {
             coEvery { afterPass<Unit>(any()) } coAnswers { firstArg<suspend () -> Unit>().invoke() }
         },

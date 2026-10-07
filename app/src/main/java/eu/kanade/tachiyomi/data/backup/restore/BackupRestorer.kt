@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.data.backup.BackupProtoReader
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
-import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
@@ -26,11 +25,9 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.LegacyCustomInfo
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
-import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionStoreRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.FeedRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
-import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelPluginRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
 import eu.kanade.tachiyomi.data.download.DownloadCache
@@ -78,9 +75,7 @@ class BackupRestorer(
     private val parser: ProtoBuf, // RK: the streaming restore decodes field by field, no BackupDecoder
     // RK -->
     private val novelRestorer: NovelRestorer,
-    private val extensionRestorer: ExtensionRestorer,
     private val feedRestorer: FeedRestorer,
-    private val novelPluginRestorer: NovelPluginRestorer,
     private val reconcileMergedChapters: ReconcileMergedChapters,
     private val novelDownloadCache: NovelDownloadCache,
     private val adultContentChecker: AdultContentChecker,
@@ -177,18 +172,15 @@ class BackupRestorer(
                     summary.backupPreferences.takeIf { options.appSettings },
                 ).join()
             }
-            // RK: kept, so the plugin restore below can wait for the plugin and repo URLs this writes
-            val appPreferences = if (options.appSettings) {
+            if (options.appSettings) {
                 restoreAppPreferences(
                     summary.backupPreferences,
                     summary.backupCategories.takeIf { options.categories },
-                    summary.backupNovelCategories.takeIf { options.categories },
+                    summary.backupNovelCategories.takeIf { options.categories }, // RK
                 )
-            } else {
-                null
             }
             if (options.sourceSettings) {
-                restoreSourcePreferences(summary.backupSourcePreferences)
+                restoreSourcePreferences(summary.backupSourcePreferences) // RK: from the pass-1 summary
             }
             if (options.libraryEntries) {
                 restoreMangaStream(
@@ -198,7 +190,7 @@ class BackupRestorer(
                 )
             }
             if (options.extensionStores) {
-                restoreExtensionStores(summary.backupExtensionStores, summary.backupExtensions) // RK: reinstalls apps
+                restoreExtensionStores(summary.backupExtensionStores) // RK: from the pass-1 summary
             }
             // RK -->
             if (options.savedSearches) {
@@ -207,27 +199,6 @@ class BackupRestorer(
                 }
             }
             restoreNovelsStream(uri, summary, options)
-            // RK: a backup carries the plugin URLs (through the preference backup) but never their
-            // scripts, so bring those back here and name the ones that could not come, as the manga
-            // extensions above are named. Leaving it to the lazy loader meant a restore reported no
-            // errors while every novel source was unusable.
-            if (options.appSettings) {
-                ensureActive()
-                appPreferences?.join()
-                try {
-                    novelPluginRestorer.restore().forEach { (name, reason) ->
-                        errors.add(
-                            Date() to if (name != null) {
-                                "Light-novel plugin not reinstalled ($reason): $name"
-                            } else {
-                                "Light-novel plugins not reinstalled ($reason)"
-                            },
-                        )
-                    }
-                } catch (e: Exception) {
-                    errors.add(Date() to "Error reinstalling light-novel plugins: ${e.message}")
-                }
-            }
             // RK <--
 
             // TODO: optionally trigger online library + tracker update
@@ -242,7 +213,6 @@ class BackupRestorer(
         val backupPreferences = mutableListOf<BackupPreference>()
         val backupSourcePreferences = mutableListOf<BackupSourcePreferences>()
         val backupExtensionStores = mutableListOf<BackupExtensionStore>()
-        val backupExtensions = mutableListOf<BackupExtension>()
         val backupMangaMerges = mutableListOf<BackupMangaMergeGroup>()
         val backupCustomMangaInfo = mutableListOf<BackupCustomMangaInfo>()
         val backupNovelCategories = mutableListOf<BackupNovelCategory>()
@@ -269,7 +239,6 @@ class BackupRestorer(
                     parser.decodeFromByteArray(BackupSourcePreferences.serializer(), data),
                 )
                 106 -> backupExtensionStores.add(parser.decodeFromByteArray(BackupExtensionStore.serializer(), data))
-                710 -> backupExtensions.add(parser.decodeFromByteArray(BackupExtension.serializer(), data))
                 711 -> backupMangaMerges.add(parser.decodeFromByteArray(BackupMangaMergeGroup.serializer(), data))
                 713 -> backupCustomMangaInfo.add(parser.decodeFromByteArray(BackupCustomMangaInfo.serializer(), data))
                 701 -> backupNovelCategories.add(parser.decodeFromByteArray(BackupNovelCategory.serializer(), data))
@@ -295,7 +264,6 @@ class BackupRestorer(
             backupPreferences = backupPreferences,
             backupSourcePreferences = backupSourcePreferences,
             backupExtensionStores = backupExtensionStores,
-            backupExtensions = backupExtensions,
             backupMangaMerges = backupMangaMerges,
             legacyCustomInfo = LegacyCustomInfo(backupCustomMangaInfo, backupCustomNovelInfo),
             backupNovelCategories = backupNovelCategories,
@@ -318,7 +286,6 @@ class BackupRestorer(
         val backupPreferences: List<BackupPreference>,
         val backupSourcePreferences: List<BackupSourcePreferences>,
         val backupExtensionStores: List<BackupExtensionStore>,
-        val backupExtensions: List<BackupExtension>,
         val backupMangaMerges: List<BackupMangaMergeGroup>,
         // An older backup's root custom-info lists, folded onto each entry as it is decoded.
         val legacyCustomInfo: LegacyCustomInfo,
@@ -575,7 +542,6 @@ class BackupRestorer(
 
     private fun CoroutineScope.restoreExtensionStores(
         backupExtensionStores: List<BackupExtensionStore>,
-        backupExtensions: List<BackupExtension>, // RK
     ) = launch {
         backupExtensionStores
             .chunked(RESTORE_CHUNK) // RK
@@ -598,19 +564,6 @@ class BackupRestorer(
                     isSync,
                 )
             }
-
-        // RK --> with the repos restored, reinstall the recorded extension apps. Log each one that
-        // did not come back (repo missing, install failed, cancelled or timed out) so the user knows
-        // what to reinstall by hand.
-        ensureActive()
-        try {
-            extensionRestorer.restore(backupExtensions).forEach { (name, reason) ->
-                errors.add(Date() to "Extension not reinstalled (${reason.label}): $name")
-            }
-        } catch (e: Exception) {
-            errors.add(Date() to "Error reinstalling extensions: ${e.message}")
-        }
-        // RK <--
     }
 
     private fun writeErrorLog(): File {

@@ -63,7 +63,7 @@ class LnPluginLoader(
     /** Makes [script] the installed one for [url], replacing the file whole so a crash can't leave half. */
     suspend fun store(url: String, script: String): Unit = withContext(Dispatchers.IO) {
         val file = fileFor(url)
-        // Named apart per write: a restore's self-heal load and a reinstall can store one plugin at once.
+        // Named apart per write: a self-heal load and a reinstall can store one plugin at once.
         val partial = File.createTempFile(file.name, ".tmp", file.parentFile)
         try {
             partial.writeText(script)

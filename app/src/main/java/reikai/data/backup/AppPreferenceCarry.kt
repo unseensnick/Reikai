@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.network.interceptor.FLARESOLVERR_URL_KEY
 import eu.kanade.tachiyomi.network.interceptor.carryFlareSolverrUserInfo
 import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.novel.DEAD_PLUGINS_NEED_REVALIDATION_KEY
 import reikai.domain.novel.DEAD_READER_AUTO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
@@ -48,11 +49,6 @@ class AppPreferenceCarry(
         toRestore.firstOrNull { it.key == FLARESOLVERR_URL_KEY }?.let { (_, value) ->
             (value as? StringPreferenceValue)?.let { networkPreferences.carryFlareSolverrUserInfo(it.value) }
         }
-        // A restored plugin list can auto-load arbitrary .js the QuickJS host evaluates, so LnPluginInstaller
-        // validates it against the restored repos first. The list itself is still written.
-        if (toRestore.any { it.key == NovelPreferences.INSTALLED_PLUGIN_URLS_KEY }) {
-            novelPreferences.pluginsNeedRevalidation().set(true)
-        }
         write(toRestore.filterNot { (key, value) -> carry(key, value) })
         // The retired read-aloud switch still owes the bar its button, and the bar may restore after it.
         val readAloudWasOn = toRestore.any { (key, value) ->
@@ -82,6 +78,9 @@ class AppPreferenceCarry(
             // A backup may be someone else's: it never picks a silent installer for later extension
             // installs, nor lets a chapter's own scripts run.
             basePreferences.extensionInstaller.key(), novelPreferences.readerKeepEmbeddedJs().key() -> Unit
+            // Nor installs a plugin, whose script the QuickJS host would run on the next load: the restore
+            // screen lists the backup's plugins for the user to install, as it lists extension apps.
+            novelPreferences.installedPluginUrls().key(), novelPreferences.installedPluginMetadata().key() -> Unit
             // Mihon never backs up app state, extension trust among it, so only a crafted backup carries any.
             else -> return key in SKIPPED_KEYS || Preference.isAppState(key) || SKIPPED_PREFIXES.any(key::startsWith)
         }
@@ -111,11 +110,10 @@ class AppPreferenceCarry(
             ReikaiLibraryPreferences.DEAD_LAST_USED_ALL_PAGE_KEY,
             ReikaiSourcePreferences.DEAD_UPDATES_FILTER_CATEGORIES_KEY,
             ReikaiSourcePreferences.DEAD_DOWNLOAD_CONTENT_TYPE_KEY,
+            DEAD_PLUGINS_NEED_REVALIDATION_KEY,
             // The WebView developer tools let any computer with debugging rights inspect the app's
             // WebViews, so a backup never turns them on.
             NovelPreferences.WEBVIEW_DEV_TOOLS_KEY,
-            // Armed above and cleared only by a revalidation; a backup's own false must never land.
-            NovelPreferences.PLUGINS_NEED_REVALIDATION_KEY,
         ) + DEAD_READER_TTS_BUTTON_KEYS
 
         val SKIPPED_PREFIXES = listOf(

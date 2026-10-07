@@ -122,6 +122,19 @@ class RestoreBackupScreen(
                         when (error) {
                             is MissingRestoreComponents -> {
                                 appendLine(stringResource(MR.strings.backup_restore_content_full))
+                                // RK --> a restore installs no extension app or plugin, so the backup's are listed
+                                if (error.extensions.isNotEmpty()) {
+                                    appendLine()
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                        appendLine(stringResource(MR.strings.backup_restore_missing_extensions))
+                                    }
+                                    error.extensions.joinTo(
+                                        this,
+                                        separator = "\n- ",
+                                        prefix = "- ",
+                                    )
+                                }
+                                // RK <--
                                 if (error.sources.isNotEmpty()) {
                                     appendLine()
                                     withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
@@ -226,9 +239,18 @@ class RestoreBackupViewModel(
             return
         }
 
-        if (results.missingSources.isNotEmpty() || results.missingTrackers.isNotEmpty()) {
+        if (
+            results.missingSources.isNotEmpty() ||
+            results.missingTrackers.isNotEmpty() ||
+            results.missingExtensions.isNotEmpty() // RK
+        ) {
             setError(
-                error = MissingRestoreComponents(uri, results.missingSources, results.missingTrackers),
+                error = MissingRestoreComponents(
+                    uri,
+                    results.missingSources,
+                    results.missingTrackers,
+                    results.missingExtensions, // RK
+                ),
                 canRestore = true,
             )
             return
@@ -258,6 +280,7 @@ private data class MissingRestoreComponents(
     val uri: Uri,
     val sources: List<String>,
     val trackers: List<String>,
+    val extensions: List<String>, // RK
 )
 
 private data class InvalidRestore(

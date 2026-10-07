@@ -40,14 +40,7 @@ class NovelPreferences(
      * read from each plugin after load, so an unloadable plugin (404, parse error) can still be
      * uninstalled by removing its URL.
      */
-    fun installedPluginUrls() = preferenceStore.getStringSet(INSTALLED_PLUGIN_URLS_KEY, emptySet())
-
-    /**
-     * Set by backup restore when [installedPluginUrls] came from the backup. A restored set can carry
-     * arbitrary plugin .js URLs that auto-load and get evaluated, so LnPluginInstaller validates them
-     * against the added repos before loading any, then clears this flag.
-     */
-    fun pluginsNeedRevalidation() = preferenceStore.getBoolean(PLUGINS_NEED_REVALIDATION_KEY, false)
+    fun installedPluginUrls() = preferenceStore.getStringSet("ln_installed_plugin_urls", emptySet())
 
     /**
      * Per-plugin metadata side-table keyed by the same canonicalized URL as [installedPluginUrls].
@@ -57,9 +50,7 @@ class NovelPreferences(
         key = "ln_installed_plugin_metadata",
         defaultValue = emptyMap(),
         serializer = { metadataJson.encodeToString(metadataMapSerializer, it) },
-        deserializer = {
-            runCatching { metadataJson.decodeFromString(metadataMapSerializer, it) }.getOrElse { emptyMap() }
-        },
+        deserializer = { decodePluginMetadata(it) },
     )
 
     /**
@@ -72,9 +63,7 @@ class NovelPreferences(
         key = "ln_seen_novel_sources",
         defaultValue = emptyMap(),
         serializer = { metadataJson.encodeToString(seenSourcesMapSerializer, it) },
-        deserializer = {
-            runCatching { metadataJson.decodeFromString(seenSourcesMapSerializer, it) }.getOrElse { emptyMap() }
-        },
+        deserializer = { decodeSeenNovelSources(it) },
     )
 
     /** Icons for a novel app whose own icon shows nothing, gathered from the store and repo listings. */
@@ -604,16 +593,18 @@ class NovelPreferences(
         preferenceStore.getBoolean("novel_migration_hide_without_updates", false)
 
     companion object {
-        // Referenced by backup restore (AppPreferenceCarry) to flag restored plugin URLs for
-        // validation against the added repos before the host evaluates any.
-        const val INSTALLED_PLUGIN_URLS_KEY = "ln_installed_plugin_urls"
-        const val PLUGINS_NEED_REVALIDATION_KEY = "ln_plugins_need_revalidation"
-
         private val metadataMapSerializer =
             MapSerializer(String.serializer(), LnInstalledPluginMetadata.serializer())
         private val seenSourcesMapSerializer =
             MapSerializer(String.serializer(), LnSourceIdentity.serializer())
         private val metadataJson = Json { ignoreUnknownKeys = true }
+
+        // Public for the restore screen, which reads a backup's copies of these two without storing them.
+        fun decodePluginMetadata(stored: String): Map<String, LnInstalledPluginMetadata> =
+            runCatching { metadataJson.decodeFromString(metadataMapSerializer, stored) }.getOrElse { emptyMap() }
+
+        fun decodeSeenNovelSources(stored: String): Map<String, LnSourceIdentity> =
+            runCatching { metadataJson.decodeFromString(seenSourcesMapSerializer, stored) }.getOrElse { emptyMap() }
 
         const val CSS_SNIPPETS_KEY = "ln_reader_css_snippets"
 
@@ -639,6 +630,9 @@ const val DEAD_READER_TAP_TO_SCROLL_KEY = "ln_reader_tap_to_scroll"
 /** The novel reader's retired auto-scroll switch, carried into start-on-open by
  *  [NovelPreferences.carryReaderAutoScroll]. */
 const val DEAD_READER_AUTO_SCROLL_KEY = "ln_reader_auto_scroll"
+
+/** The retired flag a restore set to hold restored plugins until a repo vouched for them; nothing reads it. */
+const val DEAD_PLUGINS_NEED_REVALIDATION_KEY = "ln_plugins_need_revalidation"
 
 /**
  * Keys only the retired standalone novel reader wrote: its read-aloud master switch and the floating

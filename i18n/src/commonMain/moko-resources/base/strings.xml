@@ -1041,6 +1041,8 @@
     <string name="invalid_backup_file_missing_manga">Backup does not contain any library entries.</string>
     <string name="invalid_backup_file_json">JSON backup not supported</string>
     <string name="invalid_backup_file_unknown">Backup file is corrupted</string>
+    <!-- RK: the backup's extension apps and plugins not installed here, which a restore does not install -->
+    <string name="backup_restore_missing_extensions">Extensions to install:</string>
     <string name="backup_restore_missing_sources">Missing sources:</string>
     <string name="backup_restore_missing_trackers">Trackers not logged into:</string>
     <string name="backup_restore_content_full">You may need to install any missing extensions and log in to tracking services afterwards to use them.</string>

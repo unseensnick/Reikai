@@ -3,12 +3,20 @@ package eu.kanade.tachiyomi.data.backup
 import android.content.Context
 import android.net.Uri
 import dev.zacsweers.metro.Inject
+import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
+import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
+import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
+import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
+import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.extension.ExtensionManager
 import kotlinx.serialization.protobuf.ProtoBuf
+import reikai.domain.novel.NovelPreferences
+import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.domain.source.service.SourceManager
 
@@ -21,6 +29,10 @@ class BackupFileValidator(
     // RK: novels validate against their own source registry + the shared tracker manager.
     private val novelSourceManager: NovelSourceManager,
     private val parser: ProtoBuf,
+    // RK --> what is installed here, against the backup's extension apps and plugins
+    private val extensionManager: ExtensionManager,
+    private val novelPreferences: NovelPreferences,
+    // RK <--
 ) {
 
     /**
@@ -30,14 +42,15 @@ class BackupFileValidator(
      * source, and novel entries it needs, instead of re-inflating the whole file, which OOMs on a
      * large backup (unseensnick/Reikai#53).
      *
-     * @return List of missing sources or missing trackers.
+     * @return List of missing sources or missing trackers. RK: and the extensions to install.
      */
     suspend fun validate(uri: Uri): Results {
         // RK --> the novel registry is empty until something loads the plugins, and a cold open straight to
         // restore is one, so without this every installed novel source reports as missing.
         novelSourceManager.ensureLoaded()
 
-        val (backupSources, trackerIds, novelSources, novelSourceNames) = scan(uri)
+        val (backupSources, trackerIds, novelSources, novelSourceNames, backupExtensions, pluginPreferences) =
+            scan(uri)
         // RK <--
 
         val sources = backupSources.associate { it.sourceId to it.name } // RK: streamed
@@ -67,7 +80,11 @@ class BackupFileValidator(
             .filter { novelSourceManager.get(it) == null }
             .map { novelSourceNames[it]?.ifBlank { null } ?: it }
 
-        return Results((missingSources + missingNovelSources).distinct().sorted(), missingTrackers)
+        return Results(
+            (missingSources + missingNovelSources).distinct().sorted(),
+            missingTrackers,
+            (missingExtensionApps(backupExtensions) + missingPlugins(pluginPreferences)).distinct().sorted(),
+        )
         // RK <--
     }
 
@@ -82,9 +99,41 @@ class BackupFileValidator(
         scan(uri)
     }
 
+    // A restore installs neither extension apps nor plugins, since a backup can be anyone's file, so the
+    // restore screen lists the backup's ones this install lacks for the user to install.
+    private suspend fun missingExtensionApps(backupExtensions: List<BackupExtension>): List<String> {
+        if (backupExtensions.isEmpty()) return emptyList()
+        // Read past the adult-source gate, which hides an app without uninstalling it; untrusted and failing
+        // apps are installed all the same.
+        val installed = with(extensionManager) {
+            getLoadedExtensions() + getNotLoadedExtensions() + getLoadedNovelExtensions() +
+                getNotLoadedNovelExtensions()
+        }.mapTo(HashSet()) { it.pkgName }
+        return backupExtensions.filterNot { it.pkgName in installed }.map { it.name }
+    }
+
+    // A plugin installed from another repo has another URL, so its id answers too.
+    private fun missingPlugins(backup: Map<String, PreferenceValue>): List<String> {
+        val urls = (backup[novelPreferences.installedPluginUrls().key()] as? StringSetPreferenceValue)?.value
+        if (urls.isNullOrEmpty()) return emptyList()
+        fun stored(key: String) = (backup[key] as? StringPreferenceValue)?.value
+        val metadata = stored(novelPreferences.installedPluginMetadata().key())
+            ?.let(NovelPreferences::decodePluginMetadata).orEmpty()
+        val seen = stored(novelPreferences.seenNovelSources().key())
+            ?.let(NovelPreferences::decodeSeenNovelSources).orEmpty()
+        val installedUrls = novelPreferences.installedPluginUrls().get()
+        val installedIds = novelPreferences.installedPluginMetadata().get().values.mapTo(HashSet()) { it.pluginId }
+        return urls
+            .filterNot { it in installedUrls || metadata[it]?.pluginId in installedIds }
+            .map { LnPluginLoadFailure.pluginName(it, seen[metadata[it]?.pluginId]) }
+    }
+
     // Streams the backup field by field and decodes only what validation reads.
     private suspend fun scan(uri: Uri): Scanned {
         val scanned = Scanned()
+        val pluginKeys = with(novelPreferences) {
+            setOf(installedPluginUrls().key(), installedPluginMetadata().key(), seenNovelSources().key())
+        }
         try {
             BackupProtoReader(context).read(uri) { fieldNumber, data ->
                 when (fieldNumber) {
@@ -97,6 +146,10 @@ class BackupFileValidator(
                     }
                     717 -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
                         scanned.novelSourceNames[it.sourceId] = it.name
+                    }
+                    710 -> scanned.backupExtensions.add(parser.decodeFromByteArray(BackupExtension.serializer(), data))
+                    104 -> parser.decodeFromByteArray(BackupPreference.serializer(), data).let { (key, value) ->
+                        if (key in pluginKeys) scanned.pluginPreferences[key] = value
                     }
                 }
             }
@@ -113,11 +166,15 @@ class BackupFileValidator(
         val novelSources: MutableSet<String> = mutableSetOf(),
         // Field 717, absent from a backup made before it existed.
         val novelSourceNames: MutableMap<String, String> = mutableMapOf(),
+        val backupExtensions: MutableList<BackupExtension> = mutableListOf(),
+        // The App settings entries that record the installed plugins, by key.
+        val pluginPreferences: MutableMap<String, PreferenceValue> = mutableMapOf(),
     )
     // RK <--
 
     data class Results(
         val missingSources: List<String>,
         val missingTrackers: List<String>,
+        val missingExtensions: List<String>, // RK: extension apps and plugins, neither installed by a restore
     )
 }

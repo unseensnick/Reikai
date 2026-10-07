@@ -629,6 +629,7 @@ agent under Settings -> Advanced.
 
 #### Changed
 
+- **Restoring a backup no longer installs extension apps or light-novel plugins: the Restore screen lists the ones the backup had that you still need to install.**
 - **Details you edit yourself now back up in Komikku and Yōkai's format, so they restore in either app and theirs restore here, but Reikai 0.3.2 and older nightly builds restore a new backup without your edits.** Backups from any earlier Reikai still bring them back.
 - **Restoring a backup over a manga or novel you already have now keeps its details unless only the backup ever loaded them, and keeps the earlier date it was added (from Mihon).**
 - **Light-novel plugin and IReader extension settings now back up and restore with Source settings instead of App settings.** Backups made before this update still bring them back with App settings.
@@ -636,14 +637,13 @@ agent under Settings -> Advanced.
 #### Fixed
 
 - **Restoring a backup now brings merged series back exactly as the backup grouped them: unrelated series no longer collapse into one card, and a pair you split stays split.**
-- **Restoring a backup with App settings ticked now reinstalls your light-novel plugins by itself, checks each against your added repos, and names any it could not bring back.**
 - **Restoring a backup no longer changes your extension installer, trusts extensions or turns on Run scripts a chapter embeds.** Your device keeps its own choice for each.
 - **Restoring a backup over a series you already have no longer rewinds it, on manga and novels: chapters keep the further position, and trackers keep your status and score and only move progress forward (partly from Mihon).**
 - **Restoring a backup now keeps your default category, update categories, category filters and collapsed categories for manga and novels, including Default and Always ask.** A Yōkai backup keeps Default but leaves out its other category choices, since it saves no way to match them.
 - **Restoring a backup now turns Settings -> Library -> Per-category settings for sort on only when a manga or light-novel category keeps its own sort, and keeps the per-category sorts of a backup made by Mihon or by Reikai before 0.3.0.** A hidden category, or one reset to the library sort, no longer turns it on.
 - **Picking a backup to restore now opens the system file picker on devices where it would not open before (from Mihon).** Upstream: mihonapp/mihon#3948.
 - **One bad entry in a restore no longer takes a hundred others down with it, and a backup holding the same series twice under one source now restores (from Mihon).** Only the entry that actually failed is reported. Upstream: mihonapp/mihon#3667.
-- **The restore log now names every light novel, merged series, edited details and manga extension a restore could not bring back, and the rest of the restore carries on.** That includes an extension whose install failed, was cancelled or timed out.
+- **The restore log now names every light novel, merged series and edited details a restore could not bring back, and the rest of the restore carries on.**
 - **With the read-entries option on, a backup now includes novels you have read but removed from your library, as it does for manga.** That keeps their reading history, including for a novel you migrated to a new source.
 - **Your own title, author or cover edits on a manga you have read but removed from the library are no longer missing from a backup.**
 - **The Categories backup option now covers novel categories both ways: a backup with Library entries off includes them, and a restore with Categories unticked leaves your novels' categories alone.**

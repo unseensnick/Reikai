@@ -79,17 +79,14 @@ Restore a compatible backup file in <nav to="data-and-storage">.
 To ensure a smooth restoration process, remember to:
 
 1. Log into the [Tracking services](/docs/guides/tracking) you previously used.
-1. Install any extensions the restore could not reinstall. Extension apps come back on their own when their repo is in the backup or already added, and plugins are downloaded again from your novel repos; any that did not come back are named in the restore log.
+1. Install the extensions the Restore screen lists. A restore installs no extension app or plugin itself, since a backup file could come from anyone; your extension and novel repos come back, so each is a tap away in Browse.
 
-The Restore screen lists any missing sources and any trackers you are not logged into.
+The Restore screen lists the extensions to install, any missing sources and any trackers you are not logged into.
 :::
 
-An extension app whose repo cannot be found is not reinstalled, so its entries reappear in your
-library but cannot fetch chapters until you install it. Plugins are downloaded again during the
-restore: their addresses and your novel repos ride along in **App settings**, and the restore fetches
-each plugin that one of your added repos still lists. If that takes too long, the restore log says so
-and the app loads them the next time a light novel screen needs them. Leave **App settings**
-included, or they will not return.
+Entries from an extension you have not installed yet reappear in your library but cannot fetch
+chapters until you install it. Your novel repos ride along in **App settings**, so leave it included
+to get them back.
 
 ### Transferring downloads to a new installation
 During the setup or after restoring a backup to **Reikai**:

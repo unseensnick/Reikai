@@ -1,5 +1,6 @@
 // Installed-extensions backup. Net-new Reikai file: snapshots the installed manga and novel
-// extension apps so a restore can reinstall them. Reads the ExtensionManager's live installed lists.
+// extension apps so the restore screen can list the ones to install. Reads the ExtensionManager's live
+// installed lists.
 package eu.kanade.tachiyomi.data.backup.create.creators
 
 import dev.zacsweers.metro.Inject

@@ -51,7 +51,7 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 - [Novel categories & hopper](novel-categories.md): the Novels tab gains its own categories, the shared category hopper + jump-to-category sheet, a tab-aware Display sheet, and LN plugin update detection.
 - [Novel background update job](novel-update-job.md): the WorkManager worker that refreshes favorited novels on a schedule, with per-category gating and a smart-update skip filter, the novel twin of Mihon's library updater.
 - [Novel tracking](novel-tracking.md): bind novels to any of the seven trackers that can tell novels apart and sync reading progress, reusing Mihon's trackers, group-aware across merged sources.
-- [Novel backup & restore](novel-backup.md): light novels ride the same backup file as manga (chapters, history, tracks, categories, id-remapped merges) plus an installed-sources record that reinstalls extensions and re-downloads plugins on restore.
+- [Novel backup & restore](novel-backup.md): light novels ride the same backup file as manga (chapters, history, tracks, categories, id-remapped merges) plus an installed-sources record the Restore screen lists the missing extensions and plugins from.
 - [Novel parity backlog (shipped)](novel-parity-backlog.md): the manga↔novel parity features (history, migration, library modes, reader, stats, browse) that make novels feel native, with per-item commit SHAs and the deliberate trims.
 - [Novel migration redesign](novel-migration-redesign.md): covers and chapter-count signal on results, a manga-style source-selection pre-step, and a source-to-target comparison row. Shipped.
 
