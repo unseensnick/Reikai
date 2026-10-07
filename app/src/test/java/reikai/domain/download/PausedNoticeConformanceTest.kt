@@ -3,6 +3,7 @@ package reikai.domain.download
 import android.app.Application
 import android.content.Context
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.download.DownloadNotifier
 import eu.kanade.tachiyomi.data.download.DownloadWorkerFixture
@@ -50,6 +51,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.i18n.MR
+import java.io.IOException
 
 /**
  * A user pause leaves one Paused notice that outlives its worker, and resuming without a network
@@ -125,6 +127,22 @@ class PausedNoticeConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("halves")
+    fun `a queue cut off after it started keeps its paused notice over the worker's first`(half: PausedNoticeHalf) =
+        conformance(half) {
+            half.start(this)
+            tick()
+
+            half.network = OFFLINE
+            tick()
+            // The service can post the worker's first notice, built while it was online, after the pause.
+            half.postForegroundNotice()
+            tick()
+
+            half.noticeTexts() shouldBe listOf(NO_NETWORK)
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
     fun `a queue waiting for a network shows a paused notice`(half: PausedNoticeHalf) = conformance(half) {
         half.network = OFFLINE
         half.start(this)
@@ -167,8 +185,8 @@ interface PausedNoticeHalf : AutoCloseable {
     /** The title of each download notice in the shade. */
     fun noticeTitles(): List<CharSequence?>
 
-    /** Posts the running worker's foreground notice, as its service does once started. */
-    suspend fun postForegroundNotice()
+    /** Posts what each of the worker's foreground requests handed its service, in order, as the service does. */
+    fun postForegroundNotice()
 
     /** Queues one chapter and runs the engine's worker, whose fetch then hangs. */
     suspend fun start(test: TestScope)
@@ -185,7 +203,7 @@ class MangaPausedNoticeHalf : PausedNoticeHalf {
 
     private lateinit var shade: FakeNotificationShade
     private var fixture: DownloadWorkerFixture? = null
-    private var foregroundWorker: CoroutineWorker? = null
+    private val foregroundRequests = mutableListOf<ForegroundInfo>()
 
     override var network = ONLINE
         set(value) {
@@ -199,10 +217,7 @@ class MangaPausedNoticeHalf : PausedNoticeHalf {
 
     override fun noticeTitles() = shade.shown.keys.map(shade::titleOf)
 
-    override suspend fun postForegroundNotice() {
-        val info = foregroundWorker!!.getForegroundInfo()
-        shade.post(info.notificationId, info.notification)
-    }
+    override fun postForegroundNotice() = shade.postAll(foregroundRequests)
 
     override suspend fun start(test: TestScope) {
         shade = FakeNotificationShade()
@@ -218,7 +233,9 @@ class MangaPausedNoticeHalf : PausedNoticeHalf {
         }
         fixture = f
         f.network = network
-        coEvery { any<CoroutineWorker>().setForegroundSafely() } coAnswers { foregroundWorker = firstArg() }
+        coEvery { any<CoroutineWorker>().setForegroundSafely() } coAnswers {
+            foregroundRequests += firstArg<CoroutineWorker>().getForegroundInfo()
+        }
         f.queue()
         f.startWorker()
     }
@@ -249,9 +266,16 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
     override fun toString() = "novel"
 
     private lateinit var shade: FakeNotificationShade
-    override var network = ONLINE
     private var worker: Job? = null
-    private var foregroundWorker: CoroutineWorker? = null
+    private val foregroundRequests = mutableListOf<ForegroundInfo>()
+    private var inFlight = CompletableDeferred<Nothing>()
+
+    // Going offline fails the fetch in flight, as a dropped connection does.
+    override var network = ONLINE
+        set(value) {
+            field = value
+            if (!value.isOnline) inFlight.completeExceptionally(IOException("connection lost"))
+        }
 
     private val novel = Novel.create().copy(id = 1L, source = "src", title = "Novel")
     private val chapter = NovelChapter(
@@ -260,7 +284,10 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
     )
     private val source = mockk<NovelSource> {
         every { minimumRequestDelayMs } returns 0L
-        coEvery { parseChapter(any()) } coAnswers { CompletableDeferred<Nothing>().await() }
+        coEvery { parseChapter(any()) } coAnswers {
+            inFlight = CompletableDeferred()
+            inFlight.await()
+        }
     }
     private val app = mockk<Application>(relaxed = true, moreInterfaces = arrayOf(GraphProvider::class)).also {
         every { it.applicationContext } returns it
@@ -275,10 +302,7 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
 
     override fun noticeTitles() = shade.shown.keys.map(shade::titleOf)
 
-    override suspend fun postForegroundNotice() {
-        val info = foregroundWorker!!.getForegroundInfo()
-        shade.post(info.notificationId, info.notification)
-    }
+    override fun postForegroundNotice() = shade.postAll(foregroundRequests)
 
     override suspend fun start(test: TestScope) {
         shade = FakeNotificationShade()
@@ -289,7 +313,9 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
         mockkStatic(Dispatchers::class)
         every { Dispatchers.IO } returns StandardTestDispatcher(test.testScheduler)
         mockkStatic(WORKER_EXTENSIONS)
-        coEvery { any<CoroutineWorker>().setForegroundSafely() } coAnswers { foregroundWorker = firstArg() }
+        coEvery { any<CoroutineWorker>().setForegroundSafely() } coAnswers {
+            foregroundRequests += firstArg<CoroutineWorker>().getForegroundInfo()
+        }
         val graph = mockk<AppGraph>()
         every { graph.inject(any<NovelDownloadWorker>()) } answers {
             firstArg<NovelDownloadWorker>().setField("manager", manager)

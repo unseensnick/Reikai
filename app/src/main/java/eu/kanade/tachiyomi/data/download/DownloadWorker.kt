@@ -86,9 +86,15 @@ class DownloadWorker(context: Context, workerParams: WorkerParameters) : Corouti
             while (downloader.isRunning || downloader.isPaused) {
                 delay(1.seconds)
                 val issue = networkIssue()
-                if (issue != null && (downloader.isRunning || issue != networkIssue)) downloader.stop(issue)
+                val pause = issue?.takeIf { downloader.isRunning || it != networkIssue }
                 if (issue == null && networkIssue != null && downloader.isPaused) downloader.start()
                 networkIssue = issue
+                pause?.let {
+                    downloader.stop(it)
+                    // The service posts in request order, so this lands after the worker's first notice, which
+                    // it can post late, after the pause, leaving a bare Downloader notice for the whole wait
+                    setForegroundSafely()
+                }
             }
             // RK <--
         } finally {

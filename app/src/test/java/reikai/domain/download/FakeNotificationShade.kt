@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.graphics.BitmapFactory
 import androidx.core.app.NotificationCompat
+import androidx.work.ForegroundInfo
 import eu.kanade.tachiyomi.data.notification.NotificationHandler
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.util.system.cancelNotification
@@ -41,9 +42,9 @@ class FakeNotificationShade : AutoCloseable {
     /** The title the notification shown under [id] carries. */
     fun titleOf(id: Int): CharSequence? = shown[id]?.let(contentTitles::get)
 
-    /** Shows [notification] under [id], as a worker's foreground service does once it has started. */
-    fun post(id: Int, notification: Notification) {
-        shown[id] = builtBy[notification]
+    /** Shows each of [requests] in turn, as a worker's foreground service does once it has started. */
+    fun postAll(requests: List<ForegroundInfo>) = requests.forEach {
+        shown[it.notificationId] = builtBy[it.notification]
     }
 
     init {
