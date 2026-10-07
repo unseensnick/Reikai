@@ -40,6 +40,7 @@ class LibraryQueryMatchTest {
         fetchInterval = { 0 },
         nextUpdate = { 0L },
         matchesChapter = { row, term -> chapterMatches[term]?.contains(row.id) },
+        matchesTagTerm = { _, _ -> false },
     )
 
     /** A merged series led by the default source, with a local Japanese member. */
@@ -67,6 +68,7 @@ class LibraryQueryMatchTest {
         fetchInterval = fields.fetchInterval,
         nextUpdate = fields.nextUpdate,
         matchesChapter = fields.matchesChapter,
+        matchesTagTerm = fields.matchesTagTerm,
     )
 
     private fun matchesOverlaid(query: String) =

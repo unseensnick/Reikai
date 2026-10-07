@@ -46,6 +46,11 @@ class LibraryQueryFields<T>(
      * no-match, so it reads as false rather than quietly keeping the row.
      */
     val matchesChapter: (T, String) -> Boolean?,
+    /**
+     * Whether a gallery row's tag grammar (namespace:tag, wildcards, exact, alt-titles) finds a word or
+     * field term, printed back as typed. False for a row with no gallery metadata, novels included.
+     */
+    val matchesTagTerm: (T, String) -> Boolean,
 )
 
 /**
@@ -120,7 +125,7 @@ private fun <T> GeneralQueryNode.matches(row: T, fields: LibraryQueryFields<T>):
             // field-only; unreachable above, listed to keep the `when` exhaustive
             MangaField.LANGUAGE, MangaField.SOURCE_ID, MangaField.CHAPTER -> false
         }
-    }
+    } || fields.matchesTagTerm(row, termText(value))
     return if (negated) !match else match
 }
 
@@ -164,9 +169,15 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
             }
             if (value.isEmpty()) text.isNullOrEmpty() else text?.contains(value, ignoreCase = true) ?: false
         }
-    }
+        // An empty value asks for an absent field, which the tag grammar has no reading of.
+    } || (value.isNotEmpty() && fields.matchesTagTerm(row, "${field.aliases.first()}:${termText(value)}"))
     return if (negated) !match else match
 }
+
+// The tag grammar reads a term before its negation, so an excluded term drops a row either grammar finds
+// it in. The lexer unquoted the value, so one the tag grammar would split or read as `-` is quoted back.
+private fun termText(value: String): String =
+    if (value.startsWith('-') || value.any { it.isWhitespace() || it == ',' }) "\"$value\"" else value
 
 /**
  * The library query for one source's entries: its exact key, since two sources can share a name and a

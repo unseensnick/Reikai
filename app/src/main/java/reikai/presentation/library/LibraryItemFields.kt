@@ -40,15 +40,16 @@ fun libraryItemFilterFields(
 
 /**
  * The search twin of [libraryItemFilterFields], binding the shared query kernel onto the library row.
- * Three seams: [sourceKey] is a String on both sides (a numeric id for manga, a plugin slug for novels);
- * [chapterMatches] is the per-term id set each side resolved once; and [overlay] supplies custom-info
+ * Four seams: [sourceKey] is a String on both sides (a numeric id for manga, a plugin slug for novels);
+ * [chapterMatches] is the per-term id set each side resolved once; [overlay] supplies custom-info
  * overrides by row id, as a map lookup rather than a copied row, since filter, sort and grouping all read
- * the source values.
+ * the source values; and [galleryIndex] answers the tag grammar, which novels never have.
  */
 fun libraryItemQueryFields(
     sourceKey: (LibraryItem) -> String,
     chapterMatches: Map<String, Set<Long>> = emptyMap(),
     overlay: Map<Long, LibraryQueryOverlay> = emptyMap(),
+    galleryIndex: GallerySearchIndex = GallerySearchIndex(),
 ) = LibraryQueryFields<LibraryItem>(
     id = { it.id },
     title = { overlay[it.id]?.title ?: it.libraryManga.manga.title },
@@ -71,6 +72,7 @@ fun libraryItemQueryFields(
     matchesChapter = { item, term ->
         chapterMatches[term]?.let { ids -> item.memberIds().any { it in ids } }
     },
+    matchesTagTerm = galleryIndex::matches,
 )
 
 /** This row's own source as the search terms read it; [key] is per content type, see [LibraryQuerySource.key]. */

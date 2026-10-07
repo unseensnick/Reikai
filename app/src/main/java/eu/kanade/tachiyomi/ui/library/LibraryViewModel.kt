@@ -21,7 +21,6 @@ import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
-import exh.search.SearchEngine
 import exh.source.getMainSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -57,6 +56,7 @@ import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.stitchInputChanges
+import reikai.presentation.library.GallerySearchIndex
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.SourceBadge
@@ -69,7 +69,6 @@ import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
-import reikai.presentation.library.matchesMetadataQuery
 import reikai.presentation.library.memberIds
 import reikai.presentation.library.memberIdsOf
 import reikai.presentation.library.mergeCollapseInputsFlow
@@ -143,10 +142,6 @@ class LibraryViewModel(
     // RK <--
 ) : ViewModel() {
 
-    // RK: parses a typed query into structured tag components (cached); used by the library
-    // tag-search for adult/metadata sources.
-    private val searchEngine = SearchEngine()
-
     private val searchQuery = MutableStateFlow<String?>(null)
 
     // RK: the active page moved to LibraryEngine, which persists it per chip and seeds each pager
@@ -194,36 +189,21 @@ class LibraryViewModel(
                 .applyFilters(tracksMap, filters.resolve()) // RK
                 // RK: parse once, then filter through the shared query kernel, the same one the novel
                 //     library runs, so one typed query means one thing on every row of the All list.
-                //     A gallery entry ALSO gets the EXH tag grammar, which is a manga-only capability
-                //     the AST has no equivalent for; the two are ORed rather than routed between, so a
-                //     row appears if either grammar it supports matches.
+                //     A gallery entry ALSO answers each term with the EXH tag grammar, a manga-only
+                //     capability the AST has no equivalent for.
                 .let { items ->
                     if (searchQuery == null) {
                         items
                     } else {
-                        val parsedQuery = searchEngine.parseQuery(searchQuery)
                         val queryNode = QueryNode.from(searchQuery)
-                        val queryFields = mangaQueryFields(chapterMatches, customInfo)
-                        // An excluded component the tag grammar cannot resolve (no such namespace,
-                        // no text hit) passes vacuously, so ORing it into an exclusion-only query
-                        // would resurrect every gallery row the kernel excluded. Positive queries
-                        // OR (either grammar can find a row); exclusion-only queries AND (each
-                        // grammar removes what it understands).
-                        val hasPositive = parsedQuery.any { !it.excluded }
                         val gallery = gallerySearchIndexFor(
                             searchQuery,
                             items,
                             getSearchTags::awaitAll,
                             getSearchTitles::awaitAll,
                         )
-                        items.filter { m ->
-                            val kernel = libraryQueryMatches(queryNode, m, queryFields)
-                            when {
-                                m.metadataSourceName == null -> kernel
-                                hasPositive -> kernel || m.matchesMetadataQuery(parsedQuery, gallery)
-                                else -> kernel && m.matchesMetadataQuery(parsedQuery, gallery)
-                            }
-                        }
+                        val queryFields = mangaQueryFields(chapterMatches, customInfo, gallery)
+                        items.filter { libraryQueryMatches(queryNode, it, queryFields) }
                     }
                 }
 
@@ -316,12 +296,14 @@ class LibraryViewModel(
     private fun mangaQueryFields(
         chapterMatches: Map<String, Set<Long>>,
         customInfo: List<CustomMangaInfo>,
+        gallery: GallerySearchIndex,
     ) = libraryItemQueryFields(
         sourceKey = { it.libraryManga.manga.source.toString() },
         chapterMatches = chapterMatches,
         // Search matches what the card shows, so a renamed entry is findable by the name you gave it.
         // The rows stay override-free: filter, sort and grouping deliberately read the source values.
         overlay = customInfo.associate { it.mangaId to it.toQueryOverlay() },
+        galleryIndex = gallery,
     )
 
     // RK: one lookup per distinct `chapter:` term the user actually typed. Runs off the query slot, so a

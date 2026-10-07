@@ -120,6 +120,7 @@ agent under Settings -> Advanced.
 - **Novels now show their real language code in the library, and keep it after their source is uninstalled.** Polish and Portuguese no longer share one "Po" group, and `language:` search and group by language keep working.
 - **A novel whose source is no longer installed now shows the missing-source warning on its library cover, as a manga does.** On a grouped novel the uninstalled source keeps its place among the source icons.
 - **Library search now finds an entry by the title, author, artist, description or genre you set in Edit info.**
+- **Excluding a tag in a library search, like `zoru -female:glasses`, now leaves out every adult-source entry carrying that tag.** Tag terms also work with `||` and parentheses now.
 - **A series renamed in Edit info now shows its new title in Update errors, the download queue, notifications, the library export and the reader.**
 - **The continue button on a novel in the library now follows that novel's chapter filters, as manga does.** Set to bookmarked or downloaded chapters only, it opened the first unread chapter regardless.
 - **Clearing a novel's history now drops it in the library's Last read sort, as it does for manga.** Novels read before history was kept carry their place over on upgrade and from older backups.

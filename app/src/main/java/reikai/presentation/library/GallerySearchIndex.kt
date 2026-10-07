@@ -5,13 +5,28 @@ import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import exh.search.Namespace
 import exh.search.QueryComponent
+import exh.search.SearchEngine
 import exh.search.Text
 
 /** Gallery EXH tags and alt-titles keyed by manga id, for the library's tag-search grammar. */
 data class GallerySearchIndex(
     val tags: Map<Long, List<SearchTag>> = emptyMap(),
     val titles: Map<Long, List<SearchTitle>> = emptyMap(),
-)
+) {
+    // One index lives for one filter pass, so each term is parsed once per search, not once per row.
+    private val terms = SearchEngine()
+
+    /**
+     * The tag-search grammar (namespace:tag, wildcards, exact) a gallery row answers one query term
+     * with, on top of the query AST every row matches through (libraryQueryMatches), which has no
+     * equivalent for it. The AST asks per term, so a `-` term excludes a row either grammar finds it in.
+     */
+    fun matches(row: LibraryItem, term: String): Boolean {
+        if (row.metadataSourceName == null) return false
+        val components = terms.parseQuery(term)
+        return components.isNotEmpty() && components.all { row.matchesComponent(it, tags[row.id], titles[row.id]) }
+    }
+}
 
 /**
  * Only the tag-search grammar reads the index, and only on gallery [rows], so both whole-table reads
@@ -30,16 +45,6 @@ suspend fun gallerySearchIndexFor(
         titles = loadTitles().groupBy { it.mangaId },
     )
 }
-
-/**
- * The tag-search grammar (namespace:tag, wildcards, exclusion, exact) a gallery row gets on top of the
- * query AST every row matches through (libraryQueryMatches), which has no equivalent for it.
- * LibraryViewModel's search filter ORs the two for positive queries and ANDs them for exclusion-only
- * ones, because an excluded component this grammar cannot resolve passes vacuously and an OR would then
- * keep rows the AST excluded.
- */
-fun LibraryItem.matchesMetadataQuery(parsedQuery: List<QueryComponent>, index: GallerySearchIndex): Boolean =
-    parsedQuery.all { matchesComponent(it, index.tags[id], index.titles[id]) }
 
 // A Namespace checks the indexed tags; a Text matches across the title, author, artist, description,
 // source name, genres, tags and alt-titles. The component's excluded flag inverts the answer.

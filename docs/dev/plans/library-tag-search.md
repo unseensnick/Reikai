@@ -35,8 +35,14 @@ Mechanism:
 - The engine only runs for entries whose source is a `MetadataSource` (the
   `getMainSource<MetadataSource<*, *>>()` gate), so a normal title containing `:` is never
   misread as a namespace. Since the unified search grammar landed, a gallery entry answers BOTH
-  grammars: positive queries OR the two (either can find a row), exclusion-only queries AND them
-  (each grammar removes what it understands).
+  grammars **per term**: the shared query AST (`libraryQueryMatches`) asks the tag grammar about each
+  word or field term through the `matchesTagTerm` capability and ORs the answer in before the term's
+  own negation. So a term matches if either grammar finds it, a `-` term excludes a row either
+  grammar finds it in, and `||` and parentheses work on gallery entries too. Combining the grammars
+  over the whole query instead let the text grammar keep a row whose excluded tag only the tag
+  grammar could see (`zoru -female:blackmail`).
+- A field term with an empty value (`artist:""`, "no artist") stays the AST's alone, since the tag
+  grammar has no reading of absence; a comparison term (`unread>3`) is the AST's alone too.
 - Tags and titles are read (one query each) only while a search is active over a library holding a
   gallery, into a `GallerySearchIndex` the matcher looks each row up in, and the query is parsed
   once per search, not per entry.
@@ -45,15 +51,18 @@ Mechanism:
 
 - `app/src/main/java/exh/search/` (net-new): `SearchEngine.parseQuery`, `Text.asRegex`, and the
   component types.
-- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryViewModel.kt`: parses once and passes
-  the components and the index in.
+- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryViewModel.kt`: loads the index and binds
+  it into the query fields, then filters through `libraryQueryMatches` like the novel library.
 - `app/src/main/java/reikai/presentation/library/GallerySearchIndex.kt`: `gallerySearchIndexFor`,
   which reads the tag and title tables only for a search over a library holding a gallery, and
-  `LibraryItem.matchesMetadataQuery(parsedQuery, index)`, which evaluates the tag grammar per entry
-  (`matchesComponent`); the old plain-string `matches` fallback is gone.
+  `GallerySearchIndex.matches(row, term)`, which answers one term with the tag grammar
+  (`matchesComponent`), parsing each term once per filter pass.
+- `app/src/main/java/reikai/presentation/library/LibraryQueryMatch.kt`: `matchesTagTerm`, the slot
+  each word and field term asks, and `termText`, which prints a term back for the tag grammar.
 - `data/.../search_titles.sq` + `GetSearchTitles.awaitAll()` + `MangaMetadataRepository.getAllTitles()`:
   a `selectAll` query so titles batch-load like tags (no migration, query-only change).
-- Tests: `app/src/test/java/exh/search/SearchEngineTest.kt`.
+- Tests: `app/src/test/java/exh/search/SearchEngineTest.kt`; `GallerySearchIndexTest` runs whole
+  library searches over galleries and a plain entry.
 
 ## Status
 

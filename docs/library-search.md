@@ -107,7 +107,8 @@ Writing `&&` for "and" is allowed but never needed.
 ## Gallery sources
 
 Entries from gallery sources also answer the namespace tag grammar those sources use, such as `artist:toyya` or `female:glasses`, on top of everything above.
-A search with at least one positive term matches an entry if either grammar matches it. A search made only of exclusions has to satisfy both, since every exclusion is meant to rule the entry out.
+Each term matches such an entry if either grammar finds it, so `-female:glasses` rules out every entry carrying that tag, even beside a word the title matches.
+Tag terms also take `*` wildcards (`artist:toy*`), a leading `$` for an exact tag, and match the entry's alternative titles.
 See [adult sources](adult-sources.md).
 
 ## If something does not match

@@ -33,7 +33,7 @@ data class LibraryItem(
 ) {
     val id: Long = libraryManga.id
 
-    // RK: the EXH tag-search matcher moved to LibraryItem.matchesMetadataQuery (GallerySearchIndex.kt).
+    // RK: the EXH tag-search matcher moved to GallerySearchIndex.matches (GallerySearchIndex.kt).
 
     data class Badges(
         val downloadCount: Int,
