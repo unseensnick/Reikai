@@ -51,7 +51,7 @@ import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.isDebugBuildType
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
-import exh.md.MangaDexTrackCoverFetcher
+import exh.md.MangaDexTrackCoverFactory
 import exh.md.MangaDexTrackCoverKeyer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
@@ -314,8 +314,10 @@ class App :
                 // RK: MDList tracker-search covers, fetched via the MangaDex source client so the
                 // cover CDN doesn't 400 the app's browser User-Agent
                 add(
-                    MangaDexTrackCoverFetcher.Factory(
+                    MangaDexTrackCoverFactory(
                         callFactoryLazy,
+                        coverCache,
+                        mangaCoverMetadata,
                         graph.sourcePreferences,
                         graph.reikaiSourcePreferences,
                         sourceManager,
