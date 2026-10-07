@@ -65,20 +65,19 @@ class GetIncognitoState(
         return extensionManager.getNovelExtensionPackageAsFlow(source.id)
     }
 
-    // The built-in E-Hentai sources have no installed extension, so they map to EH_PACKAGE.
     private suspend fun extensionPackage(sourceId: Long): String? =
-        if (sourceId in eHentaiSourceIds) EH_PACKAGE else extensionManager.getExtensionPackage(sourceId)
+        builtInPackage(sourceId) ?: extensionManager.getExtensionPackage(sourceId)
+
+    // The built-in E-Hentai sources have no installed extension, so they map to EH_PACKAGE.
+    private fun builtInPackage(sourceId: Long): String? = EH_PACKAGE.takeIf { sourceId in eHentaiSourceIds }
     // RK <--
 
     fun subscribe(sourceId: Long?): Flow<Boolean> {
         if (sourceId == null) return basePreferences.incognitoMode.changes()
 
-        // RK: EH sources resolve to EH_PACKAGE (no installed extension to look up).
-        val packageFlow = if (sourceId in eHentaiSourceIds) {
-            flowOf(EH_PACKAGE)
-        } else {
-            extensionManager.getExtensionPackageAsFlow(sourceId)
-        }
+        // RK: a built-in source resolves through builtInPackage, as await does.
+        val packageFlow = builtInPackage(sourceId)?.let(::flowOf)
+            ?: extensionManager.getExtensionPackageAsFlow(sourceId)
         return combine(
             basePreferences.incognitoMode.changes(),
             sourcePreferences.incognitoExtensions.changes(),

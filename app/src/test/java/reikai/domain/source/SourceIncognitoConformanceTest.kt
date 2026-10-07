@@ -4,6 +4,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
+import exh.source.EXH_SOURCE_ID
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -91,6 +92,8 @@ class SourceIncognitoConformanceTest {
         @JvmStatic
         fun sources() = listOf(
             SourceKey.Manga(MANGA_SOURCE_ID),
+            // Built in, so no installed extension answers for it.
+            SourceKey.Manga(EXH_SOURCE_ID),
             SourceKey.Novel("example"),
             SourceKey.Novel("tachiyomi:$NOVEL_APK_SOURCE_ID"),
         )
