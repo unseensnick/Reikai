@@ -31,8 +31,7 @@ fun <T> EntrySearchCardRow(
     entries: List<T>,
     key: (T) -> Any,
     toUi: @Composable (T) -> EntryBrowseItemUi,
-    onClick: (T) -> Unit,
-    onLongClick: (T) -> Unit,
+    gestures: EntryGestures<T>,
     isSelected: (T) -> Boolean,
 ) {
     if (entries.isEmpty()) {
@@ -45,21 +44,23 @@ fun <T> EntrySearchCardRow(
         )
         return
     }
-    LazyRow(
-        contentPadding = PaddingValues(MaterialTheme.padding.small),
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
-    ) {
-        // A source can list one entry twice in a page, and a repeated key crashes the row; browse
-        // drops the repeat the same way (NovelPagingSource).
-        items(items = entries.distinctBy(key), key = key) { entry ->
-            Box(modifier = Modifier.width(SearchCardWidth)) {
-                EntryBrowseGridCell(
-                    ui = toUi(entry),
-                    displayMode = LibraryDisplayMode.ComfortableGrid,
-                    onClick = { onClick(entry) },
-                    onLongClick = { onLongClick(entry) },
-                    isSelected = isSelected(entry),
-                )
+    EntryCellHaptics(gestures) {
+        LazyRow(
+            contentPadding = PaddingValues(MaterialTheme.padding.small),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+        ) {
+            // A source can list one entry twice in a page, and a repeated key crashes the row; browse
+            // drops the repeat the same way (NovelPagingSource).
+            items(items = entries.distinctBy(key), key = key) { entry ->
+                Box(modifier = Modifier.width(SearchCardWidth)) {
+                    EntryBrowseGridCell(
+                        ui = toUi(entry),
+                        displayMode = LibraryDisplayMode.ComfortableGrid,
+                        onClick = { gestures.onClick(entry) },
+                        onLongClick = { gestures.onLongClick(entry) },
+                        isSelected = isSelected(entry),
+                    )
+                }
             }
         }
     }

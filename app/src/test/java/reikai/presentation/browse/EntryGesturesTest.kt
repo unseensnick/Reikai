@@ -82,6 +82,16 @@ class EntryGesturesTest {
     }
 
     @Test
+    fun `a cell's own long-press buzz is silenced while choosing`() = runTest {
+        cellBuzzes(choosing = true) shouldBe emptyList()
+    }
+
+    @Test
+    fun `a cell's own long-press buzz fires while browsing`() = runTest {
+        cellBuzzes(choosing = false) shouldBe listOf("buzz")
+    }
+
+    @Test
     fun `the gestures a cell holds survive a recomposition`() = runTest {
         val seen = recompose {}
 
@@ -105,6 +115,18 @@ class EntryGesturesTest {
                 add = { row -> calls += "add $row" },
             )
         }.single()
+
+    /** What a cell's own combinedClickable buzz does under the gestures' haptics. */
+    private fun TestScope.cellBuzzes(choosing: Boolean): List<String> {
+        val gestures = gestures(choosing)
+        compose {
+            EntryCellHaptics(gestures) {
+                LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+            gestures
+        }
+        return calls
+    }
 
     /** Composes once under the label "first", then recomposes under "second"; returns each pass's gestures. */
     private fun TestScope.recompose(onOpen: (String) -> Unit): List<EntryGestures<String>> {

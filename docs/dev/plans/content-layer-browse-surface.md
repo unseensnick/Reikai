@@ -617,3 +617,13 @@ them off the neutral row style, so no composable reads the preference.
   (`SourcePreferences.enabledLanguages`) and upstream owns it, while a novel language is on unless
   listed, because a plugin is installed deliberately and hiding it on install would read as a bug.
   `SourceFilterSectionsTest` pins both mappings on the same three cases.
+- **A browse result cell never buzzes on its own while the surface is choosing.** Compose's
+  `combinedClickable` performs a long-press haptic by itself (`hapticFeedbackEnabled` defaults to
+  true), so the gesture rule's silent preview still buzzed once in selection mode on the catalogue, the
+  feed and global search (cut-build device check). `EntryCellHaptics` scopes the cells' haptics to the
+  rule: silent while choosing, the platform's own while browsing, so a browsing long press keeps the
+  press buzz plus the after-add buzz exactly as Mihon has them. It is a `LocalHapticFeedback` provider
+  around the result list rather than a parameter on Mihon's cells, so `CommonMangaItem` stays
+  unpatched, and it is one provider in both modes so a mode flip does not rebuild the list. The
+  migration candidate strip, which always chooses, takes the same rule through `rememberEntryGestures`.
+  Pinned by `EntryGesturesTest`; the buzz itself is owed a device check.

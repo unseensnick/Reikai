@@ -11,6 +11,7 @@ import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
 import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.browse.components.sourceDetail
+import reikai.presentation.browse.rememberEntryGestures
 import reikai.presentation.browse.sourceLanguageName
 
 /**
@@ -36,6 +37,8 @@ internal fun MigrationCandidateStrip(
 ) {
     val result = strip.result
     val context = LocalContext.current
+    // A strip always chooses, so its long press previews and add is never reached.
+    val gestures = rememberEntryGestures(choose = onPick, open = onPreview, add = {})
     EntrySearchSection(
         title = if (isCurrentSource) "▶ ${strip.sourceName}" else strip.sourceName,
         subtitle = sourceDetail(
@@ -57,8 +60,7 @@ internal fun MigrationCandidateStrip(
                 entries = result.candidates,
                 key = { it.key },
                 toUi = { EntryBrowseItemUi(title = it.title, cover = it.cover ?: "", favorite = it.inLibrary) },
-                onClick = onPick,
-                onLongClick = onPreview,
+                gestures = gestures,
                 isSelected = { false },
             )
         }

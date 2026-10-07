@@ -31,6 +31,7 @@ import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.presentation.browse.EntryBrowseGridCell
+import reikai.presentation.browse.EntryCellHaptics
 import reikai.presentation.browse.EntryGestures
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -110,25 +111,27 @@ fun EntryBrowseCatalogue(
         return
     }
 
-    when (rowStyle) {
-        // The adult-source layout brings its own rows and reads the gallery metadata off the payload,
-        // which only the manga adapter puts there. Reached only when that adapter asks for it.
-        EntryBrowseRowStyle.Gallery -> BrowseSourceEHentaiList(
-            rows = rows,
-            contentPadding = contentPadding,
-            selectedKeys = selectedKeys,
-            onClick = gestures.onClick,
-            onLongClick = gestures.onLongClick,
-        )
-        is EntryBrowseRowStyle.Standard -> StandardRows(
-            rows = rows,
-            displayMode = rowStyle.displayMode,
-            columns = rowStyle.columns,
-            selectedKeys = selectedKeys,
-            contentPadding = contentPadding,
-            onClick = gestures.onClick,
-            onLongClick = gestures.onLongClick,
-        )
+    EntryCellHaptics(gestures) {
+        when (rowStyle) {
+            // The adult-source layout brings its own rows and reads the gallery metadata off the payload,
+            // which only the manga adapter puts there. Reached only when that adapter asks for it.
+            EntryBrowseRowStyle.Gallery -> BrowseSourceEHentaiList(
+                rows = rows,
+                contentPadding = contentPadding,
+                selectedKeys = selectedKeys,
+                onClick = gestures.onClick,
+                onLongClick = gestures.onLongClick,
+            )
+            is EntryBrowseRowStyle.Standard -> StandardRows(
+                rows = rows,
+                displayMode = rowStyle.displayMode,
+                columns = rowStyle.columns,
+                selectedKeys = selectedKeys,
+                contentPadding = contentPadding,
+                onClick = gestures.onClick,
+                onLongClick = gestures.onLongClick,
+            )
+        }
     }
 }
 

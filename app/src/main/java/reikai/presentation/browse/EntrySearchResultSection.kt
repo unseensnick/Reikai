@@ -63,8 +63,7 @@ fun SearchResultSection(
                 entries = result.entries,
                 key = { it.key },
                 toUi = { it.content.collectAsState().value.ui },
-                onClick = gestures.onClick,
-                onLongClick = gestures.onLongClick,
+                gestures = gestures,
                 isSelected = { it.key in selectedKeys },
             )
         }
