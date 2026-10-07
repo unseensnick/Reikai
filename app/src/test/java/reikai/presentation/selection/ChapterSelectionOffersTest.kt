@@ -102,6 +102,7 @@ class RowProbe(private val label: String, val make: (read: Boolean, progress: Ch
                 progress = progress.takeIf { !read },
                 downloadState = Download.State.NOT_DOWNLOADED,
                 downloadProgress = 0,
+                numberHinted = false,
             )
         }
     }

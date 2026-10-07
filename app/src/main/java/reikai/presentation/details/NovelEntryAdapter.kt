@@ -34,6 +34,7 @@ internal fun NovelChapter.toEntryChapter(
     sourceName: String?,
     marks: GroupMarks,
     downloadState: Download.State,
+    numberHinted: Boolean,
 ): EntryChapterListItem.Chapter {
     // Read on any source of the merge group, matching the manga side and the badge.
     val shownRead = marks.isRead(id, read)
@@ -49,6 +50,7 @@ internal fun NovelChapter.toEntryChapter(
         downloadState = downloadState,
         // A novel chapter is one request, so there is no percentage to report while it runs.
         downloadProgress = 0,
+        numberHinted = numberHinted,
     )
 }
 
@@ -140,7 +142,12 @@ class NovelEntryAdapter(
     ): EntryChapterListItem =
         when (this) {
             is NovelChapterListEntry.Item ->
-                chapter.toEntryChapter(sourceNames[chapter.novelId], loaded.marks, loaded.downloadStateOf(chapter.id))
+                chapter.toEntryChapter(
+                    sourceNames[chapter.novelId],
+                    loaded.marks,
+                    loaded.downloadStateOf(chapter.id),
+                    numberHinted = chapter.id in loaded.numberHints,
+                )
             is NovelChapterListEntry.Missing -> EntryChapterListItem.Missing(id = id, count = count)
         }
 
@@ -201,6 +208,10 @@ class NovelEntryAdapter(
 
     override fun showChapterNumberDialog() {
         model.showChapterNumberDialog()
+    }
+
+    override fun showChapterNumberDialog(chapterId: Long) {
+        model.showChapterNumberDialog(chapterId)
     }
 
     override fun saveChapterNumber(edit: ChapterNumberEdit, number: Double?) {

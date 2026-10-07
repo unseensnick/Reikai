@@ -84,6 +84,7 @@ import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.chapter.ChapterNumberEdit
+import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.ReadingOrder
@@ -381,6 +382,7 @@ class MangaViewModel(
                                     chapters = ownChapters,
                                     mangaBySource = emptyMap(),
                                     flags = { ownFlags(ownChapters, manga) },
+                                    numberHints = ownChapters.numberHints(),
                                 ),
                             )
                         else ->
@@ -398,6 +400,7 @@ class MangaViewModel(
                             hasHiddenChapters = hidden.hasHiddenChapters,
                             hiddenChapterIds = hidden.hiddenChapterIds,
                             gapPresent = hidden.gapPresent,
+                            numberHints = mc.numberHints,
                             resumeChapter = hidden.resumeChapter,
                             mergedMangaById = mc.mangaBySource,
                             mergeDisplayManga = mc.displayManga,
@@ -534,6 +537,7 @@ class MangaViewModel(
                     hasHiddenChapters = hidden.hasHiddenChapters,
                     hiddenChapterIds = hidden.hiddenChapterIds,
                     gapPresent = hidden.gapPresent,
+                    numberHints = ownChapters.numberHints(), // RK
                     resumeChapter = hidden.resumeChapter,
                     availableScanlators = getAvailableScanlators.await(mangaId),
                     excludedScanlators = getExcludedScanlators.await(mangaId),
@@ -986,6 +990,8 @@ class MangaViewModel(
         // RK: read, bookmarked and on disk as the view's merge scope answers them for [chapters]. Built per
         // render, since the flags cache their disk probe and a download tick re-renders without reloading.
         val flags: () -> GroupChapterFlags<Chapter>,
+        // RK: the out-of-line markers, read off each source's own list: a merged [chapters] is restamped.
+        val numberHints: Map<Long, ChapterNumberHint.Hint>,
         // RK: per-source metadata shown in the info box when a source chip is active (null = unified).
         // Kept separate from [manga] so favorite / tracking / chapter-flag actions stay on the primary.
         val displayManga: Manga? = null,
@@ -1026,6 +1032,7 @@ class MangaViewModel(
                         downloadedIdsOf(pooled, mangaBySource, sourceManga)
                     }
                 },
+                numberHints = ownChapters.numberHints(),
             )
         }
     }
@@ -1111,6 +1118,7 @@ class MangaViewModel(
                         downloadedIdsOf(pooled, mangaBySource, displayManga)
                     }
                 },
+                numberHints = pooled.numberHints(),
             )
         }
     }
@@ -1180,7 +1188,13 @@ class MangaViewModel(
 
     // The one selected chapter's number dialog, by the rule novels share (EditChapterNumber).
     fun showChapterNumberDialog() {
-        val chapter = successState?.processedChapters?.singleOrNull { it.selected }?.chapter ?: return
+        successState?.processedChapters?.singleOrNull { it.selected }?.let { showChapterNumberDialog(it.id) }
+    }
+
+    // A marked chapter's dialog opens on its hint's suggestion.
+    fun showChapterNumberDialog(chapterId: Long) {
+        val state = successState ?: return
+        val chapter = state.chapters.firstOrNull { it.id == chapterId }?.chapter ?: return
         viewModelScope.launchIO {
             val edit = editChapterNumber.edit(
                 ContentType.MANGA,
@@ -1188,10 +1202,20 @@ class MangaViewModel(
                 chapter.url,
                 chapter.name,
                 chapter.chapterNumber,
+                state.numberHints[chapterId]?.suggestion,
             )
             updateSuccessState { it.copy(dialog = Dialog.ChapterNumber(edit)) }
         }
     }
+
+    private fun List<Chapter>.numberHints() = ChapterNumberHint.forOwners(
+        this,
+        id = { it.id },
+        owner = { it.mangaId },
+        sourceOrder = { it.sourceOrder },
+        number = { it.chapterNumber },
+        name = { it.name },
+    )
 
     fun saveChapterNumber(edit: ChapterNumberEdit, number: Double?) {
         viewModelScope.launchNonCancellable { editChapterNumber.save(edit, number) }
@@ -1914,6 +1938,8 @@ class MangaViewModel(
             // RK: the numbers the missing-chapter markers count against, taken before hidden rows and the
             // filters drop any, so hiding a chapter never makes a gap.
             val gapPresent: ChapterGap.Present = ChapterGap.Present.NONE,
+            // RK: the chapters whose number is out of line with their own source's list, by chapter id.
+            val numberHints: Map<Long, ChapterNumberHint.Hint> = emptyMap(),
             // RK: where Resume opens, hidden chapters last (getNextUnread); null when everything is read.
             val resumeChapter: Chapter? = null,
             // RK: the manga's custom-info overlay (null = none), applied at the display layer via

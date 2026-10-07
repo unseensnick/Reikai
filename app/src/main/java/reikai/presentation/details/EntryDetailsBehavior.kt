@@ -63,6 +63,9 @@ interface EntryDetailsBehavior {
     /** Open the number dialog for the one selected chapter. */
     fun showChapterNumberDialog()
 
+    /** Open the number dialog for [chapterId], from its out-of-line marker. */
+    fun showChapterNumberDialog(chapterId: Long)
+
     /** Correct [edit]'s chapter to [number], or put the source's own back for null. */
     fun saveChapterNumber(edit: ChapterNumberEdit, number: Double?)
 

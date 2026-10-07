@@ -51,6 +51,7 @@ import reikai.data.novel.toNovel
 import reikai.data.novel.updateNovelFetchInterval
 import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.chapter.ChapterNumberEdit
+import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.EditChapterNumber
@@ -544,6 +545,8 @@ class NovelDetailsViewModel(
                 flags.downloadedIds,
                 downloadFolderOwnerOf(null, members, anchor),
                 flags.marks,
+                // Off each source's own list: [ordered] is restamped and keeps one copy per chapter.
+                pooled.numberHints(),
             )
         }
     }
@@ -608,6 +611,7 @@ class NovelDetailsViewModel(
                 flags.downloadedIds,
                 downloadFolderOwnerOf(viewNovel, listOf(viewNovel), anchor),
                 flags.marks,
+                chapters.numberHints(),
             )
             if (chapters.isEmpty() && isAnchorView) {
                 if (pageKey == null) maybeFirstFetch(viewNovel) else maybeFetchPage(viewNovel, pageKey)
@@ -636,6 +640,7 @@ class NovelDetailsViewModel(
         downloadedChapterIds: Set<Long>,
         downloadFolderOwner: Novel?,
         marks: GroupMarks,
+        numberHints: Map<Long, ChapterNumberHint.Hint>,
     ) {
         viewRows = chapters
         val hidden = hiddenChaptersPref.get()
@@ -669,6 +674,7 @@ class NovelDetailsViewModel(
                 chapters = display,
                 chapterListEntries = chapterListEntries,
                 missingChapterCount = missingChapterCount,
+                numberHints = numberHints,
                 showHidden = showHidden,
                 hiddenChapterIds = hiddenChapterIds,
                 hasHiddenChapters = hasHiddenChapters,
@@ -1247,7 +1253,13 @@ class NovelDetailsViewModel(
     /** The one selected chapter's number dialog, by the rule manga shares ([EditChapterNumber]). */
     fun showChapterNumberDialog() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        val chapter = loaded.chapters.filter { it.id in loaded.selection }.singleOrNull() ?: return
+        loaded.chapters.filter { it.id in loaded.selection }.singleOrNull()?.let { showChapterNumberDialog(it.id) }
+    }
+
+    /** A marked chapter's dialog opens on its hint's suggestion. */
+    fun showChapterNumberDialog(chapterId: Long) {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val chapter = loaded.chapters.firstOrNull { it.id == chapterId } ?: return
         viewModelScope.launchIO {
             val edit = editChapterNumber.edit(
                 ContentType.NOVELS,
@@ -1255,6 +1267,7 @@ class NovelDetailsViewModel(
                 chapter.url,
                 chapter.name,
                 chapter.chapterNumber,
+                loaded.numberHints[chapterId]?.suggestion,
             )
             updateLoaded { it.copy(dialog = NovelDetailsDialog.ChapterNumber(edit)) }
         }
@@ -1529,6 +1542,15 @@ class NovelDetailsViewModel(
     }
 }
 
+private fun List<NovelChapter>.numberHints() = ChapterNumberHint.forOwners(
+    this,
+    id = { it.id },
+    owner = { it.novelId },
+    sourceOrder = { it.sourceOrder },
+    number = { it.chapterNumber },
+    name = { it.name },
+)
+
 private fun EntryEditInfoUi.toCustomNovelInfo(source: Novel) =
     overridesOver(source.toEntryEditInfoUi(), NovelStatusCode.UNKNOWN.toLong()).let {
         CustomNovelInfo(
@@ -1560,6 +1582,8 @@ sealed interface NovelDetailsState {
         val chapterListEntries: List<NovelChapterListEntry> = emptyList(),
         /** Total missing chapters across the whole visible list; drives the header warning (> 0). */
         val missingChapterCount: Int = 0,
+        /** The chapters whose number is out of line with their own source's list, by chapter id. */
+        val numberHints: Map<Long, ChapterNumberHint.Hint> = emptyMap(),
         /** True while hidden chapters are temporarily shown (dimmed). */
         val showHidden: Boolean = false,
         /** Ids of the displayed rows that are hidden (only non-empty when [showHidden]); drives dimming

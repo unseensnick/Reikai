@@ -16,6 +16,8 @@ Both syncs read the owner's corrections before comparing the source's list with 
 
 The action is "Correct chapter number" in the details selection toolbar's overflow, shown while exactly one chapter is selected (Q22: long press selects, so there is no long-press menu to put it in). The dialog reads the correction when it opens, through `EditChapterNumber`, which both details models call. Saving the source's own number, or Reset, clears the correction. A save runs inside `ReconcileMergedChapters.afterPass`, because a renumbered chapter leaves a merged series' stored stitch stale.
 
+A chapter whose number is out of line with its source's list carries a warning mark before its title (after it, a long title's ellipsis would hide it). Tapping or holding the mark opens the same dialog, filled with the whole number its neighbours leave free, or with the chapter's own number when none fits; the overflow action on a marked chapter opens on the suggestion too. `ChapterNumberHint.forOwners` decides, once for both types. It reads each owner's own stored list in source order, never the merged list, because a merged list restamps the order and keeps one copy per chapter. In that list it chains rows into runs, where a run breaks at a jump of more than 10, and marks a run of at most 5 rows whose two neighbouring runs are within 10 of each other. The suggestion reads the neighbours lowest first, so a source that lists newest first gets the same number. Side content is left out of the runs and never marked: a name with a side-content word (side story, extra, special, omake, epilogue, prologue, bonus, afterword, illustrations), and a row with no leading volume label that a volume-labelled list interleaves (a bonus part numbered by its volume, "Chapter 3.1" after "Vol.3 Chapter 15"). A novel's source chip on a paged source judges the page it shows.
+
 A backup writes the corrected number where Mihon writes a chapter's number and the source's number in a field of its own (`BackupChapter` 701, `BackupNovelChapter` 12), only for a corrected chapter. A restore stores the corrections after the chapters and writes each onto its row (`restore`). A backup restored into Mihon keeps the corrected number until Mihon's next refresh re-parses it.
 
 ## Key files
@@ -24,11 +26,12 @@ A backup writes the corrected number where Mihon writes a chapter's number and t
 - [chapter_number_override.sq](../../../data/src/main/sqldelight/tachiyomi/data/chapter_number_override.sq) and [ChapterNumberOverrideRepositoryImpl.kt](../../../data/src/main/java/reikai/data/chapter/ChapterNumberOverrideRepositoryImpl.kt).
 - [EditChapterNumber.kt](../../../app/src/main/java/reikai/domain/chapter/EditChapterNumber.kt) and [ChapterNumberDialog.kt](../../../app/src/main/java/reikai/presentation/details/ChapterNumberDialog.kt).
 - [SyncChaptersWithSource.kt](../../../app/src/main/java/eu/kanade/domain/chapter/interactor/SyncChaptersWithSource.kt) (`// RK` island) and [NovelChapterSync.kt](../../../app/src/main/java/reikai/data/novel/NovelChapterSync.kt) (`syncChaptersWithNovelSource`).
-- Tests: `ChapterNumberOverrideConformanceTest` (both syncs and the editor), `ChapterNumberOverrideBackupTest` (both backups and restores), `ChapterNumberDialogTest`.
+- [ChapterNumberHint.kt](../../../domain/src/main/java/reikai/domain/chapter/ChapterNumberHint.kt): `forOwners`, the out-of-line mark and its suggestion; each details model computes it where it still has every source's own list (`MangaViewModel.MergedChapters`, `NovelDetailsViewModel.rebuildLoaded`).
+- Tests: `ChapterNumberOverrideConformanceTest` (both syncs and the editor), `ChapterNumberOverrideBackupTest` (both backups and restores), `ChapterNumberDialogTest`, `ChapterNumberHintTest` (the rule, on real rows), `NovelDetailsNumberHintTest` (the novel page's marks and dialog).
 
 ## Status
 
-Built for 0.4.0. Device checks owed: an AniList push after a correction, a merged series re-stitching on screen, and a restore.
+Built for 0.4.0. Device checks owed: an AniList push after a correction, a merged series re-stitching on screen, a restore, and the hint's marks on a manga and a novel page (the manga wiring has no unit test).
 
 ## Decisions & tradeoffs
 
@@ -36,4 +39,6 @@ Built for 0.4.0. Device checks owed: an AniList push after a correction, a merge
 - **Keyed by owner and url, one table per type.** A correction belongs to one source's chapter, so a merged series' other sources keep their own numbers, and a migration does not carry it to the new source.
 - **The novel sync takes the repository as a required parameter** through every function that reaches it, rather than a default that a caller could forget and silently drop corrections.
 - **No interactor beyond `EditChapterNumber`**: the dialog's state is the chapter it opened on, and the details rows carry no "corrected" mark.
+- **The hint's skip rule was ruled in by the owner (2026-10-08) on a measured library.** Without it the rule made 37 marks on 11 series, about 25 of them side stories, extras, epilogues and volume-interleaved bonus runs. With it the same library (emulator copy, 2026-10-08) gives 12 marks on 5 series, all real: two unnumbered parts and their neighbours in one novel (8), a misnumbered chapter (1335 for 1135), and three reposted or mistyped manga chapters. The ruling was to drop the hint if the skip left it noisy. The skip only ever removes marks, so a misnumbered chapter whose name says "bonus" or "special", or one inside a volume-labelled list's interleaving, goes unmarked.
+- **A corrected chapter still out of line stays marked.** The mark reads the stored number, so saving the suggestion clears it, while a correction the user chose to keep out of line keeps the mark.
 - **E-Hentai gallery versions** are numbered from the version chain by `EHentaiUpdateHelper`, which writes numbers outside the sync; a correction there is overwritten when a new version merges and comes back at the next sync.

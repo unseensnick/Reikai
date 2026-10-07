@@ -60,7 +60,7 @@ class ChapterNumberOverrideConformanceTest {
 
     private suspend fun corrected(type: Type, number: Double) {
         type.seed(database, driver)
-        editor.save(editor.edit(type.contentType, OWNER, URL, "Chapter 5", type.number(database, URL)), number)
+        editor.save(editor.edit(type.contentType, OWNER, URL, "Chapter 5", type.number(database, URL), null), number)
     }
 
     @ParameterizedTest
@@ -89,7 +89,7 @@ class ChapterNumberOverrideConformanceTest {
 
             type.sync(database, URL to 5.5)
             val kept = type.number(database, URL)
-            editor.save(editor.edit(type.contentType, OWNER, URL, "Chapter 5", kept), null)
+            editor.save(editor.edit(type.contentType, OWNER, URL, "Chapter 5", kept, null), null)
 
             listOf(kept, type.number(database, URL)) shouldBe listOf(6.0, 5.5)
         }
@@ -110,7 +110,7 @@ class ChapterNumberOverrideConformanceTest {
     fun `correcting a chapter back to the source's number leaves no correction`(type: Type) = runTest {
         corrected(type, 6.0)
 
-        editor.save(editor.edit(type.contentType, OWNER, URL, "Chapter 5", 6.0), 5.0)
+        editor.save(editor.edit(type.contentType, OWNER, URL, "Chapter 5", 6.0, null), 5.0)
 
         overrides.getByOwner(type.contentType, OWNER) shouldBe emptyMap()
     }

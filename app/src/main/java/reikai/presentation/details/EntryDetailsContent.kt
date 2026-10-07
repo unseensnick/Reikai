@@ -493,6 +493,11 @@ private fun LazyListScope.entryChapterItems(
                     },
                     onChapterSwipe = { behavior.chapterSwipe(chapter.id, it) },
                     downloadIndicatorShown = offersDownload,
+                    onNumberHintClick = if (chapter.numberHinted) {
+                        { behavior.showChapterNumberDialog(chapter.id) }
+                    } else {
+                        null
+                    },
                 )
             }
         }

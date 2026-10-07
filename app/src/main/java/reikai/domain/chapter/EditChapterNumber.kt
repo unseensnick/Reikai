@@ -4,7 +4,10 @@ import dev.zacsweers.metro.Inject
 import reikai.domain.library.ContentType
 import reikai.domain.merge.ReconcileMergedChapters
 
-/** The chapter the number dialog corrects: [number] as stored, [sourceNumber] only when that is a correction. */
+/**
+ * The chapter the number dialog corrects: [number] as stored, [sourceNumber] only when that is a correction,
+ * and [suggestion] the number its out-of-line hint offers ([ChapterNumberHint]), which the dialog opens on.
+ */
 data class ChapterNumberEdit(
     val type: ContentType,
     val ownerId: Long,
@@ -12,6 +15,7 @@ data class ChapterNumberEdit(
     val name: String,
     val number: Double,
     val sourceNumber: Double?,
+    val suggestion: Double?,
 )
 
 /** Correcting a chapter's number, and putting the source's back, the same way for both content types. */
@@ -21,8 +25,16 @@ class EditChapterNumber(
     private val reconcileMergedChapters: ReconcileMergedChapters,
 ) {
 
-    suspend fun edit(type: ContentType, ownerId: Long, url: String, name: String, number: Double) =
-        ChapterNumberEdit(type, ownerId, url, name, number, overrides.getByOwner(type, ownerId)[url]?.sourceNumber)
+    suspend fun edit(type: ContentType, ownerId: Long, url: String, name: String, number: Double, suggestion: Double?) =
+        ChapterNumberEdit(
+            type,
+            ownerId,
+            url,
+            name,
+            number,
+            overrides.getByOwner(type, ownerId)[url]?.sourceNumber,
+            suggestion,
+        )
 
     /**
      * Stores [number] on the chapter, or the source's own for null or a number equal to it, so a

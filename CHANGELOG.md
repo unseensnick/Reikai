@@ -221,7 +221,7 @@ agent under Settings -> Advanced.
 #### Added
 
 - **Holding a series' title, author, artist or source name now offers a library search instead of only copying, and tapping the source name browses that source (partly from Mihon).** Title, author and artist also search all sources; the source name does not on a merged series under All. Upstream: mihonapp/mihon#4002.
-- **Select one chapter on a series' page and choose Correct chapter number to fix a number the source got wrong, on manga and novels.** The correction survives refreshes and backups, and Reset puts the source's number back.
+- **A series' page now marks a chapter whose number looks out of place and lets you correct any chapter's number, on manga and novels.** Tap the mark for a suggested number, or select one chapter and choose Correct chapter number; a correction survives refreshes and backups.
 - **A series' details overflow can now open its download folder, clear its downloaded chapters and open its source's settings.** Each shows only when it applies and follows the source you are viewing on a merged series; clearing leaves your progress, bookmarks and history alone.
 - **The chapter list on a merged series now says which source each chapter came from, on manga and novels.**
 - **Related-manga suggestions now label where each one came from, in both the row and the full grid.** The source, the tracker, or the taste reason behind the pick.

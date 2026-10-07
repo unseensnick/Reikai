@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.chapter.ChapterNumberEdit
+import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.reader.ChapterProgress
@@ -86,7 +87,9 @@ class MangaEntryAdapter(
                 descriptionDefaultExpanded = isFromSource || isMetadataSource,
             ),
             chapters = EntryChapterListUiState(
-                items = chapterListItems.map { it.toNeutralItem(chapterSourceNames()) },
+                items = chapterSourceNames().let { names ->
+                    chapterListItems.map { it.toNeutralItem(names, numberHints) }
+                },
                 missingChapterCount = missingChapterCount,
                 showHidden = showHidden,
                 hasHiddenChapters = hasHiddenChapters,
@@ -132,8 +135,11 @@ class MangaEntryAdapter(
     private fun MangaViewModel.State.Success.chapterSourceNames(): Map<Long, String> =
         mergeSourceLabels(mergeSources.associate { it.id to it.sourceName })
 
-    private fun ChapterList.toNeutralItem(sourceNames: Map<Long, String>): EntryChapterListItem = when (this) {
-        is ChapterList.Item -> toEntryChapter(sourceNames[chapter.mangaId])
+    private fun ChapterList.toNeutralItem(
+        sourceNames: Map<Long, String>,
+        numberHints: Map<Long, ChapterNumberHint.Hint>,
+    ): EntryChapterListItem = when (this) {
+        is ChapterList.Item -> toEntryChapter(sourceNames[chapter.mangaId], numberHinted = id in numberHints)
         is ChapterList.MissingCount -> EntryChapterListItem.Missing(id = id, count = count)
     }
 
@@ -221,6 +227,10 @@ class MangaEntryAdapter(
 
     override fun showChapterNumberDialog() {
         model.showChapterNumberDialog()
+    }
+
+    override fun showChapterNumberDialog(chapterId: Long) {
+        model.showChapterNumberDialog(chapterId)
     }
 
     override fun saveChapterNumber(edit: ChapterNumberEdit, number: Double?) {
@@ -349,7 +359,7 @@ data class MangaGalleryCapability(
 )
 
 /** A details row for a manga chapter, read and bookmarked as the merge group answers for it. */
-internal fun ChapterList.Item.toEntryChapter(sourceName: String?) = EntryChapterListItem.Chapter(
+internal fun ChapterList.Item.toEntryChapter(sourceName: String?, numberHinted: Boolean) = EntryChapterListItem.Chapter(
     id = chapter.id,
     name = chapter.name,
     subtitle = chapterSubtitle(sourceName, chapter.scanlator),
@@ -360,4 +370,5 @@ internal fun ChapterList.Item.toEntryChapter(sourceName: String?) = EntryChapter
     progress = progressWhileUnread(ChapterProgress.Pages(chapter.lastPageRead, chapter.pageCount), isRead),
     downloadState = downloadState,
     downloadProgress = downloadProgress,
+    numberHinted = numberHinted,
 )

@@ -68,7 +68,7 @@ object MangaDetailsRowProbe : DetailsRowProbe {
             downloadProgress = 0,
             isRead = readHere || readElsewhere,
             isBookmarked = false,
-        ).toEntryChapter(sourceName = null)
+        ).toEntryChapter(sourceName = null, numberHinted = false)
     }
 }
 
@@ -95,5 +95,6 @@ object NovelDetailsRowProbe : DetailsRowProbe {
         sourceName = null,
         marks = if (readElsewhere) GroupMarks(readElsewhere = setOf(1L)) else GroupMarks.NONE,
         downloadState = Download.State.NOT_DOWNLOADED,
+        numberHinted = false,
     )
 }

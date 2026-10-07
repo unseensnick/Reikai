@@ -36,6 +36,7 @@ import mihon.icons.materialsymbols.rounded.Done
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.FileDownloadOff
 import mihon.icons.materialsymbols.rounded.RemoveDone
+import mihon.icons.materialsymbols.rounded.Warning
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import mihon.icons.materialsymbols.roundedfilled.Circle
 import reikai.presentation.components.subtitlePart
@@ -66,6 +67,7 @@ fun MangaChapterListItem(
     onChapterSwipe: (LibraryPreferences.ChapterSwipeAction) -> Unit,
     modifier: Modifier = Modifier,
     downloadIndicatorShown: Boolean = true, // RK
+    onNumberHintClick: (() -> Unit)? = null, // RK: draws the out-of-line number marker
 ) {
     val start = getSwipeAction(
         action = chapterSwipeStartAction,
@@ -128,6 +130,18 @@ fun MangaChapterListItem(
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
+                    // RK --> before the title, since a long title ellipsizes whatever follows it
+                    if (onNumberHintClick != null) {
+                        Icon(
+                            imageVector = MaterialSymbols.Rounded.Warning,
+                            contentDescription = stringResource(MR.strings.chapter_number_hint),
+                            modifier = Modifier
+                                .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() })
+                                .combinedClickable(onClick = onNumberHintClick, onLongClick = onNumberHintClick),
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    // RK <--
                     Text(
                         text = title,
                         style = MaterialTheme.typography.bodyMedium,

@@ -38,7 +38,7 @@ fun ChapterNumberDialog(
     onDismissRequest: () -> Unit,
     onSave: (Double?) -> Unit,
 ) {
-    var text by rememberSaveable { mutableStateOf(formatChapterNumber(edit.number)) }
+    var text by rememberSaveable { mutableStateOf(edit.startingText()) }
     val number = parsedChapterNumber(text)
     val focusRequester = remember { FocusRequester() }
 
@@ -99,3 +99,6 @@ fun ChapterNumberDialog(
 /** The number [text] names, a comma read as the decimal point, or null when it names none a chapter can have. */
 internal fun parsedChapterNumber(text: String): Double? =
     text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() && isRecognizedChapterNumber(it) }
+
+/** The text the field opens on: the hint's suggestion when the chapter has one, else its number. */
+internal fun ChapterNumberEdit.startingText(): String = formatChapterNumber(suggestion ?: number)
