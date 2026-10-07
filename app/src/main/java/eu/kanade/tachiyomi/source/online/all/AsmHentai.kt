@@ -9,11 +9,12 @@ import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.NamespaceSource
 import eu.kanade.tachiyomi.util.asJsoup
 import exh.metadata.metadata.AsmHentaiSearchMetadata
+import exh.metadata.metadata.GallerySiteSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
 import exh.source.layeredMangaUpdate
+import exh.util.lazyImageUrl
 import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
 
 class AsmHentai(delegate: HttpSource, context: Context) :
     DelegatedHttpSource(delegate),
@@ -39,7 +40,7 @@ class AsmHentai(delegate: HttpSource, context: Context) :
 
         with(metadata) {
             title = root.selectFirst("h1")?.text()
-            thumbnailUrl = root.selectFirst(".cover img")?.imgAttr()
+            thumbnailUrl = root.selectFirst(".cover img")?.lazyImageUrl()
 
             tags.clear()
             // AsmHentai groups tags under labelled `.tags` blocks: `.tags:contains(<Label>:)`.
@@ -47,30 +48,24 @@ class AsmHentai(delegate: HttpSource, context: Context) :
                 root.select(".tags:contains($label:) .tag_list a").forEach { element ->
                     val name = element.selectFirst(".tag")?.ownText()?.trim().orEmpty()
                     if (name.isNotBlank()) {
-                        tags += RaisedTag(namespace, name, AsmHentaiSearchMetadata.TAG_TYPE_DEFAULT)
+                        tags += RaisedTag(namespace, name, GallerySiteSearchMetadata.TAG_TYPE_DEFAULT)
                     }
                 }
             }
         }
     }
 
-    private fun Element.imgAttr(): String? = when {
-        hasAttr("data-src") -> absUrl("data-src")
-        hasAttr("data-cfsrc") -> absUrl("data-cfsrc")
-        else -> absUrl("src")
-    }.ifBlank { null }
-
     companion object {
         // Label text shown before each tag group on AsmHentai detail pages -> our namespace.
         private val NAMESPACES = listOf(
-            "Tags" to AsmHentaiSearchMetadata.TAGS_NAMESPACE,
-            "Artists" to AsmHentaiSearchMetadata.ARTIST_NAMESPACE,
-            "Groups" to AsmHentaiSearchMetadata.GROUP_NAMESPACE,
-            "Parodies" to AsmHentaiSearchMetadata.PARODY_NAMESPACE,
-            "Characters" to AsmHentaiSearchMetadata.CHARACTER_NAMESPACE,
-            "Languages" to AsmHentaiSearchMetadata.LANGUAGE_NAMESPACE,
-            "Categories" to AsmHentaiSearchMetadata.CATEGORY_NAMESPACE,
-            "Category" to AsmHentaiSearchMetadata.CATEGORY_NAMESPACE,
+            "Tags" to GallerySiteSearchMetadata.TAGS_NAMESPACE,
+            "Artists" to GallerySiteSearchMetadata.ARTIST_NAMESPACE,
+            "Groups" to GallerySiteSearchMetadata.GROUP_NAMESPACE,
+            "Parodies" to GallerySiteSearchMetadata.PARODY_NAMESPACE,
+            "Characters" to GallerySiteSearchMetadata.CHARACTER_NAMESPACE,
+            "Languages" to GallerySiteSearchMetadata.LANGUAGE_NAMESPACE,
+            "Categories" to GallerySiteSearchMetadata.CATEGORY_NAMESPACE,
+            "Category" to GallerySiteSearchMetadata.CATEGORY_NAMESPACE,
         )
     }
 }

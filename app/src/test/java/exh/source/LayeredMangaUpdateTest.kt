@@ -62,9 +62,21 @@ class LayeredMangaUpdateTest {
         wrap: (HttpSource) -> MetadataSource<*, *>,
         body: String,
     ) = runTest {
-        val updated = refreshDetails(wrap, body, mutableListOf())
+        val updated = refreshDetails(wrap, body)
 
         updated.manga.update_strategy shouldBe UpdateStrategy.ONLY_FETCH_ONCE
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("gallerySites")
+    fun `a details refresh keeps the extension's author`(
+        name: String,
+        wrap: (HttpSource) -> MetadataSource<*, *>,
+        body: String,
+    ) = runTest {
+        val updated = refreshDetails(wrap, body) { author = "Circle Name" }
+
+        updated.manga.author shouldBe "Circle Name"
     }
 
     @Test
@@ -79,7 +91,8 @@ class LayeredMangaUpdateTest {
     private suspend fun refreshDetails(
         wrap: (HttpSource) -> MetadataSource<*, *>,
         body: String,
-        requested: MutableList<String>,
+        requested: MutableList<String> = mutableListOf(),
+        fromExtension: SManga.() -> Unit = { update_strategy = UpdateStrategy.ONLY_FETCH_ONCE },
     ): SMangaUpdate {
         val delegate = mockk<HttpSource>(relaxed = true) {
             every { versionId } returns 1
@@ -95,7 +108,7 @@ class LayeredMangaUpdateTest {
             coEvery { getMangaUpdate(any(), any(), true, any()) } returns SMangaUpdate(
                 SManga.create().apply {
                     title = "From the extension"
-                    update_strategy = UpdateStrategy.ONLY_FETCH_ONCE
+                    fromExtension()
                 },
                 emptyList(),
             )
@@ -117,11 +130,16 @@ class LayeredMangaUpdateTest {
         private const val LANRARAGI_ARCHIVE = """{"arcid":"$ARCHIVE_ID","isnew":"false","tags":null,""" +
             """"summary":null,"title":"t","pagecount":1,"filename":"f","extension":"zip"}"""
 
+        // The gallery sites whose metadata names no author, so the extension's stands.
         @JvmStatic
-        fun wrappers() = listOf(
+        fun gallerySites() = listOf(
             Arguments.of("HentaiFox", { d: HttpSource -> HentaiFox(d, mockk(relaxed = true)) }, "<html></html>"),
             Arguments.of("AsmHentai", { d: HttpSource -> AsmHentai(d, mockk(relaxed = true)) }, "<html></html>"),
             Arguments.of("Koharu", { d: HttpSource -> Koharu(d, mockk(relaxed = true)) }, "{}"),
+        )
+
+        @JvmStatic
+        fun wrappers() = gallerySites() + listOf(
             Arguments.of("NHentai", { d: HttpSource -> NHentai(d, mockk(relaxed = true)) }, """{"id":1}"""),
             Arguments.of("EightMuses", { d: HttpSource -> EightMuses(d, mockk(relaxed = true)) }, "<html></html>"),
             Arguments.of("Lanraragi", { d: HttpSource -> Lanraragi(d, mockk(relaxed = true)) }, LANRARAGI_ARCHIVE),

@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.NamespaceSource
+import exh.metadata.metadata.GallerySiteSearchMetadata
 import exh.metadata.metadata.KoharuSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
@@ -50,11 +51,11 @@ class Koharu(delegate: HttpSource, context: Context) :
             tags.clear()
             // Koharu encodes each tag's group as an integer namespace (see the stock KoharuDto).
             detail.tags.forEach { tag ->
-                val namespace = NAMESPACE_BY_ID[tag.namespace] ?: KoharuSearchMetadata.TAGS_NAMESPACE
+                val namespace = NAMESPACE_BY_ID[tag.namespace] ?: GallerySiteSearchMetadata.TAGS_NAMESPACE
                 // namespace 7 (uploader) carries an "anonymous" placeholder; drop it.
                 if (tag.namespace == UPLOADER_ID && tag.name == "anonymous") return@forEach
                 if (tag.name.isNotBlank()) {
-                    tags += RaisedTag(namespace, tag.name, KoharuSearchMetadata.TAG_TYPE_DEFAULT)
+                    tags += RaisedTag(namespace, tag.name, GallerySiteSearchMetadata.TAG_TYPE_DEFAULT)
                 }
             }
         }
@@ -88,17 +89,17 @@ class Koharu(delegate: HttpSource, context: Context) :
         private const val UPLOADER_ID = 7
 
         private val NAMESPACE_BY_ID = mapOf(
-            1 to KoharuSearchMetadata.ARTIST_NAMESPACE,
-            2 to KoharuSearchMetadata.GROUP_NAMESPACE,
-            3 to KoharuSearchMetadata.PARODY_NAMESPACE,
+            1 to GallerySiteSearchMetadata.ARTIST_NAMESPACE,
+            2 to GallerySiteSearchMetadata.GROUP_NAMESPACE,
+            3 to GallerySiteSearchMetadata.PARODY_NAMESPACE,
             4 to KoharuSearchMetadata.MAGAZINE_NAMESPACE,
-            5 to KoharuSearchMetadata.CHARACTER_NAMESPACE,
+            5 to GallerySiteSearchMetadata.CHARACTER_NAMESPACE,
             6 to KoharuSearchMetadata.COSPLAYER_NAMESPACE,
             UPLOADER_ID to KoharuSearchMetadata.UPLOADER_NAMESPACE,
             8 to KoharuSearchMetadata.MALE_NAMESPACE,
             9 to KoharuSearchMetadata.FEMALE_NAMESPACE,
             10 to KoharuSearchMetadata.MIXED_NAMESPACE,
-            11 to KoharuSearchMetadata.LANGUAGE_NAMESPACE,
+            11 to GallerySiteSearchMetadata.LANGUAGE_NAMESPACE,
             12 to KoharuSearchMetadata.OTHER_NAMESPACE,
         )
 

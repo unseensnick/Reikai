@@ -8,12 +8,13 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.NamespaceSource
 import eu.kanade.tachiyomi.util.asJsoup
+import exh.metadata.metadata.GallerySiteSearchMetadata
 import exh.metadata.metadata.HentaiFoxSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
 import exh.source.layeredMangaUpdate
+import exh.util.lazyImageUrl
 import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
 
 class HentaiFox(delegate: HttpSource, context: Context) :
     DelegatedHttpSource(delegate),
@@ -39,7 +40,7 @@ class HentaiFox(delegate: HttpSource, context: Context) :
 
         with(metadata) {
             title = root.selectFirst("h1")?.text()
-            thumbnailUrl = root.selectFirst(".cover img")?.imgAttr()
+            thumbnailUrl = root.selectFirst(".cover img")?.lazyImageUrl()
 
             tags.clear()
             // HentaiFox renders each tag namespace as its own <ul class="<group>"> block.
@@ -47,28 +48,22 @@ class HentaiFox(delegate: HttpSource, context: Context) :
                 root.select("ul.$cssClass a").forEach { element ->
                     val name = element.ownText().trim()
                     if (name.isNotBlank()) {
-                        tags += RaisedTag(namespace, name, HentaiFoxSearchMetadata.TAG_TYPE_DEFAULT)
+                        tags += RaisedTag(namespace, name, GallerySiteSearchMetadata.TAG_TYPE_DEFAULT)
                     }
                 }
             }
         }
     }
 
-    private fun Element.imgAttr(): String? = when {
-        hasAttr("data-src") -> absUrl("data-src")
-        hasAttr("data-cfsrc") -> absUrl("data-cfsrc")
-        else -> absUrl("src")
-    }.ifBlank { null }
-
     companion object {
         private val NAMESPACES = listOf(
-            "artists" to HentaiFoxSearchMetadata.ARTIST_NAMESPACE,
-            "groups" to HentaiFoxSearchMetadata.GROUP_NAMESPACE,
-            "parodies" to HentaiFoxSearchMetadata.PARODY_NAMESPACE,
-            "characters" to HentaiFoxSearchMetadata.CHARACTER_NAMESPACE,
-            "tags" to HentaiFoxSearchMetadata.TAGS_NAMESPACE,
-            "languages" to HentaiFoxSearchMetadata.LANGUAGE_NAMESPACE,
-            "categories" to HentaiFoxSearchMetadata.CATEGORY_NAMESPACE,
+            "artists" to GallerySiteSearchMetadata.ARTIST_NAMESPACE,
+            "groups" to GallerySiteSearchMetadata.GROUP_NAMESPACE,
+            "parodies" to GallerySiteSearchMetadata.PARODY_NAMESPACE,
+            "characters" to GallerySiteSearchMetadata.CHARACTER_NAMESPACE,
+            "tags" to GallerySiteSearchMetadata.TAGS_NAMESPACE,
+            "languages" to GallerySiteSearchMetadata.LANGUAGE_NAMESPACE,
+            "categories" to GallerySiteSearchMetadata.CATEGORY_NAMESPACE,
         )
     }
 }
