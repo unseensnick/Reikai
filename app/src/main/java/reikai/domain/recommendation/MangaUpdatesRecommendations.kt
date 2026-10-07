@@ -5,12 +5,12 @@ import eu.kanade.tachiyomi.data.track.mangaupdates.MangaUpdatesApi
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.network.jsonMime
 import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import reikai.data.track.isMangaUpdatesManga
@@ -63,7 +63,7 @@ class MangaUpdatesRecommendations(
             put("search", title)
             put("stype", "title")
         }
-        val body = payload.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val body = payload.toString().toRequestBody(jsonMime)
 
         val data = with(json) {
             client.newCall(POST(url.toString(), body = body)).awaitSuccess().parseAs<MUSearchResponse>()
@@ -75,6 +75,5 @@ class MangaUpdatesRecommendations(
 
     companion object {
         private const val ENDPOINT = "${MangaUpdatesApi.BASE_URL}/v1/"
-        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }

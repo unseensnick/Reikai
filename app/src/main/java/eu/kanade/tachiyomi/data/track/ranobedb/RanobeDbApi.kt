@@ -10,10 +10,10 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.PUT
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
+import eu.kanade.tachiyomi.network.jsonMime
 import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
 import okhttp3.CookieJar
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import uy.kohesive.injekt.injectLazy
@@ -72,7 +72,7 @@ class RanobeDbApi(
     }
 
     suspend fun updateSeriesListEntry(seriesId: Long, entry: RDBSeriesListEntry) {
-        val body = json.encodeToString(entry).toRequestBody(JSON_MEDIA_TYPE)
+        val body = json.encodeToString(entry).toRequestBody(jsonMime)
         authClient.newCall(PUT("$API_URL/user/series/$seriesId", body = body))
             .awaitSuccess()
             .close()
@@ -91,8 +91,6 @@ class RanobeDbApi(
 
         // The endpoint defaults to 24 and caps at 100.
         private const val SEARCH_LIMIT = 50
-
-        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
         fun seriesUrl(seriesId: Long): String = "$BASE_URL/series/$seriesId"
 

@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.network.interceptor
 
 import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.network.NetworkPreferences
+import eu.kanade.tachiyomi.network.jsonMime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -20,7 +21,6 @@ import okhttp3.EventListener
 import okhttp3.FormBody
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -164,7 +164,7 @@ class FlareSolverrClient(
             put("maxTimeout", 60000)
         }
         val body = json.encodeToString(JsonObject.serializer(), command)
-            .toRequestBody(JSON_MEDIA_TYPE)
+            .toRequestBody(jsonMime)
         // A restored address skipped the settings field's check, so it may not parse at all.
         val address = "${flareSolverrUrl.trimEnd('/')}/v1".toHttpUrlOrNull()
             ?: return@withContext FlareSolverrTestResult.Failure(FlareSolverrTestFailure.UNREACHABLE, "not an address")
@@ -253,7 +253,7 @@ class FlareSolverrClient(
             }
             val newId = "reikai-${UUID.randomUUID()}"
             val body = """{"cmd":"sessions.create","session":"$newId"}"""
-                .toRequestBody(JSON_MEDIA_TYPE)
+                .toRequestBody(jsonMime)
             val req = Request.Builder()
                 .url("${flareSolverrUrl.trimEnd('/')}/v1")
                 .post(body)
@@ -315,7 +315,7 @@ class FlareSolverrClient(
         }
         val command = flareSolverrCommand(targetUrl, isPost, postData, sessionId, forwarded)
         val body = json.encodeToString(JsonObject.serializer(), command)
-            .toRequestBody(JSON_MEDIA_TYPE)
+            .toRequestBody(jsonMime)
 
         val fsRequest = Request.Builder()
             .url("${flareSolverrUrl.trimEnd('/')}/v1")
@@ -380,7 +380,7 @@ class FlareSolverrClient(
         // the caller expects; HTML page sources are untouched (their <pre>, if any, isn't JSON).
         val unwrappedJson = unwrapBrowserJsonViewer(solution.response)
         val responseText = unwrappedJson ?: solution.response
-        val contentType = if (unwrappedJson != null) JSON_CONTENT_TYPE else reportedContentType
+        val contentType = if (unwrappedJson != null) jsonMime.toString() else reportedContentType
 
         val body = responseText.toResponseBody(contentType.toMediaTypeOrNull())
 
@@ -445,9 +445,6 @@ enum class FlareSolverrTestFailure {
         }
     }
 }
-
-private val JSON_MEDIA_TYPE = "application/json".toMediaType()
-private const val JSON_CONTENT_TYPE = "application/json; charset=UTF-8"
 
 /**
  * Whether a secret may travel to the FlareSolverr at [flareSolverrUrl]: over https, or in the clear

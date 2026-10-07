@@ -11,10 +11,10 @@ import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.PUT
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
+import eu.kanade.tachiyomi.network.jsonMime
 import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import uy.kohesive.injekt.injectLazy
@@ -42,7 +42,7 @@ class NovelListApi(
     /** Search is public; the JWT is neither required nor sent. */
     suspend fun searchNovels(query: String): List<NLNovel> {
         val body = json.encodeToString(NLFilterRequest(titleSearchQuery = query))
-            .toRequestBody(JSON_MEDIA_TYPE)
+            .toRequestBody(jsonMime)
         return with(json) {
             rateLimitedClient.newCall(POST("${apiUrl()}/novels/filter", body = body))
                 .awaitSuccess()
@@ -76,7 +76,7 @@ class NovelListApi(
     }
 
     suspend fun updateReadingListEntry(novelId: String, entry: NLUpdateRequest) {
-        val body = json.encodeToString(entry).toRequestBody(JSON_MEDIA_TYPE)
+        val body = json.encodeToString(entry).toRequestBody(jsonMime)
         authClient.newCall(PUT("${apiUrl()}/users/current/reading-list/$novelId", body = body))
             .awaitSuccess()
             .close()
@@ -95,8 +95,6 @@ class NovelListApi(
         // carries their project number, so a move would brick the client. That is why the tracker can
         // override this. It is the only host the OpenAPI document describes.
         const val DEFAULT_API_URL = "https://novellist-be-960019704910.asia-east1.run.app/api"
-
-        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
         fun novelUrl(slug: String): String = "$BASE_URL/novels/$slug"
 

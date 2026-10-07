@@ -4,12 +4,12 @@ import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.anilist.AnilistApi
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.network.jsonMime
 import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import reikai.data.track.isAnilistNovel
@@ -54,7 +54,7 @@ class AnilistRecommendations(
             put("query", QUERY_MEDIA_CONTEXT)
             put("variables", buildJsonObject { put("id", remoteId) })
         }
-        val body = payload.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val body = payload.toString().toRequestBody(jsonMime)
         val media = with(json) {
             client.newCall(POST(ENDPOINT, body = body)).awaitSuccess().parseAs<ALMediaContextResponse>()
         }.data.media ?: return MediaContext(emptyList(), emptyList())
@@ -69,7 +69,7 @@ class AnilistRecommendations(
         payload: JsonObject,
         filter: (ALRecsMedia) -> Boolean = { true },
     ): List<RelatedMangaCandidate> {
-        val body = payload.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val body = payload.toString().toRequestBody(jsonMime)
         val data = with(json) {
             client.newCall(POST(ENDPOINT, body = body)).awaitSuccess().parseAs<ALRecsResponse>()
         }
@@ -127,7 +127,6 @@ class AnilistRecommendations(
 
     companion object {
         private const val ENDPOINT = AnilistApi.API_URL
-        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
         private val QUERY_BY_ID = """
             query Recommendations(${'$'}id: Int!) {
