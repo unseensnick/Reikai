@@ -454,6 +454,11 @@ private fun LazyListScope.entryChapterItems(
                 val chapter: EntryChapterListItem.Chapter = item
                 val haptic = LocalHapticFeedback.current
                 val isSelected = chapter.id in state.selection
+                val offersDownload = state.rowOffersDownload(chapter.downloadState)
+                val swipeOf = { action: LibraryPreferences.ChapterSwipeAction ->
+                    action.takeIf { offersDownload || it != LibraryPreferences.ChapterSwipeAction.Download }
+                        ?: LibraryPreferences.ChapterSwipeAction.Disabled
+                }
                 MangaChapterListItem(
                     modifier = Modifier.alpha(
                         if (chapter.id in state.chapters.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f,
@@ -479,8 +484,8 @@ private fun LazyListScope.entryChapterItems(
                     downloadIndicatorEnabled = !selectionMode && chaptersDownloadable,
                     downloadStateProvider = { chapter.downloadState },
                     downloadProgressProvider = { chapter.downloadProgress },
-                    chapterSwipeStartAction = chapterSwipeStartAction,
-                    chapterSwipeEndAction = chapterSwipeEndAction,
+                    chapterSwipeStartAction = swipeOf(chapterSwipeStartAction),
+                    chapterSwipeEndAction = swipeOf(chapterSwipeEndAction),
                     onLongClick = {
                         behavior.toggleSelection(chapter.id, true)
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -494,6 +499,7 @@ private fun LazyListScope.entryChapterItems(
                         null
                     },
                     onChapterSwipe = { behavior.chapterSwipe(chapter.id, it) },
+                    downloadIndicatorShown = offersDownload,
                 )
             }
         }

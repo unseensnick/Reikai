@@ -56,6 +56,14 @@ sealed interface EntryDetailsScreenState {
         /** Downloads go through the viewed member's own source, so only an installed one gates them on. */
         val chaptersDownloadable: Boolean get() = details.header.sourceState == EntrySourceState.Installed
 
+        /**
+         * Whether a chapter row in [downloadState] draws its download indicator and takes a download swipe.
+         * A missing source can start nothing, so a row with nothing on disk or queued offers neither, where
+         * Mihon draws an indicator that does nothing. A local row keeps Mihon's disabled one.
+         */
+        fun rowOffersDownload(downloadState: Download.State): Boolean =
+            details.header.sourceState != EntrySourceState.Missing || downloadState != Download.State.NOT_DOWNLOADED
+
         /** A custom cover lands on the entry the library renders, so only the anchor's may be edited. */
         val isCoverAnchored: Boolean get() = viewedEntryId == entryId.rawId
     }
