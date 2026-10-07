@@ -554,6 +554,7 @@ agent under Settings -> Advanced.
 - **Fill from tracker no longer adds a genre the manga or novel already has as a tag in different capitals.** The existing tag keeps its spelling.
 - **A dropped connection while your MDList login refreshes no longer signs you out.**
 - **Settings -> Tracking -> NovelList server address can now be reset to the built-in address.**
+- **A failed NovelUpdates link or update no longer moves the series on your NovelUpdates reading list.**
 
 ### Downloads & extensions
 

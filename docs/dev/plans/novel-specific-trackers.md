@@ -476,3 +476,12 @@ and the evidence are in Status.
 **The reference defects above are the reason this is a port and not a copy.** Blocking calls in
 coroutines, writes that cannot fail, and session cookies in the log are each individually small and
 collectively the difference between shipping these and regretting them.
+
+**A NovelUpdates push reads the note before it writes anything.** The cut-build device check bound a
+series through auto-bind and the note read (`wi_notestagsfic`) came back HTTP 400 after the list move
+had already landed, so the site held the series while the app saved no track row and could not undo
+it. `push` now reads the note first and moves the list only once that read succeeds; a note that does
+not parse still lets the move through, as before. Pinned by `NovelUpdatesPushTest`. **Still open:** why
+the site refused the read. A WordPress `admin-ajax` 400 means no handler answered the action for that
+session, so either the action was renamed or the request reached it signed out; settling it needs an
+authenticated probe on the device.

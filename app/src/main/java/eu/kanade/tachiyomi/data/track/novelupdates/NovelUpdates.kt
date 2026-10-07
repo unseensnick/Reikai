@@ -256,17 +256,18 @@ class NovelUpdates(id: Long) :
     }
 
     /**
-     * Status moves the entry between lists; progress is written into the note. The note is read back
-     * first and left alone when it does not parse, so a bad response cannot blank what the user
-     * wrote. Nothing here catches: a failed write must reach the caller rather than read as success.
-     * A [readChapter] also moves the site's bookmark to its release, and never moves the site back
-     * unless the user allows it.
+     * Status moves the entry between lists; progress is written into the note. The note is read before
+     * anything is written, so a refused read leaves the site untouched rather than moved under a bind
+     * the app never saves, and a note that does not parse is left alone. Nothing here catches: a failed
+     * write must reach the caller rather than read as success. A [readChapter] also moves the site's
+     * bookmark to its release, and never moves the site back unless the user allows it.
      */
     private suspend fun push(track: Track, readChapter: Boolean = false) {
         val novelId = track.remote_id.toString()
+        val notes = api.readNotes(novelId)
         moveToList(novelId, track.status)
 
-        val existing = api.readNotes(novelId) ?: return
+        val existing = notes ?: return
         val onSite = progressFrom(existing.notes)
         val neverBackwards = trackPreferences.novelUpdatesNeverBackwards.get()
         if (holdsBack(readChapter, neverBackwards, track.last_chapter_read, onSite)) {

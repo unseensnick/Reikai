@@ -39,6 +39,9 @@ class NovelUpdatesPushTest {
 
     private val askedFor = mutableListOf<String>()
 
+    /** The note read answers 400, as the site did on device for a series being bound. */
+    private var notesRefused = false
+
     private fun chapter(novelId: Long, number: Int) = NovelChapter(
         id = novelId * 1000 + number, novelId = novelId, url = "", name = "", read = true, bookmark = false,
         lastTextProgress = 0L, chapterNumber = number.toDouble(), sourceOrder = number.toLong(), dateFetch = 0L,
@@ -54,13 +57,15 @@ class NovelUpdatesPushTest {
         val request = chain.request()
         val form = request.body as? FormBody
         val action = form?.let { f -> (0 until f.size).firstOrNull { f.name(it) == "action" }?.let(f::value) }
-        action?.let { askedFor += it }
+        askedFor += action ?: request.url.encodedPath
+        val refused = action == "wi_notestagsfic" && notesRefused
         val body = when (action) {
             "wi_notestagsfic" -> """{"notes":"total chapters read: 5","tags":""}0"""
             "nd_getchapters" -> "<ol>${releaseRow(6)}${releaseRow(7)}</ol>"
             else -> ""
         }
-        Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+        Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+            .code(if (refused) 400 else 200).message(if (refused) "Bad Request" else "OK")
             .body(body.toResponseBody("text/html".toMediaType())).build()
     }.build()
 
@@ -118,6 +123,15 @@ class NovelUpdatesPushTest {
         tracker.update(track(7.0), didReadChapter = true)
 
         askedFor.count { it == "nd_getchapters" } shouldBe 1
+    }
+
+    @Test
+    fun `a note the site refuses to read leaves the series where it was`() = runTest {
+        notesRefused = true
+
+        runCatching { NovelUpdates(TrackerManager.NOVELUPDATES).update(track(6.0), didReadChapter = false) }
+
+        askedFor.none { it == "/updatelist.php" } shouldBe true
     }
 
     private companion object {
