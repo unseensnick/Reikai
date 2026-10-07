@@ -13,6 +13,7 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.MangaDexSyncWorker
+import exh.md.utils.FollowStatus
 import exh.md.utils.MdUtil
 import mihon.app.di.appGraph
 import tachiyomi.i18n.MR
@@ -55,15 +56,12 @@ object SettingsMangaDexScreen : SearchableSettings {
             }
         }
 
-        // FollowStatus READING..RE_READING (1..6); UNFOLLOWED (0) is not a syncable status.
-        val statusEntries = mapOf(
-            "1" to stringResource(MR.strings.reading),
-            "2" to stringResource(MR.strings.completed),
-            "3" to stringResource(MR.strings.on_hold),
-            "4" to stringResource(MR.strings.plan_to_read),
-            "5" to stringResource(MR.strings.dropped),
-            "6" to stringResource(MR.strings.repeating),
-        )
+        // UNFOLLOWED is not a syncable status. Keys are the status values the sync worker reads back.
+        val mdList = trackerManager.mdList
+        val statusEntries = mdList.getStatusList()
+            .filter { it != FollowStatus.UNFOLLOWED.long }
+            .mapNotNull { status -> mdList.getStatus(status)?.let { status.toString() to stringResource(it) } }
+            .toMap()
 
         return listOf(
             Preference.PreferenceItem.TextPreference(
