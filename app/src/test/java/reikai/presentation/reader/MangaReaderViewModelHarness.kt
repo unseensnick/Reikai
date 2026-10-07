@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
@@ -19,8 +20,11 @@ import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.unmockkConstructor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.job
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
@@ -146,6 +150,7 @@ class MangaReaderViewModelHarness private constructor(
             if (firstArg<ReaderChapter>().chapter.id in failing) throw IOException("no connection")
         }
         val store = ViewModelStore()
+        var modelJob: Job? = null
         try {
             val isOnDisk = { name: String, title: String ->
                 resolved.pooledChapters.any { it.name == name && titles[it.mangaId] == title && it.id in onDisk }
@@ -214,12 +219,17 @@ class MangaReaderViewModelHarness private constructor(
                 ),
                 getChapter = GetChapter(chapters),
                 chapterDownloadActions = MangaChapterDownloadActions(downloadManager, getManga, sourceManager),
-            ).also { store.put("reader", it) }
+            ).also {
+                store.put("reader", it)
+                modelJob = it.viewModelScope.coroutineContext.job
+            }
             val state = settled(model) { it.viewerChapters != null || it.initError != null }
                 .also { it.initError?.let { error -> throw error } }
             return probe(model, state)
         } finally {
             store.clear()
+            // A cancelled load still resumes on Main to finish, so wait for it before a test resets Main.
+            withContext(NonCancellable) { modelJob?.join() }
             unmockkConstructor(ChapterLoader::class)
         }
     }

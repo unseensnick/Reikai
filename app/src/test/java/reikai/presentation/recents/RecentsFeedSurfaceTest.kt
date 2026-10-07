@@ -15,14 +15,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -33,6 +29,7 @@ import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadCache
+import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.updates.NovelUpdatesViewModel
 import tachiyomi.domain.history.interactor.GetHistory
@@ -60,15 +57,9 @@ class RecentsFeedSurfaceTest {
         recentsFilterCategoriesExclude.set(setOf("3"))
     }
 
-    @BeforeEach
-    fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
-    }
-
-    @AfterEach
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+    @JvmField
+    @RegisterExtension
+    val main = MainDispatcherExtension()
 
     @ParameterizedTest(name = "{0} on {1}")
     @MethodSource("feeds")
@@ -78,7 +69,7 @@ class RecentsFeedSurfaceTest {
         excluded: Long,
     ) = runTest {
         val asked = mutableListOf<List<Long>>()
-        val state = feed.build(surface, preferences) { asked += it }
+        val state = feed.build(surface, preferences, main) { asked += it }
         backgroundScope.launch { state.collect { } }
 
         // The query runs on the IO dispatcher, which virtual time does not reach.
@@ -100,7 +91,7 @@ class RecentsFeedSurfaceTest {
             Arguments.of(novelHistory, RecentsSurface.RECENTS, 3L),
         )
 
-        private val mangaUpdates = FeedProbe("manga updates") { surface, preferences, asked ->
+        private val mangaUpdates = FeedProbe("manga updates") { surface, preferences, main, asked ->
             val downloadManager = mockk<DownloadManager> {
                 every { statusFlow() } returns emptyFlow()
                 every { progressFlow() } returns emptyFlow()
@@ -113,65 +104,85 @@ class RecentsFeedSurfaceTest {
                 }
             }
             val store = EmittingPreferenceStore()
-            UpdatesViewModel(
-                surface = surface,
-                downloadManager = downloadManager,
-                downloadCache = mockk<DownloadCache> { every { changes } returns MutableStateFlow(Unit) },
-                getUpdates = getUpdates,
-                getCustomMangaInfo = mockk<GetCustomMangaInfo> { every { subscribeAll() } returns flowOf(emptyList()) },
-                libraryPreferences = LibraryPreferences(store),
-                updatesPreferences = UpdatesPreferences(store),
-                reikaiSourcePreferences = preferences,
+            main.track(
+                UpdatesViewModel(
+                    surface = surface,
+                    downloadManager = downloadManager,
+                    downloadCache = mockk<DownloadCache> { every { changes } returns MutableStateFlow(Unit) },
+                    getUpdates = getUpdates,
+                    getCustomMangaInfo = mockk<GetCustomMangaInfo> {
+                        every { subscribeAll() } returns
+                            flowOf(emptyList())
+                    },
+                    libraryPreferences = LibraryPreferences(store),
+                    updatesPreferences = UpdatesPreferences(store),
+                    reikaiSourcePreferences = preferences,
+                ),
             ).state
         }
 
-        private val novelUpdates = FeedProbe("novel updates") { surface, preferences, asked ->
+        private val novelUpdates = FeedProbe("novel updates") { surface, preferences, main, asked ->
             val repository = mockk<NovelRepository> {
                 every { getFilteredNovelUpdatesAsFlow(any(), any(), any(), any(), any(), any(), any()) } answers {
                     asked(arg(6))
                     flowOf(emptyList())
                 }
             }
-            NovelUpdatesViewModel(
-                surface = surface,
-                novelRepo = repository,
-                downloadManagerProvider = { mockk { every { queueState } returns MutableStateFlow(emptyList()) } },
-                novelDownloadCache = mockk<NovelDownloadCache> { every { changes } returns MutableStateFlow(Unit) },
-                sourcePreferences = preferences,
-                updatesPreferences = UpdatesPreferences(EmittingPreferenceStore()),
-                getCustomNovelInfo = mockk<GetCustomNovelInfo> { every { subscribeAll() } returns flowOf(emptyList()) },
+            main.track(
+                NovelUpdatesViewModel(
+                    surface = surface,
+                    novelRepo = repository,
+                    downloadManagerProvider = { mockk { every { queueState } returns MutableStateFlow(emptyList()) } },
+                    novelDownloadCache = mockk<NovelDownloadCache> { every { changes } returns MutableStateFlow(Unit) },
+                    sourcePreferences = preferences,
+                    updatesPreferences = UpdatesPreferences(EmittingPreferenceStore()),
+                    getCustomNovelInfo = mockk<GetCustomNovelInfo> {
+                        every { subscribeAll() } returns
+                            flowOf(emptyList())
+                    },
+                ),
             ).state
         }
 
-        private val mangaHistory = FeedProbe("manga history") { surface, preferences, asked ->
+        private val mangaHistory = FeedProbe("manga history") { surface, preferences, main, asked ->
             val getHistory = mockk<GetHistory> {
                 every { subscribe(any(), any(), any()) } answers {
                     asked(arg(2))
                     flowOf(emptyList())
                 }
             }
-            HistoryViewModel(
-                surface = surface,
-                getCustomMangaInfo = mockk<GetCustomMangaInfo> { every { subscribeAll() } returns flowOf(emptyList()) },
-                getHistory = getHistory,
-                removeHistory = mockk<RemoveHistory>(),
-                reikaiSourcePreferences = preferences,
+            main.track(
+                HistoryViewModel(
+                    surface = surface,
+                    getCustomMangaInfo = mockk<GetCustomMangaInfo> {
+                        every { subscribeAll() } returns
+                            flowOf(emptyList())
+                    },
+                    getHistory = getHistory,
+                    removeHistory = mockk<RemoveHistory>(),
+                    reikaiSourcePreferences = preferences,
+                ),
             ).state
         }
 
-        private val novelHistory = FeedProbe("novel history") { surface, preferences, asked ->
+        private val novelHistory = FeedProbe("novel history") { surface, preferences, main, asked ->
             val getNovelHistory = mockk<GetNovelHistory> {
                 every { subscribe(any(), any(), any()) } answers {
                     asked(arg(2))
                     flowOf(emptyList())
                 }
             }
-            NovelHistoryViewModel(
-                surface = surface,
-                getNovelHistory = getNovelHistory,
-                getCustomNovelInfo = mockk<GetCustomNovelInfo> { every { subscribeAll() } returns flowOf(emptyList()) },
-                removeNovelHistory = mockk<RemoveNovelHistory>(),
-                sourcePreferences = preferences,
+            main.track(
+                NovelHistoryViewModel(
+                    surface = surface,
+                    getNovelHistory = getNovelHistory,
+                    getCustomNovelInfo = mockk<GetCustomNovelInfo> {
+                        every { subscribeAll() } returns
+                            flowOf(emptyList())
+                    },
+                    removeNovelHistory = mockk<RemoveNovelHistory>(),
+                    sourcePreferences = preferences,
+                ),
             ).state
         }
     }
@@ -183,7 +194,7 @@ class RecentsFeedSurfaceTest {
  */
 class FeedProbe(
     private val label: String,
-    val build: (RecentsSurface, ReikaiSourcePreferences, (List<Long>) -> Unit) -> Flow<*>,
+    val build: (RecentsSurface, ReikaiSourcePreferences, MainDispatcherExtension, (List<Long>) -> Unit) -> Flow<*>,
 ) {
     override fun toString() = label
 }

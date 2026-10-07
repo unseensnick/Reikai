@@ -1,18 +1,15 @@
 package reikai.presentation.migrate.flow
 
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.entry.EntryId
+import reikai.presentation.MainDispatcherExtension
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -23,11 +20,9 @@ class EntryMigrationFavoritesViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
 
-    @BeforeEach
-    fun setUp() = Dispatchers.setMain(dispatcher)
-
-    @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    @JvmField
+    @RegisterExtension
+    val main = MainDispatcherExtension { dispatcher }
 
     @Test
     fun `clearing the selection leaves nothing selected`() = runTest(dispatcher) {
@@ -76,8 +71,9 @@ class EntryMigrationFavoritesViewModelTest {
         val favorites = (1L..count).map {
             MigrationFavorite(EntryId.Manga(it), "t$it", null, MigrationPayload.OfManga(Manga.create()))
         }
-        val viewModel =
-            EntryMigrationFavoritesViewModel(FakeMigrationFlowAdapter(emptyList(), favorites = favorites), "src")
+        val viewModel = main.track(
+            EntryMigrationFavoritesViewModel(FakeMigrationFlowAdapter(emptyList(), favorites = favorites), "src"),
+        )
         backgroundScope.launch { viewModel.state.collect {} }
         // The state is built on the IO dispatcher, which virtual time does not reach, so each step
         // awaits the emission it needs rather than advancing the clock.

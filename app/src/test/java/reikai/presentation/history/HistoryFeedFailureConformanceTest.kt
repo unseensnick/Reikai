@@ -4,19 +4,14 @@ import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.category.RecentsSurface
@@ -27,6 +22,7 @@ import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.repository.CustomNovelInfoRepository
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.RemoveHistory
@@ -43,15 +39,9 @@ class HistoryFeedFailureConformanceTest {
 
     private val preferences = ReikaiSourcePreferences(EmittingPreferenceStore())
 
-    @BeforeEach
-    fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
-    }
-
-    @AfterEach
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+    @JvmField
+    @RegisterExtension
+    val main = MainDispatcherExtension()
 
     private fun failingFeed(type: ContentType): Flow<List<Any>?> = when (type) {
         ContentType.MANGA -> {
@@ -59,12 +49,14 @@ class HistoryFeedFailureConformanceTest {
                 every { getHistory(any(), any(), any()) } returns flow { error("query failed") }
             }
             val customInfo = mockk<CustomMangaInfoRepository> { every { getAllAsFlow() } returns flowOf(emptyList()) }
-            HistoryViewModel(
-                RecentsSurface.HISTORY,
-                GetCustomMangaInfo(customInfo),
-                GetHistory(history),
-                RemoveHistory(history),
-                preferences,
+            main.track(
+                HistoryViewModel(
+                    RecentsSurface.HISTORY,
+                    GetCustomMangaInfo(customInfo),
+                    GetHistory(history),
+                    RemoveHistory(history),
+                    preferences,
+                ),
             ).state.map { it.list }
         }
         ContentType.NOVELS -> {
@@ -72,12 +64,14 @@ class HistoryFeedFailureConformanceTest {
                 every { getNovelHistory(any(), any(), any()) } returns flow { error("query failed") }
             }
             val customInfo = mockk<CustomNovelInfoRepository> { every { getAllAsFlow() } returns flowOf(emptyList()) }
-            NovelHistoryViewModel(
-                RecentsSurface.HISTORY,
-                GetNovelHistory(history),
-                GetCustomNovelInfo(customInfo),
-                RemoveNovelHistory(history),
-                preferences,
+            main.track(
+                NovelHistoryViewModel(
+                    RecentsSurface.HISTORY,
+                    GetNovelHistory(history),
+                    GetCustomNovelInfo(customInfo),
+                    RemoveNovelHistory(history),
+                    preferences,
+                ),
             ).state.map { it.list }
         }
         ContentType.ALL -> error("not a content type")

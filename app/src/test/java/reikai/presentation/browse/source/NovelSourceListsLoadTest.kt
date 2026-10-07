@@ -12,15 +12,11 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
@@ -29,6 +25,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.novelApp
 import reikai.novel.source.novelCatalogue
+import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.preference.Preference
 import kotlin.time.Duration.Companion.seconds
@@ -52,22 +49,20 @@ class NovelSourceListsLoadTest {
     )
     private val preferences = ReikaiSourcePreferences(EmittingPreferenceStore())
 
-    @BeforeEach
-    fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
-
-    @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    @JvmField
+    @RegisterExtension
+    val main = MainDispatcherExtension()
 
     @Test
     fun `the Sources list opens with the novel apps' catalogues`() = runTest {
-        val model = NovelSourcesViewModel(manager, preferences, ToggleNovelSource(preferences))
+        val model = main.track(NovelSourcesViewModel(manager, preferences, ToggleNovelSource(preferences)))
 
         firstAfterScan { model.sources.filterNotNull().first() }.map { it.source.id } shouldBe listOf("tachiyomi:7")
     }
 
     @Test
     fun `the Sources filter opens with the novel apps' catalogues`() = runTest {
-        val model = NovelSourcesFilterViewModel(manager, preferences, ToggleNovelSource(preferences))
+        val model = main.track(NovelSourcesFilterViewModel(manager, preferences, ToggleNovelSource(preferences)))
 
         firstAfterScan { model.state.filterIsInstance<NovelSourcesFilterViewModel.State.Success>().first() }
             .items.flatMap { it.second }.map { it.id } shouldBe listOf("tachiyomi:7")
