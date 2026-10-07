@@ -63,6 +63,8 @@ abstract class BaseTracker(
     override val metadataAccess: MetadataAccess = MetadataAccess.SignedIn
     // RK <--
 
+    // RK --> one id: parse for every tracker, which upstream writes out per tracker
+
     /**
      * The `id:` search prefix, defined once so a tracker's manga and novel searches cannot answer it
      * differently. [parse] turns the rest of the query into that service's own id; returning null

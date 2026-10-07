@@ -16,7 +16,7 @@ Reikai is built on [Mihon](https://github.com/mihonapp/mihon) but is a standalon
 4. **Drift-check** the hand-merges, then list unfenced edits: `pwsh scripts/rk-fence-report.ps1 -MihonBase <new base>` diffs every file Reikai shares with `refs/mihon` against that base and prints each changed hunk no `// RK` marker covers, plus any RK marker in a Reikai-owned file (rule: `.claude/rules/architecture.md`). It is a heuristic report wired into no hook, and the tree carries a backlog, so fence what the pass touched rather than expecting a clean run. Audits run it the same way against the top ledger row.
 5. **Compile** (`:app:compileReleaseKotlin`) and on-device verify anything user-facing.
 6. **Commit** with the [convention](#commit-convention).
-7. **Append a ledger row** recording the new base and what was ported or skipped.
+7. **Append a ledger row** recording the new base and what was ported or skipped. Add it at the top and open its Base cell with the SHA in backticks, `(unchanged)` included: `scripts/dup-check.ps1` reads that cell as the synced base, which decides which files are Reikai's.
 
 Port every new commit by default. Only skip one for a concrete, defensible reason (it re-implements something Reikai deliberately rewrote and would contradict live behaviour, or it is N/A like a Mihon version-code bump). Surface a skip as a choice, never decide it silently.
 

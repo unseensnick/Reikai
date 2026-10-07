@@ -1,6 +1,19 @@
-# Cross-file token clones in reikai/ and exh/ that predate scripts/dup-check.ps1 or were kept on
-# purpose. One per line: file A, file B, hash of the normalised tokens (tab-separated). Regenerate
-# with: pwsh scripts/dup-check.ps1 -UpdateBaseline, and say in the commit why a new one is kept.
+# Cross-file token clones in Reikai-owned Kotlin and RK islands that predate their check or were
+# kept on purpose. One per line: file A, file B, hash of the normalised tokens (tab-separated).
+# Regenerate with: pwsh scripts/dup-check.ps1 -UpdateBaseline, and say in the commit why a new one
+# is kept.
+app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/MangaBackupCreator.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/NovelBackupCreator.kt	c7dbc2f375ec0b4d
+app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupCustomMangaInfo.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupCustomNovelInfo.kt	3f25b0ac5f1f9294
+app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupManga.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupNovel.kt	eb95fab0158a498f
+app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupNovelChapter.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupNovelTracking.kt	e2a3c11f39df2e9a
+app/src/main/java/eu/kanade/tachiyomi/data/download/DownloadStore.kt	app/src/main/java/reikai/novel/download/NovelDownloadStore.kt	165a5301275c7653
+app/src/main/java/eu/kanade/tachiyomi/data/track/novellist/NovelList.kt	app/src/main/java/eu/kanade/tachiyomi/data/track/ranobedb/RanobeDb.kt	f5f504d228519d3b
+app/src/main/java/eu/kanade/tachiyomi/data/track/novellist/NovelListApi.kt	app/src/main/java/eu/kanade/tachiyomi/data/track/ranobedb/RanobeDbApi.kt	6bea7d2c0ea7cd5a
+app/src/main/java/eu/kanade/tachiyomi/source/online/all/AsmHentai.kt	app/src/main/java/eu/kanade/tachiyomi/source/online/all/HentaiFox.kt	da31f098f34d149c
+app/src/main/java/eu/kanade/tachiyomi/source/online/all/AsmHentai.kt	app/src/main/java/eu/kanade/tachiyomi/source/online/all/Koharu.kt	63d0c3f3c13840bb
+app/src/main/java/eu/kanade/tachiyomi/source/online/all/HentaiFox.kt	app/src/main/java/eu/kanade/tachiyomi/source/online/all/Koharu.kt	63d0c3f3c13840bb
+app/src/main/java/eu/kanade/tachiyomi/source/online/all/NHentai.kt	app/src/main/java/eu/kanade/tachiyomi/source/online/all/NHentaiNet.kt	909c84e23b8e259a
+app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaViewModel.kt	app/src/main/java/reikai/presentation/novel/details/NovelDetailsViewModel.kt	ddd1afe102a63326
 app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/exh/md/MangaDexSyncWorker.kt	943d0a5dd1973047
 app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	1730026bbb3617ab
 app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	25aba8238eba00c1
@@ -12,6 +25,7 @@ app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	7c15383f860befb5
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	abfb0aee4c193079
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	f95131f6c1c7530a
+app/src/main/java/mihon/core/migration/migrations/NovelAutoScrollOnOpenMigration.kt	app/src/main/java/mihon/core/migration/migrations/NovelTapLayoutMigration.kt	a1cfba7518f6cdca
 app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2ec218252f58acee
 app/src/main/java/reikai/domain/library/ReikaiLibraryPreferences.kt	app/src/main/java/reikai/domain/recommendation/ReikaiRecommendationPreferences.kt	09165fda2d9f7232
 app/src/main/java/reikai/domain/library/updateerror/LibraryUpdateErrorInteractors.kt	app/src/main/java/reikai/domain/novel/updateerror/NovelUpdateErrorInteractors.kt	2f49a3018a725c47
@@ -39,3 +53,4 @@ app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/mai
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	e56c3ed579b89440
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	efd92a29b7840909
 data/src/main/java/reikai/data/library/updateerror/LibraryUpdateErrorRepositoryImpl.kt	data/src/main/java/reikai/data/novel/updateerror/NovelUpdateErrorRepositoryImpl.kt	2167c4310ae02d35
+data/src/main/java/reikai/data/novel/CustomNovelInfoRepositoryImpl.kt	data/src/main/java/tachiyomi/data/manga/CustomMangaInfoRepositoryImpl.kt	7e211102b55d97e7

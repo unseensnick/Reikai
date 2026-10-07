@@ -34,12 +34,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'mihon-ownership.ps1')
 $repoRoot = Split-Path $PSScriptRoot -Parent
-# refs/ sits beside the main worktree, and a linked worktree's own root is somewhere else.
-if (-not $RefsRoot) {
-    $mainWorktree = Split-Path (git -C $repoRoot rev-parse --path-format=absolute --git-common-dir) -Parent
-    $RefsRoot = Join-Path (Split-Path $mainWorktree -Parent) 'refs'
-}
+if (-not $RefsRoot) { $RefsRoot = Get-DefaultRefsRoot $repoRoot }
 $mihon = Join-Path $RefsRoot 'mihon'
 if (-not (Test-Path $mihon)) { throw "no Mihon clone at $mihon" }
 
@@ -48,11 +45,7 @@ if ($LASTEXITCODE -ne 0) { throw "refs/mihon has no commit $MihonBase" }
 
 # A marker is RK after a comment opener. A backtick before the opener is prose naming the convention.
 $marker = '(?<!`)(//|/\*|\*|#|--|<!--)\s*RK\b'
-$islandOpen = '(?<!`)(//|#|--|<!--)\s*RK\s*-->'
-$islandClose = '(?<!`)(//|#|--|<!--)\s*RK\s*<--'
 $exempt = '^\s*$|^\s*import\s'
-# A whole-file rewrite carries this header instead of islands, and is hand-merged whole at a sync.
-$wholeFileHeader = '^\s*//\s*RK:\s*whole file\b'
 
 function Test-Wanted([string]$path) { $Extensions -contains [IO.Path]::GetExtension($path) }
 
@@ -79,19 +72,11 @@ try {
     foreach ($path in $differing) {
         $full = Join-Path $repoRoot $path
         $lines = @(Get-Content -LiteralPath $full)
-        if (@($lines | Select-Object -First 5 | Where-Object { $_ -cmatch $wholeFileHeader }).Count -gt 0) {
+        if (Test-RkWholeFile $lines) {
             $rewrites.Add($path)
             continue
         }
-        # 1-based: island[n] is true for line n inside an island, both marker lines included.
-        $island = New-Object bool[] ($lines.Count + 2)
-        $open = $false
-        for ($n = 1; $n -le $lines.Count; $n++) {
-            $text = $lines[$n - 1]
-            if ($text -cmatch $islandOpen) { $open = $true }
-            $island[$n] = $open
-            if ($text -cmatch $islandClose) { $open = $false }
-        }
+        $island = (Get-RkIslands $lines).Mask
         function Test-Marker([int]$n) { $n -ge 1 -and $n -le $lines.Count -and $lines[$n - 1] -cmatch $marker }
 
         # Written with LF endings, so git does not warn about converting the copy.

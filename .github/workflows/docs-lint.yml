@@ -10,10 +10,10 @@ name: Docs lint
 
 on:
   pull_request:
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-check-test.ps1', 'scripts/mihon-ownership.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
   push:
     branches: [main]
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-check-test.ps1', 'scripts/mihon-ownership.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
 
 permissions:
   contents: read
@@ -57,10 +57,19 @@ jobs:
       - name: Report twin markers that name no pin
         run: bash scripts/lint-docs.sh twin-pins --tree
 
-      # A cross-file copy under reikai/ or exh/ that scripts/dup-baseline.txt does not list (DRY in
-      # code-quality.md). Keyed by file pair and token hash, so line moves do not re-fire it.
+      # The duplicate check reads which files are Reikai's from Mihon's tree at the synced base (the top
+      # ledger row of docs/dev/upstream-sync.md) and at upstream HEAD. Blobless, since listing a tree
+      # needs every tree object and no file contents; a depth-1 clone cannot reach the base.
+      - name: Clone Mihon's history
+        run: git clone --quiet --filter=blob:none --no-checkout https://github.com/mihonapp/mihon.git "$RUNNER_TEMP/mihon"
+
+      - name: Check the duplicate check still finds what it should
+        run: pwsh -NoProfile -File scripts/dup-check-test.ps1
+
+      # A cross-file copy in Reikai-owned Kotlin or an RK island that scripts/dup-baseline.txt does not
+      # list (DRY in code-quality.md). Keyed by file pair and token hash, so line moves do not re-fire it.
       - name: Check for new duplicated code
-        run: pwsh -NoProfile -File scripts/dup-check.ps1
+        run: pwsh -NoProfile -File scripts/dup-check.ps1 -MihonClone "$RUNNER_TEMP/mihon"
 
       # CI has no refs/ clone, so it cannot diff against upstream; it checks that every manifested
       # file stays deleted and every replacement exists, which is what catches a resurrected file or

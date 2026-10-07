@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    Fails on a new cross-file token clone in Reikai-owned Kotlin (reikai/ and exh/ in the app, domain
-    and data modules) that scripts/dup-baseline.txt does not already list.
+    Fails on a new cross-file token clone in Reikai's own Kotlin (every main-source file Mihon does not
+    have, plus the RK islands in the files it does) that scripts/dup-baseline.txt does not already list.
 
 .DESCRIPTION
     The DRY rule in .claude/rules/code-quality.md asks for a reuse search before a helper is written.
@@ -15,6 +15,13 @@
     numbers, so an unrelated edit above a baselined clone does not re-fire it. Editing the cloned code
     itself changes the hash, which is the point: touching a known duplicate re-asks the question.
 
+    Ownership is read from Mihon's tree at the synced base (the top row of the ledger in
+    docs/dev/upstream-sync.md) and at the clone's HEAD: the base still has a file upstream renamed
+    after it, and HEAD has one Reikai ported ahead of the base. A path in neither is Reikai's and is
+    read whole; a Mihon file is read only inside its RK islands, or whole under a whole-file header.
+    The clone defaults to refs/mihon beside the main worktree, and a missing one fails the check. A
+    blobless clone (--filter=blob:none) is enough, which is what CI takes.
+
     Modes: the whole tree (CI), -Staged (pre-commit: only clones touching a staged file), and
     -UpdateBaseline (rewrite the baseline from the current tree, for a deliberate, explained clone).
     Reads the working tree, as di-interop-check.ps1 does.
@@ -22,38 +29,101 @@
 [CmdletBinding()]
 param(
     [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
+    [string]$MihonClone,
     [switch]$Staged,
     [switch]$UpdateBaseline,
     [int]$MinTokens = 100
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'mihon-ownership.ps1')
 $baselinePath = Join-Path $RepoRoot 'scripts/dup-baseline.txt'
+
+if (-not $MihonClone) { $MihonClone = Join-Path (Get-DefaultRefsRoot $RepoRoot) 'mihon' }
+if (-not (Test-Path -LiteralPath $MihonClone)) {
+    Write-Host "dup-check: no Mihon clone at $MihonClone, which says which files are Reikai's. Clone mihonapp/mihon there (--filter=blob:none is enough) or pass -MihonClone."
+    exit 1
+}
+$base = Get-SyncedMihonBase $RepoRoot
+$mihonPaths = [System.Collections.Generic.HashSet[string]]::new()
+# A hook exports the commit's GIT_DIR and index, which would point these calls back at Reikai.
+$hookGitVars = 'GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'
+$savedGitVars = @{}
+foreach ($v in $hookGitVars) {
+    $savedGitVars[$v] = [Environment]::GetEnvironmentVariable($v)
+    Remove-Item "Env:$v" -ErrorAction SilentlyContinue
+}
+try {
+    foreach ($rev in $base, 'HEAD') {
+        $paths = @(git -C $MihonClone ls-tree -r --name-only "$rev^{commit}" 2>$null)
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "dup-check: the Mihon clone at $MihonClone has no commit $rev. Pull it."
+            exit 1
+        }
+        foreach ($p in $paths) { [void]$mihonPaths.Add($p) }
+    }
+} finally {
+    foreach ($v in $hookGitVars) { if ($null -ne $savedGitVars[$v]) { Set-Item "Env:$v" $savedGitVars[$v] } }
+}
 
 # The scope, as git sees it: walking folders instead swept worktree copies under .claude/ in the spike.
 # ReikaiIcons.kt is generated vector paths, and exh/metadata/ is Komikku's metadata model ported
 # verbatim, whose per-source classes repeat one shape by design.
-$scope = '^(app|domain|data)/src/main/.*/(reikai|exh)/.*\.kt$'
+$scope = '(^|/)src/main/.*\.kt$'
 $excluded = '(/ReikaiIcons\.kt$|/exh/metadata/)'
-$files = @(git -C $RepoRoot ls-files -- '*.kt' | Where-Object { $_ -match $scope -and $_ -notmatch $excluded } | Sort-Object)
+$tracked = @(git -C $RepoRoot ls-files -- '*.kt' | Where-Object { $_ -match $scope -and $_ -notmatch $excluded } | Sort-Object)
 if ($LASTEXITCODE -ne 0) {
     Write-Error 'dup-check: git ls-files failed.'
     exit 1
 }
-# A scope regex that silently stops matching would report a clean tree.
-if ($files.Count -lt 300) {
-    Write-Error "dup-check: only $($files.Count) Kotlin files in scope. The scope pattern is stale."
+
+$files = [System.Collections.Generic.List[string]]::new()
+$texts = [System.Collections.Generic.List[string]]::new()
+$islandErrors = [System.Collections.Generic.List[string]]::new()
+$owned = 0
+foreach ($f in $tracked) {
+    $text = [System.IO.File]::ReadAllText((Join-Path $RepoRoot $f))
+    if (-not $mihonPaths.Contains($f)) {
+        $owned++
+    } elseif ($text.Contains('RK')) {
+        $lines = $text -split "`r?`n"
+        if (-not (Test-RkWholeFile $lines)) {
+            $islands = Get-RkIslands $lines
+            if ($islands.Error) { $islandErrors.Add("${f}: $($islands.Error)") }
+            # Lines outside the islands are blanked rather than dropped, so reported line numbers hold.
+            $kept = for ($n = 1; $n -le $lines.Count; $n++) { if ($islands.Mask[$n]) { $lines[$n - 1] } else { '' } }
+            $text = $kept -join "`n"
+            if ($text.Trim().Length -eq 0) { continue }
+        }
+    } else {
+        continue
+    }
+    $files.Add($f)
+    $texts.Add($text)
+}
+# A scope regex that silently stops matching, or an ownership read that claims everything for Mihon,
+# would report a clean tree.
+if ($owned -lt 300) {
+    Write-Error "dup-check: only $owned Reikai-owned Kotlin files in scope. The scope pattern or the Mihon clone is stale."
     exit 1
 }
 
 $touched = $null
 if ($Staged -and -not $UpdateBaseline) {
-    $inScope = [System.Collections.Generic.HashSet[string]]::new([string[]]$files)
+    $inScope = [System.Collections.Generic.HashSet[string]]::new([string[]]$tracked)
     $touched = [System.Collections.Generic.HashSet[string]]::new()
     foreach ($f in @(git -C $RepoRoot diff --cached --name-only --diff-filter=ACMR -- '*.kt')) {
         if ($inScope.Contains($f)) { [void]$touched.Add($f) }
     }
     if ($touched.Count -eq 0) { exit 0 }
+}
+
+# An unbalanced island hides Reikai's lines from this check, or hands it Mihon's.
+$badIslands = @($islandErrors | Where-Object { $null -eq $touched -or $touched.Contains(($_ -split ': ', 2)[0]) })
+if ($badIslands.Count -gt 0) {
+    Write-Host 'dup-check: unbalanced RK islands (see .claude/rules/architecture.md):'
+    foreach ($e in $badIslands) { Write-Host "  $e" }
+    exit 1
 }
 
 Add-Type -TypeDefinition @'
@@ -174,14 +244,14 @@ public static class DupDetector {
 }
 '@
 
-$texts = foreach ($f in $files) { [System.IO.File]::ReadAllText((Join-Path $RepoRoot $f)) }
-$clones = [DupDetector]::Find([string[]]$files, [string[]]$texts, $MinTokens)
+$clones = [DupDetector]::Find($files.ToArray(), $texts.ToArray(), $MinTokens)
 
 if ($UpdateBaseline) {
     $header = @(
-        '# Cross-file token clones in reikai/ and exh/ that predate scripts/dup-check.ps1 or were kept on'
-        '# purpose. One per line: file A, file B, hash of the normalised tokens (tab-separated). Regenerate'
-        '# with: pwsh scripts/dup-check.ps1 -UpdateBaseline, and say in the commit why a new one is kept.'
+        '# Cross-file token clones in Reikai-owned Kotlin and RK islands that predate their check or were'
+        '# kept on purpose. One per line: file A, file B, hash of the normalised tokens (tab-separated).'
+        '# Regenerate with: pwsh scripts/dup-check.ps1 -UpdateBaseline, and say in the commit why a new one'
+        '# is kept.'
     )
     $keys = @($clones | ForEach-Object Key | Sort-Object -Unique)
     # LF on every platform, so a baseline regenerated on Windows diffs cleanly against one from CI.
