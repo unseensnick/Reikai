@@ -212,6 +212,7 @@ agent under Settings -> Advanced.
 - **Deleting a manga chapter's download from Updates or History now works after its extension is uninstalled.**
 - **With Group by series on, an Updates group you expanded now stays open when the screen rotates.**
 - **A new-chapter notification for an adult series that gained a newer version now opens that chapter, and its Mark as read and Download actions work.**
+- **A series with one new chapter in the Updates Group by series view now reads "1 new chapter".**
 
 ### Details
 

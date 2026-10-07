@@ -57,6 +57,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ListGroupHeader
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.selectedBackground
 
@@ -103,7 +104,7 @@ fun RecentsGroupRow(
                     UnreadDot()
                 }
                 Text(
-                    text = stringResource(MR.strings.updates_group_chapter_count, count),
+                    text = pluralStringResource(MR.plurals.notification_chapters_generic, count, count),
                     maxLines = 1,
                     style = MaterialTheme.typography.bodySmall,
                     color = LocalContentColor.current.copy(alpha = textAlpha),
