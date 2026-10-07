@@ -499,7 +499,9 @@ class RecentsEngineTest {
         engine.toggleSelection(ref(kept, 1))
         engine.toggleSelection(ref(hidden, 2))
 
-        engine.firstRendered()
+        // The gate is seeded open, so the first draw can land before the filter does; the rendered
+        // flow runs on a real dispatcher, so which one comes first is the thread's call.
+        engine.rendered.filterNotNull().first { it.rows.orderedChapterRefs() == listOf(ref(kept, 1)) }
 
         engine.selection.value shouldContainExactly listOf(ref(kept, 1))
     }
