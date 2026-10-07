@@ -3,6 +3,7 @@ package reikai.presentation.details
 import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import kotlinx.coroutines.flow.SharingStarted
@@ -12,18 +13,44 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
+import reikai.domain.merge.GroupMarks
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
+import reikai.presentation.components.progressWhileUnread
 import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.presentation.novel.details.NovelDetailsState
 import reikai.presentation.novel.details.NovelDetailsViewModel
 import reikai.presentation.selection.EntrySelection
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
+
+/** A details row for a novel chapter, read and bookmarked as the merge group's [marks] answer for it. */
+internal fun NovelChapter.toEntryChapter(
+    sourceName: String?,
+    marks: GroupMarks,
+    downloadState: Download.State,
+): EntryChapterListItem.Chapter {
+    // Read on any source of the merge group, matching the manga side and the badge.
+    val shownRead = marks.isRead(id, read)
+    return EntryChapterListItem.Chapter(
+        id = id,
+        name = name,
+        subtitle = chapterSubtitle(sourceName, scanlator),
+        read = shownRead,
+        bookmark = marks.isBookmarked(id, bookmark),
+        dateUpload = dateUpload,
+        chapterNumber = chapterNumber,
+        progress = progressWhileUnread(ChapterProgress.Percent(lastTextProgress), shownRead),
+        downloadState = downloadState,
+        // A novel chapter is one request, so there is no percentage to report while it runs.
+        downloadProgress = 0,
+    )
+}
 
 /**
  * Adapts the live [NovelDetailsViewModel] to the neutral [EntryDetailsBehavior]. The model keeps its
@@ -112,19 +139,8 @@ class NovelEntryAdapter(
         sourceNames: Map<Long, String>,
     ): EntryChapterListItem =
         when (this) {
-            is NovelChapterListEntry.Item -> EntryChapterListItem.Chapter(
-                id = chapter.id,
-                name = chapter.name,
-                subtitle = chapterSubtitle(sourceNames[chapter.novelId], chapter.scanlator),
-                // Read on any source of the merge group, matching the manga side and the badge.
-                read = loaded.marks.isRead(chapter.id, chapter.read),
-                bookmark = loaded.marks.isBookmarked(chapter.id, chapter.bookmark),
-                dateUpload = chapter.dateUpload,
-                chapterNumber = chapter.chapterNumber,
-                progress = ChapterProgress.Percent(chapter.lastTextProgress).takeIf { !chapter.read },
-                downloadState = loaded.downloadStateOf(chapter.id),
-                downloadProgress = 0,
-            )
+            is NovelChapterListEntry.Item ->
+                chapter.toEntryChapter(sourceNames[chapter.novelId], loaded.marks, loaded.downloadStateOf(chapter.id))
             is NovelChapterListEntry.Missing -> EntryChapterListItem.Missing(id = id, count = count)
         }
 

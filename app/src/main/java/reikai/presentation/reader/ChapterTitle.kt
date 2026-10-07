@@ -49,6 +49,13 @@ fun ChapterTitleFormat.chapterTitle(name: String, number: Double, words: Chapter
 }
 
 /**
+ * A chapter list row's title, the details list's and the reader sheet's alike: the number where the
+ * entry shows its chapters by number, else the name.
+ */
+fun chapterRowTitle(name: String, number: Double, numberOnly: Boolean, words: ChapterTitleWords): String =
+    (if (numberOnly) ChapterTitleFormat.NUMBER else ChapterTitleFormat.NAME).chapterTitle(name, number, words)
+
+/**
  * The name with the chapter number it opens with taken off, so "Chapter 3: The Duel" does not read
  * "Ch. 3: Chapter 3: The Duel". Sources often repeat the number ("Chapter 3 3: The Duel"), hence twice.
  * A bare number counts only before a separator or the end, so the title's own 3 in "Chapter 3: 3 Days

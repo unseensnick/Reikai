@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
+import reikai.presentation.components.UndatedChapterDate
 
 /** The page's download gate and cover anchoring derive from the one viewed member, for both types. */
 class EntryDetailsScreenStateTest {

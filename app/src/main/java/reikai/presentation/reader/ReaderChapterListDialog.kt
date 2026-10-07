@@ -16,11 +16,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
-import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.download.swipeDownloadAction
+import reikai.presentation.components.UndatedChapterDate
+import reikai.presentation.components.chapterRowDate
+import reikai.presentation.components.progressWhileUnread
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -33,6 +35,7 @@ fun ReaderChapterListDialog(
     onDismissRequest: () -> Unit,
     rows: List<ReaderChapterRow>,
     currentChapterId: Long,
+    undatedChapterDate: UndatedChapterDate,
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     onClickChapter: (Long) -> Unit,
@@ -80,8 +83,8 @@ fun ReaderChapterListDialog(
                 val bookmark = bookmarkOverrides[row.id] ?: row.bookmark
                 MangaChapterListItem(
                     title = row.title,
-                    date = row.dateUpload.takeIf { it > 0L }?.let { relativeDateText(it) },
-                    readProgress = row.readProgress.takeIf { !read },
+                    date = chapterRowDate(row.dateUpload, undatedChapterDate),
+                    readProgress = progressWhileUnread(row.readProgress, read),
                     scanlator = row.subtitle,
                     read = read,
                     bookmark = bookmark,

@@ -21,8 +21,10 @@ import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
+import reikai.presentation.components.progressWhileUnread
 import reikai.presentation.selection.EntrySelection
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -131,18 +133,7 @@ class MangaEntryAdapter(
         mergeSourceLabels(mergeSources.associate { it.id to it.sourceName })
 
     private fun ChapterList.toNeutralItem(sourceNames: Map<Long, String>): EntryChapterListItem = when (this) {
-        is ChapterList.Item -> EntryChapterListItem.Chapter(
-            id = chapter.id,
-            name = chapter.name,
-            subtitle = chapterSubtitle(sourceNames[chapter.mangaId], chapter.scanlator),
-            read = isRead,
-            bookmark = isBookmarked,
-            dateUpload = chapter.dateUpload,
-            chapterNumber = chapter.chapterNumber,
-            progress = ChapterProgress.Pages(chapter.lastPageRead, chapter.pageCount).takeIf { !chapter.read },
-            downloadState = downloadState,
-            downloadProgress = downloadProgress,
-        )
+        is ChapterList.Item -> toEntryChapter(sourceNames[chapter.mangaId])
         is ChapterList.MissingCount -> EntryChapterListItem.Missing(id = id, count = count)
     }
 
@@ -355,4 +346,18 @@ data class MangaGalleryCapability(
     val rawGenre: List<String>?,
     val metadata: RaisedSearchMetadata?,
     val tagQuery: ((namespace: String, tag: String) -> String)?,
+)
+
+/** A details row for a manga chapter, read and bookmarked as the merge group answers for it. */
+internal fun ChapterList.Item.toEntryChapter(sourceName: String?) = EntryChapterListItem.Chapter(
+    id = chapter.id,
+    name = chapter.name,
+    subtitle = chapterSubtitle(sourceName, chapter.scanlator),
+    read = isRead,
+    bookmark = isBookmarked,
+    dateUpload = chapter.dateUpload,
+    chapterNumber = chapter.chapterNumber,
+    progress = progressWhileUnread(ChapterProgress.Pages(chapter.lastPageRead, chapter.pageCount), isRead),
+    downloadState = downloadState,
+    downloadProgress = downloadProgress,
 )

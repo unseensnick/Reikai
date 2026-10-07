@@ -29,6 +29,7 @@ import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
+import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.details.novelDetailsIntent
 import reikai.presentation.reader.text.NovelWindowDiff
 import reikai.util.snapshotOnChange
@@ -154,9 +155,11 @@ class NovelReaderProvider(
     override suspend fun nextChapter() = viewModel.nextChapter()
 
     override val chapterList: ReaderChapterList = object : ReaderChapterList {
-        override val rows: Flow<List<ReaderChapterRow>> = viewModel.chapterRows
+        override val rows: Flow<List<ReaderChapterRow>> = viewModel.chapterRows(titleWords)
 
         override val currentChapterId: Flow<Long> = viewModel.chapter.map { it?.chapterId ?: -1L }
+
+        override val undatedChapterDate = UndatedChapterDate.Blank
 
         override fun open(chapterId: Long) = viewModel.open(chapterId)
 

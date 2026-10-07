@@ -68,6 +68,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.asNovelCover
+import reikai.domain.novel.model.effectiveHideChapterTitles
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.TrackNovelChapter
@@ -1025,18 +1026,19 @@ class NovelReaderViewModel(
      * and re-emitted as downloads move or the reader changes chapter. Read fresh rather than from the
      * session's opening, so a chapter this session marked shows as marked.
      */
-    val chapterRows: Flow<List<ReaderChapterRow>> = flow {
+    fun chapterRows(words: ChapterTitleWords): Flow<List<ReaderChapterRow>> = flow {
         if (orderedIds.isEmpty()) resolveReadingOrder()
         val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
         val byId = pooled.associateBy { it.id }
         val chapters = orderedIds.mapNotNull { id -> byId[id] ?: chapterRepo.getById(id) }
         val sourceNames = chapterSourceNames()
         val novels = novelRepo.ownersOf(pooled + chapters)
+        val numberOnly = novelRepo.getById(novelId)?.effectiveHideChapterTitles(novelPreferences) == true
         emitAll(
             combine(downloadManager.queueState, loadedChapter) { queue, _ ->
                 val flags = groupFlags(pooled, chapters, novels)
                 val queued = queue.associateBy { it.chapterId }
-                chapters.map { it.toReaderChapterRow(sourceNames, queued, flags) }
+                chapters.map { it.toReaderChapterRow(sourceNames, queued, flags, numberOnly, words) }
             },
         )
     }.flowOn(io)
@@ -1397,9 +1399,11 @@ internal fun NovelChapter.toReaderChapterRow(
     sourceNames: Map<Long, String>,
     queued: Map<Long, NovelDownload>,
     flags: GroupChapterFlags<NovelChapter>,
+    numberOnly: Boolean,
+    words: ChapterTitleWords,
 ) = ReaderChapterRow(
     id = id,
-    title = name,
+    title = chapterRowTitle(name, chapterNumber, numberOnly, words),
     subtitle = chapterSubtitle(sourceNames[novelId], scanlator),
     dateUpload = dateUpload,
     readProgress = percentProgressLabel(lastTextProgress),

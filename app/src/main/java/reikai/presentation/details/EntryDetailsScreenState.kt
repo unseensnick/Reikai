@@ -3,9 +3,9 @@ package reikai.presentation.details
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import eu.kanade.tachiyomi.data.download.model.Download
-import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.entry.EntryId
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.selection.ChapterMarks
 
 /**
@@ -108,17 +108,6 @@ data class EntryChapterListUiState(
 )
 
 /**
- * What a chapter with no date from the source shows. A typed slot rather than the row deciding for
- * itself, because the two types want opposite answers from the same missing value: manga says "N/A"
- * as upstream does, and a novel would say it on nearly every row, since novel sources hardly ever
- * date a chapter. Naming it here keeps that a stated divergence instead of a silent one.
- */
-enum class UndatedChapterDate {
-    NotApplicable,
-    Blank,
-}
-
-/**
  * One row in the neutral chapter list: a chapter or a "N missing chapters" separator. The neutral twin of
  * the manga `ChapterList.Item` / `ChapterList.MissingCount` and the novel [reikai.domain.novel.NovelChapterListEntry].
  */
@@ -140,9 +129,7 @@ sealed interface EntryChapterListItem {
         val downloadState: Download.State,
         /** Live download percent for the spinner; 0 for novels (no per-chapter progress). */
         val downloadProgress: Int,
-    ) : EntryChapterListItem, ChapterMarks {
-        val isRecognizedNumber: Boolean get() = isRecognizedChapterNumber(chapterNumber)
-    }
+    ) : EntryChapterListItem, ChapterMarks
 
     @Immutable
     data class Missing(val id: String, val count: Int) : EntryChapterListItem

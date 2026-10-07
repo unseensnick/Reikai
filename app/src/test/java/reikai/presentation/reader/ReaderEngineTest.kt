@@ -38,6 +38,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
@@ -1155,6 +1156,8 @@ private class FakeChapterList : ReaderChapterList {
     override val rows = MutableStateFlow(emptyList<ReaderChapterRow>())
 
     override val currentChapterId = MutableStateFlow(-1L)
+
+    override val undatedChapterDate = UndatedChapterDate.Blank
 
     val readMarks = mutableListOf<Pair<Long, Boolean>>()
 

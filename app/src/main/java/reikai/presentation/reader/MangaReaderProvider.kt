@@ -35,11 +35,13 @@ import reikai.domain.download.queuedDownloadChanges
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.reader.pageIndex
+import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.pageProgressLabel
 import reikai.presentation.details.mangaDetailsIntent
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.asMangaCover
 
 /**
@@ -220,7 +222,8 @@ class MangaReaderProvider(
                     .map { it.copy(chapter = it.chapter.copy(pageCount = pageCounts[it.chapter.id] ?: 0L)) }
                 val queued = queue.associateBy { it.chapter.id }
                 val flags = viewModel.sheetFlags(chapters.map { it.chapter })
-                val build = { chapters.map { it.toReaderChapterRow(queued, flags, titleWords) } }
+                val numberOnly = viewModel.manga?.displayMode == Manga.CHAPTER_DISPLAY_NUMBER
+                val build = { chapters.map { it.toReaderChapterRow(queued, flags, numberOnly, titleWords) } }
                 if (queued.isEmpty()) {
                     flowOf(build())
                 } else {
@@ -231,6 +234,8 @@ class MangaReaderProvider(
 
         override val currentChapterId: Flow<Long> =
             viewModel.state.map { it.currentChapter?.chapter?.id ?: -1L }
+
+        override val undatedChapterDate = UndatedChapterDate.NotApplicable
 
         override fun open(chapterId: Long) {
             viewModel.getChapters().find { it.chapter.id == chapterId }
@@ -330,12 +335,13 @@ class MangaReaderProvider(
 internal fun ReaderChapterItem.toReaderChapterRow(
     queued: Map<Long, Download>,
     flags: GroupChapterFlags<Chapter>,
+    numberOnly: Boolean,
     words: ChapterTitleWords,
 ): ReaderChapterRow {
     val active = queued[chapter.id]
     return ReaderChapterRow(
         id = chapter.id,
-        title = chapter.name,
+        title = chapterRowTitle(chapter.name, chapter.chapterNumber, numberOnly, words),
         subtitle = chapterSubtitle(sourceName, chapter.scanlator),
         dateUpload = chapter.dateUpload,
         // Mihon has no reader chapter sheet; this follows its details list, which shows the page.

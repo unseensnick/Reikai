@@ -16,14 +16,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.components.ChapterHeader
 import eu.kanade.presentation.manga.components.GalleryInfoBox
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
@@ -31,19 +32,19 @@ import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.manga.components.PagePreviews
 import eu.kanade.presentation.manga.components.SearchMetadataChips
-import eu.kanade.presentation.util.formatChapterNumber
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.ExpandMore
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.MergeSourceChips
+import reikai.presentation.components.chapterRowDate
 import reikai.presentation.components.readProgressLabel
 import reikai.presentation.novel.details.novelPageText
+import reikai.presentation.reader.chapterRowTitle
+import reikai.presentation.reader.chapterTitleWords
 import reikai.presentation.recommendation.RelatedMangaCarousel
 import reikai.presentation.selection.chapterSelectionOffers
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.i18n.stringResource
 
 /** Dim level for a hidden chapter row shown via "Show hidden chapters". */
 private const val HIDDEN_CHAPTER_ALPHA = 0.4f
@@ -449,6 +450,8 @@ private fun LazyListScope.entryChapterItems(
                 // Typed as the stable Chapter, so the lambdas compare it by value rather than by instance.
                 val chapter: EntryChapterListItem.Chapter = item
                 val haptic = LocalHapticFeedback.current
+                val context = LocalContext.current
+                val titleWords = remember(context) { context.chapterTitleWords() }
                 val isSelected = chapter.id in state.selection
                 val offersDownload = state.rowOffersDownload(chapter.downloadState)
                 val swipeOf = { action: LibraryPreferences.ChapterSwipeAction ->
@@ -459,19 +462,13 @@ private fun LazyListScope.entryChapterItems(
                     modifier = Modifier.alpha(
                         if (chapter.id in state.chapters.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f,
                     ),
-                    title = if (state.showChapterNumberOnly && chapter.isRecognizedNumber) {
-                        stringResource(MR.strings.display_mode_chapter, formatChapterNumber(chapter.chapterNumber))
-                    } else {
-                        chapter.name
-                    },
-                    date = when {
-                        chapter.dateUpload > 0L -> relativeDateText(chapter.dateUpload)
-                        // Upstream's formatter answers "N/A" for an undated chapter; whether that
-                        // reads as information or as noise is the content type's call.
-                        state.chapters.undatedChapterDate == UndatedChapterDate.NotApplicable ->
-                            relativeDateText(chapter.dateUpload)
-                        else -> null
-                    },
+                    title = chapterRowTitle(
+                        chapter.name,
+                        chapter.chapterNumber,
+                        state.showChapterNumberOnly,
+                        titleWords,
+                    ),
+                    date = chapterRowDate(chapter.dateUpload, state.chapters.undatedChapterDate),
                     readProgress = readProgressLabel(chapter.progress),
                     scanlator = chapter.subtitle,
                     read = chapter.read,

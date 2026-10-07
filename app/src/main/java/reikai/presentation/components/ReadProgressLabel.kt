@@ -39,3 +39,10 @@ fun pageProgressLabel(lastPageRead: Long, pageCount: Long): Pair<StringResource,
  */
 fun percentProgressLabel(hundredths: Long): String? =
     ChapterProgress.Percent(hundredths).wholePercent.takeIf { it > 0L }?.let { "$it%" }
+
+/**
+ * A row's progress, shown only while the row reads as unread. [read] is the flag the row draws, so in a
+ * merged series it is the group's, never one copy's own: a chapter finished on another source keeps no
+ * stale line. Every chapter row (details, reader sheet, recents) gates its progress here.
+ */
+fun <P : Any> progressWhileUnread(progress: P?, read: Boolean): P? = progress?.takeIf { !read }

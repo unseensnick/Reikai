@@ -317,7 +317,7 @@ class NovelCopyProbe : MergedCopyProbe {
             scope.advanceUntilIdle()
 
             // In group scope the opened row is swapped for the copy on disk; the sheet shows chapter 6 once.
-            model.chapterRows.first().single().downloadState == Download.State.DOWNLOADED
+            model.chapterRows(EnglishChapterTitleWords).first().single().downloadState == Download.State.DOWNLOADED
         }
 
     override suspend fun sheetDeleteReachesSibling(scope: TestScope, sourceScoped: Boolean): Boolean =

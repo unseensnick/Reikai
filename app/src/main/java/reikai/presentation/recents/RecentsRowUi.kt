@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.components.progressWhileUnread
 import reikai.presentation.selection.ChapterMarks
 
 /**
@@ -106,5 +107,5 @@ fun chapterState(
 ): RecentsChapterState = RecentsChapterState(
     read = read,
     bookmark = bookmark,
-    progress = progress.takeIf { !read },
+    progress = progressWhileUnread(progress, read),
 )

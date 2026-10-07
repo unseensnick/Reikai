@@ -61,7 +61,8 @@ class NovelReaderViewModelTest {
         val model = harness.open(second, opened.id, sourceScoped = true)
         advanceUntilIdle()
 
-        model.chapterRows.first().map { it.subtitle }.distinct() shouldBe listOf("Beta Source")
+        model.chapterRows(EnglishChapterTitleWords).first().map { it.subtitle }.distinct() shouldBe
+            listOf("Beta Source")
     }
 
     /** The opened chapter is on disk, the next is not, the one after is. */
@@ -77,7 +78,7 @@ class NovelReaderViewModelTest {
         val model = harness.open(novel, opened.id)
         advanceUntilIdle()
 
-        model.chapterRows.first().map { it.id } shouldBe listOf(opened.id, third.id)
+        model.chapterRows(EnglishChapterTitleWords).first().map { it.id } shouldBe listOf(opened.id, third.id)
     }
 
     /** Hidden on the details list, so the reader pages past it as the resume does. */
@@ -91,7 +92,7 @@ class NovelReaderViewModelTest {
         val model = harness.open(novel, opened.id)
         advanceUntilIdle()
 
-        model.chapterRows.first().map { it.id } shouldBe listOf(opened.id, third.id)
+        model.chapterRows(EnglishChapterTitleWords).first().map { it.id } shouldBe listOf(opened.id, third.id)
     }
 
     /** The browser may already be closed when the save lands, so the reader hears of it from the fetcher. */
@@ -247,7 +248,8 @@ class NovelReaderViewModelTest {
         val model = harness.open(first, opened.id)
         advanceUntilIdle()
 
-        model.chapterRows.first().map { it.subtitle }.distinct() shouldBe listOf("Alpha Source")
+        model.chapterRows(EnglishChapterTitleWords).first().map { it.subtitle }.distinct() shouldBe
+            listOf("Alpha Source")
     }
 
     /** The source reload failed; the setting change is a different open and reads the download. */

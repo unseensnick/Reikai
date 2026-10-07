@@ -646,6 +646,7 @@ class ReaderActivity : BaseActivity() {
                         onDismissRequest = onDismissRequest,
                         rows = rows,
                         currentChapterId = current,
+                        undatedChapterDate = chapterList.undatedChapterDate,
                         chapterSwipeStartAction = viewModel.chapterSwipeStartAction,
                         chapterSwipeEndAction = viewModel.chapterSwipeEndAction,
                         // Closed first: the engine raises the pick's loading dialog only over an empty slot.

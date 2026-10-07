@@ -5,6 +5,7 @@ import androidx.compose.runtime.Stable
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.flow.Flow
+import reikai.presentation.components.UndatedChapterDate
 
 /**
  * One row of the reader's chapter sheet, already resolved by the content type that owns the chapter.
@@ -40,6 +41,9 @@ interface ReaderChapterList {
 
     /** The row the reader is on, which is where the sheet opens scrolled to. */
     val currentChapterId: Flow<Long>
+
+    /** What a row the source dated nothing shows, the answer the type's details list gives. */
+    val undatedChapterDate: UndatedChapterDate
 
     fun open(chapterId: Long)
 
