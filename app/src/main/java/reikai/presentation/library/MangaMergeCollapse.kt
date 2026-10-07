@@ -3,8 +3,7 @@ package reikai.presentation.library
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.bucketByMergeGroup
-import reikai.domain.merge.sourcePriority
-import reikai.domain.merge.trunkOrder
+import reikai.domain.merge.libraryLead
 import tachiyomi.domain.source.model.Source
 
 /**
@@ -59,17 +58,6 @@ object MangaMergeCollapse {
         }
     }
 
-    // The stitch's [trunkOrder] over the same distinct recognized-number count it ranks on.
-    private fun rankComparator(
-        overrideOrder: List<Long>,
-        preferredSourceIds: List<Long>,
-        recognizedChapterCounts: Map<Long, Long>,
-    ): Comparator<LibraryItem> = trunkOrder(
-        { sourcePriority(it.libraryManga.manga.id, it.libraryManga.manga.source, preferredSourceIds, overrideOrder) },
-        { recognizedChapterCounts[it.libraryManga.manga.id] ?: 0L },
-        { it.libraryManga.manga.id },
-    )
-
     private suspend fun mergePrimary(
         subGroup: List<LibraryItem>,
         overrideOrder: List<Long>,
@@ -81,7 +69,15 @@ object MangaMergeCollapse {
         badgePrefs: LibraryBadgePrefs,
         recognizedChapterCounts: Map<Long, Long>,
     ): LibraryItem {
-        val primary = subGroup.minWith(rankComparator(overrideOrder, preferredSourceIds, recognizedChapterCounts))
+        // Ranked on the distinct recognized-number count the stitch ranks on.
+        val primary = libraryLead(
+            subGroup,
+            overrideOrder,
+            preferredSourceIds,
+            id = { it.libraryManga.manga.id },
+            sourceId = { it.libraryManga.manga.source },
+            chapterCount = { recognizedChapterCounts[it.libraryManga.manga.id] ?: 0L },
+        )
         return primary.stampMergedGroup(
             members = subGroup.map {
                 MergedRowMember(it.id, it.libraryManga.manga.source, it.libraryManga.lastRead, it.downloadCount)

@@ -18,6 +18,8 @@ class TestMergeManagers(memberships: Map<ContentType, Map<Long, Long>>, mergingO
     private val repository = mockk<MergeGroupRepository> {
         coEvery { getAllMemberships(any()) } answers { memberships[firstArg()].orEmpty() }
         coEvery { getGroupId(any(), any()) } answers { memberships[firstArg()]?.get(secondArg()) }
+        // No group overrides the global source ranking.
+        coEvery { getGroup(any()) } returns null
         coEvery { getFavoriteMembers(any(), any()) } answers {
             memberships[firstArg()].orEmpty().filterValues { it == secondArg<Long>() }.keys.toList()
         }

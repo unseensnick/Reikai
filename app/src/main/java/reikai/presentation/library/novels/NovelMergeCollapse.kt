@@ -3,8 +3,7 @@ package reikai.presentation.library.novels
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.bucketByMergeGroup
-import reikai.domain.merge.sourcePriority
-import reikai.domain.merge.trunkOrder
+import reikai.domain.merge.libraryLead
 import reikai.domain.novel.model.LibraryNovel
 import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.LibraryQuerySource
@@ -56,24 +55,22 @@ object NovelMergeCollapse {
             val groupId = bucket.groupId
             val overrideOrder = groupId?.let { overrideRankings[it] }.orEmpty()
             CollapsedNovel(
-                representative = bucket.members.minWith(rankComparator(overrideOrder, preferredSourceIds)),
+                representative = libraryLead(
+                    bucket.members,
+                    overrideOrder,
+                    preferredSourceIds,
+                    id = { it.novel.id },
+                    sourceId = { it.novel.source },
+                    // The novel stitch's own count: it collapses no scanlator variants, so novels rank on
+                    // rows where manga needs the recognized-number count.
+                    chapterCount = { it.totalChapters },
+                ),
                 members = bucket.members,
                 mergedCounts = groupId?.let { mergedCountsByGroup[it] },
                 mergedDownloads = groupId?.let { mergedDownloadsByGroup[it] },
             )
         }
     }
-
-    // The stitch's [trunkOrder]. totalChapters is the novel stitch's own count: it collapses no scanlator
-    // variants, so novels rank on rows where manga needs the recognized-number count.
-    private fun rankComparator(
-        overrideOrder: List<Long>,
-        preferredSourceIds: List<String>,
-    ): Comparator<LibraryNovel> = trunkOrder(
-        { sourcePriority(it.novel.id, it.novel.source, preferredSourceIds, overrideOrder) },
-        { it.totalChapters },
-        { it.novel.id },
-    )
 }
 
 /**

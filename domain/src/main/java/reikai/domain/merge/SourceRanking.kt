@@ -25,6 +25,22 @@ fun <T> trunkOrder(priority: (T) -> Int, chapterCount: (T) -> Long, id: (T) -> L
     compareBy(priority).thenByDescending(chapterCount).thenBy(id)
 
 /**
+ * The member a merge group's library row leads on, first in [trunkOrder]. Both library collapses and the
+ * library list export pick through here, so the export writes a series under the member, and so the
+ * Edit info, the library shows.
+ */
+fun <T, S> libraryLead(
+    members: List<T>,
+    memberRanking: List<Long>,
+    preferredSourceIds: List<S>,
+    id: (T) -> Long,
+    sourceId: (T) -> S?,
+    chapterCount: (T) -> Long,
+): T = members.minWith(
+    trunkOrder({ sourcePriority(id(it), sourceId(it), preferredSourceIds, memberRanking) }, chapterCount, id),
+)
+
+/**
  * [ranked] in the order a stitch walks it: a member with no chapters moves last, so the stitch starts
  * at the first member that has any. Only the stitch skips it; the library row and the manage-sources
  * badge still lead on the ranked member, since that is the ranking the user chose.
