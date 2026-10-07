@@ -2,9 +2,13 @@ package reikai.data.library
 
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.WorkQuery
+import com.google.common.util.concurrent.Futures
 import io.kotest.matchers.shouldBe
+import io.mockk.CapturingSlot
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
@@ -66,11 +70,19 @@ class LibraryUpdateScheduleTest {
         verify { workManager.cancelWorkById(RUNNING_ID) }
     }
 
+    @Test
+    fun `stopping asks only for running work, so the queued schedule is never cancelled`() {
+        val query = slot<WorkQuery>()
+
+        stopLibraryUpdate(running(AUTO, query), TAG, AUTO) {}
+
+        query.captured.states shouldBe listOf(WorkInfo.State.RUNNING)
+    }
+
     /** A work manager whose one running update carries [kind] beside the shared tag. */
-    private fun running(kind: String) = mockk<WorkManager>(relaxed = true) {
-        every { getWorkInfos(any()) } returns mockk {
-            every { get() } returns listOf(WorkInfo(RUNNING_ID, WorkInfo.State.RUNNING, setOf(TAG, kind)))
-        }
+    private fun running(kind: String, query: CapturingSlot<WorkQuery> = slot()) = mockk<WorkManager>(relaxed = true) {
+        every { getWorkInfos(capture(query)) } returns
+            Futures.immediateFuture(listOf(WorkInfo(RUNNING_ID, WorkInfo.State.RUNNING, setOf(TAG, kind))))
     }
 
     private companion object {

@@ -270,8 +270,8 @@ class NovelUpdateWorker(
         }
 
         /** Run a check immediately (for manual triggers / testing); reuses a running drain via KEEP.
-         *  A non-null [category] scopes the run to that category (the novel twin of manga's
-         *  per-category manual update); null updates the whole library per the include/exclude prefs. */
+         *  A non-null [category] scopes the run to that category; null updates the whole library
+         *  per the include/exclude prefs. */
         fun startNow(workManager: WorkManager, category: Category? = null): Boolean {
             val wm = workManager
             if (wm.isRunning(TAG)) {
