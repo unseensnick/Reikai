@@ -10,8 +10,9 @@
 #   DI ownership - scripts/di-interop-check.ps1 when a .kt is staged (needs pwsh).
 #   Code comments - no plan/roadmap codename markers and no calendar dates in added lines; an added
 #     twin/mirrors comment names its pin; under reikai/ or exh/ a comment block is capped at 8 lines.
-#   Reuse - no new cross-file clone touches a staged file under reikai/ or exh/; a new top-level
-#     name that already exists elsewhere is listed (warn only).
+#   Reuse - no new cross-file clone in Reikai-owned Kotlin or an RK island touches a staged file
+#     (reads refs/mihon, and fails without it); a new top-level name that already exists elsewhere
+#     is listed (warn only).
 #   Off-path manifest - read whether staged or not: no manifested path exists, every Replacement
 #     does, and a staged deletion of a Mihon file carries its row.
 #   RK markers - an added RK marker in a file refs/mihon does not have (a Reikai-owned file).
@@ -94,8 +95,9 @@ git diff --cached -U0 --diff-filter=ACMR -- '*.kt' '*.kts' > "$scratch_a"
 lint twin-pins --stdin < "$scratch_a"
 
 # ===== reuse: no new duplicated code (code-quality.md DRY) =====
-# A cross-file clone of 100+ tokens that touches a staged file under reikai/ or exh/ and is not in
-# scripts/dup-baseline.txt. CI runs the same script over the whole tree.
+# A cross-file clone of 100+ tokens in Reikai-owned Kotlin or an RK island that touches a staged file
+# and is not in scripts/dup-baseline.txt. Ownership is read from refs/mihon at the synced base and at
+# its HEAD, so a missing clone fails this. CI runs the same script over the whole tree.
 if [ -n "$(git diff --cached --name-only --diff-filter=ACMR -- '*.kt')" ] && [ -f scripts/dup-check.ps1 ]; then
   if command -v pwsh >/dev/null 2>&1; then
     if ! pwsh -NoProfile -File scripts/dup-check.ps1 -Staged; then
