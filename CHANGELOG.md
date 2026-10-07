@@ -696,6 +696,7 @@ agent under Settings -> Advanced.
 - From Mihon: list screens stop querying a few seconds after you leave them (mihonapp/mihon#3716 through mihonapp/mihon#3762), and installed extensions are read off the main thread during a cold start (mihonapp/mihon#3788).
 - Novel plugin settings load and save off the main thread, and Updates, History and Recents no longer start the novel downloader while they show only manga.
 - Opening a source while the app is still starting now waits for the extension list instead of reading a half-built one, for manga and novels (partly from Mihon, mihonapp/mihon#3869).
+- A novel shortcut sent by another app now opens only a light novel already saved in Reikai, as Mihon's manga shortcut does.
 - The manga reader no longer drops a page-turn signal or a preloaded chapter when it is busy, and cancelled novel plugin checks, font downloads and update runs stop instead of being logged as failures.
 - Browse, global search and the feed no longer re-read every stored novel each time a novel is saved.
 - The Migrate tab and its per-source list no longer re-read the whole novel library every time a chapter changes.

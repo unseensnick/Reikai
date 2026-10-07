@@ -96,6 +96,7 @@ import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import mihon.icons.materialsymbols.automirroredrounded.OpenInNew
 import reikai.domain.library.ContentType
+import reikai.domain.novel.NovelRepository
 import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownloadCache
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
@@ -131,6 +132,9 @@ class MainActivity : BaseActivity() {
 
     // RK: the novel index's first scan shows the same indexing banner
     @Inject private lateinit var novelDownloadCache: NovelDownloadCache
+
+    // RK: a novel shortcut opens only a novel saved here
+    @Inject private lateinit var novelRepository: NovelRepository
 
     @Inject private lateinit var chapterCache: ChapterCache
 
@@ -427,11 +431,13 @@ class MainActivity : BaseActivity() {
                 navigator.popUntilRoot()
                 HomeScreen.Tab.Library(idToOpen)
             }
-            // RK: open a novel's details, as built by novelDetailsIntent
+            // RK: open a saved novel's details, as built by novelDetailsIntent
             Constants.SHORTCUT_NOVEL -> {
-                intent.novelDetailsScreen()?.let {
-                    navigator.popUntilRoot()
-                    navigator.push(it)
+                lifecycleScope.launch {
+                    intent.novelDetailsScreen(novelRepository)?.let {
+                        navigator.popUntilRoot()
+                        navigator.push(it)
+                    }
                 }
                 null
             }

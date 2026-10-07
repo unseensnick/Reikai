@@ -4,13 +4,16 @@ import android.content.Context
 import android.content.Intent
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.unmockkConstructor
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.NovelRepository
 import tachiyomi.core.common.Constants
 import java.util.IdentityHashMap
 
@@ -22,6 +25,12 @@ class DetailsIntentsTest {
 
     private val context = mockk<Context>()
     private val bundles = IdentityHashMap<Intent, MutableMap<String, Any?>>()
+
+    // Only "/n/1" on "src" is saved on this device.
+    private val novels = mockk<NovelRepository> {
+        coEvery { getByUrlAndSource(any(), any()) } returns null
+        coEvery { getByUrlAndSource("/n/1", "src") } returns mockk()
+    }
 
     @BeforeEach
     fun fakeIntentBundle() {
@@ -54,17 +63,23 @@ class DetailsIntentsTest {
     }
 
     @Test
-    fun `a novel intent opens the novel it was built for`() {
-        val screen = novelDetailsIntent(context, "src", "/n/1").novelDetailsScreen()
+    fun `a novel intent opens the saved novel it was built for`() = runTest {
+        val screen = novelDetailsIntent(context, "src", "/n/1").novelDetailsScreen(novels)
 
         screen?.let { it.sourceId to it.novelUrl } shouldBe ("src" to "/n/1")
     }
 
+    // MainActivity is exported, so any app can send one; opening it would fetch the url and save the novel.
     @Test
-    fun `a novel intent missing its url opens nothing`() {
+    fun `a novel intent for a novel this device never saved opens nothing`() = runTest {
+        novelDetailsIntent(context, "src", "/n/2").novelDetailsScreen(novels).shouldBeNull()
+    }
+
+    @Test
+    fun `a novel intent missing its url opens nothing`() = runTest {
         val intent = Intent().setAction(Constants.SHORTCUT_NOVEL).putExtra(Constants.NOVEL_SOURCE_EXTRA, "src")
 
-        intent.novelDetailsScreen().shouldBeNull()
+        intent.novelDetailsScreen(novels).shouldBeNull()
     }
 
     @Test
