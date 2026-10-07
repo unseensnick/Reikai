@@ -34,6 +34,7 @@ import mihon.graphql.shikimori.ShikimoriSearchMangaQuery
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import reikai.data.track.trackerEntryOrThrow
 import tachiyomi.core.common.util.lang.withIOContext
 import uy.kohesive.injekt.injectLazy
 import tachiyomi.domain.track.model.Track as DomainTrack
@@ -185,11 +186,7 @@ class ShikimoriApi(
         val manga = graphQlClient
             .query(ReikaiShikimoriGetMangaMetadataQuery(ids = track.remoteId.toString()))
             .execute()
-            .dataOrElse(
-                errorLog = "Shikimori: Failed to get manga metadata",
-                default = { null },
-            ) { it.mangas.firstOrNull() }
-            ?: throw Exception("Could not get metadata from Shikimori")
+            .trackerEntryOrThrow("Shikimori") { it.mangas.firstOrNull() }
         fun credits(role: String) = manga.personRoles.orEmpty()
             .filter { personRole -> isCredited(personRole.rolesEn, role) }
             .joinToString(", ") { it.person.name }

@@ -39,6 +39,7 @@ import mihon.graphql.anilist.ReikaiAniListSearchNovelQuery
 import mihon.graphql.anilist.type.FuzzyDateInput
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import reikai.data.track.trackerEntryOrThrow
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.injectLazy
@@ -255,11 +256,7 @@ class AnilistApi(
             .query(ReikaiAniListGetMangaMetadataQuery(manga_id = track.remoteId.toInt()))
             .execute()
             .throwOnAniListError()
-            .dataOrElse(
-                errorLog = "AniList: Failed to get manga metadata",
-                default = { null },
-            ) { it.Media }
-            ?: throw Exception("Could not get metadata from AniList")
+            .trackerEntryOrThrow("AniList") { it.Media }
         fun credits(role: String) = media.staff?.edges.orEmpty()
             .filter { role in it?.role.orEmpty() }
             .mapNotNull { it?.node?.name?.let { name -> name.userPreferred ?: name.full ?: name.native } }

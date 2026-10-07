@@ -38,6 +38,7 @@ import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import reikai.data.track.trackerEntryOrThrow
 import reikai.domain.track.KitsuEntryLookup
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -385,11 +386,7 @@ class KitsuApi(
         val manga = graphQlClient
             .query(ReikaiKitsuGetMangaMetadataQuery(id = track.remoteId.toString()))
             .execute()
-            .dataOrElse(
-                errorLog = "Kitsu: Failed to get manga metadata",
-                default = { null },
-            ) { it.findMangaById }
-            ?: return TrackMangaMetadata()
+            .trackerEntryOrThrow("Kitsu") { it.findMangaById }
 
         // Kitsu spells credits as free-form role strings, so the match is a substring, not equality.
         fun credits(roleMatch: String) = manga.staff.nodes.orEmpty()

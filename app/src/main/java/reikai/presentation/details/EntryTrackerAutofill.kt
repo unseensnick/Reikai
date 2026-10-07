@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.HttpException
 import reikai.data.track.MetadataAccess
+import reikai.data.track.TrackerEntryMissingException
 import reikai.data.track.TrackerSignedOutException
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.track.model.Track
@@ -30,7 +31,8 @@ fun mergeTrackerGenres(current: List<String>, fromTracker: List<String>): List<S
     (current + fromTracker).filter { it.isNotBlank() }.distinctBy { it.trim().lowercase() }
 
 /** The tracker has no entry at the bound id, the one failure "Fill from tracker" words its own way. */
-fun isMissingOnTracker(error: Throwable): Boolean = error is HttpException && error.code == 404
+fun isMissingOnTracker(error: Throwable): Boolean =
+    error is TrackerEntryMissingException || (error is HttpException && error.code == 404)
 
 /**
  * One "Fill from tracker" fetch. A tracker whose metadata needs a login is refused before it fetches
