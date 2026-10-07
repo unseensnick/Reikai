@@ -55,6 +55,7 @@ import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.MangaEntryAdapter
+import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.details.searchLibraryFromDetails
@@ -135,7 +136,8 @@ class MangaScreen(
                         // lambda outlives an emission and the chapter rows can skip recomposing.
                         onOpenChapter = { chapterId ->
                             (viewModel.state.value as? MangaViewModel.State.Success)?.let { live ->
-                                live.chapters.firstOrNull { it.id == chapterId }?.chapter?.let {
+                                val listed = live.chapters.map { it.chapter }
+                                chapterToOpen(chapterId, listed, live.resumeChapter, Chapter::id)?.let {
                                     openChapter(context, it, live.selectedSourceMangaId != null)
                                 }
                             }

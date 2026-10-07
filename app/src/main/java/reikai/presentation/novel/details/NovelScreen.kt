@@ -29,6 +29,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.withCustomInfo
@@ -46,6 +47,7 @@ import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
+import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.details.searchLibraryFromDetails
@@ -119,7 +121,9 @@ class NovelScreen(
                                 // novelId). The All chip opens group scope; a source chip opens source scope.
                                 // The model's state at the tap, so the lambda outlives an emission (as manga's).
                                 val live = viewModel.state.value as? NovelDetailsState.Loaded
-                                live?.chapters?.firstOrNull { it.id == chapterId }?.let { ch ->
+                                live?.let {
+                                    chapterToOpen(chapterId, it.chapters, it.resumeChapter, NovelChapter::id)
+                                }?.let { ch ->
                                     context.startActivity(
                                         ReaderActivity.newNovelIntent(
                                             context = context,

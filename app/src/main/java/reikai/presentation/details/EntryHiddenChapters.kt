@@ -41,3 +41,10 @@ fun <T> hiddenChapterIdsIn(
 } else {
     emptySet()
 }
+
+/**
+ * The chapter a details page opens for a tapped [chapterId]: a [listed] row, else the [resume] pick, which
+ * is a hidden chapter the list leaves out when nothing else is unread.
+ */
+fun <T> chapterToOpen(chapterId: Long, listed: List<T>, resume: T?, idOf: (T) -> Long): T? =
+    listed.firstOrNull { idOf(it) == chapterId } ?: resume?.takeIf { idOf(it) == chapterId }
