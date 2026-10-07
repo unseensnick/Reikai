@@ -54,6 +54,7 @@ import reikai.presentation.selection.SelectionStore
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import java.util.concurrent.atomic.AtomicLong
@@ -563,7 +564,7 @@ class RecentsEngine(
         val chapter = when {
             resolvesTarget(item, mode, membership) -> targetRow(item)?.ref
             lane is RecentsLane.Updated -> lane.chapter
-            else -> provider.targetChapter(item)
+            else -> resolve { provider.targetChapter(item) }
         } ?: return null
         return provider.open(item, chapter)
     }
@@ -577,7 +578,7 @@ class RecentsEngine(
     suspend fun resumeLatest(): Intent? {
         val latest = orderRecents(activeProviders().mapNotNull { it.latestRead() }).firstOrNull() ?: return null
         val provider = providersByType[latest.entryId.contentType] ?: return null
-        val chapter = provider.targetChapter(latest) ?: return null
+        val chapter = resolve { provider.targetChapter(latest) } ?: return null
         return provider.open(latest, chapter)
     }
 
@@ -671,7 +672,7 @@ class RecentsEngine(
         while (true) {
             mutableTargets.value[recorded]?.let { return it }
             val generation = targetsGeneration.get()
-            val resolved = provider.targetRow(item)
+            val resolved = resolve { provider.targetRow(item) }
             var isCurrent = false
             mutableTargets.update { memo ->
                 isCurrent = targetsGeneration.get() == generation
@@ -680,6 +681,12 @@ class RecentsEngine(
             if (isCurrent) return resolved
         }
     }
+
+    /**
+     * A provider's target resolve, which loads the entry's whole chapter list and walks it, so it never
+     * runs on the thread a row's composition or a tap called from. Upstream's History resolves on IO too.
+     */
+    private suspend fun <T> resolve(block: suspend () -> T): T = withIOContext { block() }
 
     /**
      * The chapters the bulk verbs act on: a continue-reading row answers for the chapter it names,

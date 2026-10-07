@@ -14,6 +14,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +55,7 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import tachiyomi.i18n.MR
+import kotlin.coroutines.ContinuationInterceptor
 
 /**
  * The engine over hand-built providers. The real adapters need their surface's live models and cannot run
@@ -1350,6 +1352,37 @@ class RecentsEngineTest {
     }
 
     @Test
+    fun `a drawn row's target resolves off the caller's dispatcher`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val fake = resolvingProvider(row, targetRow(ref(manga1, 2), readState(read = false)))
+
+        feedEngine(fake).targetRow(row)
+
+        fake.resolvedOn shouldContainExactly listOf(Dispatchers.IO)
+    }
+
+    @Test
+    fun `a tap on a History row resolves its chapter off the caller's dispatcher`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val fake = provider(ContentType.MANGA, read = rows(row))
+        val engine = engine(listOf(fake), chip = ContentType.MANGA, modes = setOf(RecentsMode.HISTORY))
+
+        engine.open(row, RecentsMode.HISTORY, membership = emptyMap())
+
+        fake.resolvedOn shouldContainExactly listOf(Dispatchers.IO)
+    }
+
+    @Test
+    fun `resume resolves its chapter off the caller's dispatcher`() = runTest {
+        val latest = readRow(manga1, chapterId = 5)
+        val fake = provider(ContentType.MANGA, latestRead = latest)
+
+        engine(listOf(fake)).resumeLatest()
+
+        fake.resolvedOn shouldContainExactly listOf(Dispatchers.IO)
+    }
+
+    @Test
     fun `a resolved row is remembered, so a second reader pays nothing`() = runTest {
         val row = readRow(manga1, chapterId = 5)
         val target = targetRow(ref(manga1, 2), readState(read = false))
@@ -1755,8 +1788,13 @@ private class FakeRecentsProvider(
 
     // The same answer [targetRow] gives, since both adapters resolve the two through one lane rule; a
     // row with no canned target resumes its own record.
-    override suspend fun targetChapter(item: RecentsItem): ChapterRef? =
-        targetRows[item.lane.chapterRef]?.ref ?: item.lane.chapterRef
+    override suspend fun targetChapter(item: RecentsItem): ChapterRef? {
+        resolvedOn += currentCoroutineContext()[ContinuationInterceptor]
+        return targetRows[item.lane.chapterRef]?.ref ?: item.lane.chapterRef
+    }
+
+    /** The dispatcher each target resolve ran on, since a real one loads a whole chapter list. */
+    val resolvedOn = mutableListOf<ContinuationInterceptor?>()
 
     /** How many times the engine paid for a resolution, which is what the memo is meant to bound. */
     var targetRowResolutions = 0
@@ -1766,6 +1804,7 @@ private class FakeRecentsProvider(
     val heldResolves = ArrayDeque<CompletableDeferred<RecentsTargetRow?>>()
 
     override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
+        resolvedOn += currentCoroutineContext()[ContinuationInterceptor]
         targetRowResolutions++
         heldResolves.removeFirstOrNull()?.let { return it.await() }
         return targetRows[item.lane.chapterRef]
