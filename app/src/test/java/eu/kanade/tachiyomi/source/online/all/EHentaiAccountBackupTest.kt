@@ -94,4 +94,14 @@ class EHentaiAccountBackupTest {
 
         coVerify { source.addFavorite("123", "abcdef1234", 3) }
     }
+
+    @Test
+    fun `a gallery url is backed up to the chosen favorites slot`() = runTest {
+        val source = spyk(eHentai(slot = 3))
+        coEvery { source.addFavorite(any(), any(), any()) } just runs
+
+        source.backUpFavorite(gallery.url)
+
+        coVerify { source.addFavorite("123", "abcdef1234", 3) }
+    }
 }

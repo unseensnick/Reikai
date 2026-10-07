@@ -24,6 +24,7 @@ import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
@@ -67,23 +68,12 @@ class EhFavoritesBackupWorker(private val context: Context, workerParams: Worker
                 .filter { it.isEhBasedManga() }
                 .filter { EHentaiSearchMetadata.galleryId(it.url) !in remoteGids }
 
-            val slot = exhPreferences.exhFavoritesBackupSlot().get()
             val throttle = ThrottleManager()
             toPush.forEachIndexed { index, manga ->
                 notifier.showBackupProgressNotification(manga, index, toPush.size)
                 throttle.throttle()
-                runCatching {
-                    source.addFavorite(
-                        EHentaiSearchMetadata.galleryId(manga.url),
-                        EHentaiSearchMetadata.galleryToken(manga.url),
-                        slot,
-                    )
-                }.onFailure {
-                    // runCatching also catches CancellationException; rethrow it so a cancelled job
-                    // stops issuing account writes instead of logging cancellation as a failure.
-                    if (it is CancellationException) throw it
-                    logcat(LogPriority.ERROR, it) { "Failed to back up gallery ${manga.id}" }
-                }
+                runCatchingCancellable { source.backUpFavorite(manga.url) }
+                    .onFailure { logcat(LogPriority.ERROR, it) { "Failed to back up gallery ${manga.id}" } }
             }
             Result.success()
         } catch (e: CancellationException) {

@@ -45,6 +45,7 @@ import exh.metadata.metadata.RaisedSearchMetadata.Companion.TAG_TYPE_VIRTUAL
 import exh.metadata.metadata.RaisedSearchMetadata.Companion.toGenreString
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.ExhPreferences
+import exh.ui.login.EhLoginActivity
 import exh.util.SourceTagsUtil
 import exh.util.UriFilter
 import exh.util.UriGroup
@@ -620,10 +621,12 @@ class EHentai(
     override val supportsFavoritesTracking: Boolean
         get() = exhPreferences.isFavoritesBackupOn()
 
-    override suspend fun onFavorited(manga: SManga, categories: List<String>) {
+    override suspend fun onFavorited(manga: SManga, categories: List<String>) = backUpFavorite(manga.url)
+
+    suspend fun backUpFavorite(url: String) {
         addFavorite(
-            EHentaiSearchMetadata.galleryId(manga.url),
-            EHentaiSearchMetadata.galleryToken(manga.url),
+            EHentaiSearchMetadata.galleryId(url),
+            EHentaiSearchMetadata.galleryToken(url),
             exhPreferences.exhFavoritesBackupSlot().get(),
         )
     }
@@ -841,9 +844,9 @@ class EHentai(
     private fun rawCookies(sp: Int): Map<String, String> {
         val cookies: MutableMap<String, String> = mutableMapOf()
         if (exhPreferences.enableExhentai().get()) {
-            cookies[MEMBER_ID_COOKIE] = exhPreferences.memberIdVal().get()
-            cookies[PASS_HASH_COOKIE] = exhPreferences.passHashVal().get()
-            cookies[IGNEOUS_COOKIE] = exhPreferences.igneousVal().get()
+            cookies[EhLoginActivity.MEMBER_ID_COOKIE] = exhPreferences.memberIdVal().get()
+            cookies[EhLoginActivity.PASS_HASH_COOKIE] = exhPreferences.passHashVal().get()
+            cookies[EhLoginActivity.IGNEOUS_COOKIE] = exhPreferences.igneousVal().get()
             cookies["sp"] = sp.toString()
 
             val sessionKey = exhPreferences.exhSettingsKey().get()
@@ -1357,12 +1360,6 @@ class EHentai(
 
         // Gallery is considered "aged" (and skipped by auto-update) once older than this.
         private val GALLERY_AGE_TIME = 365.days.inWholeMilliseconds
-
-        // E-Hentai login cookie names. Anonymous browse leaves them unused; the WebView login
-        // writes them.
-        private const val MEMBER_ID_COOKIE = "ipb_member_id"
-        private const val PASS_HASH_COOKIE = "ipb_pass_hash"
-        private const val IGNEOUS_COOKIE = "igneous"
 
         private val FAVORITES_BORDER_HEX_COLORS = listOf(
             "000",
