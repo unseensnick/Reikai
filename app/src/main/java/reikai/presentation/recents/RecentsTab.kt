@@ -18,14 +18,11 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
-import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import reikai.domain.category.RecentsSurface
-import reikai.presentation.history.NovelHistoryViewModel
-import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -96,23 +93,7 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
             }
         }
 
-        LaunchedEffect(Unit) {
-            mangaHistory.events.collectLatest { e ->
-                when (e) {
-                    HistoryViewModel.Event.InternalError ->
-                        snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
-                }
-            }
-        }
-
-        LaunchedEffect(Unit) {
-            novelHistory.events.collectLatest { e ->
-                when (e) {
-                    NovelHistoryViewModel.Event.InternalError ->
-                        snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
-                }
-            }
-        }
+        HistoryFeedErrors(mangaHistory, novelHistory, snackbarHostState)
 
         LaunchedEffect(Unit) {
             showModeEvent.receiveAsFlow().collectLatest(engine::setMode)
@@ -123,9 +104,7 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
                 // Reselect resumes wherever there is reading to resume. Updates is the one mode with
                 // no read lane, and it keeps the download-queue shortcut it has always had.
                 if (RecentsLaneKind.READ in engine.mode.value.lanes) {
-                    engine.resumeLatest().launch(context) {
-                        snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
-                    }
+                    engine.resumeLatestOrSay(context, snackbarHostState)
                 } else {
                     navigator.push(DownloadQueueScreen)
                 }

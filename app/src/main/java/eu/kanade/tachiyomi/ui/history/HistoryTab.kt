@@ -16,13 +16,12 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import reikai.domain.category.RecentsSurface
-import reikai.presentation.history.NovelHistoryViewModel
+import reikai.presentation.recents.HistoryFeedErrors
 import reikai.presentation.recents.RecentsTabBody
-import reikai.presentation.recents.launch
 import reikai.presentation.recents.mangaHistoryModel
 import reikai.presentation.recents.novelHistoryModel
 import reikai.presentation.recents.rememberHistoryEngine
-import tachiyomi.core.common.i18n.stringResource
+import reikai.presentation.recents.resumeLatestOrSay
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -63,34 +62,15 @@ data object HistoryTab : Tab {
             snackbarHostState = snackbarHostState,
         )
 
-        LaunchedEffect(Unit) {
-            viewModel.events.collectLatest { e ->
-                when (e) {
-                    HistoryViewModel.Event.InternalError ->
-                        snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
-                }
-            }
-        }
-
-        // RK --> novel history events
-        LaunchedEffect(Unit) {
-            novelViewModel.events.collectLatest { e ->
-                when (e) {
-                    NovelHistoryViewModel.Event.InternalError ->
-                        snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
-                }
-            }
-        }
-        // RK <--
+        // RK: both feeds' failed-write reports, shared with the Recents tab.
+        HistoryFeedErrors(viewModel, novelViewModel, snackbarHostState)
 
         LaunchedEffect(Unit) {
             resumeLastChapterReadEvent.receiveAsFlow().collectLatest {
                 // RK: resume the newest read the chip is showing. The engine asks only the providers
                 //     the chip selects, each through its own unfiltered query, so a search or a
                 //     category filter still cannot move what resume opens.
-                engine.resumeLatest().launch(context) {
-                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
-                }
+                engine.resumeLatestOrSay(context, snackbarHostState)
             }
         }
         // RK: upstream's openChapter helper is gone, the engine's resume target opens itself
