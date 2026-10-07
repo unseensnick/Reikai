@@ -38,7 +38,9 @@ internal fun webViewFetchOrigin(url: HttpUrl): String = with(url) {
     if (port == HttpUrl.defaultPort(scheme)) "$scheme://$host" else "$scheme://$host:$port"
 }
 
-internal fun isSameOrigin(a: HttpUrl, b: HttpUrl): Boolean = webViewFetchOrigin(a) == webViewFetchOrigin(b)
+// Compared by part, not by origin string: an IPv6 host with a port can print as another host without one.
+internal fun isSameOrigin(a: HttpUrl, b: HttpUrl): Boolean =
+    a.scheme == b.scheme && a.host == b.host && a.port == b.port
 
 /**
  * The message that asks the page to fetch [request], or null when the WebView cannot carry it: a
@@ -93,13 +95,7 @@ internal fun webViewFetchResponse(
     body: Buffer,
 ): Response? {
     if (status !in 100..599) return null
-    val responseHeaders = Headers.Builder().apply {
-        headers.forEach { (name, value) ->
-            if (!name.equals("content-encoding", true) && !name.equals("content-length", true)) {
-                runCatching { add(name, value) }
-            }
-        }
-    }.build()
+    val responseHeaders = decodedBodyHeaders(headers)
     val landed = finalUrl?.toHttpUrlOrNull()?.takeIf { isSameOrigin(it, request.url) }
     return Response.Builder()
         .request(if (landed != null) request.newBuilder().url(landed).build() else request)
@@ -110,6 +106,16 @@ internal fun webViewFetchResponse(
         .body(body.asResponseBody(responseHeaders["Content-Type"]?.toMediaTypeOrNull(), body.size))
         .build()
 }
+
+// A browser hands over the body decoded and keeps the cookies itself, so these would lie about the answer.
+private val BROWSER_HANDLED_HEADERS = setOf("content-encoding", "content-length", "transfer-encoding", "set-cookie")
+
+/** Headers for a body a browser already fetched and decoded, by the WebView fetch or FlareSolverr. */
+internal fun decodedBodyHeaders(headers: Iterable<Pair<String, String>>): Headers = Headers.Builder().apply {
+    headers.forEach { (name, value) ->
+        if (name.lowercase() !in BROWSER_HANDLED_HEADERS) runCatching { add(name, value) }
+    }
+}.build()
 
 /**
  * The other site a followed fetch landed on, or null when it stayed on the request's own origin. The
@@ -123,17 +129,13 @@ internal fun webViewFetchLandedElsewhere(request: Request, finalUrl: String?): S
 internal fun followsRedirect(request: Request, followRedirects: Boolean): Boolean =
     followRedirects && request.method in setOf("GET", "HEAD")
 
-/** Whether the page's answer is Cloudflare challenging the WebView too, which this cannot get past. */
-internal fun isWebViewFetchChallenged(status: Int, headers: List<Pair<String, String>>): Boolean =
-    status == 403 && headers.any { (name, value) -> name.equals("cf-mitigated", true) && value == "challenge" }
-
 /**
  * The request to solve and retry when a served answer is still a Cloudflare challenge, or null to pass
  * it on. A hop to another site is fetched by OkHttp past the interceptor, so a challenge there comes
  * back served; it is solved on the site OkHttp finally reached, as on OkHttp's own redirect.
  */
 internal fun webViewFetchChallengedHop(response: Response): Request? =
-    response.request.takeIf { isCloudflareChallenge(response) }
+    response.request.takeIf { isCloudflareChallenge(response.headers) }
 
 /**
  * The request that follows a redirect to [target], built the way OkHttp builds its own: http(s) only,

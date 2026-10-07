@@ -18,7 +18,6 @@ import okhttp3.Connection
 import okhttp3.Cookie
 import okhttp3.EventListener
 import okhttp3.FormBody
-import okhttp3.Headers
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -149,7 +148,7 @@ class FlareSolverrClient(
      * per-host lock, which every caller holds.
      */
     fun resolve(flareSolverrUrl: String, request: Request): Response {
-        cookieManager.remove(request.url, COOKIE_NAMES, 0)
+        cookieManager.remove(request.url, listOf(CF_CLEARANCE), 0)
         return resolveWithFlareSolverr(flareSolverrUrl, request)
     }
 
@@ -385,27 +384,17 @@ class FlareSolverrClient(
 
         val body = responseText.toResponseBody(contentType.toMediaTypeOrNull())
 
-        val headersBuilder = Headers.Builder()
-        solution.headers.forEach { (name, value) ->
-            // FlareSolverr returns the body already decoded, so passing through Content-Encoding
-            // / Content-Length / Transfer-Encoding would make OkHttp try to re-decode and break.
-            // Set-Cookie was already applied to the cookie jar above; skip it here too. Content-Type
-            // is set from [contentType] below so it stays consistent with any JSON unwrap.
-            if (name.equals("content-encoding", ignoreCase = true)) return@forEach
-            if (name.equals("content-length", ignoreCase = true)) return@forEach
-            if (name.equals("transfer-encoding", ignoreCase = true)) return@forEach
-            if (name.equals("set-cookie", ignoreCase = true)) return@forEach
-            if (name.equals("content-type", ignoreCase = true)) return@forEach
-            runCatching { headersBuilder.add(name, value) }
-        }
-        headersBuilder.add("Content-Type", contentType)
+        // Content-Type follows [contentType], so it stays consistent with any JSON unwrap.
+        val headers = decodedBodyHeaders(solution.headers.toList()).newBuilder()
+            .set("Content-Type", contentType)
+            .build()
 
         return Response.Builder()
             .request(request)
             .protocol(Protocol.HTTP_1_1)
             .code(solution.status)
             .message(if (solution.status in 200..299) "OK" else "FlareSolverr")
-            .headers(headersBuilder.build())
+            .headers(headers)
             .body(body)
             .build()
     }
@@ -459,7 +448,6 @@ enum class FlareSolverrTestFailure {
 
 private val JSON_MEDIA_TYPE = "application/json".toMediaType()
 private const val JSON_CONTENT_TYPE = "application/json; charset=UTF-8"
-private val COOKIE_NAMES = listOf("cf_clearance")
 
 /**
  * Whether a secret may travel to the FlareSolverr at [flareSolverrUrl]: over https, or in the clear

@@ -114,13 +114,36 @@ class WebViewFetchTest {
     }
 
     @Test
-    fun `a challenge to the WebView is recognised`() {
-        isWebViewFetchChallenged(403, listOf("cf-mitigated" to "challenge")) shouldBe true
+    fun `a body a browser decoded keeps neither its framing nor its cookies`() {
+        val headers = listOf("Transfer-Encoding" to "chunked", "Set-Cookie" to "a=b", "Content-Type" to "text/html")
+        val response = webViewFetchResponse(get().build(), 200, "OK", headers, null, Buffer().writeUtf8("hello"))!!
+
+        response.headers.names() shouldBe setOf("Content-Type")
     }
 
     @Test
-    fun `a plain 403 is an answer, not a challenge`() {
-        isWebViewFetchChallenged(403, listOf("server" to "cloudflare")) shouldBe false
+    fun `a challenge in a browser's lower-case header names is recognised`() {
+        isCloudflareChallenge(listOf("cf-mitigated" to "challenge", "server" to "cloudflare")) shouldBe true
+    }
+
+    @Test
+    fun `a challenge is recognised in a server's mixed-case header names`() {
+        isCloudflareChallenge(listOf("CF-Mitigated" to "challenge", "Server" to "cloudflare")) shouldBe true
+    }
+
+    @Test
+    fun `cf-mitigated from a server that is not Cloudflare is no challenge`() {
+        isCloudflareChallenge(listOf("cf-mitigated" to "challenge")) shouldBe false
+    }
+
+    @Test
+    fun `a plain Cloudflare answer is no challenge`() {
+        isCloudflareChallenge(listOf("server" to "cloudflare")) shouldBe false
+    }
+
+    @Test
+    fun `two IPv6 origins that print alike are still apart`() {
+        isSameOrigin("http://[::1]:8080/".toHttpUrl(), "http://[::1:8080]/".toHttpUrl()) shouldBe false
     }
 
     @Test

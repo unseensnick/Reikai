@@ -42,15 +42,9 @@ class FlareSolverrLoginRefusedException : IOException("The sign-in needs https o
  */
 fun flareSolverrLoginFor(url: String, serverUrl: String, username: String, password: String): String? {
     val header = flareSolverrAuthHeader(username, password) ?: return null
-    if (!isSameOrigin(url, serverUrl)) return null
+    if (!isSameServer(url, serverUrl)) return null
     if (!isPrivateChannel(url)) throw FlareSolverrLoginRefusedException()
     return header
-}
-
-private fun isSameOrigin(url: String, serverUrl: String): Boolean {
-    val request = url.toHttpUrlOrNull() ?: return false
-    val server = serverUrl.trim().toHttpUrlOrNull() ?: return false
-    return request.scheme == server.scheme && request.host == server.host && request.port == server.port
 }
 
 /**

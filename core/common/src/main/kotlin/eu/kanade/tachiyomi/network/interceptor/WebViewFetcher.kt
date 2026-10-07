@@ -218,7 +218,7 @@ class WebViewFetcher(private val context: Context) {
                     val done = head ?: return Answer.Error("no status")
                     val status = done["status"]?.jsonPrimitive?.int ?: 0
                     val headers = done.headerPairs()
-                    if (isWebViewFetchChallenged(status, headers)) return Answer.Done(null, challenged = true)
+                    if (isCloudflareChallenge(headers)) return Answer.Done(null, challenged = true)
                     webViewFetchLandedElsewhere(request, done["url"]?.jsonPrimitive?.content)
                         ?.let { return Answer.Redirect(target = it) }
                     val response = webViewFetchResponse(
@@ -338,7 +338,7 @@ class WebViewFetcher(private val context: Context) {
                         errorResponse: WebResourceResponse,
                     ) {
                         if (request.isForMainFrame) {
-                            challenged = errorResponse.responseHeaders["cf-mitigated"] == "challenge"
+                            challenged = isCloudflareChallenge(errorResponse.responseHeaders.orEmpty().toList())
                         }
                     }
 

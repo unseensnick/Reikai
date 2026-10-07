@@ -27,7 +27,7 @@ A redirect to another site cannot be read from a fetch, since the target does no
 ## Key files
 
 - `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/WebViewFetcher.kt`: the pages, the fixed script (`FETCH_PAGE`), the message loop (`collect`), the redirect capture (`redirectTarget`).
-- `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/WebViewFetch.kt`: the rules that need no WebView (`webViewFetchMessage`, `webViewFetchResponse`, `webViewFetchFollowUp`, `isWebViewFetchChallenged`, `webViewFetchChallengedHop`), pinned by `WebViewFetchTest`.
+- `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/WebViewFetch.kt`: the rules that need no WebView (`webViewFetchMessage`, `webViewFetchResponse`, `decodedBodyHeaders`, `webViewFetchFollowUp`, `webViewFetchChallengedHop`), pinned by `WebViewFetchTest`. A challenged answer is recognised by the interceptor's own rule, `isCloudflareChallenge` in `CloudflareInterceptor.kt`.
 - `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/CloudflareInterceptor.kt`: the wiring inside the `// RK` island of `intercept`, and `served`, which every served answer passes.
 
 ## Status

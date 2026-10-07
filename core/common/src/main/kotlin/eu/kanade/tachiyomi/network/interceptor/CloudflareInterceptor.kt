@@ -46,13 +46,11 @@ class CloudflareInterceptor(
         // Check if Cloudflare anti-bot is on
         // Checking the cf-mitigated header is the official way to detect a Cloudflare challenge:
         // https://developers.cloudflare.com/cloudflare-challenges/challenge-types/challenge-pages/detect-response/
-        return isCloudflareChallenge(response) // RK: the rule moved below, shared with the WebView fetch
+        return isCloudflareChallenge(response.headers) // RK: the rule moved below, shared with the WebView fetch
     }
 
     // RK --> the per-host solve lock (mihonapp/mihon#3858): the nonce and the nullable retry signal.
-    override fun getNonce(url: HttpUrl): String? = cookieManager.get(url)
-        .firstOrNull { it.name == "cf_clearance" }
-        ?.value
+    override fun getNonce(url: HttpUrl): String? = cookieManager.clearanceFor(url)?.value
 
     override fun intercept(
         chain: Interceptor.Chain,
@@ -149,7 +147,7 @@ class CloudflareInterceptor(
         val hop = webViewFetchChallengedHop(response) ?: return response
         response.close()
         clearClearance(hop.url)
-        val oldCookie = cookieManager.get(hop.url).firstOrNull { it.name == "cf_clearance" }
+        val oldCookie = cookieManager.clearanceFor(hop.url)
         try {
             resolveWithWebView(hop, hop.url, oldCookie)
         } catch (_: CloudflareBypassException) {
@@ -180,11 +178,9 @@ class CloudflareInterceptor(
         val origRequestUrl = challengeUrl.toString() // RK: the page the challenge is on, after redirects
         val challengeHost = challengeUrl.host
         val headers = parseHeaders(originalRequest.headers)
-        // RK: an origin rule without a port matches only the scheme's default, so a source on a
-        //     custom one has to spell it out or the solver's probe would never run on its page.
-        val origin = with(challengeUrl) {
-            if (port == HttpUrl.defaultPort(scheme)) "$scheme://$host" else "$scheme://$host:$port"
-        }
+        // RK: the solver's origin rule is the WebView fetch's, custom port included, or the probe
+        //     would never run on a page served from one.
+        val origin = webViewFetchOrigin(challengeUrl)
         // RK: the solver presses the checkbox an interactive challenge is waiting on, so with it
         //     armed that challenge is no longer a reason to give up. Off by default, and with no
         //     window it arms only when the separate background switch is on.
@@ -270,8 +266,7 @@ class CloudflareInterceptor(
                 ) {
                     // The retry needs the clearance cookie, and it lands after the challenge page
                     // goes, so a solve is only accepted once both have happened.
-                    val cleared = cookieManager.get(challengeUrl)
-                        .firstOrNull { it.name == "cf_clearance" }
+                    val cleared = cookieManager.clearanceFor(challengeUrl)
                     (cleared != null && cleared != oldCookie).also { accepted ->
                         if (accepted) {
                             cloudflareBypassed = true
@@ -372,8 +367,7 @@ class CloudflareInterceptor(
             //     clearance on its own proves nothing: Cloudflare issues one on a round it refused,
             //     and trusting that turned three honest failures into 403s with no Open in WebView.
             if (!cloudflareBypassed && solverWanted && solve.get()?.phase == TurnstileSolver.Solve.Phase.Verified) {
-                val cleared = cookieManager.get(challengeUrl)
-                    .firstOrNull { it.name == "cf_clearance" }
+                val cleared = cookieManager.clearanceFor(challengeUrl)
                 if (cleared != null && cleared != oldCookie) {
                     cloudflareBypassed = true
                     logcat { "Turnstile[$challengeHost]: cleared without a report, retrying" }
@@ -416,10 +410,12 @@ class CloudflareInterceptor(
 private val SERVER_CHECK = arrayOf("cloudflare-nginx", "cloudflare")
 private val COOKIE_NAMES = listOf("cf_clearance")
 
-// RK: shouldIntercept's rule, read by the WebView fetch too, whose hop to another site comes back
-//     through OkHttp past this interceptor.
-internal fun isCloudflareChallenge(response: Response): Boolean =
-    response.header("cf-mitigated") == "challenge" && response.header("Server") in SERVER_CHECK
+// RK: shouldIntercept's rule, read by the WebView fetch too, on headers as a browser reports them:
+//     names in any case, matched and read last-wins as OkHttp's own header() reads them.
+internal fun isCloudflareChallenge(headers: Iterable<Pair<String, String>>): Boolean {
+    fun header(name: String) = headers.lastOrNull { it.first.equals(name, ignoreCase = true) }?.second
+    return header("cf-mitigated") == "challenge" && header("Server") in SERVER_CHECK
+}
 
 // RK: blockedUrl, for a solve on another page than the request's own.
 private class CloudflareBypassException(val blockedUrl: HttpUrl? = null) : Exception()
