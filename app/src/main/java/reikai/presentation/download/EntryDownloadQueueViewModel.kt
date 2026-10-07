@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.util.lang.launchIO
@@ -39,6 +41,7 @@ class EntryDownloadQueueViewModel(
     mangaProvider: MangaDownloadQueueProvider,
     novelProvider: NovelDownloadQueueProvider,
     private val sourcePreferences: ReikaiSourcePreferences,
+    getEntryCustomInfo: GetEntryCustomInfo,
 ) : ViewModel() {
 
     private val providers: Map<ContentType, DownloadQueueProvider> =
@@ -59,7 +62,13 @@ class EntryDownloadQueueViewModel(
     private val snapshots: Flow<Map<ContentType, DownloadQueueSnapshot>> = combine(
         mangaProvider.snapshots,
         novelProvider.snapshots,
-    ) { manga, novels -> mapOf(ContentType.MANGA to manga, ContentType.NOVELS to novels) }
+        getEntryCustomInfo.subscribeAll(),
+    ) { manga, novels, custom ->
+        mapOf(
+            ContentType.MANGA to manga.withCustomInfo { custom[EntryId.Manga(it)] },
+            ContentType.NOVELS to novels.withCustomInfo { custom[EntryId.Novel(it)] },
+        )
+    }
         .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), replay = 1)
 
     val state: StateFlow<State> = combine(

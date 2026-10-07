@@ -43,21 +43,20 @@ import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.util.system.dpToPx
 import kotlinx.coroutines.flow.combine
 import mihon.app.di.appGraph
+import reikai.domain.entry.EntryCustomInfo
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.dedupeByMergeGroup
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.interactor.GetCustomNovelInfo
-import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.presentation.details.mangaDetailsIntent
 import reikai.presentation.details.novelDetailsIntent
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
-import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
-import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.i18n.MR
@@ -88,9 +87,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
     @Inject private lateinit var preferences: SecurityPreferences
 
     // Per-entry custom cover overrides, overlaid on the widget's cover cells (display-only).
-    @Inject private lateinit var getCustomMangaInfo: GetCustomMangaInfo
-
-    @Inject private lateinit var getCustomNovelInfo: GetCustomNovelInfo
+    @Inject private lateinit var getEntryCustomInfo: GetEntryCustomInfo
 
     // A merge group is one series, so it gets one cover here as it gets one library row.
     @Inject private lateinit var mangaMergeManager: MangaMergeManager
@@ -134,10 +131,9 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
             val flow = remember {
                 combine(
                     unifiedWidgetUpdates(getUpdates, novelRepository),
-                    getCustomMangaInfo.subscribeAll(),
-                    getCustomNovelInfo.subscribeAll(),
-                ) { updates, customManga, customNovel ->
-                    prepareSections(context, updates, customManga, customNovel, rowCount, columnCount)
+                    getEntryCustomInfo.subscribeAll(),
+                ) { updates, customInfo ->
+                    prepareSections(context, updates, customInfo, rowCount, columnCount)
                 }
             }
             val data by flow.collectAsState(initial = null)
@@ -161,14 +157,10 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
     private suspend fun prepareSections(
         context: Context,
         updates: UnifiedWidgetUpdates,
-        customManga: List<CustomMangaInfo>,
-        customNovel: List<CustomNovelInfo>,
+        customInfo: Map<EntryId, EntryCustomInfo>,
         rowCount: Int,
         columnCount: Int,
     ): SectionData {
-        // Display-only custom-cover overlay (cover url only; the widget shows no titles), keyed by real id.
-        val novelCoverOverlay = customNovel.associateBy { it.novelId }
-        val mangaCoverOverlay = customManga.associateBy { it.mangaId }
         // Dedupe per series, then per merge group so a series grouped across sources draws one cover, then
         // give each section half the rows.
         val novelRows = updates.novel.onePerSeries(novelMergeManager) { it.novelId }
@@ -183,7 +175,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
             val novelCovers = novelRows
                 .take(cap)
                 .map { row ->
-                    val cover = row.withCustomInfo(novelCoverOverlay[row.novelId]).coverData
+                    val cover = row.withCustomInfo(customInfo[EntryId.Novel(row.novelId)]).coverData
                     WidgetCover(
                         bitmap = loadWidgetCover(context, cover, widthPx, heightPx),
                         intent = novelIntent(context, row),
@@ -196,7 +188,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
                         mangaId = row.mangaId,
                         sourceId = row.sourceId,
                         isMangaFavorite = true,
-                        url = row.withCustomInfo(mangaCoverOverlay[row.mangaId]).coverData.url,
+                        url = row.withCustomInfo(customInfo[EntryId.Manga(row.mangaId)]).coverData.url,
                         lastModified = row.coverData.lastModified,
                     )
                     WidgetCover(

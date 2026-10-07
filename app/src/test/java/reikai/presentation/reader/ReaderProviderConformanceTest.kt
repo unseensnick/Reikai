@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -95,6 +96,15 @@ class ReaderProviderConformanceTest {
 
             provider.chrome.first().chapterTitle shouldBe "Chapter 3"
         }
+
+    /** The engine names the entry by its Edit info title, so each bar says whose titles it shows. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("titleProbes")
+    fun `the bar's titles belong to the entry the session opened`(probe: ReaderChapterTitleProbe) = runTest {
+        val provider = probe.provider(ChapterTitleFormat.NUMBER, name = "The Duel", number = 3.0)
+
+        provider.chrome.first().entry shouldBe probe.entry
+    }
 
     /** A reader that opens scrolling on its own is a choice made in Settings, never the default. */
     @ParameterizedTest(name = "{0}")
@@ -192,10 +202,14 @@ class NovelOrientationProbe : ReaderOrientationProbe {
 
 /** One content type's provider showing one chapter, with that reader's own title format set. */
 interface ReaderChapterTitleProbe {
+    val entry: EntryId
+
     fun provider(format: ChapterTitleFormat, name: String, number: Double): ReaderProvider
 }
 
 class MangaChapterTitleProbe : ReaderChapterTitleProbe {
+
+    override val entry = EntryId.Manga(1L)
 
     override fun toString() = "manga"
 
@@ -217,6 +231,8 @@ class MangaChapterTitleProbe : ReaderChapterTitleProbe {
 
 class NovelChapterTitleProbe : ReaderChapterTitleProbe {
 
+    override val entry = EntryId.Novel(1L)
+
     override fun toString() = "novel"
 
     override fun provider(format: ChapterTitleFormat, name: String, number: Double): ReaderProvider {
@@ -227,6 +243,7 @@ class NovelChapterTitleProbe : ReaderChapterTitleProbe {
         val preferences = NovelPreferences(EmittingPreferenceStore()).apply { readerChapterTitleFormat().set(format) }
         return NovelReaderProvider(
             viewModel = mockk(relaxed = true) {
+                every { novelId } returns 1L
                 every { entryTitle } returns MutableStateFlow("Series")
                 every { this@mockk.chapter } returns MutableStateFlow(chapter)
             },

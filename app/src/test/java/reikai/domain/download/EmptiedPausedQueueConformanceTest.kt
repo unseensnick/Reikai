@@ -214,6 +214,7 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
                 securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
                 adultChecker = mockk(),
                 sourceTitles = mockk { coEvery { otherNovelTitles(any(), any()) } returns emptyList() },
+                getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
             )
             manager.downloadChapters(listOf(chapter))
             val drain = test.backgroundScope.launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }

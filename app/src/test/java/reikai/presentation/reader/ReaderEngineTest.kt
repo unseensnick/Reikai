@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -29,13 +30,18 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.tts.SleepTimer
+import reikai.domain.entry.EntryCustomInfo
+import reikai.domain.entry.EntryId
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -55,15 +61,32 @@ class ReaderEngineTest {
         Dispatchers.resetMain()
     }
 
-    private fun engine(provider: FakeReaderProvider = FakeReaderProvider(), themeCoverBased: Boolean = true) =
-        ReaderEngine(
-            provider,
-            UiPreferences(
-                InMemoryPreferenceStore(
-                    sequenceOf(InMemoryPreference("pref_theme_cover_based_key", themeCoverBased, true)),
-                ),
+    private fun engine(
+        provider: FakeReaderProvider = FakeReaderProvider(),
+        themeCoverBased: Boolean = true,
+        customInfo: Map<EntryId, EntryCustomInfo> = emptyMap(),
+    ) = ReaderEngine(
+        provider,
+        UiPreferences(
+            InMemoryPreferenceStore(
+                sequenceOf(InMemoryPreference("pref_theme_cover_based_key", themeCoverBased, true)),
             ),
-        )
+        ),
+        mockk { every { subscribeAll() } returns flowOf(customInfo) },
+    )
+
+    /** Ids overlap across the two types, so the override is found by the entry's typed id. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("editedEntries")
+    fun `the bar names the entry by its Edit info title`(entry: EntryId, custom: EntryCustomInfo) {
+        val provider = FakeReaderProvider()
+        provider.chrome.value = ReaderChromeState(entryTitle = "Source title", entry = entry)
+        val other = if (entry is EntryId.Manga) EntryId.Novel(entry.rawId) else EntryId.Manga(entry.rawId)
+
+        val engine = engine(provider, customInfo = mapOf(entry to custom, other to CustomMangaInfo(0L, title = "No")))
+
+        engine.chrome.value.entryTitle shouldBe "Mine"
+    }
 
     @Test
     fun `nothing is raised to begin with`() {
@@ -918,6 +941,12 @@ class ReaderEngineTest {
     }
 
     companion object {
+        @JvmStatic
+        fun editedEntries(): List<Arguments> = listOf(
+            Arguments.of(EntryId.Manga(1L), CustomMangaInfo(mangaId = 1L, title = "Mine")),
+            Arguments.of(EntryId.Novel(1L), CustomNovelInfo(novelId = 1L, title = "Mine")),
+        )
+
         @JvmStatic
         fun sheets(): List<ReaderDialog> = listOf(
             ReaderDialog.Settings,

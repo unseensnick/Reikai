@@ -1,6 +1,7 @@
 package reikai.presentation.download
 
 import eu.kanade.tachiyomi.ui.more.DownloadQueueState
+import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.library.ContentType
 
 /** One downloader's share of the queue: how many chapters it holds and whether it is running. */
@@ -44,6 +45,10 @@ data class EntryDownloadChapterUi(val chapter: QueuedChapter, val name: String)
 
 /** A series' card label: the title and the name of the source it downloads from. */
 data class QueuedSeriesLabel(val title: String, val sourceName: String)
+
+/** Each series' label under its Edit info title, looked up by [customOf] from the series id. */
+fun DownloadQueueSnapshot.withCustomInfo(customOf: (Long) -> EntryCustomInfo?): DownloadQueueSnapshot =
+    copy(labels = labels.mapValues { (id, label) -> label.copy(title = customOf(id)?.title ?: label.title) })
 
 /**
  * Everything one downloader reports to the queue screen. [chapters] is in the downloader's own order,

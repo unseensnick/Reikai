@@ -1,7 +1,9 @@
 package reikai.domain.entry
 
+import reikai.domain.library.updateerror.LibraryUpdateError
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelUpdateWithRelations
+import reikai.domain.novel.updateerror.NovelUpdateError
 import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedNovel
 import tachiyomi.domain.history.model.HistoryWithRelations
@@ -95,6 +97,16 @@ fun RecentlyAddedManga.withCustomInfo(custom: EntryCustomInfo?): RecentlyAddedMa
         title = custom.title ?: title,
         coverData = coverData.copy(url = custom.thumbnailUrl ?: coverData.url),
     )
+}
+
+fun LibraryUpdateError.withCustomInfo(custom: EntryCustomInfo?): LibraryUpdateError {
+    if (custom == null) return this
+    return copy(mangaTitle = custom.title ?: mangaTitle, thumbnailUrl = custom.thumbnailUrl ?: thumbnailUrl)
+}
+
+fun NovelUpdateError.withCustomInfo(custom: EntryCustomInfo?): NovelUpdateError {
+    if (custom == null) return this
+    return copy(novelTitle = custom.title ?: novelTitle, thumbnailUrl = custom.thumbnailUrl ?: thumbnailUrl)
 }
 
 fun RecentlyAddedNovel.withCustomInfo(custom: EntryCustomInfo?): RecentlyAddedNovel {

@@ -238,6 +238,7 @@ class NovelNetworkWaitHalf : NetworkWaitHalf {
             securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
             sourceTitles = mockk(),
+            getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
         )
         manager.downloadChapters(listOf(chapter))
         // The worker's part, which WorkManager would run.

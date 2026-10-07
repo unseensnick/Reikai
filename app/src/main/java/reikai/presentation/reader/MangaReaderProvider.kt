@@ -63,6 +63,7 @@ class MangaReaderProvider(
         ReaderChromeState(
             state.manga?.title,
             chapter?.let { format.chapterTitle(it.name, it.chapter_number.toDouble(), titleWords) },
+            state.manga?.let { EntryId.Manga(it.id) },
         )
     }
 

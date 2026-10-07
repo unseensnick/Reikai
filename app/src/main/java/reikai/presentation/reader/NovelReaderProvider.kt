@@ -57,7 +57,11 @@ class NovelReaderProvider(
         viewModel.chapter,
         novelPreferences.readerChapterTitleFormat().changes(),
     ) { title, chapter, format ->
-        ReaderChromeState(title, chapter?.let { format.chapterTitle(it.title, it.chapterNumber, titleWords) })
+        ReaderChromeState(
+            title,
+            chapter?.let { format.chapterTitle(it.title, it.chapterNumber, titleWords) },
+            EntryId.Novel(viewModel.novelId),
+        )
     }
 
     override val bottomButtons: Flow<List<ReaderBottomButton>> =

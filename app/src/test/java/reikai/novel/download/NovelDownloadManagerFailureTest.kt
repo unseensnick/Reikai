@@ -20,9 +20,11 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
@@ -90,6 +92,9 @@ class NovelDownloadManagerFailureTest {
         securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
         adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
         sourceTitles = mockk(),
+        getEntryCustomInfo = mockk {
+            coEvery { await(EntryId.Novel(1L)) } returns CustomNovelInfo(novelId = 1L, title = "Mine")
+        },
     )
 
     @BeforeEach
@@ -113,6 +118,20 @@ class NovelDownloadManagerFailureTest {
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
 
         NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe listOf(10L)
+    }
+
+    /** The saver still names the chapter's file by the source title; only what the user reads changes. */
+    @Test
+    fun `the progress and error notices name the novel by its Edit info title`() = runTest {
+        manager.downloadChapters(listOf(chapter))
+        val named = mutableListOf<String?>()
+
+        manager.runQueue(
+            onProgress = { (it as? NovelDownloadProgress.Downloading)?.let { progress -> named += progress.title } },
+            onError = { novel, _, _, _ -> named += novel?.title },
+        )
+
+        named shouldBe listOf("Mine", "Mine")
     }
 
     @Test

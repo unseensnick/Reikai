@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.GetEntryCustomInfo
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.includes
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
@@ -48,6 +50,7 @@ class UpdateErrorsViewModel(
     private val deleteNovelUpdateErrors: DeleteNovelUpdateErrors,
     private val sourceManager: SourceManager,
     private val novelSourceManager: NovelSourceManager,
+    private val getEntryCustomInfo: GetEntryCustomInfo,
 ) : ViewModel() {
 
     val state: StateFlow<UpdateErrorsScreenState>
@@ -71,12 +74,19 @@ class UpdateErrorsViewModel(
             combine(
                 getLibraryUpdateErrors.subscribeAll(),
                 getNovelUpdateErrors.subscribeAll(),
-            ) { mangaErrors, novelErrors ->
+                getEntryCustomInfo.subscribeAll(),
+            ) { mangaErrors, novelErrors, customInfo ->
                 val manga = mangaErrors.map {
-                    UpdateErrorEntry.Manga(it, sourceManager.getOrStub(it.sourceId).name)
+                    UpdateErrorEntry.Manga(
+                        it.withCustomInfo(customInfo[EntryId.Manga(it.mangaId)]),
+                        sourceManager.getOrStub(it.sourceId).name,
+                    )
                 }
                 val novel = novelErrors.map {
-                    UpdateErrorEntry.Novel(it, novelSourceManager.nameOf(it.source))
+                    UpdateErrorEntry.Novel(
+                        it.withCustomInfo(customInfo[EntryId.Novel(it.novelId)]),
+                        novelSourceManager.nameOf(it.source),
+                    )
                 }
                 manga + novel
             }.collectLatest { entries ->

@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
+import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.seekTo
@@ -52,6 +53,7 @@ class ReaderEngine(
     // host from branching on content type once there is a second provider.
     @Assisted val provider: ReaderProvider,
     private val uiPreferences: UiPreferences,
+    getEntryCustomInfo: GetEntryCustomInfo,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -66,9 +68,13 @@ class ReaderEngine(
     // is rotated. Eager, because the window's orientation and keep-screen-on follow these whether or
     // not anything is composed.
 
-    /** What the chrome shows, answered by whichever content type this session is for. */
+    /** What the chrome shows, answered by whichever content type this session is for, named by Edit info. */
     val chrome: StateFlow<ReaderChromeState> =
-        provider.chrome.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderChromeState())
+        combine(provider.chrome, getEntryCustomInfo.subscribeAll()) { chrome, custom ->
+            val title = chrome.entry?.let { custom[it] }?.title ?: return@combine chrome
+            chrome.copy(entryTitle = title)
+        }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, ReaderChromeState())
 
     /** The bottom-bar buttons this session offers, likewise its own rather than manga's. */
     val bottomButtons: StateFlow<List<ReaderBottomButton>> =

@@ -19,6 +19,9 @@ import eu.kanade.tachiyomi.util.system.notify
 import reikai.data.notification.downloadErrorTitle
 import reikai.data.notification.hiddenEntryIds
 import reikai.data.notification.isHiddenAdult
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.GetEntryCustomInfo
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.manga.AdultContentChecker
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.manga.model.Manga
@@ -34,11 +37,16 @@ import java.util.regex.Pattern
 class DownloadNotifier(
     private val context: Context,
     private val preferences: SecurityPreferences,
+    private val getEntryCustomInfo: GetEntryCustomInfo, // RK
     // RK: deferred, so the extension manager behind it is only built once a download needs a verdict
     private val adultCheckerProvider: () -> AdultContentChecker,
 ) {
 
     private val adultChecker by lazy { adultCheckerProvider() } // RK
+
+    // RK: names the entry by its Edit info title; the download folder keeps the source's
+    private suspend fun shownTitle(manga: Manga): String =
+        manga.withCustomInfo(getEntryCustomInfo.await(EntryId.Manga(manga.id))).title
 
     private val progressNotificationBuilder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
@@ -118,8 +126,9 @@ class DownloadNotifier(
                 setContentTitle(downloadingProgressText)
                 setContentText(null)
             } else {
-                val title = download.manga.title.chop(15)
-                val quotedTitle = Pattern.quote(title)
+                // RK: a chapter name repeats the source title, so that is what is stripped from it
+                val title = shownTitle(download.manga).chop(15)
+                val quotedTitle = Pattern.quote(download.manga.title.chop(15))
                 val chapter = download.chapter.name.replaceFirst(
                     "$quotedTitle[\\s]*[-]*[\\s]*".toRegex(RegexOption.IGNORE_CASE),
                     "",
@@ -242,7 +251,7 @@ class DownloadNotifier(
         // RK -->
         val hideAdult = preferences.hideAdultNotificationContent.get()
         val isAdult = isHiddenAdult(manga, hideAdult, Manga::id, adultChecker::adultIdsAmong)
-        val title = downloadErrorTitle(manga?.title, chapter, hideAdult, isAdult)
+        val title = downloadErrorTitle(manga?.let { shownTitle(it) }, chapter, hideAdult, isAdult)
         val mangaId = manga?.id
         // RK <--
         // Create notification

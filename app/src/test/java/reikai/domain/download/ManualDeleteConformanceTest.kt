@@ -170,6 +170,7 @@ class NovelManualDeleteHalf : ManualDeleteHalf {
             securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
             adultChecker = mockk(),
             sourceTitles = mockk(),
+            getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
         )
 
         manager.deleteChapters(targets.map { chapter(it, novel.id) })

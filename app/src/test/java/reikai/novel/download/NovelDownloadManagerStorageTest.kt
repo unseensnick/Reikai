@@ -74,6 +74,7 @@ class NovelDownloadManagerStorageTest {
         securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
         adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
         sourceTitles = mockk(),
+        getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
     )
 
     @BeforeEach

@@ -6,10 +6,14 @@ import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.entry.EntryCustomInfo
+import reikai.domain.entry.EntryId
 import reikai.domain.merge.TestMergeManagers
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import tachiyomi.domain.manga.interactor.GetFavorites
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 
 class LibraryExportRowsTest {
@@ -26,9 +30,28 @@ class LibraryExportRowsTest {
 
     @Test
     fun `the library list carries a novel beside a manga`() {
-        val rows = libraryExportRows(manga = listOf(manga(1, "Manga")), novels = listOf(novel(1, "Novel")))
+        val rows = libraryExportRows(
+            manga = listOf(manga(1, "Manga")),
+            novels = listOf(novel(1, "Novel")),
+            customInfo = emptyMap(),
+        )
 
         LibraryExporter.generateCsvData(rows, allColumns) shouldBe "Manga,A,\r\nNovel,B,"
+    }
+
+    /** Ids overlap across the two types, so each override reaches only its own type's row. */
+    @Test
+    fun `each entry is written under its own Edit info overrides`() {
+        val rows = libraryExportRows(
+            manga = listOf(manga(1, "Manga")),
+            novels = listOf(novel(1, "Novel")),
+            customInfo = mapOf(
+                EntryId.Manga(1) to CustomMangaInfo(mangaId = 1, title = "My manga"),
+                EntryId.Novel(1) to CustomNovelInfo(novelId = 1, author = "Me"),
+            ),
+        )
+
+        LibraryExporter.generateCsvData(rows, allColumns) shouldBe "My manga,A,\r\nNovel,Me,"
     }
 
     @Test
@@ -42,7 +65,17 @@ class LibraryExportRowsTest {
         exportOf(mergingOn = false).size shouldBe 4
     }
 
-    private suspend fun exportOf(mergingOn: Boolean): List<LibraryExportRow> {
+    @Test
+    fun `the export reads every Edit info override`() = runTest {
+        val custom = mapOf<EntryId, EntryCustomInfo>(EntryId.Novel(1) to CustomNovelInfo(novelId = 1, title = "Mine"))
+
+        exportOf(mergingOn = true, customInfo = custom).map { it.title } shouldBe listOf("First source", "Mine")
+    }
+
+    private suspend fun exportOf(
+        mergingOn: Boolean,
+        customInfo: Map<EntryId, EntryCustomInfo> = emptyMap(),
+    ): List<LibraryExportRow> {
         val managers = TestMergeManagers(
             memberships = mapOf(
                 ContentType.MANGA to mapOf(1L to 10L, 2L to 10L),
@@ -59,6 +92,7 @@ class LibraryExportRowsTest {
             },
             mangaMergeManager = managers.manga,
             novelMergeManager = managers.novel,
+            getEntryCustomInfo = mockk { coEvery { awaitAll() } returns customInfo },
         ).await()
     }
 }

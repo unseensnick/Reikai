@@ -154,6 +154,7 @@ class NovelTitleRenameHalf : TitleRenameHalf {
             securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
             adultChecker = mockk(),
             sourceTitles = mockk { coEvery { otherNovelTitles("src", 1L) } returns otherTitles },
+            getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
         )
 
         manager.renameNovel(novel, newTitle)

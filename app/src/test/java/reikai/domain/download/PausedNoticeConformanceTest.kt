@@ -208,7 +208,11 @@ class MangaPausedNoticeHalf : PausedNoticeHalf {
         shade = FakeNotificationShade()
         stubNoNetworkText()
         val f = DownloadWorkerFixture(test) { context ->
-            DownloadNotifier(context, SecurityPreferences(InMemoryPreferenceStore())) {
+            DownloadNotifier(
+                context,
+                SecurityPreferences(InMemoryPreferenceStore()),
+                mockk { coEvery { await(any()) } returns null },
+            ) {
                 mockk { coEvery { adultIdsAmong(any()) } returns emptySet() }
             }
         }
@@ -315,6 +319,7 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
             securityPreferences = securityPreferences,
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
             sourceTitles = mockk(),
+            getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
         )
         manager.downloadChapters(listOf(chapter))
     }

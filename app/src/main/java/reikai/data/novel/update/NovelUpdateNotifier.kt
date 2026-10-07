@@ -24,11 +24,14 @@ import reikai.data.notification.setNewChaptersSummary
 import reikai.data.notification.updateProgressPercent
 import reikai.data.updateerror.setUpdateErrorContent
 import reikai.data.updateerror.updateErrorPendingIntent
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.asNovelCover
+import reikai.domain.novel.model.withCustomInfo
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -42,7 +45,12 @@ class NovelUpdateNotifier(
     private val context: Context,
     private val securityPreferences: SecurityPreferences,
     private val adultChecker: AdultContentChecker,
+    private val getEntryCustomInfo: GetEntryCustomInfo,
 ) {
+
+    /** Named and drawn by Edit info, as the manga updater's are; [hiddenNovelIds] reads the source values. */
+    private suspend fun List<Novel>.shown(): List<Novel> =
+        getEntryCustomInfo.overlay(this, { EntryId.Novel(it.id) }) { withCustomInfo(it) }
 
     private val progressBuilder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_PROGRESS) {
@@ -80,7 +88,7 @@ class NovelUpdateNotifier(
             .build()
 
     suspend fun showProgress(novel: Novel, current: Int, total: Int) {
-        val name = novel.title.takeUnless { novel.id in hiddenNovelIds(listOf(novel)) }
+        val name = listOf(novel).shown().single().title.takeUnless { novel.id in hiddenNovelIds(listOf(novel)) }
         context.notify(Notifications.ID_NOVEL_LIBRARY_PROGRESS, progress(name, current, total))
     }
 
@@ -97,10 +105,11 @@ class NovelUpdateNotifier(
 
     /** One notification per updated novel (tap to read its first new chapter), grouped under a summary;
      *  skipped when nothing changed. The summary, cover and Download threshold are the manga updater's. */
-    suspend fun showResults(updates: List<Pair<Novel, List<NovelChapter>>>) {
-        if (updates.isEmpty()) return
+    suspend fun showResults(sourceUpdates: List<Pair<Novel, List<NovelChapter>>>) {
+        if (sourceUpdates.isEmpty()) return
         val hideAll = securityPreferences.hideNotificationContent.get()
-        val hidden = hiddenNovelIds(updates.map { it.first })
+        val hidden = hiddenNovelIds(sourceUpdates.map { it.first })
+        val updates = sourceUpdates.map { it.first }.shown().zip(sourceUpdates.map { it.second })
         val perNovel = postedEntries(updates, hideAll).map { (novel, newChapters) ->
             val chapterIds = newChapters.map { it.id }.toLongArray()
             val isHidden = novel.id in hidden

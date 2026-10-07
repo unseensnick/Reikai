@@ -28,6 +28,8 @@ import reikai.domain.download.deletableDownloads
 import reikai.domain.download.downloadNetworkIssue
 import reikai.domain.download.hasRoomToDownload
 import reikai.domain.download.movesDownloadFolder
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
@@ -35,6 +37,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.novel.ownersOf
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceTitlesRepository
@@ -74,6 +77,7 @@ class NovelDownloadManager(
     private val securityPreferences: SecurityPreferences,
     private val adultChecker: AdultContentChecker,
     private val sourceTitles: SourceTitlesRepository,
+    private val getEntryCustomInfo: GetEntryCustomInfo,
 ) {
 
     private val store = NovelDownloadStore(context, chapterRepo)
@@ -389,6 +393,8 @@ class NovelDownloadManager(
                 setState(next.chapterId, NovelDownload.State.DOWNLOADING)
                 _downloadingNovelId.value = next.novelId
                 val novel = novelRepo.getById(next.novelId)
+                // What the notices name it by; the chapter is still saved under the source title.
+                val shown = novel?.withCustomInfo(getEntryCustomInfo.await(EntryId.Novel(novel.id)))
                 val chapter = chapterRepo.getById(next.chapterId)
                 val total = pendingTotal(done)
                 val isAdult = isHiddenAdult(
@@ -401,10 +407,10 @@ class NovelDownloadManager(
                 if (!hasRoomToDownload(provider.availableSpace())) {
                     val reason = context.stringResource(MR.strings.download_insufficient_space)
                     setState(next.chapterId, NovelDownload.State.ERROR, reason)
-                    onError(novel, chapter?.name, reason, isAdult)
+                    onError(shown, chapter?.name, reason, isAdult)
                     continue
                 }
-                onProgress(NovelDownloadProgress.Downloading(done, total, novel?.title.orEmpty(), isAdult, novel))
+                onProgress(NovelDownloadProgress.Downloading(done, total, shown?.title.orEmpty(), isAdult, shown))
                 // Try a few times before giving up so a transient network blip or a momentarily
                 // rate-limited source doesn't kill the chapter on the first stumble. The manga Downloader
                 // retries each page image on this schedule; a chapter's text is one fetch, so the unit
@@ -466,7 +472,7 @@ class NovelDownloadManager(
                     }
                     setState(next.chapterId, NovelDownload.State.ERROR, reason)
                     // Notify the user: a failed novel download was previously completely silent.
-                    onError(novel, chapter?.name, reason, isAdult)
+                    onError(shown, chapter?.name, reason, isAdult)
                 }
                 // Per-source pacing, by the user's delay and NovelDownloadPacing's back-off, so a
                 // rate-limited or blocked site slows down on its own without dragging healthy sources.

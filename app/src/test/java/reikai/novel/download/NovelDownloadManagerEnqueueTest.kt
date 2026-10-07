@@ -153,6 +153,7 @@ class NovelDownloadManagerEnqueueTest {
             securityPreferences = mockk(),
             adultChecker = mockk(),
             sourceTitles = mockk(),
+            getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
         )
     }
 

@@ -22,10 +22,13 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.data.novel.update.NovelUpdateWorker
+import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.updateerror.LibraryUpdateError
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.updateerror.NovelUpdateError
+import tachiyomi.domain.manga.model.CustomMangaInfo
 
 class UpdateErrorsViewModelTest {
 
@@ -122,6 +125,32 @@ class UpdateErrorsViewModelTest {
         viewModel.selected() shouldBe setOf(EntryId.Manga(1L), EntryId.Novel(2L), EntryId.Manga(2L))
     }
 
+    @Test
+    fun `an error row names its manga by its Edit info title`() = runTest {
+        val viewModel = viewModel(
+            ContentType.ALL,
+            manga = listOf(mangaError(1L, "404")),
+            custom = mapOf(EntryId.Manga(1L) to CustomMangaInfo(mangaId = 1L, title = "Mine")),
+        )
+
+        viewModel.titles() shouldBe listOf("Mine")
+    }
+
+    @Test
+    fun `an error row names its novel by its Edit info title`() = runTest {
+        val viewModel = viewModel(
+            ContentType.ALL,
+            novels = listOf(novelError(1L, "404")),
+            custom = mapOf(EntryId.Novel(1L) to CustomNovelInfo(novelId = 1L, title = "Mine")),
+        )
+
+        viewModel.titles() shouldBe listOf("Mine")
+    }
+
+    private suspend fun UpdateErrorsViewModel.titles() =
+        (state.first { it is UpdateErrorsScreenState.Success } as UpdateErrorsScreenState.Success)
+            .entries.map { it.title }
+
     private suspend fun selectingOne(chip: ContentType) = viewModel(chip).also {
         it.state.first { state -> state is UpdateErrorsScreenState.Success }
         it.toggleSelection(EntryId.Manga(1L))
@@ -134,6 +163,7 @@ class UpdateErrorsViewModelTest {
         chip: ContentType,
         manga: List<LibraryUpdateError> = emptyList(),
         novels: List<NovelUpdateError> = emptyList(),
+        custom: Map<EntryId, EntryCustomInfo> = emptyMap(),
     ) = UpdateErrorsViewModel(
         initialContentType = chip,
         getLibraryUpdateErrors = mockk { every { subscribeAll() } returns flowOf(manga) },
@@ -142,6 +172,7 @@ class UpdateErrorsViewModelTest {
         deleteNovelUpdateErrors = mockk(relaxed = true),
         sourceManager = mockk(relaxed = true),
         novelSourceManager = mockk(relaxed = true),
+        getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(custom) },
     )
 
     private fun mangaError(id: Long, message: String) = LibraryUpdateError(

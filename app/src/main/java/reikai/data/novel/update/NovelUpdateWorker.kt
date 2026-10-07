@@ -45,6 +45,7 @@ import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.category.isUpdateScope
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.ReleaseInterval
@@ -121,7 +122,9 @@ class NovelUpdateWorker(
     @Inject private lateinit var securityPreferences: SecurityPreferences
 
     @Inject private lateinit var adultChecker: AdultContentChecker
-    private val notifier = NovelUpdateNotifier(context, securityPreferences, adultChecker)
+
+    @Inject private lateinit var getEntryCustomInfo: GetEntryCustomInfo
+    private val notifier = NovelUpdateNotifier(context, securityPreferences, adultChecker, getEntryCustomInfo)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = notifier.progress(null, 0, 0)

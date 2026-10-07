@@ -24,7 +24,7 @@ data class CustomNovelInfo(
  * through. The novel model's own copy of [reikai.domain.entry.withCustomInfo], which a manga-shaped
  * library row takes instead.
  */
-fun Novel.withCustomInfo(custom: CustomNovelInfo?): Novel {
+fun Novel.withCustomInfo(custom: EntryCustomInfo?): Novel {
     if (custom == null) return this
     return copy(
         title = custom.title ?: title,

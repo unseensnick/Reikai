@@ -30,6 +30,9 @@ import reikai.data.notification.setNewChaptersSummary
 import reikai.data.notification.updateProgressPercent
 import reikai.data.updateerror.setUpdateErrorContent
 import reikai.data.updateerror.updateErrorPendingIntent
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.GetEntryCustomInfo
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.manga.AdultContentChecker
 import tachiyomi.core.common.Constants
@@ -49,6 +52,7 @@ class LibraryUpdateNotifier(
     // RK: deferred, so the checker (and the extension manager behind it) is still only built when a
     // notification actually has to test one, as the `by lazy` below did before.
     private val adultCheckerProvider: () -> AdultContentChecker,
+    private val getEntryCustomInfo: GetEntryCustomInfo, // RK
 ) {
 
     // RK: percentFormatter moved to reikai.data.notification.updateProgressPercent, shared with novels
@@ -65,6 +69,10 @@ class LibraryUpdateNotifier(
         Manga::id,
         adultChecker::adultIdsAmong,
     )
+
+    // RK: named and drawn by Edit info; the hidden-content verdict above reads the source values
+    private suspend fun List<Manga>.shown(): List<Manga> =
+        getEntryCustomInfo.overlay(this, { EntryId.Manga(it.id) }) { withCustomInfo(it) }
 
     /**
      * Pending intent of action that cancels the library update
@@ -114,7 +122,7 @@ class LibraryUpdateNotifier(
         if (!securityPreferences.hideNotificationContent.get()) {
             // RK -->
             val hidden = hiddenContentIds(manga)
-            val updatingText = manga.filterNot { it.id in hidden }.joinToString("\n") { it.title.chop(40) }
+            val updatingText = manga.filterNot { it.id in hidden }.shown().joinToString("\n") { it.title.chop(40) }
             // RK <--
             progressNotificationBuilder.setStyle(NotificationCompat.BigTextStyle().bigText(updatingText))
         }
@@ -181,8 +189,10 @@ class LibraryUpdateNotifier(
      *
      * @param updates a list of manga with new updates.
      */
-    suspend fun showUpdateNotifications(updates: List<Pair<Manga, Array<Chapter>>>) {
-        val hidden = hiddenContentIds(updates.map { it.first }) // RK: adult entries hide title and cover
+    suspend fun showUpdateNotifications(sourceUpdates: List<Pair<Manga, Array<Chapter>>>) { // RK: overlaid below
+        val hidden = hiddenContentIds(sourceUpdates.map { it.first }) // RK: adult entries hide title and cover
+        // RK: the rest names and draws each entry by its Edit info
+        val updates = sourceUpdates.map { it.first }.shown().zip(sourceUpdates.map { it.second })
 
         // Parent group notification
         context.notify(
