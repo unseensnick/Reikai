@@ -141,6 +141,7 @@ agent under Settings -> Advanced.
 - **Settings -> Library -> Preferred sources lists the local source again, names each source's language in the order Browse uses, starts right under its tabs, and moves a source on every Up or Down tap, on manga and novels.** An uninstalled source used to swallow the tap.
 - **The library filter icon no longer lights up for a custom-interval filter whose update restriction is off.**
 - **A category you set back to the global sort now stays that way if the app is closed partway through updating from an older version.**
+- **Switching between All, Manga and Novels in the library no longer shows the previous list's count on a category header for a moment.**
 
 ### Merged series
 

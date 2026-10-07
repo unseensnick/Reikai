@@ -577,95 +577,109 @@ data object LibraryTab : Tab {
                             // RK: the global sort each non-overridden category follows, one library-wide
                             // value since the sort preferences unified, so no chip involved.
                             val globalSort by engine.globalSort.collectAsState()
-                            ReikaiLibraryContent(
-                                buckets = activeBuckets,
-                                getItemsForCategory = activeGetItems,
-                                collapsedCategories = display.reikai.collapsedCategories,
-                                collapsedDynamicCategories = display.reikai.collapsedDynamicCategories,
-                                showItemCounts = display.showItemCounts,
-                                displayMode = displayMode,
-                                columns = columns,
-                                selection = activeSelection,
-                                searchQuery = activeSearchQuery,
-                                gridState = singleListGridState,
-                                contentPadding = contentPadding,
-                                onClickManga = { bucket, item ->
-                                    if (activeSelectionMode) {
-                                        engine.toggleSelection(bucket.key, item.entryId)
-                                    } else {
-                                        // RK: navigation is per-type, routed by the ROW's own content
-                                        // type rather than the active chip, so a mixed list opens each
-                                        // row on its own screen.
-                                        openEntry(item.entryId)
-                                    }
-                                },
-                                onLongClickManga = { bucket, item ->
-                                    // RK: range-select (incl. the in-between) like the tabbed view,
-                                    // instead of toggling only the long-pressed manga.
-                                    engine.toggleRangeSelection(bucket.key, item.entryId, entriesOf(bucket))
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                },
-                                onToggleDefaultCollapse = engine::toggleDefaultCategoryCollapse,
-                                onToggleDynamicCollapse = engine::toggleDynamicCategoryCollapse,
-                                onGlobalSearchClicked = {
-                                    navigator.push(
-                                        EntryGlobalSearchScreen(
-                                            activeSearchQuery ?: "",
-                                            scopedContentType = libraryContentType,
-                                        ),
-                                    )
-                                },
-                                // RK: pull-to-refresh on the single-list updates the whole library (= overflow Update library).
-                                onRefresh = { onClickRefresh(null) },
-                                refreshing = refreshing,
-                                // RK: per-category header sort (Sort tab scoped to it), refresh, select-all
-                                onClickCategorySort = { category ->
-                                    engine.openSettingsDialog(libraryContentType, category.id, LibrarySettingsTab.SORT)
-                                },
-                                onRefreshCategory = { category -> onClickRefresh(category) },
-                                onSelectAllInCategory = { bucket -> engine.selectAllInCategory(entriesOf(bucket)) },
-                                // RK: the header shows each category's EFFECTIVE sort, its own override or
-                                // the global sort it follows, decoded the same way on both content types.
-                                sortLabelFor = { category -> sortLabelRes(sortForCategory(category, globalSort).type) },
-                                sortAscendingFor = { category ->
-                                    sortForCategory(category, globalSort).isAscending
-                                },
-                                onClickContinueReading = onContinueReading,
-                            )
+                            // RK: one composition per chip, as each chip already has its own scroll state. A
+                            // section keeps its key across a flip ("Default" is in every chip), and a lazy item
+                            // reused under that key drew the previous chip's count for a frame or two.
+                            key(libraryContentType) {
+                                ReikaiLibraryContent(
+                                    buckets = activeBuckets,
+                                    getItemsForCategory = activeGetItems,
+                                    collapsedCategories = display.reikai.collapsedCategories,
+                                    collapsedDynamicCategories = display.reikai.collapsedDynamicCategories,
+                                    showItemCounts = display.showItemCounts,
+                                    displayMode = displayMode,
+                                    columns = columns,
+                                    selection = activeSelection,
+                                    searchQuery = activeSearchQuery,
+                                    gridState = singleListGridState,
+                                    contentPadding = contentPadding,
+                                    onClickManga = { bucket, item ->
+                                        if (activeSelectionMode) {
+                                            engine.toggleSelection(bucket.key, item.entryId)
+                                        } else {
+                                            // RK: navigation is per-type, routed by the ROW's own content
+                                            // type rather than the active chip, so a mixed list opens each
+                                            // row on its own screen.
+                                            openEntry(item.entryId)
+                                        }
+                                    },
+                                    onLongClickManga = { bucket, item ->
+                                        // RK: range-select (incl. the in-between) like the tabbed view,
+                                        // instead of toggling only the long-pressed manga.
+                                        engine.toggleRangeSelection(bucket.key, item.entryId, entriesOf(bucket))
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    },
+                                    onToggleDefaultCollapse = engine::toggleDefaultCategoryCollapse,
+                                    onToggleDynamicCollapse = engine::toggleDynamicCategoryCollapse,
+                                    onGlobalSearchClicked = {
+                                        navigator.push(
+                                            EntryGlobalSearchScreen(
+                                                activeSearchQuery ?: "",
+                                                scopedContentType = libraryContentType,
+                                            ),
+                                        )
+                                    },
+                                    // RK: pull-to-refresh on the single-list updates the whole library (= overflow Update library).
+                                    onRefresh = { onClickRefresh(null) },
+                                    refreshing = refreshing,
+                                    // RK: per-category header sort (Sort tab scoped to it), refresh, select-all
+                                    onClickCategorySort = { category ->
+                                        engine.openSettingsDialog(
+                                            libraryContentType,
+                                            category.id,
+                                            LibrarySettingsTab.SORT,
+                                        )
+                                    },
+                                    onRefreshCategory = { category -> onClickRefresh(category) },
+                                    onSelectAllInCategory = { bucket -> engine.selectAllInCategory(entriesOf(bucket)) },
+                                    // RK: the header shows each category's EFFECTIVE sort, its own override or
+                                    // the global sort it follows, decoded the same way on both content types.
+                                    sortLabelFor = { category ->
+                                        sortLabelRes(sortForCategory(category, globalSort).type)
+                                    },
+                                    sortAscendingFor = { category ->
+                                        sortForCategory(category, globalSort).isAscending
+                                    },
+                                    onClickContinueReading = onContinueReading,
+                                )
+                            }
                         } else {
-                            LibraryContent(
-                                buckets = activeBuckets,
-                                searchQuery = activeSearchQuery,
-                                selection = activeSelection,
-                                contentPadding = contentPadding,
-                                pagerState = pagerState,
-                                hasActiveFilters = activeHasActiveFilters,
-                                showPageTabs = display.showCategoryTabs || !activeSearchQuery.isNullOrEmpty(),
-                                onChangeCurrentPage = { engine.updateActiveCategoryIndex(libraryContentType, it) },
-                                onClickManga = openEntry,
-                                onContinueReadingClicked = onContinueReading,
-                                onToggleSelection = { bucket, item ->
-                                    engine.toggleSelection(bucket.key, item.entryId)
-                                },
-                                onToggleRangeSelection = { bucket, item ->
-                                    engine.toggleRangeSelection(bucket.key, item.entryId, entriesOf(bucket))
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                },
-                                onRefresh = { onClickRefresh(currentRealCategory()) },
-                                refreshing = refreshing,
-                                onGlobalSearchClicked = {
-                                    navigator.push(
-                                        EntryGlobalSearchScreen(
-                                            activeSearchQuery ?: "",
-                                            scopedContentType = libraryContentType,
-                                        ),
-                                    )
-                                },
-                                getItemCountForCategory = activeGetItemCount,
-                                getDisplayMode = { engine.displayMode() },
-                                getColumnsForOrientation = { engine.columnsForOrientation(it) },
-                                getItemsForCategory = activeGetItems,
-                            )
+                            // RK: one composition per chip, as for the single list above
+                            key(libraryContentType) {
+                                LibraryContent(
+                                    buckets = activeBuckets,
+                                    searchQuery = activeSearchQuery,
+                                    selection = activeSelection,
+                                    contentPadding = contentPadding,
+                                    pagerState = pagerState,
+                                    hasActiveFilters = activeHasActiveFilters,
+                                    showPageTabs = display.showCategoryTabs || !activeSearchQuery.isNullOrEmpty(),
+                                    onChangeCurrentPage = { engine.updateActiveCategoryIndex(libraryContentType, it) },
+                                    onClickManga = openEntry,
+                                    onContinueReadingClicked = onContinueReading,
+                                    onToggleSelection = { bucket, item ->
+                                        engine.toggleSelection(bucket.key, item.entryId)
+                                    },
+                                    onToggleRangeSelection = { bucket, item ->
+                                        engine.toggleRangeSelection(bucket.key, item.entryId, entriesOf(bucket))
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    },
+                                    onRefresh = { onClickRefresh(currentRealCategory()) },
+                                    refreshing = refreshing,
+                                    onGlobalSearchClicked = {
+                                        navigator.push(
+                                            EntryGlobalSearchScreen(
+                                                activeSearchQuery ?: "",
+                                                scopedContentType = libraryContentType,
+                                            ),
+                                        )
+                                    },
+                                    getItemCountForCategory = activeGetItemCount,
+                                    getDisplayMode = { engine.displayMode() },
+                                    getColumnsForOrientation = { engine.columnsForOrientation(it) },
+                                    getItemsForCategory = activeGetItems,
+                                )
+                            }
                         }
 
                         ReikaiLibraryHopperOverlay(
