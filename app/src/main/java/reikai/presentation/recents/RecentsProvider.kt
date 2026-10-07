@@ -4,12 +4,18 @@ import android.content.Intent
 import cafe.adriel.voyager.core.screen.Screen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
+import reikai.domain.category.RecentsCategoryFilter
+import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.overlayCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeManager
+import reikai.domain.recents.RECENTS_FEED_LIMIT
+import reikai.domain.recents.recentsFeedCutoff
 import tachiyomi.core.common.preference.Preference
 
 /**
@@ -43,6 +49,28 @@ internal fun MergeManager.membershipFlow(
  */
 internal fun recentsTargetInputs(writes: Flow<Unit>, vararg reads: Preference<*>): Flow<Unit> =
     merge(writes, *reads.map { read -> read.changes().map { } }.toTypedArray())
+
+/**
+ * The newly-added lane both adapters build: [subscribe] asked under the surface's [categories], bounded
+ * by the feed's cutoff and limit, then each row's custom title and cover laid over it. Only the typed
+ * reads are per type.
+ */
+internal fun <T, C : EntryCustomInfo> recentsAddedLane(
+    categories: Flow<RecentsCategoryFilter>,
+    subscribe: (after: Long, limit: Long, included: List<Long>, excluded: List<Long>) -> Flow<List<T>>,
+    customInfo: Flow<List<C>>,
+    customInfoId: (C) -> Long,
+    entryId: (T) -> Long,
+    withCustomInfo: T.(EntryCustomInfo?) -> T,
+    toItem: (T) -> RecentsItem,
+): Flow<RecentsLaneRows> = categories.flatMapLatest { filter ->
+    combine(
+        subscribe(recentsFeedCutoff(), RECENTS_FEED_LIMIT, filter.include, filter.exclude),
+        customInfo,
+    ) { rows, custom ->
+        rows.overlayCustomInfo(custom.associateBy(customInfoId), entryId, withCustomInfo).map(toItem)
+    }
+}.asLane()
 
 /** A query-backed lane: its first emission is real data, so it only needs a value to start from. */
 internal fun Flow<List<RecentsItem>>.asLane(): Flow<RecentsLaneRows> =

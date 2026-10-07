@@ -9,7 +9,6 @@ import dev.zacsweers.metro.AssistedInject
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -20,7 +19,6 @@ import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
-import reikai.domain.entry.overlayCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -31,16 +29,15 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.ownersOf
 import reikai.domain.reader.ChapterProgress
-import reikai.domain.recents.RECENTS_FEED_LIMIT
 import reikai.domain.recents.RecentlyAddedNovel
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.recents.RecentsUnreadRepository
-import reikai.domain.recents.recentsFeedCutoff
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -132,24 +129,15 @@ class NovelRecentsAdapter(
 
     private fun updatesRows() = requireNotNull(updatesModel) { "$surface renders no updated lane" }
 
-    override val addedLane: Flow<RecentsLaneRows> =
-        sourcePreferences.recentsCategoryFilterFlow(surface).flatMapLatest { categories ->
-            combine(
-                recentlyAdded.subscribeNovels(
-                    after = recentsFeedCutoff(),
-                    limit = RECENTS_FEED_LIMIT,
-                    includedCategories = categories.include,
-                    excludedCategories = categories.exclude,
-                ),
-                getCustomNovelInfo.subscribeAll(),
-            ) { rows, customInfo ->
-                rows.overlayCustomInfo(
-                    customInfo.associateBy { it.novelId },
-                    RecentlyAddedNovel::novelId,
-                    RecentlyAddedNovel::withCustomInfo,
-                ).map { it.toRecentsItem() }
-            }
-        }.asLane()
+    override val addedLane: Flow<RecentsLaneRows> = recentsAddedLane(
+        sourcePreferences.recentsCategoryFilterFlow(surface),
+        recentlyAdded::subscribeNovels,
+        getCustomNovelInfo.subscribeAll(),
+        CustomNovelInfo::novelId,
+        RecentlyAddedNovel::novelId,
+        RecentlyAddedNovel::withCustomInfo,
+        RecentlyAddedNovel::toRecentsItem,
+    )
 
     override val unreadEntries: Flow<Set<EntryId>> =
         reikaiLibraryPreferences.seriesMergingEnabled.changes()
